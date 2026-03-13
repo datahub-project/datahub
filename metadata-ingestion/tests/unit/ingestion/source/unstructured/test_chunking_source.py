@@ -38,14 +38,9 @@ def chunking_config():
 
 
 def test_embedding_failure_reporting_inline_mode(pipeline_context, chunking_config):
-    """Test that embedding failures propagate as exceptions in inline mode."""
-    # Initialize source in inline mode
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=chunking_config,
-        standalone=False,
-        graph=None,
-    )
+    """Per-document embedding failure falls back to __pending__ in inline mode."""
+    from datahub.ingestion.source.unstructured.chunking_source import PENDING_CHUNKS_KEY
+    from datahub.metadata.schema_classes import SemanticContentClass
 
     document_urn = "urn:li:document:(test,doc1,PROD)"
     elements = [
@@ -53,53 +48,56 @@ def test_embedding_failure_reporting_inline_mode(pipeline_context, chunking_conf
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # In inline mode, embedding failures raise — the caller decides how to handle them
-    with (
-        patch.object(
-            source,
-            "_generate_embeddings",
-            side_effect=Exception("AWS credentials expired"),
-        ),
-        pytest.raises(Exception, match="AWS credentials expired"),
+    # Probe succeeds; per-document call fails → pending fallback
+    with patch.object(
+        DocumentChunkingSource,
+        "_generate_embeddings",
+        side_effect=[[[0.0]], Exception("AWS credentials expired")],
     ):
-        list(source.process_elements_inline(document_urn, elements))
+        source = DocumentChunkingSource(
+            ctx=pipeline_context,
+            config=chunking_config,
+            standalone=False,
+            graph=None,
+        )
+        workunits = list(source.process_elements_inline(document_urn, elements))
+
+    assert len(workunits) == 1
+    aspect = workunits[0].get_aspect_of_type(SemanticContentClass)
+    assert aspect is not None
+    assert PENDING_CHUNKS_KEY in aspect.embeddings
+    assert source.report.num_embedding_failures == 1
 
 
 def test_embedding_success_reporting_inline_mode(pipeline_context, chunking_config):
     """Test that successful embedding generation is tracked."""
-    # Initialize source in inline mode
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=chunking_config,
-        standalone=False,
-        graph=None,
-    )
-
     document_urn = "urn:li:document:(test,doc1,PROD)"
     elements = [
         {"type": "Title", "text": "Test Title"},
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # Mock successful embedding generation
     mock_embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
-    with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
+    # probe call (1 chunk) first, then per-document call (2 chunks)
+    with patch.object(
+        DocumentChunkingSource,
+        "_generate_embeddings",
+        side_effect=[[[0.0]], mock_embeddings],
+    ):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context,
+            config=chunking_config,
+            standalone=False,
+            graph=None,
+        )
         list(source.process_elements_inline(document_urn, elements))
 
-    # Verify document was processed and embeddings counted
     assert source.report.num_documents_processed == 1
     assert source.report.num_embeddings_generated == 2
 
 
 def test_embedding_failure_batch_mode(pipeline_context, chunking_config):
     """Test that embedding failures are reported as warnings in batch mode."""
-    # Initialize source in standalone batch mode
-    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
-        source = DocumentChunkingSource(
-            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
-        )
-
-    # Mock a document
     doc = {
         "urn": "urn:li:document:(test,doc1,PROD)",
         "custom_properties": {
@@ -107,36 +105,33 @@ def test_embedding_failure_batch_mode(pipeline_context, chunking_config):
         },
     }
 
-    # Mock _generate_embeddings to raise an exception
-    with patch.object(
-        source, "_generate_embeddings", side_effect=Exception("AWS credentials expired")
+    # probe succeeds; per-document call fails
+    with (
+        patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"),
+        patch.object(
+            DocumentChunkingSource,
+            "_generate_embeddings",
+            side_effect=[[[0.0]], Exception("AWS credentials expired")],
+        ),
     ):
-        # Process single document
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
         list(source._process_single_document(doc))
 
-    # Verify embedding failure was tracked
     assert source.report.num_embedding_failures == 1
     assert len(source.report.embedding_failures) == 1
     assert "AWS credentials expired" in source.report.embedding_failures[0]
-
-    # Verify warning was reported
     assert len(source.report.warnings) > 0
-
-    # Verify document was still processed
     assert source.report.num_documents_processed == 1
 
 
 def test_document_processed_without_embeddings_on_failure(
     pipeline_context, chunking_config
 ):
-    """Test that embedding failures propagate as exceptions in inline mode."""
-    # Initialize source in inline mode
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=chunking_config,
-        standalone=False,
-        graph=None,
-    )
+    """Per-document failure emits pending chunks so the document is not lost."""
+    from datahub.ingestion.source.unstructured.chunking_source import PENDING_CHUNKS_KEY
+    from datahub.metadata.schema_classes import SemanticContentClass
 
     document_urn = "urn:li:document:(test,doc1,PROD)"
     elements = [
@@ -144,81 +139,93 @@ def test_document_processed_without_embeddings_on_failure(
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # In inline mode, failures propagate so the caller can decide how to handle them
-    with (
-        patch.object(
-            source, "_generate_embeddings", side_effect=Exception("Service unavailable")
-        ),
-        pytest.raises(Exception, match="Service unavailable"),
+    with patch.object(
+        DocumentChunkingSource,
+        "_generate_embeddings",
+        side_effect=[[[0.0]], Exception("Service unavailable")],
     ):
-        list(source.process_elements_inline(document_urn, elements))
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+        )
+        workunits = list(source.process_elements_inline(document_urn, elements))
+
+    assert len(workunits) == 1
+    aspect = workunits[0].get_aspect_of_type(SemanticContentClass)
+    assert aspect is not None
+    assert PENDING_CHUNKS_KEY in aspect.embeddings
+    assert source.report.num_documents_processed == 1
+    assert source.report.num_embedding_failures == 1
 
 
 def test_multiple_embedding_failures(pipeline_context, chunking_config):
-    """Test that embedding failures propagate in inline mode."""
-    # Initialize source in inline mode
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=chunking_config,
-        standalone=False,
-        graph=None,
-    )
+    """Multiple per-document failures each emit pending chunks and accumulate in the report."""
+    from datahub.ingestion.source.unstructured.chunking_source import PENDING_CHUNKS_KEY
+    from datahub.metadata.schema_classes import SemanticContentClass
 
-    document_urn = "urn:li:document:(test,doc1,PROD)"
-    elements = [{"type": "Title", "text": "Doc 1"}]
+    elements = [{"type": "Title", "text": "Doc"}]
 
-    # Each call raises — verified per-call
-    with (
-        patch.object(
-            source, "_generate_embeddings", side_effect=Exception("Connection timeout")
-        ),
-        pytest.raises(Exception, match="Connection timeout"),
+    # probe succeeds; each of the two per-document calls fails
+    with patch.object(
+        DocumentChunkingSource,
+        "_generate_embeddings",
+        side_effect=[
+            [[0.0]],
+            Exception("Connection timeout"),
+            Exception("Connection timeout"),
+        ],
     ):
-        list(source.process_elements_inline(document_urn, elements))
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+        )
+        for i in range(2):
+            wus = list(
+                source.process_elements_inline(f"urn:li:document:doc{i}", elements)
+            )
+            aspect = wus[0].get_aspect_of_type(SemanticContentClass)
+            assert aspect is not None
+            assert PENDING_CHUNKS_KEY in aspect.embeddings
+
+    assert source.report.num_embedding_failures == 2
 
 
 def test_mixed_success_and_failure(pipeline_context, chunking_config):
-    """Test that successful calls process correctly and failures propagate."""
-    # Initialize source in inline mode
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=chunking_config,
-        standalone=False,
-        graph=None,
-    )
+    """Successful documents get real embeddings; failing ones fall back to __pending__."""
+    from datahub.ingestion.source.unstructured.chunking_source import PENDING_CHUNKS_KEY
+    from datahub.metadata.schema_classes import SemanticContentClass
 
-    # Successful document
     doc1_urn = "urn:li:document:(test,doc1,PROD)"
     doc1_elements = [{"type": "Title", "text": "Doc 1"}]
-    mock_embeddings = [[0.1, 0.2, 0.3]]
-
-    with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
-        list(source.process_elements_inline(doc1_urn, doc1_elements))
-
-    assert source.report.num_documents_processed == 1
-
-    # Failing document raises
     doc2_urn = "urn:li:document:(test,doc2,PROD)"
     doc2_elements = [{"type": "Title", "text": "Doc 2"}]
 
-    with (
-        patch.object(
-            source, "_generate_embeddings", side_effect=Exception("Temporary failure")
-        ),
-        pytest.raises(Exception, match="Temporary failure"),
+    # probe succeeds; doc1 succeeds; doc2 fails
+    with patch.object(
+        DocumentChunkingSource,
+        "_generate_embeddings",
+        side_effect=[[[0.0]], [[0.1, 0.2, 0.3]], Exception("Temporary failure")],
     ):
-        list(source.process_elements_inline(doc2_urn, doc2_elements))
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+        )
+        wus1 = list(source.process_elements_inline(doc1_urn, doc1_elements))
+        wus2 = list(source.process_elements_inline(doc2_urn, doc2_elements))
+
+    assert source.report.num_documents_processed == 2
+
+    # doc1: real embedding (no __pending__ key)
+    aspect1 = wus1[0].get_aspect_of_type(SemanticContentClass)
+    assert aspect1 is not None
+    assert PENDING_CHUNKS_KEY not in aspect1.embeddings
+
+    # doc2: fallback to pending
+    aspect2 = wus2[0].get_aspect_of_type(SemanticContentClass)
+    assert aspect2 is not None
+    assert PENDING_CHUNKS_KEY in aspect2.embeddings
+    assert source.report.num_embedding_failures == 1
 
 
 def test_embedding_success_batch_mode(pipeline_context, chunking_config):
     """Test that successful embedding generation is tracked in batch mode."""
-    # Initialize source in standalone batch mode
-    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
-        source = DocumentChunkingSource(
-            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
-        )
-
-    # Mock a document
     doc = {
         "urn": "urn:li:document:(test,doc1,PROD)",
         "custom_properties": {
@@ -226,24 +233,26 @@ def test_embedding_success_batch_mode(pipeline_context, chunking_config):
         },
     }
 
-    # Mock successful embedding generation
     mock_embeddings = [[0.1, 0.2, 0.3]]
-    with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
-        # Process single document
+    # probe call first, then per-document call
+    with (
+        patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"),
+        patch.object(
+            DocumentChunkingSource,
+            "_generate_embeddings",
+            side_effect=[[[0.0]], mock_embeddings],
+        ),
+    ):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
         workunits = list(source._process_single_document(doc))
 
-    # Verify work units were emitted
     assert len(workunits) > 0
-
-    # Verify embedding success was tracked
     assert source.report.num_documents_with_embeddings == 1
     assert source.report.num_embedding_failures == 0
     assert len(source.report.embedding_failures) == 0
-
-    # Verify no warnings
     assert len(source.report.warnings) == 0
-
-    # Verify document was processed
     assert source.report.num_documents_processed == 1
 
 
@@ -300,18 +309,21 @@ def test_inline_mode_no_embedding_model(pipeline_context, chunking_config):
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # Process elements inline - should skip embedding generation
+    # Process elements inline — emits pending chunks (SemanticContent with __pending__ key)
+    from datahub.ingestion.source.unstructured.chunking_source import PENDING_CHUNKS_KEY
+    from datahub.metadata.schema_classes import SemanticContentClass
+
     workunits = list(source.process_elements_inline(document_urn, elements))
 
-    # Verify no work units were emitted (no embeddings = no SemanticContent aspect)
-    assert len(workunits) == 0
+    # Exactly one workunit: SemanticContent with __pending__ embeddings
+    assert len(workunits) == 1
+    aspect = workunits[0].get_aspect_of_type(SemanticContentClass)
+    assert aspect is not None
+    assert PENDING_CHUNKS_KEY in aspect.embeddings
 
-    # Verify no embeddings were generated
-    assert source.report.num_documents_with_embeddings == 0
+    # No real embeddings generated
     assert source.report.num_embedding_failures == 0
     assert source.report.num_embeddings_generated == 0
-
-    # Verify document was still processed
     assert source.report.num_documents_processed == 1
 
 
@@ -328,8 +340,12 @@ def test_cohere_api_key_from_env_var(pipeline_context):
         ),
         chunking=ChunkingConfig(strategy="basic"),
     )
-    with patch.dict("os.environ", {"COHERE_API_KEY": "test-cohere-key"}):
-        # Should not raise even though api_key is not set in config
+    with (
+        patch.dict("os.environ", {"COHERE_API_KEY": "test-cohere-key"}),
+        patch.object(
+            DocumentChunkingSource, "_generate_embeddings", return_value=[[0.0]]
+        ),
+    ):
         source = DocumentChunkingSource(
             ctx=pipeline_context, config=config, standalone=False, graph=None
         )
@@ -365,7 +381,12 @@ def test_openai_api_key_from_env_var(pipeline_context):
         ),
         chunking=ChunkingConfig(strategy="basic"),
     )
-    with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test-key"}):
+    with (
+        patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test-key"}),
+        patch.object(
+            DocumentChunkingSource, "_generate_embeddings", return_value=[[0.0]]
+        ),
+    ):
         source = DocumentChunkingSource(
             ctx=pipeline_context, config=config, standalone=False, graph=None
         )
@@ -402,10 +423,12 @@ def test_bedrock_requires_no_api_key(pipeline_context):
         ),
         chunking=ChunkingConfig(strategy="basic"),
     )
-    # No env vars needed — should not raise
-    source = DocumentChunkingSource(
-        ctx=pipeline_context, config=config, standalone=False, graph=None
-    )
+    with patch.object(
+        DocumentChunkingSource, "_generate_embeddings", return_value=[[0.0]]
+    ):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
     assert source.embedding_model == "bedrock/cohere.embed-english-v3"
 
 
@@ -463,3 +486,39 @@ def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_confi
 
     assert source.report.num_documents_processed == 5
     assert source.report.num_documents_limit_reached is False
+
+
+def test_max_documents_limit_enforced_on_embedding_failure(
+    pipeline_context, chunking_config
+):
+    """max_documents limit is enforced even when embedding generation fails per-document."""
+    chunking_config.max_documents = 2
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    # Keep embedding_model set so we hit the except (failure) path, not the else (no model) path
+    source.embedding_model = "bedrock/cohere.embed-english-v3"
+
+    elements = [{"type": "NarrativeText", "text": "Some content"}]
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+    with (
+        patch.object(source, "_chunk_elements", return_value=dummy_chunk),
+        patch.object(
+            source, "_generate_embeddings", side_effect=Exception("API error")
+        ),
+    ):
+        # First document — embedding fails, falls back to pending, limit not yet hit
+        list(source.process_elements_inline("urn:li:document:doc1", elements))
+        assert source.report.num_documents_processed == 1
+        assert source.report.num_documents_limit_reached is False
+
+        # Second document — still fails, but now hits the limit
+        with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
+            list(source.process_elements_inline("urn:li:document:doc2", elements))
+
+    assert source.report.num_documents_processed == 2
+    assert source.report.num_documents_limit_reached is True
