@@ -60,6 +60,11 @@ import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
 import com.linkedin.schema.*;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
@@ -675,6 +680,151 @@ public class EntityChangeEventGeneratorHookTest {
   }
 
   @Test
+  public void testInvokeStructuredPropertyAdd() throws Exception {
+    final Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.testProperty");
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    PrimitivePropertyValue value = new PrimitivePropertyValue();
+    value.setString("testValue");
+    StructuredPropertyValueAssignment assignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(propertyUrn)
+            .setValues(new PrimitivePropertyValueArray(ImmutableList.of(value)));
+    StructuredProperties newProps =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(ImmutableList.of(assignment)));
+
+    event.setAspect(GenericRecordUtils.serializeAspect(newProps));
+    // No previous aspect — first time property is set
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.STRUCTURED_PROPERTY,
+            ChangeOperation.ADD,
+            propertyUrn.toString(),
+            ImmutableMap.of("propertyUrn", propertyUrn.toString()),
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testInvokeStructuredPropertyRemove() throws Exception {
+    final Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.testProperty");
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    PrimitivePropertyValue value = new PrimitivePropertyValue();
+    value.setString("testValue");
+    StructuredPropertyValueAssignment assignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(propertyUrn)
+            .setValues(new PrimitivePropertyValueArray(ImmutableList.of(value)));
+    StructuredProperties prevProps =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(ImmutableList.of(assignment)));
+    StructuredProperties newProps =
+        new StructuredProperties().setProperties(new StructuredPropertyValueAssignmentArray());
+
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevProps));
+    event.setAspect(GenericRecordUtils.serializeAspect(newProps));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.STRUCTURED_PROPERTY,
+            ChangeOperation.REMOVE,
+            propertyUrn.toString(),
+            ImmutableMap.of("propertyUrn", propertyUrn.toString()),
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testInvokeStructuredPropertyUpsert() throws Exception {
+    final Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.testProperty");
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    PrimitivePropertyValue oldValue = new PrimitivePropertyValue();
+    oldValue.setString("oldValue");
+    PrimitivePropertyValue newValue = new PrimitivePropertyValue();
+    newValue.setString("newValue");
+
+    StructuredPropertyValueAssignment prevAssignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(propertyUrn)
+            .setValues(new PrimitivePropertyValueArray(ImmutableList.of(oldValue)));
+    StructuredPropertyValueAssignment newAssignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(propertyUrn)
+            .setValues(new PrimitivePropertyValueArray(ImmutableList.of(newValue)));
+
+    StructuredProperties prevProps =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(ImmutableList.of(prevAssignment)));
+    StructuredProperties newProps =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(ImmutableList.of(newAssignment)));
+
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevProps));
+    event.setAspect(GenericRecordUtils.serializeAspect(newProps));
+
+    _entityChangeEventHook.invoke(event);
+
+    // Value changed: expect both a REMOVE (old value dropped) and an ADD (new value added)
+    PlatformEvent addEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.STRUCTURED_PROPERTY,
+            ChangeOperation.ADD,
+            propertyUrn.toString(),
+            ImmutableMap.of("propertyUrn", propertyUrn.toString()),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, addEvent, false);
+
+    PlatformEvent removeEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.STRUCTURED_PROPERTY,
+            ChangeOperation.REMOVE,
+            propertyUrn.toString(),
+            ImmutableMap.of("propertyUrn", propertyUrn.toString()),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, removeEvent, true);
+  }
+
+  @Test
   public void testInvokeIneligibleAspect() throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(DATASET_ENTITY_NAME);
@@ -1127,6 +1277,10 @@ public class EntityChangeEventGeneratorHookTest {
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
         new DataProcessInstanceRunEventChangeEventGenerator(
             mock(OperationContext.class), entityClient));
+
+    // Structured property change event generators
+    registry.register(
+        STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertiesChangeEventGenerator());
     return registry;
   }
 
@@ -1173,6 +1327,10 @@ public class EntityChangeEventGeneratorHookTest {
     AspectSpec mockEditableSchemaMetadata = createMockAspectSpec(EditableSchemaMetadata.class);
     Mockito.when(datasetSpec.getAspectSpec(eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
         .thenReturn(mockEditableSchemaMetadata);
+
+    AspectSpec mockStructuredProperties = createMockAspectSpec(StructuredProperties.class);
+    Mockito.when(datasetSpec.getAspectSpec(eq(STRUCTURED_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockStructuredProperties);
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
