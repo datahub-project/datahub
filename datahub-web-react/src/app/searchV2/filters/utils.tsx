@@ -1,7 +1,10 @@
 import { FolderFilled } from '@ant-design/icons';
+import { Avatar } from '@components';
 import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { IconStyleType } from '@app/entity/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
@@ -56,6 +59,8 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
     AggregationMetadata,
+    CorpGroup,
+    CorpUser,
     DataPlatform,
     DataPlatformInstance,
     Document,
@@ -626,10 +631,29 @@ export const FilterEntityIcon: React.FC<FilterEntityIconProps> = ({ field, entit
             return <TagColor color={(entity as Tag).properties?.colorHex || ''} colorHash={entity?.urn} />;
 
         case field === DOMAINS_FILTER_NAME && entity?.type === EntityType.Domain:
-            return <DomainColoredIcon domain={entity as Domain} size={28} />;
+            return <DomainColoredIcon domain={entity as Domain} size={22} fontSize={11} />;
+
+        case field === OWNERS_FILTER_NAME && entity?.type === EntityType.CorpUser:
+            return (
+                <Avatar
+                    name={(entity as CorpUser).editableProperties?.displayName || (entity as CorpUser).username || ''}
+                    imageUrl={(entity as CorpUser).editableProperties?.pictureLink}
+                    size="sm"
+                    type={AvatarType.user}
+                />
+            );
+
+        case field === OWNERS_FILTER_NAME && entity?.type === EntityType.CorpGroup:
+            return (
+                <Avatar
+                    name={(entity as CorpGroup).properties?.displayName || (entity as CorpGroup).name || ''}
+                    size="sm"
+                    type={AvatarType.group}
+                />
+            );
 
         default:
-            return null; // default
+            return null;
     }
 };
 

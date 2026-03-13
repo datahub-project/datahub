@@ -21,7 +21,7 @@ const StyledDeprecatedIcon = styled(DeprecatedIcon)`
 export class DeprecationRenderer implements FilterRenderer {
     field = 'deprecated';
 
-    render = (props: FilterRenderProps) => <DeprecationFilter {...props} icon={this.icon()} />;
+    render = (props: FilterRenderProps) => <DeprecationFilter {...props} />;
 
     icon = () => <StyledDeprecatedIcon />;
 

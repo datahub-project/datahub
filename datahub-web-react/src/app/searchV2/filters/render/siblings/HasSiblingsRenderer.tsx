@@ -1,4 +1,4 @@
-import { BuildOutlined } from '@ant-design/icons';
+import { GitFork } from '@phosphor-icons/react';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -12,10 +12,10 @@ export class HasSiblingsRenderer implements FilterRenderer {
         if (!props.config?.featureFlags?.showHasSiblingsFilter) {
             return <></>;
         }
-        return <HasSiblingsFilter {...props} icon={this.icon()} />;
+        return <HasSiblingsFilter {...props} />;
     };
 
-    icon = () => <BuildOutlined />;
+    icon = () => <GitFork size={14} />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {

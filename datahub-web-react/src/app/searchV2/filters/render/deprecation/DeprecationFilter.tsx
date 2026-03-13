@@ -12,10 +12,9 @@ export interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilter[]) => void;
-    icon?: React.ReactNode;
 }
 
-export function DeprecationFilter({ icon, scenario, filter, activeFilters, onChangeFilters }: Props) {
+export function DeprecationFilter({ scenario, filter, activeFilters, onChangeFilters }: Props) {
     const isSelected = activeFilters?.find((f) => f.field === 'deprecated')?.values?.includes('true');
 
     const toggleFilter = () => {
@@ -48,7 +47,6 @@ export function DeprecationFilter({ icon, scenario, filter, activeFilters, onCha
             )}
             {scenario === FilterScenarioType.SEARCH_V2_PRIMARY && (
                 <BooleanSearchFilter
-                    icon={icon}
                     title="Deprecation"
                     option="Is Deprecated"
                     initialSelected={isSelected || false}
@@ -58,7 +56,6 @@ export function DeprecationFilter({ icon, scenario, filter, activeFilters, onCha
             )}
             {scenario === FilterScenarioType.SEARCH_V2_SECONDARY && (
                 <BooleanMoreFilter
-                    icon={icon}
                     title="Deprecation"
                     option="Is Deprecated"
                     initialSelected={isSelected || false}
