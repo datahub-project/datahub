@@ -55,9 +55,18 @@ class BigQueryConnectionConfig(ConfigModel):
             # Build explicit credentials for thread-safe client creation.
             # Without this, concurrent configs overwrite the shared env var,
             # causing clients to authenticate with the wrong service account.
-            self._credentials = service_account.Credentials.from_service_account_info(
-                self.credential.to_dict()
-            )
+            try:
+                self._credentials = (
+                    service_account.Credentials.from_service_account_info(
+                        self.credential.to_dict()
+                    )
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to build explicit credentials from service account info; "
+                    "falling back to environment-based credentials: %s",
+                    e,
+                )
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
