@@ -50,6 +50,7 @@ export default interface ColorTheme {
     radioButtonBorder: string;
     radioButtonDotFill: string;
     radioButtonDotDisabled: string;
+    borderCheckbox: string;
     avatarBorderBrand: string;
     avatarBorderInformation: string;
     border: string;
@@ -110,7 +111,6 @@ export default interface ColorTheme {
     bgCode: string;
     bgCodeBlock: string;
     // Highlight
-    bgHighlight: string;
     // Tooltip
     bgTooltip: string;
     // Brand gradients
