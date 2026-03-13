@@ -1,8 +1,7 @@
-import React from 'react';
-import styled from 'styled-components/macro';
-
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import React from 'react';
+import styled from 'styled-components/macro';
 
 import { Button, Icon, Modal, Text, toast } from '@src/alchemy-components';
 import { radius, spacing, typography } from '@src/alchemy-components/theme';
