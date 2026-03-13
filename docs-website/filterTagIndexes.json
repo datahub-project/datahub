@@ -20,7 +20,8 @@
         "Platform Type": "Query Engine",
         "Connection Type": "Pull",
         "Features": "Column Level Lineage, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/azure-ad",
@@ -31,7 +32,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/bigquery",
@@ -42,7 +44,8 @@
         "Platform Type": "Data Warehouse",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Patch Lineage, UI Ingestion, Lower Casing, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/business-glossary",
@@ -53,7 +56,8 @@
         "Platform Type": "DataHub Tools",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/clickhouse",
@@ -64,7 +68,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/csv-enricher",
@@ -75,7 +80,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/lineage/dagster",
@@ -97,7 +103,8 @@
         "Platform Type": "Data Lake",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Column Level Lineage, UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/datahub",
@@ -108,7 +115,8 @@
         "Platform Type": "DataHub Tools",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion"
-      }
+      },
+      "support_status": "TESTING"
     },
     {
       "Path": "docs/generated/ingestion/sources/dbt",
@@ -119,7 +127,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Patch Lineage,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/delta-lake",
@@ -130,7 +139,8 @@
         "Platform Type": "Data Lake",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/demo-data",
@@ -152,7 +162,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/elasticsearch",
@@ -163,7 +174,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/feast",
@@ -174,7 +186,8 @@
         "Platform Type": "ML Platforms",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/metadata-file",
@@ -185,7 +198,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/file-based-lineage",
@@ -196,7 +210,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/glue",
@@ -207,7 +222,8 @@
         "Platform Type": "Data Lake",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/metadata-ingestion/integration_docs/great-expectations",
@@ -229,7 +245,8 @@
         "Platform Type": "Query Engine",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "https://hudi.apache.org/docs/syncing_datahub/",
@@ -251,7 +268,8 @@
         "Platform Type": "Data Lake",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/json-schema",
@@ -262,7 +280,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/kafka",
@@ -273,7 +292,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/kafka-connect",
@@ -284,7 +304,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": "Lower Casing"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/ldap",
@@ -295,7 +316,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/looker",
@@ -306,7 +328,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Column Level Lineage,  UI Ingestion, Lower Casing, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/mariadb",
@@ -317,7 +340,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/metabase",
@@ -328,7 +352,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/mlflow",
@@ -339,7 +364,8 @@
         "Platform Type": "ML Platforms",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/mssql",
@@ -350,7 +376,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/mode",
@@ -361,7 +388,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/mongodb",
@@ -372,7 +400,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/mysql",
@@ -383,7 +412,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/nifi",
@@ -394,7 +424,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/okta",
@@ -405,7 +436,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/openapi",
@@ -416,7 +448,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/oracle",
@@ -427,7 +460,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/postgres",
@@ -438,7 +472,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/powerbi",
@@ -449,7 +484,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Lower Casing, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/lineage/prefect",
@@ -471,7 +507,8 @@
         "Platform Type": "Query Engine",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/hive-metastore",
@@ -482,7 +519,8 @@
         "Platform Type": "Query Engine",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/metadata-integration/java/datahub-protobuf",
@@ -504,7 +542,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/redash",
@@ -515,7 +554,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/redshift",
@@ -526,7 +566,8 @@
         "Platform Type": "Data Warehouse",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/s3",
@@ -537,7 +578,8 @@
         "Platform Type": "Data Lake",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/sagemaker",
@@ -548,7 +590,8 @@
         "Platform Type": "ML Platforms",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/salesforce",
@@ -559,7 +602,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/hana",
@@ -570,7 +614,8 @@
         "Platform Type": "Data Warehouse",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "TESTING"
     },
     {
       "Path": "docs/actions/actions/slack",
@@ -581,7 +626,8 @@
         "Platform Type": "Miscellaneous",
         "Connection Type": "Push",
         "Features": "Notifications, Alerting"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/snowflake",
@@ -592,7 +638,8 @@
         "Platform Type": "Data Warehouse",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Column Level Lineage, Patch Lineage,  UI Ingestion, Lower Casing, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/metadata-integration/java/acryl-spark-lineage",
@@ -614,7 +661,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/superset",
@@ -625,7 +673,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/tableau",
@@ -636,7 +685,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Lower Casing, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/teradata",
@@ -647,7 +697,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Column Level Lineage, UI Ingestion, Lower Casing, Status Aspect"
-      }
+      },
+      "support_status": "TESTING"
     },
     {
       "Path": "docs/generated/ingestion/sources/trino",
@@ -658,7 +709,8 @@
         "Platform Type": "Query Engine",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/vertica",
@@ -669,7 +721,8 @@
         "Platform Type": "Data Warehouse",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/abs",
@@ -680,7 +733,8 @@
         "Platform Type": "Data Lake",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/cockroachdb",
@@ -691,7 +745,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "TESTING"
     },
     {
       "Path": "docs/generated/ingestion/sources/dremio",
@@ -702,7 +757,8 @@
         "Platform Type": "Query Engine",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/dynamodb",
@@ -713,7 +769,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/grafana",
@@ -724,7 +781,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/preset",
@@ -735,7 +793,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/gcs",
@@ -746,7 +805,8 @@
         "Platform Type": "Data Lake",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/fivetran",
@@ -757,7 +817,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/qlik-sense",
@@ -768,7 +829,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/sigma",
@@ -779,7 +841,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/sac",
@@ -790,7 +853,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "TESTING"
     },
     {
       "Path": "docs/generated/ingestion/sources/cassandra",
@@ -801,7 +865,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/neo4j",
@@ -812,7 +877,8 @@
         "Platform Type": "Database",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "CERTIFIED"
     },
     {
       "Path": "docs/generated/ingestion/sources/vertexai",
@@ -823,7 +889,8 @@
         "Platform Type": "ML Platforms",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/hex",
@@ -834,7 +901,8 @@
         "Platform Type": "BI & Analytics",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "INCUBATING"
     },
     {
       "Path": "docs/generated/ingestion/sources/snaplogic",
@@ -845,7 +913,8 @@
         "Platform Type": "ETL / ELT",
         "Connection Type": "Pull",
         "Features": ""
-      }
+      },
+      "support_status": "TESTING"
     }
   ]
 }
