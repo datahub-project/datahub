@@ -13,7 +13,7 @@ export const getDataJobResolver = {
                 dataJob: Object.assign(dataJob, {
                     info: {
                         ...dataJob.info,
-                        externalUrl: 'https://airflow.demo.datahub.com/tree?dag_id=datahub_analytics_refresh',
+                        externalUrl: 'https://airflow.demo.datahubproject.io/tree?dag_id=datahub_analytics_refresh',
                         inputs: [],
                         customProperties: [],
                     },
