@@ -1,0 +1,21 @@
+# Integration test recipe: Postgres connector → file sink (for lineage stitching test)
+# Ingests the same Postgres instance that dlt wrote to, capturing Dataset URNs.
+source:
+  type: postgres
+  config:
+    host_port: "localhost:5433"
+    database: chess
+    username: dlt
+    password: dlt
+    schema_pattern:
+      allow:
+        - "^chess_data$"
+    table_pattern:
+      deny:
+        - "^_dlt_.*"
+    env: DEV
+
+sink:
+  type: file
+  config:
+    filename: "${OUTPUT_FILE}"
