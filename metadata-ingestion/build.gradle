@@ -113,15 +113,10 @@ task checkLockFile(type: Exec, dependsOn: installPackageOnly) {
     "touch ${sentinel_file}"
 }
 
-task generatePyprojectDeps(type: Exec, dependsOn: installPackageOnly) {
+task updateLockFile(type: Exec, dependsOn: installPackageOnly) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "python scripts/generate_pyproject_deps.py"
-}
-
-task updateLockFile(type: Exec, dependsOn: generatePyprojectDeps) {
-  commandLine 'bash', '-c',
-    venv_activate_command +
+    "python scripts/generate_pyproject_deps.py && " +
     "python scripts/verify_pyproject_equivalence.py && " +
     "uv lock && " +
     "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt"

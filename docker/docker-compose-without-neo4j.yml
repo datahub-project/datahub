@@ -66,29 +66,17 @@ services:
       context: ../
       dockerfile: docker/datahub-upgrade/Dockerfile
     env_file: datahub-upgrade/env/docker-without-neo4j.env
-    depends_on:
-      elasticsearch-setup:
-        condition: service_completed_successfully
-      kafka-setup:
-        condition: service_completed_successfully
+    environment:
+      - DATAHUB_SQL_SETUP_ENABLED=true
     labels:
       datahub_setup_job: true
-  # This "container" is a workaround to pre-create search indices
-  elasticsearch-setup:
-    hostname: elasticsearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-acryldata/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
-    build:
-      context: ../
-      dockerfile: docker/elasticsearch-setup/Dockerfile
-    env_file: elasticsearch-setup/env/docker.env
-    environment:
-      - ELASTICSEARCH_USE_SSL=${ELASTICSEARCH_USE_SSL:-false}
-      - USE_AWS_ELASTICSEARCH=${USE_AWS_ELASTICSEARCH:-false}
     depends_on:
+      mysql:
+        condition: service_healthy
       elasticsearch:
         condition: service_healthy
-    labels:
-      datahub_setup_job: true
+      kafka-setup:
+        condition: service_completed_successfully
   kafka-setup:
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-acryldata/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
