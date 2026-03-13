@@ -133,7 +133,10 @@ def test_bigquery_dataset_pattern():
     ]
 
 
-def test_bigquery_uri_with_credential():
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+)
+def test_bigquery_uri_with_credential(mock_from_sa_info):
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
