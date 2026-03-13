@@ -27,6 +27,25 @@ Today, you can create Smart Assertions for 4 types of assertions. To learn more 
 
 You can also create Smart Assertions at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page. Monitoring Rules let you define a search predicate (e.g. a domain, platform, or schema) and automatically apply Freshness, Volume, and Schema anomaly monitors to all matching datasets — including new datasets as they appear.
 
+## Time-Series Bucketing
+
+Smart Assertions can be configured with **time-series bucketing** to evaluate data quality at a day or week granularity. Instead of checking the entire table each time, the assertion partitions rows into time buckets using a timestamp column and evaluates each bucket independently.
+
+This is especially powerful for Smart Assertions because it enables the AI model to learn patterns like "Mondays always have higher volume" or "weekend null counts are typically lower", leading to more accurate anomaly detection.
+
+Time-series bucketing is supported for:
+
+- [Smart Volume Assertions](./volume-assertions.md#time-series-bucketing)
+- [Smart Column Metric Assertions](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)
+
+## Backfill Assertion History
+
+When you create a Smart Assertion with time-series bucketing, you can optionally **backfill historical data** so the AI model has enough context to make accurate predictions from day one. Without backfill, the model needs to accumulate data over days or weeks of scheduled evaluations before it can reliably detect anomalies.
+
+With backfill enabled, the system queries your warehouse for historical data and populates the assertion's metrics history immediately. This means you get meaningful anomaly detection thresholds right away, with full awareness of seasonality patterns.
+
+For full details on how backfill works, how to configure it, and how to retry failed backfills, see the dedicated [Backfill Assertion History](./assertion-backfill.md) page.
+
 ## Improving Smart assertion quality
 
 You can improve predictions through two key levers:
