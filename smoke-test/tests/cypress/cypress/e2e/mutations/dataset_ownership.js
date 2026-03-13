@@ -63,7 +63,9 @@ describe("add, remove ownership for dataset", () => {
   it("create test user and test group, add user to a group", () => {
     cy.loginWithCredentials();
     cy.createUser(username, password, email);
+    cy.setIsThemeV2Enabled(true);
     cy.createGroup(group_name, "Test group description", test_id);
+    cy.setIsThemeV2Enabled(false);
     cy.addGroupMember(
       group_name,
       `/group/urn:li:corpGroup:${test_id}/assets`,

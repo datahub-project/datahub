@@ -258,7 +258,7 @@ const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => {
                     icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
                     isCircle
                     style={ActionsButtonStyle}
-                    data-testid={`group-menu-${group.name}`}
+                    data-testid={`group-menu-${displayName}`}
                 />
             </Menu>
             {isConfirmingDelete && (

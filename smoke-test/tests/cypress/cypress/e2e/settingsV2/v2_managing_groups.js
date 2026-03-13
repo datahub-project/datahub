@@ -246,7 +246,7 @@ describe("create and manage group", () => {
     cy.get(`[data-testid="group-menu-Test group EDITED ${test_id}"]`).click();
     cy.clickOptionWithText("Delete");
     cy.get('[role="dialog"] button').contains("Delete").click();
-    cy.waitTextVisible("Deleted Group!");
+    cy.waitTextVisible(`Deleted Test group EDITED ${test_id}!`);
     cy.ensureTextNotPresent(`Test group EDITED ${test_id}`);
   });
 });
