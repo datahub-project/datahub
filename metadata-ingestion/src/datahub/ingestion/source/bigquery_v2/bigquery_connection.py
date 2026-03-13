@@ -53,8 +53,10 @@ class BigQueryConnectionConfig(ConfigModel):
             # Keep env var for backward compatibility (e.g. SQLAlchemy BigQuery dialect).
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
             # Build explicit credentials for thread-safe client creation.
-            # Without this, concurrent configs overwrite the shared env var,
-            # causing clients to authenticate with the wrong service account.
+            # In Observe/assertions, multiple BigQuery connections with different
+            # service accounts run concurrently in the same process. Without
+            # explicit credentials, concurrent configs overwrite the shared env
+            # var, causing clients to authenticate with the wrong service account.
             self._credentials = service_account.Credentials.from_service_account_info(
                 self.credential.to_dict()
             )
