@@ -1,12 +1,23 @@
 import { Modal } from '@components';
-import { Input } from 'antd';
 import React from 'react';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
 
 import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
 import { IconLibrary } from '@types';
+
+const ColorInput = styled.input`
+    padding: 2px;
+    width: 37px;
+    margin-bottom: 30px;
+    margin-top: 15px;
+    height: 40px;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 6px;
+    cursor: pointer;
+`;
 
 type IconColorPickerProps = {
     name: string;
@@ -18,17 +29,6 @@ type IconColorPickerProps = {
     onChangeIcon?: (icon: string) => void;
 };
 
-function capitalize(string) {
-    if (string.length === 0) return '';
-
-    return string[0].toUpperCase() + string.slice(1);
-}
-function snakeToCamel(string) {
-    const [start, ...rest] = string.split('_');
-
-    return start + rest.map(capitalize).join('');
-}
-
 const IconColorPicker: React.FC<IconColorPickerProps> = ({
     name,
     open,
@@ -38,12 +38,13 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     onChangeColor,
     onChangeIcon,
 }) => {
+    const theme = useTheme();
     const refetch = useRefetch();
     const { urn } = useEntityData();
     const [updateDisplayProperties] = useUpdateDisplayPropertiesMutation();
 
-    const [stagedColor, setStagedColor] = React.useState<string>(color || '#000000');
-    const [stagedIcon, setStagedIcon] = React.useState<string>(icon || 'account_circle');
+    const [stagedColor, setStagedColor] = React.useState<string>(color || theme.colors.text);
+    const [stagedIcon, setStagedIcon] = React.useState<string>(icon || '');
 
     return (
         <Modal
@@ -61,7 +62,7 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
                                     colorHex: stagedColor,
                                     icon: {
                                         iconLibrary: IconLibrary.Material,
-                                        name: capitalize(snakeToCamel(stagedIcon)),
+                                        name: stagedIcon,
                                         style: 'Outlined',
                                     },
                                 },
@@ -75,18 +76,7 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
                 },
             ]}
         >
-            <Input
-                type="color"
-                size="large"
-                value={stagedColor}
-                style={{
-                    padding: 2,
-                    width: 37,
-                    marginBottom: 30,
-                    marginTop: 15,
-                }}
-                onChange={(e) => setStagedColor(e.target.value)}
-            />
+            <ColorInput type="color" value={stagedColor} onChange={(e) => setStagedColor(e.target.value)} />
             <ChatIconPicker color={stagedColor} onIconPick={(i) => setStagedIcon(i)} />
         </Modal>
     );

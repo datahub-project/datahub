@@ -1,32 +1,39 @@
-import * as materialIcons from '@mui/icons-material';
 import * as phosphorIcons from '@phosphor-icons/react';
 
-import { IconSource } from '@components/components/Icon/types';
-
-export const getIconNames = () => {
-    // We only want "Filled" (mui default) and "Outlined" icons
-    const filtered = Object.keys(materialIcons).filter(
-        (key) =>
-            !key.includes('Filled') && !key.includes('TwoTone') && !key.includes('Rounded') && !key.includes('Sharp'),
-    );
-
-    const filled: string[] = [];
-    const outlined: string[] = [];
-
-    filtered.forEach((key) => {
-        if (key.includes('Outlined')) {
-            outlined.push(key);
-        } else if (!key.includes('Outlined')) {
-            filled.push(key);
-        }
-    });
-
-    return {
-        filled,
-        outlined,
-    };
+const MUI_TO_PHOSPHOR: Record<string, string> = {
+    MoreVert: 'DotsThreeVertical',
+    ChevronRight: 'CaretRight',
+    ChevronLeft: 'CaretLeft',
+    Close: 'X',
+    Add: 'Plus',
+    Delete: 'Trash',
+    ContentCopy: 'Copy',
+    Edit: 'PencilSimple',
+    Search: 'MagnifyingGlass',
+    ArrowBack: 'ArrowLeft',
+    ArrowDownward: 'ArrowDown',
+    ArrowForward: 'ArrowRight',
+    Visibility: 'Eye',
+    VisibilityOff: 'EyeSlash',
+    WarningAmber: 'Warning',
+    ErrorOutline: 'WarningCircle',
+    KeyboardArrowUp: 'CaretUp',
+    KeyboardArrowDown: 'CaretDown',
+    AccountCircle: 'UserCircle',
+    AutoMode: 'ArrowsClockwise',
 };
 
-export const getIconComponent = (source: IconSource, icon: string) => {
-    return source === 'phosphor' ? phosphorIcons[icon] : materialIcons[icon];
+export const getIconComponent = (icon: string) => {
+    const direct = phosphorIcons[icon];
+    if (direct) return direct;
+
+    const mapped = MUI_TO_PHOSPHOR[icon];
+    if (mapped) {
+        if (process.env.NODE_ENV === 'development') {
+            console.warn(`Icon "${icon}" is a legacy MUI name. Use "${mapped}" instead.`);
+        }
+        return phosphorIcons[mapped];
+    }
+
+    return undefined;
 };

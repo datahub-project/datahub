@@ -9,7 +9,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme?.colors?.shadowLg};
         border-radius: 12px;
     }
 
@@ -17,7 +17,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
         //margin-bottom: 24px;
         padding: 12px 20px;
         border-radius: ${({ hasChildren }) => (hasChildren ? '12px 12px 0 0' : '12px')};
-        border-bottom: ${({ hasChildren }) => (hasChildren ? `1px solid #F0F0F0` : '0')};
+        border-bottom: ${({ hasChildren, theme }) => (hasChildren ? `1px solid ${theme?.colors?.border}` : '0')};
     }
 
     .ant-modal-body {
@@ -95,7 +95,7 @@ export function Modal({
             centered
             closable={closable}
             onCancel={onCancel}
-            closeIcon={closable ? <Icon icon="X" source="phosphor" data-testid="modal-close-icon" /> : null}
+            closeIcon={closable ? <Icon icon="X" data-testid="modal-close-icon" /> : null}
             hasChildren={!!children}
             data-testid={dataTestId}
             title={

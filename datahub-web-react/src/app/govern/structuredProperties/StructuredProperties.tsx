@@ -143,7 +143,7 @@ const StructuredProperties = () => {
                     <ButtonContainer>
                         <Button
                             disabled={!canEditProps}
-                            icon={{ icon: 'Add', source: 'material' }}
+                            icon={{ icon: 'Plus' }}
                             data-testid="structured-props-create-button"
                             onClick={() => {
                                 setIsDrawerOpen(true);

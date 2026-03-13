@@ -201,7 +201,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     placement="topRight"
                     menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${colors.gray[100]}` } }}
                 >
-                    <Icon icon="DotsThreeVertical" source="phosphor" color="gray" />
+                    <Icon icon="DotsThreeVertical" color="gray" weight="bold" />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (

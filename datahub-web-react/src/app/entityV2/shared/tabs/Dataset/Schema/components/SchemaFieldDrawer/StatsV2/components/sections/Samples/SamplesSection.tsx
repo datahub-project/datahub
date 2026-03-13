@@ -42,7 +42,7 @@ export default function SamplesSection() {
                     <Button
                         variant="text"
                         onClick={() => setShowAllSamples(true)}
-                        icon={{ icon: 'ArrowForward' }}
+                        icon={{ icon: 'ArrowRight' }}
                         iconPosition="right"
                     >
                         View {numberOfHiddenSampleValues} more

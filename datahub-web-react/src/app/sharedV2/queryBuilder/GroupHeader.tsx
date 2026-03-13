@@ -114,7 +114,7 @@ const GroupHeader = ({
                 <CardIcons>
                     {showDeleteButton && (
                         <Icon
-                            icon="Delete"
+                            icon="Trash"
                             size="md"
                             onClick={() => onDeletePredicate(index)}
                             data-testid="query-builder-delete-button"

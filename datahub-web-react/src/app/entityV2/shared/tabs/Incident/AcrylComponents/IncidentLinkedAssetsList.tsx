@@ -124,7 +124,7 @@ export const IncidentLinkedAssetsList = ({
                                         <Pill
                                             key={asset.urn}
                                             label={entityRegistry.getDisplayName(asset.type, asset)}
-                                            rightIcon="Close"
+                                            rightIcon="X"
                                             color="violet"
                                             variant="outline"
                                             onClickRightIcon={() => {

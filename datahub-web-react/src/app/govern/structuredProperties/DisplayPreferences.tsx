@@ -59,7 +59,7 @@ const DisplayPreferences = ({
             <StyledCollapse
                 ghost
                 expandIcon={({ isActive }) => (
-                    <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                    <Icon icon="CaretRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
                 )}
                 expandIconPosition="end"
                 defaultActiveKey={[1]}

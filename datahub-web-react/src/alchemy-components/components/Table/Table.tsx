@@ -1,8 +1,7 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
-import { CaretDown, CaretUp } from 'phosphor-react';
+import { CaretDown, CaretUp, CircleNotch } from '@phosphor-icons/react';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
@@ -20,6 +19,16 @@ import {
 import { SortingState, TableProps } from '@components/components/Table/types';
 import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
 import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinContainer = styled.span`
+    display: inline-flex;
+    animation: ${spin} 1s linear infinite;
+`;
 
 export const CellHoverWrapper = styled.div`
     width: 100%;
@@ -86,7 +95,9 @@ export const Table = <T,>({
     if (isLoading) {
         return (
             <LoadingContainer>
-                <LoadingOutlined />
+                <SpinContainer>
+                    <CircleNotch />
+                </SpinContainer>
                 <Text color="gray">Loading data...</Text>
             </LoadingContainer>
         );
@@ -125,7 +136,7 @@ export const Table = <T,>({
                                                     >
                                                         {/* Sort icons for ascending and descending */}
                                                         <SortIcon
-                                                            icon="ChevronLeft"
+                                                            icon="CaretLeft"
                                                             size="md"
                                                             rotate="90"
                                                             isActive={
@@ -134,7 +145,7 @@ export const Table = <T,>({
                                                             }
                                                         />
                                                         <SortIcon
-                                                            icon="ChevronRight"
+                                                            icon="CaretRight"
                                                             size="md"
                                                             rotate="90"
                                                             isActive={
@@ -162,7 +173,7 @@ export const Table = <T,>({
                                                 >
                                                     {/* Sort icons for ascending and descending */}
                                                     <SortIcon
-                                                        icon="ChevronLeft"
+                                                        icon="CaretLeft"
                                                         size="md"
                                                         rotate="90"
                                                         isActive={
@@ -171,7 +182,7 @@ export const Table = <T,>({
                                                         }
                                                     />
                                                     <SortIcon
-                                                        icon="ChevronRight"
+                                                        icon="CaretRight"
                                                         size="md"
                                                         rotate="90"
                                                         isActive={

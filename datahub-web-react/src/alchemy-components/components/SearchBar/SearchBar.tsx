@@ -39,7 +39,7 @@ export const SearchBar = forwardRef<InputRef, SearchBarProps & Omit<InputProps, 
                 placeholder={placeholder}
                 onChange={(e) => onChange?.(e.target.value, e)}
                 value={inputValue}
-                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                prefix={<Icon icon="MagnifyingGlass" />}
                 allowClear={clearIcon ? allowClear && { clearIcon } : allowClear}
                 $width={width}
                 $height={height}

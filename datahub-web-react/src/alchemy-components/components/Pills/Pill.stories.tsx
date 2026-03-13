@@ -153,8 +153,8 @@ export const versionPills = () => (
 
 export const withIcon = () => (
     <GridList>
-        <Pill label="left icon" leftIcon="AutoMode" />
-        <Pill label="right icon" rightIcon="Close" />
-        <Pill label="both icon" leftIcon="AutoMode" rightIcon="Close" />
+        <Pill label="left icon" leftIcon="ArrowsClockwise" />
+        <Pill label="right icon" rightIcon="X" />
+        <Pill label="both icon" leftIcon="ArrowsClockwise" rightIcon="X" />
     </GridList>
 );
