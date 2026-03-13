@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
-import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text, colors } from '@src/alchemy-components';
+import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -15,7 +15,6 @@ export const ServiceAccountContainer = styled.div`
     display: flex;
     flex-direction: column;
     margin-top: 16px;
-    padding: 0 16px;
 `;
 
 export const TableContainer = styled.div`
@@ -23,23 +22,7 @@ export const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 330px);
-    overflow: auto;
-    padding: 0 16px;
-
-    /* Make table header sticky */
-    .ant-table-thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: white;
-    }
-
-    /* Ensure header cells have proper background */
-    .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
-    }
+    overflow: hidden;
 `;
 
 export const FiltersHeader = styled.div`
@@ -77,7 +60,7 @@ const ServiceAccountInfo = styled.div`
 const ServiceAccountDetails = styled.div`
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ActionsButtonStyle = {
@@ -383,7 +366,7 @@ export const ServiceAccountTable = ({
                 {serviceAccounts.length > 0 ? (
                     <>
                         <Table columns={columns} data={serviceAccounts} isLoading={loading} isScrollable />
-                        <div style={{ padding: '8px 20px 0 20px', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ paddingTop: '8px', display: 'flex', justifyContent: 'center' }}>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}

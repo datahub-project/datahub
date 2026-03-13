@@ -39,7 +39,7 @@ describe("create and manage group", () => {
     cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
       "be.visible",
     );
-    cy.clickOptionWithText("Create group");
+    cy.clickOptionWithText("Create Group");
     cy.waitTextVisible("Create new group");
     cy.get("#name").type(group_name);
     cy.get("#description").type("Test group description");
@@ -52,18 +52,19 @@ describe("create and manage group", () => {
   });
 
   it("add test user to a group", () => {
-    cy.visitWithLogin("/settings/identities/users");
+    cy.visitWithLogin("/settings/identities/groups");
     cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
       "be.visible",
     );
-    cy.get(".ant-tabs-tab-btn").contains("Groups").click();
-    // Wait for groups tab to load and group to be visible
-    cy.contains(group_name, { timeout: 10000 }).should("be.visible");
-    cy.clickOptionWithText(group_name);
-    cy.clickTextOptionWithClass(".ant-typography", group_name);
-    // cy.get(".ant-typography").contains(group_name).should("be.visible");
+    // Navigate to the group profile via its link in the Alchemy Table
+    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, {
+      timeout: 10000,
+    })
+      .should("be.visible")
+      .click();
+    cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
     // Click on the Members tab and wait for it to load
-    cy.get(".ant-tabs-tab").contains("Members").click();
+    cy.get('[role="tab"]').contains("Members").click();
 
     // Wait for tab content to be fully loaded by looking for specific content
     cy.get("body").then(($body) => {
@@ -136,8 +137,13 @@ describe("create and manage group", () => {
     cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
       "be.visible",
     );
-    cy.contains(group_name, { timeout: 10000 }).should("be.visible");
-    cy.clickOptionWithText(group_name);
+    // Navigate to the group profile via its link in the Alchemy Table
+    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, {
+      timeout: 10000,
+    })
+      .should("be.visible")
+      .click();
+    cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
     cy.clickOptionWithSpecificClass(".ant-typography", 0);
     cy.clickOptionWithTestId("EditOutlinedIcon");
     cy.get("#email").type(`${test_id}@testemail.com`);
@@ -157,10 +163,13 @@ describe("create and manage group", () => {
     cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
       "be.visible",
     );
-    cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
+    // Navigate to the group profile via its link in the Alchemy Table
+    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, {
+      timeout: 10000,
+    })
       .should("be.visible")
-      .first()
       .click();
+    cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
     cy.get('[data-testid="EditOutlinedIcon"]').eq(1).click();
     cy.contains("Test group description").should("be.visible").type(" EDITED");
     cy.clickOptionWithText("Test group");
@@ -175,10 +184,13 @@ describe("create and manage group", () => {
     cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
       "be.visible",
     );
-    cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
+    // Navigate to the group profile via its link in the Alchemy Table
+    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, {
+      timeout: 10000,
+    })
       .should("be.visible")
-      .first()
       .click();
+    cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
     cy.get('[data-testid="add-owners-sidebar-button"]', { timeout: 10000 })
       .should("be.visible")
       .click();
@@ -204,27 +216,16 @@ describe("create and manage group", () => {
     );
     cy.hideOnboardingTour();
 
-    // Add debugging and robust existence check
-    cy.get("body").then(($body) => {
-      if ($body.text().includes(`Test group EDITED ${test_id}`)) {
-        cy.log("Found group:", `Test group EDITED ${test_id}`);
-      } else {
-        cy.log(
-          "Group not found in page, available text:",
-          $body.text().substring(0, 500),
-        );
-      }
-    });
-
-    // Wait for and verify the group exists before clicking
-    // Use first() to ensure we only click on one element if multiple exist
-    cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
+    // Navigate to the group profile via its link in the Alchemy Table
+    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, {
+      timeout: 10000,
+    })
       .should("be.visible")
-      .first()
       .click();
+    cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
 
     // Wait for Members tab to be visible before clicking
-    cy.get(".ant-tabs-tab", { timeout: 10000 })
+    cy.get('[role="tab"]', { timeout: 10000 })
       .contains("Members")
       .should("be.visible")
       .click();
@@ -239,14 +240,14 @@ describe("create and manage group", () => {
       "be.visible",
     );
 
-    // Wait for the group link to be present before trying to interact
-    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, { timeout: 10000 })
-      .should("be.visible")
-      .openThreeDotDropdown();
-
+    // Wait for the group to be present, then open its actions menu
+    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, {
+      timeout: 10000,
+    }).should("be.visible");
+    cy.get(`[data-testid="group-menu-Test group EDITED ${test_id}"]`).click();
     cy.clickOptionWithText("Delete");
-    cy.clickOptionWithText("Yes");
-    cy.waitTextVisible("Deleted Group!");
+    cy.get('[role="dialog"] button').contains("Delete").click();
+    cy.waitTextVisible(`Deleted Test group EDITED ${test_id}!`);
     cy.ensureTextNotPresent(`Test group EDITED ${test_id}`);
   });
 });

@@ -536,7 +536,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
 
 Cypress.Commands.add("createGroup", (name, description, group_id) => {
   cy.visit("/settings/identities/groups");
-  cy.clickOptionWithText("Create group");
+  cy.clickOptionWithText("Create Group");
   cy.waitTextVisible("Create new group");
   cy.get("#name").type(name);
   cy.get("#description").type(description);

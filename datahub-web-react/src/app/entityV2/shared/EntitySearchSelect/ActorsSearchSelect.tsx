@@ -46,6 +46,7 @@ export interface ActorsSearchSelectProps {
     selectedActorUrns: string[];
     onUpdate: (selectedActors: ActorEntity[]) => void;
     placeholder?: string;
+    label?: string;
     defaultActors?: ActorEntity[];
     isDisabled?: boolean;
     width?: number | 'full' | 'fit-content';
@@ -63,6 +64,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     selectedActorUrns,
     onUpdate,
     placeholder = 'Search for users or groups',
+    label,
     defaultActors: placeholderActors,
     isDisabled = false,
     width = 'full',
@@ -222,6 +224,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             selectLabelProps={{
                 variant: 'custom',
             }}
+            label={label}
             options={selectOptions}
             isLoading={isSelectLoading}
             values={selectedActorUrns}
