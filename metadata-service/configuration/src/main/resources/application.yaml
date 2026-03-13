@@ -596,7 +596,7 @@ kafka:
     datahubUpgradeHistory:
       name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
       partitions: 1
-      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:1}
       configProperties:
         retention.ms: -1
 
