@@ -35,6 +35,7 @@ When building AI agents that answer questions about data, agents often face thes
 6. **Using Google ADK?** See the [Google ADK integration guide](./google-adk.md)
 7. **Using Google Vertex AI Agent Builder?** See the [Google Vertex AI integration guide](./google-vertex-ai.md)
 8. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
+9. **Using Snowflake Cortex Code?** See the [Cortex Code integration guide](./cortex-code.md)
 
 ## Installation
 
