@@ -76,9 +76,6 @@ jobs:
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       backend_only: ${{ steps.ci-optimize.outputs.backend-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
-      mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
-      postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
-      elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
       java_client_change: ${{ steps.ci-optimize.outputs.java-client-change == 'true' || github.event_name != 'pull_request' }}
       integrations_service_change: "false"
@@ -460,20 +457,6 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - name: Free up disk space
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/.ghcup || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /usr/share/swift || true
-          sudo rm -rf /usr/local/julia* || true
-          sudo rm -rf /usr/local/share/powershell || true
-          sudo rm -rf /usr/share/miniconda || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker system prune -a -f || true
-          df -h
-
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -494,7 +477,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v4
         with:
           checkout-head-only: false
-
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
@@ -936,7 +920,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint, smoke_test, publish_images]
+    needs: [setup, smoke_test, publish_images]
     steps:
       - uses: aws-actions/configure-aws-credentials@v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}

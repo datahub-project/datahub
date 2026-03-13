@@ -9,6 +9,8 @@ feature flag management, and recovery tools.
 Usage:
     python3 scripts/dev/datahub_dev.py status
     python3 scripts/dev/datahub_dev.py wait [--timeout 300]
+    python3 scripts/dev/datahub_dev.py setup [module]
+    python3 scripts/dev/datahub_dev.py frontend
     python3 scripts/dev/datahub_dev.py rebuild [--wait] [--module gms]
     python3 scripts/dev/datahub_dev.py test <path> [pytest-args...]
     python3 scripts/dev/datahub_dev.py flag list
@@ -989,6 +991,111 @@ def cmd_nuke(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Command: setup
+# ---------------------------------------------------------------------------
+
+# Maps short names to Gradle tasks. None = special-cased (e.g. frontend uses yarn).
+SETUP_MODULES: Dict[str, Optional[str]] = {
+    "ingestion": ":metadata-ingestion:installDev",
+    "smoke-test": ":smoke-test:installDev",
+    "airflow-plugin": ":metadata-ingestion-modules:airflow-plugin:installDev",
+    "gx-plugin": ":metadata-ingestion-modules:gx-plugin:installDev",
+    "dagster-plugin": ":metadata-ingestion-modules:dagster-plugin:installDev",
+    "prefect-plugin": ":metadata-ingestion-modules:prefect-plugin:installDev",
+    "actions": ":datahub-actions:installDev",
+    "frontend": None,
+}
+DEFAULT_SETUP_MODULE = "ingestion"
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    """Install dev dependencies for a module."""
+    module = args.module
+
+    if module == "frontend":
+        _log("Running yarn install in datahub-web-react/...")
+        result = _run(
+            ["yarn", "install"],
+            capture=False,
+            cwd=REPO_ROOT / "datahub-web-react",
+            timeout=300,
+        )
+        if result.returncode != 0:
+            _log("yarn install failed.")
+            return 1
+        _log("Frontend dependencies installed.")
+        return 0
+
+    gradle_task = SETUP_MODULES[module]
+    _log(f"Setting up {module} via {gradle_task}...")
+    result = _run(
+        ["./gradlew", gradle_task, "-x", "generateGitPropertiesGlobal"],
+        capture=False,
+        timeout=600,
+    )
+    if result.returncode != 0:
+        _log(f"Setup for {module} failed.")
+        return 1
+
+    # Print concrete verification so the agent trusts the result
+    venv_dir = _resolve_venv_dir(module)
+    if venv_dir and venv_dir.exists():
+        _log(f"Setup for {module} complete. venv: {venv_dir}")
+        if module == "ingestion":
+            cli = venv_dir / "bin" / "datahub"
+            if cli.exists():
+                ver = _run([str(cli), "version"], timeout=10)
+                if ver.returncode == 0:
+                    _log(f"datahub CLI ready: {ver.stdout.strip()}")
+    else:
+        _log(f"Setup for {module} complete.")
+    return 0
+
+
+def _resolve_venv_dir(module: str) -> Optional[Path]:
+    """Return the venv path for a setup module, or None if not applicable."""
+    module_dirs: Dict[str, Path] = {
+        "ingestion": REPO_ROOT / "metadata-ingestion" / "venv",
+        "smoke-test": REPO_ROOT / "smoke-test" / "venv",
+        "airflow-plugin": REPO_ROOT
+        / "metadata-ingestion-modules"
+        / "airflow-plugin"
+        / "venv",
+        "gx-plugin": REPO_ROOT / "metadata-ingestion-modules" / "gx-plugin" / "venv",
+        "dagster-plugin": REPO_ROOT
+        / "metadata-ingestion-modules"
+        / "dagster-plugin"
+        / "venv",
+        "prefect-plugin": REPO_ROOT
+        / "metadata-ingestion-modules"
+        / "prefect-plugin"
+        / "venv",
+        "actions": REPO_ROOT / "datahub-actions" / "venv",
+    }
+    return module_dirs.get(module)
+
+
+# ---------------------------------------------------------------------------
+# Command: frontend
+# ---------------------------------------------------------------------------
+
+
+def cmd_frontend(args: argparse.Namespace) -> int:
+    """Start the frontend dev server (yarn start in datahub-web-react/)."""
+    _log("Starting frontend dev server...")
+    try:
+        result = subprocess.run(
+            ["yarn", "start"],
+            cwd=REPO_ROOT / "datahub-web-react",
+            text=True,
+        )
+        return result.returncode
+    except KeyboardInterrupt:
+        _log("\nFrontend dev server stopped.")
+        return 0
+
+
+# ---------------------------------------------------------------------------
 # Command: start
 # ---------------------------------------------------------------------------
 
@@ -1057,6 +1164,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     # status
     subparsers.add_parser("status", help="Check environment status (JSON output)")
+
+    # setup
+    setup_p = subparsers.add_parser(
+        "setup", help="Install dev dependencies for a module"
+    )
+    setup_p.add_argument(
+        "module",
+        nargs="?",
+        default=DEFAULT_SETUP_MODULE,
+        choices=list(SETUP_MODULES.keys()),
+        help=f"Module to set up (default: {DEFAULT_SETUP_MODULE})",
+    )
+
+    # frontend
+    subparsers.add_parser("frontend", help="Start the frontend dev server (yarn start)")
 
     # start
     start_p = subparsers.add_parser(
@@ -1152,6 +1274,8 @@ def main() -> int:
 
     command_map = {
         "status": cmd_status,
+        "setup": cmd_setup,
+        "frontend": cmd_frontend,
         "start": cmd_start,
         "wait": cmd_wait,
         "rebuild": cmd_rebuild,

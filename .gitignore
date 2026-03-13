@@ -44,6 +44,7 @@ fix-failing-tests/
 /config
 */i18n
 out/
+post-workflow-validation-summary.md
 
 # Mac OS
 **/.DS_Store
@@ -91,6 +92,9 @@ scripts/generated/
 scripts/.venv/
 tmp*
 temp/**
+
+# Test result artifacts
+test-results/
 
 # frontend assets
 datahub-frontend/public/**
