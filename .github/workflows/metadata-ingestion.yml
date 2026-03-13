@@ -29,7 +29,15 @@ env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
 
 jobs:
+  # Temporary: skip real CI for e2e trigger testing (will be reverted)
+  test-passthrough:
+    if: github.head_ref == 'test/connector-tests-e2e-validation'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Skipping MI for trigger test" && sleep 30
+
   ci:
+    if: github.head_ref != 'test/connector-tests-e2e-validation'
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
     timeout-minutes: 60
     env:
@@ -144,6 +152,7 @@ jobs:
           path: ${{ github.event_path }}
 
   validate-plugin-deps:
+    if: github.head_ref != 'test/connector-tests-e2e-validation'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
