@@ -122,6 +122,9 @@ skills-lock.json
 **/.claude/agents/
 **/.claude/*.md
 
+# Kiro Ignores
+.kiro
+
 # Environment files with credentials
 .env*
 *.env
