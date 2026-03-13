@@ -1,8 +1,8 @@
-package com.linkedin.datahub.graphql.types.dataflow.mappers;
+package com.linkedin.datahub.graphql.types.chart.mappers;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -15,32 +15,9 @@ import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class DataFlowMapperTest {
-  private static final Urn TEST_DATA_FLOW_URN =
-      Urn.createFromTuple(Constants.DATA_FLOW_ENTITY_NAME, "dataflow1");
-  private static final Urn TEST_CONTAINER_URN =
-      Urn.createFromTuple(Constants.CONTAINER_ENTITY_NAME, "container1");
-
-  @Test
-  public void testMapDataFlowContainer() throws URISyntaxException {
-    com.linkedin.container.Container input = new com.linkedin.container.Container();
-    input.setContainer(TEST_CONTAINER_URN);
-
-    final Map<String, EnvelopedAspect> containerAspect = new HashMap<>();
-    containerAspect.put(
-        Constants.CONTAINER_ASPECT_NAME,
-        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(input.data())));
-    final EntityResponse response =
-        new EntityResponse()
-            .setEntityName(Constants.DATA_FLOW_ENTITY_NAME)
-            .setUrn(TEST_DATA_FLOW_URN)
-            .setAspects(new EnvelopedAspectMap(containerAspect));
-
-    final DataFlow actual = DataFlowMapper.map(null, response);
-
-    Assert.assertEquals(actual.getUrn(), TEST_DATA_FLOW_URN.toString());
-    Assert.assertEquals(actual.getContainer().getUrn(), TEST_CONTAINER_URN.toString());
-  }
+public class ChartMapperTest {
+  private static final Urn TEST_CHART_URN =
+      Urn.createFromTuple(Constants.CHART_ENTITY_NAME, "chart1");
 
   @Test
   public void testMapDomainsAssociations() throws URISyntaxException {
@@ -58,11 +35,11 @@ public class DataFlowMapperTest {
         Constants.DOMAINS_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(domains.data())));
     final EntityResponse response =
         new EntityResponse()
-            .setEntityName(Constants.DATA_FLOW_ENTITY_NAME)
-            .setUrn(TEST_DATA_FLOW_URN)
+            .setEntityName(Constants.CHART_ENTITY_NAME)
+            .setUrn(TEST_CHART_URN)
             .setAspects(new EnvelopedAspectMap(aspects));
 
-    final DataFlow actual = DataFlowMapper.map(null, response);
+    final Chart actual = ChartMapper.map(null, response);
 
     Assert.assertNotNull(actual.getDomainsAssociations());
     Assert.assertEquals(actual.getDomainsAssociations().getDomains().size(), 2);

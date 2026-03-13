@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
@@ -149,7 +150,7 @@ public class ContainerMapper {
     final EnvelopedAspect envelopedDomains = aspects.get(Constants.DOMAINS_ASPECT_NAME);
     if (envelopedDomains != null) {
       final Domains domains = new Domains(envelopedDomains.getValue().data());
-      // Currently we only take the first domain if it exists.
+      result.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
       result.setDomain(DomainAssociationMapper.map(context, domains, entityUrn.toString()));
     }
 

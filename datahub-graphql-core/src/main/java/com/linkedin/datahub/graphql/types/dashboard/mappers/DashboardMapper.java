@@ -45,6 +45,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -60,7 +61,9 @@ import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
 
   public static final DashboardMapper INSTANCE = new DashboardMapper();
@@ -300,6 +303,12 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       @Nonnull Dashboard dashboard,
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
+    try {
+      final Urn entityUrn = Urn.createFromString(dashboard.getUrn());
+      dashboard.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
+    } catch (Exception e) {
+      log.debug("Failed to parse URN for domainsAssociations: {}", dashboard.getUrn(), e);
+    }
     dashboard.setDomain(DomainAssociationMapper.map(context, domains, dashboard.getUrn()));
   }
 
