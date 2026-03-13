@@ -68,7 +68,7 @@ const SIDEBAR_CATEGORY_ORDER = [
   "Query Engine",
   "ML Platforms",
   // "Orchestration" is injected at this position from getPushIntegrationsSidebarCategory()
-  "Context Document Sources",
+  "Context Document Sources", // displayed as "Context Documents"
   "Miscellaneous",
   "DataHub Tools",
 ];
@@ -104,9 +104,14 @@ function getSourcesSidebarItems() {
       return aIdx !== bIdx ? aIdx - bIdx : a.category.localeCompare(b.category);
     });
 
+    // Display label overrides — shorten names that are verbose in the sidebar context
+    const SIDEBAR_LABEL_MAP = {
+      "Context Document Sources": "Context Documents",
+    };
+
     generatedItems = sorted.map((category) => ({
       type: "category",
-      label: category.category,
+      label: SIDEBAR_LABEL_MAP[category.category] || category.category,
       collapsed: true,
       // Sources are pre-sorted alphabetically by docgen.py
       items: (category.sources || []).map((source) => ({

@@ -774,7 +774,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/grafana",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+      "imgPath": "img/logos/platforms/grafana.png",
       "Title": "Grafana",
       "Description": "Grafana is an open-source analytics and monitoring platform that allows users to query, visualize, and alert on metrics and logs.",
       "tags": {
@@ -915,6 +915,30 @@
         "Features": ""
       },
       "support_status": "TESTING"
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/confluence",
+      "imgPath": "img/logos/platforms/confluence.svg",
+      "Title": "Confluence",
+      "Description": "Import pages and spaces from Confluence as documents into DataHub.",
+      "tags": {
+        "Platform Type": "Context Documents",
+        "Connection Type": "Pull",
+        "Features": ""
+      },
+      "support_status": "INCUBATING"
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/notion",
+      "imgPath": "img/logos/platforms/notion.png",
+      "Title": "Notion",
+      "Description": "Import pages from Notion as documents into DataHub.",
+      "tags": {
+        "Platform Type": "Context Documents",
+        "Connection Type": "Pull",
+        "Features": ""
+      },
+      "support_status": "INCUBATING"
     }
   ]
 }

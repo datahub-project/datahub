@@ -32,22 +32,38 @@ const C = {
   shadow: "0px 1px 2px 0px rgba(33, 23, 95, 0.07)",
 };
 
-// Height of the sticky search bar strip (input 38px + padding-bottom 16px)
-const SEARCH_STRIP_HEIGHT = 54;
-
-// Support status badge config
-// TODO (Gabe): Review status values — Community tier needed; unify badge
-// styling with generated source doc pages.
+// Support status badge config — styled to match the frontend Create Source
+// pill variants (alchemy-components/components/Pills):
+//   Certified  ↔ "New"      → color='blue',    variant='filled'
+//   Incubating ↔ "Popular"  → color='primary',  variant='filled'
+//   Testing    ↔ "External" → color='primary',  variant='outline'
+// TODO (Gabe): Review values; Community tier needed; unify with source doc pages.
 const STATUS_CONFIG = {
-  CERTIFIED: { label: "Certified", bg: "#DCFCE7", color: "#15803D", border: "#86EFAC" },
-  INCUBATING: { label: "Incubating", bg: "#DBEAFE", color: "#1D4ED8", border: "#93C5FD" },
-  TESTING: { label: "Testing", bg: "#F1F5F9", color: "#64748B", border: "#CBD5E1" },
+  CERTIFIED: {
+    label: "Certified",
+    bg: "#F1FBFE",     // blue[0]
+    color: "#448EA9",  // blue[700]
+    border: "transparent",
+    outline: false,
+  },
+  INCUBATING: {
+    label: "Incubating",
+    bg: "#F1F3FD",     // primary[0] / violet[0]
+    color: "#3B2D94",  // primary[700]
+    border: "transparent",
+    outline: false,
+  },
+  TESTING: {
+    label: "Testing",
+    bg: "transparent",
+    color: "#3B2D94",  // primary[700]
+    border: "#CAC3F1", // primary[100] — more visible than primary[0]
+    outline: true,
+  },
 };
 
-// Canonical order — must stay in sync with:
-//   • Frontend Create Source flow  (ingestV2/.../utils.ts PRESORTED_CATEGORIES_*)
-//   • Sidebar SIDEBAR_CATEGORY_ORDER  (docs-website/sidebars.js)
-// Sources within each category are sorted alphabetically by docgen.py.
+// Canonical order — keep in sync with the frontend Create Source flow and
+// SIDEBAR_CATEGORY_ORDER in sidebars.js.
 const CATEGORY_ORDER = [
   "Data Warehouse",
   "Data Lake",
@@ -57,14 +73,31 @@ const CATEGORY_ORDER = [
   "Query Engine",
   "ML Platforms",
   "Orchestration",
-  "Context Document Sources",
+  "Context Documents",
   "Miscellaneous",
   "DataHub Tools",
 ];
 
 const DEFAULT_METADATA = filterTagIndexes.ingestionSources;
 
-// ─── Support status badge ─────────────────────────────────────────────────────
+// ─── Chevron icons ────────────────────────────────────────────────────────────
+function ChevronDown() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+// ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status];
   if (!cfg) return null;
@@ -73,16 +106,15 @@ function StatusBadge({ status }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        padding: "1px 7px",
-        borderRadius: 100,
-        fontSize: 10,
+        padding: "2px 8px",
+        borderRadius: 200,
+        fontSize: 11,
         fontWeight: 500,
         background: cfg.bg,
         color: cfg.color,
-        border: `1px solid ${cfg.border}`,
+        border: `1px solid ${cfg.outline ? cfg.border : "transparent"}`,
         lineHeight: 1.5,
         whiteSpace: "nowrap",
-        flexShrink: 0,
       }}
     >
       {cfg.label}
@@ -91,7 +123,9 @@ function StatusBadge({ status }) {
 }
 
 // ─── Source card ──────────────────────────────────────────────────────────────
-// Layout: [Logo] | [Name (bold), Badge below] — no description copy.
+// Layout: [logo container] [name]  — badge floats absolute top-right.
+// Logo container uses DataHub's lightest violet tint (primary[0] #F1F3FD)
+// with an 8px square radius — on-brand without mimicking OpenMetadata's circles.
 function SourceCard({ source }) {
   const [hovered, setHovered] = useState(false);
   const imgSrc = useBaseUrl(source.imgPath);
@@ -100,13 +134,14 @@ function SourceCard({ source }) {
     <Link
       to={`/${source.Path}`}
       style={{
+        position: "relative",
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
         border: `1px solid ${hovered ? C.primary : C.border}`,
-        borderRadius: 10,
-        padding: "9px 12px",
+        borderRadius: 12,
+        padding: "12px",
         boxShadow: C.shadow,
         backgroundColor: C.white,
         textDecoration: "none",
@@ -119,80 +154,125 @@ function SourceCard({ source }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Logo */}
-      <img
-        src={imgSrc}
-        alt={source.Title}
+      {/* Logo container — light violet tint, square radius */}
+      <div
         style={{
-          width: 24,
-          height: 24,
-          maxWidth: 24,
-          objectFit: "contain",
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          backgroundColor: "#F8F9FB",
+          border: "1px solid #EBECF0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           flexShrink: 0,
         }}
-        onError={(e) => { e.target.style.display = "none"; }}
-      />
-
-      {/* Name + badge stacked */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1 }}>
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: C.titleText,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {source.Title}
-        </span>
-        {source.support_status && <StatusBadge status={source.support_status} />}
+      >
+        <img
+          src={imgSrc}
+          alt={source.Title}
+          style={{ width: 22, height: 22, objectFit: "contain" }}
+          onError={(e) => { e.target.parentElement.style.backgroundColor = "#F1F3FD"; e.target.style.display = "none"; }}
+        />
       </div>
+
+      {/* Name — wraps to 2 lines so nothing is clipped with ellipsis */}
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: C.titleText,
+          lineHeight: 1.35,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          flex: 1,
+          minWidth: 0,
+          paddingRight: source.support_status ? 52 : 0,
+        }}
+      >
+        {source.Title}
+      </span>
+
+      {/* Badge — absolute top-right */}
+      {source.support_status && (
+        <div style={{ position: "absolute", top: 8, right: 8 }}>
+          <StatusBadge status={source.support_status} />
+        </div>
+      )}
     </Link>
   );
 }
 
-// ─── Section header (sticky below search bar) ─────────────────────────────────
-function SectionHeader({ label, count }) {
+// ─── Collapsible section ──────────────────────────────────────────────────────
+function Section({ category, sources, isOpen, onToggle }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
-    <div
-      style={{
-        position: "sticky",
-        // Stick below the sticky search bar
-        top: `calc(var(--ifm-navbar-height, 60px) + ${SEARCH_STRIP_HEIGHT}px)`,
-        zIndex: 9,
-        backgroundColor: C.white,
-        paddingTop: 10,
-        paddingBottom: 10,
-        borderBottom: `1px solid ${C.border}`,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        fontSize: 15,
-        fontWeight: 700,
-        color: C.titleText,
-      }}
-    >
-      {label}
-      <span
+    <div style={{ marginBottom: 16 }}>
+      {/* Header row — clickable, toggles collapse */}
+      <div
+        onClick={onToggle}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
-          display: "inline-flex",
+          display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          background: C.badgeBg,
-          color: C.badgeText,
-          borderRadius: 100,
-          fontSize: 11,
-          fontWeight: 500,
-          padding: "0 6px",
-          minWidth: 20,
-          height: 18,
-          lineHeight: 1,
+          justifyContent: "space-between",
+          paddingTop: 10,
+          paddingBottom: 10,
+          borderBottom: `1px solid ${C.border}`,
+          cursor: "pointer",
+          userSelect: "none",
         }}
       >
-        {count}
-      </span>
+        {/* Left: name + count badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: C.titleText }}>
+            {category}
+          </span>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: C.badgeBg,
+              color: C.badgeText,
+              borderRadius: 100,
+              fontSize: 11,
+              fontWeight: 500,
+              padding: "0 6px",
+              minWidth: 20,
+              height: 18,
+              lineHeight: 1,
+            }}
+          >
+            {sources.length}
+          </span>
+        </div>
+
+        {/* Right: chevron */}
+        <span style={{ color: hovered ? C.primary : C.badgeText, display: "flex", transition: "color 0.15s" }}>
+          {isOpen ? <ChevronDown /> : <ChevronRight />}
+        </span>
+      </div>
+
+      {/* Card grid — hidden when collapsed */}
+      {isOpen && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))",
+            gap: 6,
+            paddingTop: 10,
+          }}
+        >
+          {sources.map((source) => (
+            <SourceCard key={source.Path} source={source} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -200,6 +280,17 @@ function SectionHeader({ label, count }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
   const [searchText, setSearchText] = useState("");
+  // All categories open by default
+  const [openCategories, setOpenCategories] = useState(() => new Set(CATEGORY_ORDER));
+
+  const toggleCategory = (cat) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   const filtered = metadata.filter((source) => {
     if (!searchText) return true;
@@ -210,7 +301,6 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
     );
   });
 
-  // Group by Platform Type in canonical order; sort alphabetically within
   const grouped = {};
   filtered.forEach((source) => {
     const type = source.tags["Platform Type"] || "Miscellaneous";
@@ -230,16 +320,26 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
       .map((t) => [t, [...grouped[t]].sort((a, b) => a.Title.localeCompare(b.Title))]),
   ];
 
+  // When searching, auto-expand all matching categories
+  const effectiveOpen = searchText
+    ? new Set(orderedGroups.map(([cat]) => cat))
+    : openCategories;
+
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      {/* Sticky search bar */}
+      {/* Description */}
+      <p style={{ fontSize: 14, color: C.descText, margin: "0 0 16px", lineHeight: 1.6 }}>
+        Explore all the ways you can connect your data tools with DataHub.
+      </p>
+
+      {/* Search bar — sticky below navbar */}
       <div
         style={{
           position: "sticky",
           top: "var(--ifm-navbar-height, 60px)",
           zIndex: 10,
           backgroundColor: C.white,
-          paddingBottom: 16,
+          paddingBottom: 14,
           marginBottom: 4,
         }}
       >
@@ -297,24 +397,16 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
         </div>
       </div>
 
-      {/* Grouped sections */}
+      {/* Collapsible sections */}
       {orderedGroups.length > 0 ? (
         orderedGroups.map(([category, sources]) => (
-          <div key={category} style={{ marginBottom: 24 }}>
-            <SectionHeader label={category} count={sources.length} />
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
-                gap: 6,
-                paddingTop: 10,
-              }}
-            >
-              {sources.map((source) => (
-                <SourceCard key={source.Path} source={source} />
-              ))}
-            </div>
-          </div>
+          <Section
+            key={category}
+            category={category}
+            sources={sources}
+            isOpen={effectiveOpen.has(category)}
+            onToggle={() => toggleCategory(category)}
+          />
         ))
       ) : (
         <p style={{ color: C.descText }}>No integrations found.</p>
