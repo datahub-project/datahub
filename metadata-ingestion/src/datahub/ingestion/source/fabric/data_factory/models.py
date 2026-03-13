@@ -115,3 +115,46 @@ class PipelineActivity:
             policy=policy,
             external_references=ext_ref,
         )
+
+
+@dataclass
+class PipelineActivityRun:
+    """A single activity run from a pipeline run.
+
+    Maps to the response of the queryActivityRuns API:
+    POST /v1/workspaces/{wsId}/datapipelines/pipelineruns/{jobId}/queryactivityruns
+
+    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/data-factory/pipeline-runs/query-activity-runs
+    """
+
+    activity_name: str
+    activity_type: str
+    activity_run_id: str
+    pipeline_run_id: str
+    status: str
+    activity_run_start: Optional[str] = None
+    activity_run_end: Optional[str] = None
+    duration_in_ms: Optional[int] = None
+    error_message: Optional[str] = None
+    retry_attempt: Optional[int] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> PipelineActivityRun:
+        error = data.get("error", {})
+        error_message = error.get("message") if isinstance(error, dict) else None
+        # Treat empty error messages as None
+        if error_message == "":
+            error_message = None
+
+        return cls(
+            activity_name=data.get("activityName", ""),
+            activity_type=data.get("activityType", ""),
+            activity_run_id=data.get("activityRunId", ""),
+            pipeline_run_id=data.get("pipelineRunId", ""),
+            status=data.get("status", ""),
+            activity_run_start=data.get("activityRunStart"),
+            activity_run_end=data.get("activityRunEnd"),
+            duration_in_ms=data.get("durationInMs"),
+            error_message=error_message,
+            retry_attempt=data.get("retryAttempt"),
+        )

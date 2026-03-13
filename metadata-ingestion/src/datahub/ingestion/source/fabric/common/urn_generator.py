@@ -116,6 +116,14 @@ def make_activity_job_id(activity_name: str) -> str:
     return activity_name
 
 
+def make_activity_run_id(pipeline_id: str, activity_run_id: str) -> str:
+    """Generate DPI ID for an activity run within a pipeline run.
+
+    Run ID format: {pipelineGUID}.{activityRunGUID}
+    """
+    return f"{pipeline_id}{URN_PATTERN_SEPARATOR}{activity_run_id}"
+
+
 def make_onelake_urn(
     workspace_id: str,
     item_id: str,

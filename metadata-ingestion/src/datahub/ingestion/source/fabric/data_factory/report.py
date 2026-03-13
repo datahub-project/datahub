@@ -26,6 +26,7 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     dataflows_scanned: int = 0
     activities_scanned: int = 0
     pipeline_runs_scanned: int = 0
+    activity_runs_scanned: int = 0
 
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
@@ -65,3 +66,6 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
 
     def report_pipeline_run_scanned(self) -> None:
         self.pipeline_runs_scanned += 1
+
+    def report_activity_run_scanned(self) -> None:
+        self.activity_runs_scanned += 1
