@@ -534,7 +534,9 @@ googleapis-common-protos==1.73.0
 gql==4.0.0
     # via acryl-datahub
 graphql-core==3.2.8
-    # via gql
+    # via
+    #   acryl-datahub
+    #   gql
 greenlet==3.3.2
     # via
     #   acryl-datahub

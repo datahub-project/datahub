@@ -80,7 +80,12 @@ framework_common = {
     "ruamel.yaml<0.19.0",
 }
 
-rest_common = {"requests<3.0.0", "requests_file<4.0.0"}
+rest_common = {
+    "requests<3.0.0",
+    "requests_file<4.0.0",
+    # Required for GraphQL query adaptation and schema introspection
+    "graphql-core>=3.0.0,<4.0.0",
+}
 
 kafka_common = {
     # Note that confluent_kafka 1.9.0 introduced a hard compatibility break, and
@@ -153,7 +158,7 @@ cachetools_lib = {
 # Skip pyarrow 0.14.0-14.0.0 due to CVE-2023-47248: https://avd.aquasec.com/nvd/cve-2023-47248
 # Note: feast<=0.47.0 (constrained by numpy<2) requires pyarrow<18.1.0, resolved automatically
 pyarrow_common = {
-    "pyarrow>14.0.0,<23.0.0",
+    "pyarrow>14.0.0,<24.0.0",
 }
 
 great_expectations_lib = {

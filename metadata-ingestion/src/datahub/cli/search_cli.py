@@ -433,6 +433,7 @@ def execute_search(
             query=search_gql,
             variables=variables,
             operation_name=operation_name,
+            strip_unsupported_fields=True,
         )[graphql_field]
     except Exception as e:
         error_msg = str(e).lower()
