@@ -186,3 +186,19 @@ first_primary_expression_func = partial(get_first_rule, rule="primary_expression
 first_invoke_expression_func = partial(get_first_rule, rule="invoke_expression")
 first_type_expression_func = partial(get_first_rule, rule="type_expression")
 first_list_expression_func = partial(get_first_rule, rule="list_expression")
+first_if_expression_func = partial(get_first_rule, rule="if_expression")
+
+
+def get_all_expressions_from_if(tree: Tree) -> List[Tree]:
+    """Extract expression subtrees from both branches of an if_expression.
+
+    Uses lark's Tree.find_data() to locate true_expression and false_expression
+    nodes, returning their child expression trees for lineage processing.
+    """
+    expressions: List[Tree] = []
+    for branch_name in ("true_expression", "false_expression"):
+        for branch in tree.find_data(branch_name):
+            for child in branch.children:
+                if isinstance(child, Tree) and child.data == "expression":
+                    expressions.append(child)
+    return expressions

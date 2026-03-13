@@ -250,6 +250,7 @@ class AbstractLineage(ABC):
 
         query = native_sql_parser.remove_drop_statement(query)
         query = native_sql_parser.remove_special_characters(query)
+        query = native_sql_parser.preprocess_tsql(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(

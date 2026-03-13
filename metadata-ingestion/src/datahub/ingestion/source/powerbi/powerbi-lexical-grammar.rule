@@ -503,11 +503,11 @@ variable:   variable_name WS_INLINE? "=" WS_INLINE? expression
 
 variable_name:    identifier
 
-if_expression:    "if" WS_INLINE if_condition WS_INLINE? NEWLINE? WS_INLINE? "then" WS_INLINE? NEWLINE? true_expression WS_INLINE? NEWLINE? "else" WS_INLINE false_expression
+if_expression:    "if" (WS_INLINE | NEWLINE)+ if_condition (WS_INLINE | NEWLINE)+ "then" (WS_INLINE | NEWLINE)+ true_expression (WS_INLINE | NEWLINE)+ "else" (WS_INLINE | NEWLINE)+ false_expression
 
 if_condition:     expression
 
-true_expression:  NEWLINE? WS_INLINE? expression
+true_expression:  expression
                 | multiplicative_expression
 
 false_expression: expression
