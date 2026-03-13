@@ -1,21 +1,16 @@
 import datetime
 import json
 import logging
-from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
     Any,
-    DefaultDict,
     Dict,
     Iterable,
-    Iterator,
     List,
     Mapping,
     Optional,
-    Set,
     Tuple,
-    Union,
 )
 from urllib.parse import urlparse
 
@@ -550,37 +545,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return s3_uri
 
-    def get_dataflow_s3_names(
-        self, dataflow_graph: Dict[str, Any]
-    ) -> Iterator[Tuple[str, Optional[str]]]:
-        # iterate through each node to populate processed nodes
-        for node in dataflow_graph["DagNodes"]:
-            node_type = node["NodeType"]
-
-            # for nodes representing datasets, we construct a dataset URN accordingly
-            if node_type in ["DataSource", "DataSink"]:
-                node_args = {
-                    x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]
-                }
-
-                # if data object is S3 bucket
-                if node_args.get("connection_type") == "s3":
-                    s3_uri = self.get_s3_uri(node_args)
-
-                    if s3_uri is None:
-                        continue
-
-                    extension = node_args.get("format")
-
-                    yield s3_uri, extension
-
     def process_dataflow_node(
         self,
         node: Dict[str, Any],
         flow_urn: str,
-        new_dataset_ids: List[str],
-        new_dataset_mces: List[MetadataChangeEvent],
-        s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
         node_type = node["NodeType"]
 
@@ -607,37 +575,11 @@ class GlueSource(StatefulIngestionSourceBase):
                 if s3_uri is None:
                     self.report_warning(
                         flow_urn,
-                        f"Could not find script path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
+                        f"Could not find S3 path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
                     )
                     return None
 
-                # append S3 format if different ones exist
-                if len(s3_formats[s3_uri]) > 1:
-                    node_urn = make_s3_urn(
-                        f"{s3_uri}.{node_args.get('format')}",
-                        self.env,
-                    )
-
-                else:
-                    node_urn = make_s3_urn(s3_uri, self.env)
-
-                dataset_snapshot = DatasetSnapshot(
-                    urn=node_urn,
-                    aspects=[],
-                )
-
-                dataset_snapshot.aspects.append(Status(removed=False))
-                dataset_snapshot.aspects.append(
-                    DatasetPropertiesClass(
-                        customProperties={k: str(v) for k, v in node_args.items()},
-                        tags=[],
-                    )
-                )
-
-                new_dataset_mces.append(
-                    MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                )
-                new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
+                node_urn = make_s3_urn(s3_uri, self.env)
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
@@ -668,8 +610,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self,
         dataflow_graph: Dict[str, Any],
         flow_urn: str,
-        s3_formats: DefaultDict[str, Set[Union[str, None]]],
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Prepare a job's DAG for ingestion.
         Parameters
@@ -678,20 +619,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 Job DAG returned from get_dataflow_graph()
             flow_urn:
                 URN of the flow (i.e. the AWS Glue job itself).
-            s3_formats:
-                Map from s3 URIs to formats used (for deduplication purposes)
         """
-
-        new_dataset_ids: List[str] = []
-        new_dataset_mces: List[MetadataChangeEvent] = []
 
         nodes: dict = {}
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
-            processed_node = self.process_dataflow_node(
-                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
-            )
+            processed_node = self.process_dataflow_node(node, flow_urn)
 
             if processed_node is not None:
                 nodes[node["Id"]] = processed_node
@@ -725,7 +659,7 @@ class GlueSource(StatefulIngestionSourceBase):
             if target_node_type == "DataSink":
                 source_node["outputDatasets"].append(target_node["urn"])
 
-        return nodes, new_dataset_ids, new_dataset_mces
+        return nodes
 
     def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]) -> MetadataWorkUnit:
         """
@@ -1336,8 +1270,6 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
-        dags: Dict[str, Optional[Dict[str, Any]]] = {}
-        flow_names: Dict[str, str] = {}
         for job in self.get_all_jobs():
             flow_urn = mce_builder.make_data_flow_urn(
                 self.platform, job["Name"], self.env
@@ -1354,42 +1286,22 @@ class GlueSource(StatefulIngestionSourceBase):
             else:
                 self.report.num_job_script_location_missing += 1
 
-            dags[flow_urn] = dag
-            flow_names[flow_urn] = job["Name"]
-        # run a first pass to pick up s3 bucket names and formats
-        # in Glue, it's possible for two buckets to have files of different extensions
-        # if this happens, we append the extension in the URN so the sources can be distinguished
-        # see process_dataflow_node() for details
-        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(set)
-        for dag in dags.values():
-            if dag is not None:
-                for s3_name, extension in self.get_dataflow_s3_names(dag):
-                    s3_formats[s3_name].add(extension)
-        # run second pass to generate node workunits
-        for flow_urn, dag in dags.items():
             if dag is None:
                 continue
 
-            nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
-                dag, flow_urn, s3_formats
-            )
+            nodes = self.process_dataflow_graph(dag, flow_urn)
 
             if not nodes:
                 self.report.num_job_without_nodes += 1
 
             for node in nodes.values():
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
-                    yield self.get_datajob_wu(node, flow_names[flow_urn])
+                    yield self.get_datajob_wu(node, job["Name"])
                 elif (node["NodeType"] == "DataSource" and node["outputDatasets"]) or (
                     node["NodeType"] == "DataSink" and node["inputDatasets"]
                 ):
                     # Not common, but capturing counts here for reporting
                     self.report.num_dataset_to_dataset_edges_in_job += 1
-
-            for dataset_id, dataset_mce in zip(
-                new_dataset_ids, new_dataset_mces, strict=False
-            ):
-                yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
 
     def _extract_record(
         self, dataset_urn: str, table: Dict, table_name: str
