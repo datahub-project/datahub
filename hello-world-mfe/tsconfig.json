@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "lib": ["DOM", "DOM.Iterable", "ESNext"],
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "jsx": "react-jsx",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "declaration": true,
+        "declarationDir": "./dist/types",
+        "outDir": "./dist",
+        "resolveJsonModule": true,
+        "isolatedModules": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist"]
+}
+
