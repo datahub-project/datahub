@@ -2597,14 +2597,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # Some schemas may not have any views
             return views.get(schema_name, [])
 
-        # Usually this fails when there are too many views in the schema.
+        # Usually this fails when there are too many views in the database.
         # Fall back to per-schema queries.
         self.report.num_get_views_for_schema_queries += 1
-        return self.data_dictionary.get_views_for_schema_using_information_schema(
-            db_name=db_name,
-            schema_name=schema_name,
-            view_filter=view_filter,
-        )
+        try:
+            return self.data_dictionary.get_views_for_schema_using_information_schema(
+                db_name=db_name,
+                schema_name=schema_name,
+                view_filter=view_filter,
+            )
+        except Exception as e:
+            self.structured_reporter.warning(
+                f"Failed to fetch views for {db_name}.{schema_name}",
+                exc=e,
+            )
+            raise
 
     def get_semantic_views_for_schema(
         self, schema_name: str, db_name: str
@@ -2663,30 +2670,32 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def _external_tables_ddl_lineage(
         self, discovered_tables: List[str]
     ) -> Iterable[KnownLineageMapping]:
-        external_tables_query: str = SnowflakeQuery.show_external_tables()
-        try:
-            for db_row in self.connection.query(external_tables_query):
-                key = self.identifiers.get_dataset_identifier(
-                    db_row["name"], db_row["schema_name"], db_row["database_name"]
-                )
-
-                if key not in discovered_tables:
-                    continue
-                if db_row["location"].startswith("s3://"):
-                    yield KnownLineageMapping(
-                        upstream_urn=make_s3_urn_for_lineage(
-                            db_row["location"], self.config.env
-                        ),
-                        downstream_urn=self.identifiers.gen_dataset_urn(key),
+        db_names = [db.name for db in self.databases]
+        for db_name in db_names:
+            external_tables_query = SnowflakeQuery.show_external_tables(db_name=db_name)
+            try:
+                for db_row in self.connection.query(external_tables_query):
+                    key = self.identifiers.get_dataset_identifier(
+                        db_row["name"], db_row["schema_name"], db_row["database_name"]
                     )
-                    self.report.num_external_table_edges_scanned += 1
 
-                self.report.num_external_table_edges_scanned += 1
-        except Exception as e:
-            self.structured_reporter.warning(
-                "External table ddl lineage extraction failed",
-                exc=e,
-            )
+                    if key not in discovered_tables:
+                        continue
+                    if db_row["location"].startswith("s3://"):
+                        yield KnownLineageMapping(
+                            upstream_urn=make_s3_urn_for_lineage(
+                                db_row["location"], self.config.env
+                            ),
+                            downstream_urn=self.identifiers.gen_dataset_urn(key),
+                        )
+                        self.report.num_external_table_edges_scanned += 1
+
+                    self.report.num_external_table_edges_scanned += 1
+            except Exception as e:
+                self.structured_reporter.warning(
+                    f"External table ddl lineage extraction failed for database {db_name}",
+                    exc=e,
+                )
 
     def fetch_streams_for_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str

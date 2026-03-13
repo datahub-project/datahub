@@ -431,7 +431,8 @@ class SnowflakeQuery:
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
-        # To work around this, we paginate through the results using the FROM clause.
+        # To work around this, we paginate using the FROM clause with a qualified
+        # "schema_name.view_name" marker so pagination resumes correctly across schemas.
         from_clause = (
             f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
         )
@@ -787,6 +788,12 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
             AND access_history.objects_modified is not null
             AND ARRAY_SIZE(access_history.objects_modified) > 0
+            -- Skip rows where all modified objects have null objectIds (internal ops).
+            AND EXISTS (
+                SELECT 1
+                FROM TABLE(FLATTEN(INPUT => access_history.objects_modified)) f
+                WHERE f.value:objectId IS NOT NULL
+            )
         ORDER BY query_start_time DESC
         ;"""
 
@@ -814,7 +821,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             )
 
     @staticmethod
-    def show_external_tables() -> str:
+    def show_external_tables(db_name: Optional[str] = None) -> str:
+        if db_name:
+            return f'show external tables in database "{db_name}"'
         return "show external tables in account"
 
     @staticmethod
