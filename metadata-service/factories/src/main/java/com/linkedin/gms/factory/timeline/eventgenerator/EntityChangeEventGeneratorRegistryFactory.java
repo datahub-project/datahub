@@ -22,6 +22,7 @@ import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertiesChangeEventGenerator;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +62,8 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(
         BUSINESS_ATTRIBUTE_ASSOCIATION, new BusinessAttributeAssociationChangeEventGenerator());
     registry.register(BUSINESS_ATTRIBUTE_ASPECT, new BusinessAttributesChangeEventGenerator());
+    registry.register(
+        STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertiesChangeEventGenerator());
 
     // Entity Lifecycle Differs
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
