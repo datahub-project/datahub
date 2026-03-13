@@ -69,10 +69,6 @@ public class TraceServiceImpl implements TraceService {
     this.mclTimeseriesTraceReader = mclTimeseriesTraceReader;
   }
 
-  // DataHub's tracing system didn't exist before 2020
-  private static final long MIN_PLAUSIBLE_EPOCH_MS = 1_577_836_800_000L; // 2020-01-01 UTC
-  private static final long MAX_CLOCK_SKEW_MS = 86_400_000L; // 24 hours
-
   /**
    * Extracts the epoch millis encoded in a DataHub trace ID from system metadata. Returns null if
    * the system metadata has no trace ID, the trace ID doesn't follow DataHub's format (e.g.,
@@ -81,24 +77,7 @@ public class TraceServiceImpl implements TraceService {
    */
   @Nullable
   public static Long extractTraceIdEpochMillis(@Nullable SystemMetadata systemMetadata) {
-    String traceId = extractTraceId(systemMetadata);
-    if (traceId != null) {
-      try {
-        long epochMillis = TraceIdGenerator.getTimestampMillis(traceId);
-        if (isPlausibleEpochMillis(epochMillis)) {
-          return epochMillis;
-        }
-        log.debug("Trace ID has implausible epoch {}ms, likely non-DataHub format", epochMillis);
-      } catch (Exception e) {
-        log.debug("Failed to extract epoch from trace ID: {}", e.getMessage());
-      }
-    }
-    return null;
-  }
-
-  private static boolean isPlausibleEpochMillis(long epochMillis) {
-    return epochMillis >= MIN_PLAUSIBLE_EPOCH_MS
-        && epochMillis <= System.currentTimeMillis() + MAX_CLOCK_SKEW_MS;
+    return TraceIdGenerator.getTimestampMillis(extractTraceId(systemMetadata));
   }
 
   @Nonnull
@@ -511,17 +490,8 @@ public class TraceServiceImpl implements TraceService {
   }
 
   private static long extractTimestamp(@Nullable String traceId, long createOnMillis) {
-    if (traceId != null) {
-      try {
-        long epochMillis = TraceIdGenerator.getTimestampMillis(traceId);
-        if (isPlausibleEpochMillis(epochMillis)) {
-          return epochMillis;
-        }
-      } catch (Exception e) {
-        // Non-DataHub trace ID format — fall through to createOnMillis
-      }
-    }
-    return createOnMillis;
+    Long epochMillis = TraceIdGenerator.getTimestampMillis(traceId);
+    return epochMillis != null ? epochMillis : createOnMillis;
   }
 
   private List<TraceException> extractTraceExceptions(

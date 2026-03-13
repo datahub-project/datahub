@@ -60,7 +60,6 @@ public class GraphQLController {
   private OperationContext systemOperationContext;
 
   private static final int MAX_LOG_WIDTH = 512;
-  private static final long SLOW_QUERY_THRESHOLD_MS = 1000;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(
@@ -165,7 +164,8 @@ public class GraphQLController {
             executionResult.getExtensions().remove("tracing");
             String responseBodyStr =
                 new ObjectMapper().writeValueAsString(executionResult.toSpecification());
-            if (totalDuration >= SLOW_QUERY_THRESHOLD_MS) {
+            if (totalDuration
+                >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
               log.info(
                   "Slow operation {} took {} ms (response size: {})",
                   queryName,
