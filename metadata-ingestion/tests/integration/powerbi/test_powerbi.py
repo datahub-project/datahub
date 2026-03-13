@@ -1598,6 +1598,43 @@ def test_powerbi_app_ingest_info_message(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_app_redirect_url_pattern(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    common_app_ingest(
+        pytestconfig=pytestconfig,
+        requests_mock=requests_mock,
+        output_mcp_path=f"{tmp_path}/powerbi_mces.json",
+        override_config={
+            "extract_app": True,
+            "app_url_pattern": "redirect_based",
+        },
+    )
+
+    with open(f"{tmp_path}/powerbi_mces.json") as f:
+        mcps = json.load(f)
+
+    app_info = [
+        mcp
+        for mcp in mcps
+        if "apps." in mcp.get("entityUrn", "")
+        and mcp.get("aspectName") == "dashboardInfo"
+    ]
+
+    assert len(app_info) == 1
+    assert app_info[0]["aspect"]["json"]["dashboardUrl"] == (
+        "https://app.powerbi.com/Redirect"
+        "?action=OpenApp&appId=2A4D0E82-E7A4-45B1-BD72-2A2CF82C9CB6"
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_gcc_environment(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
