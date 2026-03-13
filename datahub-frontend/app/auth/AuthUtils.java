@@ -81,6 +81,12 @@ public class AuthUtils {
   public static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
   public static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
 
+  // Private Key JWT (certificate-based) authentication constants
+  public static final String PRIVATE_KEY_FILE_PATH = "privateKeyFilePath";
+  public static final String PUBLIC_KEY_FILE_PATH = "publicKeyFilePath";
+  public static final String PRIVATE_KEY_PASSWORD = "privateKeyPassword";
+  public static final String PRIVATE_KEY_JWT_ALGORITHM = "privateKeyJwtAlgorithm";
+
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,
    * this simply checks for the presence of an "Authorization" header or the presence of a valid
