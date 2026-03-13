@@ -1349,8 +1349,38 @@ def _handle_describe(
         )
 
 
+_SCHEMA_VALIDATION_KEYWORDS = (
+    "fieldundefined",
+    "unknowntype",
+    "validationerror",
+    "field '",  # "Field 'x' in type 'Y' is undefined"
+    "unknown type '",
+)
+
+_STRIP_SUGGESTION = (
+    "The server does not recognize some fields/types in your query. "
+    "Add --strip-unknown-fields to silently remove unsupported fields "
+    "instead of failing."
+)
+
+
+def _schema_validation_suggestion(
+    err_str: str, strip_unknown_fields: bool
+) -> Optional[str]:
+    """Return a suggestion if the error looks like a schema validation failure."""
+    if strip_unknown_fields:
+        return None
+    if any(kw in err_str for kw in _SCHEMA_VALIDATION_KEYWORDS):
+        return _STRIP_SUGGESTION
+    return None
+
+
 def _execute_operation(
-    client: Any, operation: str, variables: Optional[str], schema_path: Optional[str]
+    client: Any,
+    operation: str,
+    variables: Optional[str],
+    schema_path: Optional[str],
+    strip_unknown_fields: bool = False,
 ) -> Dict[str, Any]:
     """Execute a named GraphQL operation."""
     if schema_path:
@@ -1379,7 +1409,11 @@ def _execute_operation(
         logger.debug(f"Generated query for operation '{operation}': {generated_query}")
 
         # Execute the generated query
-        return client.execute_graphql(query=generated_query, variables=variables_dict)
+        return client.execute_graphql(
+            query=generated_query,
+            variables=variables_dict,
+            strip_unsupported_fields=strip_unknown_fields,
+        )
     except GraphQLCliError:
         raise
     except Exception as e:
@@ -1405,20 +1439,31 @@ def _execute_operation(
                 suggestion="Ensure DataHub GMS is running and accessible",
                 exit_code=GraphQLExitCode.CONNECTION,
             ) from e
+        suggestion = _schema_validation_suggestion(err_str, strip_unknown_fields)
         raise GraphQLCliError(
             f"Failed to execute operation '{operation}': {e}",
             error_type="graphql_error",
+            suggestion=suggestion,
             exit_code=GraphQLExitCode.GENERAL,
         ) from e
 
 
-def _execute_query(client: Any, query: str, variables: Optional[str]) -> Dict[str, Any]:
+def _execute_query(
+    client: Any,
+    query: str,
+    variables: Optional[str],
+    strip_unknown_fields: bool = False,
+) -> Dict[str, Any]:
     """Execute a raw GraphQL query."""
     query_content = _load_content_or_file(query)
     variables_dict = _parse_variables(variables)
 
     try:
-        return client.execute_graphql(query=query_content, variables=variables_dict)
+        return client.execute_graphql(
+            query=query_content,
+            variables=variables_dict,
+            strip_unsupported_fields=strip_unknown_fields,
+        )
     except Exception as e:
         err_str = str(e).lower()
         if any(k in err_str for k in ("401", "403", "unauthorized", "forbidden")):
@@ -1442,9 +1487,11 @@ def _execute_query(client: Any, query: str, variables: Optional[str]) -> Dict[st
                 suggestion="Ensure DataHub GMS is running and accessible",
                 exit_code=GraphQLExitCode.CONNECTION,
             ) from e
+        suggestion = _schema_validation_suggestion(err_str, strip_unknown_fields)
         raise GraphQLCliError(
             f"Failed to execute GraphQL query: {e}",
             error_type="graphql_error",
+            suggestion=suggestion,
             exit_code=GraphQLExitCode.GENERAL,
         ) from e
 
@@ -1515,6 +1562,11 @@ def _execute_query(client: Any, query: str, variables: Optional[str]) -> Dict[st
     is_flag=True,
     help="Print agent skill context (best practices for AI agents) and exit",
 )
+@click.option(
+    "--strip-unknown-fields",
+    is_flag=True,
+    help="Silently remove fields/types unsupported by the server instead of failing",
+)
 @upgrade.check_upgrade
 def graphql(
     query: Optional[str],
@@ -1530,6 +1582,7 @@ def graphql(
     format: str,
     dry_run: bool,
     agent_context: bool,
+    strip_unknown_fields: bool,
 ) -> None:
     """Execute GraphQL queries and mutations against DataHub."""
 
@@ -1602,7 +1655,9 @@ def graphql(
             }
             click.echo(json.dumps(dry_run_output, indent=2 if pretty else None))
             return
-        result = _execute_operation(client, operation, variables, schema_path)
+        result = _execute_operation(
+            client, operation, variables, schema_path, strip_unknown_fields
+        )
     elif query:
         if dry_run:
             query_content = _load_content_or_file(query)
@@ -1614,7 +1669,7 @@ def graphql(
             }
             click.echo(json.dumps(dry_run_output, indent=2 if pretty else None))
             return
-        result = _execute_query(client, query, variables)
+        result = _execute_query(client, query, variables, strip_unknown_fields)
     else:
         raise GraphQLCliError(
             "Must specify either --query, --operation, or a discovery option "
