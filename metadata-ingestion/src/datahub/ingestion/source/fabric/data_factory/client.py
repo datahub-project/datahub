@@ -8,7 +8,10 @@ from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.core_client import FabricCoreClient
 from datahub.ingestion.source.fabric.common.models import FabricJobInstance
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
-from datahub.ingestion.source.fabric.data_factory.models import PipelineActivity
+from datahub.ingestion.source.fabric.data_factory.models import (
+    PipelineActivity,
+    PipelineActivityRun,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,3 +127,45 @@ class FabricDataFactoryClient(FabricCoreClient):
             f"No pipeline-content.json found in definition for pipeline {pipeline_id}"
         )
         return []
+
+    def query_activity_runs(
+        self,
+        workspace_id: str,
+        pipeline_run_id: str,
+        lookback_window_start: datetime,
+        lookback_window_end: datetime,
+    ) -> List[PipelineActivityRun]:
+        """Query activity runs for a specific pipeline run.
+
+        POST /v1/workspaces/{wsId}/datapipelines/pipelineruns/{jobId}/queryactivityruns
+
+        The "jobId" in the URL is the pipeline run ID (same as the Job Scheduler ID).
+
+        Reference: https://learn.microsoft.com/en-us/fabric/data-factory/pipeline-rest-api-capabilities#query-activity-runs
+
+        Args:
+            workspace_id: Workspace GUID
+            pipeline_run_id: Pipeline run (job instance) GUID
+            lookback_window_start: Start of the time window filter
+            lookback_window_end: End of the time window filter
+
+        Returns:
+            List of PipelineActivityRun objects for this pipeline run.
+        """
+        endpoint = (
+            f"workspaces/{workspace_id}/datapipelines"
+            f"/pipelineruns/{pipeline_run_id}/queryactivityruns"
+        )
+        body = {
+            "filters": [],
+            "orderBy": [{"orderBy": "ActivityRunStart", "order": "DESC"}],
+            "lastUpdatedAfter": lookback_window_start.isoformat(),
+            "lastUpdatedBefore": lookback_window_end.isoformat(),
+        }
+
+        logger.debug(f"Querying activity runs for pipeline run {pipeline_run_id}")
+
+        return [
+            PipelineActivityRun.from_dict(r)
+            for r in self._paginate_post(endpoint, body)
+        ]

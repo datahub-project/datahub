@@ -189,6 +189,40 @@ class BaseFabricClient(ABC):
             request_params["continuationToken"] = continuation_token
             page += 1
 
+    def _paginate_post(
+        self,
+        endpoint: str,
+        body: dict,
+    ) -> Iterator[dict]:
+        """Yield all items from a paginated Fabric POST API endpoint.
+
+        Some Fabric APIs (e.g. queryActivityRuns) use POST with a
+        continuationToken in both the request and response body.
+
+        Args:
+            endpoint: API endpoint (relative to base URL)
+            body: JSON request body (will be mutated to add continuationToken)
+
+        Yields:
+            Item dictionaries from each page's "value" array
+        """
+        page = 1
+        while True:
+            response = self.post(endpoint, json=body)
+            data = response.json()
+
+            items = data if isinstance(data, list) else data.get("value", [])
+            logger.debug(f"Page {page}: got {len(items)} item(s) from {endpoint}")
+            yield from items
+
+            continuation_token = (
+                data.get("continuationToken") if isinstance(data, dict) else None
+            )
+            if not continuation_token:
+                break
+            body["continuationToken"] = continuation_token
+            page += 1
+
     def _list_workspaces_raw(self) -> Iterator[dict]:
         """List all accessible Fabric workspaces (raw data).
 

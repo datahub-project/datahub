@@ -106,3 +106,50 @@ FABRIC_CONNECTION_PLATFORM_MAP: Dict[str, str] = {
 }
 # Connection types NOT listed above will fall back to "fabric" platform.
 # Add new entries here as DataHub adds support for more platforms.
+
+# ADF LinkedService type → DataHub platform.
+# Used as a fallback when the connection type matches ADF naming conventions
+# rather than Fabric connection types (e.g. in pipelines migrated from ADF).
+# Source: azure-mgmt-datafactory LinkedService types.
+ADF_LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
+    # Azure Storage
+    "AzureBlobStorage": "abs",
+    "AzureBlobFS": "abs",
+    "AzureDataLakeStore": "abs",
+    "AzureDataLakeStoreCosmosStructuredStream": "abs",
+    "AzureFileStorage": "abs",
+    # Azure Databases
+    "AzureSqlDatabase": "mssql",
+    "AzureSqlDW": "mssql",
+    "AzureSynapseAnalytics": "mssql",
+    "AzureSqlMI": "mssql",
+    "SqlServer": "mssql",
+    "AzurePostgreSql": "postgres",
+    "AzureMySql": "mysql",
+    # Databricks
+    "AzureDatabricks": "databricks",
+    "AzureDatabricksDeltaLake": "databricks",
+    # Cloud Platforms
+    "AmazonS3": "s3",
+    "AmazonS3Compatible": "s3",
+    "GoogleCloudStorage": "gcs",
+    "AmazonRedshift": "redshift",
+    "GoogleBigQuery": "bigquery",
+    "Snowflake": "snowflake",
+    # Traditional Databases
+    "PostgreSql": "postgres",
+    "MySql": "mysql",
+    "Oracle": "oracle",
+    "OracleServiceCloud": "oracle",
+    "Db2": "db2",
+    "Teradata": "teradata",
+    "Vertica": "vertica",
+    # Data Warehouses
+    "Hive": "hive",
+    "Spark": "spark",
+    "Hdfs": "hdfs",
+    # SaaS Applications
+    "Salesforce": "salesforce",
+    "SalesforceServiceCloud": "salesforce",
+    "SalesforceMarketingCloud": "salesforce",
+}

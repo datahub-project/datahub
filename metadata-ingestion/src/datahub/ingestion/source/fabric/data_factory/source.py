@@ -39,6 +39,7 @@ from datahub.ingestion.source.fabric.common.models import (
 )
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_activity_job_id,
+    make_activity_run_id,
     make_pipeline_flow_id,
     make_pipeline_run_id,
 )
@@ -51,6 +52,7 @@ from datahub.ingestion.source.fabric.data_factory.config import (
 from datahub.ingestion.source.fabric.data_factory.lineage import (
     CopyActivityLineageExtractor,
 )
+from datahub.ingestion.source.fabric.data_factory.models import PipelineActivityRun
 from datahub.ingestion.source.fabric.data_factory.report import (
     FabricDataFactoryClientReport,
     FabricDataFactorySourceReport,
@@ -70,10 +72,18 @@ from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
+from datahub.utilities.urns.data_process_instance_urn import (
+    DataProcessInstanceUrn,
+)
 
 logger = logging.getLogger(__name__)
 
 PLATFORM = "fabric-data-factory"
+
+# Earliest possible start date for activity run queries.
+# The Fabric queryActivityRuns API requires a lastUpdatedAfter timestamp;
+# this ensures we capture all activity runs regardless of pipeline age.
+ACTIVITY_RUNS_MIN_START = datetime(2015, 1, 1, tzinfo=timezone.utc)
 
 # Fabric run status → DataHub InstanceRunResult
 _FABRIC_STATUS_TO_RESULT: dict[str, InstanceRunResult] = {
@@ -81,6 +91,14 @@ _FABRIC_STATUS_TO_RESULT: dict[str, InstanceRunResult] = {
     ItemJobStatus.FAILED: InstanceRunResult.FAILURE,
     ItemJobStatus.CANCELLED: InstanceRunResult.SKIPPED,
     ItemJobStatus.DEDUPED: InstanceRunResult.SKIPPED,
+}
+
+# Activity run status → DataHub InstanceRunResult
+# Activity runs use "Succeeded"/"Failed"/"Cancelled" (not ItemJobStatus constants)
+_ACTIVITY_STATUS_TO_RESULT: dict[str, InstanceRunResult] = {
+    "Succeeded": InstanceRunResult.SUCCESS,
+    "Failed": InstanceRunResult.FAILURE,
+    "Cancelled": InstanceRunResult.SKIPPED,
 }
 
 
@@ -123,6 +141,10 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         # Populated once before processing pipelines, used by lineage
         # resolvers to map activity connection refs to DataHub platforms.
         self._connections_cache: dict[str, FabricConnection] = {}
+
+        # Pipeline run ID → DPI URN, populated during pipeline run emission,
+        # used to set parent_instance on activity run DPIs.
+        self._pipeline_run_urns: dict[str, DataProcessInstanceUrn] = {}
 
     def _cache_connections(self) -> None:
         """Fetch all tenant connections and cache them keyed by ID.
@@ -370,7 +392,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         pipeline_item: FabricItem,
         flow_urn: DataFlowUrn,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit DataProcessInstances for recent pipeline runs."""
+        """Emit DataProcessInstances for recent pipeline runs and their activity runs."""
         lookback_window_start = datetime.now(timezone.utc) - timedelta(
             days=self.config.lookback_days
         )
@@ -395,6 +417,13 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 continue
             yield from self._emit_pipeline_run(run, flow_urn)
             self.report.report_pipeline_run_scanned()
+
+            # Query activity runs for this pipeline run
+            yield from self._process_activity_runs(
+                pipeline_item=pipeline_item,
+                run=run,
+                flow_urn=flow_urn,
+            )
 
     def _emit_pipeline_run(
         self,
@@ -428,7 +457,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             data_platform_instance=self.config.platform_instance,
         )
 
-        # Emit DPI properties + relationships
+        # Cache the URN for parent_instance linkage in activity runs
+        self._pipeline_run_urns[run.id] = dpi.urn
+
         start_ts_millis = (
             _parse_iso_to_millis(run.start_time_utc) if run.start_time_utc else None
         )
@@ -438,15 +469,114 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         ):
             yield mcp.as_workunit()
 
-        # Emit start event
         if start_ts_millis:
             for mcp in dpi.start_event_mcp(start_timestamp_millis=start_ts_millis):
                 yield mcp.as_workunit()
 
-        # Emit end event for completed runs
         result = _FABRIC_STATUS_TO_RESULT.get(run.status)
         if result is not None and run.end_time_utc:
             end_ts_millis = _parse_iso_to_millis(run.end_time_utc)
+            for mcp in dpi.end_event_mcp(
+                end_timestamp_millis=end_ts_millis,
+                result=result,
+                result_type=PLATFORM,
+                start_timestamp_millis=start_ts_millis,
+            ):
+                yield mcp.as_workunit()
+
+    def _process_activity_runs(
+        self,
+        pipeline_item: FabricItem,
+        run: FabricJobInstance,
+        flow_urn: DataFlowUrn,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Query and emit DataProcessInstances for activity runs within a pipeline run."""
+        try:
+            activity_runs = self.client.query_activity_runs(
+                workspace_id=pipeline_item.workspace_id,
+                pipeline_run_id=run.id,
+                lookback_window_start=ACTIVITY_RUNS_MIN_START,
+                lookback_window_end=datetime.now(timezone.utc),
+            )
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Fetch Activity Runs",
+                message="Could not retrieve activity runs. Skipping for this pipeline run.",
+                context=f"pipeline={pipeline_item.name}, run={run.id}",
+                exc=e,
+            )
+            return
+
+        for activity_run in activity_runs:
+            yield from self._emit_activity_run(
+                activity_run=activity_run,
+                pipeline_item=pipeline_item,
+                flow_urn=flow_urn,
+            )
+            self.report.report_activity_run_scanned()
+
+    def _emit_activity_run(
+        self,
+        activity_run: PipelineActivityRun,
+        pipeline_item: FabricItem,
+        flow_urn: DataFlowUrn,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit MCPs for a single activity run as a DataProcessInstance."""
+        # Build the template URN: the activity DataJob this run belongs to
+        job_id = make_activity_job_id(activity_run.activity_name)
+        template_urn = DataJobUrn.create_from_ids(
+            job_id=job_id,
+            data_flow_urn=str(flow_urn),
+        )
+
+        dpi_id = make_activity_run_id(
+            pipeline_id=pipeline_item.id,
+            activity_run_id=activity_run.activity_run_id,
+        )
+
+        custom_properties: dict[str, str] = {
+            "activity_run_id": activity_run.activity_run_id,
+            "pipeline_run_id": activity_run.pipeline_run_id,
+            "activity_type": activity_run.activity_type,
+        }
+        if activity_run.duration_in_ms is not None:
+            custom_properties["duration_in_ms"] = str(activity_run.duration_in_ms)
+        if activity_run.error_message:
+            custom_properties["error_message"] = activity_run.error_message
+        if activity_run.retry_attempt is not None:
+            custom_properties["retry_attempt"] = str(activity_run.retry_attempt)
+
+        parent_instance_urn = self._pipeline_run_urns.get(activity_run.pipeline_run_id)
+
+        dpi = DataProcessInstance(
+            id=dpi_id,
+            orchestrator=PLATFORM,
+            cluster=self.config.env or "PROD",
+            template_urn=template_urn,
+            parent_instance=parent_instance_urn,
+            type=DataProcessTypeClass.BATCH_SCHEDULED,
+            properties=custom_properties,
+            data_platform_instance=self.config.platform_instance,
+        )
+
+        start_ts_millis = (
+            _parse_iso_to_millis(activity_run.activity_run_start)
+            if activity_run.activity_run_start
+            else None
+        )
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=start_ts_millis,
+            materialize_iolets=False,
+        ):
+            yield mcp.as_workunit()
+
+        if start_ts_millis:
+            for mcp in dpi.start_event_mcp(start_timestamp_millis=start_ts_millis):
+                yield mcp.as_workunit()
+
+        result = _ACTIVITY_STATUS_TO_RESULT.get(activity_run.status)
+        if result is not None and activity_run.activity_run_end:
+            end_ts_millis = _parse_iso_to_millis(activity_run.activity_run_end)
             for mcp in dpi.end_event_mcp(
                 end_timestamp_millis=end_ts_millis,
                 result=result,
