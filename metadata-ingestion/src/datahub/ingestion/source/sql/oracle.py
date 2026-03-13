@@ -1608,11 +1608,11 @@ class OracleSource(SQLAlchemySource):
                     if dependencies:
                         if dependencies.upstream:
                             extra_props["upstream_dependencies"] = ", ".join(
-                                dependencies.upstream
+                                sorted(dependencies.upstream)
                             )
                         if dependencies.downstream:
                             extra_props["downstream_dependencies"] = ", ".join(
-                                dependencies.downstream
+                                sorted(dependencies.downstream)
                             )
 
                     default_db = self._get_procedure_default_db()
