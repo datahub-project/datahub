@@ -13,7 +13,7 @@ Supports both batch (GraphQL) and event-driven (Kafka MCL) modes.
 import hashlib
 import json
 import logging
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
@@ -48,10 +48,12 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 )
 from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
+from datahub.metadata.schema_classes import RawChunksClass, SemanticContentClass
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
 
@@ -64,7 +66,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_embeddings_generated: int = 0
     num_embedding_failures: int = 0
     embedding_failures: list[str] = field(default_factory=list)
-    processing_errors: list[str] = []
+    processing_errors: list[str] = field(default_factory=list)
     num_documents_limit_reached: bool = False
 
     def report_document_fetched(self) -> None:
@@ -160,6 +162,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             chunking=self.config.chunking,
             embedding=self.config.embedding,
             max_documents=self.config.max_documents,
+            emit_chunks_without_embeddings=False,  # purpose of this source is to compute embeddings
         )
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
@@ -330,6 +333,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         if not entity_urn or not aspect_name:
             logger.debug("Event missing entityUrn or aspectName, skipping")
+            return
+
+        # Handle semanticContent events with rawChunks
+        if aspect_name == "semanticContent":
+            try:
+                aspect_dict = self._parse_mcl_aspect(aspect_data)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to parse semanticContent MCL aspect for {entity_urn}: {e}",
+                    exc_info=True,
+                )
+                return
+            if self._aspect_has_raw_chunks(aspect_dict):
+                yield from self._process_document_for_raw_chunks(entity_urn)
             return
 
         # Filter for documentInfo aspect
@@ -934,6 +951,62 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "last_processed": last_processed,
             }
 
+    def _get_raw_chunks(self, urn: str) -> Optional[RawChunksClass]:
+        """Fetch rawChunks from SemanticContent aspect if present."""
+        semantic_content = self.graph.get_aspect(urn, SemanticContentClass)
+        if semantic_content and semantic_content.rawChunks:
+            return semantic_content.rawChunks
+        return None
+
+    def _text_chunks_to_dicts(self, raw: RawChunksClass) -> list[dict[str, Any]]:
+        """Convert TextChunkClass list from RawChunks to chunk dicts for embedding."""
+        return [
+            {
+                "text": chunk.text or "",
+                "characterOffset": chunk.characterOffset,
+                "characterLength": chunk.characterLength,
+            }
+            for chunk in raw.chunks
+        ]
+
+    def _aspect_has_raw_chunks(self, aspect_dict: dict[str, Any]) -> bool:
+        """Check whether a parsed semanticContent aspect dict has non-null rawChunks."""
+        raw_chunks = aspect_dict.get("rawChunks")
+        return raw_chunks is not None and raw_chunks != {}
+
+    def _process_document_for_raw_chunks(
+        self, entity_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Embed a document whose SemanticContent already has rawChunks populated."""
+        if not self.chunking_source.embedding_model:
+            logger.debug(f"Skipping {entity_urn}: no embedding provider configured")
+            return
+
+        try:
+            raw = self._get_raw_chunks(entity_urn)
+            if raw is None:
+                logger.debug(
+                    f"No rawChunks found for {entity_urn} when processing semanticContent event"
+                )
+                return
+
+            chunk_dicts = self._text_chunks_to_dicts(raw)
+            if not chunk_dicts:
+                logger.debug(f"rawChunks is empty for {entity_urn}")
+                return
+
+            embeddings = self.chunking_source._generate_embeddings(chunk_dicts)
+            yield from self.chunking_source._emit_semantic_content(
+                entity_urn, chunk_dicts, embeddings, raw_chunks=raw
+            )
+            self.report.report_document_processed(len(chunk_dicts))
+            self.report.report_embeddings_generated(len(embeddings))
+
+        except Exception as e:
+            error_msg = f"Failed to embed rawChunks for document {entity_urn}: {e}"
+            logger.warning(error_msg, exc_info=True)
+            self.report.report_error(error_msg)
+
     def _process_single_document(
         self, doc: dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
@@ -942,6 +1015,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             document_urn = doc["urn"]
             text = doc.get("text", "")
 
+            # Try to reuse pre-computed rawChunks (emitted by Notion/Confluence without embeddings)
+            raw = self._get_raw_chunks(document_urn)
+            if raw is not None:
+                chunk_dicts = self._text_chunks_to_dicts(raw)
+                if chunk_dicts:
+                    embeddings = self.chunking_source._generate_embeddings(chunk_dicts)
+                    yield from self.chunking_source._emit_semantic_content(
+                        document_urn, chunk_dicts, embeddings, raw_chunks=raw
+                    )
+                    self.report.report_document_processed(len(chunk_dicts))
+                    self.report.report_embeddings_generated(len(embeddings))
+                    return
+
+            # Fallback: partition text from scratch
             # Skip if empty or too short
             if not text or len(text) < self.config.min_text_length:
                 logger.debug(

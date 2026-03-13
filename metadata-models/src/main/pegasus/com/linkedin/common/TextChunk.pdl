@@ -1,0 +1,35 @@
+namespace com.linkedin.common
+
+/**
+ * A single chunk of text from a document.
+ * Base type for EmbeddingChunk. Also used in RawChunks to store
+ * pre-computed chunks before embedding vectors are available.
+ */
+record TextChunk {
+
+  /**
+   * Zero-based position/index of this chunk within the document.
+   */
+  position: int
+
+  /**
+   * Character offset from start of source text.
+   */
+  characterOffset: optional int
+
+  /**
+   * Character length of the chunk in source text.
+   */
+  characterLength: optional int
+
+  /**
+   * Estimated token count for this chunk.
+   */
+  tokenCount: optional int
+
+  /**
+   * Original text of this chunk.
+   * OPTIONAL: May be omitted for privacy-sensitive data sources.
+   */
+  text: optional string
+}

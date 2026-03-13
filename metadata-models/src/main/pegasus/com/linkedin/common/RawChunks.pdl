@@ -1,0 +1,25 @@
+namespace com.linkedin.common
+
+/**
+ * Raw text chunks (no embedding vectors) produced by ingestion sources
+ * (e.g. Notion, Confluence) when no embedding provider is configured.
+ * Consumed by the datahub-documents source to generate embeddings and
+ * populate SemanticContent.embeddings.
+ */
+record RawChunks {
+
+  /**
+   * Chunking strategy used (e.g., "by_title", "basic").
+   */
+  chunkingStrategy: optional string
+
+  /**
+   * Total number of chunks.
+   */
+  totalChunks: int
+
+  /**
+   * Individual text chunks without embedding vectors.
+   */
+  chunks: array[TextChunk]
+}
