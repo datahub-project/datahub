@@ -12,14 +12,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -40,14 +39,11 @@ import lombok.extern.slf4j.Slf4j;
 
 /** This bootstrap step is responsible for backfilling dataset lineage index fields in ES */
 @Slf4j
-public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
+public class BackfillDatasetLineageIndexFieldsStep extends AbstractPersistentUpgradeStep {
   private static final String UPGRADE_ID = "BackfillDatasetLineageIndexFieldsStep_V1";
-  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
-  private final OperationContext opContext;
   private final boolean reprocessEnabled;
   private final Integer batchSize;
-  private final EntityService<?> entityService;
   private final SearchService _searchService;
 
   public BackfillDatasetLineageIndexFieldsStep(
@@ -56,8 +52,7 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
       SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
-    this.opContext = opContext;
-    this.entityService = entityService;
+    super(opContext, entityService);
     this._searchService = searchService;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
@@ -66,6 +61,11 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
   @Override
   public String id() {
     return UPGRADE_ID;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return reprocessEnabled;
   }
 
   @Override
@@ -87,8 +87,6 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
         migratedCount += batchSize;
       } while (scrollId != null);
 
-      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
-
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
@@ -102,39 +100,20 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
     return true;
   }
 
-  /**
-   * Returns whether the upgrade should be skipped. Uses previous run history or the environment
-   * variable to determine whether to skip.
-   */
-  @Override
-  public boolean skip(UpgradeContext context) {
-
-    if (reprocessEnabled) {
-      return false;
-    }
-
-    boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-    if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    return previouslyRun;
-  }
-
   private String backfillDatasetLineageFields(
       UpgradeContext context, AuditStamp auditStamp, String scrollId) {
 
     final Filter filter = backfillLineageFieldFilter();
     final ScrollResult scrollResult =
         _searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    flags
-                        .setFulltext(true)
-                        .setSkipCache(true)
-                        .setSkipHighlighting(true)
-                        .setSkipAggregates(true)),
+            getSystemOpContext()
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setFulltext(true)
+                            .setSkipCache(true)
+                            .setSkipHighlighting(true)
+                            .setSkipAggregates(true)),
             ImmutableList.of(Constants.DATASET_ENTITY_NAME),
             "*",
             filter,
@@ -225,13 +204,16 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
 
       log.debug("Restating upstreamLineage for dataset urn {} with value {}", urn, upstreamLineage);
       return Optional.of(
-          entityService
+          getEntityService()
               .alwaysProduceMCLAsync(
                   context.opContext(),
                   urn,
                   urn.getEntityType(),
                   UPSTREAM_LINEAGE_ASPECT_NAME,
-                  opContext.getEntityRegistry().getAspectSpecs().get(UPSTREAM_LINEAGE_ASPECT_NAME),
+                  getSystemOpContext()
+                      .getEntityRegistry()
+                      .getAspectSpecs()
+                      .get(UPSTREAM_LINEAGE_ASPECT_NAME),
                   null,
                   upstreamLineage,
                   null,

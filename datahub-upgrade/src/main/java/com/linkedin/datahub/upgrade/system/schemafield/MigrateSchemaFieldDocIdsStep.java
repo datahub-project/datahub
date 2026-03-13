@@ -6,25 +6,22 @@ import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSys
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -55,13 +52,11 @@ import org.opensearch.search.sort.SortOrder;
  * <p>Finally, a DELETE is executed on the legacy document id.
  */
 @Slf4j
-public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
+public class MigrateSchemaFieldDocIdsStep extends AbstractPersistentUpgradeStep {
 
-  private final OperationContext opContext;
   private final EntityRegistry entityRegistry;
   private final SearchClientShim<?> elasticsearchClient;
   private final String indexName;
-  private final EntityService<?> entityService;
   private final Scroll scroll = new Scroll(TimeValue.timeValueMinutes(5L));
   private final int batchSize;
   private final int batchDelayMs;
@@ -74,10 +69,9 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
       int batchSize,
       int batchDelayMs,
       int limit) {
-    this.opContext = opContext;
+    super(opContext, entityService);
     this.entityRegistry = opContext.getEntityRegistry();
     this.elasticsearchClient = elasticSearchComponents.getSearchClient();
-    this.entityService = entityService;
     this.batchSize = batchSize;
     this.batchDelayMs = batchDelayMs;
     this.limit = limit;
@@ -106,25 +100,14 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
    * variable SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID to determine whether to skip.
    */
+  @Override
   public boolean skip(UpgradeContext context) {
     if (Boolean.parseBoolean(System.getenv("SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID"))) {
       log.info("Environment variable SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID is set to true. Skipping.");
       return true;
     }
 
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    return prevResult
-        .filter(
-            result ->
-                DataHubUpgradeState.SUCCEEDED.equals(result.getState())
-                    || DataHubUpgradeState.ABORTED.equals(result.getState()))
-        .isPresent();
-  }
-
-  protected Urn getUpgradeIdUrn() {
-    return BootstrapStep.getUpgradeUrn(id());
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 
   @Override
@@ -160,8 +143,6 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
       } finally {
         elasticsearchClient.flushBulkProcessor();
       }
-
-      BootstrapStep.setUpgradeResult(context.opContext(), getUpgradeIdUrn(), entityService);
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
@@ -225,12 +206,13 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
   private void emitMCLs(Set<Urn> batchUrns) throws URISyntaxException {
     Set<SystemAspect> batchAspects =
         entityResponseToSystemAspectMap(
-                entityService.getEntitiesV2(
-                    opContext,
-                    SCHEMA_FIELD_ENTITY_NAME,
-                    batchUrns,
-                    opContext.getEntityAspectNames(SCHEMA_FIELD_ENTITY_NAME),
-                    false),
+                getEntityService()
+                    .getEntitiesV2(
+                        getSystemOpContext(),
+                        SCHEMA_FIELD_ENTITY_NAME,
+                        batchUrns,
+                        getSystemOpContext().getEntityAspectNames(SCHEMA_FIELD_ENTITY_NAME),
+                        false),
                 entityRegistry)
             .values()
             .stream()
@@ -241,9 +223,9 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
         batchAspects.stream()
             .map(
                 systemAspect ->
-                    entityService
+                    getEntityService()
                         .alwaysProduceMCLAsync(
-                            opContext,
+                            getSystemOpContext(),
                             systemAspect.getUrn(),
                             systemAspect.getUrn().getEntityType(),
                             systemAspect.getAspectName(),

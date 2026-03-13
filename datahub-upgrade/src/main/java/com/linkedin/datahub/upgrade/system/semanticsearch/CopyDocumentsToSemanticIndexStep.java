@@ -2,14 +2,13 @@ package com.linkedin.datahub.upgrade.system.semanticsearch;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
@@ -29,18 +28,16 @@ import org.opensearch.tasks.TaskInfo;
  * SemanticContent aspect, which is emitted by ingestion connectors.
  */
 @Slf4j
-public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
+public class CopyDocumentsToSemanticIndexStep extends AbstractPersistentUpgradeStep {
 
   private static final String UPGRADE_ID_PREFIX = "CopyDocumentsToSemanticIndex";
   private static final long TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
   private static final long TASK_TIMEOUT_MS = 3600000; // 1 hour
 
-  private final OperationContext opContext;
   private final String entityName;
   private final String upgradeId;
   private final Urn upgradeIdUrn;
   private final SearchClientShim<?> searchClient;
-  private final EntityService<?> entityService;
   private final IndexConvention indexConvention;
 
   public CopyDocumentsToSemanticIndexStep(
@@ -49,10 +46,9 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
       SearchClientShim<?> searchClient,
       EntityService<?> entityService,
       IndexConvention indexConvention) {
-    this.opContext = opContext;
+    super(opContext, entityService);
     this.entityName = entityName;
     this.searchClient = searchClient;
-    this.entityService = entityService;
     this.indexConvention = indexConvention;
 
     upgradeId = UPGRADE_ID_PREFIX + "_" + entityName;
@@ -62,6 +58,11 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
   @Override
   public String id() {
     return upgradeId;
+  }
+
+  @Override
+  public Urn getUpgradeIdUrn() {
+    return upgradeIdUrn;
   }
 
   private UpgradeStepResult execute(UpgradeContext context) {
@@ -99,7 +100,6 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
       }
 
       log.info("Document copy completed successfully for entity '{}'", entityName);
-      BootstrapStep.setUpgradeResult(opContext, upgradeIdUrn, entityService);
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     } catch (Exception e) {
       log.error("Failed to copy documents for entity: {}", entityName, e);
@@ -168,23 +168,6 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return this::execute;
-  }
-
-  @Override
-  public boolean skip(UpgradeContext context) {
-    // Check if this upgrade has already completed successfully
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, upgradeIdUrn, entityService);
-
-    boolean previousRunSucceeded =
-        prevResult
-            .filter(result -> DataHubUpgradeState.SUCCEEDED.equals(result.getState()))
-            .isPresent();
-
-    if (previousRunSucceeded) {
-      log.info("{} was already completed successfully. Skipping.", id());
-    }
-    return previousRunSucceeded;
   }
 
   @Override

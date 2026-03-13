@@ -13,13 +13,12 @@ import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -40,10 +39,9 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class BackfillBrowsePathsV2Step implements UpgradeStep {
+public class BackfillBrowsePathsV2Step extends AbstractPersistentUpgradeStep {
 
   private static final String UPGRADE_ID = "BackfillBrowsePathsV2Step";
-  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
   public static final String DEFAULT_BROWSE_PATH_V2 = "␟Default";
 
   private static final Set<String> ENTITY_TYPES_TO_MIGRATE =
@@ -58,8 +56,6 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME);
 
-  private final OperationContext opContext;
-  private final EntityService<?> entityService;
   private final SearchService searchService;
 
   private final boolean reprocessEnabled;
@@ -71,9 +67,8 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
       SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
-    this.opContext = opContext;
+    super(opContext, entityService);
     this.searchService = searchService;
-    this.entityService = entityService;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
   }
@@ -99,8 +94,6 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
         } while (scrollId != null);
       }
 
-      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
-
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
@@ -117,13 +110,14 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    flags
-                        .setFulltext(true)
-                        .setSkipCache(true)
-                        .setSkipHighlighting(true)
-                        .setSkipAggregates(true)),
+            getSystemOpContext()
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setFulltext(true)
+                            .setSkipCache(true)
+                            .setSkipHighlighting(true)
+                            .setSkipAggregates(true)),
             ImmutableList.of(entityType),
             "*",
             filter,
@@ -138,7 +132,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
       try {
-        ingestBrowsePathsV2(opContext, searchEntity.getEntity(), auditStamp);
+        ingestBrowsePathsV2(getSystemOpContext(), searchEntity.getEntity(), auditStamp);
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
         log.error(
@@ -196,7 +190,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
   private void ingestBrowsePathsV2(
       @Nonnull OperationContext opContext, Urn urn, AuditStamp auditStamp) throws Exception {
     BrowsePathsV2 browsePathsV2 =
-        DefaultAspectsUtil.buildDefaultBrowsePathV2(opContext, urn, true, entityService);
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(opContext, urn, true, getEntityService());
     log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -205,12 +199,17 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     proposal.setChangeType(ChangeType.UPSERT);
     proposal.setSystemMetadata(createDefaultSystemMetadata());
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
-    entityService.ingestProposal(opContext, proposal, auditStamp, true);
+    getEntityService().ingestProposal(opContext, proposal, auditStamp, true);
   }
 
   @Override
   public String id() {
     return UPGRADE_ID;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return reprocessEnabled;
   }
 
   /**
@@ -222,25 +221,19 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     return true;
   }
 
-  @Override
   /**
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
    * variables REPROCESS_DEFAULT_BROWSE_PATHS_V2 & BACKFILL_BROWSE_PATHS_V2 to determine whether to
    * skip.
    */
+  @Override
   public boolean skip(UpgradeContext context) {
     boolean envEnabled = Boolean.parseBoolean(System.getenv("BACKFILL_BROWSE_PATHS_V2"));
-
-    if (reprocessEnabled && envEnabled) {
-      return false;
+    if (!envEnabled) {
+      log.info("{} - Environment variable BACKFILL_BROWSE_PATHS_V2 not enabled. Skipping.", id());
+      return true; // Skip if env var not set
     }
 
-    boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-    if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    return (previouslyRun || !envEnabled);
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 }

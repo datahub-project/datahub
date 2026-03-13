@@ -1,13 +1,10 @@
 package com.linkedin.datahub.upgrade.system;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -34,11 +31,9 @@ import lombok.extern.slf4j.Slf4j;
  * Generic upgrade step class for generating MCLs for a given aspect in order to update ES documents
  */
 @Slf4j
-public abstract class AbstractMCLStep implements UpgradeStep {
+public abstract class AbstractMCLStep extends AbstractPersistentUpgradeStep {
   public static final String LAST_URN_KEY = "lastUrn";
 
-  private final OperationContext opContext;
-  private final EntityService<?> entityService;
   private final AspectDao aspectDao;
 
   private final int batchSize;
@@ -52,8 +47,7 @@ public abstract class AbstractMCLStep implements UpgradeStep {
       Integer batchSize,
       Integer batchDelayMs,
       Integer limit) {
-    this.opContext = opContext;
-    this.entityService = entityService;
+    super(opContext, entityService);
     this.aspectDao = aspectDao;
     this.batchSize = batchSize;
     this.batchDelayMs = batchDelayMs;
@@ -62,10 +56,6 @@ public abstract class AbstractMCLStep implements UpgradeStep {
 
   @Nonnull
   protected abstract String getAspectName();
-
-  protected Urn getUpgradeIdUrn() {
-    return BootstrapStep.getUpgradeUrn(id());
-  }
 
   /** Optionally apply an urn-like sql filter, otherwise all urns */
   @Nullable
@@ -76,7 +66,9 @@ public abstract class AbstractMCLStep implements UpgradeStep {
     return (context) -> {
       // Resume state
       Optional<DataHubUpgradeResult> prevResult =
-          context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
+          context
+              .upgrade()
+              .getUpgradeResult(getSystemOpContext(), getUpgradeIdUrn(), getEntityService());
       String resumeUrn =
           prevResult
               .filter(
@@ -113,26 +105,28 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                   List<Pair<Future<?>, SystemAspect>> futures;
                   futures =
                       EntityUtils.toSystemAspectFromEbeanAspects(
-                              opContext.getRetrieverContext(), batch.collect(Collectors.toList()))
+                              getSystemOpContext().getRetrieverContext(),
+                              batch.collect(Collectors.toList()))
                           .stream()
                           .map(
                               systemAspect -> {
                                 Pair<Future<?>, Boolean> future =
-                                    entityService.alwaysProduceMCLAsync(
-                                        opContext,
-                                        systemAspect.getUrn(),
-                                        systemAspect.getUrn().getEntityType(),
-                                        getAspectName(),
-                                        systemAspect.getAspectSpec(),
-                                        null,
-                                        systemAspect.getRecordTemplate(),
-                                        null,
-                                        systemAspect
-                                            .getSystemMetadata()
-                                            .setRunId(id())
-                                            .setLastObserved(System.currentTimeMillis()),
-                                        AuditStampUtils.createDefaultAuditStamp(),
-                                        ChangeType.UPSERT);
+                                    getEntityService()
+                                        .alwaysProduceMCLAsync(
+                                            getSystemOpContext(),
+                                            systemAspect.getUrn(),
+                                            systemAspect.getUrn().getEntityType(),
+                                            getAspectName(),
+                                            systemAspect.getAspectSpec(),
+                                            null,
+                                            systemAspect.getRecordTemplate(),
+                                            null,
+                                            systemAspect
+                                                .getSystemMetadata()
+                                                .setRunId(id())
+                                                .setLastObserved(System.currentTimeMillis()),
+                                            AuditStampUtils.createDefaultAuditStamp(),
+                                            ChangeType.UPSERT);
                                 return Pair.<Future<?>, SystemAspect>of(
                                     future.getFirst(), systemAspect);
                               })
@@ -159,9 +153,9 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                     context
                         .upgrade()
                         .setUpgradeResult(
-                            opContext,
+                            getSystemOpContext(),
                             getUpgradeIdUrn(),
-                            entityService,
+                            getEntityService(),
                             DataHubUpgradeState.IN_PROGRESS,
                             Map.of(LAST_URN_KEY, lastAspect.getUrn().toString()));
                   }
@@ -177,33 +171,9 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                 });
       }
 
-      BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
-  }
-
-  @Override
-  /** Returns whether the upgrade should be skipped. */
-  public boolean skip(UpgradeContext context) {
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    boolean previousRunFinal =
-        prevResult
-            .filter(
-                result ->
-                    DataHubUpgradeState.SUCCEEDED.equals(result.getState())
-                        || DataHubUpgradeState.ABORTED.equals(result.getState()))
-            .isPresent();
-
-    if (previousRunFinal) {
-      log.info(
-          "{} was already run. State: {} Skipping.",
-          id(),
-          prevResult.map(DataHubUpgradeResult::getState));
-    }
-    return previousRunFinal;
   }
 }
