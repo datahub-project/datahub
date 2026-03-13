@@ -39,6 +39,7 @@ def sample_workbook():
     return Workbook(
         workbookId="test-workbook-id",
         name="Test Workbook",
+        ownerId="test-user-id",
         createdBy="test-user",
         updatedBy="test-user",
         createdAt="2024-01-01T00:00:00Z",
