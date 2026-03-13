@@ -43,7 +43,7 @@ The source **automatically fetches embedding configuration from your DataHub ser
 
 #### Related Documentation
 
-- [Semantic Search Configuration](/docs/how-to/semantic-search-configuration) - **Start Here**
+- [Semantic Search Configuration](/docs/how-to/semantic-search-configuration.md) - **Start Here**
 - [Notion Source](/docs/generated/ingestion/sources/notion) - Example document source with embeddings
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html) - Embedding models
 - [AWS Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/) - Cost estimation
@@ -55,7 +55,7 @@ The source **automatically fetches embedding configuration from your DataHub ser
 
 **You MUST configure semantic search on your DataHub server before using this source.**
 
-See the [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration) for complete setup instructions.
+See the [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration.md) for complete setup instructions.
 
 Required server configuration:
 
