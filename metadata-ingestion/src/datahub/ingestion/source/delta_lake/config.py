@@ -1,8 +1,8 @@
 import logging
+from functools import cached_property
 from typing import Optional
 
-from cached_property import cached_property
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -12,6 +12,11 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.azure.abs_utils import is_azure_path
+from datahub.ingestion.source.azure.azure_auth import (
+    AzureAuthenticationMethod,
+    AzureCredentialConfig,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -36,6 +41,94 @@ class S3(ConfigModel):
         False,
         description="# Whether or not to create tags in datahub from the s3 object",
     )
+
+
+class AzureBlob(ConfigModel):
+    account_name: Optional[str] = Field(
+        default=None,
+        description="Azure storage account name. Required for `az://` and `adl://` style paths.",
+    )
+    account_key: Optional[SecretStr] = Field(
+        default=None,
+        description="Azure storage account key.",
+    )
+    sas_token: Optional[SecretStr] = Field(
+        default=None,
+        description="Azure shared access signature (SAS) token.",
+    )
+    client_id: Optional[str] = Field(
+        default=None,
+        description="Azure service principal client id.",
+    )
+    client_secret: Optional[SecretStr] = Field(
+        default=None,
+        description="Azure service principal client secret.",
+    )
+    tenant_id: Optional[str] = Field(
+        default=None,
+        description="Azure service principal tenant id.",
+    )
+    credential: Optional[AzureCredentialConfig] = Field(
+        default=None,
+        description=(
+            "Unified Azure credential configuration. If provided, takes precedence "
+            "over static keys."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_service_principal_fields(self) -> "AzureBlob":
+        has_any_sp_field = any([self.client_id, self.client_secret, self.tenant_id])
+        has_all_sp_fields = all([self.client_id, self.client_secret, self.tenant_id])
+        if has_any_sp_field and not has_all_sp_fields:
+            raise ValueError(
+                "Service principal auth requires `client_id`, `client_secret`, and `tenant_id`."
+            )
+        return self
+
+    def build_storage_options(
+        self, account_name: Optional[str], container_name: Optional[str]
+    ) -> dict[str, str]:
+        opts: dict[str, str] = {}
+
+        resolved_account = account_name or self.account_name
+        if resolved_account:
+            opts["account_name"] = resolved_account
+        if container_name:
+            opts["container_name"] = container_name
+
+        if self.credential is not None:
+            if (
+                self.credential.authentication_method
+                == AzureAuthenticationMethod.SERVICE_PRINCIPAL
+            ):
+                if self.credential.client_id:
+                    opts["client_id"] = self.credential.client_id
+                if self.credential.client_secret:
+                    opts["client_secret"] = (
+                        self.credential.client_secret.get_secret_value()
+                    )
+                if self.credential.tenant_id:
+                    opts["authority_id"] = self.credential.tenant_id
+            elif self.credential.authentication_method == AzureAuthenticationMethod.CLI:
+                opts["use_azure_cli"] = "true"
+            else:
+                token = self.credential.get_credential().get_token(
+                    "https://storage.azure.com/.default"
+                )
+                opts["token"] = token.token
+            return opts
+
+        if self.account_key is not None:
+            opts["access_key"] = self.account_key.get_secret_value()
+        elif self.sas_token is not None:
+            opts["sas_key"] = self.sas_token.get_secret_value()
+        elif self.client_id and self.client_secret and self.tenant_id:
+            opts["client_id"] = self.client_id
+            opts["client_secret"] = self.client_secret.get_secret_value()
+            opts["authority_id"] = self.tenant_id
+
+        return opts
 
 
 class DeltaLakeSourceConfig(
@@ -77,6 +170,10 @@ class DeltaLakeSourceConfig(
     )
 
     s3: Optional[S3] = Field(None)
+    azure: Optional[AzureBlob] = Field(
+        default=None,
+        description="Azure configuration for `abfss://`, `abfs://`, `az://`, `adl://`, and Azure HTTPS paths.",
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -86,6 +183,10 @@ class DeltaLakeSourceConfig(
     @cached_property
     def is_s3(self):
         return is_s3_uri(self.base_path or "")
+
+    @cached_property
+    def is_azure(self) -> bool:
+        return is_azure_path(self.base_path or "")
 
     @cached_property
     def complete_path(self):
