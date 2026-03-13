@@ -19,6 +19,9 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_dms_password_redaction,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnTransformation,
@@ -130,6 +133,105 @@ def test_parse_alter_table_rename():
         "storage_v2_stg",
         "storage_v2",
     )
+
+
+class TestRedshiftSqlParsing:
+    """Tests to verify SQL parsing works for various Redshift query patterns.
+
+    These tests ensure that sqlglot can parse queries correctly. Previously,
+    an RTRIM bug in query.py caused missing spaces in reconstructed queries
+    (e.g., "CASE WHENcol" instead of "CASE WHEN col"). After the RTRIM fix,
+    queries should be properly reconstructed and parse without issues.
+    """
+
+    def test_normal_sql_parses(self) -> None:
+        """Normal Redshift SQL should parse correctly."""
+        import sqlglot
+
+        # Standard SELECT
+        query = "SELECT id, name, created_at FROM users WHERE status = 'active'"
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+        # SELECT with CASE WHEN
+        query = "SELECT CASE WHEN x > 0 THEN 1 ELSE 0 END FROM my_table"
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+        # JOIN with ON clause
+        query = "SELECT a.id, b.name FROM table_a a JOIN table_b b ON a.id = b.a_id"
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+        # GROUP BY and ORDER BY
+        query = "SELECT status, COUNT(*) FROM orders GROUP BY status ORDER BY status"
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+    def test_complex_query_parses(self) -> None:
+        """Complex queries with subqueries should parse correctly."""
+        import sqlglot
+
+        query = """
+        SELECT u.id, u.name, o.total
+        FROM users u
+        JOIN (SELECT user_id, SUM(amount) as total FROM orders GROUP BY user_id) o
+        ON u.id = o.user_id
+        WHERE u.status = 'active'
+        """
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+    def test_case_when_with_aliases_parses(self) -> None:
+        """CASE WHEN with table aliases should parse correctly.
+
+        This pattern was previously broken when RTRIM removed trailing spaces
+        at segment boundaries, causing "CASE WHEN q11.col" to become
+        "CASE WHENq11.col".
+        """
+        import sqlglot
+
+        # Properly spaced query (what we get after RTRIM fix)
+        query = "SELECT CASE WHEN q11.value > 0 THEN 1 ELSE 0 END FROM t q11"
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+        query = "SELECT CASE WHEN t1.status = 'active' THEN 1 END FROM users t1"
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+    def test_multiple_case_expressions_parse(self) -> None:
+        """Multiple CASE expressions in one query should parse correctly."""
+        import sqlglot
+
+        query = """
+        SELECT
+            CASE WHEN q11.status = 'active' THEN 1 ELSE 0 END as is_active,
+            CASE WHEN arr_down > 0 THEN 'down' ELSE 'up' END as direction
+        FROM mytable q11
+        """
+        assert sqlglot.parse_one(query, dialect="redshift") is not None
+
+
+class TestDmsPasswordRedaction:
+    """Tests for DMS password redaction preprocessing."""
+
+    def test_password_redaction_splits_columns(self):
+        """DMS '***' password redaction that merges columns should be fixed."""
+        query = """INSERT INTO t ("password '***'next_col") SELECT col1 FROM s"""
+        result = preprocess_dms_password_redaction(query)
+        # The space + '***' is replaced with ", " - no trailing space
+        assert '''"password", "next_col"''' in result
+
+    def test_password_redaction_full_query(self):
+        """Full INSERT query with merged columns should have correct column count."""
+        query = """INSERT INTO "target" ("id","password '***'role","status") SELECT col1,col2,col3 FROM t"""
+        result = preprocess_dms_password_redaction(query)
+        # Should split into 4 columns to match SELECT - no trailing space
+        assert '''"password", "role"''' in result
+
+    def test_no_password_redaction_unchanged(self):
+        """Queries without password redaction should be unchanged."""
+        query = "INSERT INTO t (a, b, c) SELECT 1, 2, 3"
+        assert preprocess_dms_password_redaction(query) == query
+
+    def test_normal_asterisk_unchanged(self):
+        """Normal asterisks (not '***') should be unchanged."""
+        query = "SELECT * FROM t WHERE col = '**'"
+        assert preprocess_dms_password_redaction(query) == query
 
 
 def get_lineage_extractor() -> RedshiftSqlLineage:
@@ -425,3 +527,99 @@ def test_build():
 
     # Test build method doesn't raise exception
     lineage_extractor.build(connection, all_tables, db_schemas)
+
+
+class TestSigmaTempTableDetection:
+    """Tests for Sigma Computing temp table detection."""
+
+    def test_sigma_materialization_table(self):
+        """Sigma materialization tables (sigma.t_mat_*) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        assert lineage_extractor._is_sigma_temp_table("sigma.t_mat_12345") is True
+        assert lineage_extractor._is_sigma_temp_table("sigma.t_mat_abc") is True
+        assert lineage_extractor._is_sigma_temp_table("SIGMA.T_MAT_XYZ") is True
+
+    def test_sigma_timestamp_temp_table(self):
+        """Sigma timestamp-based temp tables (sigma.t_*_<10+ digit timestamp>) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Valid timestamp patterns (10+ digits)
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_something_1234567890")
+            is True
+        )
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_query_1709123456789")
+            is True
+        )
+        assert lineage_extractor._is_sigma_temp_table("SIGMA.T_ABC_9999999999") is True
+
+    def test_sigma_non_temp_tables(self):
+        """Regular Sigma tables should not be detected as temp tables."""
+        lineage_extractor = get_lineage_extractor()
+        # Not in sigma schema
+        assert lineage_extractor._is_sigma_temp_table("public.t_mat_12345") is False
+        assert (
+            lineage_extractor._is_sigma_temp_table("other.t_something_1234567890")
+            is False
+        )
+        # In sigma schema but doesn't match patterns
+        assert lineage_extractor._is_sigma_temp_table("sigma.regular_table") is False
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_short_123") is False
+        )  # timestamp too short
+        assert lineage_extractor._is_sigma_temp_table("sigma.users") is False
+
+    def test_is_temp_table_with_sigma_patterns(self):
+        """_is_temp_table should detect Sigma temp tables."""
+        lineage_extractor = get_lineage_extractor()
+        # Sigma temp tables should be filtered regardless of known_urns
+        lineage_extractor.known_urns = set()
+        assert lineage_extractor._is_temp_table("sigma.t_mat_12345") is True
+        assert lineage_extractor._is_temp_table("sigma.t_query_1709123456789") is True
+
+    def test_sigma_temp_table_fully_qualified(self):
+        """Fully qualified names (db.sigma.t_mat_*) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Fully qualified with database prefix
+        assert lineage_extractor._is_sigma_temp_table("mydb.sigma.t_mat_12345") is True
+        assert (
+            lineage_extractor._is_sigma_temp_table("prod.sigma.t_query_1709123456789")
+            is True
+        )
+        # Non-sigma schema with db prefix should not match
+        assert (
+            lineage_extractor._is_sigma_temp_table("mydb.public.t_mat_12345") is False
+        )
+
+    def test_sigma_temp_table_quoted(self):
+        """Quoted names ("sigma"."t_mat_*") should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Quoted schema.table
+        assert lineage_extractor._is_sigma_temp_table('"sigma"."t_mat_12345"') is True
+        assert (
+            lineage_extractor._is_sigma_temp_table('"sigma"."t_query_1709123456789"')
+            is True
+        )
+        # Quoted with database prefix
+        assert (
+            lineage_extractor._is_sigma_temp_table('"mydb"."sigma"."t_mat_12345"')
+            is True
+        )
+        # Quoted non-sigma schema should not match
+        assert lineage_extractor._is_sigma_temp_table('"public"."t_mat_12345"') is False
+
+    def test_normalize_table_name_for_sigma_check(self):
+        """Test the normalization helper directly."""
+        from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
+
+        normalize = RedshiftSqlLineage._normalize_table_name_for_sigma_check
+        # Simple schema.table
+        assert normalize("sigma.t_mat_123") == "sigma.t_mat_123"
+        # Fully qualified db.schema.table -> schema.table
+        assert normalize("mydb.sigma.t_mat_123") == "sigma.t_mat_123"
+        # Quoted
+        assert normalize('"sigma"."t_mat_123"') == "sigma.t_mat_123"
+        # Quoted with db
+        assert normalize('"mydb"."sigma"."t_mat_123"') == "sigma.t_mat_123"
+        # Single part (edge case)
+        assert normalize("tablename") == "tablename"

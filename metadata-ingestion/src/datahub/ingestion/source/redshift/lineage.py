@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -38,6 +39,11 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_dms_password_redaction,
+    preprocess_dms_update_query,
+    preprocess_redshift_query,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -48,6 +54,9 @@ from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of permission-denied tables to track (avoids unbounded memory)
+_MAX_PERMISSION_DENIED_TABLES = 20
 
 
 class LineageDatasetPlatform(Enum):
@@ -162,7 +171,55 @@ class RedshiftSqlLineage(Closeable):
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
 
+    # Regex patterns to detect Sigma Computing temporary/materialization tables
+    # Sigma creates tables like sigma.t_mat_12345 or sigma.t_something_1234567890123
+    # Unix timestamp in seconds has 10 digits (e.g., 1234567890 = Feb 2009)
+    # Millisecond timestamps have 13 digits (e.g., 1234567890123)
+    _MIN_TIMESTAMP_DIGITS = 10
+    _SIGMA_TEMP_TABLE_PATTERNS = [
+        re.compile(r"^sigma\.t_mat_", re.IGNORECASE),  # Materialization tables
+        re.compile(
+            rf"^sigma\.t_[^.]+_\d{{{_MIN_TIMESTAMP_DIGITS},}}$", re.IGNORECASE
+        ),  # Timestamp-based temps
+    ]
+
+    @staticmethod
+    def _normalize_table_name_for_sigma_check(name: str) -> str:
+        """Normalize table name to schema.table format for Sigma temp table matching.
+
+        Handles:
+        - Fully qualified: db.sigma.t_mat_123 -> sigma.t_mat_123
+        - Quoted: "sigma"."t_mat_123" -> sigma.t_mat_123
+        - Mixed: "db"."sigma"."t_mat_123" -> sigma.t_mat_123
+        - Already normalized: sigma.t_mat_123 -> sigma.t_mat_123
+        """
+        # Remove quotes and split by dot
+        parts = name.replace('"', "").split(".")
+
+        # Take last two parts (schema.table)
+        if len(parts) >= 2:
+            return f"{parts[-2]}.{parts[-1]}"
+        return parts[0] if parts else name
+
+    def _is_sigma_temp_table(self, name: str) -> bool:
+        """Check if the table name matches Sigma Computing temp table patterns.
+
+        Sigma creates temporary tables in the 'sigma' schema with patterns like:
+        - sigma.t_mat_* (materialization tables)
+        - sigma.t_*_<timestamp> (temporary tables with Unix timestamp suffix)
+
+        Handles fully-qualified (db.sigma.t_mat_123) and quoted ("sigma"."t_mat_123") names.
+        """
+        normalized = self._normalize_table_name_for_sigma_check(name)
+        return any(
+            pattern.match(normalized) for pattern in self._SIGMA_TEMP_TABLE_PATTERNS
+        )
+
     def _is_temp_table(self, name: str) -> bool:
+        # Check Sigma temp table patterns first (known BI tool pattern)
+        if self._is_sigma_temp_table(name):
+            return True
+
         return (
             DatasetUrn.create_from_ids(
                 self.platform,
@@ -484,9 +541,11 @@ class RedshiftSqlLineage(Closeable):
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
             for temp_row in self.get_temp_tables(connection=connection):
+                # Apply Redshift RTRIM preprocessing. Even though we use RTRIM(LISTAGG(...))
+                # in the query, Redshift may still return corrupted text from SVL_STATEMENTTEXT.
                 self.aggregator.add_observed_query(
                     ObservedQuery(
-                        query=temp_row.query_text,
+                        query=self._preprocess_query(temp_row.query_text),
                         default_db=self.database,
                         default_schema=self.config.default_schema,
                         session_id=temp_row.session_id,
@@ -593,6 +652,14 @@ class RedshiftSqlLineage(Closeable):
         if not self.config.skip_external_tables:
             self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
 
+        # Report permission denied tables if any
+        if self.report.lineage_permission_denied:
+            self.report.warning(
+                title="Permission denied for some lineage tables",
+                message=f"Skipped {len(self.report.lineage_permission_denied)} table(s) due to permission errors",
+                context=", ".join(self.report.lineage_permission_denied),
+            )
+
     def _populate_lineage_agg(
         self,
         query: str,
@@ -611,7 +678,30 @@ class RedshiftSqlLineage(Closeable):
                 for lineage_row in RedshiftDataDictionary.get_lineage_rows(
                     conn=connection, query=query
                 ):
-                    processor(lineage_row)
+                    try:
+                        processor(lineage_row)
+                    except Exception as e:
+                        # Track permission errors (capped); log others and continue
+                        error_str = str(e).lower()
+                        if "permission" in error_str or "access denied" in error_str:
+                            if (
+                                len(self.report.lineage_permission_denied)
+                                < _MAX_PERMISSION_DENIED_TABLES
+                            ):
+                                table_name = f"{lineage_row.target_schema}.{lineage_row.target_table}"
+                                self.report.lineage_permission_denied.add(table_name)
+                            continue
+                        ddl_snippet = (
+                            lineage_row.ddl[:200] + "..."
+                            if lineage_row.ddl and len(lineage_row.ddl) > 200
+                            else lineage_row.ddl
+                        )
+                        logger.debug(
+                            f"Failed to process {lineage_type.name} lineage row "
+                            f"for {lineage_row.target_schema}.{lineage_row.target_table}: {e}. "
+                            f"DDL: {ddl_snippet}",
+                            exc_info=True,
+                        )
         except Exception as e:
             self.report.warning(
                 title="Failed to extract some lineage",
@@ -621,6 +711,29 @@ class RedshiftSqlLineage(Closeable):
             )
             self.report_status(f"extract-{lineage_type.name}", False)
 
+    def _preprocess_query(self, query: str, apply_dms_update: bool = True) -> str:
+        """Preprocess SQL query to fix Redshift and AWS DMS malformations.
+
+        This applies Redshift-specific preprocessing before SQL parsing:
+        - Redshift RTRIM bug: When populating stl_query.querytxt, Redshift
+          internally reconstructs queries from 200-char segments using RTRIM,
+          which removes meaningful trailing spaces at segment boundaries
+          (e.g., "CASE WHEN" becomes "CASEWHEN"). Affects any long query.
+        - AWS DMS UPDATE queries reference staging tables without FROM clauses
+        - AWS DMS password redaction merges column names in INSERT statements
+
+        Args:
+            query: The SQL query to preprocess
+            apply_dms_update: Whether to apply DMS UPDATE FROM clause injection.
+                Set to False when source/target tables are already known from
+                metadata (e.g., STL scan) and only CLL extraction is needed.
+        """
+        query = preprocess_redshift_query(query)
+        if apply_dms_update:
+            query = preprocess_dms_update_query(query)
+        query = preprocess_dms_password_redaction(query)
+        return query
+
     def _process_sql_parser_lineage(self, lineage_row: LineageRow) -> None:
         ddl = lineage_row.ddl
         if ddl is None:
@@ -628,9 +741,11 @@ class RedshiftSqlLineage(Closeable):
 
         # TODO actor
 
+        # Apply Redshift RTRIM preprocessing. Even though we use RTRIM(LISTAGG(...))
+        # in STL_QUERYTEXT queries, Redshift may still return corrupted text.
         self.aggregator.add_observed_query(
             ObservedQuery(
-                query=ddl,
+                query=self._preprocess_query(ddl),
                 default_db=self.database,
                 default_schema=self.config.default_schema,
                 timestamp=lineage_row.timestamp,
@@ -670,12 +785,51 @@ class RedshiftSqlLineage(Closeable):
                 f"stl scan entry is missing query text for {lineage_row.source_schema}.{lineage_row.source_table}"
             )
             return
+
+        # Preprocess query for CLL extraction. Skip DMS UPDATE preprocessing because
+        # STL scan already provides source/target tables from metadata - we only need
+        # the query for column-level lineage, not table-level lineage discovery.
+        preprocessed_query = self._preprocess_query(
+            lineage_row.ddl, apply_dms_update=False
+        )
+
+        # Extract column-level lineage using aggregator's schema resolver
+        column_lineage: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
+        try:
+            target_parts = target.name.split(".")
+            default_db = target_parts[0] if len(target_parts) >= 1 else self.database
+            default_schema = (
+                target_parts[1]
+                if len(target_parts) >= 2
+                else self.config.default_schema
+            )
+
+            parsed_result = sqlglot_l.sqlglot_lineage(
+                sql=preprocessed_query,
+                schema_resolver=self.aggregator._schema_resolver,
+                default_db=default_db,
+                default_schema=str(default_schema) if default_schema else None,
+            )
+            if parsed_result and parsed_result.column_lineage:
+                column_lineage = parsed_result.column_lineage
+                logger.debug(
+                    f"Parsed column lineage for stl_scan: "
+                    f"{len(column_lineage)} column mappings found"
+                )
+        except Exception as e:
+            self.report.num_cll_parse_failures += 1
+            logger.debug(
+                f"Failed to parse column lineage for stl_scan query: {e}",
+                exc_info=True,
+            )
+
         self.aggregator.add_known_query_lineage(
             KnownQueryLineageInfo(
                 query_text=lineage_row.ddl,
                 downstream=target.urn(),
                 upstreams=[source.urn()],
                 timestamp=lineage_row.timestamp,
+                column_lineage=column_lineage,
             ),
             merge_lineage=True,
         )
