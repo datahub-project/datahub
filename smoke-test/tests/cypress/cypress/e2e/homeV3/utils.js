@@ -3,7 +3,8 @@ import { hasOperationName } from "../utils";
 export function setThemeV2AndHomePageRedesignFlags(isOn) {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
-      req.reply((res) => {
+      req.alias = "gqlappConfigQuery";
+      req.on("response", (res) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
         res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
@@ -36,6 +37,7 @@ export function clickFirstAddModuleButton() {
 export function clickLastAddModuleButton() {
   cy.getWithTestId("add-button-container")
     .last()
+    .scrollIntoView()
     .should("be.visible")
     .realHover();
 
@@ -83,9 +85,18 @@ export function shouldBeOnPersonalTemplate() {
 export function resetToOrgDefault() {
   closeForkedHomepageToast();
   cy.getWithTestId("edit-home-page-settings").click({ force: true });
-  cy.getWithTestId("reset-to-organization-default").click();
-  cy.getWithTestId("modal-confirm-button").filter(":visible").click();
-  cy.getWithTestId("modal-confirm-button").should("not.be.visible");
+  cy.get("body").then(($body) => {
+    const $editMenuItem = $body
+      .find('[data-testid="reset-to-organization-default"]')
+      .filter(":visible");
+    if ($editMenuItem.length > 0) {
+      cy.wrap($editMenuItem).click();
+      cy.getWithTestId("modal-confirm-button").filter(":visible").click();
+      cy.getWithTestId("modal-confirm-button").should("not.be.visible");
+    } else {
+      cy.get("body").type("{esc}");
+    }
+  });
 }
 
 export function startEditingDefaultTemplate() {
@@ -216,4 +227,26 @@ export function dragAndDropModuleToNewRow(moduleId) {
 
 export function waitUntilTemplateIsLoaded() {
   cy.getWithTestId("template-wrapper");
+}
+
+export function ensureThatModuleIsAvailable(moduleName, moduleType) {
+  cy.getWithTestId(`${moduleType}-module`)
+    .first()
+    .should("contain", moduleName);
+}
+
+export function ensureModuleHasContent(moduleType, content) {
+  cy.getWithTestId(`${moduleType}-module`).first().should("contain", content);
+}
+
+export function clickViewAll(moduleType) {
+  cy.getWithTestId(`${moduleType}-module`)
+    .first()
+    .within(() => {
+      cy.getWithTestId("view-all").scrollIntoView().click();
+    });
+}
+
+export function ensureUrlContains(text) {
+  cy.url().should("include", text);
 }
