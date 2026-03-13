@@ -315,7 +315,11 @@ jobs:
             echo "✅ Created Linear ticket: $ISSUE_ID ($TEAM_KEY)"
             echo "📎 $ISSUE_URL"
 
-            PR_COMMENT=$(printf 'Linear: %s\n\nThanks for your contribution! We have created an internal ticket to track this PR. A member of the core DataHub team will be assigned to review it within the next few business days - you will get a follow-up comment once a reviewer is assigned.' "$ISSUE_ID")
+            if [ "$CONTRIBUTOR_TYPE" = "External" ]; then
+              PR_COMMENT=$(printf 'Linear: %s\n\nThanks for your contribution! We have created an internal ticket to track this PR. A member of the core DataHub team will be assigned to review it within the next few business days - you will get a follow-up comment once a reviewer is assigned.' "$ISSUE_ID")
+            else
+              PR_COMMENT=$(printf 'Linear: %s' "$ISSUE_ID")
+            fi
             if ! gh pr comment "$PR_NUMBER" --body "$PR_COMMENT" 2>/dev/null; then
               echo "⚠️  Created ticket but failed to comment on PR"
             fi
