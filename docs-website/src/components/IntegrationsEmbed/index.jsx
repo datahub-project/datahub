@@ -1,15 +1,17 @@
 /**
  * IntegrationsEmbed — Sources landing page component.
  *
- * TODO (Filters): Add Platform Type filter pills for Ecosystem (Google, AWS, Azure)
- *   and Support Status once we have cleaner groupings and the support status
- *   values have been reviewed with Gabe (Community value needed, badge styling
- *   to be standardised across all source docs pages).
+ * TODO (Filters): Add filter pills for Ecosystem (Google, AWS, Azure) and
+ *   Support Status once values are confirmed and badge styling is standardised.
  *
- * TODO (Parity): Review with Paulina & Chris — this page must always reflect
- *   the exact same source list, groupings, and ordering as the Create Source
- *   tab in the DataHub UI. Establish a shared source-of-truth so divergence
- *   is caught automatically.
+ * TODO (Support Status – Gabe): Review status values across all sources.
+ *   A `Community` tier is needed. Badge styling should also be unified with
+ *   the support-status badges rendered on individual generated source doc pages.
+ *
+ * TODO (Parity – Paulina & Chris): This page must always reflect the same
+ *   source list, groupings, and ordering as the Create Source tab in the
+ *   DataHub UI. Establish a shared source-of-truth so divergence is caught
+ *   automatically (see ingestV2/source/builder/sources.json).
  */
 
 import React, { useState } from "react";
@@ -30,35 +32,22 @@ const C = {
   shadow: "0px 1px 2px 0px rgba(33, 23, 95, 0.07)",
 };
 
+// Height of the sticky search bar strip (input 38px + padding-bottom 16px)
+const SEARCH_STRIP_HEIGHT = 54;
+
 // Support status badge config
-// TODO (Gabe): Review these values — a `Community` tier is needed, and badge
-// styling should be unified across the generated source doc pages too.
+// TODO (Gabe): Review status values — Community tier needed; unify badge
+// styling with generated source doc pages.
 const STATUS_CONFIG = {
-  CERTIFIED: {
-    label: "Certified",
-    bg: "#DCFCE7",
-    color: "#15803D",
-    border: "#86EFAC",
-  },
-  INCUBATING: {
-    label: "Incubating",
-    bg: "#DBEAFE",
-    color: "#1D4ED8",
-    border: "#93C5FD",
-  },
-  TESTING: {
-    label: "Testing",
-    bg: "#F1F5F9",
-    color: "#64748B",
-    border: "#CBD5E1",
-  },
+  CERTIFIED: { label: "Certified", bg: "#DCFCE7", color: "#15803D", border: "#86EFAC" },
+  INCUBATING: { label: "Incubating", bg: "#DBEAFE", color: "#1D4ED8", border: "#93C5FD" },
+  TESTING: { label: "Testing", bg: "#F1F5F9", color: "#64748B", border: "#CBD5E1" },
 };
 
-// ─── Canonical category order — must stay in sync with the frontend
-// Create Source flow (ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils.ts).
-// Sources within each category are sorted alphabetically by the docgen.py
-// pipeline (generate_source_category_manifest) and by this component's
-// localeCompare sort. Do not reorder items here manually.
+// Canonical order — must stay in sync with:
+//   • Frontend Create Source flow  (ingestV2/.../utils.ts PRESORTED_CATEGORIES_*)
+//   • Sidebar SIDEBAR_CATEGORY_ORDER  (docs-website/sidebars.js)
+// Sources within each category are sorted alphabetically by docgen.py.
 const CATEGORY_ORDER = [
   "Data Warehouse",
   "Data Lake",
@@ -84,15 +73,16 @@ function StatusBadge({ status }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        padding: "2px 8px",
+        padding: "1px 7px",
         borderRadius: 100,
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: 500,
         background: cfg.bg,
         color: cfg.color,
         border: `1px solid ${cfg.border}`,
+        lineHeight: 1.5,
+        whiteSpace: "nowrap",
         flexShrink: 0,
-        lineHeight: 1.4,
       }}
     >
       {cfg.label}
@@ -100,7 +90,8 @@ function StatusBadge({ status }) {
   );
 }
 
-// ─── Source card (name + status badge, no description) ───────────────────────
+// ─── Source card ──────────────────────────────────────────────────────────────
+// Layout: [Logo] | [Name (bold), Badge below] — no description copy.
 function SourceCard({ source }) {
   const [hovered, setHovered] = useState(false);
   const imgSrc = useBaseUrl(source.imgPath);
@@ -112,10 +103,10 @@ function SourceCard({ source }) {
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
+        gap: 10,
         border: `1px solid ${hovered ? C.primary : C.border}`,
-        borderRadius: 12,
-        padding: "10px 14px",
+        borderRadius: 10,
+        padding: "9px 12px",
         boxShadow: C.shadow,
         backgroundColor: C.white,
         textDecoration: "none",
@@ -123,6 +114,7 @@ function SourceCard({ source }) {
         overflow: "hidden",
         boxSizing: "border-box",
         transition: "border-color 0.15s ease",
+        minWidth: 0,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -132,50 +124,52 @@ function SourceCard({ source }) {
         src={imgSrc}
         alt={source.Title}
         style={{
-          width: 28,
-          height: 28,
-          maxWidth: 28,
+          width: 24,
+          height: 24,
+          maxWidth: 24,
           objectFit: "contain",
           flexShrink: 0,
         }}
-        onError={(e) => {
-          e.target.style.display = "none";
-        }}
+        onError={(e) => { e.target.style.display = "none"; }}
       />
 
-      {/* Name */}
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: C.titleText,
-          flex: 1,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          minWidth: 0,
-        }}
-      >
-        {source.Title}
-      </span>
-
-      {/* Support status badge */}
-      {source.support_status && (
-        <StatusBadge status={source.support_status} />
-      )}
+      {/* Name + badge stacked */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1 }}>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: C.titleText,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {source.Title}
+        </span>
+        {source.support_status && <StatusBadge status={source.support_status} />}
+      </div>
     </Link>
   );
 }
 
-// ─── Section header ───────────────────────────────────────────────────────────
+// ─── Section header (sticky below search bar) ─────────────────────────────────
 function SectionHeader({ label, count }) {
   return (
     <div
       style={{
+        position: "sticky",
+        // Stick below the sticky search bar
+        top: `calc(var(--ifm-navbar-height, 60px) + ${SEARCH_STRIP_HEIGHT}px)`,
+        zIndex: 9,
+        backgroundColor: C.white,
+        paddingTop: 10,
+        paddingBottom: 10,
+        borderBottom: `1px solid ${C.border}`,
         display: "flex",
         alignItems: "center",
         gap: 8,
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: 700,
         color: C.titleText,
       }}
@@ -189,11 +183,11 @@ function SectionHeader({ label, count }) {
           background: C.badgeBg,
           color: C.badgeText,
           borderRadius: 100,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: 500,
-          padding: "0 7px",
-          minWidth: 22,
-          height: 20,
+          padding: "0 6px",
+          minWidth: 20,
+          height: 18,
           lineHeight: 1,
         }}
       >
@@ -207,7 +201,6 @@ function SectionHeader({ label, count }) {
 export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
   const [searchText, setSearchText] = useState("");
 
-  // Filter by search text only (category filters removed — see TODO at top)
   const filtered = metadata.filter((source) => {
     if (!searchText) return true;
     const q = searchText.toLowerCase();
@@ -225,75 +218,44 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
     grouped[type].push(source);
   });
 
-  const orderedGroups = CATEGORY_ORDER.filter(
-    (t) => grouped[t]?.length > 0
-  ).map((t) => [
-    t,
-    [...grouped[t]].sort((a, b) => a.Title.localeCompare(b.Title)),
-  ]);
-
-  // Append any categories not in canonical list (future-proofing)
   const known = new Set(CATEGORY_ORDER);
-  Object.keys(grouped)
-    .filter((t) => !known.has(t))
-    .sort()
-    .forEach((t) =>
-      orderedGroups.push([
-        t,
-        [...grouped[t]].sort((a, b) => a.Title.localeCompare(b.Title)),
-      ])
-    );
+  const orderedGroups = [
+    ...CATEGORY_ORDER.filter((t) => grouped[t]?.length > 0).map((t) => [
+      t,
+      [...grouped[t]].sort((a, b) => a.Title.localeCompare(b.Title)),
+    ]),
+    ...Object.keys(grouped)
+      .filter((t) => !known.has(t))
+      .sort()
+      .map((t) => [t, [...grouped[t]].sort((a, b) => a.Title.localeCompare(b.Title))]),
+  ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      {/* ── Sticky header: title + description + search ── */}
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* Sticky search bar */}
       <div
         style={{
           position: "sticky",
           top: "var(--ifm-navbar-height, 60px)",
-          zIndex: 100,
+          zIndex: 10,
           backgroundColor: C.white,
           paddingBottom: 16,
-          borderBottom: `1px solid ${C.border}`,
-          marginBottom: -12,
+          marginBottom: 4,
         }}
       >
-        <h1
-          style={{
-            fontSize: 28,
-            fontWeight: 800,
-            color: C.titleText,
-            margin: "0 0 6px",
-          }}
-        >
-          Sources
-        </h1>
-        <p
-          style={{
-            fontSize: 14,
-            color: C.descText,
-            margin: "0 0 14px",
-            lineHeight: 1.5,
-          }}
-        >
-          Explore all the ways you can connect your data tools with DataHub.
-        </p>
-
-        {/* Search bar */}
-        <div style={{ position: "relative", maxWidth: 480 }}>
+        <div style={{ position: "relative", maxWidth: 460 }}>
           <span
             style={{
               position: "absolute",
-              left: 12,
+              left: 10,
               top: "50%",
               transform: "translateY(-50%)",
               color: C.placeholder,
               pointerEvents: "none",
               display: "flex",
-              alignItems: "center",
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
               <path
                 d="M14.386 14.386l4.088 4.088-4.088-4.088c-2.942 2.942-7.711 2.942-10.653 0-2.942-2.942-2.942-7.712 0-10.654 2.942-2.941 7.711-2.941 10.653 0 2.942 2.942 2.942 7.712 0 10.654z"
                 stroke="currentColor"
@@ -312,8 +274,8 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
             style={{
               width: "100%",
               height: 38,
-              paddingLeft: 34,
-              paddingRight: 14,
+              paddingLeft: 30,
+              paddingRight: 12,
               borderRadius: 8,
               border: `1px solid ${C.border}`,
               boxShadow: C.shadow,
@@ -322,7 +284,6 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
               outline: "none",
               boxSizing: "border-box",
               backgroundColor: C.white,
-              transition: "border-color 0.15s, box-shadow 0.15s",
             }}
             onFocus={(e) => {
               e.target.style.borderColor = C.primary;
@@ -336,19 +297,17 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
         </div>
       </div>
 
-      {/* ── Grouped card sections ── */}
+      {/* Grouped sections */}
       {orderedGroups.length > 0 ? (
         orderedGroups.map(([category, sources]) => (
-          <div
-            key={category}
-            style={{ display: "flex", flexDirection: "column", gap: 10 }}
-          >
+          <div key={category} style={{ marginBottom: 24 }}>
             <SectionHeader label={category} count={sources.length} />
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
                 gap: 6,
+                paddingTop: 10,
               }}
             >
               {sources.map((source) => (
