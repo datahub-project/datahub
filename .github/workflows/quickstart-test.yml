@@ -48,10 +48,26 @@ jobs:
       - name: Run quickstart
         run: |
           source metadata-ingestion/venv/bin/activate
-          # Use compose and version mapping files from PR
+          # Use compose and version mapping from PR; head image so system-update runs SqlSetup
           export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
-          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml --version head
           docker images
+
+      - name: Store logs
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-logs-${{ github.job }}
+          path: docker_logs/${{ github.job }}/
+          retention-days: 5
 
       - name: Run quickstart check
         run: |
@@ -137,6 +153,22 @@ jobs:
           echo "Running restore"
           echo "y" | datahub docker quickstart --restore
           datahub docker check
+
+      - name: Store logs
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-logs-${{ github.job }}
+          path: docker_logs/${{ github.job }}/
+          retention-days: 5
 
   test-quickstart-regression:
     name: Verify upgrades work with latest CLI

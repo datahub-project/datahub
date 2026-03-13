@@ -28,7 +28,7 @@ The connector links Vertex AI resources to external datasets when referenced in 
 
 Use `platform_instance_map` to configure platform instances and environments for external platforms, ensuring URNs match those from native connectors for proper lineage connectivity.
 
-##### ML Metadata Lineage
+#### ML Metadata Lineage
 
 The connector extracts lineage and metrics from CustomJob training jobs using the **Vertex AI ML Metadata API**. This enables:
 
@@ -69,7 +69,7 @@ with aiplatform.start_execution(
     execution.assign_output_artifacts([model_artifact])
 ```
 
-##### Cross-Platform Lineage Configuration
+#### Cross-Platform Lineage Configuration
 
 To ensure external datasets are linked with the correct platform instances and environments (so URNs match those from native connectors), configure `platform_instance_map`:
 

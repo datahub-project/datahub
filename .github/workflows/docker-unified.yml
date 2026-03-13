@@ -76,9 +76,6 @@ jobs:
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       backend_only: ${{ steps.ci-optimize.outputs.backend-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
-      mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
-      postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
-      elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
       java_client_change: ${{ steps.ci-optimize.outputs.java-client-change == 'true' || github.event_name != 'pull_request' }}
       integrations_service_change: "false"
@@ -923,7 +920,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint, smoke_test, publish_images]
+    needs: [setup, smoke_test, publish_images]
     steps:
       - uses: aws-actions/configure-aws-credentials@v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
