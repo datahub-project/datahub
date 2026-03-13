@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ViewHeader } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
 import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
@@ -13,7 +12,7 @@ import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const InfoSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
 `;
 
@@ -36,7 +35,7 @@ const FormattingSelector = styled.div``;
  */
 const QueryText = styled(Typography.Paragraph)`
     margin-top: 20px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     span {
         font-family: 'Roboto Mono', monospace !important;
     }
@@ -75,6 +74,7 @@ export default function ViewDefinitionTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const logic = baseEntity?.dataset?.viewProperties?.logic || 'UNKNOWN';
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
 
     const materialized = (baseEntity?.dataset?.viewProperties?.materialized && true) || false;
     const language = baseEntity?.dataset?.viewProperties?.language || 'UNKNOWN';
@@ -97,22 +97,31 @@ export default function ViewDefinitionTab() {
                     </InfoItem>
                 </InfoItemContainer>
             </InfoSection>
-            <InfoSection>
-                <Typography.Title level={5}>Logic</Typography.Title>
-                <ViewHeader>
-                    {canShowFormatted && (
-                        <ViewTab
-                            formatOptions={formatOptions}
-                            setShowFormatted={setShowFormatted}
-                            showFormatted={showFormatted}
-                        />
-                    )}
-                    <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
-                </ViewHeader>
-                <QueryText>
-                    <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
-                </QueryText>
-            </InfoSection>
+            {canViewQueries ? (
+                <InfoSection>
+                    <Typography.Title level={5}>Logic</Typography.Title>
+                    <ViewHeader>
+                        {canShowFormatted && (
+                            <ViewTab
+                                formatOptions={formatOptions}
+                                setShowFormatted={setShowFormatted}
+                                showFormatted={showFormatted}
+                            />
+                        )}
+                        <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
+                    </ViewHeader>
+                    <QueryText>
+                        <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
+                    </QueryText>
+                </InfoSection>
+            ) : (
+                <InfoSection>
+                    <Typography.Title level={5}>Logic</Typography.Title>
+                    <Typography.Text type="secondary">
+                        You don&apos;t have permission to view the SQL logic for this view.
+                    </Typography.Text>
+                </InfoSection>
+            )}
         </>
     );
 }
