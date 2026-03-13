@@ -77,6 +77,24 @@ To remove an asset from a Data Product, click the 'x' icon on the Data Product l
 > Notice: Adding or removing an asset from a Data Product requires the `Edit Data Product` Metadata Privilege, which can be granted
 > by a [Policy](authorization/policies.md).
 
+#### Multiple Data Products per Asset
+
+By default, an asset can only be associated with a single Data Product at a time. However, you can enable support for associating an asset with multiple Data Products simultaneously by setting the `MULTIPLE_DATA_PRODUCTS_PER_ASSET` environment variable to `true` in your GMS configuration.
+
+When this feature is enabled:
+
+- Assets can belong to multiple Data Products at once, providing flexibility for different organizational perspectives
+- The UI will allow you to add an asset to multiple Data Products without removing it from existing ones
+- You can view all Data Products an asset belongs to from the asset's profile page
+
+To enable this feature, set the following environment variable:
+
+```bash
+MULTIPLE_DATA_PRODUCTS_PER_ASSET=true
+```
+
+See the [Environment Variables](deploy/environment-vars.md#feature-flags) documentation for more details on configuring feature flags.
+
 ### Creating a Data Product (YAML + git)
 
 DataHub ships with a YAML-based Data Product spec for defining and managing Data Products as code.

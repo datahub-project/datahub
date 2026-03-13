@@ -145,7 +145,19 @@ Data Products create a `DataProductContains` relationship with their assets. Thi
 - From the Data Product, you can see all contained assets
 - From any asset, you can see which Data Product(s) it belongs to
 
-An asset can belong to multiple Data Products, allowing for flexible organization schemes (e.g., an asset could be part of both a "Customer 360" product and a "Marketing Analytics" product).
+#### Single vs. Multiple Data Products per Asset
+
+**By default**, an asset can only be associated with a single Data Product at any given time. When you assign an asset to a new Data Product, it is automatically removed from any previously associated Data Product.
+
+**With the `MULTIPLE_DATA_PRODUCTS_PER_ASSET` feature flag enabled**, an asset can belong to multiple Data Products simultaneously, allowing for flexible organization schemes. For example, an asset could be part of both a "Customer 360" product and a "Marketing Analytics" product at the same time.
+
+To enable multiple Data Products per asset, set the following environment variable in your GMS configuration:
+
+```bash
+MULTIPLE_DATA_PRODUCTS_PER_ASSET=true
+```
+
+This allows for different organizational perspectives where the same data asset serves multiple purposes across different domains or use cases.
 
 ### Authorization and Access Control
 
@@ -206,4 +218,8 @@ This allows for a hybrid model where business users can manage Data Products thr
 
 ### Multi-Asset Membership
 
-Unlike some organizational constructs in other systems, an asset in DataHub can belong to multiple Data Products simultaneously. This flexibility supports different organizational perspectives - for example, a dataset might be part of a domain-specific product while also being included in a cross-functional analytics product.
+**Default behavior**: An asset can only belong to a single Data Product at a time. When you assign an asset to a new Data Product, it is automatically removed from its previous Data Product association.
+
+**With feature flag enabled**: When the `MULTIPLE_DATA_PRODUCTS_PER_ASSET` environment variable is set to `true`, an asset can belong to multiple Data Products simultaneously. This flexibility supports different organizational perspectives - for example, a dataset might be part of a domain-specific product while also being included in a cross-functional analytics product.
+
+See the "Relationship to Assets" section above for more details on configuring this behavior.
