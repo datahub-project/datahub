@@ -1,6 +1,9 @@
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Button, Divider, Space, Tag, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { useUserContext } from '@app/context/useUserContext';
 import EntityGroups from '@app/entity/shared/EntityGroups';
@@ -23,7 +26,6 @@ import {
 import UserEditProfileModal from '@app/entity/user/UserEditProfileModal';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { getCountryName } from '@src/app/shared/sidebar/components';
 
 import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
@@ -54,8 +56,6 @@ type Props = {
     sideBarData: SideBarData;
     refetch: () => void;
 };
-
-const AVATAR_STYLE = { marginTop: '14px' };
 
 /**
  * UserInfoSideBar- Sidebar section for users profiles.
@@ -143,7 +143,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
         <>
             <SideBar>
                 <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
-                    <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
+                    <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="xxl" />
                     <Name>{name || <EmptyValue />}</Name>
                     <UserDetails>{username || <EmptyValue />}</UserDetails>
                     {role && <TitleRole>{role}</TitleRole>}

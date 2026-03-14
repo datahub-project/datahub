@@ -1,12 +1,14 @@
-import { Tooltip } from '@components';
+import { Avatar, Tooltip } from '@components';
 import { Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+
 import DomainItemMenu from '@app/domainV2/DomainItemMenu';
-import AvatarsGroup from '@app/shared/avatar/AvatarsGroup';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Maybe, Ownership } from '@types';
 
@@ -52,7 +54,7 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
 }
 
 export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
 
     if (!ownership) {
         return null;
@@ -62,9 +64,33 @@ export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
     if (!owners || owners.length === 0) {
         return null;
     }
+
+    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
+    const ownerAvatars = owners.map((o) => ({
+        name: entityRegistry.getDisplayName(o.owner.type, o.owner),
+        imageUrl: (o.owner as any).editableProperties?.pictureLink,
+        type: mapEntityTypeToAvatarType(o.owner.type),
+        urn: o.owner.urn,
+    }));
+
     return (
         <AvatarGroupWrapper>
-            <AvatarsGroup size={24} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+            {singleOwner && (
+                <Link
+                    to={entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <Avatar
+                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                        imageUrl={(singleOwner as any).editableProperties?.pictureLink}
+                        showInPill
+                        type={mapEntityTypeToAvatarType(singleOwner.type)}
+                    />
+                </Link>
+            )}
+            {owners.length > 1 && (
+                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
+            )}
         </AvatarGroupWrapper>
     );
 }

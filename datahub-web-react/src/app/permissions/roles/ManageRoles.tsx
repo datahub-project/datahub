@@ -1,16 +1,15 @@
 import { Button, Tooltip } from '@components';
-import { Avatar, Empty, Pagination, Typography, message } from 'antd';
+import { Empty, Pagination, Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { EntityCapabilityType } from '@app/entity/Entity';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
@@ -61,6 +60,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 // TODO: Cleanup the styling.
 export const ManageRoles = () => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -158,7 +158,7 @@ export const ManageRoles = () => {
                     <>
                         <RoleName
                             onClick={() => onViewRole(record.role)}
-                            style={{ color: record?.editable ? '#000000' : ANTD_GRAY[8] }}
+                            style={{ color: record?.editable ? theme.colors.text : theme.colors.textDisabled }}
                         >
                             {record?.name}
                         </RoleName>
@@ -181,25 +181,12 @@ export const ManageRoles = () => {
                 return (
                     <>
                         {(!!numberOfUsers && (
-                            <>
-                                <AvatarsGroup
-                                    users={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
-                                        .slice(0, 5)}
-                                    groups={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
-                                        .slice(0, 5)}
-                                    entityRegistry={entityRegistry}
-                                    maxCount={5}
-                                    size={28}
-                                />
-                                {numberOfUsers > 5 && (
-                                    // Keeping the color same as the avatar component indicator
-                                    <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
-                                        +{numberOfUsers - 5}
-                                    </Avatar>
-                                )}
-                            </>
+                            <AvatarsGroup
+                                users={record?.users?.filter((u) => u.urn?.startsWith('urn:li:corpuser')).slice(0, 5)}
+                                groups={record?.users?.filter((u) => u.urn?.startsWith('urn:li:corpGroup')).slice(0, 5)}
+                                entityRegistry={entityRegistry}
+                                maxCount={5}
+                            />
                         )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
                     </>
                 );
