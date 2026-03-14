@@ -1,0 +1,29 @@
+{
+  "name": "@datahub/playwright-e2e-tests",
+  "version": "1.0.0",
+  "description": "Playwright E2E tests for DataHub",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:auth": "playwright test tests/auth/",
+    "test:search": "playwright test tests/search/",
+    "test:entities": "playwright test tests/entities/",
+    "test:business-attributes": "playwright test tests/business-attributes/",
+    "show-report": "playwright show-report",
+    "codegen": "playwright codegen http://localhost:9002"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
