@@ -27,6 +27,8 @@ public enum ChangeCategory {
 
   BUSINESS_ATTRIBUTE,
   // Parent relationship changes (for hierarchical entities like documents)
+  // Add or remove a structured property value on an entity
+  STRUCTURED_PROPERTY,
   PARENT,
   // Related entities changes (Currently used for document related assets, related documents, etc.)
   RELATED_ENTITIES;
