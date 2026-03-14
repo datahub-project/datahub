@@ -31,6 +31,15 @@ const headingStyles = {
     },
 };
 
+const semanticHeadingColors: Record<string, 'text'> = {
+    H1: 'text',
+    H2: 'text',
+    H3: 'text',
+    H4: 'text',
+    H5: 'text',
+    H6: 'text',
+};
+
 // Default styles
 const baseStyles = {
     fontFamily: typography.fonts.heading,
@@ -48,10 +57,15 @@ const baseStyles = {
 };
 
 // Prop Driven Styles
-const propStyles = (props: HeadingStyleProps, isText = false) => {
+const propStyles = (props: HeadingStyleProps & { theme?: any }, isText = false, headingLevel?: string) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
-    if (props.color) styles.color = getColor(props.color, props.colorLevel);
+    if (props.color && props.color !== 'inherit') {
+        styles.color = getColor(props.color, props.colorLevel);
+    } else if (headingLevel && props.theme?.colors) {
+        const tokenKey = semanticHeadingColors[headingLevel];
+        styles.color = props.theme.colors[tokenKey];
+    }
     if (props.weight) styles.fontWeight = typography.fontWeights[props.weight];
     if (isText) styles.lineHeight = typography.lineHeights[props.size];
     return styles;
@@ -62,9 +76,12 @@ const headings = {} as any;
 
 ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].forEach((heading) => {
     const component = styled[heading.toLowerCase()];
-    headings[heading] = component({ ...baseStyles, ...headingStyles[heading] }, (props: HeadingStyleProps) => ({
-        ...propStyles(props),
-    }));
+    headings[heading] = component(
+        { ...baseStyles, ...headingStyles[heading] },
+        (props: HeadingStyleProps & { theme?: any }) => ({
+            ...propStyles(props, false, heading),
+        }),
+    );
 });
 
 export const { H1, H2, H3, H4, H5, H6 } = headings;
