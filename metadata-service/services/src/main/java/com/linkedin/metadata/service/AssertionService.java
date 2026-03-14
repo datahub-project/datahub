@@ -156,6 +156,18 @@ public class AssertionService extends BaseService {
       @Nonnull Urn asserteeUrn,
       @Nonnull Long timestampMillis,
       @Nonnull AssertionResult assertionResult) {
+    // Validate that the assertion still exists and is associated with an entity
+    // This prevents recreating deleted assertions as phantom entities when background
+    // evaluators (e.g., cron schedulers) attempt to write run events
+    final Urn validatedAsserteeUrn = getEntityUrnForAssertion(opContext, assertionUrn);
+    if (validatedAsserteeUrn == null) {
+      log.warn(
+          "Skipping assertion run event for assertion {} - assertion does not exist or is not associated with any entity. "
+              + "This may indicate the assertion was deleted but a background evaluator still attempted to run it.",
+          assertionUrn);
+      return;
+    }
+
     AssertionRunEvent assertionRunEvent = new AssertionRunEvent();
     assertionRunEvent.setTimestampMillis(timestampMillis);
     assertionRunEvent.setRunId(timestampMillis.toString());
