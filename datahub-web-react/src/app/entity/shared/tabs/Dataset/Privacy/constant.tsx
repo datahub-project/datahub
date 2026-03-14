@@ -3,7 +3,7 @@ export enum CompliancePropertyQualifiedName {
     LastCheckDate = 'compliance.last.check.date',
     LastStatus = 'compliance.last.status',
     NonComplyingRules = 'compliance.non_complying_rule',
-    RecordsClasses = 'compliance.record_class',
+    RecordsClass = 'compliance.records_class',
     RetentionColumn = 'compliance.retention.column',
     RetentionDays = 'compliance.retention.days',
     RetentionJira = 'compliance.retention.jira',

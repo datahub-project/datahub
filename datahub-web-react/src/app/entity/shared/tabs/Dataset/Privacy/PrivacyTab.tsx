@@ -6,6 +6,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 
 import { CompliancePropertyQualifiedName } from '@app/entity/shared/tabs/Dataset/Privacy/constant';
 import { Annotation } from '@app/entity/shared/tabs/Dataset/Privacy/pii/Annotation';
+import { RecordsClass } from '@app/entity/shared/tabs/Dataset/Privacy/recordsClass/RecordsClass';
 import { getStructuredList, getStructuredValue } from '@app/entity/shared/tabs/Dataset/Privacy/utils';
 
 const { Title, Text } = Typography;
@@ -28,7 +29,6 @@ export function PrivacyTab() {
     const lastCheckDate = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.LastCheckDate);
     const lastStatus = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.LastStatus);
     const nonComplyingRules = getStructuredList(structuredProps, CompliancePropertyQualifiedName.NonComplyingRules);
-    const recordsClasses = getStructuredList(structuredProps, CompliancePropertyQualifiedName.RecordsClasses);
     const retentionColumn = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.RetentionColumn);
     const retentionDays = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.RetentionDays);
     const retentionJira = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.RetentionJira);
@@ -86,19 +86,7 @@ export function PrivacyTab() {
                 </Panel>
 
                 <Panel header="Records Class" key="records-class">
-                    <Descriptions bordered column={1}>
-                        <Descriptions.Item label="Records Class">
-                            {recordsClasses.length > 0 ? (
-                                recordsClasses.map((cls) => (
-                                    <Tag key={cls} color="blue">
-                                        {cls}
-                                    </Tag>
-                                ))
-                            ) : (
-                                <Text type="secondary">None</Text>
-                            )}
-                        </Descriptions.Item>
-                    </Descriptions>
+                    <RecordsClass />
                 </Panel>
 
                 <Panel header="Retention" key="retention">
