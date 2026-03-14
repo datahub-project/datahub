@@ -1,0 +1,49 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        id: lint_pr_title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            docs
+            test
+            perf
+            style
+            build
+            ci
+          requireScope: false
+      - if: always() && steps.lint_pr_title.outputs.error_message != null
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-title-check
+          message: |
+            ## PR Title Check Failed
+
+            Your PR title must follow the format: `<type>[optional scope]: <description>`
+
+            **Examples:**
+            - `feat(ingestion): add Snowflake v2 source`
+            - `fix: resolve crash on empty dashboard`
+
+            See the [Contributing Guide](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md#pr-title-format) for allowed types and format details.
+      - if: always() && steps.lint_pr_title.outputs.error_message == null
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-title-check
+          delete: true
