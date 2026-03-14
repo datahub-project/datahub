@@ -9,6 +9,9 @@ from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
+from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
+    VertexAIExperimentExtractor,
+)
 from datahub.ingestion.source.vertexai.vertexai_models import (
     ExperimentMetadata,
     VertexAIResourceCategoryKey,
@@ -99,7 +102,8 @@ def test_pipeline_task_with_none_timestamps(
     }
 
     with patch(
-        "google.cloud.aiplatform.PipelineJob.list", return_value=[mock_pipeline_job]
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        return_value=[mock_pipeline_job],
     ):
         mcps = list(source.pipeline_extractor.get_workunits())
         assert len(mcps) > 0, "Should generate MCPs for pipeline task"
@@ -130,9 +134,11 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
 
     mock_exp_run.get_executions.return_value = [mock_execution]
 
-    with patch("google.cloud.aiplatform.ExperimentRun.list") as mock_list:
-        mock_list.return_value = [mock_exp_run]
-
+    with patch.object(
+        source.experiment_extractor,
+        "_list_experiment_runs_rate_limited",
+        return_value=[mock_exp_run],
+    ):
         actual_mcps = list(source.experiment_extractor.get_experiment_run_workunits())
 
         run_mcps = [
@@ -242,3 +248,117 @@ def test_multi_region_urls() -> None:
     assert url_west != url_europe
     assert "us-west1" in url_west
     assert "europe-west4" in url_europe
+
+
+# ---------------------------------------------------------------------------
+# VertexAIExperimentExtractor
+# ---------------------------------------------------------------------------
+
+EXPERIMENT_PROJECT_ID = "test-project"
+EXPERIMENT_REGION = "us-central1"
+
+
+@pytest.fixture
+def experiment_extractor() -> VertexAIExperimentExtractor:
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="test"),
+        config=VertexAIConfig(
+            project_id=EXPERIMENT_PROJECT_ID, region=EXPERIMENT_REGION
+        ),
+    )
+    return source.experiment_extractor
+
+
+def test_metadata_store_parent_without_experiment(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.vertex_initializer"
+    ) as mock_init:
+        mock_init.global_config.common_location_path.return_value = (
+            "projects/test-project/locations/us-central1"
+        )
+        parent = experiment_extractor._metadata_store_parent()
+
+    assert (
+        parent == "projects/test-project/locations/us-central1/metadataStores/default"
+    )
+
+
+def test_metadata_store_parent_with_experiment_uses_its_location(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    mock_exp = MagicMock()
+    mock_exp._metadata_context.project = "exp-project"
+    mock_exp._metadata_context.location = "europe-west1"
+
+    parent = experiment_extractor._metadata_store_parent(mock_exp)
+
+    assert (
+        parent == "projects/exp-project/locations/europe-west1/metadataStores/default"
+    )
+
+
+def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    from google.cloud.aiplatform.metadata.experiment_resources import Experiment
+
+    regular_ctx = MagicMock()
+    tb_ctx = MagicMock()
+
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
+            return_value=[regular_ctx, tb_ctx],
+        ),
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.Experiment._is_tensorboard_experiment",
+            side_effect=lambda ctx: ctx is tb_ctx,
+        ),
+        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
+    ):
+        experiments = experiment_extractor._list_experiments_rate_limited()
+
+    assert len(experiments) == 1
+    assert isinstance(experiments[0], Experiment)
+    assert experiments[0]._metadata_context is regular_ctx
+
+
+def test_list_experiment_runs_combines_context_and_execution_nodes(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    """Both v2 (Context) and v1 (Execution) nodes produce ExperimentRun instances."""
+    from google.cloud.aiplatform.metadata.context import Context as MetadataContext
+    from google.cloud.aiplatform.metadata.execution import (
+        Execution as MetadataExecution,
+    )
+    from google.cloud.aiplatform.metadata.experiment_resources import Experiment
+
+    mock_exp = MagicMock(spec=Experiment)
+    mock_exp.resource_name = (
+        "projects/p/locations/l/metadataStores/default/contexts/exp-1"
+    )
+
+    ctx_node = MagicMock()
+    exec_node = MagicMock()
+
+    def gapic_list_side_effect(cls, *args, **kwargs):
+        if cls is MetadataContext:
+            return [ctx_node]
+        if cls is MetadataExecution:
+            return [exec_node]
+        return []
+
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
+            side_effect=gapic_list_side_effect,
+        ),
+        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
+        patch.object(ExperimentRun, "_initialize_experiment_run"),
+    ):
+        runs = experiment_extractor._list_experiment_runs_rate_limited(mock_exp)
+
+    assert len(runs) == 2
+    assert all(isinstance(r, ExperimentRun) for r in runs)

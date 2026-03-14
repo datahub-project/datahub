@@ -12,6 +12,13 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 
 
+def make_execution_pager(*executions: object) -> MagicMock:
+    """Build a mock gRPC pager that iterates directly over executions."""
+    pager = MagicMock()
+    pager.__iter__.return_value = iter(executions)
+    return pager
+
+
 class TestLineageMetadata:
     def test_merge(self):
         lineage1 = LineageMetadata(
@@ -190,7 +197,7 @@ class TestMLMetadataHelper:
         mock_job.display_name = "test-job"
         mock_job.name = "projects/123/jobs/456"
 
-        mock_metadata_client.list_executions.return_value = []
+        mock_metadata_client.list_executions.return_value = make_execution_pager()
 
         lineage = helper.get_job_lineage_metadata(mock_job)
 
@@ -225,7 +232,9 @@ class TestMLMetadataHelper:
         def mock_query_side_effect(request=None, **kwargs):
             return mock_response
 
-        mock_metadata_client.list_executions.return_value = [mock_execution]
+        mock_metadata_client.list_executions.return_value = make_execution_pager(
+            mock_execution
+        )
         mock_metadata_client.query_execution_inputs_and_outputs.side_effect = (
             mock_query_side_effect
         )
@@ -254,9 +263,9 @@ class TestMLMetadataHelper:
         def list_executions_side_effect(request=None, **kwargs):
             filter_str = getattr(request, "filter", "")
             if "display_name=" in filter_str:
-                return []
+                return make_execution_pager()
             # Schema-based bulk fetch
-            return [schema_execution]
+            return make_execution_pager(schema_execution)
 
         mock_metadata_client.list_executions.side_effect = list_executions_side_effect
 

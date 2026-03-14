@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -73,10 +73,9 @@ class VertexAIConfig(
         default=None, description="GCP credential information"
     )
     project_id: str = Field(description=("Project ID in Google Cloud Platform"))
-    region: str = Field(
-        description=(
-            "[deprecated] Single Vertex AI region. Prefer 'regions' or 'discover_regions'."
-        ),
+    region: Optional[str] = Field(
+        default=None,
+        description="[deprecated] Single Vertex AI region. Use 'regions' or 'discover_regions' instead.",
     )
     _deprecate_region = pydantic_field_deprecated("region")
 
@@ -164,9 +163,7 @@ class VertexAIConfig(
     ml_metadata_max_execution_search_limit: int = Field(
         default=MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS,
         description="Maximum number of ML Metadata executions to retrieve when searching for a training job. "
-        "Executions are ordered by LAST_UPDATE_TIME descending (most recently updated first), so if the limit is reached, "
-        "you'll get the most recently completed/updated executions. Prevents excessive API calls and timeouts. "
-        "Default: 500. The API will automatically paginate results (100 per page).",
+        "Ordered by LAST_UPDATE_TIME descending. Lower this if ingestion is slow or timing out.",
     )
     rate_limit: bool = Field(
         default=False,
@@ -174,10 +171,10 @@ class VertexAIConfig(
         "Enable if you see '429 Quota Exceeded' errors during ingestion.",
     )
     requests_per_min: int = Field(
-        default=60,
-        description="How many Vertex AI API calls to allow per minute when rate_limit is enabled. "
-        "Start low (30–60) and increase only if ingestion is too slow — some calls fetch multiple "
-        "pages of results internally, so the real quota usage is higher than this number suggests.",
+        default=600,
+        description="Max API requests per minute when rate_limit is enabled. "
+        "Matches Google's default quota of 600 requests/min/region. "
+        "Lower this if you share quota with other workloads.",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(
@@ -226,6 +223,14 @@ class VertexAIConfig(
         default=None,
         description="Stateful ingestion configuration for tracking and removing stale metadata.",
     )
+
+    @model_validator(mode="after")
+    def require_region_source(self) -> "VertexAIConfig":
+        if not self.region and not self.regions and not self.discover_regions:
+            raise ValueError(
+                "Must specify at least one of: 'region' (deprecated), 'regions', or 'discover_regions=true'."
+            )
+        return self
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
         if self.credential:

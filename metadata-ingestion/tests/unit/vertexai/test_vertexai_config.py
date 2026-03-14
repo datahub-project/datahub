@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.gcp_project_filter import GcpProject
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
@@ -103,6 +105,30 @@ def test_rate_limit_disabled_by_default() -> None:
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
     assert not isinstance(source._rate_limiter, RateLimiter)
+
+
+def test_region_validator_accepts_legacy_region() -> None:
+    config = VertexAIConfig.model_validate({"project_id": "p", "region": "us-central1"})
+    assert config.region == "us-central1"
+
+
+def test_region_validator_accepts_regions_list() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "p", "regions": ["us-central1", "europe-west1"]}
+    )
+    assert config.regions == ["us-central1", "europe-west1"]
+
+
+def test_region_validator_accepts_discover_regions() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "p", "discover_regions": True}
+    )
+    assert config.discover_regions is True
+
+
+def test_region_validator_rejects_no_region_source() -> None:
+    with pytest.raises(Exception, match="region"):
+        VertexAIConfig.model_validate({"project_id": "p"})
 
 
 def test_rate_limit_creates_shared_rate_limiter() -> None:
