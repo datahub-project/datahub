@@ -1,4 +1,6 @@
 import { Button } from '@components';
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Divider } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
@@ -26,7 +28,7 @@ const StyledEntitySidebarContainer = styled.div<{
     margin-bottom: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
     transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
@@ -34,9 +36,9 @@ const StyledEntitySidebarContainer = styled.div<{
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-    `}
+ margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
+ box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+ `}
 `;
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
@@ -88,7 +90,7 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
                     color="gray"
                     size="lg"
                     isCircle
-                    icon={{ icon: isClosed ? 'ArrowLineRight' : 'ArrowLineLeft', source: 'phosphor' }}
+                    icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
                     isActive={!isClosed}
                     onClick={() => setIsClosed(!isClosed)}
                 />

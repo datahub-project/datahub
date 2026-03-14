@@ -1,4 +1,5 @@
-import { BookOpen } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';
@@ -25,6 +26,7 @@ import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -56,7 +58,7 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bg};
     height: 100%;
     overflow: hidden;
     display: flex;

@@ -1,3 +1,5 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import React, { useState } from 'react';
 
 import { AvatarImage, AvatarImageWrapper, AvatarText, Container } from '@components/components/Avatar/components';
@@ -40,7 +42,7 @@ export const Avatar = ({
             )}
             {type === AvatarType.group && !imageUrl && (
                 <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
-                    <Icon icon="UsersThree" source="phosphor" variant="filled" size="lg" />
+                    <Icon icon={UsersThree} size="lg" />
                 </AvatarImageWrapper>
             )}
             {type === AvatarType.role && !imageUrl && (

@@ -1,6 +1,8 @@
 import '@app/homeV3/toast/notification-toast-styles.less';
 
 import { Icon, Text, colors } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { notification } from 'antd';
 import React from 'react';
 
@@ -28,10 +30,8 @@ export default function useShowToast() {
             ),
             placement: 'bottomRight',
             duration: 0,
-            icon: <Icon icon="Info" weight="fill" source="phosphor" color="blue" />,
-            closeIcon: (
-                <Icon icon="X" source="phosphor" color="blue" size="lg" data-testid="toast-notification-close-icon" />
-            ),
+            icon: <Icon icon={Info} weight="fill" color="blue" />,
+            closeIcon: <Icon icon={X} color="blue" size="lg" data-testid="toast-notification-close-icon" />,
             style: notificationStyles,
         });
     }
