@@ -26,10 +26,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -173,6 +175,7 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 }
 
 
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("DynamoDB", id="dynamodb")
 @config_class(DynamoDBConfig)
 @support_status(SupportStatus.INCUBATING)

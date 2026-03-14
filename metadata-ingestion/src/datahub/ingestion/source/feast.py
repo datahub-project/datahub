@@ -24,11 +24,13 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -125,6 +127,7 @@ class FeastRepositorySourceConfig(
     )
 
 
+@source_category(IngestionSourceCategory.ML_PLATFORMS)
 @platform_name("Feast")
 @config_class(FeastRepositorySourceConfig)
 @support_status(SupportStatus.CERTIFIED)

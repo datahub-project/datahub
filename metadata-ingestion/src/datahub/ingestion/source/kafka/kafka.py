@@ -24,10 +24,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
@@ -222,6 +224,7 @@ class KafkaConnectionTest:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
 
+@source_category(IngestionSourceCategory.ETL_ELT)
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

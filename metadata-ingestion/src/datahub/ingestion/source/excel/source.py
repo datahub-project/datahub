@@ -14,10 +14,12 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -131,6 +133,7 @@ class UriType(Enum):
     UNKNOWN = auto()
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Excel")
 @config_class(ExcelSourceConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -20,11 +20,13 @@ from datahub.configuration.source_common import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -475,6 +477,7 @@ class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_reports.append(view)
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)

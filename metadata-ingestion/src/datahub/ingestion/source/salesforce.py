@@ -25,11 +25,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -529,6 +531,7 @@ class SalesforceApi:
         return sobject_record_counts[0]
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
 @support_status(SupportStatus.CERTIFIED)

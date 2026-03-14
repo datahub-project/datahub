@@ -17,11 +17,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -111,6 +113,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
         return config_clean.remove_protocol(v)
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Vertica")
 @config_class(VerticaConfig)
 @support_status(SupportStatus.CERTIFIED)

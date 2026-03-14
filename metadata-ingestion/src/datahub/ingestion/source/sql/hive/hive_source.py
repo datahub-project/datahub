@@ -15,11 +15,13 @@ from datahub.configuration.common import HiddenFromDocs
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -154,6 +156,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         return config_clean.remove_protocol(v)
 
 
+@source_category(IngestionSourceCategory.QUERY_ENGINE)
 @platform_name("Hive")
 @config_class(HiveConfig)
 @support_status(SupportStatus.CERTIFIED)

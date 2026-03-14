@@ -21,11 +21,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -184,6 +186,7 @@ class TableData:
     content_type: Optional[str] = None
 
 
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

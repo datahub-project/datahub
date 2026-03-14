@@ -24,11 +24,14 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
+from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
+    # SourceCapability,; capability,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -117,6 +120,7 @@ class JsonSchemaCheckpointState(GenericCheckpointState):
         super().__init__(**data)
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name(platform_name="JSON Schemas", id="json-schema")
 @config_class(JsonSchemaSourceConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -18,11 +18,13 @@ from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -187,6 +189,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
             self.percentage_completion = f"{percentage_completion:.2f}%"
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("Metadata File")
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

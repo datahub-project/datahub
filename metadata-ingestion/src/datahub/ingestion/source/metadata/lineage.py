@@ -18,10 +18,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -135,6 +137,7 @@ class LineageConfig(VersionedConfig):
             raise ValueError("Only version 1 is supported")
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

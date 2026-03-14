@@ -11,10 +11,12 @@ from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
@@ -94,6 +96,7 @@ class CSVEnricherReport(SourceReport):
     num_domain_workunits_produced: int = 0
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
 @support_status(SupportStatus.INCUBATING)

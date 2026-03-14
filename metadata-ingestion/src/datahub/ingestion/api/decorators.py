@@ -75,6 +75,25 @@ class SupportStatus(Enum):
     """
 
 
+class IngestionSourceCategory(Enum):
+    """
+    Categorizes ingestion sources by platform type. Values match the frontend
+    Create Source flow categories exactly to ensure sidebar/UI parity.
+    """
+
+    DATA_WAREHOUSE = "Data Warehouse"
+    DATA_LAKE = "Data Lake"
+    BI_AND_ANALYTICS = "BI & Analytics"
+    DATABASE = "Database"
+    ETL_ELT = "ETL / ELT"
+    QUERY_ENGINE = "Query Engine"
+    ML_PLATFORMS = "ML Platforms"
+    ORCHESTRATION = "Orchestration"
+    CONTEXT_DOCUMENT_SOURCES = "Context Document Sources"
+    MISCELLANEOUS = "Miscellaneous"
+    DATAHUB_TOOLS = "DataHub Tools"
+
+
 def support_status(
     support_status: SupportStatus,
 ) -> Callable[[Type], Type]:
@@ -82,6 +101,18 @@ def support_status(
 
     def wrapper(cls: Type) -> Type:
         cls.get_support_status = lambda: support_status
+        return cls
+
+    return wrapper
+
+
+def source_category(
+    source_category: IngestionSourceCategory,
+) -> Callable[[Type], Type]:
+    """Adds a get_source_category method to the decorated class."""
+
+    def wrapper(cls: Type) -> Type:
+        cls.get_source_category = lambda: source_category
         return cls
 
     return wrapper
