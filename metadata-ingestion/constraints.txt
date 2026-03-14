@@ -1080,7 +1080,7 @@ proto-plus==1.27.1
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.8
+protobuf==5.29.6
     # via
     #   databricks-sdk
     #   feast
