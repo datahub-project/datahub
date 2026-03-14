@@ -124,10 +124,10 @@ datahub-gms:
     pullPolicy: "IfNotPresent"
   resources:
     requests:
-      memory: 512Mi
-      cpu: 200m
+      memory: 960Mi
+      cpu: 50m
     limits:
-      memory: 1536Mi
+      memory: 960Mi
   extraEnvs:
     - name: MAE_CONSUMER_ENABLED
       value: "true"
@@ -142,7 +142,7 @@ datahub-gms:
     - name: ES_BULK_REFRESH_POLICY
       value: "NONE"
     - name: JAVA_OPTS
-      value: "-Xms512m -Xmx512m"
+      value: "-Xms704m -Xmx704m"
     - name: DATAHUB_SYSTEM_CLIENT_ID
       value: "__datahub_system"
     - name: DATAHUB_SYSTEM_CLIENT_SECRET
@@ -159,10 +159,10 @@ datahub-frontend:
     pullPolicy: "IfNotPresent"
   resources:
     requests:
-      memory: 256Mi
-      cpu: 100m
+      memory: 384Mi
+      cpu: 75m
     limits:
-      memory: 768Mi
+      memory: 384Mi
   extraEnvs:
     - name: DATAHUB_SECRET
       value: "YouKnowNothing"
@@ -193,9 +193,9 @@ acryl-datahub-actions:
   resources:
     requests:
       memory: 128Mi
-      cpu: 50m
+      cpu: 25m
     limits:
-      memory: 384Mi
+      memory: 192Mi
   extraEnvs:
     - name: DATAHUB_SYSTEM_CLIENT_ID
       value: "__datahub_system"

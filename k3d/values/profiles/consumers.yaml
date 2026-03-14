@@ -2,5 +2,23 @@ global:
   datahub_standalone_consumers_enabled: true
 datahub-mae-consumer:
   enabled: true
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 50m
+    limits:
+      memory: 512Mi
+  extraEnvs:
+    - name: JAVA_OPTS
+      value: "-Xms384m -Xmx384m"
 datahub-mce-consumer:
   enabled: true
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 50m
+    limits:
+      memory: 512Mi
+  extraEnvs:
+    - name: JAVA_OPTS
+      value: "-Xms384m -Xmx384m"

@@ -1,0 +1,241 @@
+# k3d Resource Optimizer — Implementation Plan
+
+## Goal
+
+A script that finds the minimum memory + CPU required for each DataHub component
+(GMS, frontend, actions) to pass all smoke tests, using binary search with
+per-trial checkpointing so runs can be interrupted and resumed.
+
+## Script location
+
+`k3d/optimize-resources.py` — standalone Python script, no new dependencies
+beyond what's already in `k3d/pyproject.toml` (only stdlib + click).
+
+## Components and search bounds
+
+| Component | Dimension | Floor | Ceiling (current) | Step |
+|-----------|-----------|-------|-------------------|------|
+| GMS | memory limit | 512Mi | 1536Mi | 64Mi |
+| GMS | memory request | 256Mi | 512Mi | 64Mi |
+| GMS | JVM heap (-Xmx/-Xms) | 256m | 512m | 64m |
+| GMS | CPU request | 50m | 200m | 25m |
+| Frontend | memory limit | 256Mi | 768Mi | 64Mi |
+| Frontend | memory request | 128Mi | 256Mi | 64Mi |
+| Frontend | JVM heap | 128m | 256m | 64m |
+| Frontend | CPU request | 25m | 100m | 25m |
+| Actions | memory limit | 128Mi | 384Mi | 64Mi |
+| Actions | memory request | 64Mi | 128Mi | 64Mi |
+| Actions | CPU request | 10m | 50m | 10m |
+
+JVM heap is always kept ≤ 75% of the memory limit to leave room for off-heap.
+
+## Algorithm per dimension
+
+```
+low = floor
+high = current (known-good baseline)
+while high - low > step:
+    mid = round_to_step((low + high) / 2)
+    trial: deploy with mid, run smoke tests
+    if passed:
+        high = mid   # can go lower
+    else:
+        low = mid    # need more
+result = high        # last known-good
+```
+
+Components and dimensions are optimized one at a time, in order:
+GMS memory → GMS CPU → frontend memory → frontend CPU → actions memory → actions CPU.
+All other components stay at their current values during a component's search.
+
+## Checkpoint file
+
+`k3d/resource-optimization-state.json` — written after every trial.
+
+```jsonc
+{
+  "version": 1,
+  "started_at": "2026-03-13T...",
+  "worktree_name": "k3d-quickstart",
+  "namespace": "dh-k3d-quickstart",
+  "test_command": "venv/bin/pytest tests/domains/ tests/search/ ... -v --tb=short",
+  "pass_threshold": 1.0,   // fraction of tests that must pass (1.0 = all)
+
+  // What we're currently searching
+  "current_component": "gms",         // gms | frontend | actions
+  "current_dimension": "memory_limit", // memory_limit | memory_request | jvm_heap | cpu_request
+  "search_state": {
+    "low": 512,   // MiB or millicores
+    "high": 1536,
+    "step": 64,
+    "unit": "Mi"  // Mi | m
+  },
+
+  // All completed trials (append-only)
+  "trials": [
+    {
+      "id": 1,
+      "component": "gms",
+      "dimension": "memory_limit",
+      "value": "1024Mi",
+      "helm_overrides": {
+        "datahub-gms.resources.limits.memory": "1024Mi",
+        "datahub-gms.extraEnvs[0].value": "-Xms512m -Xmx512m"
+      },
+      "passed": true,
+      "duration_s": 312,
+      "failed_tests": [],
+      "timestamp": "2026-03-13T..."
+    }
+  ],
+
+  // Final result per component (null = not yet optimized)
+  "results": {
+    "gms":      {"memory_limit": null, "memory_request": null, "jvm_heap": null, "cpu_request": null},
+    "frontend": {"memory_limit": null, "memory_request": null, "jvm_heap": null, "cpu_request": null},
+    "actions":  {"memory_limit": null, "memory_request": null, "cpu_request": null}
+  }
+}
+```
+
+## Pass/fail criteria for a trial
+
+**Pass** — both:
+1. All pods reach `Ready` within 5 minutes of `helm upgrade`
+2. Pytest exits 0 (or pass fraction ≥ `pass_threshold`)
+
+**Fail** — any of:
+- Pod OOM-killed (exit code 137 in pod status)
+- Pod in `CrashLoopBackOff` with ≥ 3 restarts
+- `helm upgrade` / pod-wait times out (> 5 min)
+- Pytest pass fraction < `pass_threshold`
+
+After a fail, the script runs `kubectl rollout undo` to restore the previous
+deployment before proceeding, so the next trial starts from a clean state.
+
+## CLI interface
+
+```
+python k3d/optimize-resources.py [OPTIONS]
+
+Options:
+  --state-file PATH      Checkpoint file (default: k3d/resource-optimization-state.json)
+  --reset                Delete checkpoint and start fresh
+  --resume               Resume from checkpoint (default if file exists)
+  --tests TEXT           Pytest invocation (default: smoke-test/venv/bin/pytest smoke-test/tests/ -v --tb=line)
+  --pass-threshold FLOAT Fraction of tests that must pass 0.0–1.0 (default: 1.0)
+  --dry-run              Print what would be deployed, don't run
+  --namespace TEXT       Override k3d namespace (default: auto-detect from dh status -o json)
+  --component TEXT       Only optimize this component (gms|frontend|actions)
+```
+
+## Output files
+
+1. **`k3d/resource-optimization-state.json`** — checkpoint (updated per trial)
+2. **`k3d/values/optimized-resources.yaml`** — written on completion; Helm values
+   override file for use with `k3d/dh deploy -f k3d/values/optimized-resources.yaml`
+
+Example `optimized-resources.yaml`:
+```yaml
+# Generated by k3d/optimize-resources.py on 2026-03-13
+# Minimum resources validated against smoke-test suite
+datahub-gms:
+  resources:
+    requests:
+      memory: 384Mi
+      cpu: 100m
+    limits:
+      memory: 768Mi
+  extraEnvs:
+    - name: JAVA_OPTS
+      value: "-Xms384m -Xmx384m ..."
+datahub-frontend:
+  resources:
+    ...
+acryl-datahub-actions:
+  resources:
+    ...
+```
+
+## Implementation steps
+
+### Step 1 — Scaffold CLI and checkpoint helpers
+
+- `k3d/optimize-resources.py` as a Click script
+- `load_state(path)` / `save_state(path, state)` — read/write JSON atomically
+  (write to `.tmp` then rename)
+- `init_state(opts)` — create a fresh checkpoint from CLI options
+- `resume_state(path)` — load existing checkpoint, validate it, print summary
+
+### Step 2 — Deploy helper
+
+`deploy_trial(trial, namespace, release_name)`:
+- Build `--set` overrides from `trial.helm_overrides`
+- Run: `helm upgrade <release> datahub/datahub -n <ns> --reuse-values --set ...`
+- Wait for pods: poll `kubectl get pods -n <ns>` until all Ready or timeout/OOM
+
+`check_pods_healthy(ns, timeout=300)` → `(ok: bool, reason: str)`:
+- OOM → `(False, "oom")`
+- CrashLoopBackOff ≥ 3 restarts → `(False, "crash")`
+- Timeout → `(False, "timeout")`
+- All Ready → `(True, "")`
+
+### Step 3 — Test runner helper
+
+`run_tests(test_command, pass_threshold)` → `(passed: bool, failed: list[str])`:
+- Run subprocess, capture output
+- Parse pytest summary line: `N failed, M passed`
+- Return `pass_fraction >= pass_threshold`
+
+### Step 4 — Binary search loop
+
+`optimize_dimension(state, component, dimension)`:
+- Read `low`/`high`/`step` from `state.search_state`
+- Loop: compute `mid`, call `deploy_trial` + `run_tests`, append trial, save state
+- On completion: write `state.results[component][dimension] = high`, advance to next
+
+`main()`:
+- Load or init state
+- Iterate over `(component, dimension)` pairs in order
+- Skip pairs already in `state.results` (resume logic)
+- After all pairs done: write `optimized-resources.yaml`, print summary table
+
+### Step 5 — Output and summary
+
+Print a markdown table on completion:
+
+```
+Component  Dimension       Before   After    Saved
+─────────────────────────────────────────────────
+GMS        memory_limit    1536Mi   768Mi    768Mi
+GMS        memory_request  512Mi    384Mi    128Mi
+GMS        jvm_heap        512m     384m     128m
+GMS        cpu_request     200m     100m     100m
+...
+Total memory saved: ~2.1Gi
+Total CPU saved: ~250m
+```
+
+## File structure
+
+```
+k3d/
+  optimize-resources.py         # new
+  resource-optimization-state.json  # generated (gitignored)
+  values/
+    optimized-resources.yaml    # generated on completion (gitignored)
+```
+
+Add both generated files to `.gitignore` (or `k3d/.gitignore`).
+
+## Notes / gotchas
+
+- `helm upgrade --reuse-values` preserves all other values not being overridden.
+  For JVM heap changes, the `JAVA_OPTS` env var must be overridden as a whole
+  string (it can't be set with `--set` for array elements easily) — use a
+  temp values file instead for that dimension.
+- After each failed trial, run `helm upgrade --reuse-values` with the previously
+  known-good values to restore health before continuing.
+- The smoke test must be run from `smoke-test/` directory with `USE_STATIC_SLEEP=true`.
+- `pass_threshold < 1.0` is useful for ignoring the Kafka tracking test and
+  401-vs-403 token tests that are known to fail on k3d regardless of resources.
