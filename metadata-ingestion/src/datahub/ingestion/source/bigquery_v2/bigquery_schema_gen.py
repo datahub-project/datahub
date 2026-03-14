@@ -501,6 +501,16 @@ class BigQuerySchemaGenerator:
                 ):
                     yield wu
             except Exception as e:
+
+                # Check if this is a schema-related error that we can handle gracefully
+                error_str = str(e).lower()
+                is_schema_error = (
+                    "does not have a schema" in error_str
+                    or "table not found" in error_str
+                    or "dataset not found" in error_str
+                    or "invalid table name" in error_str
+                )
+
                 # If configuration indicates we need table data access (for profiling or use_tables_list_query_v2),
                 # include bigquery.tables.getData in the error message since that's likely the missing permission
                 if self.config.have_table_data_read_permission:
@@ -514,6 +524,36 @@ class BigQuerySchemaGenerator:
                     context=f"{project_id}.{bigquery_dataset.name}",
                     exc=e,
                 )
+
+                if is_schema_error and self.config.skip_schema_errors:
+                    # For schema-related errors, issue a warning and continue processing other datasets
+                    self.report.warning(
+                        title="Dataset schema unavailable",
+                        message="Dataset schema could not be retrieved, but continuing with ingestion of other datasets",
+                        context=f"{project_id}.{bigquery_dataset.name}",
+                        exc=e,
+                    )
+                elif is_schema_error and not self.config.skip_schema_errors:
+                    # For schema-related errors when continue_on_schema_errors is False, treat as failure
+                    self.report.failure(
+                        title="Dataset schema unavailable",
+                        message="Dataset schema could not be retrieved and skip_schema_errors is False",
+                        context=f"{project_id}.{bigquery_dataset.name}",
+                        exc=e,
+                    )
+                else:
+                    # For other errors, use the original failure handling
+                    if self.config.is_profiling_enabled():
+                        action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                    else:
+                        action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+
+                    self.report.failure(
+                        title="Unable to get tables for dataset",
+                        message=action_mesage,
+                        context=f"{project_id}.{bigquery_dataset.name}",
+                        exc=e,
+                    )
 
         for wu in ThreadedIteratorExecutor.process(
             worker_func=_process_schema_worker,
@@ -596,6 +636,7 @@ class BigQuerySchemaGenerator:
                 extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
                 report=self.report,
                 rate_limiter=rate_limiter,
+                skip_schema_errors=self.config.skip_schema_errors,
             )
             if (
                 self.config.include_table_constraints
