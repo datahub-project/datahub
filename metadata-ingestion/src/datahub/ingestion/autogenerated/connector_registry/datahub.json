@@ -2450,6 +2450,62 @@
       "platform_name": "Okta",
       "support_status": "CERTIFIED"
     },
+    "omni": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Field-level lineage when include_column_lineage=true",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Document owner extracted from Omni API",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Supported via connection_to_platform_instance config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Dimensions and measures extracted as schema columns",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Dashboard \u2192 Tile \u2192 Topic \u2192 View \u2192 DB Table",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.omni.omni.OmniSource",
+      "platform_id": "omni",
+      "platform_name": "Omni",
+      "support_status": "INCUBATING"
+    },
     "openapi": {
       "capabilities": [
         {
