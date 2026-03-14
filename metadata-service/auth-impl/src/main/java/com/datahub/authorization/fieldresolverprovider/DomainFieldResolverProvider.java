@@ -102,6 +102,26 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
   private FieldResolver.FieldValue getDomains(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
 
+    // Check for proposed domains aspect first (used during authorization of domain changes)
+    if (entitySpec.getProposedAspects() != null
+        && entitySpec.getProposedAspects().containsKey(DOMAINS_ASPECT_NAME)) {
+      try {
+        Domains proposedDomains =
+            (Domains) entitySpec.getProposedAspects().get(DOMAINS_ASPECT_NAME);
+        final Set<Urn> initialDomains = new HashSet<>(proposedDomains.getDomains());
+        final Set<Urn> domainsWithParents = resolveDomainsWithParents(opContext, initialDomains);
+        return FieldResolver.FieldValue.builder()
+            .values(domainsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
+            .build();
+      } catch (Exception e) {
+        log.error(
+            "Error while processing proposed domains aspect for entitySpec {}", entitySpec, e);
+        // Fail closed: throw rather than returning empty, which could allow a permissive
+        // non-domain policy to grant access when proposed-domain auth should have blocked it.
+        throw new RuntimeException("Failed to process proposed domains for authorization", e);
+      }
+    }
+
     try {
       if (entitySpec.getEntity().isEmpty()) {
         return FieldResolver.emptyFieldValue();

@@ -239,6 +239,44 @@ public class OperationContext implements AuthorizationSession {
   @Builder.Default @Nonnull
   private final List<Object> pendingDeletions = new java.util.ArrayList<>();
 
+  /** Override Lombok-generated getter to inject authorization session into RetrieverContext */
+  public RetrieverContext getRetrieverContext() {
+    // If the retrieverContext already has a session, return it as-is
+    if (retrieverContext.getAuthorizationSession() != null) {
+      return retrieverContext;
+    }
+
+    // Capture only the two fields needed for auth to avoid a circular back-reference to `this`.
+    // Behavior is identical: OperationContext.authorize() delegates to exactly these two.
+    final AuthorizationContext capturedAuthCtx = this.authorizationContext;
+    final ActorContext capturedActorCtx = this.sessionActorContext;
+    return io.datahubproject.metadata.context.RetrieverContext.builder()
+        .graphRetriever(retrieverContext.getGraphRetriever())
+        .aspectRetriever(retrieverContext.getAspectRetriever())
+        .cachingAspectRetriever(retrieverContext.getCachingAspectRetriever())
+        .searchRetriever(retrieverContext.getSearchRetriever())
+        .authorizationSession(
+            new com.datahub.authorization.AuthorizationSession() {
+              @Override
+              public com.datahub.authorization.AuthorizationResult authorize(
+                  @javax.annotation.Nonnull String privilege,
+                  @javax.annotation.Nullable com.datahub.authorization.EntitySpec resourceSpec) {
+                return capturedAuthCtx.authorize(capturedActorCtx, privilege, resourceSpec);
+              }
+
+              @Override
+              public com.datahub.authorization.AuthorizationResult authorize(
+                  @javax.annotation.Nonnull String privilege,
+                  @javax.annotation.Nullable com.datahub.authorization.EntitySpec resourceSpec,
+                  @javax.annotation.Nonnull
+                      java.util.Collection<com.datahub.authorization.EntitySpec> subResources) {
+                return capturedAuthCtx.authorize(
+                    capturedActorCtx, privilege, resourceSpec, subResources);
+              }
+            })
+        .build();
+  }
+
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
     return OperationContext.withSearchFlags(this, flagDefaults);

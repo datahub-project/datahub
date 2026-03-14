@@ -58,5 +58,6 @@ public class FeatureFlags {
   private boolean multipleDataProductsPerAsset = false;
   private boolean hideLineageInSearchCards = false;
   private boolean contextDocumentsEnabled = false;
+  private boolean domainBasedAuthorizationEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
 }

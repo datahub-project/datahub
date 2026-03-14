@@ -127,7 +127,8 @@ public class BootstrapManagerFactory {
                 ingestEntityTypesStep,
                 restoreFormInfoIndicesStep));
 
-    if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
+    if (_configurationProvider.getFeatureFlags() != null
+        && _configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
       finalSteps.add(migrateHomePageLinksStep);
     }
 
