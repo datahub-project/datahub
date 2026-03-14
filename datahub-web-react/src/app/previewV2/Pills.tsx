@@ -2,7 +2,7 @@ import { LayoutOutlined } from '@ant-design/icons';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
 import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { Cylinder, BookmarkSimple } from '@phosphor-icons/react';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -12,8 +12,9 @@ import SearchPill from '@app/previewV2/SearchPill';
 import { entityHasCapability, getHighlightedTag } from '@app/previewV2/utils';
 import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
 import MatchesContext, { PreviewSection } from '@app/shared/MatchesContext';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
-import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '@types';
+import { EntityPath, EntityType, FabricType, GlobalTags, GlossaryTerms, LineageDirection, Maybe, Owner } from '@types';
 
 const PillsContainer = styled.div`
     gap: 5px;
@@ -24,6 +25,7 @@ const PillsContainer = styled.div`
 `;
 
 interface Props {
+    origin?: Maybe<FabricType>;
     glossaryTerms?: GlossaryTerms;
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
@@ -32,11 +34,13 @@ interface Props {
     entityType: EntityType;
 }
 
-const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityType }: Props) => {
+const Pills = ({ origin, glossaryTerms, tags, owners, entityCapabilities, paths, entityType }: Props) => {
     const { lineageDirection, isColumnLevelLineage, selectedColumn } = useContext(LineageTabContext);
     const lineageDirectionText = lineageDirection === LineageDirection.Downstream ? 'downstream' : 'upstream';
     const { setExpandedSection, expandedSection } = useContext(MatchesContext);
     const groupedMatches = useMatchedFieldsForList('fieldLabels');
+    const parsedOrigin = origin ? capitalizeFirstLetterOnly(origin.toLowerCase()) : undefined;
+    const showOriginBadge = !!parsedOrigin;
     const showGlossaryTermsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.GLOSSARY_TERMS);
     const showTagsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.TAGS);
     const showOwnersBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.OWNERS);
@@ -51,6 +55,15 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
 
     return (
         <PillsContainer>
+            {showOriginBadge && (
+                <SearchPill
+                    icon={<Cylinder />}
+                    label={parsedOrigin}
+                    enabled
+                    count={undefined}
+                    countLabel=""
+                />
+            )}
             {showGlossaryTermsBadge && glossaryTerms && (
                 <SearchPill
                     icon={<BookmarkSimple />}

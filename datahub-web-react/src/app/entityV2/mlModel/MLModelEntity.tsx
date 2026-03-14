@@ -77,6 +77,7 @@ export class MLModelEntity implements Entity<MlModel> {
         return {
             // eslint-disable-next-line @typescript-eslint/dot-notation
             name: mlModel && this.displayName(mlModel),
+            origin: mlModel?.origin,
             externalUrl: mlModel?.properties?.externalUrl,
         };
     };

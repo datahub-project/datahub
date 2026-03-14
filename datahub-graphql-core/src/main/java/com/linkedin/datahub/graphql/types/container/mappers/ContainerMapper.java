@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -200,7 +201,9 @@ public class ContainerMapper {
     if (gmsProperties.hasQualifiedName()) {
       propertiesResult.setQualifiedName(gmsProperties.getQualifiedName().toString());
     }
-
+    if (gmsProperties.hasEnv()) {
+      propertiesResult.setEnv(FabricType.valueOf(gmsProperties.getEnv().toString()));
+    }
     return propertiesResult;
   }
 

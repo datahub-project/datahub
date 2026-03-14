@@ -19,9 +19,11 @@ import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
+import { Pill } from '@components/components/Pills';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
+import { DataPlatform, DisplayProperties, Domain, EntityType, Post, FabricType } from '@types';
+
 
 export const TitleWrapper = styled.div`
     min-width: 0;
@@ -99,6 +101,7 @@ export type Props = {
     urn: string;
     entityType: EntityType;
     entityUrl: string;
+    origin?: FabricType;
     loading: boolean;
     entityData: GenericEntityProperties | null;
     refetch: () => void;
@@ -115,6 +118,7 @@ export const DefaultEntityHeader = ({
     urn,
     entityType,
     entityUrl,
+    origin,
     loading,
     entityData,
     refetch,
@@ -179,6 +183,15 @@ export const DefaultEntityHeader = ({
                                 <EntityDetailsContainer>
                                     <TitleRow>
                                         <EntityName isNameEditable={showEditName} />
+                                        {origin && (
+                                            <Pill
+                                                label={origin}
+                                                size="sm"
+                                                variant="outline"
+                                                color="gray"
+                                                style={{ marginLeft: 8 }}
+                                            />
+                                        )}
                                         {!!entityData?.notes?.total && (
                                             <NotesIcon
                                                 notes={entityData?.notes?.relationships?.map((r) => r.entity as Post)}
