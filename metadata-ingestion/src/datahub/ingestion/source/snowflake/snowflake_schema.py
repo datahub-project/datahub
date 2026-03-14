@@ -823,10 +823,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
 
             if result_set_size >= page_limit:
-                logger.info(
-                    f"Fetching next page of views for {db_name} - after {view_name}"
+                # Use schema.view_name as the cursor to resume correctly across schemas.
+                qualified_marker = f"{schema_name}.{view_name}"
+                logger.warning(
+                    "SHOW VIEWS pagination triggered for database %s (%d views fetched "
+                    "so far). Resuming after %s. If views are still missing, set "
+                    "fetch_views_from_information_schema: true in your recipe.",
+                    db_name,
+                    result_set_size,
+                    qualified_marker,
                 )
-                view_pagination_marker = view_name
+                view_pagination_marker = qualified_marker
 
         # Because this is in a cached function, this will only log once per database.
         view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
@@ -938,8 +945,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 SnowflakeQuery.get_views_for_database(db_name, view_filter),
             )
         except Exception as e:
-            logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
-            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
+            logger.warning(
+                "Failed to fetch views for database %s from information_schema "
+                "(falling back to per-schema queries): %s",
+                db_name,
+                e,
+            )
             return None
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -963,11 +974,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_views_for_schema_using_information_schema(
         self, *, schema_name: str, db_name: str, view_filter: str = ""
     ) -> List[SnowflakeView]:
-        cur = self.connection.query(
-            SnowflakeQuery.get_views_for_schema(
-                db_name=db_name, schema_name=schema_name, view_filter=view_filter
-            ),
-        )
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_views_for_schema(
+                    db_name=db_name, schema_name=schema_name, view_filter=view_filter
+                ),
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch views for schema {db_name}.{schema_name} from "
+                f"information_schema: {e}"
+            ) from e
 
         views: List[SnowflakeView] = []
         views_with_empty_definition: List[SnowflakeView] = []

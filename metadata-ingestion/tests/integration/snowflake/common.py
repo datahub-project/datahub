@@ -695,6 +695,7 @@ def default_query_results(  # noqa: C901
         ]
     elif query in [
         snowflake_query.SnowflakeQuery.show_external_tables(),
+        snowflake_query.SnowflakeQuery.show_external_tables(db_name="TEST_DB"),
         snowflake_query.SnowflakeQuery.copy_lineage_history(
             start_time_millis=1654473600000, end_time_millis=1654621200000
         ),
