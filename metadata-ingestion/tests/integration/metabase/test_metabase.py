@@ -381,7 +381,13 @@ def extended_json_response_map():
         "http://localhost:3000/api/card/4": "card_4_model.json",
         "http://localhost:3000/api/card/5": "card_5_nested.json",
         "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
+        "http://localhost:3000/api/card/7": "card_7_model_with_join.json",
         "http://localhost:3000/api/table/21": "table_21.json",
+        "http://localhost:3000/api/table/22": "table_22.json",
+        # Field endpoints needed by MBQL CLL/lineage extraction for card_6 and card_7
+        "http://localhost:3000/api/field/131": "field_131.json",
+        "http://localhost:3000/api/field/132": "field_132.json",
+        "http://localhost:3000/api/field/141": "field_141.json",
     }
 
 
@@ -475,6 +481,269 @@ def test_metabase_ingest_with_models_and_collections(
             or "SchemaMetadataClass" in content
             or "schemaMetadata" in content
         ), "Models should have schema metadata"
+
+
+@pytest.fixture
+def mbql_cll_response_map():
+    """Response map for MBQL CLL tests.
+
+    Uses card_model_6_only.json (single model card) so we only need endpoints
+    for card 6 and its dependencies rather than the full card list.
+    """
+    return {
+        "http://localhost:3000/api/session": "session.json",
+        "http://localhost:3000/api/user/current": "user.json",
+        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
+        "http://localhost:3000/api/collection/root/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/card": "card_model_6_only.json",
+        "http://localhost:3000/api/database/2": "postgres_database.json",
+        "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
+        "http://localhost:3000/api/table/21": "table_21.json",
+        "http://localhost:3000/api/field/131": "field_131.json",
+        "http://localhost:3000/api/field/132": "field_132.json",
+        "http://localhost:3000/api/user/1": "user.json",
+    }
+
+
+@freeze_time(FROZEN_TIME)
+def test_mbql_cll_model(
+    pytestconfig, tmp_path, mbql_cll_response_map, mock_datahub_graph
+):
+    """
+    Integration test: a query-builder model (card_6) should produce UpstreamLineageClass
+    with fineGrainedLineages entries mapping upstream ClickHouse/Postgres columns to
+    the model's output columns.
+
+    card_6 structure:
+      - source-table: 21 (film), breakout on field 131 (rating), aggregation COUNT(*) and AVG(field 132)
+      - result_metadata:
+          rating       → field_ref ["field", 131, null]      → direct ref to film.rating
+          film_count   → field_ref ["aggregation", 0]        → COUNT(*) fan-in
+          avg_rental_rate → field_ref ["aggregation", 1]     → AVG(film.rental_rate)
+    """
+    with (
+        patch(
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=MockResponse.build_mocked_requests_sucess(
+                mbql_cll_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.post",
+            side_effect=MockResponse.build_mocked_requests_session_post(
+                mbql_cll_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.delete",
+            side_effect=MockResponse.build_mocked_requests_session_delete(
+                mbql_cll_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline_config = {
+            "run_id": "mbql-cll-test",
+            "source": {
+                "type": "metabase",
+                "config": {
+                    "username": "xxxx",
+                    "password": "xxxx",
+                    "connect_uri": "http://localhost:3000/",
+                    "extract_models": True,
+                },
+            },
+            "pipeline_name": "test_mbql_cll",
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"{tmp_path}/mbql_cll_mces.json"},
+            },
+        }
+
+        pipeline = Pipeline.create(pipeline_config)
+        pipeline.run()
+
+        import json as json_module
+
+        with open(f"{tmp_path}/mbql_cll_mces.json") as f:
+            output = json_module.load(f)
+
+        # Find the UpstreamLineage aspect for model.6
+        upstream_aspects = [
+            item
+            for item in output
+            if item.get("entityUrn")
+            == "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)"
+            and "upstreamLineage" in item.get("aspectName", "")
+        ]
+        assert len(upstream_aspects) == 1, (
+            f"Expected exactly one upstreamLineage aspect for model.6, got {len(upstream_aspects)}"
+        )
+
+        lineage_json = upstream_aspects[0]["aspect"]["json"]
+
+        # Table-level lineage: film table should be upstream
+        film_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
+        )
+        upstream_datasets = [u["dataset"] for u in lineage_json.get("upstreams", [])]
+        assert film_urn in upstream_datasets, (
+            f"Expected film table in upstreams, got: {upstream_datasets}"
+        )
+
+        # Column-level lineage must be present
+        fine_grained = lineage_json.get("fineGrainedLineages", [])
+        assert len(fine_grained) > 0, (
+            "Expected fineGrainedLineages to be populated for MBQL model"
+        )
+
+        # Collect all downstream field URNs that appear in CLL entries
+        downstream_cols = {
+            d.split(",")[-1].rstrip(")")
+            for fg in fine_grained
+            for d in fg.get("downstreams", [])
+        }
+
+        # rating → direct field ref to film.rating
+        assert "rating" in downstream_cols, "Direct field ref (rating) should have CLL"
+
+        # avg_rental_rate → aggregation referencing film.rental_rate
+        assert "avg_rental_rate" in downstream_cols, (
+            "Aggregation with explicit field (avg_rental_rate) should have CLL"
+        )
+
+        # film_count → COUNT(*) fan-in; its upstream should include both resolved fields
+        count_fgl = next(
+            (
+                fg
+                for fg in fine_grained
+                if any("film_count" in d for d in fg.get("downstreams", []))
+            ),
+            None,
+        )
+        assert count_fgl is not None, "COUNT(*) column (film_count) should have CLL"
+        count_upstream_cols = {
+            u.split(",")[-1].rstrip(")") for u in count_fgl.get("upstreams", [])
+        }
+        # Both resolved upstream fields (rating=131, rental_rate=132) should be upstream inputs
+        assert (
+            "rating" in count_upstream_cols or "rental_rate" in count_upstream_cols
+        ), f"COUNT(*) should fan in upstream columns, got: {count_upstream_cols}"
+
+
+@freeze_time(FROZEN_TIME)
+def test_mbql_join_lineage(pytestconfig, tmp_path, mock_datahub_graph):
+    """
+    Integration test: a query-builder model with a join clause (card_7) should produce
+    lineage to BOTH the primary source table AND the joined table.
+    """
+    join_response_map = {
+        "http://localhost:3000/api/session": "session.json",
+        "http://localhost:3000/api/user/current": "user.json",
+        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
+        "http://localhost:3000/api/collection/root/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/card": "card_models_6_and_7.json",
+        "http://localhost:3000/api/database/2": "postgres_database.json",
+        "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
+        "http://localhost:3000/api/card/7": "card_7_model_with_join.json",
+        "http://localhost:3000/api/table/21": "table_21.json",
+        "http://localhost:3000/api/table/22": "table_22.json",
+        "http://localhost:3000/api/field/131": "field_131.json",
+        "http://localhost:3000/api/field/132": "field_132.json",
+        "http://localhost:3000/api/field/141": "field_141.json",
+        "http://localhost:3000/api/user/1": "user.json",
+    }
+
+    with (
+        patch(
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=MockResponse.build_mocked_requests_sucess(join_response_map),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.post",
+            side_effect=MockResponse.build_mocked_requests_session_post(
+                join_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.delete",
+            side_effect=MockResponse.build_mocked_requests_session_delete(
+                join_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline_config = {
+            "run_id": "mbql-join-test",
+            "source": {
+                "type": "metabase",
+                "config": {
+                    "username": "xxxx",
+                    "password": "xxxx",
+                    "connect_uri": "http://localhost:3000/",
+                    "extract_models": True,
+                },
+            },
+            "pipeline_name": "test_mbql_join",
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"{tmp_path}/mbql_join_mces.json"},
+            },
+        }
+
+        pipeline = Pipeline.create(pipeline_config)
+        pipeline.run()
+
+        import json as json_module
+
+        with open(f"{tmp_path}/mbql_join_mces.json") as f:
+            output = json_module.load(f)
+
+        # Find the UpstreamLineage aspect for model.7 (join model)
+        upstream_aspects = [
+            item
+            for item in output
+            if item.get("entityUrn")
+            == "urn:li:dataset:(urn:li:dataPlatform:metabase,model.7,PROD)"
+            and "upstreamLineage" in item.get("aspectName", "")
+        ]
+
+        assert upstream_aspects, (
+            "No UpstreamLineage aspect found for model.7 — card_7 must appear in the card list"
+        )
+
+        lineage_json = upstream_aspects[0]["aspect"]["json"]
+        upstream_datasets = {u["dataset"] for u in lineage_json.get("upstreams", [])}
+
+        film_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
+        )
+        actor_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.actor,PROD)"
+        )
+
+        assert film_urn in upstream_datasets, (
+            f"Primary source table (film) must be upstream: {upstream_datasets}"
+        )
+        assert actor_urn in upstream_datasets, (
+            f"Joined table (actor) must be upstream: {upstream_datasets}"
+        )
 
 
 # ============================================================================

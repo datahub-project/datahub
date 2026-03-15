@@ -258,5 +258,36 @@
   "id": 6,
   "display": "bar",
   "created_at": "2021-12-14T11:10:00.000"
+}, {
+  "description": "Model joining film (table 21) to actor (table 22) to test MBQL join lineage",
+  "archived": false,
+  "collection_position": null,
+  "table_id": 21,
+  "type": "model",
+  "dataset": true,
+  "result_metadata": [],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "id": 1,
+    "last_name": "LastName",
+    "common_name": "FirstName LastName"
+  },
+  "database_id": 2,
+  "collection_id": 150,
+  "query_type": "query",
+  "name": "Film Actor Join Model",
+  "creator_id": 1,
+  "updated_at": "2021-12-14T12:00:00.000",
+  "dataset_query": {
+    "query": {
+      "source-table": 21
+    },
+    "database": 2,
+    "type": "query"
+  },
+  "id": 7,
+  "display": "table",
+  "created_at": "2021-12-14T12:00:00.000"
 }]
 

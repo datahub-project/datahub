@@ -19,16 +19,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001209,
+                    "time": 1705752000544,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/37",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752001209,
+                        "time": 1705752000544,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -37,8 +37,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001306,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000600,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -88,16 +88,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001295,
+                    "time": 1705752000592,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/25",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ACCOUNTS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD)",
                     "lastModified": {
-                        "time": 1705752001295,
+                        "time": 1705752000592,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -106,8 +106,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001341,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000625,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -157,16 +157,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001333,
+                    "time": 1705752000618,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/22",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.PRODUCTS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
                     "lastModified": {
-                        "time": 1705752001333,
+                        "time": 1705752000618,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -174,8 +174,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001406,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000671,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -405,16 +405,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001521,
+                    "time": 1705752000736,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/3",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752001521,
+                        "time": 1705752000736,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -423,8 +423,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001581,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000769,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -464,7 +464,7 @@
             "customProperties": {
                 "Metrics": "",
                 "Filters": "['time-interval', ['field', 27, {'base-type': 'type/DateTime'}], -12, 'month']",
-                "Dimensions": "ID, Account ID, Email, Date Received, Rating, Rating Mapped, Body"
+                "Dimensions": "ID, Account ID, Email, Date Received, Rating, Rating Mapped, Body, Account ID"
             },
             "title": "Customer survey responses",
             "description": "Feedback on our products via weekly survey",
@@ -474,16 +474,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001567,
+                    "time": 1705752000762,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/5",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.FEEDBACK,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD)",
                     "lastModified": {
-                        "time": 1705752001567,
+                        "time": 1705752000762,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -492,8 +492,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001663,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000789,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -543,16 +543,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001662,
+                    "time": 1705752000789,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/34",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752001662,
+                        "time": 1705752000789,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -561,8 +561,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001698,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000812,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -612,16 +612,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001697,
+                    "time": 1705752000811,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/29",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752001697,
+                        "time": 1705752000811,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -630,8 +630,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001731,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000837,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -681,16 +681,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001730,
+                    "time": 1705752000836,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/26",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752001730,
+                        "time": 1705752000836,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -699,8 +699,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001763,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000864,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -750,16 +750,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001762,
+                    "time": 1705752000864,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/23",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ACCOUNTS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD)",
                     "lastModified": {
-                        "time": 1705752001762,
+                        "time": 1705752000864,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -767,8 +767,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001792,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000885,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -818,16 +818,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001792,
+                    "time": 1705752000884,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/19",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752001792,
+                        "time": 1705752000884,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -836,8 +836,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001823,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000906,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -929,7 +929,7 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,39)",
+    "entityUrn": "urn:li:chart:(metabase,41)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
@@ -947,23 +947,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1770631700970,
+                    "time": 1773575714875,
                     "actor": "urn:li:corpuser:admin@test.com"
                 }
             },
-            "chartUrl": "http://localhost:3001/card/39",
+            "chartUrl": "http://localhost:3001/card/41",
             "inputEdges": [
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
                     "lastModified": {
-                        "time": 1770631700970,
+                        "time": 1773575714875,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
                     "lastModified": {
-                        "time": 1770631700970,
+                        "time": 1773575714875,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 }
@@ -972,14 +972,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001991,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000874,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,39)",
+    "entityUrn": "urn:li:chart:(metabase,41)",
     "changeType": "UPSERT",
     "aspectName": "chartQuery",
     "aspect": {
@@ -989,14 +989,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001992,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000874,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,39)",
+    "entityUrn": "urn:li:chart:(metabase,41)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -1015,8 +1015,145 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001992,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752000874,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "['and', ['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -12, 'month'], ['in', ['field', 18, {'base-type': 'type/Text', 'source-field': 14}], 'Doohickey', 'Gadget', 'Gizmo', 'Widget'], ['in', ['field', 18, {'base-type': 'type/Text', 'source-field': 14}], 'Doohickey', 'Gizmo', 'Gadget', 'Widget']]",
+                "Dimensions": "Product \u2192 Category, ID"
+            },
+            "title": "Order value distribution by category",
+            "description": "Order total distribution by category (median, IQR, outliers) to see which categories tend to drive bigger revenue.",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752000965,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/38",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "lastModified": {
+                        "time": 1705752000965,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000993,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000902,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "['and', ['in', ['field', 18, {'base-type': 'type/Text', 'source-field': 14}], 'Doohickey', 'Gadget', 'Gizmo', 'Widget'], ['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], 0, 'quarter']]",
+                "Dimensions": "Created At: Quarter"
+            },
+            "title": "Total orders this quarter",
+            "description": "Total number of orders in the current quarter.",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001716,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/39",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "lastModified": {
+                        "time": 1705752001716,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001768,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001640,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1028,9 +1165,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "Metrics": "Sum of Total",
+                "Metrics": "",
                 "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -2, 'year', {'include-current': True}]",
-                "Dimensions": "pivot-grouping"
+                "Dimensions": ", , "
             },
             "title": "Orders according to sources per quarter",
             "description": "Orders placed per quarter broken down by source and formatted to highlight best and worst quarters",
@@ -1040,16 +1177,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001990,
+                    "time": 1705752000993,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/10",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752001990,
+                        "time": 1705752000993,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1058,8 +1195,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002040,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001026,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1109,16 +1246,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002040,
+                    "time": 1705752001026,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/24",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002040,
+                        "time": 1705752001026,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1127,8 +1264,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002135,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001077,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1178,16 +1315,30 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002077,
+                    "time": 1705752001043,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/36",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002077,
+                        "time": 1705752001043,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001043,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
+                    "lastModified": {
+                        "time": 1705752001043,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1196,8 +1347,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002202,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001124,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1247,16 +1398,30 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002159,
+                    "time": 1705752001092,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/35",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002159,
+                        "time": 1705752001092,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001092,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
+                    "lastModified": {
+                        "time": 1705752001092,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1265,8 +1430,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002238,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001142,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1316,16 +1481,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002230,
+                    "time": 1705752001142,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/32",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.PEOPLE,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
                     "lastModified": {
-                        "time": 1705752002230,
+                        "time": 1705752001142,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1334,8 +1499,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002269,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001163,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1445,16 +1610,30 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002292,
+                    "time": 1705752001181,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/18",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002292,
+                        "time": 1705752001181,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001181,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
+                    "lastModified": {
+                        "time": 1705752001181,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1463,8 +1642,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002400,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001247,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1514,16 +1693,30 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002357,
+                    "time": 1705752001222,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/4",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002357,
+                        "time": 1705752001222,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001222,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
+                    "lastModified": {
+                        "time": 1705752001222,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1532,8 +1725,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002433,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001266,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1565,7 +1758,7 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
+    "entityUrn": "urn:li:chart:(metabase,42)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
@@ -1583,23 +1776,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1770631701005,
+                    "time": 1773575714908,
                     "actor": "urn:li:corpuser:admin@test.com"
                 }
             },
-            "chartUrl": "http://localhost:3001/card/40",
+            "chartUrl": "http://localhost:3001/card/42",
             "inputEdges": [
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
                     "lastModified": {
-                        "time": 1770631701005,
+                        "time": 1773575714908,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
                     "lastModified": {
-                        "time": 1770631701005,
+                        "time": 1773575714908,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 }
@@ -1608,14 +1801,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002460,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001228,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
+    "entityUrn": "urn:li:chart:(metabase,42)",
     "changeType": "UPSERT",
     "aspectName": "chartQuery",
     "aspect": {
@@ -1625,14 +1818,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002461,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001228,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
+    "entityUrn": "urn:li:chart:(metabase,42)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -1651,8 +1844,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002461,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001229,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1676,16 +1869,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002460,
+                    "time": 1705752001284,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/27",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002460,
+                        "time": 1705752001284,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1694,8 +1887,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002484,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001300,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1745,16 +1938,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002484,
+                    "time": 1705752001300,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/9",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002484,
+                        "time": 1705752001300,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1763,8 +1956,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002531,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001324,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1814,16 +2007,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002531,
+                    "time": 1705752001324,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/12",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002531,
+                        "time": 1705752001324,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1831,8 +2024,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002567,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001354,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1882,16 +2075,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002567,
+                    "time": 1705752001354,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/13",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002567,
+                        "time": 1705752001354,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1900,8 +2093,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002617,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001396,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1951,16 +2144,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002584,
+                    "time": 1705752001371,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/2",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002584,
+                        "time": 1705752001371,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001371,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -1968,8 +2168,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002647,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001441,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2019,16 +2219,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002647,
+                    "time": 1705752001441,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/17",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002647,
+                        "time": 1705752001441,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2036,8 +2236,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002696,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001495,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2087,16 +2287,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002664,
+                    "time": 1705752001454,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/28",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002664,
+                        "time": 1705752001454,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001454,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2105,8 +2312,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002757,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001545,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2156,16 +2363,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002718,
+                    "time": 1705752001511,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/33",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002718,
+                        "time": 1705752001511,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001511,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2174,8 +2388,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002789,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001619,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2214,7 +2428,7 @@
         "json": {
             "customProperties": {
                 "Metrics": "Sum of Total",
-                "Filters": "",
+                "Filters": "['in', ['field', 18, {'base-type': 'type/Text', 'source-field': 14}], 'Doohickey', 'Gizmo', 'Gadget', 'Widget']",
                 "Dimensions": "Created At: Quarter"
             },
             "title": "Revenue per quarter",
@@ -2225,16 +2439,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002788,
+                    "time": 1705752001618,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/15",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002788,
+                        "time": 1705752001618,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2243,8 +2457,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002813,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001642,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2344,7 +2558,7 @@
             "customProperties": {
                 "Metrics": "Sum of Total, Sum of Discount, Count",
                 "Filters": "",
-                "Dimensions": "Created At: Quarter, Quantity, Product \u2192 Category"
+                "Dimensions": "Created At: Quarter, Quantity: 8 bins, Product \u2192 Category"
             },
             "title": "Total order amount vs. discount given",
             "description": "Analysis of discounts given vs. the size of the order",
@@ -2354,16 +2568,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002844,
+                    "time": 1705752001666,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/8",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002844,
+                        "time": 1705752001666,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2372,8 +2586,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002879,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001690,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2423,16 +2637,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002878,
+                    "time": 1705752001689,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/20",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002878,
+                        "time": 1705752001689,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2441,8 +2655,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002946,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001716,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2492,16 +2706,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002895,
+                    "time": 1705752001735,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/30",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752002895,
+                        "time": 1705752001735,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
+                    "lastModified": {
+                        "time": 1705752001735,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2510,8 +2731,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002979,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752001786,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2615,140 +2836,154 @@
                 {
                     "destinationUrn": "urn:li:chart:(metabase,21)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,24)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,22)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,2)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,18)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,12)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,15)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,17)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,13)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,10)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,20)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,7)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,8)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,3)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,5)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,6)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,16)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,23)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,11)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,14)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,38)",
+                    "lastModified": {
+                        "time": 1705752001881,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,39)",
+                    "lastModified": {
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2756,30 +2991,37 @@
             "datasets": [],
             "datasetEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.FEEDBACK,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ACCOUNTS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.PRODUCTS,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
                     "lastModified": {
-                        "time": 1705752003184,
+                        "time": 1705752001881,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD)",
+                    "lastModified": {
+                        "time": 1705752001881,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2787,11 +3029,11 @@
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1705752003184,
+                    "time": 1705752001881,
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752003184,
+                    "time": 1705752001881,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
@@ -2799,8 +3041,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003822,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752002459,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3134,15 +3376,23 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
                     "type": "TRANSFORMED"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003965,
-        "runId": "metabase-docker-models-test",
+        "lastObserved": 1705752002584,
+        "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3654,6 +3904,22 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002453,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,39)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -3680,22 +3946,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1705752003981,
-        "runId": "metabase-docker-models-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752003982,
         "runId": "metabase-docker-models-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3766,6 +4016,22 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,42)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002454,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,9)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -3793,6 +4059,22 @@
     "systemMetadata": {
         "lastObserved": 1705752003984,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,41)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002454,
+        "runId": "metabase-2024_01_20-12_00_00-au3i6v",
         "lastRunId": "no-run-id-provided"
     }
 },
