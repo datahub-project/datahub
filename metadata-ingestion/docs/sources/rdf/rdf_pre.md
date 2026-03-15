@@ -11,12 +11,6 @@ In order to ingest metadata from RDF files, you will need:
 - RDF files in supported formats: Turtle (.ttl), RDF/XML (.rdf, .xml), JSON-LD (.jsonld), N3 (.n3), or N-Triples (.nt)
 - A DataHub instance to ingest into
 
-#### Install the Plugin
-
-```bash
-pip install 'acryl-datahub[rdf]'
-```
-
 #### RDF Format Support
 
 The source supports multiple RDF serialization formats:
@@ -78,7 +72,7 @@ source:
   config:
     source: glossary.ttl
     export_only:
-      - glossary  # Only ingest glossary terms
+      - glossary # Only ingest glossary terms
 ```
 
 Available entity types: `glossary` (or `glossary_terms`), `relationship` (or `relationships`).

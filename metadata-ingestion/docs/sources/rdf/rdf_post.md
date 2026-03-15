@@ -1,14 +1,5 @@
 ### Capabilities
 
-| Capability              | Status | Notes                                                         |
-| ----------------------- | :----: | ------------------------------------------------------------- |
-| Glossary Terms          |   ✅   | Enabled by default                                            |
-| Glossary Nodes          |   ✅   | Auto-created from IRI path hierarchies                        |
-| Term Relationships      |   ✅   | Supports `skos:broader` and `skos:narrower`                   |
-| Detect Deleted Entities |   ✅   | Requires `stateful_ingestion.enabled: true`                   |
-| Platform Instance       |   ✅   | Supported via `platform_instance` config                      |
-| Extract Descriptions    |   ✅   | Enabled by default (from `skos:definition` or `rdfs:comment`) |
-
 #### IRI-to-URN Mapping
 
 RDF IRIs are converted to DataHub URNs following this pattern:
