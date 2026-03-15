@@ -13,6 +13,18 @@ from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceR
 
 
 class ConfluentSchemaRegistryTest(unittest.TestCase):
+    @staticmethod
+    def _make_registry() -> ConfluentSchemaRegistry:
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+            }
+        )
+        return ConfluentSchemaRegistry.create(kafka_source_config, KafkaSourceReport())
+
     def test_get_schema_str_replace_confluent_ref_avro(self):
         schema_str_orig = """
         {
@@ -61,17 +73,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         """
         )
 
-        kafka_source_config = KafkaSourceConfig.model_validate(
-            {
-                "connection": {
-                    "bootstrap": "localhost:9092",
-                    "schema_registry_url": "http://localhost:8081",
-                },
-            }
-        )
-        confluent_schema_registry = ConfluentSchemaRegistry.create(
-            kafka_source_config, KafkaSourceReport()
-        )
+        confluent_schema_registry = self._make_registry()
 
         def new_get_latest_version(subject_name: str) -> RegisteredSchema:
             return RegisteredSchema(
@@ -143,17 +145,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             }
         )
 
-        kafka_source_config = KafkaSourceConfig.model_validate(
-            {
-                "connection": {
-                    "bootstrap": "localhost:9092",
-                    "schema_registry_url": "http://localhost:8081",
-                },
-            }
-        )
-        confluent_schema_registry = ConfluentSchemaRegistry.create(
-            kafka_source_config, KafkaSourceReport()
-        )
+        confluent_schema_registry = self._make_registry()
 
         schema = Schema(schema_str=debezium_schema_str, schema_type="AVRO")
         fields = confluent_schema_registry._get_schema_fields(
@@ -166,6 +158,63 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         field_names = [f.fieldPath for f in fields]
         assert any("id" in name for name in field_names)
         assert any("name" in name for name in field_names)
+
+    def test_get_schemas_from_confluent_ref_protobuf_recurses_and_uses_ref_versions(
+        self,
+    ):
+        confluent_schema_registry = self._make_registry()
+
+        main_schema = Schema(
+            schema_str='syntax = "proto3"; import "child.proto"; message Root { Child child = 1; }',
+            schema_type="PROTOBUF",
+            references=[SchemaReference(name="child.proto", subject="child", version=2)],
+        )
+        child_schema = Schema(
+            schema_str='syntax = "proto3"; import "grandchild.proto"; message Child { Grandchild grandchild = 1; }',
+            schema_type="PROTOBUF",
+            references=[
+                SchemaReference(name="grandchild.proto", subject="grandchild", version=7)
+            ],
+        )
+        grandchild_schema = Schema(
+            schema_str='syntax = "proto3"; message Grandchild { string value = 1; }',
+            schema_type="PROTOBUF",
+            references=[],
+        )
+
+        requested_versions = []
+
+        def new_get_version(subject_name: str, version: int) -> RegisteredSchema:
+            requested_versions.append((subject_name, version))
+            schema_map = {
+                ("child", 2): child_schema,
+                ("grandchild", 7): grandchild_schema,
+            }
+            return RegisteredSchema(
+                guid=None,
+                schema_id=f"{subject_name}-{version}",
+                schema=schema_map[(subject_name, version)],
+                subject=subject_name,
+                version=version,
+            )
+
+        with patch.object(
+            confluent_schema_registry.schema_registry_client,
+            "get_version",
+            new_get_version,
+        ), patch.object(
+            confluent_schema_registry.schema_registry_client,
+            "get_latest_version",
+            side_effect=AssertionError(
+                "protobuf references should use versioned lookups"
+            ),
+        ):
+            schemas = confluent_schema_registry.get_schemas_from_confluent_ref_protobuf(
+                main_schema
+            )
+
+        assert requested_versions == [("child", 2), ("grandchild", 7)]
+        assert [schema.name for schema in schemas] == ["grandchild.proto", "child.proto"]
 
 
 if __name__ == "__main__":

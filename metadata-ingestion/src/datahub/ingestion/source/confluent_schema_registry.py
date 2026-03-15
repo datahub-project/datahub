@@ -168,7 +168,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return schema_str
 
     def get_schemas_from_confluent_ref_protobuf(
-        self, schema: Schema, schema_seen: Optional[Set[str]] = None
+        self,
+        schema: Schema,
+        schema_seen: Optional[Set[Tuple[str, int]]] = None,
     ) -> List[ProtobufSchema]:
         all_schemas: List[ProtobufSchema] = []
 
@@ -178,12 +180,20 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         schema_ref: SchemaReference
         for schema_ref in schema.references:
             ref_subject: str = schema_ref.subject
-            if ref_subject in schema_seen:
+            ref_key = (ref_subject, schema_ref.version)
+            if ref_key in schema_seen:
                 continue
             reference_schema: RegisteredSchema = (
-                self.schema_registry_client.get_latest_version(ref_subject)
+                self.schema_registry_client.get_version(
+                    subject_name=ref_subject, version=schema_ref.version
+                )
             )
-            schema_seen.add(ref_subject)
+            schema_seen.add(ref_key)
+            all_schemas.extend(
+                self.get_schemas_from_confluent_ref_protobuf(
+                    reference_schema.schema, schema_seen=schema_seen
+                )
+            )
             all_schemas.append(
                 ProtobufSchema(
                     name=schema_ref.name, content=reference_schema.schema.schema_str
