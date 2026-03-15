@@ -1,0 +1,66 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609865,
+        "runId": "rdf-test-jsonld",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org.glossary",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: glossary",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "name": "glossary"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765406907361,
+        "runId": "rdf-test-jsonld",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.TestTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/TestTerm",
+                "rdf:definition": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:TestTerm a skos:Concept ;\n    skos:definition \"A test term\" ;\n    skos:prefLabel \"Test Term\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Test Term. Definition: A test term."
+            },
+            "name": "Test Term",
+            "definition": "A test term",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/TestTerm",
+            "sourceUrl": "http://example.org/glossary/TestTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632453209,
+        "runId": "rdf-test-jsonld",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

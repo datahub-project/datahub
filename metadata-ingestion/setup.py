@@ -80,7 +80,12 @@ framework_common = {
     "ruamel.yaml<0.19.0",
 }
 
-rest_common = {"requests<3.0.0", "requests_file<4.0.0"}
+rest_common = {
+    "requests<3.0.0",
+    "requests_file<4.0.0",
+    # Required for GraphQL query adaptation and schema introspection
+    "graphql-core>=3.0.0,<4.0.0",
+}
 
 kafka_common = {
     # Note that confluent_kafka 1.9.0 introduced a hard compatibility break, and
@@ -152,7 +157,7 @@ cachetools_lib = {
 # Skip pyarrow 0.14.0-14.0.0 due to CVE-2023-47248: https://avd.aquasec.com/nvd/cve-2023-47248
 # Note: feast<=0.47.0 (constrained by numpy<2) requires pyarrow<18.1.0, resolved automatically
 pyarrow_common = {
-    "pyarrow>14.0.0,<23.0.0",
+    "pyarrow>14.0.0,<24.0.0",
 }
 
 great_expectations_lib = {
@@ -692,6 +697,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
+    "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
     "redshift": sql_common
     | redshift_common
     | usage_common
@@ -906,6 +912,7 @@ base_dev_requirements = {
             "datahub-rest",
             "datahub-lite",
             "presto",
+            "rdf",
             "redash",
             "redshift",
             "s3",
@@ -981,6 +988,7 @@ full_test_dev_requirements = {
             "mssql-odbc",
             "mysql",
             "mariadb",
+            "rdf",
             "redash",
             "vertica",
             "vertexai",
@@ -1052,6 +1060,7 @@ entry_points = {
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
+        "rdf = datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
