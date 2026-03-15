@@ -198,7 +198,9 @@ class StructuredLogs(Report):
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]
-        result: LossyList[StructuredLogEntry] = LossyList(max_elements=entries.max_elements)
+        result: LossyList[StructuredLogEntry] = LossyList(
+            max_elements=entries.max_elements
+        )
         for log in entries.values():
             result.append(log)
         result.set_total(entries.total_key_count())
