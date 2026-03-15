@@ -101,7 +101,7 @@ public class DeleteEntityServiceTest {
         new EntityServiceImpl(_aspectDao, mock(EventProducer.class), true, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _deleteEntityService =
-        new DeleteEntityService(_entityServiceImpl, _graphService, _mockSearchService, null);
+        new DeleteEntityService(_entityServiceImpl, _graphService, _mockSearchService, null, null);
 
     setupDefaultFileScrollMock(_mockSearchService);
   }
@@ -231,7 +231,7 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn form = UrnUtils.getUrn("urn:li:form:12345");
@@ -340,7 +340,7 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn form = UrnUtils.getUrn("urn:li:form:12345");
@@ -416,7 +416,7 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn form = UrnUtils.getUrn("urn:li:form:12345");
@@ -517,7 +517,7 @@ public class DeleteEntityServiceTest {
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
 
     final Urn container = UrnUtils.getUrn("urn:li:container:dry-run-test");
     final String containerStr = container.toString();
@@ -612,7 +612,8 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     S3Util mockS3Util = Mockito.mock(S3Util.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, mockS3Util);
+        new DeleteEntityService(
+            mockEntityService, _graphService, _mockSearchService, mockS3Util, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -714,7 +715,7 @@ public class DeleteEntityServiceTest {
   public void testDeleteFileReferencesWithoutS3Util() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -817,7 +818,8 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     S3Util mockS3Util = Mockito.mock(S3Util.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, mockS3Util);
+        new DeleteEntityService(
+            mockEntityService, _graphService, _mockSearchService, mockS3Util, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -939,7 +941,7 @@ public class DeleteEntityServiceTest {
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
 
     final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:stress-hot-tag-1");
     final String tagUrnStr = tagUrn.toString();
@@ -1081,7 +1083,7 @@ public class DeleteEntityServiceTest {
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
 
     final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:orphan-test");
 

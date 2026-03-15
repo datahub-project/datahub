@@ -42,6 +42,7 @@ import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadge
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -530,8 +531,9 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public MCPSideEffect propertyDefinitionDeleteSideEffect() {
+  public MCPSideEffect propertyDefinitionDeleteSideEffect(@Nullable MetricUtils metricUtils) {
     return new PropertyDefinitionDeleteSideEffect()
+        .setMetricUtils(metricUtils)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(PropertyDefinitionDeleteSideEffect.class.getName())

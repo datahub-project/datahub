@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
@@ -18,6 +19,7 @@ import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpHeaders;
@@ -25,6 +27,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver;
 
@@ -32,6 +36,10 @@ import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolv
 @ControllerAdvice(
     basePackages = {"io.datahubproject.openapi", "com.datahub.graphql", "com.datahub.auth"})
 public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionResolver {
+
+  @Autowired(required = false)
+  @Nullable
+  private MetricUtils metricUtils;
 
   @PostConstruct
   public void init() {
@@ -75,6 +83,28 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(ActorAccessException.class)
   public static ResponseEntity<Map<String, String>> actorAccessException(ActorAccessException e) {
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
+  }
+
+  private static final long ASYNC_TIMEOUT_RETRY_AFTER_SECONDS = 30;
+
+  @ExceptionHandler(AsyncRequestTimeoutException.class)
+  public ResponseEntity<Map<String, String>> handleAsyncTimeout(
+      AsyncRequestTimeoutException e, HttpServletRequest request) {
+    log.warn(
+        "Async request timeout: path={}, method={}", request.getRequestURI(), request.getMethod());
+    if (metricUtils != null) {
+      String pattern =
+          (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+      String requestPath = (pattern != null) ? pattern : "unknown";
+      metricUtils.incrementMicrometer("datahub.http.async_timeout", 1, "request_path", requestPath);
+    }
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(ASYNC_TIMEOUT_RETRY_AFTER_SECONDS));
+    return new ResponseEntity<>(
+        Map.of(
+            "error", "Request timed out. The operation may still be completing in the background."),
+        headers,
+        HttpStatus.SERVICE_UNAVAILABLE);
   }
 
   @ExceptionHandler(RuntimeException.class)
