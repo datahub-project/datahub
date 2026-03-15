@@ -8,9 +8,10 @@ import re
 import sys
 import textwrap
 from importlib.metadata import metadata, requires
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
+import yaml
 from docgen_types import Platform, Plugin
 from docs_config_table import gen_md_table_from_pydantic
 
@@ -383,6 +384,245 @@ class PlatformMetrics:
     warnings: List[str] = dataclasses.field(default_factory=list)
 
 
+CAPABILITY_FEATURE_MAP: Dict[str, str] = {
+    "DELETION_DETECTION": "Stateful Ingestion",
+    "LINEAGE_FINE": "Column Level Lineage",
+    "LINEAGE_COARSE": "Table-Level Lineage",
+    "DATA_PROFILING": "Data Profiling",
+    "TEST_CONNECTION": "UI Ingestion",
+}
+
+
+def _derive_features(platform: "Platform", meta: Dict[str, Any]) -> List[str]:
+    """Derive feature tags from a platform's capabilities + catalog extras."""
+    features: List[str] = []
+    seen: set = set()
+    for plugin in platform.plugins.values():
+        if plugin.capabilities:
+            for cap in plugin.capabilities:
+                if cap.supported:
+                    ft = CAPABILITY_FEATURE_MAP.get(cap.capability.name)
+                    if ft and ft not in seen:
+                        features.append(ft)
+                        seen.add(ft)
+    for ef in meta.get("extra_features", []):
+        if ef not in seen:
+            features.append(ef)
+            seen.add(ef)
+    return features
+
+
+def _get_support_status_tag(platform: "Platform") -> str:
+    """Get the support status tag string from a platform's plugins."""
+    for plugin in platform.plugins.values():
+        if plugin.support_status != SupportStatus.UNKNOWN:
+            return plugin.support_status.name.title()
+    return ""
+
+
+def _resolve_platform_type(meta: Dict[str, Any], default: str = "Metadata") -> str:
+    """Resolve platform_type from a catalog entry, supporting both string and list."""
+    raw = meta.get("platform_type", default)
+    if isinstance(raw, list):
+        return ", ".join(raw)
+    return raw
+
+
+def _build_variant_entry(
+    platform_id: str,
+    meta: Dict[str, Any],
+    parent: "Platform",
+    parent_meta: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build an integrations.json entry for a supported_via variant.
+
+    Inherits features, support status, platform_type, and connection_type
+    from the parent platform.
+    """
+    supported_via = meta["supported_via"]
+    features = _derive_features(parent, parent_meta)
+    support_status_tag = _get_support_status_tag(parent)
+
+    tags: Dict[str, str] = {
+        "Platform Type": _resolve_platform_type(
+            meta, default=_resolve_platform_type(parent_meta)
+        ),
+        "Connection Type": meta.get(
+            "connection_type", parent_meta.get("connection_type", "Pull")
+        ),
+        "Features": ", ".join(features),
+    }
+    if support_status_tag:
+        tags["Support Status"] = support_status_tag
+
+    return {
+        "Path": meta.get(
+            "doc_path_override",
+            f"docs/generated/ingestion/sources/{supported_via}",
+        ),
+        "imgPath": meta.get("img_path", f"img/logos/platforms/{platform_id}.svg"),
+        "Title": meta.get("title", platform_id),
+        "Description": meta.get("description", ""),
+        "tags": tags,
+    }
+
+
+def load_data_platforms_yaml(yaml_path: str) -> Dict[str, str]:
+    """Load data-platforms.yaml and return a mapping of platform name → displayName."""
+    display_names: Dict[str, str] = {}
+    with open(yaml_path) as f:
+        platforms_list: List[Dict[str, Any]] = yaml.safe_load(f)
+    for entry in platforms_list:
+        aspect = entry.get("aspect", {})
+        name = aspect.get("name")
+        display_name = aspect.get("displayName")
+        if name and display_name:
+            display_names[name] = display_name
+    return display_names
+
+
+def generate_filter_tag_indexes(
+    platforms: Dict[str, Platform],
+    catalog_path: str,
+    output_path: str,
+    data_platforms_yaml_path: Optional[str] = None,
+) -> None:
+    """Generate integrations.json for the docs-website integrations page.
+
+    Merges auto-derived data from the connector registry with supplemental
+    metadata from integrations_catalog.json. Platforms without a catalog entry
+    still appear with sensible defaults.
+    """
+    with open(catalog_path) as f:
+        catalog: Dict[str, Any] = json.load(f)
+
+    # Load data-platforms.yaml for title/logo fallback
+    dp_display_names: Dict[str, str] = {}
+    if data_platforms_yaml_path and os.path.exists(data_platforms_yaml_path):
+        dp_display_names = load_data_platforms_yaml(data_platforms_yaml_path)
+
+    entries: List[Dict[str, Any]] = []
+
+    # Sanity check: no registry connector should be marked as api_connector
+    mismarked = [pid for pid in platforms if catalog.get(pid, {}).get("api_connector")]
+    if mismarked:
+        raise ValueError(
+            f"Catalog entries marked api_connector=true but present in the source "
+            f"registry (native connectors): {', '.join(sorted(mismarked))}. "
+            f"Remove api_connector from these entries in integrations_catalog.json."
+        )
+
+    # Process registry-based platforms
+    for platform_id, platform in platforms.items():
+        meta = catalog.get(platform_id, {})
+
+        # Skip if this platform is marked as api_connector in the catalog
+        if meta.get("api_connector"):
+            continue
+
+        features = _derive_features(platform, meta)
+        support_status_tag = _get_support_status_tag(platform)
+
+        title = meta.get("title") or dp_display_names.get(platform_id) or platform.name
+        description = meta.get(
+            "description", f"{platform.name} integration with DataHub."
+        )
+        img_path = meta.get("img_path", f"img/logos/platforms/{platform_id}.svg")
+        doc_path = meta.get(
+            "doc_path_override",
+            f"docs/generated/ingestion/sources/{platform_id}",
+        )
+
+        tags: Dict[str, str] = {
+            "Platform Type": _resolve_platform_type(meta),
+            "Connection Type": meta.get("connection_type", "Pull"),
+            "Features": ", ".join(features),
+        }
+        if support_status_tag:
+            tags["Support Status"] = support_status_tag
+
+        entries.append(
+            {
+                "Path": doc_path,
+                "imgPath": img_path,
+                "Title": title,
+                "Description": description,
+                "tags": tags,
+            }
+        )
+
+    # Process external integrations, API-based cards, and supported_via
+    # variants from catalog
+    for platform_id, meta in catalog.items():
+        is_external = meta.get("external", False)
+        is_api = meta.get("api_connector", False)
+        supported_via = meta.get("supported_via")
+
+        # Skip registry connectors (already processed above)
+        if not is_external and not is_api and not supported_via:
+            if platform_id in platforms:
+                continue
+
+        # Skip external entries that were already in the registry
+        if is_external and platform_id in platforms:
+            continue
+
+        # For supported_via variants, inherit from the parent platform
+        if supported_via and supported_via in platforms:
+            entries.append(
+                _build_variant_entry(
+                    platform_id=platform_id,
+                    meta=meta,
+                    parent=platforms[supported_via],
+                    parent_meta=catalog.get(supported_via, {}),
+                )
+            )
+            continue
+
+        features_list = meta.get("extra_features", [])
+        connection_type = "API" if is_api else meta.get("connection_type", "Pull")
+        tags: Dict[str, str] = {
+            "Platform Type": _resolve_platform_type(meta),
+            "Connection Type": connection_type,
+            "Features": ", ".join(features_list),
+        }
+        if meta.get("support_status"):
+            tags["Support Status"] = meta["support_status"]
+
+        entry: Dict[str, Any] = {
+            "Path": meta.get(
+                "doc_path_override",
+                "docs/api/datahub-apis" if is_api else "",
+            ),
+            "imgPath": meta.get(
+                "img_path",
+                f"img/logos/platforms/{platform_id}.svg",
+            ),
+            "Title": meta.get("title", platform_id),
+            "Description": meta.get("description", ""),
+            "tags": tags,
+        }
+
+        if is_api:
+            entry["isApiConnector"] = True
+            if meta.get("requestNativeUrl"):
+                entry["requestNativeUrl"] = meta["requestNativeUrl"]
+
+        entries.append(entry)
+
+    # Sort by title
+    entries.sort(key=lambda x: x["Title"].lower())
+
+    output = {"ingestionSources": entries}
+    with open(output_path, "w") as f:
+        json.dump(output, f, indent=2)
+        f.write("\n")
+
+    logger.info(
+        f"Generated integrations.json with {len(entries)} entries at {output_path}"
+    )
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option(
@@ -393,11 +633,25 @@ class PlatformMetrics:
 )
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
+@click.option(
+    "--integrations-output",
+    type=str,
+    required=False,
+    help="Path to write generated integrations.json",
+)
+@click.option(
+    "--data-platforms-yaml",
+    type=str,
+    required=False,
+    help="Path to data-platforms.yaml for title/logo fallback",
+)
 def generate(  # noqa: C901
     out_dir: str,
     connector_registry_dir: str,
     extra_docs: Optional[str] = None,
     source: Optional[str] = None,
+    integrations_output: Optional[str] = None,
+    data_platforms_yaml: Optional[str] = None,
 ) -> None:
     plugin_metrics = PluginMetrics()
     platform_metrics = PlatformMetrics()
@@ -734,6 +988,21 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 
     # Create Lineage doc
     generate_lineage_doc(platforms)
+
+    # Generate filterTagIndexes.json for the integrations page
+    if integrations_output and extra_docs:
+        catalog_path = os.path.join(extra_docs, "integrations_catalog.json")
+        if os.path.exists(catalog_path):
+            generate_filter_tag_indexes(
+                platforms=platforms,
+                catalog_path=catalog_path,
+                output_path=integrations_output,
+                data_platforms_yaml_path=data_platforms_yaml,
+            )
+        else:
+            logger.warning(
+                f"integrations_catalog.json not found at {catalog_path} — skipping integrations.json generation"
+            )
 
 
 def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:

@@ -3,8 +3,8 @@ import React from "react";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { FilterPage } from "./docs/_components/FilterPage";
 import { FastBackwardFilled } from "@ant-design/icons";
-const filterTagIndexes = require("../../filterTagIndexes.json");
-const metadata = filterTagIndexes.ingestionSources;
+const integrations = require("../../../docs/generated/ingestion/integrations.json");
+const metadata = integrations.ingestionSources;
 
 function DataProviderComponent() {
   const context = useDocusaurusContext();

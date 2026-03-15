@@ -17,6 +17,7 @@ export function FilterPage(
   const [isExclusive, setIsExclusive] = React.useState(false);
 
   let filterOptions = {};
+  const categoryCounts = {};
   metadata.forEach((data) => {
     const filters = data["tags"];
     Object.keys(filters).map((key) => {
@@ -25,21 +26,18 @@ export function FilterPage(
       }
       filters[key].split(",").forEach((tag) => {
         if (tag === " " || tag === "") return;
-        filterOptions[key].add(tag.trim());
+        const trimmed = tag.trim();
+        filterOptions[key].add(trimmed);
+        if (key === "Platform Type") {
+          categoryCounts[trimmed] = (categoryCounts[trimmed] || 0) + 1;
+        }
       });
     });
   });
   const filterKeys = Object.keys(filterOptions);
-  function getTags(path) {
-    if (path === undefined || path === null) return;
-    const data = metadata.find((data) => {
-      if (data.Path === path) {
-        return data;
-      }
-    });
-    const recordTags = data["tags"];
+  function getTagsFromRecord(recordTags) {
+    if (!recordTags) return [];
     let tags = [];
-    if (recordTags === undefined) return tags;
     filterKeys.map((key) => {
       if (recordTags[key] === undefined || recordTags[key] === null) return;
       recordTags[key].split(",").forEach((feature) => {
@@ -55,12 +53,14 @@ export function FilterPage(
       title: source.Title,
       image: source.imgPath,
       description: source.Description,
-      tags: getTags(source.Path),
+      tags: getTagsFromRecord(source.tags),
       filters: source.tags,
       to: source.Path,
       useFilters: useFilters,
       useTags: useTags,
       filterState: filterState,
+      isApiConnector: source.isApiConnector || false,
+      requestNativeUrl: source.requestNativeUrl || null,
     };
   });
   const filteredIngestionSourceContent = ingestionSourceContent.filter(
@@ -102,6 +102,7 @@ export function FilterPage(
                 filterOptions={filterOptions}
                 allowExclusivity={allowExclusivity}
                 setIsExclusive={setIsExclusive}
+                categoryCounts={categoryCounts}
               />
             </div>
           </div>
@@ -112,8 +113,26 @@ export function FilterPage(
         content={filteredIngestionSourceContent}
         filterBar={<FilterBar />}
       />
-      <br />
-      <br />
+
+      <div
+        style={{
+          textAlign: "center",
+          padding: "2rem 1rem",
+          fontSize: "1rem",
+          color: "var(--ifm-color-emphasis-700)",
+        }}
+      >
+        Don&apos;t see your data source?{" "}
+        <a
+          href="https://github.com/datahub-project/datahub/issues/new?template=feature_request.md&title=[Connector+Request]&labels=connector-request"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Request a Connector
+        </a>
+        {" | "}
+        <a href="docs/metadata-ingestion/adding-source">Build Your Own</a>
+      </div>
     </Layout>
   );
 }
