@@ -121,16 +121,29 @@ describe('entity V2 utils test ->', () => {
                 const result = handleBatchError('urn', new Error(), defaultMessage);
                 expect(result).toEqual(defaultMessage);
             });
-            test('should extract GraphQL error message when available (e.g., validator plugin messages)', () => {
+            test('should extract GraphQL error message for validation errors with errorSource=VALIDATION', () => {
                 const validatorMessage = 'Cannot delete system tag: this tag is protected';
                 const e = {
-                    graphQLErrors: [{ message: validatorMessage, extensions: { code: 400 } }],
+                    graphQLErrors: [{
+                        message: validatorMessage,
+                        extensions: { code: 400, errorSource: 'VALIDATION' },
+                    }],
                 };
                 const result = handleBatchError(urns, e, defaultMessage);
                 expect(result).toEqual({
                     content: validatorMessage,
                     duration: 3,
                 });
+            });
+            test('should use defaultMessage for non-validation BadRequest errors (no errorSource)', () => {
+                const e = {
+                    graphQLErrors: [{
+                        message: 'Some other bad request error',
+                        extensions: { code: 400 },
+                    }],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual(defaultMessage);
             });
             test('should return defaultMessage if no GraphQL error message is present', () => {
                 const e = {

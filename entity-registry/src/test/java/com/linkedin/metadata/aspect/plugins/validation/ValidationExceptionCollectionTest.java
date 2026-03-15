@@ -221,6 +221,45 @@ public class ValidationExceptionCollectionTest {
   }
 
   @Test
+  public void testToStringWithNullMessage() {
+    // Test that null messages are filtered out without throwing NPE
+    BatchItem testItem =
+        TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();
+    AspectValidationException exceptionWithNull =
+        new AspectValidationException(testItem, null, ValidationSubType.VALIDATION);
+
+    collection.addException(exceptionWithNull);
+
+    String result = collection.toString();
+    // Should return empty string when all messages are null
+    assertEquals("", result);
+  }
+
+  @Test
+  public void testToStringMixedNullAndNonNull() {
+    // Test that null messages are filtered out while preserving non-null messages
+    BatchItem testItem =
+        TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();
+
+    AspectValidationException exception1 =
+        new AspectValidationException(testItem, "Error 1", ValidationSubType.VALIDATION, null);
+    AspectValidationException exception2 =
+        new AspectValidationException(testItem, null, ValidationSubType.VALIDATION);
+    AspectValidationException exception3 =
+        new AspectValidationException(testItem, "Error 2", ValidationSubType.VALIDATION, null);
+
+    collection.addException(exception1);
+    collection.addException(exception2);
+    collection.addException(exception3);
+
+    String result = collection.toString();
+    // Should contain only non-null messages, separated by "; "
+    assertTrue(result.contains("Error 1"));
+    assertTrue(result.contains("Error 2"));
+    assertFalse(result.contains("null")); // Ensure "null" string doesn't appear
+  }
+
+  @Test
   public void testAddAuthException() {
     BatchItem testItem =
         TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();

@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -94,6 +95,7 @@ public class ValidationExceptionCollection
         // sort by entity/aspect
         .sorted(Comparator.comparing(p -> p.getKey().toString()))
         .flatMap(e -> e.getValue().stream().map(AspectValidationException::getMsg))
+        .filter(Objects::nonNull) // Filter out null messages to prevent NPE
         .collect(Collectors.joining("; "));
   }
 }
