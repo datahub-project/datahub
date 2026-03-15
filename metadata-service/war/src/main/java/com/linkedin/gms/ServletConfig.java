@@ -46,6 +46,11 @@ import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.neo4j.driver.Driver;
+import org.opensearch.client.RestHighLevelClient;
+import io.ebean.Database;
 
 /**
  * Common configuration for all servlets. Generally this list also includes dependencies of the
@@ -116,6 +121,25 @@ public class ServletConfig implements WebMvcConfigurer {
     registration.setAsyncSupported(true);
     return registration;
   }
+
+  @Bean
+  public ServletRegistrationBean<ReadinessCheck> readinessCheckServlet(
+      AdminClient kafkaAdmin,
+      RestHighLevelClient elasticClient,
+      Database database,
+      @Qualifier("neo4jDriver") Driver neo4jDriver) {
+
+    ServletRegistrationBean<ReadinessCheck> registration =
+        new ServletRegistrationBean<>(
+            new ReadinessCheck(kafkaAdmin, elasticClient, database, neo4jDriver));
+
+    registration.setName("readinessCheck");
+    registration.addUrlMappings("/health/downstream-services");
+    registration.setLoadOnStartup(15);
+    registration.setAsyncSupported(true);
+
+    return registration;
+  }  
 
   /**
    * SpringBoot is now the default, explicitly map these to legacy rest.li servlet. Additions are
