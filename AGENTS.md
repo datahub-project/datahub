@@ -28,12 +28,6 @@ agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 ./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
 ```
 
-If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
-
-```
-./gradlew ... -x generateGitPropertiesGlobal
-```
-
 **IMPORTANT: Verifying Python code changes:**
 
 - **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
@@ -416,9 +410,6 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 5. **Iterate**: Repeat steps 2–4
 
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
-
-**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
-to avoid git-related failures in worktrees.
 
 ### Module-to-Container Mapping
 

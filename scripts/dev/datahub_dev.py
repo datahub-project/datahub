@@ -501,8 +501,6 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         "test",
         "-x",
         "check",
-        "-x",
-        "generateGitPropertiesGlobal",
     ]
     _log(f"Running: {' '.join(gradle_cmd)}")
     build_start = time.time()
@@ -557,8 +555,6 @@ def cmd_test(args: argparse.Namespace) -> int:
             [
                 "./gradlew",
                 CONFIG.gradle_smoke_install_task,
-                "-x",
-                "generateGitPropertiesGlobal",
             ],
             capture=False,
             timeout=300,
@@ -646,7 +642,6 @@ def _load_flag_classification() -> Dict[str, Any]:
         _log("WARNING: flag-classification.json not generated yet.")
         _log(
             "Run: ./gradlew :metadata-service:configuration:generateFlagClassification"
-            " -x generateGitPropertiesGlobal"
         )
         _log("Or:  scripts/datahub-dev.sh sync-flags")
         return {"dynamic": {}, "static": {}}
@@ -657,7 +652,6 @@ def _load_flag_classification() -> Dict[str, Any]:
             _log("ERROR: flag-classification.json is corrupted (partial write?).")
             _log(
                 "Re-run: ./gradlew :metadata-service:configuration:generateFlagClassification"
-                " -x generateGitPropertiesGlobal"
             )
             return {"dynamic": {}, "static": {}}
 
@@ -789,8 +783,6 @@ def cmd_env_restart(args: argparse.Namespace) -> int:
         [
             "./gradlew",
             CONFIG.gradle_reload_env_task,
-            "-x",
-            "generateGitPropertiesGlobal",
         ],
         capture=False,
         timeout=300,
@@ -1029,7 +1021,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
     gradle_task = SETUP_MODULES[module]
     _log(f"Setting up {module} via {gradle_task}...")
     result = _run(
-        ["./gradlew", gradle_task, "-x", "generateGitPropertiesGlobal"],
+        ["./gradlew", gradle_task],
         capture=False,
         timeout=600,
     )
@@ -1107,8 +1099,6 @@ def cmd_start(args: argparse.Namespace) -> int:
         [
             "./gradlew",
             CONFIG.gradle_quickstart_task,
-            "-x",
-            "generateGitPropertiesGlobal",
         ],
         capture=False,
         timeout=1200,
@@ -1136,8 +1126,6 @@ def cmd_sync_flags(args: argparse.Namespace) -> int:
         [
             "./gradlew",
             CONFIG.gradle_sync_flags_task,
-            "-x",
-            "generateGitPropertiesGlobal",
         ],
         capture=False,
         timeout=300,
