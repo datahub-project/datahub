@@ -505,7 +505,11 @@ class TestCortexAnalystExtraction:
     """Tests for Cortex Analyst query extraction."""
 
     @pytest.fixture
-    def extractor(self) -> SemanticViewUsageExtractor:
+    def mock_connection(self) -> MagicMock:
+        return MagicMock()
+
+    @pytest.fixture
+    def extractor(self, mock_connection: MagicMock) -> SemanticViewUsageExtractor:
         config = MagicMock(spec=SnowflakeV2Config)
         config.semantic_views = SemanticViewsConfig(
             enabled=True,
@@ -516,7 +520,6 @@ class TestCortexAnalystExtraction:
         config.end_time = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
         config.email_domain = "test.com"
 
-        connection = MagicMock()
         identifiers = MagicMock(spec=SnowflakeIdentifierBuilder)
         identifiers.gen_dataset_urn.return_value = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.sales_view,PROD)"
@@ -524,19 +527,18 @@ class TestCortexAnalystExtraction:
         identifiers.get_user_identifier.return_value = "analyst@test.com"
 
         report = SnowflakeV2Report()
-        extractor = SemanticViewUsageExtractor(
+        return SemanticViewUsageExtractor(
             config=config,
             report=report,
-            connection=connection,
+            connection=mock_connection,
             identifiers=identifiers,
         )
-        return extractor
 
     def test_cortex_analyst_extraction_end_to_end(
-        self, extractor: SemanticViewUsageExtractor
-    ):
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
         """Test full extraction: query -> parse -> emit Query entities."""
-        extractor.connection.query.return_value = [
+        mock_connection.query.return_value = [
             {
                 "QUESTION": "What were total sales last quarter?",
                 "GENERATED_SQL": "SELECT SUM(amount) FROM sales WHERE quarter = 'Q4'",
@@ -579,10 +581,10 @@ class TestCortexAnalystExtraction:
         )
 
     def test_cortex_analyst_skips_undiscovered_views(
-        self, extractor: SemanticViewUsageExtractor
-    ):
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
         """Test that queries for undiscovered views are skipped."""
-        extractor.connection.query.return_value = [
+        mock_connection.query.return_value = [
             {
                 "QUESTION": "What is revenue?",
                 "GENERATED_SQL": "SELECT revenue FROM sales",
@@ -601,7 +603,7 @@ class TestCortexAnalystExtraction:
 
     def test_cortex_analyst_disabled_emits_nothing(
         self, extractor: SemanticViewUsageExtractor
-    ):
+    ) -> None:
         extractor.config.semantic_views.include_cortex_analyst_queries = False
         workunits = list(
             extractor.get_cortex_analyst_query_workunits({"db.schema.sales_view"})
@@ -609,10 +611,10 @@ class TestCortexAnalystExtraction:
         assert len(workunits) == 0
 
     def test_cortex_analyst_handles_privilege_error(
-        self, extractor: SemanticViewUsageExtractor
-    ):
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
         """Test graceful handling when user lacks SELECT on CORTEX_ANALYST_REQUESTS_V."""
-        extractor.connection.query.side_effect = Exception(
+        mock_connection.query.side_effect = Exception(
             "Insufficient privileges to operate on view 'CORTEX_ANALYST_REQUESTS_V'"
         )
 
@@ -624,13 +626,13 @@ class TestCortexAnalystExtraction:
         assert len(extractor.report.warnings) > 0
 
     def test_cortex_analyst_respects_max_queries_per_view(
-        self, extractor: SemanticViewUsageExtractor
-    ):
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
         """Test that per-view limit is respected."""
         extractor.config.semantic_views.max_queries_per_view = 2
 
         base_time = datetime.datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc)
-        extractor.connection.query.return_value = [
+        mock_connection.query.return_value = [
             {
                 "QUESTION": f"Question {i}",
                 "GENERATED_SQL": f"SELECT {i}",
