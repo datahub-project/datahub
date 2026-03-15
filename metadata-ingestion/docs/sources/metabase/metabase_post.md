@@ -1,57 +1,44 @@
 ### Capabilities
 
-Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+#### Database and Platform Mapping
 
-#### Collection
+Metabase databases are mapped to a DataHub platform based on the engine field returned by [`/api/database`](https://www.metabase.com/docs/latest/api-documentation.html#database). Override with `engine_platform_map`:
 
-The connector uses Metabase collection APIs to discover collection hierarchy and list dashboards within each collection:
-
-- [`/api/collection`](https://www.metabase.com/docs/latest/api/collection)
-- [`/api/collection/{id}/items?models=dashboard`](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems)
-
-#### Dashboard
-
-Dashboard details are extracted from:
-
-- [`/api/dashboard/{id}`](https://www.metabase.com/docs/latest/api/dashboard)
-
-This includes titles, descriptions, ownership context, and dashboard URL metadata.
-
-#### Chart
-
-Chart metadata is extracted from:
-
-- [`/api/card/{id}`](https://www.metabase.com/docs/latest/api-documentation.html#card)
-
-This captures chart definitions, query relationships, and chart-level attributes used for DataHub Chart entities.
-
-#### Database Mapping
-
-Metabase databases will be mapped to a DataHub platform based on the engine listed in the
-[api/database](https://www.metabase.com/docs/latest/api-documentation.html#database) response. This mapping can be
-customized by using the `engine_platform_map` config option. For example, to map databases using the `athena` engine to
-the underlying datasets in the `glue` platform, the following snippet can be used:
-
-```yml
+```yaml
 engine_platform_map:
   athena: glue
 ```
 
-DataHub will try to determine database name from Metabase [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database)
-payload. However, the name can be overridden from `database_alias_map` for a given database connected to Metabase.
+DataHub determines the database name from the same API response. Override with `database_alias_map`:
 
-If several platform instances with the same platform (e.g. from several distinct clickhouse clusters) are present in DataHub,
-the mapping between database id in Metabase and platform instance in DataHub may be configured with the following map:
+```yaml
+database_alias_map:
+  postgres: my_custom_db_name
+```
 
-```yml
+#### Platform Instance Mapping
+
+When multiple instances of the same platform exist in DataHub (for example, two ClickHouse clusters), map Metabase database IDs to platform instances with `database_id_to_instance_map`:
+
+```yaml
 database_id_to_instance_map:
   "42": platform_instance_in_datahub
 ```
 
-The key in this map must be string, not integer although Metabase API provides `id` as number.
-If `database_id_to_instance_map` is not specified, `platform_instance_map` is used for platform instance mapping. If none of the above are specified, platform instance is not used when constructing `urn` when searching for dataset relations.
+The key must be a string, not an integer.
 
-If needed it is possible to exclude collections from other users by setting the following configuration:
+If `database_id_to_instance_map` is not set, `platform_instance_map` is used as a fallback. If neither is set, platform instance is omitted from dataset URNs.
+
+#### Column-Level Lineage
+
+Column-level lineage is extracted for **models built with the visual query builder (MBQL)**. It is not available for:
+
+- Native SQL questions or models (SQL is parsed for table-level lineage only)
+- MBQL questions (as opposed to models) — `result_metadata.field_ref` is only reliable on saved models
+
+#### Filtering Collections
+
+To exclude collections owned by other users:
 
 ```yaml
 exclude_other_user_collections: true
@@ -61,6 +48,14 @@ exclude_other_user_collections: true
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+- Column-level lineage requires the card to be saved as a **Model** (type `"model"`). Regular questions do not expose reliable `field_ref` data.
+- Template variables in native SQL queries (`{{variable}}`, `[[optional clause]]`) are stripped before parsing, so lineage based on dynamic table references may be incomplete.
+- Circular card references are cut off at depth 5; deeply nested card chains beyond that limit will not have lineage extracted.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+- **Auth failure**: ensure the API key or username/password is correct and the account has access to the relevant collections.
+- **Missing lineage**: check that `extract_models: true` is set and that the cards are saved as Models in Metabase.
+- **Unknown platform warnings**: add an entry to `engine_platform_map` for the unrecognised engine name.

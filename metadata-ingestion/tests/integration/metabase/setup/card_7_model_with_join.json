@@ -1,0 +1,88 @@
+{
+  "description": "Model joining film (table 21) to actor (table 22) to test MBQL join lineage",
+  "archived": false,
+  "collection_position": null,
+  "table_id": 21,
+  "type": "model",
+  "result_metadata": [
+    {
+      "name": "film_id",
+      "display_name": "Film ID",
+      "base_type": "type/Integer",
+      "field_ref": ["field", 131, null]
+    },
+    {
+      "name": "actor_id",
+      "display_name": "Actor ID",
+      "base_type": "type/Integer",
+      "field_ref": ["field", 141, {"join-alias": "Actor"}]
+    }
+  ],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-14T11:00:00.000",
+    "is_qbnewb": false,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "can_write": true,
+  "database_id": 2,
+  "enable_embedding": false,
+  "collection_id": 150,
+  "query_type": "query",
+  "name": "Film Actor Join Model",
+  "creator_id": 1,
+  "moderation_reviews": [],
+  "updated_at": "2021-12-14T12:00:00.000",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "query": {
+      "source-table": 21,
+      "joins": [
+        {
+          "source-table": 22,
+          "alias": "Actor",
+          "condition": [
+            "=",
+            ["field", 131, null],
+            ["field", 141, {"join-alias": "Actor"}]
+          ],
+          "fields": "all"
+        }
+      ]
+    },
+    "database": 2,
+    "type": "query"
+  },
+  "id": 7,
+  "display": "table",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName",
+    "timestamp": "2021-12-14T12:00:00.000"
+  },
+  "collection": {
+    "authority_level": null,
+    "description": "Personal analytics collection",
+    "archived": false,
+    "slug": "john_doe_personal_collection",
+    "name": "John Doe",
+    "personal_owner_id": 14,
+    "type": null,
+    "id": 150,
+    "location": "/",
+    "namespace": null,
+    "is_personal": true,
+    "created_at": "2024-01-12T11:51:24.394309Z"
+  },
+  "created_at": "2021-12-14T12:00:00.000",
+  "public_uuid": null
+}
