@@ -397,8 +397,8 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `setup`, `frontend`,
-`status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `setup`,
+`frontend`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ### End-to-End Workflow
 
@@ -451,10 +451,18 @@ The flag manifest at `scripts/generated/flag-classification.json` is **auto-gene
 (gitignored). Run `scripts/dev/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
 or after a fresh clone.
 
+### Stopping DataHub
+
+`scripts/dev/datahub-dev.sh stop` shuts down all containers without restarting.
+
+When starting, `datahub-dev start` automatically detects and stops conflicting DataHub instances
+from other worktrees/compose projects that occupy the same ports.
+
 ### Recovery Escalation
 
 **When to use each:**
 
+- `stop`: Just shut down DataHub — no restart, no data loss
 - `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail
   with connection errors
 - `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it
