@@ -412,7 +412,13 @@ def generate(  # noqa: C901
         logger.error(f"Failed to load connector registry: {e}")
         sys.exit(1)
 
-    for plugin_name in sorted(source_registry.mapping.keys()):
+    # Use the union of source registry and connector registry so that plugins
+    # with uninstalled extras (e.g. rdf) still get docs generated.
+    all_plugin_names = sorted(
+        set(source_registry.mapping.keys())
+        | set(capability_data.get("plugin_details", {}).keys())
+    )
+    for plugin_name in all_plugin_names:
         logger.info(f"Processing plugin: {plugin_name}")
         if source and source != plugin_name:
             continue
