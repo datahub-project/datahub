@@ -693,7 +693,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
             for collection_data in collections_data:
                 try:
                     collection = MetabaseCollection.model_validate(collection_data)
-                except ValidationError:
+                except ValidationError as e:
+                    self.report.report_warning(
+                        title="Invalid Collection Data",
+                        message="Collection data from Metabase API failed validation.",
+                        context=f"Data: {collection_data}, Error: {str(e)}",
+                    )
                     continue
 
                 collection_dashboards_response = self.session.get(
@@ -1241,7 +1246,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 try:
                     coll = MetabaseCollection.model_validate(coll_data)
                     collections_dict[str(coll.id)] = coll
-                except ValidationError:
+                except ValidationError as e:
+                    self.report.report_warning(
+                        title="Invalid Collection Data",
+                        message="Collection data from Metabase API failed validation.",
+                        context=f"Data: {coll_data}, Error: {str(e)}",
+                    )
                     continue
             return collections_dict
         except HTTPError as http_error:
