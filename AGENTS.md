@@ -28,12 +28,6 @@ agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 ./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
 ```
 
-If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
-
-```
-./gradlew ... -x generateGitPropertiesGlobal
-```
-
 **IMPORTANT: Verifying Python code changes:**
 
 - **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
@@ -403,8 +397,8 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `setup`, `frontend`,
-`status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `setup`,
+`frontend`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ### End-to-End Workflow
 
@@ -416,9 +410,6 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 5. **Iterate**: Repeat steps 2–4
 
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
-
-**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
-to avoid git-related failures in worktrees.
 
 ### Module-to-Container Mapping
 
@@ -460,10 +451,18 @@ The flag manifest at `scripts/generated/flag-classification.json` is **auto-gene
 (gitignored). Run `scripts/dev/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
 or after a fresh clone.
 
+### Stopping DataHub
+
+`scripts/dev/datahub-dev.sh stop` shuts down all containers without restarting.
+
+When starting, `datahub-dev start` automatically detects and stops conflicting DataHub instances
+from other worktrees/compose projects that occupy the same ports.
+
 ### Recovery Escalation
 
 **When to use each:**
 
+- `stop`: Just shut down DataHub — no restart, no data loss
 - `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail
   with connection errors
 - `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it

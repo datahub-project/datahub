@@ -108,9 +108,7 @@ Starting up DataHub...
  ✔ Volume "datahub_osdata"                         Created                                                                                              0.0s
  ✔ Container datahub-mysql-1                       Healthy                                                                                             11.6s
  ✔ Container datahub-opensearch-1                  Healthy                                                                                             11.6s
- ✔ Container datahub-kafka-broker-1                Healthy                                                                                              6.0s
- ✔ Container datahub-opensearch-setup-1            Exited                                                                                              11.6s
- ✔ Container datahub-mysql-setup-1                 Exited                                                                                              11.6s
+ ✔ Container datahub-kafka-broker-1               Healthy                                                                                              6.0s
  ✔ Container datahub-system-update-quickstart-1    Exited                                                                                              26.6s
  ✔ Container datahub-datahub-gms-quickstart-1      Healthy                                                                                             42.1s
  ✔ Container datahub-frontend-quickstart-1         Started                                                                                             26.6s

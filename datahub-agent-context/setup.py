@@ -45,7 +45,7 @@ lint_requirements = {
 }
 
 base_requirements = {
-    f"acryl-datahub{_self_pin}",
+    f"acryl-datahub[datahub-rest]{_self_pin}",
     # Core dependencies for MCP tools
     "pydantic>=2.0.0,<3.0.0",
     "json-repair>=0.25.0,<1.0.0",

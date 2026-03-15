@@ -426,10 +426,31 @@ class TestGraphQLCommand:
 
         assert result.exit_code == 0
         mock_client.execute_graphql.assert_called_once_with(
-            query="query { me { username } }", variables=None
+            query="query { me { username } }",
+            variables=None,
+            strip_unsupported_fields=False,
         )
         assert '"me"' in result.output
         assert '"username": "testuser"' in result.output
+
+    @patch("datahub.cli.graphql_cli.get_default_graph")
+    def test_graphql_strip_unknown_fields_flag(self, mock_get_graph):
+        """Test --strip-unknown-fields flag passes through to execute_graphql."""
+        mock_client = Mock()
+        mock_client.execute_graphql.return_value = {"me": {"username": "testuser"}}
+        mock_get_graph.return_value = mock_client
+
+        result = self.runner.invoke(
+            graphql,
+            ["--query", "query { me { username } }", "--strip-unknown-fields"],
+        )
+
+        assert result.exit_code == 0
+        mock_client.execute_graphql.assert_called_once_with(
+            query="query { me { username } }",
+            variables=None,
+            strip_unsupported_fields=True,
+        )
 
     @patch("datahub.cli.graphql_cli.get_default_graph")
     def test_graphql_query_with_variables(self, mock_get_graph):
@@ -454,6 +475,7 @@ class TestGraphQLCommand:
         mock_client.execute_graphql.assert_called_once_with(
             query="query GetUser($urn: String!) { corpUser(urn: $urn) { info { email } } }",
             variables={"urn": "urn:li:corpuser:test"},
+            strip_unsupported_fields=False,
         )
 
     @patch("datahub.cli.graphql_cli.get_default_graph")
@@ -621,7 +643,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_once_with(
-                    query=query_content, variables=None
+                    query=query_content,
+                    variables=None,
+                    strip_unsupported_fields=False,
                 )
 
             # Clean up
@@ -656,6 +680,7 @@ class TestGraphQLCommand:
                 mock_client.execute_graphql.assert_called_once_with(
                     query="query GetUser($urn: String!) { corpUser(urn: $urn) { info { email } } }",
                     variables=variables,
+                    strip_unsupported_fields=False,
                 )
 
             # Clean up
@@ -692,7 +717,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_with(
-                    query=query_content, variables=None
+                    query=query_content,
+                    variables=None,
+                    strip_unsupported_fields=False,
                 )
 
                 # Reset mock for next test
@@ -706,7 +733,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_with(
-                    query=query_content, variables=None
+                    query=query_content,
+                    variables=None,
+                    strip_unsupported_fields=False,
                 )
 
             finally:
@@ -750,7 +779,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_with(
-                    query=query, variables=variables
+                    query=query,
+                    variables=variables,
+                    strip_unsupported_fields=False,
                 )
 
             finally:

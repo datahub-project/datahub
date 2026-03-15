@@ -132,6 +132,18 @@ module.exports = {
           label: "Integrations",
           position: "right",
         },
+        // Static version label to replace the broken dropdown
+        {
+          type: 'html',
+          position: 'left',
+          value: '<div class="navbar__item" style="font-weight: 600; color: #1890FF; background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 12px; padding: 1px 10px; margin-left: 8px; font-size: 0.85rem; line-height: 1.5;">1.4.0</div>',
+        },
+        /* * TODO: Temporarily disabled the legacy version dropdown to prevent users 
+         * from navigating to expired preview deployment links (404s). 
+         * This will be re-enabled and updated once a decoupled static archive 
+         * for legacy versions is implemented and hosted.
+         */
+        /*
         {
           type: "docsVersionDropdown",
           position: "left",
@@ -219,6 +231,7 @@ module.exports = {
             },
           ],
         },
+        */
         {
           href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `

@@ -22,21 +22,10 @@ services:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
     environment:
+      - DATAHUB_SQL_SETUP_ENABLED=true
       - GRAPH_SERVICE_IMPL=${GRAPH_SERVICE_IMPL:-elasticsearch}
       - DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       - DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT}
-  mysql-setup:
-    hostname: mysql-setup
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-acryldata/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
-    build:
-      context: ../
-      dockerfile: docker/mysql-setup/Dockerfile
-    env_file: mysql-setup/env/docker.env
-    depends_on:
-      mysql:
-        condition: service_healthy
-    labels:
-      datahub_setup_job: true
   kafka-setup:
     environment:
     - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}

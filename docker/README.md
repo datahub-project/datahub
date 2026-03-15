@@ -43,10 +43,7 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 - [acryldata/datahub-frontend-react](https://hub.docker.com/repository/docker/acryldata/datahub-frontend-react/)
 - [acryldata/datahub-mae-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mae-consumer/)
 - [acryldata/datahub-mce-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mce-consumer/)
-- [acryldata/datahub-upgrade](https://hub.docker.com/r/acryldata/datahub-upgrade/)
-- [acryldata/datahub-elasticsearch-setup](https://hub.docker.com/r/acryldata/datahub-elasticsearch-setup/)
-- [acryldata/datahub-mysql-setup](https://hub.docker.com/r/acryldata/datahub-mysql-setup/)
-- [acryldata/datahub-postgres-setup](https://hub.docker.com/r/acryldata/datahub-postgres-setup/)
+- [acryldata/datahub-upgrade](https://hub.docker.com/r/acryldata/datahub-upgrade/) (runs SystemUpdate; performs SQL and search index setup when `DATAHUB_SQL_SETUP_ENABLED=true`)
 - [acryldata/datahub-actions](https://hub.docker.com/r/acryldata/datahub-actions). Do not use `acryldata/acryl-datahub-actions` as that is deprecated and no longer used.
 
 ## Image Variants
@@ -115,9 +112,11 @@ acryldata/datahub-ingestion:v0.x.y-locked   # locked
 
 Dependencies:
 
-- [Elasticsearch](elasticsearch-setup)
-- [MySQL](mysql)
+- [Elasticsearch](elasticsearch) (or OpenSearch)
+- [MySQL](mysql) (or PostgreSQL)
 - [(Optional) Neo4j](neo4j)
+
+SQL and search index setup are performed by the system update job (datahub-upgrade with `-u SystemUpdate`) when backing services are healthy; no separate setup containers are required.
 
 ### Ingesting demo data.
 

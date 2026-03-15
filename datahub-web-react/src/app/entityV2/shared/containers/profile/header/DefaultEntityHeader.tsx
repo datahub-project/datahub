@@ -24,7 +24,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
 
 export const TitleWrapper = styled.div`
-    max-width: 100%;
+    min-width: 0;
 
     display: flex;
     align-items: center;

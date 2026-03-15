@@ -305,20 +305,7 @@ Then use the settings below.
     region: <<AWS region of Opensearch>>
 ```
 
-Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch
-service uses OpenDistro version of Elasticsearch, which does not support the "datastream" functionality. As such, we use
-a different way of creating time based indices.
-
-```
-  elasticsearchSetupJob:
-    enabled: true
-    image:
-      repository: acryldata/datahub-elasticsearch-setup
-      tag: "***"
-    extraEnvs:
-      - name: USE_AWS_ELASTICSEARCH
-        value: "true"
-```
+For AWS Elasticsearch/OpenSearch, set `USE_AWS_ELASTICSEARCH: "true"` on the system-update job (e.g. via `datahubSystemUpdate.extraEnvs` or `datahub.upgrade.env`). The system-update job performs index setup; standalone setup jobs are disabled by default.
 
 Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 

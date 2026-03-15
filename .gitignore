@@ -93,6 +93,9 @@ scripts/.venv/
 tmp*
 temp/**
 
+# Test result artifacts
+test-results/
+
 # frontend assets
 datahub-frontend/public/**
 

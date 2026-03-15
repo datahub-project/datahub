@@ -1450,7 +1450,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         last_modified = None
         if table.get("UpdateTime"):
-            updated_ts = make_ts_millis(table["UpdateTime"])
+            updated_ts = make_ts_millis(
+                table["UpdateTime"].replace(tzinfo=datetime.timezone.utc)
+            )
             if updated_ts is not None:
                 last_modified = TimeStampClass(updated_ts)
 

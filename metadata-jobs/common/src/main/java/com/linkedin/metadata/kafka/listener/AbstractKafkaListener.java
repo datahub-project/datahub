@@ -140,7 +140,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
         getSystemMetadata(event),
         topic,
         () -> {
-          log.info(
+          log.debug(
               "Invoking hooks for consumer: {} event: {}",
               consumerGroupId,
               getEventDisplayString(event));
@@ -189,7 +189,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                   metricUtils ->
                       metricUtils.increment(
                           this.getClass(), consumerGroupId + "_consumed_event_count", 1));
-          log.info(
+          log.debug(
               "Successfully completed hooks for consumer: {} event: {}",
               consumerGroupId,
               getEventDisplayString(event));
