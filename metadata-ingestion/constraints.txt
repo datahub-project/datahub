@@ -534,7 +534,9 @@ googleapis-common-protos==1.73.0
 gql==4.0.0
     # via acryl-datahub
 graphql-core==3.2.8
-    # via gql
+    # via
+    #   acryl-datahub
+    #   gql
 greenlet==3.3.2
     # via
     #   acryl-datahub
@@ -649,11 +651,12 @@ ipython==8.38.0
     #   ipywidgets
 ipywidgets==8.1.8
     # via acryl-great-expectations
-isodate==0.7.2
+isodate==0.6.1
     # via
     #   azure-mgmt-datafactory
     #   azure-storage-blob
     #   azure-storage-file-datalake
+    #   rdflib
     #   tableschema
     #   zeep
 isoduration==20.11.0
@@ -1218,6 +1221,7 @@ pyparsing==3.3.2
     # via
     #   acryl-great-expectations
     #   pyiceberg
+    #   rdflib
 pypdf==6.8.0
     # via unstructured-client
 pypdfium2==5.6.0
@@ -1347,6 +1351,8 @@ pyzmq==27.1.0
     #   jupyter-server
 rapidfuzz==3.14.3
     # via unstructured
+rdflib==6.3.2
+    # via acryl-datahub
 readme-renderer==44.0
     # via twine
 redash-toolbelt==0.1.9
@@ -1512,6 +1518,7 @@ six==1.17.0
     #   dataflows-tabulator
     #   ecdsa
     #   html5lib
+    #   isodate
     #   langdetect
     #   linear-tsv
     #   python-dateutil

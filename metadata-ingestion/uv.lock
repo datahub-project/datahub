@@ -123,6 +123,7 @@ all = [
     { name = "google-cloud-logging" },
     { name = "google-cloud-resource-manager" },
     { name = "gql", extra = ["requests"] },
+    { name = "graphql-core" },
     { name = "greenlet" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
@@ -170,9 +171,11 @@ all = [
     { name = "pyspark" },
     { name = "python-ldap" },
     { name = "python-liquid" },
+    { name = "rdflib" },
     { name = "redash-toolbelt" },
     { name = "redshift-connector" },
     { name = "requests" },
+    { name = "requests-file" },
     { name = "requests-gssapi" },
     { name = "requests-ntlm" },
     { name = "schwifty" },
@@ -449,6 +452,7 @@ datahub-lite = [
     { name = "uvicorn" },
 ]
 datahub-rest = [
+    { name = "graphql-core" },
     { name = "requests" },
 ]
 dataplex = [
@@ -576,6 +580,7 @@ dev = [
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-logging" },
     { name = "google-cloud-resource-manager" },
+    { name = "graphql-core" },
     { name = "greenlet" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
@@ -642,6 +647,7 @@ dev = [
     { name = "python-ldap" },
     { name = "python-liquid" },
     { name = "pyyaml" },
+    { name = "rdflib" },
     { name = "redash-toolbelt" },
     { name = "redshift-connector" },
     { name = "requests" },
@@ -765,6 +771,7 @@ docs = [
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-logging" },
     { name = "google-cloud-resource-manager" },
+    { name = "graphql-core" },
     { name = "greenlet" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
@@ -831,6 +838,7 @@ docs = [
     { name = "python-ldap" },
     { name = "python-liquid" },
     { name = "pyyaml" },
+    { name = "rdflib" },
     { name = "redash-toolbelt" },
     { name = "redshift-connector" },
     { name = "requests" },
@@ -1195,8 +1203,10 @@ integration-tests = [
     { name = "pyspark" },
     { name = "python-ldap" },
     { name = "pyzipper" },
+    { name = "rdflib" },
     { name = "redash-toolbelt" },
     { name = "requests" },
+    { name = "requests-file" },
     { name = "responses" },
     { name = "schwifty" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1309,6 +1319,7 @@ mlflow = [
     { name = "setuptools" },
 ]
 mode = [
+    { name = "cachetools" },
     { name = "patchy" },
     { name = "python-liquid" },
     { name = "requests" },
@@ -1513,6 +1524,11 @@ qlik-sense = [
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "websocket-client" },
+]
+rdf = [
+    { name = "rdflib" },
+    { name = "requests" },
+    { name = "requests-file" },
 ]
 redash = [
     { name = "patchy" },
@@ -2081,6 +2097,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'integration-tests'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'kafka-connect'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mariadb'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'mode'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mssql'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mssql-odbc'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mysql'", specifier = "<6.0.0" },
@@ -2282,6 +2299,10 @@ requires-dist = [
     { name = "gql", extras = ["requests"], marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "gql", extras = ["requests"], marker = "extra == 'circuit-breaker'", specifier = ">=4.0.0" },
     { name = "gql", extras = ["requests"], marker = "extra == 'integration-tests'", specifier = ">=4.0.0" },
+    { name = "graphql-core", marker = "extra == 'all'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", marker = "extra == 'datahub-rest'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", marker = "extra == 'docs'", specifier = ">=3.0.0,<4.0.0" },
     { name = "greenlet", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'athena'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'bigquery'", specifier = "<4.0.0" },
@@ -2730,18 +2751,18 @@ requires-dist = [
     { name = "psycopg2-binary", marker = "extra == 'integration-tests'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'presto-on-hive'", specifier = "<3.0.0" },
-    { name = "pyarrow", marker = "extra == 'abs'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'abs-slim'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'all'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'delta-lake'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'dev'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'docs'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'excel'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'gcs'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'gcs-slim'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 'integration-tests'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 's3'", specifier = ">14.0.0,<23.0.0" },
-    { name = "pyarrow", marker = "extra == 's3-slim'", specifier = ">14.0.0,<23.0.0" },
+    { name = "pyarrow", marker = "extra == 'abs'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'abs-slim'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'all'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'delta-lake'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'dev'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'docs'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'excel'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'gcs'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'gcs-slim'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'integration-tests'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 's3'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 's3-slim'", specifier = ">14.0.0,<24.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'all'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'athena'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'dev'", specifier = ">=2.6.0,<3.0.0" },
@@ -2862,6 +2883,11 @@ requires-dist = [
     { name = "pyyaml", marker = "extra == 'testing-utils'", specifier = "<7.0.0" },
     { name = "pyzipper", marker = "extra == 'debug-recording'", specifier = ">=0.3.6,<1.0" },
     { name = "pyzipper", marker = "extra == 'integration-tests'", specifier = ">=0.3.6,<1.0" },
+    { name = "rdflib", marker = "extra == 'all'", specifier = "==6.3.2" },
+    { name = "rdflib", marker = "extra == 'dev'", specifier = "==6.3.2" },
+    { name = "rdflib", marker = "extra == 'docs'", specifier = "==6.3.2" },
+    { name = "rdflib", marker = "extra == 'integration-tests'", specifier = "==6.3.2" },
+    { name = "rdflib", marker = "extra == 'rdf'", specifier = "==6.3.2" },
     { name = "redash-toolbelt", marker = "extra == 'all'", specifier = "<0.2.0" },
     { name = "redash-toolbelt", marker = "extra == 'dev'", specifier = "<0.2.0" },
     { name = "redash-toolbelt", marker = "extra == 'docs'", specifier = "<0.2.0" },
@@ -2871,18 +2897,18 @@ requires-dist = [
     { name = "redshift-connector", marker = "extra == 'dev'", specifier = ">=2.1.5,<3.0.0" },
     { name = "redshift-connector", marker = "extra == 'docs'", specifier = ">=2.1.5,<3.0.0" },
     { name = "redshift-connector", marker = "extra == 'redshift'", specifier = ">=2.1.5,<3.0.0" },
-    { name = "requests", marker = "extra == 'all'", specifier = ">=2.28.0,<3.0.0" },
+    { name = "requests", marker = "extra == 'all'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'databricks'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'datahub-debug'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'datahub-rest'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'dbt'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'dbt-cloud'", specifier = "<3.0.0" },
-    { name = "requests", marker = "extra == 'dev'", specifier = "<3.0.0" },
-    { name = "requests", marker = "extra == 'docs'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'dev'", specifier = "==2.32.5,<3.0.0" },
+    { name = "requests", marker = "extra == 'docs'", specifier = "==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'dremio'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'fabric-onelake'", specifier = ">=2.28.0,<3.0" },
     { name = "requests", marker = "extra == 'grafana'", specifier = "<3.0.0" },
-    { name = "requests", marker = "extra == 'integration-tests'", specifier = ">=2.28.0,<3.0.0" },
+    { name = "requests", marker = "extra == 'integration-tests'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'json-schema'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'kafka-connect'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'metabase'", specifier = "<3.0.0" },
@@ -2892,13 +2918,17 @@ requires-dist = [
     { name = "requests", marker = "extra == 'preset'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'pulsar'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'qlik-sense'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'rdf'", specifier = "==2.32.5" },
     { name = "requests", marker = "extra == 'sac'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'sigma'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'superset'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'unity-catalog'", specifier = "<3.0.0" },
     { name = "requests-file", specifier = "<4.0.0" },
-    { name = "requests-file", marker = "extra == 'dev'", specifier = "<4.0.0" },
-    { name = "requests-file", marker = "extra == 'docs'", specifier = "<4.0.0" },
+    { name = "requests-file", marker = "extra == 'all'", specifier = "==3.0.1" },
+    { name = "requests-file", marker = "extra == 'dev'", specifier = "==3.0.1,<4.0.0" },
+    { name = "requests-file", marker = "extra == 'docs'", specifier = "==3.0.1,<4.0.0" },
+    { name = "requests-file", marker = "extra == 'integration-tests'", specifier = "==3.0.1" },
+    { name = "requests-file", marker = "extra == 'rdf'", specifier = "==3.0.1" },
     { name = "requests-gssapi", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "requests-gssapi", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "requests-gssapi", marker = "extra == 'docs'", specifier = "<2.0.0" },
@@ -3430,7 +3460,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-onelake", "feast", "fivetran", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "redash", "redshift", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-onelake", "feast", "fivetran", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -7133,11 +7163,14 @@ wheels = [
 
 [[package]]
 name = "isodate"
-version = "0.7.2"
+version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/54/4d/e940025e2ce31a8ce1202635910747e5a87cc3a6a6bb2d00973375014749/isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6", size = 29705, upload-time = "2024-10-08T23:04:11.5Z" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/db/7a/c0a56c7d56c7fa723988f122fa1f1ccf8c5c4ccc48efad0d214b49e5b1af/isodate-0.6.1.tar.gz", hash = "sha256:48c5881de7e8b0a0d648cb024c8062dc84e7b840ed81e864c7614fd3c127bde9", size = 28443, upload-time = "2021-12-13T20:28:31.525Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/aa/0aca39a37d3c7eb941ba736ede56d689e7be91cab5d9ca846bde3999eba6/isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15", size = 22320, upload-time = "2024-10-08T23:04:09.501Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/85/7882d311924cbcfc70b1890780763e36ff0b140c7e51c110fc59a532f087/isodate-0.6.1-py2.py3-none-any.whl", hash = "sha256:0751eece944162659049d35f4f549ed815792b38793f07cf73381c1c87cbed96", size = 41722, upload-time = "2021-12-13T20:28:29.073Z" },
 ]
 
 [[package]]
@@ -11004,6 +11037,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/85/33/cd87d92b23f0b06e8914a61cea6850c6d495ca027f669fab7a379041827a/rapidfuzz-3.14.3-pp311-pypy311_pp73-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1faa0f8f76ba75fd7b142c984947c280ef6558b5067af2ae9b8729b0a0f99ede", size = 1352187, upload-time = "2025-11-01T11:54:45.518Z" },
     { url = "https://files.pythonhosted.org/packages/22/20/9d30b4a1ab26aac22fff17d21dec7e9089ccddfe25151d0a8bb57001dc3d/rapidfuzz-3.14.3-pp311-pypy311_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1e6eefec45625c634926a9fd46c9e4f31118ac8f3156fff9494422cee45207e6", size = 3101472, upload-time = "2025-11-01T11:54:47.255Z" },
     { url = "https://files.pythonhosted.org/packages/b1/ad/fa2d3e5c29a04ead7eaa731c7cd1f30f9ec3c77b3a578fdf90280797cbcb/rapidfuzz-3.14.3-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:56fefb4382bb12250f164250240b9dd7772e41c5c8ae976fd598a32292449cc5", size = 1511361, upload-time = "2025-11-01T11:54:49.057Z" },
+]
+
+[[package]]
+name = "rdflib"
+version = "6.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "isodate" },
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c8/28/4d1f27c5d73f58e567ca1a14a4eab7d7978a09c4e117687f9f6c216d3366/rdflib-6.3.2.tar.gz", hash = "sha256:72af591ff704f4caacea7ecc0c5a9056b8553e0489dd4f35a9bc52dbd41522e0", size = 4749592, upload-time = "2023-03-26T11:52:54.891Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/92/d7fb1d7fb70c9f7003fa50b7a3880ebcb311cc3f8552b3595e7c8f75aeeb/rdflib-6.3.2-py3-none-any.whl", hash = "sha256:36b4e74a32aa1e4fa7b8719876fb192f19ecd45ff932ea5ebbd2e417a0247e63", size = 528122, upload-time = "2023-03-26T11:52:52.393Z" },
 ]
 
 [[package]]

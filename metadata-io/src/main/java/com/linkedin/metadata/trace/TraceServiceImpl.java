@@ -69,13 +69,15 @@ public class TraceServiceImpl implements TraceService {
     this.mclTimeseriesTraceReader = mclTimeseriesTraceReader;
   }
 
+  /**
+   * Extracts the epoch millis encoded in a DataHub trace ID from system metadata. Returns null if
+   * the system metadata has no trace ID, the trace ID doesn't follow DataHub's format (e.g.,
+   * propagated W3C trace IDs from external OTel systems), or the extracted timestamp is
+   * implausible.
+   */
   @Nullable
   public static Long extractTraceIdEpochMillis(@Nullable SystemMetadata systemMetadata) {
-    String traceId = extractTraceId(systemMetadata);
-    if (traceId != null) {
-      return TraceIdGenerator.getTimestampMillis(traceId);
-    }
-    return null;
+    return TraceIdGenerator.getTimestampMillis(extractTraceId(systemMetadata));
   }
 
   @Nonnull
@@ -488,9 +490,8 @@ public class TraceServiceImpl implements TraceService {
   }
 
   private static long extractTimestamp(@Nullable String traceId, long createOnMillis) {
-    return Optional.ofNullable(traceId)
-        .map(TraceIdGenerator::getTimestampMillis)
-        .orElse(createOnMillis);
+    Long epochMillis = TraceIdGenerator.getTimestampMillis(traceId);
+    return epochMillis != null ? epochMillis : createOnMillis;
   }
 
   private List<TraceException> extractTraceExceptions(
