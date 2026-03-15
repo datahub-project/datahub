@@ -3,11 +3,13 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
@@ -22,6 +24,7 @@ class CockroachDBConfig(PostgresConfig):
     )
 
 
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("CockroachDB")
 @config_class(CockroachDBConfig)
 @support_status(SupportStatus.TESTING)

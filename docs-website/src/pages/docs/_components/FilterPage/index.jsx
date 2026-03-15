@@ -3,6 +3,34 @@ import Layout from "@theme/Layout";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
 
+// Canonical order for Platform Type filter options — mirrors the sidebar and
+// frontend Create Source flow. Groups not in this list are appended alphabetically.
+const PLATFORM_TYPE_ORDER = [
+  "Data Warehouse",
+  "Data Lake",
+  "BI & Analytics",
+  "Database",
+  "ETL / ELT",
+  "Query Engine",
+  "ML Platforms",
+  "Orchestration",
+  "Context Document Sources",
+  "Miscellaneous",
+  "DataHub Internal",
+];
+
+function sortPlatformTypeOptions(options) {
+  return new Set(
+    [...options].sort((a, b) => {
+      const ai = PLATFORM_TYPE_ORDER.indexOf(a);
+      const bi = PLATFORM_TYPE_ORDER.indexOf(b);
+      const aIdx = ai === -1 ? PLATFORM_TYPE_ORDER.length : ai;
+      const bIdx = bi === -1 ? PLATFORM_TYPE_ORDER.length : bi;
+      return aIdx !== bIdx ? aIdx - bIdx : a.localeCompare(b);
+    })
+  );
+}
+
 export function FilterPage(
   siteConfig,
   metadata,
@@ -29,6 +57,11 @@ export function FilterPage(
       });
     });
   });
+  if (filterOptions["Platform Type"]) {
+    filterOptions["Platform Type"] = sortPlatformTypeOptions(
+      filterOptions["Platform Type"]
+    );
+  }
   const filterKeys = Object.keys(filterOptions);
   function getTags(path) {
     if (path === undefined || path === null) return;

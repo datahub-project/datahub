@@ -11,11 +11,13 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -50,6 +52,7 @@ from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.ETL_ELT)
 @platform_name("Kafka Connect")
 @config_class(KafkaConnectSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

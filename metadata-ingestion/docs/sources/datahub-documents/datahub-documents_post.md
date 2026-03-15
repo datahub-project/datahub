@@ -506,7 +506,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 **Solution:**
 
 1. Configure semantic search on your DataHub server first
-2. See [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration)
+2. See [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration.md)
 3. Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` in server config
 
 #### Issue: "Server does not support semantic search configuration API"

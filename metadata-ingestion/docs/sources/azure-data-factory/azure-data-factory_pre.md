@@ -14,7 +14,7 @@ Assign the [Reader](https://learn.microsoft.com/en-us/azure/role-based-access-co
 
 **Option 2: Custom Role with Minimal Permissions**
 
-Download [`datahub-adf-reader-role.json`](./datahub-adf-reader-role.json), update the `{subscription-id}`, then:
+Download [`datahub-adf-reader-role.json`](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/docs/sources/azure-data-factory/datahub-adf-reader-role.json), update the `{subscription-id}`, then:
 
 ```bash
 # Create custom role

@@ -20,10 +20,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -94,6 +96,7 @@ from datahub.utilities.ratelimiter import RateLimiter
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.ML_PLATFORMS)
 @platform_name("Vertex AI", id=PLATFORM)
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.INCUBATING)

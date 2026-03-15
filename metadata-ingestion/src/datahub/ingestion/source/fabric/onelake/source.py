@@ -17,11 +17,13 @@ from typing_extensions import assert_never
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -101,6 +103,7 @@ class WarehouseSchemaKey(WarehouseKey):
     schema_name: str
 
 
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Fabric OneLake")
 @config_class(FabricOneLakeSourceConfig)
 @support_status(SupportStatus.TESTING)

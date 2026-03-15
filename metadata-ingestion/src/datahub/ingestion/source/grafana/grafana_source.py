@@ -13,11 +13,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_dataset_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -67,6 +69,7 @@ GRAFANA_PANEL_EXTRACTION = "Grafana Panel Extraction"
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Grafana")
 @config_class(GrafanaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

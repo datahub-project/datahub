@@ -4,11 +4,13 @@ from typing import TYPE_CHECKING, DefaultDict, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -40,6 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.ML_PLATFORMS)
 @platform_name("SageMaker")
 @config_class(SagemakerSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

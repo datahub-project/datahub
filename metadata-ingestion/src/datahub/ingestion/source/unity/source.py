@@ -34,10 +34,12 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -153,6 +155,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Databricks")
 @config_class(UnityCatalogSourceConfig)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")

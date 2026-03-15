@@ -10,10 +10,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -56,6 +58,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
+@source_category(IngestionSourceCategory.ETL_ELT)
 @platform_name("SnapLogic")
 @config_class(SnaplogicConfig)
 @support_status(SupportStatus.TESTING)

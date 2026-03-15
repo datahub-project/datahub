@@ -20,11 +20,13 @@ from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import StructuredLogLevel
@@ -340,6 +342,7 @@ class Partitionitem:
     max_partition: Optional[Dict[str, str]] = None
 
 
+@source_category(IngestionSourceCategory.QUERY_ENGINE)
 @platform_name("Athena")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(AthenaConfig)

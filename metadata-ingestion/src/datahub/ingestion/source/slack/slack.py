@@ -13,9 +13,11 @@ from datahub.emitter.mce_builder import datahub_guid, make_dataplatform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -243,6 +245,7 @@ PLATFORM_NAME = "slack"
 DATA_PLATFORM_SLACK_URN: str = builder.make_data_platform_urn(PLATFORM_NAME)
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

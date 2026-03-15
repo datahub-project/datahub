@@ -8,7 +8,7 @@ import re
 import sys
 import textwrap
 from importlib.metadata import metadata, requires
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import click
 from docgen_types import Platform, Plugin
@@ -17,6 +17,7 @@ from docs_config_table import gen_md_table_from_pydantic
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.decorators import (
     CapabilitySetting,
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
 )
@@ -91,6 +92,36 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
             return SourceCapability(capability_name)
         except ValueError:
             raise ValueError(f"Unknown capability name: {capability_name}") from None
+
+
+_LEGACY_CATEGORY_ALIASES = {
+    # Map old enum keys from previous taxonomy to current keys
+    "ORCHESTRATOR": "ORCHESTRATION",
+    "ETL_AND_PROCESSING": "ETL_ELT",
+    "STREAMING_AND_MESSAGING": "ETL_ELT",
+    "AI_AND_ML": "ML_PLATFORMS",
+    "OBSERVABILITY": "BI_AND_ANALYTICS",
+    "IDENTITY_AND_ACCESS": "MISCELLANEOUS",
+    "METADATA_AND_GOVERNANCE": "MISCELLANEOUS",
+    "PUSH_INTEGRATIONS": "ORCHESTRATION",
+    "DATAHUB_INTERNAL": "DATAHUB_TOOLS",
+}
+
+
+def map_source_category_name_to_enum(
+    source_category_name: str,
+) -> IngestionSourceCategory:
+    """Maps source category names from JSON to IngestionSourceCategory enum values."""
+    name = _LEGACY_CATEGORY_ALIASES.get(source_category_name, source_category_name)
+    try:
+        return IngestionSourceCategory[name]
+    except KeyError:
+        try:
+            return IngestionSourceCategory(name)
+        except ValueError:
+            raise ValueError(
+                f"Unknown source category name: {source_category_name}"
+            ) from None
 
 
 def does_extra_exist(extra_name: str) -> bool:
@@ -287,6 +318,10 @@ def create_plugin_from_capability_data(
     if plugin_data.get("support_status"):
         plugin.support_status = SupportStatus[plugin_data["support_status"]]
 
+    source_category_name = plugin_data.get("source_category")
+    if source_category_name:
+        plugin.source_category = map_source_category_name_to_enum(source_category_name)
+
     # Set capabilities
     if plugin_data.get("capabilities"):
         capabilities = []
@@ -309,6 +344,15 @@ def create_plugin_from_capability_data(
         if isinstance(class_or_exception, Exception):
             raise class_or_exception
         source_type = source_registry.get(plugin_name)
+
+        # Backfill source category from source class when connector registry data
+        # is stale and doesn't include source_category yet.
+        if plugin.source_category is None and hasattr(
+            source_type, "get_source_category"
+        ):
+            source_category = source_type.get_source_category()
+            if isinstance(source_category, IngestionSourceCategory):
+                plugin.source_category = source_category
 
         # Get doc order
         if hasattr(source_type, "get_platform_doc_order"):
@@ -365,7 +409,69 @@ def create_plugin_from_capability_data(
     except Exception as e:
         logger.warning(f"Failed to load additional metadata for {plugin_name}: {e}")
 
+    if plugin.source_category is None:
+        raise ValueError(
+            f"Plugin {plugin_name} is missing source_category. "
+            "Please annotate its source class with @source_category."
+        )
+
     return plugin
+
+
+def generate_source_category_manifest(
+    out_dir: str, platforms: Dict[str, Platform]
+) -> None:
+    categories_to_sources: Dict[str, List[Tuple[str, str]]] = {}
+
+    for platform_id, platform in platforms.items():
+        platform_categories = {
+            plugin.source_category
+            for plugin in platform.plugins.values()
+            if plugin.source_category is not None
+        }
+
+        if not platform_categories:
+            raise ValueError(
+                f"Platform '{platform_id}' is missing source categories for all plugins."
+            )
+
+        if len(platform_categories) > 1:
+            raise ValueError(
+                f"Platform '{platform_id}' has multiple source categories: "
+                f"{sorted([category.value for category in platform_categories])}. "
+                "All modules for the same platform must share one source category."
+            )
+
+        platform_category = next(iter(platform_categories))
+        assert platform_category is not None
+        categories_to_sources.setdefault(platform_category.value, []).append(
+            (platform_id, platform.name)
+        )
+
+    sorted_categories = sorted(
+        categories_to_sources.items(), key=lambda x: x[0].casefold()
+    )
+    manifest_categories = []
+    for category_name, source_entries in sorted_categories:
+        sorted_source_entries = sorted(source_entries, key=lambda x: x[1].casefold())
+        manifest_categories.append(
+            {
+                "category": category_name,
+                "sources": [
+                    {"platform_id": platform_id, "platform_name": platform_name}
+                    for platform_id, platform_name in sorted_source_entries
+                ],
+            }
+        )
+
+    manifest = {
+        "generated_by": "metadata-ingestion/scripts/docgen.py",
+        "categories": manifest_categories,
+    }
+
+    manifest_path = pathlib.Path(out_dir) / "sources" / "_categories.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    logger.info(f"Generated source category manifest at {manifest_path}")
 
 
 @dataclasses.dataclass
@@ -731,6 +837,8 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
     print("############################################")
     if plugin_metrics.failed > 0:
         sys.exit(1)
+
+    generate_source_category_manifest(out_dir=out_dir, platforms=platforms)
 
     # Create Lineage doc
     generate_lineage_doc(platforms)

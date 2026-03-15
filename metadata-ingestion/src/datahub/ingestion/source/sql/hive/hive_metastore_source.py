@@ -21,11 +21,13 @@ if TYPE_CHECKING:
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -54,6 +56,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.QUERY_ENGINE)
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
 @support_status(SupportStatus.CERTIFIED)
