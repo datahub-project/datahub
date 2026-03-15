@@ -6,11 +6,13 @@ from typing import Dict, Iterable, List, Optional
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -40,6 +42,7 @@ from datahub.utilities.progress_timer import ProgressTimer
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
 @support_status(SupportStatus.TESTING)

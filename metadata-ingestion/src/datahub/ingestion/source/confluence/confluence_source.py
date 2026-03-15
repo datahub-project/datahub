@@ -19,10 +19,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -58,6 +60,7 @@ from datahub.sdk.document import Document
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("Confluence")
 @config_class(ConfluenceSourceConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -48,11 +48,13 @@ from datahub.emitter.mcp_builder import (
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -356,6 +358,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
             super().info(*args, **kwargs)
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Mode")
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -14,11 +14,13 @@ from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
@@ -225,6 +227,7 @@ class ApiWorkUnit(MetadataWorkUnit):
     pass
 
 
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
 @support_status(SupportStatus.INCUBATING)

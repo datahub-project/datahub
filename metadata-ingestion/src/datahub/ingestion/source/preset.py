@@ -9,11 +9,13 @@ from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -72,6 +74,7 @@ class PresetConfig(SupersetConfig):
         return self
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Preset")
 @config_class(PresetConfig)
 @support_status(SupportStatus.CERTIFIED)

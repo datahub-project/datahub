@@ -13,11 +13,13 @@ from datahub.configuration.git import GitReference
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -631,6 +633,7 @@ def load_run_results(
     return all_nodes
 
 
+@source_category(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
 @support_status(SupportStatus.CERTIFIED)

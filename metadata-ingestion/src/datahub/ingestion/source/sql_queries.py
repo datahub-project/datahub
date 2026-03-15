@@ -22,10 +22,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -119,6 +121,7 @@ class SqlQueriesSourceReport(SourceReport):
     schema_resolver_report: Optional[SchemaResolverReport] = None
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
 @support_status(SupportStatus.INCUBATING)

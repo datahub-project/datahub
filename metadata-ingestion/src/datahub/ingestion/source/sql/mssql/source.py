@@ -27,11 +27,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import StructuredLogLevel
@@ -352,6 +354,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return self.database
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
 @support_status(SupportStatus.CERTIFIED)

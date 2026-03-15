@@ -22,9 +22,11 @@ from typing import TYPE_CHECKING, Any, Iterable, Optional
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import CapabilityReport, Source, SourceReport
@@ -94,6 +96,7 @@ class DocumentChunkingReport(SourceReport):
         self.embedding_failures.append(f"{document_urn}: {error}")
 
 
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHub")
 @support_status(SupportStatus.INCUBATING)
 @config_class(DocumentChunkingSourceConfig)

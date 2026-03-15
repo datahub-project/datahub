@@ -20,10 +20,12 @@ from google.oauth2 import service_account
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -56,6 +58,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Dataplex", id="dataplex")
 @config_class(DataplexConfig)
 @support_status(SupportStatus.INCUBATING)

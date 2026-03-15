@@ -47,11 +47,13 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -1340,6 +1342,7 @@ def get_column_type(
     return SchemaFieldDataType(type=TypeClass)
 
 
+@source_category(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
