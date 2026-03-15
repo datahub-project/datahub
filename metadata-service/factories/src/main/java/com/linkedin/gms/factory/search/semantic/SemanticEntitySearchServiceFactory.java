@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SemanticEntitySearchServiceFactory {
 
-  private static final String DEFAULT_MODEL_EMBEDDING_KEY = "cohere_embed_v3";
+  private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
 
   @Autowired
   @Qualifier("searchClientShim")
@@ -69,20 +69,12 @@ public class SemanticEntitySearchServiceFactory {
     }
 
     String modelId = config.getModelId();
-    String providerType = config.getType();
-
-    // For OpenAI and Cohere providers, use the specific model from sub-config
-    if ("openai".equalsIgnoreCase(providerType) && config.getOpenai() != null) {
-      modelId = config.getOpenai().getModel();
-    } else if ("cohere".equalsIgnoreCase(providerType) && config.getCohere() != null) {
-      modelId = config.getCohere().getModel();
-    }
 
     String key = deriveModelEmbeddingKeyFromModelId(modelId);
     log.info(
         "Derived modelEmbeddingKey={} from providerType={}, modelId={}",
         key,
-        providerType,
+        config.getType(),
         modelId);
     return key;
   }

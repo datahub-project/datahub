@@ -10,7 +10,7 @@ from pydantic import PositiveInt, field_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -97,9 +97,15 @@ class MongoDBConfig(
         default="mongodb://localhost", description="MongoDB connection URI."
     )
     username: Optional[str] = Field(default=None, description="MongoDB username.")
-    password: Optional[str] = Field(default=None, description="MongoDB password.")
+    password: Optional[TransparentSecretStr] = Field(
+        default=None, description="MongoDB password."
+    )
     authMechanism: Optional[str] = Field(
-        default=None, description="MongoDB authentication mechanism."
+        default=None,
+        description="MongoDB authentication mechanism. Supported values: "
+        "DEFAULT, SCRAM-SHA-1, SCRAM-SHA-256, MONGODB-AWS, MONGODB-X509. "
+        "When using MONGODB-AWS, credentials are resolved via boto3. "
+        "See https://pymongo.readthedocs.io/en/stable/examples/authentication.html",
     )
     options: dict = Field(
         default={}, description="Additional options to pass to `pymongo.MongoClient()`."
@@ -263,18 +269,13 @@ def construct_schema_pymongo(
 @dataclass
 class MongoDBSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
+    Source that extracts databases and collections from MongoDB with inferred schemas.
 
-    - Databases and associated metadata
-    - Collections in each database and schemas for each collection (via schema inference)
-
-    By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
-    Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
-
-    Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
-
-    Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
-
+    Implementation notes:
+    - Uses PyMongo for MongoDB connections
+    - Schema inference samples documents to derive field types
+    - Supports multiple auth mechanisms (SCRAM, AWS IAM, X.509)
+    - Configurable sampling size, random sampling, and schema truncation
     """
 
     config: MongoDBConfig
@@ -291,7 +292,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
         if self.config.username is not None:
             options["username"] = self.config.username
         if self.config.password is not None:
-            options["password"] = self.config.password
+            options["password"] = self.config.password.get_secret_value()
         if self.config.authMechanism is not None:
             options["authMechanism"] = self.config.authMechanism
         options = {

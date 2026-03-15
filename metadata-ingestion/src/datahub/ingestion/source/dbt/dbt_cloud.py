@@ -2,13 +2,18 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
 from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -28,11 +33,15 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudJob,
 )
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTExposure,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -74,7 +83,7 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The dbt Cloud metadata API endpoint. If not provided, we will try to infer it from the access_url.",
     )
 
-    token: str = Field(
+    token: TransparentSecretStr = Field(
         description="The API token to use to authenticate with DBT Cloud.",
     )
 
@@ -306,9 +315,43 @@ _DBT_FIELDS_BY_TYPE = {
     compiledSql
     compiledCode
 """,
+    "exposures": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    packageName
+    exposureType
+    url
+    maturity
+    ownerName
+    ownerEmail
+    dependsOn
+""",
+    "semanticModels": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    packageName
+    dependsOn
+    entities {{
+      name
+      type
+      description
+      expr
+    }}
+    dimensions {{
+      name
+      type
+      description
+      expr
+      typeParams
+    }}
+    measures {{
+      name
+      agg
+      description
+      expr
+      createMetric
+    }}
+""",
     # Currently unsupported dbt node types:
     # - metrics
-    # - exposures
 }
 
 _DBT_GRAPHQL_QUERY = """
@@ -329,6 +372,9 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
     report: DBTSourceReport  # nothing cloud-specific in the report
+
+    def __init__(self, config: DBTCloudConfig, ctx: PipelineContext):
+        super().__init__(config, ctx)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -352,7 +398,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 # Test auto-discovery: verify we can fetch environments
                 DBTCloudSource._get_environments_for_project(
                     source_config.access_url,
-                    source_config.token,
+                    source_config.token.get_secret_value(),
                     source_config.account_id,
                     source_config.project_id,
                 )
@@ -360,7 +406,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 # Test explicit mode: verify we can query the job
                 DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
-                    source_config.token,
+                    source_config.token.get_secret_value(),
                     _DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
@@ -550,7 +596,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             environments: List[DBTCloudEnvironment] = (
                 self._get_environments_for_project(
                     self.config.access_url,
-                    self.config.token,
+                    self.config.token.get_secret_value(),
                     self.config.account_id,
                     self.config.project_id,
                 )
@@ -582,7 +628,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         try:
             all_jobs: List[DBTCloudJob] = self._get_jobs_for_project(
                 self.config.access_url,
-                self.config.token,
+                self.config.token.get_secret_value(),
                 self.config.account_id,
                 self.config.project_id,
                 production_env.id,
@@ -644,17 +690,25 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         # Fetch nodes from all jobs
         raw_nodes = []
+        raw_exposures = []
         for job_id in job_ids_to_ingest:
             self.report.processed_jobs_list.append(job_id)
             self.report.total_jobs_processed += 1
             for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
+                # Skip semantic models if not enabled
+                if (
+                    node_type == "semanticModels"
+                    and not self.config.entities_enabled.can_emit_semantic_models
+                ):
+                    continue
+
                 try:
                     logger.info(
                         f"Fetching {node_type} from dbt Cloud for job_id: {job_id}"
                     )
                     data = self._send_graphql_query(
                         metadata_endpoint=self.config.metadata_endpoint,
-                        token=self.config.token,
+                        token=self.config.token.get_secret_value(),
                         query=_DBT_GRAPHQL_QUERY.format(type=node_type, fields=fields),
                         variables={
                             "jobId": job_id,
@@ -662,7 +716,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         },
                     )
 
-                    raw_nodes.extend(data["job"][node_type])
+                    if node_type == "exposures":
+                        raw_exposures.extend(data["job"][node_type])
+                    else:
+                        raw_nodes.extend(data["job"][node_type])
                 except Exception as e:
                     logger.warning(
                         f"Failed to fetch {node_type} from job {job_id}: {e}. Continuing with other jobs."
@@ -670,6 +727,37 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     continue
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
+
+        # Resolve database/schema for semantic models from their upstream nodes
+        semantic_models_needing_resolution = [
+            n
+            for n in nodes
+            if n.node_type == "semantic_model" and (not n.database or not n.schema)
+        ]
+        if semantic_models_needing_resolution:
+            nodes_by_name = {node.dbt_name: node for node in nodes}
+            for node in semantic_models_needing_resolution:
+                for upstream_name in node.upstream_nodes:
+                    if upstream_name in nodes_by_name:
+                        ref_node = nodes_by_name[upstream_name]
+                        if not node.database and ref_node.database:
+                            object.__setattr__(node, "database", ref_node.database)
+                        if not node.schema and ref_node.schema:
+                            object.__setattr__(node, "schema", ref_node.schema)
+                        break
+
+        # Parse exposures
+        self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
+
+        # Track semantic model count
+        semantic_model_count = sum(
+            1 for node in nodes if node.node_type == "semantic_model"
+        )
+        if semantic_model_count > 0:
+            self.report.num_semantic_models_emitted = semantic_model_count
+            logger.info(
+                f"Fetched {semantic_model_count} semantic models from dbt Cloud"
+            )
 
         additional_metadata: Dict[str, Optional[str]] = {
             "account_id": str(self.config.account_id),
@@ -829,7 +917,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
 
         columns: List[DBTColumn] = []
-        if "columns" in node and node["columns"] is not None:
+        if resource_type == "semantic_model":
+            # For semantic models, convert entities/dimensions/measures to columns
+            entities = node.get("entities", [])
+            dimensions = node.get("dimensions", [])
+            measures = node.get("measures", [])
+            columns = convert_semantic_model_fields_to_columns(
+                entities=entities,
+                dimensions=dimensions,
+                measures=measures,
+            )
+        elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
                 sorted(
@@ -842,6 +940,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         test_result = None
         if resource_type == "test":
             test_info, test_result = self._extract_test_info(node, name)
+
+        # Determine language - semantic models are YAML, others are SQL
+        language = "yaml" if resource_type == "semantic_model" else "sql"
 
         return DBTNode(
             dbt_name=key,
@@ -865,7 +966,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             query_tag={},  # TODO: Get this from the dbt API.
             tags=tags,
             owner=owner,
-            language="sql",  # TODO: dbt Cloud doesn't surface this
+            language=language,
             raw_code=raw_code,
             compiled_code=compiled_code,
             columns=columns,
@@ -890,6 +991,40 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             data_type=column["type"],
             meta=column["meta"],
             tags=column["tags"],
+        )
+
+    def _parse_into_dbt_exposure(self, exposure: Dict) -> DBTExposure:
+        """Parse a raw exposure from dbt Cloud API into a DBTExposure object."""
+        tags = exposure.get("tags", [])
+        tags = [self.config.tag_prefix + tag for tag in tags] if tags else []
+
+        depends_on = exposure.get("dependsOn", [])
+        # dependsOn in GraphQL response is a list of unique IDs
+        depends_on_nodes = depends_on if isinstance(depends_on, list) else []
+
+        raw_type = exposure.get("exposureType", "dashboard")
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
+        raw_maturity = exposure.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
+        return DBTExposure(
+            name=exposure["name"],
+            unique_id=exposure["uniqueId"],
+            type=exposure_type,
+            owner_name=exposure.get("ownerName"),
+            owner_email=exposure.get("ownerEmail"),
+            description=exposure.get("description"),
+            url=exposure.get("url"),
+            maturity=maturity,
+            depends_on=depends_on_nodes,
+            tags=tags,
+            meta=exposure.get("meta", {}) if exposure.get("meta") else {},
+            dbt_package_name=exposure.get("packageName"),
         )
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:

@@ -77,14 +77,17 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
     "touch ${sentinel_file}"
 }
 
-task testQuick(type: Exec, dependsOn: installDevTest) {
+task testFull(type: Exec, dependsOn: installDevTest) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   outputs.dir("${venv_name}")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest -vv ${get_coverage_args('quick')} --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "pytest -vv ${get_coverage_args('quick')} --continue-on-collection-errors"
 }
 
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
@@ -99,7 +102,7 @@ task cleanPythonCache(type: Exec) {
 
 build.dependsOn install
 check.dependsOn lint
-check.dependsOn testQuick
+check.dependsOn testFull
 
 clean {
   delete venv_name

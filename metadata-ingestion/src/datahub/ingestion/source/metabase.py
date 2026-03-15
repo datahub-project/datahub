@@ -439,7 +439,15 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
     SourceCapability.LINEAGE_COARSE, "Supported by default for charts and dashboards"
 )
 class MetabaseSource(StatefulIngestionSourceBase):
-    """Extracts dashboards, charts, models, and lineage from Metabase."""
+    """
+    Source that extracts dashboards, charts, and collections from Metabase via REST API.
+
+    Implementation notes:
+    - Uses Metabase API for metadata extraction
+    - Parses native SQL queries for lineage extraction
+    - Maps Metabase database engines to DataHub platforms via engine_platform_map
+    - Only tested with PostgreSQL and H2; other databases may work but are not validated
+    """
 
     config: MetabaseConfig
     report: MetabaseReport

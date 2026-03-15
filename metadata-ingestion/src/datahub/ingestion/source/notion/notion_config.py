@@ -99,6 +99,14 @@ class NotionSourceConfig(
         description="Embedding generation configuration (LiteLLM with Cohere/Bedrock)",
     )
 
+    max_documents: int = Field(
+        default=10000,
+        ge=-1,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached. "
+        "Set to 0 or -1 to disable the limit.",
+    )
+
     advanced: AdvancedConfig = Field(
         default_factory=AdvancedConfig,
         description="Advanced configuration options (work directory, error handling)",

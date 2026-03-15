@@ -45,6 +45,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
         else:
             logger.info("Detected self-hosted Kafka Connect - using runtime topics API")
+
+        # Create shared SchemaResolverProvider if graph is available.
+        # The provider's lru_cache deduplicates bulk fetches across connectors.
+        self._schema_resolver_provider: Optional[SchemaResolverProvider] = None
+        if self.config.use_schema_resolver and self.ctx.graph:
+            self._schema_resolver_provider = SchemaResolverProvider(
+                graph=self.ctx.graph
+            )
 
         # Note: Removed topic handler registry - topic resolution moved to connector registry
 
@@ -182,7 +191,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Try to get a connector handler from the registry
         connector = ConnectorRegistry.get_connector_for_manifest(
-            connector_manifest, self.config, self.report, self.ctx
+            connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
         # For Confluent Cloud, populate all_cluster_topics for validation purposes
@@ -506,7 +515,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             if self.config.kafka_api_key and self.config.kafka_api_secret:
                 # Use Kafka-specific API credentials with Basic auth
                 headers["Authorization"] = self._create_basic_auth_header(
-                    self.config.kafka_api_key, self.config.kafka_api_secret
+                    self.config.kafka_api_key,
+                    self.config.kafka_api_secret.get_secret_value(),
                 )
                 logger.debug("Using dedicated Kafka API credentials for authentication")
 
@@ -750,7 +760,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
 
         return ConnectorRegistry.get_topics_from_config(
-            connector_manifest, self.config, self.report, self.ctx
+            connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
     # Note: _get_topic_fields_for_connector and get_platform_from_connector_class removed
@@ -863,11 +873,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     if source_dataset
                     else []
                 )
-                outlets = [
-                    self.make_lineage_dataset_urn(
-                        target_platform, target_dataset, target_platform_instance
-                    )
-                ]
+                outlets = (
+                    [
+                        self.make_lineage_dataset_urn(
+                            target_platform, target_dataset, target_platform_instance
+                        )
+                    ]
+                    if target_dataset
+                    else []
+                )
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn,
@@ -965,6 +979,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 yield from self.construct_job_workunits(connector)
 
             self.report.report_connector_scanned(connector.name)
+
+    def close(self) -> None:
+        if self._schema_resolver_provider:
+            try:
+                self._schema_resolver_provider.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close schema resolver provider", exc_info=True
+                )
+        super().close()
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report

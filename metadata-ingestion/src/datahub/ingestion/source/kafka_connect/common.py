@@ -5,7 +5,12 @@ from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional, TypedDi
 from pydantic import model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, LaxStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    LaxStr,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
@@ -36,6 +41,7 @@ KAFKA: Final[str] = "kafka"
 SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
+JDBC_PREFIX: Final[str] = "jdbc:"
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
@@ -134,7 +140,9 @@ class KafkaConnectSourceConfig(
         default=DEFAULT_CONNECT_URI, description="URI to connect to."
     )
     username: Optional[str] = Field(default=None, description="Kafka Connect username.")
-    password: Optional[str] = Field(default=None, description="Kafka Connect password.")
+    password: Optional[TransparentSecretStr] = Field(
+        default=None, description="Kafka Connect password."
+    )
     cluster_name: Optional[str] = Field(
         default="connect-cluster", description="Cluster to ingest from."
     )
@@ -193,7 +201,7 @@ class KafkaConnectSourceConfig(
         "Only needed if you want to use separate credentials for the Kafka API.",
     )
 
-    kafka_api_secret: Optional[str] = Field(
+    kafka_api_secret: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Optional: Confluent Cloud Kafka API secret for authenticating with Kafka REST API v3. "
         "If not specified, DataHub will reuse the Connect credentials (username/password) for Kafka API authentication. "
@@ -403,7 +411,8 @@ class KafkaConnectSourceConfig(
 
     def get_connect_credentials(self) -> tuple[Optional[str], Optional[str]]:
         """Get the appropriate credentials for Connect API access."""
-        return self.username, self.password
+        password = self.password.get_secret_value() if self.password else None
+        return self.username, password
 
     def get_kafka_credentials(self) -> tuple[Optional[str], Optional[str]]:
         """
@@ -413,9 +422,10 @@ class KafkaConnectSourceConfig(
         Otherwise, fall back to reusing Connect credentials.
         """
         if self.kafka_api_key and self.kafka_api_secret:
-            return self.kafka_api_key, self.kafka_api_secret
+            return self.kafka_api_key, self.kafka_api_secret.get_secret_value()
         # Fall back to Connect credentials (username/password)
-        return self.username, self.password
+        password = self.password.get_secret_value() if self.password else None
+        return self.username, password
 
     @staticmethod
     def construct_confluent_cloud_uri(environment_id: str, cluster_id: str) -> str:
@@ -520,8 +530,7 @@ def validate_jdbc_url(url: str) -> bool:
     if not url or not isinstance(url, str):
         return False
 
-    # Basic JDBC URL validation
-    if not url.startswith("jdbc:"):
+    if not url.startswith(JDBC_PREFIX):
         return False
 
     parts = url.split(":", 3)
@@ -735,8 +744,8 @@ class BaseConnector:
         capture ALL tables from the database.
 
         The SchemaResolver cache is pre-populated during initialization via
-        initialize_schema_resolver_from_datahub(), which fetches all schema metadata
-        from DataHub for the configured platform and environment.
+        SchemaResolverProvider, which bulk-fetches all schema metadata from DataHub
+        for the configured platform and environment.
 
         Args:
             database_name: The database name (e.g., "mydb", "testdb")

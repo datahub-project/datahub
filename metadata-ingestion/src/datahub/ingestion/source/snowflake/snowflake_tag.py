@@ -50,37 +50,83 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         self.snowflake_identifiers = snowflake_identifiers
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
-    def _get_tags_on_object_without_propagation(
+    def _ensure_cache_loaded(self, db_name: str) -> None:
+        if db_name not in self.tag_cache:
+            try:
+                self.tag_cache[db_name] = (
+                    self.data_dictionary.get_tags_for_database_without_propagation(
+                        db_name
+                    )
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load tag cache for database {db_name}: {e}",
+                    exc_info=True,
+                )
+                self.report.warning(
+                    title="Failed to load tags for database",
+                    message="Tag extraction will be skipped for this database. "
+                    "Check that the ingestion role has access to "
+                    "SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES.",
+                    context=db_name,
+                    exc=e,
+                )
+                # Insert empty cache so we don't retry on every object
+                self.tag_cache[db_name] = _SnowflakeTagCache()
+
+    def _get_tags_on_object(
         self,
-        domain: str,
+        domain: SnowflakeObjectDomain,
         db_name: str,
         schema_name: Optional[str],
         table_name: Optional[str],
+        with_inheritance: bool,
     ) -> List[SnowflakeTag]:
-        if db_name not in self.tag_cache:
-            self.tag_cache[db_name] = (
-                self.data_dictionary.get_tags_for_database_without_propagation(db_name)
-            )
+        self._ensure_cache_loaded(db_name)
+        cache = self.tag_cache[db_name]
 
         if domain == SnowflakeObjectDomain.DATABASE:
-            return self.tag_cache[db_name].get_database_tags(db_name)
+            return cache.get_database_tags(db_name)
         elif domain == SnowflakeObjectDomain.SCHEMA:
-            assert schema_name is not None
-            tags = self.tag_cache[db_name].get_schema_tags(schema_name, db_name)
-        elif (
-            domain == SnowflakeObjectDomain.TABLE
-        ):  # Views belong to this domain as well.
-            assert schema_name is not None
-            assert table_name is not None
-            tags = self.tag_cache[db_name].get_table_tags(
-                table_name, schema_name, db_name
-            )
+            if schema_name is None:
+                raise ValueError(
+                    f"schema_name is required for domain {domain} (db_name={db_name})"
+                )
+            if with_inheritance:
+                return cache.get_schema_tags_with_inheritance(schema_name, db_name)
+            return cache.get_schema_tags(schema_name, db_name)
+        elif domain == SnowflakeObjectDomain.TABLE:
+            # Views belong to this domain as well.
+            if schema_name is None or table_name is None:
+                raise ValueError(
+                    f"schema_name and table_name are required for domain {domain} "
+                    f"(db_name={db_name}, schema_name={schema_name}, table_name={table_name})"
+                )
+            if with_inheritance:
+                return cache.get_table_tags_with_inheritance(
+                    table_name, schema_name, db_name
+                )
+            return cache.get_table_tags(table_name, schema_name, db_name)
         else:
-            raise ValueError(f"Unknown domain {domain}")
-        return tags
+            raise ValueError(
+                f"Tag extraction is not supported for domain {domain!r}. "
+                f"Supported domains: DATABASE, SCHEMA, TABLE."
+            )
 
     def create_structured_property_templates(self) -> Iterable[MetadataWorkUnit]:
-        for tag in self.data_dictionary.get_all_tags():
+        try:
+            all_tags = list(self.data_dictionary.get_all_tags())
+        except Exception as e:
+            self.report.warning(
+                title="Failed to create structured property templates",
+                message="Could not fetch tag definitions from Snowflake. "
+                "Structured property templates will not be created.",
+                context="get_all_tags",
+                exc=e,
+            )
+            return
+
+        for tag in all_tags:
             if not self.config.structured_property_pattern.allowed(
                 tag._id_prefix_as_str()
             ):
@@ -116,110 +162,57 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             headers={"If-None-Match": "*"},
         ).as_workunit()
 
-    def _get_tags_on_object_with_propagation(
-        self,
-        domain: str,
-        db_name: str,
-        schema_name: Optional[str],
-        table_name: Optional[str],
-    ) -> List[SnowflakeTag]:
-        identifier = ""
-        if domain == SnowflakeObjectDomain.DATABASE:
-            identifier = self.identifiers.get_quoted_identifier_for_database(db_name)
-        elif domain == SnowflakeObjectDomain.SCHEMA:
-            assert schema_name is not None
-            identifier = self.identifiers.get_quoted_identifier_for_schema(
-                db_name, schema_name
-            )
-        elif (
-            domain == SnowflakeObjectDomain.TABLE
-        ):  # Views belong to this domain as well.
-            assert schema_name is not None
-            assert table_name is not None
-            identifier = self.identifiers.get_quoted_identifier_for_table(
-                db_name, schema_name, table_name
-            )
-        else:
-            raise ValueError(f"Unknown domain {domain}")
-        assert identifier
-
-        self.report.num_get_tags_for_object_queries += 1
-        tags = self.data_dictionary.get_tags_for_object_with_propagation(
-            domain=domain, quoted_identifier=identifier, db_name=db_name
-        )
-        return tags
-
     def get_tags_on_object(
         self,
-        domain: str,
+        domain: SnowflakeObjectDomain,
         db_name: str,
         schema_name: Optional[str] = None,
         table_name: Optional[str] = None,
     ) -> List[SnowflakeTag]:
-        if self.config.extract_tags == TagOption.without_lineage:
-            tags = self._get_tags_on_object_without_propagation(
-                domain=domain,
-                db_name=db_name,
-                schema_name=schema_name,
-                table_name=table_name,
-            )
+        if self.config.extract_tags == TagOption.skip:
+            return []
 
-        elif self.config.extract_tags == TagOption.with_lineage:
-            tags = self._get_tags_on_object_with_propagation(
-                domain=domain,
-                db_name=db_name,
-                schema_name=schema_name,
-                table_name=table_name,
-            )
-        else:
-            tags = []
+        tags = self._get_tags_on_object(
+            domain=domain,
+            db_name=db_name,
+            schema_name=schema_name,
+            table_name=table_name,
+            with_inheritance=self.config.extract_tags == TagOption.with_lineage,
+        )
 
-        allowed_tags = self._filter_tags(tags)
-
-        return allowed_tags if allowed_tags else []
+        return self._filter_tags(tags)
 
     def get_column_tags_for_table(
         self,
         table_name: str,
         schema_name: str,
         db_name: str,
+        column_names: Optional[List[str]] = None,
     ) -> Dict[str, List[SnowflakeTag]]:
-        temp_column_tags: Dict[str, List[SnowflakeTag]] = {}
-        if self.config.extract_tags == TagOption.without_lineage:
-            if db_name not in self.tag_cache:
-                self.tag_cache[db_name] = (
-                    self.data_dictionary.get_tags_for_database_without_propagation(
-                        db_name
-                    )
-                )
-            temp_column_tags = self.tag_cache[db_name].get_column_tags_for_table(
-                table_name, schema_name, db_name
+        if self.config.extract_tags == TagOption.skip:
+            return {}
+
+        self._ensure_cache_loaded(db_name)
+        cache = self.tag_cache[db_name]
+
+        if self.config.extract_tags == TagOption.with_lineage:
+            temp_column_tags = cache.get_column_tags_for_table_with_inheritance(
+                table_name, schema_name, db_name, column_names=column_names
             )
-        elif self.config.extract_tags == TagOption.with_lineage:
-            self.report.num_get_tags_on_columns_for_table_queries += 1
-            temp_column_tags = self.data_dictionary.get_tags_on_columns_for_table(
-                quoted_table_name=self.identifiers.get_quoted_identifier_for_table(
-                    db_name, schema_name, table_name
-                ),
-                db_name=db_name,
+        else:
+            temp_column_tags = cache.get_column_tags_for_table(
+                table_name, schema_name, db_name
             )
 
         column_tags: Dict[str, List[SnowflakeTag]] = {}
-
-        for column_name in temp_column_tags:
-            tags = temp_column_tags[column_name]
+        for column_name, tags in temp_column_tags.items():
             allowed_tags = self._filter_tags(tags)
             if allowed_tags:
                 column_tags[column_name] = allowed_tags
 
         return column_tags
 
-    def _filter_tags(
-        self, tags: Optional[List[SnowflakeTag]]
-    ) -> Optional[List[SnowflakeTag]]:
-        if tags is None:
-            return tags
-
+    def _filter_tags(self, tags: List[SnowflakeTag]) -> List[SnowflakeTag]:
         allowed_tags = []
         for tag in tags:
             identifier = (

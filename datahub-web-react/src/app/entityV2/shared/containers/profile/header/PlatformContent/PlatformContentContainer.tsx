@@ -17,12 +17,12 @@ function PlatformContentContainer() {
     const entityRegistry = useEntityRegistry();
     const platformName = getPlatformNameFromEntityData(entityData);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
-    const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
+    const entityLogoComponent = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
     const typeIcon =
         entityType === EntityType.Container ? (
             <ContainerIcon container={entityData as Container} />
         ) : (
-            entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT)
+            entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT)
         );
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const instanceId = entityData?.dataPlatformInstance?.instanceId;

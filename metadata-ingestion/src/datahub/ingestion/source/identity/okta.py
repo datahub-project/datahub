@@ -14,6 +14,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import model_validator
 from pydantic.fields import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -60,7 +61,7 @@ class OktaConfig(StatefulIngestionConfigBase):
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Required: An API token generated from Okta.
-    okta_api_token: str = Field(
+    okta_api_token: TransparentSecretStr = Field(
         description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
     )
 
@@ -205,80 +206,13 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 )
 class OktaSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
+    Source that extracts users, groups, and group membership from Okta using the Okta Python SDK.
 
-    - Users
-    - Groups
-    - Group Membership
-
-    from your Okta instance.
-
-    Note that any users ingested from this connector will not be able to log into DataHub unless you have Okta OIDC SSO
-    enabled. You can, however, have these users ingested into DataHub before they log in for the first time if you would
-    like to take actions like adding them to a group or assigning them a role.
-
-    For instructions on how to do configure Okta OIDC SSO, please read the documentation
-    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-in-okta-developer-console).
-
-    ### Extracting DataHub Users
-
-    #### Usernames
-
-    Usernames serve as unique identifiers for users on DataHub. This connector extracts usernames using the
-    "login" field of an [Okta User Profile](https://developer.okta.com/docs/reference/api/users/#profile-object).
-    By default, the 'login' attribute, which contains an email, is parsed to extract the text before the "@" and map that to the DataHub username.
-
-    If this is not how you wish to map to DataHub usernames, you can provide a custom mapping using the configurations options detailed below. Namely, `okta_profile_to_username_attr`
-    and `okta_profile_to_username_regex`. e.g. if you want to map emails to urns then you may use the following configuration:
-    ```yaml
-    okta_profile_to_username_attr: "email"
-    okta_profile_to_username_regex: ".*"
-    ```
-
-    #### Profiles
-
-    This connector also extracts basic user profile information from Okta. The following fields of the Okta User Profile are extracted
-    and mapped to the DataHub `CorpUserInfo` aspect:
-
-    - display name
-    - first name
-    - last name
-    - email
-    - title
-    - department
-    - country code
-
-    ### Extracting DataHub Groups
-
-    #### Group Names
-
-    Group names serve as unique identifiers for groups on DataHub. This connector extracts group names using the "name" attribute of an Okta Group Profile.
-    By default, a URL-encoded version of the full group name is used as the unique identifier (CorpGroupKey) and the raw "name" attribute is mapped
-    as the display name that will appear in DataHub's UI.
-
-    If this is not how you wish to map to DataHub group names, you can provide a custom mapping using the configurations options detailed below. Namely, `okta_profile_to_group_name_attr`
-    and `okta_profile_to_group_name_regex`.
-
-    #### Profiles
-
-    This connector also extracts basic group information from Okta. The following fields of the Okta Group Profile are extracted and mapped to the
-    DataHub `CorpGroupInfo` aspect:
-
-    - name
-    - description
-
-    ### Extracting Group Membership
-
-    This connector additional extracts the edges between Users and Groups that are stored in Okta. It maps them to the `GroupMembership` aspect
-    associated with DataHub users (CorpUsers).
-
-    ### Filtering and Searching
-    You can also choose to ingest a subset of users or groups to Datahub by adding flags for filtering or searching. For
-    users, set either the `okta_users_filter` or `okta_users_search` flag (only one can be set at a time). For groups, set
-    either the `okta_groups_filter` or `okta_groups_search` flag. Note that these are not regular expressions. See [below](#config-details) for full configuration
-    options.
-
-
+    Implementation notes:
+    - Uses Okta SDK's batch APIs for efficient extraction
+    - Supports filtering and searching via Okta's filter/search expressions
+    - Validates that only one of filter/search is set per entity type (via pydantic validators)
+    - Rate limiting via configurable delay_seconds between API calls
     """
 
     config: OktaConfig
@@ -431,7 +365,7 @@ class OktaSource(StatefulIngestionSourceBase):
     def _create_okta_client(self):
         config = {
             "orgUrl": f"https://{self.config.okta_domain}",
-            "token": f"{self.config.okta_api_token}",
+            "token": self.config.okta_api_token.get_secret_value(),
             "raiseException": True,
         }
         return OktaClient(config)
