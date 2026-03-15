@@ -190,7 +190,7 @@ The following are explicitly out of scope for this RFC (may be addressed in futu
 
 An Agent represents an AI system that can perceive, reason, and act to achieve specific goals.
 
-**URN Format**: `urn:li:agent:<agent_id>`
+**URN Format**: `urn:li:agent:<agent_id>` (agent ID includes version to ensure uniqueness; see [Unresolved Question #4](#4-agent-version-management))
 
 **Core Properties**:
 
@@ -348,6 +348,16 @@ Skills are authored in git (SKILL.md files), ingested into DataHub for discovery
 - Preferred ingestion methods for agents and skills (git scanning, manifest files, API)?
 - How should evaluation metrics flow into DataHub?
 
+### Static Lineage vs Runtime Lineage
+
+There are two distinct types of agent-to-data relationships:
+
+**Static lineage** represents the declared/configured relationships between agents and their dependencies — which tools an agent *can* use, which datasets it *has access to*, which models it *is configured with*. These are modeled as relationships in the metadata graph and are the focus of this RFC.
+
+**Runtime lineage** captures what actually happened during a specific agent invocation — which tools were *actually called*, which datasets were *actually queried*, and what data flowed where. This is more of an audit log than a lineage graph, since it is high-cardinality, temporal, and input-dependent.
+
+**Our approach**: DataHub models static lineage in the metadata graph. Runtime traces are captured externally (via OpenTelemetry or similar) and linked from the agent entity. We could explore adding a timeseries aspect to capture runtime observations (e.g., tool calls, datasets accessed), but if the primary use cases are aggregation-oriented (e.g., "how often does this agent call tool X?" or "which datasets did this agent access last week?"), it may be more practical to store pre-aggregated summaries rather than raw high-scale event data.
+
 ### Key Concepts
 
 **Agent Card**: Similar to "dataset card" - a profile page showing:
@@ -381,6 +391,10 @@ Agents will be entities in DataHub, just like Datasets, Dashboards, or ML Models
 - **Agent Skill**: High-level capability (prompts + tools + expertise) - stored in git, cataloged in DataHub
 - **Agent Tool**: Low-level capability an agent invokes (MCP, API, function)
 - **Evaluation Metrics**: Agent performance measurements (similar to data quality)
+
+**Relationship to Data Products**:
+
+Agents are structurally similar to Data Products — both are composite entities that group and govern other assets. However, they are distinct entity types with different semantics: Data Products organize data assets for consumption, while Agents represent AI systems that act on data. Data Products can serve as a scoping and boundary mechanism for agents — for example, an agent can be scoped to operate only within a specific data product's assets. This is modeled naturally through the existing Agent → Dataset/Data Product relationships.
 
 ## Drawbacks
 
@@ -490,12 +504,20 @@ Potential extensions beyond the initial agent catalog:
 
 **Options**:
 
-- **A**: Version in URN: `urn:li:agent:customer-support:v1.2.3`
+- **A**: Version as structured URN field: `urn:li:agent:(customer-support,v1.2.3)`
 - **B**: Version as aspect: `AgentVersion` with semantic version
 - **C**: Link to git commit hash only (code repository)
 - **D**: No explicit versions, rely on git history
 
-**Recommendation**: **Option C** + **D** initially (git commit hash), add versioning later if needed.
+**Resolution**: Version is encoded in the agent ID to ensure URN uniqueness, with **VersionSet** for grouping.
+
+Based on reviewer feedback: different agent versions can run simultaneously in production, potentially using different models, tools, and relationships, and producing different usage metrics. This makes version an identity discriminator, not just metadata.
+
+- **URN format**: `urn:li:agent:<agent_id>` where the agent ID includes version information to ensure uniqueness (e.g., `urn:li:agent:customer-support-v1.2.3` or `urn:li:agent:customer-support-abc123`). The URN remains an opaque identifier — version is not a separately parseable field
+- **VersionSet**: Use the existing `VersionSet` concept (from logical datasets) to group versions of the same agent, enabling version-aware search, navigation, and lineage
+- **Environment**: Where applicable, environment (PROD, DEV, STAGING) can similarly be part of the agent ID (e.g., `urn:li:agent:customer-support-v1.2.3-prod`)
+
+The same versioning pattern applies to AgentSkill and AgentTool entities.
 
 ---
 
@@ -508,8 +530,9 @@ Potential extensions beyond the initial agent catalog:
 - **A**: Define enum of standard metrics (GOAL_ACHIEVEMENT, ACCURACY, etc.)
 - **B**: Freeform metric names (strings), maintain registry/catalog
 - **C**: Hybrid: suggest standards but allow custom
+- **D**: Out of scope — defer to dedicated evaluation/tracing platforms
 
-**Recommendation**: **Option C** (hybrid). Provide suggested metric names, allow custom via `customProperties`.
+**Resolution**: **Option D** (out of scope for initial release). The AI observability landscape is evolving rapidly, with many dedicated platforms emerging for agent tracing, evaluation, and quality measurement (e.g., LangSmith, Braintrust, Arize). Rather than prescribing evaluation standards that may quickly become outdated, DataHub should focus on cataloging and discovery. Agents can link to external evaluation platforms via `customProperties` or `externalUrl` for users who need detailed metrics. Revisit if a stable, widely-adopted evaluation standard emerges.
 
 ---
 
