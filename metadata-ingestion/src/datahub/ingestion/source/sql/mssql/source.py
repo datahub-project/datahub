@@ -178,7 +178,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    _use_odbc_removed = pydantic_removed_field("use_odbc")
+    _use_odbc_removed = pydantic_removed_field("use_odbc", month="January", year=2026)
     uri_args: Dict[str, str] = Field(
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",

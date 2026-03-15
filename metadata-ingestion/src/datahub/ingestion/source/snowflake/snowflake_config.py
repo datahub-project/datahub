@@ -250,6 +250,8 @@ class SnowflakeIdentifierConfig(
 
     _email_as_user_identifier = pydantic_removed_field(
         "email_as_user_identifier",
+        month="June",
+        year=2025,
     )
 
 
@@ -274,8 +276,12 @@ class SnowflakeConfig(
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
 
-    _include_view_lineage = pydantic_removed_field("include_view_lineage")
-    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+    _include_view_lineage = pydantic_removed_field(
+        "include_view_lineage", month="December", year=2024
+    )
+    _include_view_column_lineage = pydantic_removed_field(
+        "include_view_column_lineage", month="December", year=2024
+    )
 
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
@@ -354,8 +360,12 @@ class SnowflakeV2Config(
         description=f"Experimental: Choose the strategy for query deduplication (default value is appropriate for most use-cases; make sure you understand performance implications before changing it). Allowed values are: {', '.join([s.name for s in QueryDedupStrategyType])}",
     )
 
-    _check_role_grants_removed = pydantic_removed_field("check_role_grants")
-    _provision_role_removed = pydantic_removed_field("provision_role")
+    _check_role_grants_removed = pydantic_removed_field(
+        "check_role_grants", month="April", year=2023
+    )
+    _provision_role_removed = pydantic_removed_field(
+        "provision_role", month="April", year=2023
+    )
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
@@ -380,7 +390,9 @@ class SnowflakeV2Config(
     )
 
     _use_legacy_lineage_method_removed = pydantic_removed_field(
-        "use_legacy_lineage_method"
+        "use_legacy_lineage_method",
+        month="August",
+        year=2023,
     )
 
     validate_upstreams_against_patterns: bool = Field(
