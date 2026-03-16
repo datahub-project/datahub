@@ -161,6 +161,54 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 3. **Frontend changes** in `datahub-web-react/` consume GraphQL APIs
 4. **Ingestion changes** in `metadata-ingestion/` emit metadata to backend APIs
 
+## Working on Docs
+
+The docs site is a **Docusaurus 2** app in `docs-website/`. It runs on **port 3001** (not 3000, to avoid
+conflicting with the frontend dev server).
+
+### Quick start
+
+```bash
+scripts/dev/datahub-dev.sh docs            # fast start (assumes prior build)
+scripts/dev/datahub-dev.sh docs --build    # full rebuild (runs docGen + yarnGenerate first)
+```
+
+Or via Gradle directly: `./gradlew :docs-website:yarnStart` (always does a full build).
+
+### How the docs site is assembled
+
+The final site is served from `docs-website/genDocs/` (gitignored). It is assembled at build time
+from multiple hand-authored sources plus several generation steps:
+
+1. **Gradle generation tasks** produce `docs/generated/` (connector docs, entity reference, schemas)
+2. **`generateDocsDir.ts`** discovers all markdown in the repo, applies transformations (frontmatter,
+   link rewriting, `{{ inline }}` directives), and writes the result to `genDocs/`
+3. **Docusaurus** serves from `genDocs/`, additionally generating GraphQL API docs and Python SDK docs
+
+See `docs-website/AGENTS.md` for full pipeline details.
+
+### Where docs live
+
+| Path                                           | What to edit                                    | Detail guide                                |
+| ---------------------------------------------- | ----------------------------------------------- | ------------------------------------------- |
+| `docs/`                                        | Hand-authored feature guides, API docs, how-tos | _(this section)_                            |
+| `metadata-ingestion/docs/sources/<connector>/` | Connector docs (`*_pre.md`, `*_post.md`, etc.)  | `metadata-ingestion/docs/sources/AGENTS.md` |
+| `metadata-models/docs/entities/`               | Entity descriptions (input to `modelDocGen`)    | `metadata-models/docs/AGENTS.md`            |
+| `docs-website/src/pages/`                      | Custom React pages (e.g. `/integrations`)       | `docs-website/AGENTS.md`                    |
+| `docs-website/src/learn/`                      | Blog / learning articles (served at `/learn`)   | `docs-website/AGENTS.md`                    |
+| `docs-website/sidebars.js`                     | Sidebar navigation tree                         | `docs-website/AGENTS.md`                    |
+| `docs-website/static/`                         | Images, logos, static assets                    | `docs-website/AGENTS.md`                    |
+| `docs/generated/`                              | **Never edit** — auto-generated                 |                                             |
+| `docs-website/genDocs/`                        | **Never edit** — assembled output               |                                             |
+
+### Adding or editing a hand-authored doc
+
+1. Create/edit the markdown file in `docs/`
+2. Add an entry in `docs-website/sidebars.js` (the doc ID is the file path minus `.md`)
+3. Run `scripts/dev/datahub-dev.sh docs` to preview
+
+If `sidebars.js` is missing the entry, the build will warn about an unaccounted file.
+
 ## Code Standards
 
 ### General Principles
@@ -398,7 +446,7 @@ scripts/dev/datahub-dev.sh <command>
 ```
 
 Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `setup`,
-`frontend`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+`frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ### End-to-End Workflow
 

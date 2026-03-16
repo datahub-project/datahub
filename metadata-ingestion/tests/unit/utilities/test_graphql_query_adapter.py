@@ -2316,24 +2316,24 @@ class TestRealSearchGqlFragments:
 
 
 class TestReentrantGuard:
-    """Tests for the _fetching_schema reentrant guard."""
+    """Tests for the _fetching_schema_thread reentrant guard."""
 
     def test_adapt_query_raises_when_fetching_schema(self, mock_graph_old_schema):
-        """adapt_query must raise immediately if called during schema fetch."""
+        """adapt_query must raise immediately if called re-entrantly from the same thread."""
         projector = QueryProjector()
-        projector._fetching_schema = True
+        projector._fetching_schema_thread = threading.get_ident()
 
         with pytest.raises(RuntimeError, match="re-entrantly"):
             projector.adapt_query("{ me { corpUser { urn } } }", mock_graph_old_schema)
 
     def test_flag_cleared_after_successful_introspection(self, mock_graph_old_schema):
-        """_fetching_schema is False after a successful adapt_query."""
+        """_fetching_schema_thread is None after a successful adapt_query."""
         projector = QueryProjector()
         projector.adapt_query("{ me { corpUser { urn } } }", mock_graph_old_schema)
-        assert projector._fetching_schema is False
+        assert projector._fetching_schema_thread is None
 
     def test_flag_cleared_after_failed_introspection(self):
-        """_fetching_schema is reset even when introspection fails."""
+        """_fetching_schema_thread is reset even when introspection fails."""
         projector = QueryProjector()
         mock_graph = MagicMock()
         mock_graph.execute_graphql.side_effect = RuntimeError("connection refused")
@@ -2342,4 +2342,4 @@ class TestReentrantGuard:
         with pytest.raises(RuntimeError, match="connection refused"):
             projector.adapt_query("{ me { corpUser { urn } } }", mock_graph)
 
-        assert projector._fetching_schema is False
+        assert projector._fetching_schema_thread is None
