@@ -132,7 +132,6 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
-    const onTabChange = () => null;
 
     return (
         <PageContainer>
@@ -146,7 +145,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
                 onCreateGroup={() => setIsCreatingGroup(true)}
             />
             <Content>
-                <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} />
             </Content>
             {isViewingInviteToken && (
                 <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />

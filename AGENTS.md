@@ -28,12 +28,6 @@ agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 ./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
 ```
 
-If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
-
-```
-./gradlew ... -x generateGitPropertiesGlobal
-```
-
 **IMPORTANT: Verifying Python code changes:**
 
 - **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
@@ -166,6 +160,54 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 2. **Backend changes** in `metadata-service/` and other Java modules expose new REST/GraphQL APIs
 3. **Frontend changes** in `datahub-web-react/` consume GraphQL APIs
 4. **Ingestion changes** in `metadata-ingestion/` emit metadata to backend APIs
+
+## Working on Docs
+
+The docs site is a **Docusaurus 2** app in `docs-website/`. It runs on **port 3001** (not 3000, to avoid
+conflicting with the frontend dev server).
+
+### Quick start
+
+```bash
+scripts/dev/datahub-dev.sh docs            # fast start (assumes prior build)
+scripts/dev/datahub-dev.sh docs --build    # full rebuild (runs docGen + yarnGenerate first)
+```
+
+Or via Gradle directly: `./gradlew :docs-website:yarnStart` (always does a full build).
+
+### How the docs site is assembled
+
+The final site is served from `docs-website/genDocs/` (gitignored). It is assembled at build time
+from multiple hand-authored sources plus several generation steps:
+
+1. **Gradle generation tasks** produce `docs/generated/` (connector docs, entity reference, schemas)
+2. **`generateDocsDir.ts`** discovers all markdown in the repo, applies transformations (frontmatter,
+   link rewriting, `{{ inline }}` directives), and writes the result to `genDocs/`
+3. **Docusaurus** serves from `genDocs/`, additionally generating GraphQL API docs and Python SDK docs
+
+See `docs-website/AGENTS.md` for full pipeline details.
+
+### Where docs live
+
+| Path                                           | What to edit                                    | Detail guide                                |
+| ---------------------------------------------- | ----------------------------------------------- | ------------------------------------------- |
+| `docs/`                                        | Hand-authored feature guides, API docs, how-tos | _(this section)_                            |
+| `metadata-ingestion/docs/sources/<connector>/` | Connector docs (`*_pre.md`, `*_post.md`, etc.)  | `metadata-ingestion/docs/sources/AGENTS.md` |
+| `metadata-models/docs/entities/`               | Entity descriptions (input to `modelDocGen`)    | `metadata-models/docs/AGENTS.md`            |
+| `docs-website/src/pages/`                      | Custom React pages (e.g. `/integrations`)       | `docs-website/AGENTS.md`                    |
+| `docs-website/src/learn/`                      | Blog / learning articles (served at `/learn`)   | `docs-website/AGENTS.md`                    |
+| `docs-website/sidebars.js`                     | Sidebar navigation tree                         | `docs-website/AGENTS.md`                    |
+| `docs-website/static/`                         | Images, logos, static assets                    | `docs-website/AGENTS.md`                    |
+| `docs/generated/`                              | **Never edit** — auto-generated                 |                                             |
+| `docs-website/genDocs/`                        | **Never edit** — assembled output               |                                             |
+
+### Adding or editing a hand-authored doc
+
+1. Create/edit the markdown file in `docs/`
+2. Add an entry in `docs-website/sidebars.js` (the doc ID is the file path minus `.md`)
+3. Run `scripts/dev/datahub-dev.sh docs` to preview
+
+If `sidebars.js` is missing the entry, the build will warn about an unaccounted file.
 
 ## Code Standards
 
@@ -403,8 +445,8 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `setup`, `frontend`,
-`status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `setup`,
+`frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ### End-to-End Workflow
 
@@ -416,9 +458,6 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 5. **Iterate**: Repeat steps 2–4
 
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
-
-**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
-to avoid git-related failures in worktrees.
 
 ### Module-to-Container Mapping
 
@@ -460,10 +499,18 @@ The flag manifest at `scripts/generated/flag-classification.json` is **auto-gene
 (gitignored). Run `scripts/dev/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
 or after a fresh clone.
 
+### Stopping DataHub
+
+`scripts/dev/datahub-dev.sh stop` shuts down all containers without restarting.
+
+When starting, `datahub-dev start` automatically detects and stops conflicting DataHub instances
+from other worktrees/compose projects that occupy the same ports.
+
 ### Recovery Escalation
 
 **When to use each:**
 
+- `stop`: Just shut down DataHub — no restart, no data loss
 - `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail
   with connection errors
 - `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it

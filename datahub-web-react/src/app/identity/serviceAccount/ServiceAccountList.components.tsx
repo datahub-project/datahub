@@ -152,14 +152,9 @@ export const ServiceAccountRoleCell = ({
 type ServiceAccountActionsMenuProps = {
     serviceAccount: ServiceAccount;
     onDelete: (urn: string) => void;
-    refetch?: () => void;
 };
 
-export const ServiceAccountActionsMenu = ({
-    serviceAccount,
-    onDelete,
-    refetch: _refetch,
-}: ServiceAccountActionsMenuProps) => {
+export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
     const history = useHistory();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -277,7 +272,6 @@ type ServiceAccountTableProps = {
     onChangePage: (page: number) => void;
     onDelete: (urn: string) => void;
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
-    refetch?: () => void;
 };
 
 export const ServiceAccountTable = ({
@@ -294,7 +288,6 @@ export const ServiceAccountTable = ({
     onChangePage,
     onDelete,
     onRoleChange,
-    refetch,
 }: ServiceAccountTableProps) => {
     const columns = [
         {
@@ -332,7 +325,7 @@ export const ServiceAccountTable = ({
             minWidth: '5%',
             render: (serviceAccount: ServiceAccount) => (
                 <ActionsContainer>
-                    <ServiceAccountActionsMenu serviceAccount={serviceAccount} onDelete={onDelete} refetch={refetch} />
+                    <ServiceAccountActionsMenu serviceAccount={serviceAccount} onDelete={onDelete} />
                 </ActionsContainer>
             ),
         },
