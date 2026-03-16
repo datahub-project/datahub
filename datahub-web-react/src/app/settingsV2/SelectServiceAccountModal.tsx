@@ -1,12 +1,10 @@
-import { Empty } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Input, Loader, Modal, Table, Text } from '@src/alchemy-components';
-import { Column } from '@src/alchemy-components/components/Table';
-import { colors } from '@src/alchemy-components/theme';
+import { Button, EmptyState, Modal, SimpleSelect, Text } from '@src/alchemy-components';
+import { spacing } from '@src/alchemy-components/theme';
 
 import { useListServiceAccountsQuery } from '@graphql/auth.generated';
 import { ServiceAccount } from '@types';
@@ -20,53 +18,28 @@ type Props = {
 const ModalContent = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: ${spacing.md};
 `;
 
-const DescriptionText = styled(Text)`
-    color: ${colors.gray[1700]};
-`;
-
-const LoadingContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 60px;
-    min-height: 200px;
-`;
-
-const TableWrapper = styled.div`
-    border: 1px solid ${colors.gray[200]};
-    border-radius: 8px;
-    overflow: hidden;
-    max-height: 350px;
-    overflow-y: auto;
-
-    .selected-row {
-        background-color: ${colors.violet[0]} !important;
-    }
-
-    tr {
-        cursor: pointer;
-    }
-`;
-
-const ServiceAccountDetails = styled.div`
+const OptionContent = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 2px;
+`;
+
+const OptionDescription = styled(Text)`
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ModalFooter = styled.div`
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 const DEBOUNCE_MS = 300;
 
 export default function SelectServiceAccountModal({ visible, onClose, onSelectServiceAccount }: Props) {
-    const [selectedAccount, setSelectedAccount] = useState<ServiceAccount | null>(null);
+    const [selectedUrn, setSelectedUrn] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
     const [debouncedSearchText, setDebouncedSearchText] = useState('');
 
@@ -84,18 +57,37 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
         fetchPolicy: 'cache-and-network',
     });
 
-    const serviceAccounts = data?.listServiceAccounts?.serviceAccounts || [];
+    const serviceAccounts = useMemo(
+        () => data?.listServiceAccounts?.serviceAccounts || [],
+        [data?.listServiceAccounts?.serviceAccounts],
+    );
+
+    const accountsByUrn = useMemo(() => {
+        const map = new Map<string, ServiceAccount>();
+        serviceAccounts.forEach((acc) => map.set(acc.urn, acc));
+        return map;
+    }, [serviceAccounts]);
+
+    const selectOptions = useMemo(
+        () =>
+            serviceAccounts.map((acc) => ({
+                value: acc.urn,
+                label: acc.displayName || acc.name,
+            })),
+        [serviceAccounts],
+    );
 
     const handleContinue = () => {
-        if (selectedAccount) {
-            onSelectServiceAccount(selectedAccount);
-            setSelectedAccount(null);
+        const account = selectedUrn ? accountsByUrn.get(selectedUrn) : null;
+        if (account) {
+            onSelectServiceAccount(account);
+            setSelectedUrn(null);
             setSearchText('');
         }
     };
 
     const handleClose = () => {
-        setSelectedAccount(null);
+        setSelectedUrn(null);
         setSearchText('');
         onClose();
     };
@@ -104,35 +96,16 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
         querySelectorToExecuteClick: '#selectServiceAccountButton',
     });
 
-    const columns: Column<ServiceAccount>[] = [
-        {
-            title: 'Name',
-            key: 'name',
-            render: (record: ServiceAccount) => {
-                const displayName = record.displayName || record.name;
-                return (
-                    <ServiceAccountDetails>
-                        <Text size="md" weight="semiBold">
-                            {displayName}
-                        </Text>
-                        {record.description && (
-                            <Text size="sm" color="gray">
-                                {record.description}
-                            </Text>
-                        )}
-                    </ServiceAccountDetails>
-                );
-            },
-        },
-    ];
-
     if (!visible) {
         return null;
     }
 
+    const hasNoAccounts = !loading && serviceAccounts.length === 0 && !debouncedSearchText;
+
     return (
         <Modal
             title="Select Service Account"
+            subtitle="Choose a service account to generate an API token for."
             onCancel={handleClose}
             width={500}
             dataTestId="select-service-account-modal"
@@ -149,7 +122,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                     <Button
                         id="selectServiceAccountButton"
                         onClick={handleContinue}
-                        disabled={!selectedAccount}
+                        disabled={!selectedUrn}
                         data-testid="continue-select-service-account"
                     >
                         Continue
@@ -158,49 +131,46 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
             }
         >
             <ModalContent>
-                <DescriptionText size="sm">
-                    Select a service account to create an API token for. The token will be associated with this service
-                    account and can be used for programmatic access to DataHub APIs.
-                </DescriptionText>
-                <Input
-                    label=""
-                    placeholder="Search service accounts..."
-                    icon={{ icon: 'Search', source: 'material' }}
-                    value={searchText}
-                    setValue={setSearchText}
-                    inputTestId="search-service-accounts-input"
-                />
-                {loading && (
-                    <LoadingContainer>
-                        <Loader />
-                    </LoadingContainer>
-                )}
-                {!loading && serviceAccounts.length === 0 && !debouncedSearchText && (
-                    <Empty
-                        description="No service accounts found. Create a service account first."
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                {hasNoAccounts ? (
+                    <EmptyState
+                        icon="Robot"
+                        title="No service accounts found"
+                        description="Create a service account first."
+                        size="sm"
                     />
-                )}
-                {!loading && serviceAccounts.length === 0 && debouncedSearchText && (
-                    <Empty
-                        description={`No service accounts match "${debouncedSearchText}"`}
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                ) : (
+                    <SimpleSelect
+                        options={selectOptions}
+                        values={selectedUrn ? [selectedUrn] : []}
+                        onUpdate={(values) => setSelectedUrn(values.length > 0 ? values[0] : null)}
+                        onClear={() => {
+                            setSelectedUrn(null);
+                            setSearchText('');
+                        }}
+                        showSearch
+                        filterResultsByQuery={false}
+                        onSearchChange={(value) => setSearchText(value.trim())}
+                        placeholder="Search service accounts..."
+                        showClear
+                        width="full"
+                        isLoading={loading}
+                        renderCustomOptionText={(option) => {
+                            const account = accountsByUrn.get(option.value);
+                            return (
+                                <OptionContent>
+                                    <Text size="md" weight="semiBold">
+                                        {option.label}
+                                    </Text>
+                                    {account?.description && (
+                                        <OptionDescription size="sm" color="inherit">
+                                            {account.description}
+                                        </OptionDescription>
+                                    )}
+                                </OptionContent>
+                            );
+                        }}
+                        dataTestId="select-service-account-dropdown"
                     />
-                )}
-                {!loading && serviceAccounts.length > 0 && (
-                    <TableWrapper>
-                        <Table
-                            columns={columns}
-                            data={serviceAccounts}
-                            showHeader
-                            isBorderless
-                            onRowClick={(record: ServiceAccount) => setSelectedAccount(record)}
-                            rowClassName={(record: ServiceAccount) =>
-                                selectedAccount?.urn === record.urn ? 'selected-row' : ''
-                            }
-                            rowDataTestId={(record: ServiceAccount) => `service-account-option-${record.name}`}
-                        />
-                    </TableWrapper>
                 )}
             </ModalContent>
         </Modal>
