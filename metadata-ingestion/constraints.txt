@@ -1603,7 +1603,9 @@ sqlalchemy2-stubs==0.0.2a38
 sqlglot==29.0.1
     # via acryl-datahub
 sqlglotc==29.0.1
-    # via sqlglot
+    # via
+    #   acryl-datahub
+    #   sqlglot
 sqlparse==0.5.5
     # via
     #   acryl-datahub

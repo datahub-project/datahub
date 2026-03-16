@@ -216,6 +216,7 @@ export default function Column({
             }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
+            data-testid={`column-${columnName}`}
         >
             <CustomHandle id={id} type="target" position={Position.Left} isConnectable={false} />
             {type && (

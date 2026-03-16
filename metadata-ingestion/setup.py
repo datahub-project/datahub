@@ -129,6 +129,7 @@ sqlglot_lib = {
     # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     "sqlglot[c]==29.0.1",
+    "sqlglotc==29.0.1",
     "patchy==2.8.0",
 }
 
