@@ -1399,6 +1399,14 @@ class GlueSource(StatefulIngestionSourceBase):
             },
         }
 
+        created = None
+        if table.get("CreateTime"):
+            created_ts = make_ts_millis(
+                table["CreateTime"].replace(tzinfo=datetime.timezone.utc)
+            )
+            if created_ts is not None:
+                created = TimeStampClass(created_ts)
+
         last_modified = None
         if table.get("UpdateTime"):
             updated_ts = make_ts_millis(
@@ -1418,6 +1426,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 database=table["DatabaseName"],
                 table=table["Name"],
             ),
+            created=created,
             lastModified=last_modified,
         )
 
