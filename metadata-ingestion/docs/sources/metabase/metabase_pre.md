@@ -1,18 +1,3 @@
-### Prerequisites
-
-To use this connector, you'll need:
-
-- Metabase version v0.41+ (Models require v0.41+)
-- Authentication credentials (either username/password or API key — **API key is recommended**)
-- Appropriate permissions to access the Metabase API
-
-#### Authentication
-
-DataHub supports two authentication methods:
-
-1. **API Key** (Recommended) — more secure, no password management required. Generate one under Account Settings → API Keys in your Metabase instance.
-2. **Username/Password**
-
 ### Overview
 
 This connector extracts dashboards, charts, models, and collection membership from Metabase. It supports lineage from upstream database tables to charts and dashboards, including column-level lineage for models built with the visual query builder (MBQL).
@@ -59,3 +44,18 @@ Metabase Collections are mapped to DataHub tags:
 - Tag format: `metabase_collection_{sanitized_name}` (e.g. "Sales & Marketing" → `metabase_collection_sales_marketing`)
 - Tags are applied to dashboards, charts, and models within that collection
 - Disable with `extract_collections_as_tags: false`
+
+### Prerequisites
+
+To use this connector, you'll need:
+
+- Metabase version v0.41+ (Models require v0.41+)
+- Authentication credentials (either username/password or API key — **API key is recommended**)
+- Appropriate permissions to access the Metabase API
+
+#### Authentication
+
+DataHub supports two authentication methods:
+
+1. **API Key** (Recommended) — more secure, no password management required. Generate one under Account Settings → API Keys in your Metabase instance.
+2. **Username/Password**
