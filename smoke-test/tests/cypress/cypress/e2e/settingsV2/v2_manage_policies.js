@@ -105,6 +105,7 @@ describe("create and manage platform and metadata policies", () => {
   it("verify create, edit, delete platform policy", () => {
     cy.waitTextVisible("Manage Permissions");
     cy.clickOptionWithText("Create new policy");
+    cy.get('[data-testid="policy-name"]').should("be.visible");
     clickFocusAndType("policy-name", platform_policy_name);
     cy.get('[data-testid="policy-type"] [title="Metadata"]').click();
     cy.clickOptionWithTestId("platform");
@@ -129,6 +130,7 @@ describe("create and manage platform and metadata policies", () => {
   it("verify create, edit, delete metadata policy", () => {
     cy.waitTextVisible("Manage Permissions");
     cy.clickOptionWithText("Create new policy");
+    cy.get('[data-testid="policy-name"]').should("be.visible");
     clickFocusAndType("policy-name", metadata_policy_name);
     cy.get('[data-testid="policy-type"]').should("have.text", "Metadata");
     createPolicy(

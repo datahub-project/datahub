@@ -167,8 +167,10 @@ export const ManagePolicies = ({ createPolicyRequested, onCreatePolicyHandled }:
     useEffect(() => {
         if (createPolicyRequested) {
             onClickNewPolicy();
-            onCreatePolicyHandled?.();
+            const timer = setTimeout(() => onCreatePolicyHandled?.(), 0);
+            return () => clearTimeout(timer);
         }
+        return undefined;
     }, [createPolicyRequested]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const onClosePolicyBuilder = () => {
