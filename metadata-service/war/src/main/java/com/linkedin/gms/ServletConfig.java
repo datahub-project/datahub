@@ -51,6 +51,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.neo4j.driver.Driver;
 import org.opensearch.client.RestHighLevelClient;
 import io.ebean.Database;
+import com.datahub.gms.servlet.ReadinessCheck;
 
 /**
  * Common configuration for all servlets. Generally this list also includes dependencies of the
