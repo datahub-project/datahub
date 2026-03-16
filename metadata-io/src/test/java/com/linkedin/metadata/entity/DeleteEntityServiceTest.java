@@ -43,6 +43,7 @@ import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Optional;
@@ -772,5 +773,245 @@ public class DeleteEntityServiceTest {
 
     // Verify the response includes the file count
     assertEquals(1, (int) response.getTotal());
+  }
+
+  /**
+   * Tests that deleteReferencesTo processes ALL related entities when the total exceeds the graph
+   * query batch size. Simulates the real-world scenario where findRelatedEntities returns results
+   * in multiple batches because the graph index is eventually consistent — after processing batch 1
+   * and sleeping, re-fetching from offset 0 returns the remaining entities whose graph edges
+   * haven't been deleted yet.
+   *
+   * <p>This test reproduces a bug where the pagination loop exits early, leaving entities with
+   * orphaned references. At 10K scale, ~37% of entities were permanently orphaned.
+   */
+  @Test
+  public void testDeleteReferencesToProcessesAllBatchesWhenTotalExceedsBatchSize()
+      throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+
+    final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:stress-hot-tag-1");
+
+    // Create two batches of related entities (simulating graph query batch limit)
+    ImmutableList<RelatedEntity> batch1Entities =
+        ImmutableList.of(
+            new RelatedEntity(
+                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t1,PROD)"),
+            new RelatedEntity(
+                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t2,PROD)"),
+            new RelatedEntity(
+                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t3,PROD)"));
+
+    ImmutableList<RelatedEntity> batch2Entities =
+        ImmutableList.of(
+            new RelatedEntity(
+                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t4,PROD)"),
+            new RelatedEntity(
+                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t5,PROD)"),
+            new RelatedEntity(
+                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t6,PROD)"));
+
+    // First call: returns batch1 (3 entities) but reports total=6 (more exist beyond batch limit)
+    RelatedEntitiesResult firstResult =
+        new RelatedEntitiesResult(0, batch1Entities.size(), 6, batch1Entities);
+
+    // Second call (re-fetch from offset 0 after batch1 processed):
+    // Graph index has partially updated — returns the 3 remaining entities
+    RelatedEntitiesResult secondResult =
+        new RelatedEntitiesResult(0, batch2Entities.size(), 3, batch2Entities);
+
+    // Third call: all edges deleted, returns empty
+    RelatedEntitiesResult emptyResult = new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
+
+    Mockito.when(
+            mockGraphService.findRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", tagUrn.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                nullable(Integer.class)))
+        .thenReturn(firstResult, secondResult, emptyResult);
+
+    // Mock empty results for search-based references (files, subscriptions, forms)
+    ScrollResult emptyScrollResult = new ScrollResult();
+    emptyScrollResult.setEntities(new SearchEntityArray());
+    emptyScrollResult.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyInt()))
+        .thenReturn(emptyScrollResult);
+
+    // Mock entity lookups for getRelatedAspectStream (called during initial result processing).
+    // Return null to simulate entities that were concurrently deleted during cascade.
+    Mockito.when(
+            mockEntityService.getEntityV2(
+                any(OperationContext.class),
+                Mockito.anyString(),
+                Mockito.any(Urn.class),
+                Mockito.anySet()))
+        .thenReturn(null);
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, tagUrn, false);
+
+    // Verify findRelatedEntities was called at least twice (pagination happened)
+    Mockito.verify(mockGraphService, Mockito.atLeast(2))
+        .findRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", tagUrn.toString())),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(0),
+            nullable(Integer.class));
+
+    // The critical assertion: the total reported should include ALL entities (6),
+    // not just the first batch (3). The current bug causes only 3 to be processed.
+    assertEquals(6, (int) response.getTotal());
+
+    // Verify findRelatedEntities was called 3 times total:
+    // 1st: initial fetch (returns batch1, total=6)
+    // 2nd: re-fetch after processing batch1 (returns batch2, total=3)
+    // 3rd: re-fetch after processing batch2 (returns empty) — loop exits
+    Mockito.verify(mockGraphService, Mockito.times(3))
+        .findRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", tagUrn.toString())),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(0),
+            nullable(Integer.class));
+  }
+
+  /**
+   * Tests that errors during reference deletion are logged with structured context via
+   * handleError(), not silently swallowed.
+   *
+   * <p>handleError() was a NO-OP since the class was created. This was never discovered because:
+   *
+   * <ul>
+   *   <li>It is private with zero observable side effects — no test could detect its absence
+   *   <li>No test triggered an error path through deleteReference() — all tests used happy paths
+   *   <li>At small scale (&lt;5000 entities) cascades succeed even with some silent failures
+   *   <li>The fire-and-forget async pattern in GraphQL resolvers means errors never propagate to
+   *       callers — the mutation returns true before the cascade starts
+   *   <li>The 5 callers of handleError() each have their own log.error() before calling it, so
+   *       individual errors DO appear in logs — but the structured error context (reason enum,
+   *       entity URNs, aspect names) passed to handleError() is discarded, making it impossible to
+   *       aggregate, alert on, or count reference cleanup failures
+   * </ul>
+   */
+  @Test
+  public void testHandleErrorLogsStructuredContext() throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+
+    final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:orphan-test");
+
+    // One related entity that will hit the error path
+    ImmutableList<RelatedEntity> entities =
+        ImmutableList.of(
+            new RelatedEntity(
+                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t1,PROD)"));
+
+    RelatedEntitiesResult relatedResult =
+        new RelatedEntitiesResult(0, entities.size(), 1, entities);
+    RelatedEntitiesResult emptyResult = new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
+
+    Mockito.when(
+            mockGraphService.findRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", tagUrn.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(0),
+                nullable(Integer.class)))
+        .thenReturn(relatedResult, emptyResult);
+
+    ScrollResult emptyScrollResult = new ScrollResult();
+    emptyScrollResult.setEntities(new SearchEntityArray());
+    emptyScrollResult.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyInt()))
+        .thenReturn(emptyScrollResult);
+
+    // getEntityV2 returns null → getAspectsReferringTo returns empty → handleError called
+    // with ENTITY_SERVICE_ASPECT_NOT_FOUND
+    Mockito.when(
+            mockEntityService.getEntityV2(
+                any(OperationContext.class),
+                Mockito.anyString(),
+                Mockito.any(Urn.class),
+                Mockito.anySet()))
+        .thenReturn(null);
+
+    // Capture logs to verify handleError produces a WARN with structured error context
+    ch.qos.logback.classic.Logger serviceLogger =
+        (ch.qos.logback.classic.Logger)
+            org.slf4j.LoggerFactory.getLogger(DeleteEntityService.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logAppender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    logAppender.start();
+    serviceLogger.addAppender(logAppender);
+
+    try {
+      deleteEntityService.deleteReferencesTo(opContext, tagUrn, false);
+
+      // handleError should log at WARN with the error reason
+      boolean foundHandleErrorLog =
+          logAppender.list.stream()
+              .anyMatch(
+                  event ->
+                      event.getLevel() == ch.qos.logback.classic.Level.WARN
+                          && event.getFormattedMessage() != null
+                          && event.getFormattedMessage().contains("deleteReference error"));
+      assertTrue(
+          foundHandleErrorLog,
+          "Expected handleError to log a WARN containing 'deleteReference error'. "
+              + "Actual WARN/ERROR messages: "
+              + logAppender.list.stream()
+                  .filter(
+                      e ->
+                          e.getLevel() == ch.qos.logback.classic.Level.WARN
+                              || e.getLevel() == ch.qos.logback.classic.Level.ERROR)
+                  .map(e -> e.getLevel() + ": " + e.getFormattedMessage())
+                  .collect(java.util.stream.Collectors.joining("\n")));
+    } finally {
+      serviceLogger.detachAppender(logAppender);
+    }
   }
 }

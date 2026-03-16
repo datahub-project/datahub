@@ -123,26 +123,42 @@ public class DeleteEntityService {
       return result;
     }
 
-    for (int processedEntities = 0;
-        processedEntities < relatedEntities.getTotal();
-        processedEntities += relatedEntities.getCount()) {
-      log.info("Processing batch {} of {} aspects", processedEntities, relatedEntities.getTotal());
+    // Re-fetch from offset 0 until no related entities remain. Offset stays at 0 because
+    // processed entities' graph edges are deleted between iterations, shifting the result window.
+    // A max-iterations safeguard prevents infinite loops if graph updates stall.
+    int totalProcessed = 0;
+    int maxIterations = Math.max(relatedEntities.getTotal(), 1) + 5;
+    int iteration = 0;
+    while (!relatedEntities.getEntities().isEmpty() && iteration < maxIterations) {
+      log.info(
+          "Processing batch of {} references (total processed: {}, remaining: {})",
+          relatedEntities.getEntities().size(),
+          totalProcessed,
+          relatedEntities.getTotal());
       relatedEntities.getEntities().forEach(entity -> deleteReference(opContext, urn, entity));
-      if (processedEntities + relatedEntities.getEntities().size() < relatedEntities.getTotal()) {
-        sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
-        relatedEntities =
-            _graphService.findRelatedEntities(
-                opContext,
-                null,
-                newFilter("urn", urn.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableSet.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                null);
-      }
+      totalProcessed += relatedEntities.getEntities().size();
+      iteration++;
+      sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
+      relatedEntities =
+          _graphService.findRelatedEntities(
+              opContext,
+              null,
+              newFilter("urn", urn.toString()),
+              null,
+              EMPTY_FILTER,
+              ImmutableSet.of(),
+              newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+              0,
+              null);
     }
+    if (iteration >= maxIterations) {
+      log.error(
+          "Reference cleanup hit max iterations ({}) for urn {}. {} references may remain.",
+          maxIterations,
+          urn,
+          relatedEntities.getTotal());
+    }
+    log.info("Reference cleanup complete for {}: {} references processed", urn, totalProcessed);
 
     return result;
   }
@@ -427,6 +443,10 @@ public class DeleteEntityService {
       log.error("Unable to retrieve entity data for relatedUrn " + relatedUrn, e);
       return Stream.empty();
     }
+    // Entity may have been concurrently deleted during cascade
+    if (entityResponse == null) {
+      return Stream.empty();
+    }
     // Find aspect which contains the relationship with the value we are looking for
     return entityResponse.getAspects().values().stream()
         // Get aspects which contain the relationship field specs found above
@@ -514,7 +534,7 @@ public class DeleteEntityService {
    * @param error The error instance that provides context on what issue occured.
    */
   private void handleError(final DeleteEntityServiceError error) {
-    // NO-OP for now.
+    log.warn("deleteReference error: reason={}, context={}", error.getReason(), error.getContext());
   }
 
   private static class AssetScrollResult {
