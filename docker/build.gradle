@@ -13,8 +13,6 @@ ext {
     project_name = "datahub"
 
     backend_profile_modules = [
-            ':docker:elasticsearch-setup',
-            ':docker:mysql-setup',
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
@@ -185,32 +183,28 @@ ext {
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
-                    modules: (backend_profile_modules - [':docker:mysql-setup']) + [
-                            ':docker:postgres-setup',
+                    modules: backend_profile_modules + [
                             ':datahub-frontend',
                             ':datahub-actions',
                     ]
             ],
             'quickstartPgCdc': [
                 profile: 'quickstart-postgres-cdc',
-                modules: (backend_profile_modules - [':docker:mysql-setup']) + [
-                    ':docker:postgres-setup',
+                modules: backend_profile_modules + [
                     ':datahub-frontend',
                     ':datahub-actions',
                 ]
             ],
             'quickstartPgDebug': [
                     profile: 'debug-postgres',
-                    modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
-                            ':docker:postgres-setup',
+                    modules: python_services_modules + backend_profile_modules + [
                             ':datahub-frontend'
                     ],
                     isDebug: true
             ],
             'quickstartPgCdcDebug': [
                 profile: 'debug-postgres-cdc',
-                modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
-                    ':docker:postgres-setup',
+                modules: python_services_modules + backend_profile_modules + [
                     ':datahub-frontend'
                 ],
                 isDebug: true
@@ -252,7 +246,6 @@ ext {
                         ':metadata-jobs:mae-consumer-job',
                         ':datahub-actions',
                         ':docker:datahub-ingestion',
-                        ':docker:postgres-setup'
                     ]
             ]
     ]
@@ -472,6 +465,9 @@ task generateQuickstartComposeConfig {
         // Replace port placeholders with environment variable syntax (after YAML processing)
         configOutput = configOutput.replace("published: '58080'", 'published: ${DATAHUB_MAPPED_GMS_PORT:-8080}')
         configOutput = configOutput.replace("published: '59002'", 'published: ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}')
+
+        // Preserve create_host_path so host dirs (e.g. ~/.datahub/plugins) are created on first run
+        configOutput = configOutput.replace("bind: {}", "bind:\n        create_host_path: true")
 
         configOutput = "# This file is generated as part of build process. If any build changes cause this file to be modified, please check in the generated file\n" + configOutput
 

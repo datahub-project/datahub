@@ -116,7 +116,7 @@ quickstart-values.yaml file accordingly before installing.
 The default values in [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml) auto generate secret values for the signing key and salt used for metadata_service_authentication. (To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](../authentication/introducing-metadata-service-authentication.md). If you want to provide your own values refer to the `datahub.metadata_service_authentication` block in the [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml)
 :::
 
-Run `kubectl get pods` to check whether all the datahub pods are running. You should get a result similar to below.
+Run `kubectl get pods` to check whether all the datahub pods are running. You should get a result similar to below. The Helm chart uses the system-update job (datahub-system-update) for database and search index setup; standalone `elasticsearchSetupJob` and `mysqlSetupJob` are disabled by default (`elasticsearchSetupJob.enabled: false`, `mysqlSetupJob.enabled: false`). SQL and index setup are controlled via `datahubSystemUpdate.sql.setup.enabled` and `datahubSystemUpdate.elasticsearch.setup.enabled` (default true).
 
 ```
 NAME                                               READY   STATUS      RESTARTS   AGE
@@ -124,8 +124,7 @@ datahub-datahub-frontend-84c58df9f7-5bgwx          1/1     Running     0        
 datahub-datahub-gms-58b676f77c-c6pfx               1/1     Running     0          4m2s
 datahub-datahub-mae-consumer-7b98bf65d-tjbwx       1/1     Running     0          4m3s
 datahub-datahub-mce-consumer-8c57d8587-vjv9m       1/1     Running     0          4m2s
-datahub-elasticsearch-setup-job-8dz6b              0/1     Completed   0          4m50s
-datahub-mysql-setup-job-b57kc                      0/1     Completed   0          4m7s
+datahub-datahub-system-update-xxxxx                0/1     Completed   0          4m50s
 elasticsearch-master-0                             1/1     Running     0          97m
 elasticsearch-master-1                             1/1     Running     0          97m
 elasticsearch-master-2                             1/1     Running     0          97m
