@@ -822,7 +822,6 @@
     "img_path": "img/logos/platforms/cratedb.svg"
   },
   "hightouch": {
-    "api_connector": true,
     "platform_type": "ETL/ELT",
     "title": "Hightouch",
     "description": "Reverse ETL platform that syncs data from your warehouse to business tools like CRMs, ad platforms, and SaaS apps.",
