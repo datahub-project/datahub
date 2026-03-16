@@ -120,6 +120,8 @@ function list_markdown_files(): string[] {
     /^contrib\//,
     // Keep main docs for kubernetes, but skip the inner docs.
     /^datahub-kubernetes\//,
+    // Exclude hidden files and files in hidden directories.
+    /(^|\/)\./,
     // Various other docs/directories to ignore.
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
