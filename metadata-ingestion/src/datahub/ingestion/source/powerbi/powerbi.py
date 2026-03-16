@@ -113,18 +113,6 @@ class Mapper:
     Transform PowerBi concepts Dashboard, Dataset and Tile to DataHub concepts Dashboard, Dataset and Chart
     """
 
-    class EquableMetadataWorkUnit(MetadataWorkUnit):
-        """
-        We can add EquableMetadataWorkUnit to set.
-        This will avoid passing same MetadataWorkUnit to DataHub Ingestion framework.
-        """
-
-        def __eq__(self, instance):
-            return self.id == instance.id
-
-        def __hash__(self):
-            return id(self.id)
-
     def __init__(
         self,
         ctx: PipelineContext,
@@ -155,20 +143,12 @@ class Mapper:
 
     def _to_work_unit(
         self, mcp: MetadataChangeProposalWrapper, is_primary_source: bool = True
-    ) -> EquableMetadataWorkUnit:
-        return Mapper.EquableMetadataWorkUnit(
-            id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
-                PLATFORM=self.__config.platform_name,
-                ENTITY_URN=mcp.entityUrn,
-                ASPECT_NAME=mcp.aspectName,
-            ),
-            mcp=mcp,
-            is_primary_source=is_primary_source,
-        )
+    ) -> MetadataWorkUnit:
+        return mcp.as_workunit(is_primary_source=is_primary_source)
 
     def _to_user_work_unit(
         self, mcp: MetadataChangeProposalWrapper
-    ) -> EquableMetadataWorkUnit:
+    ) -> MetadataWorkUnit:
         """
         Create work unit for user entities with is_primary_source=False.
 
@@ -1191,7 +1171,7 @@ class Mapper:
         self,
         dashboard: powerbi_data_classes.Dashboard,
         workspace: powerbi_data_classes.Workspace,
-    ) -> List[EquableMetadataWorkUnit]:
+    ) -> List[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
         logger.info(
@@ -1236,7 +1216,7 @@ class Mapper:
         mcps.extend(dashboard_mcps)
 
         # Convert MCP to work_units
-        work_units: List[Mapper.EquableMetadataWorkUnit] = [
+        work_units: List[MetadataWorkUnit] = [
             wu for wu in map(self._to_work_unit, mcps) if wu is not None
         ]
 
@@ -1249,7 +1229,7 @@ class Mapper:
             work_units.extend(user_work_units)
 
         # Return set of work_unit
-        return deduplicate_list(work_units)
+        return deduplicate_list(work_units, lambda wu: wu.id)
 
     def pages_to_chart(
         self,
