@@ -793,7 +793,7 @@ class LineageClient:
             else degree_filter
         )
 
-        types, compiled_filters = compile_filters(filters_with_max_hops)
+        types, compiled_filters = compile_filters(filters_with_max_hops)  # type: ignore[arg-type]
 
         # Prepare base variables
         variables: Dict[str, Any] = {

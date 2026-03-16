@@ -1,0 +1,22 @@
+source:
+  type: microstrategy
+  config:
+    connection:
+      base_url: "https://demo.microstrategy.com/MicroStrategyLibrary"
+      use_anonymous: true
+
+    # Limit to a single project to keep golden file manageable
+    project_pattern:
+      allow:
+        - "^MicroStrategy Tutorial$"
+
+    # Enable all features for comprehensive testing
+    include_lineage: true
+    include_ownership: true
+    include_cube_schema: true
+    include_usage: false  # Usage requires special permissions
+
+sink:
+  type: file
+  config:
+    filename: "./microstrategy_mces.json"

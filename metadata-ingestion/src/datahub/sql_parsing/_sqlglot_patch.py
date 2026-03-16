@@ -62,7 +62,7 @@ _original_deepcopy = sqlglot.expressions.Expression.__deepcopy__
 
 def _deepcopy_wrapper(
     self: sqlglot.expressions.Expression, memo: t.Any
-) -> sqlglot.expressions.ExpressionCore:
+) -> sqlglot.expressions.ExpressionCore:  # type: ignore[name-defined]
     """Wrapper for __deepcopy__ with cooperative timeout support.
 
     Cannot use patchy because expression_core.py is mypyc-compiled to .so in sqlglot[c].

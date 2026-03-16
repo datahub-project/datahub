@@ -52,7 +52,7 @@ def _parse_statement(
     # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
     # Block([stmt1, None, ...]) where None represents empty statements between semicolons.
     # We only process the non None statement, if there is 1 and only 1.
-    if isinstance(statement, sqlglot.exp.Block):
+    if isinstance(statement, sqlglot.exp.Block):  # type: ignore[attr-defined]
         if not statement.expressions:
             raise sqlglot.errors.ParseError(
                 "Block statement must have at least one expression"
