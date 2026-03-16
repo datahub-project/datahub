@@ -339,6 +339,127 @@ class SnowflakeSinkConnector(BaseConnector):
 
 
 @dataclass
+class ClickHouseSinkConnector(BaseConnector):
+    @dataclass
+    class ClickHouseParser:
+        database: str
+        topics_to_tables: Dict[str, str]
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> ClickHouseParser:
+        database: str = connector_manifest.config.get("database", "default")
+
+        # Parse user-provided topic-to-table map (format: "topic1=table1,topic2=table2")
+        provided_topics_to_tables: Dict[str, str] = {}
+        if connector_manifest.config.get("topic2TableMap"):
+            try:
+                mappings = parse_comma_separated_list(
+                    connector_manifest.config["topic2TableMap"]
+                )
+                for mapping in mappings:
+                    if "=" not in mapping:
+                        logger.warning(
+                            f"Invalid topic=table mapping format: '{mapping}'. Expected 'topic=table'."
+                        )
+                        continue
+                    topic, table = mapping.split("=", 1)
+                    provided_topics_to_tables[topic.strip()] = table.strip()
+            except Exception as e:
+                logger.warning(f"Failed to parse topic2TableMap: {e}")
+
+        # Get available topics
+        available_topics = set(
+            self.all_cluster_topics or connector_manifest.topic_names
+        )
+
+        # Filter to subscribed topics
+        subscribed_topics = set(self.get_topics_from_config())
+        if subscribed_topics:
+            topic_list = list(available_topics.intersection(subscribed_topics))
+        else:
+            topic_list = list(available_topics)
+
+        # Apply transforms
+        transform_result = get_transform_pipeline().apply_forward(
+            topic_list, connector_manifest.config
+        )
+        transformed_topics = transform_result.topics
+
+        topics_to_tables: Dict[str, str] = {}
+        for original_topic, transformed_topic in zip(
+            topic_list, transformed_topics, strict=False
+        ):
+            if original_topic in provided_topics_to_tables:
+                topics_to_tables[original_topic] = provided_topics_to_tables[
+                    original_topic
+                ]
+            else:
+                # Default: topic name = table name (using transformed topic)
+                topics_to_tables[original_topic] = transformed_topic
+
+        return self.ClickHouseParser(
+            database=database,
+            topics_to_tables=topics_to_tables,
+        )
+
+    def get_topics_from_config(self) -> List[str]:
+        config = self.connector_manifest.config
+
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
+
+        return []
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        return {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if k not in ["password"]
+        }
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+
+        for topic, table in parser.topics_to_tables.items():
+            target_dataset: str = f"{parser.database}.{table}"
+
+            fine_grained = self._extract_fine_grained_lineage(
+                source_dataset=topic,
+                source_platform=KAFKA,
+                target_dataset=target_dataset,
+                target_platform="clickhouse",
+            )
+
+            lineages.append(
+                KafkaConnectLineage(
+                    source_dataset=topic,
+                    source_platform=KAFKA,
+                    target_dataset=target_dataset,
+                    target_platform="clickhouse",
+                    fine_grained_lineages=fine_grained,
+                )
+            )
+
+        return lineages
+
+    def get_platform(self) -> str:
+        return "clickhouse"
+
+
+@dataclass
 class BigQuerySinkConnector(BaseConnector):
     @dataclass
     class BQParser:
@@ -1114,4 +1235,7 @@ DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
 )
 CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
     "io.confluent.connect.jdbc.JdbcSinkConnector"
+)
+CLICKHOUSE_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.clickhouse.kafka.connect.ClickHouseSinkConnector"
 )
