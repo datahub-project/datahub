@@ -124,22 +124,22 @@ public class ServletConfig implements WebMvcConfigurer {
 
   @Bean
   public ServletRegistrationBean<ReadinessCheck> readinessCheckServlet(
-      AdminClient kafkaAdmin,
-      RestHighLevelClient elasticClient,
-      Database database,
-      @Qualifier("neo4jDriver") Driver neo4jDriver) {
+      @Nonnull AdminClient kafkaAdmin,
+      @Nonnull RestHighLevelClient elasticClient,
+      @Nonnull Database database,
+      @Nonnull @Qualifier("neo4jDriver") Driver neo4jDriver) {
 
     ServletRegistrationBean<ReadinessCheck> registration =
         new ServletRegistrationBean<>(
             new ReadinessCheck(kafkaAdmin, elasticClient, database, neo4jDriver));
 
     registration.setName("readinessCheck");
-    registration.addUrlMappings("/health/downstream-services");
+    registration.addUrlMappings("/health/ready");
     registration.setLoadOnStartup(15);
     registration.setAsyncSupported(true);
 
     return registration;
-  }  
+  }
 
   /**
    * SpringBoot is now the default, explicitly map these to legacy rest.li servlet. Additions are
