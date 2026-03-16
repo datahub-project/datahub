@@ -161,6 +161,17 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
 }
 
 
+def _sanitize_jdbc_url(jdbc_url: str) -> str:
+    """Strip credentials and query parameters from a JDBC URL for safe logging."""
+    prefix = "jdbc:"
+    inner = jdbc_url[len(prefix) :] if jdbc_url.startswith(prefix) else jdbc_url
+    parsed = urlparse(inner)
+    safe_netloc = parsed.hostname or ""
+    if parsed.port:
+        safe_netloc = f"{safe_netloc}:{parsed.port}"
+    return f"{prefix}{parsed.scheme}://{safe_netloc}{parsed.path}"
+
+
 class GlueSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
 ):
@@ -582,7 +593,7 @@ class GlueSource(StatefulIngestionSourceBase):
         (mapped to a DataHub platform name) and the database from the path.
         """
         if not jdbc_url.startswith("jdbc:"):
-            raise ValueError(f"Not a valid JDBC URL: {jdbc_url}")
+            raise ValueError(f"Not a valid JDBC URL: {_sanitize_jdbc_url(jdbc_url)}")
         url = urlparse(jdbc_url[5:])  # strip "jdbc:" prefix
         protocol = url.scheme.lower()
         platform = JDBC_PLATFORM_MAP.get(protocol, protocol)

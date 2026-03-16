@@ -20,6 +20,7 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    _sanitize_jdbc_url,
 )
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -1401,3 +1402,28 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
         result["urn"]
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
     )
+
+
+@pytest.mark.parametrize(
+    "raw_url, expected_safe",
+    [
+        (
+            "jdbc:postgresql://myhost:5432/mydb",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://admin:secret123@myhost:5432/mydb",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://myhost:5432/mydb?user=admin&password=secret",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://admin:secret@myhost:5432/mydb?ssl=true&password=extra",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+    ],
+)
+def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
+    assert _sanitize_jdbc_url(raw_url) == expected_safe
