@@ -1,4 +1,10 @@
-### Concept Mapping
+## Overview
+
+Hightouch is a Reverse ETL platform that syncs data from your data warehouse to business tools such as CRMs, marketing automation platforms, and analytics applications. Learn more in the [official Hightouch documentation](https://hightouch.com/docs).
+
+The DataHub integration for Hightouch covers sources, models, syncs, destinations, and sync run execution history. It captures coarse-grained and column-level lineage from sources through models to destinations, and supports stateful deletion detection.
+
+## Concept Mapping
 
 | Hightouch Object | DataHub Entity                                                           | Description                                                   |
 | ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
@@ -7,7 +13,4 @@
 | `Sync`           | [Data Job](../../metamodel/entities/dataJob.md)                          | Data pipeline that moves data from model to destination       |
 | `Destination`    | [Dataset](../../metamodel/entities/dataset.md)                           | Target system (referenced as output)                          |
 | `Sync Run`       | [Data Process Instance](../../metamodel/entities/dataProcessInstance.md) | Execution instance with statistics                            |
-
-### Supported Platforms
-
-This connector supports 30+ data sources and 50+ destinations. For the complete list, see the [Compatibility](#compatibility) section in the setup guide.
+| `Workspace`      | Platform Instance                                                        | Hightouch workspace (optional grouping)                       |
