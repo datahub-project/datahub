@@ -600,14 +600,13 @@ class GlueSource(StatefulIngestionSourceBase):
         database = url.path.lstrip("/").split("?")[0]
         return platform, database
 
-    def _extract_dbtable_from_query(
+    def _extract_tables_from_query(
         self, query: str, flow_urn: str, node_label: str
-    ) -> Optional[str]:
-        """Extract a single table reference from a SQL query string.
+    ) -> Optional[List[str]]:
+        """Extract all table references from a SQL query string.
 
-        Returns a "schema.table" or "table" string if exactly one table is found.
-        Warns and returns None for parse failures, zero tables, or multi-table queries
-        (e.g. JOINs) that can't be represented as a single dataset URN.
+        Returns a list of "schema.table" or "table" strings (one per table found,
+        supporting JOINs and CTEs). Returns None on parse failure or no tables.
         """
         try:
             tree = sqlglot.parse_one(query)
@@ -626,16 +625,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return None
 
-        if len(tables) > 1:
-            self.report_warning(
-                flow_urn,
-                f"SQL query for node {node_label} references multiple tables; "
-                "lineage cannot be extracted for multi-table queries. Skipping",
-            )
-            return None
-
-        t = tables[0]
-        return f"{t.db}.{t.name}" if t.db else t.name
+        return [f"{t.db}.{t.name}" if t.db else t.name for t in tables]
 
     def _resolve_glue_connection(
         self, connection_name: str, flow_urn: str
@@ -715,18 +705,19 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
-    def _resolve_dbtable(
+    def _resolve_dbtables(
         self,
         connection_options: Dict[str, Any],
         flow_urn: str,
         node_label: str,
-    ) -> Optional[str]:
+    ) -> Optional[List[str]]:
         dbtable = connection_options.get("dbtable")
-        if not dbtable:
-            query = connection_options.get("query")
-            if query:
-                dbtable = self._extract_dbtable_from_query(query, flow_urn, node_label)
-        return dbtable
+        if dbtable:
+            return [dbtable]
+        query = connection_options.get("query")
+        if query:
+            return self._extract_tables_from_query(query, flow_urn, node_label)
+        return None
 
     def _build_jdbc_dataset_name(
         self, platform: str, database: str, dbtable: str
@@ -741,13 +732,13 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def _process_glue_connection_node(
         self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
-    ) -> Optional[str]:
+    ) -> Optional[List[str]]:
         connection_options = node_args.get("connection_options", {})
         connection_name = connection_options["connectionName"]
         node_label = f"{node['NodeType']}-{node['Id']}"
 
-        dbtable = self._resolve_dbtable(connection_options, flow_urn, node_label)
-        if not dbtable:
+        dbtables = self._resolve_dbtables(connection_options, flow_urn, node_label)
+        if not dbtables:
             self.report_warning(
                 flow_urn,
                 f"Missing dbtable for node {node_label}. Skipping",
@@ -759,22 +750,25 @@ class GlueSource(StatefulIngestionSourceBase):
             return None
 
         platform, database = resolved
-        return make_dataset_urn_with_platform_instance(
-            platform=platform,
-            name=self._build_jdbc_dataset_name(platform, database, dbtable),
-            env=self.env,
-            platform_instance=None,
-        )
+        return [
+            make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=self._build_jdbc_dataset_name(platform, database, dbtable),
+                env=self.env,
+                platform_instance=None,
+            )
+            for dbtable in dbtables
+        ]
 
     def _process_jdbc_node(
         self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
-    ) -> Optional[str]:
+    ) -> Optional[List[str]]:
         connection_options = node_args.get("connection_options", {})
         jdbc_url = connection_options.get("url")
         node_label = f"{node['NodeType']}-{node['Id']}"
 
-        dbtable = self._resolve_dbtable(connection_options, flow_urn, node_label)
-        if not jdbc_url or not dbtable:
+        dbtables = self._resolve_dbtables(connection_options, flow_urn, node_label)
+        if not jdbc_url or not dbtables:
             self.report_warning(
                 flow_urn,
                 f"Missing JDBC URL or table for node {node_label}. Skipping",
@@ -790,12 +784,15 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return None
 
-        return make_dataset_urn_with_platform_instance(
-            platform=platform,
-            name=self._build_jdbc_dataset_name(platform, database, dbtable),
-            env=self.env,
-            platform_instance=None,
-        )
+        return [
+            make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=self._build_jdbc_dataset_name(platform, database, dbtable),
+                env=self.env,
+                platform_instance=None,
+            )
+            for dbtable in dbtables
+        ]
 
     def process_dataflow_node(
         self,
@@ -806,6 +803,7 @@ class GlueSource(StatefulIngestionSourceBase):
         s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
         node_type = node["NodeType"]
+        dataset_urns: Optional[List[str]] = None
 
         # for nodes representing datasets, we construct a dataset URN accordingly
         if node_type in ["DataSource", "DataSink"]:
@@ -864,17 +862,21 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object references a named Glue connection (visual editor style)
             elif (node_args.get("connection_options") or {}).get("connectionName"):
-                _urn = self._process_glue_connection_node(node, node_args, flow_urn)
-                if _urn is None:
+                _urns = self._process_glue_connection_node(node, node_args, flow_urn)
+                if not _urns:
                     return None
-                node_urn = _urn
+                node_urn = _urns[0]
+                if len(_urns) > 1:
+                    dataset_urns = _urns
 
             # if data object is a JDBC source (e.g. Postgres, MySQL, Redshift)
             elif node_args.get("connection_type") in JDBC_PLATFORM_MAP:
-                _urn = self._process_jdbc_node(node, node_args, flow_urn)
-                if _urn is None:
+                _urns = self._process_jdbc_node(node, node_args, flow_urn)
+                if not _urns:
                     return None
-                node_urn = _urn
+                node_urn = _urns[0]
+                if len(_urns) > 1:
+                    dataset_urns = _urns
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
@@ -892,7 +894,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 flow_urn, job_id=f"{node['NodeType']}-{node['Id']}"
             )
 
-        return {
+        result: Dict[str, Any] = {
             **node,
             "urn": node_urn,
             # to be filled in after traversing edges
@@ -900,6 +902,9 @@ class GlueSource(StatefulIngestionSourceBase):
             "inputDatasets": [],
             "outputDatasets": [],
         }
+        if dataset_urns is not None:
+            result["dataset_urns"] = dataset_urns
+        return result
 
     def process_dataflow_graph(
         self,
@@ -954,7 +959,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # note that source nodes can't be data sinks
             if source_node_type == "DataSource":
-                target_node["inputDatasets"].append(source_node["urn"])
+                target_node["inputDatasets"].extend(
+                    source_node.get("dataset_urns", [source_node["urn"]])
+                )
             # keep track of input data jobs (as defined in schemas)
             else:
                 target_node["inputDatajobs"].append(source_node["urn"])

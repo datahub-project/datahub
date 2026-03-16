@@ -1342,8 +1342,8 @@ def test_process_dataflow_node_glue_connection_query_fallback(
     assert expected_dbtable in result["urn"]
 
 
-def test_process_dataflow_node_glue_connection_query_multi_table_warns() -> None:
-    """Multi-table queries cannot be resolved to a single URN — warns and skips."""
+def test_process_dataflow_node_glue_connection_query_multi_table() -> None:
+    """Multi-table JOIN queries produce multiple dataset URNs via dataset_urns."""
     source = glue_source()
     source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
         "Connection": {
@@ -1369,8 +1369,14 @@ def test_process_dataflow_node_glue_connection_query_multi_table_warns() -> None
 
     result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
 
-    assert result is None
-    assert source.report.warnings
+    assert result is not None
+    assert not source.report.warnings
+    orders_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    customers_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)"
+    )
+    assert result["urn"] == orders_urn
+    assert result["dataset_urns"] == [orders_urn, customers_urn]
 
 
 def test_process_dataflow_node_jdbc_query_fallback() -> None:
