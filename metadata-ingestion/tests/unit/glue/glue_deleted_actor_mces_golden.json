@@ -128,6 +128,9 @@
                         },
                         "name": "test_jsons_markers",
                         "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_jsons_markers",
+                        "created": {
+                            "time": 1622635619000
+                        },
                         "lastModified": {
                             "time": 1622635619000
                         },
@@ -340,6 +343,9 @@
                         },
                         "name": "test_parquet",
                         "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_parquet",
+                        "created": {
+                            "time": 1622564093000
+                        },
                         "lastModified": {
                             "time": 1622564093000
                         },
@@ -560,6 +566,9 @@
                         },
                         "name": "test_iceberg",
                         "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_iceberg",
+                        "created": {
+                            "time": 1622564093000
+                        },
                         "lastModified": {
                             "time": 1622564093000
                         },
