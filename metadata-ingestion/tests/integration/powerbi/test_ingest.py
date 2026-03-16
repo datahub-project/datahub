@@ -232,6 +232,7 @@ def test_mysql_odbc_query_ingest(
                     "dsn_to_platform_name": {"testdb01": "mysql"},
                     "dsn_to_database_schema": {"testdb01": "employees"},
                     "extract_lineage": True,
+                    "extract_column_level_lineage": False,
                     "extract_reports": False,
                     "extract_independent_datasets": True,
                     "convert_urns_to_lowercase": True,

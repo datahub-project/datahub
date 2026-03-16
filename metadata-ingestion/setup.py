@@ -80,7 +80,12 @@ framework_common = {
     "ruamel.yaml<0.19.0",
 }
 
-rest_common = {"requests<3.0.0", "requests_file<4.0.0"}
+rest_common = {
+    "requests<3.0.0",
+    "requests_file<4.0.0",
+    # Required for GraphQL query adaptation and schema introspection
+    "graphql-core>=3.0.0,<4.0.0",
+}
 
 kafka_common = {
     # Note that confluent_kafka 1.9.0 introduced a hard compatibility break, and
@@ -107,8 +112,7 @@ kafka_protobuf = {
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
     # NOTE: potential conflict with feast also depending on grpcio
     "grpcio>=1.44.0,<2.0.0",
-    # Note: grpcio-tools>=1.63 requires protobuf>=5, but google-cloud-* requires protobuf<5
-    # So grpcio-tools is constrained to <1.63.0 automatically
+    # grpcio-tools>=1.63 requires protobuf>=5. We intentionally allow that range.
     "grpcio-tools>=1.44.0,<2.0.0",
 }
 
@@ -153,7 +157,7 @@ cachetools_lib = {
 # Skip pyarrow 0.14.0-14.0.0 due to CVE-2023-47248: https://avd.aquasec.com/nvd/cve-2023-47248
 # Note: feast<=0.47.0 (constrained by numpy<2) requires pyarrow<18.1.0, resolved automatically
 pyarrow_common = {
-    "pyarrow>14.0.0,<23.0.0",
+    "pyarrow>14.0.0,<24.0.0",
 }
 
 great_expectations_lib = {
@@ -245,7 +249,7 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging<=3.5.0",
+    "google-cloud-logging<4.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
@@ -263,12 +267,16 @@ clickhouse_common = {
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
+datacatalog_lineage_common = {
+    # 0.3.0+ uses google.cloud.datacatalog_lineage import path.
+    "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
+    # Enforce non-vulnerable protobuf baseline (CVE-2026-0994).
+    "protobuf>=5.0.0,<7.0.0",
+}
+
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
-    # Pinned to 0.2.2 because 0.3.0 changed the import path from
-    # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
-    # which breaks existing code using the old import path
-    "google-cloud-datacatalog-lineage==0.2.2",
+    *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
 
@@ -567,12 +575,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | sqlglot_lib
     | classification_lib
-    | {
-        # Pinned to 0.2.2 because 0.3.0 changed the import path from
-        # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
-        # which breaks existing code using the old import path
-        "google-cloud-datacatalog-lineage==0.2.2",
-    },
+    | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
@@ -694,6 +697,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
+    "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
     "redshift": sql_common
     | redshift_common
     | usage_common
@@ -910,6 +914,7 @@ base_dev_requirements = {
             "datahub-rest",
             "datahub-lite",
             "presto",
+            "rdf",
             "redash",
             "redshift",
             "s3",
@@ -985,6 +990,7 @@ full_test_dev_requirements = {
             "mssql-odbc",
             "mysql",
             "mariadb",
+            "rdf",
             "redash",
             "vertica",
             "vertexai",
@@ -1056,6 +1062,7 @@ entry_points = {
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
+        "rdf = datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
