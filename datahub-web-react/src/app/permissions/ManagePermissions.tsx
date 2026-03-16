@@ -1,5 +1,5 @@
 import { Button, PageTitle } from '@components';
-import React, { useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -54,7 +54,10 @@ const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
     const location = useLocation();
-    const [createPolicyRequested, setCreatePolicyRequested] = useState(false);
+    const createPolicyRef = useRef<() => void>(() => {});
+    const registerCreatePolicy = useCallback((fn: () => void) => {
+        createPolicyRef.current = fn;
+    }, []);
 
     const isPoliciesTab = location.pathname.includes('/policies');
 
@@ -71,12 +74,7 @@ export const ManagePermissions = () => {
             {
                 name: TabType.Policies,
                 path: TabType.Policies.toLocaleLowerCase(),
-                content: (
-                    <ManagePolicies
-                        createPolicyRequested={createPolicyRequested}
-                        onCreatePolicyHandled={() => setCreatePolicyRequested(false)}
-                    />
-                ),
+                content: <ManagePolicies onRegisterCreatePolicy={registerCreatePolicy} />,
                 display: {
                     enabled: () => true,
                 },
@@ -101,7 +99,7 @@ export const ManagePermissions = () => {
                             id={POLICIES_CREATE_POLICY_ID}
                             variant="filled"
                             icon={{ icon: 'Plus', source: 'phosphor' }}
-                            onClick={() => setCreatePolicyRequested(true)}
+                            onClick={() => createPolicyRef.current()}
                             data-testid="add-policy-button"
                         >
                             Create new policy

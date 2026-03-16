@@ -101,11 +101,10 @@ const STATUS_OPTIONS = [
 ];
 
 interface ManagePoliciesProps {
-    createPolicyRequested?: boolean;
-    onCreatePolicyHandled?: () => void;
+    onRegisterCreatePolicy?: (fn: () => void) => void;
 }
 
-export const ManagePolicies = ({ createPolicyRequested, onCreatePolicyHandled }: ManagePoliciesProps) => {
+export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) => {
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const location = useLocation();
@@ -165,13 +164,8 @@ export const ManagePolicies = ({ createPolicyRequested, onCreatePolicyHandled }:
     };
 
     useEffect(() => {
-        if (createPolicyRequested) {
-            onClickNewPolicy();
-            const timer = setTimeout(() => onCreatePolicyHandled?.(), 0);
-            return () => clearTimeout(timer);
-        }
-        return undefined;
-    }, [createPolicyRequested]); // eslint-disable-line react-hooks/exhaustive-deps
+        onRegisterCreatePolicy?.(onClickNewPolicy);
+    }); // intentionally no deps — keeps registration in sync
 
     const onClosePolicyBuilder = () => {
         setFocusPolicyUrn(undefined);
@@ -445,60 +439,62 @@ export const ManagePolicies = ({ createPolicyRequested, onCreatePolicyHandled }:
     }));
 
     return (
-        <PageContainer>
-            <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
-            {policiesError && toast.error('Failed to load policies! An unexpected error occurred.')}
-            {updateError && toast.error('Failed to update policies. An unexpected error occurred.')}
-            <ToolbarContainer>
-                <SearchBar
-                    placeholder="Search policies..."
-                    value={query || ''}
-                    onChange={(value) => {
-                        setPage(1);
-                        setQuery(value);
-                    }}
-                    width="250px"
-                    allowClear
-                />
-                <SimpleSelect
-                    options={STATUS_OPTIONS}
-                    values={[statusFilter]}
-                    onUpdate={onStatusChange}
-                    showClear={false}
-                    width={120}
-                    minWidth="120px"
-                    position="start"
-                    size="md"
-                    dataTestId="policy-filter"
-                />
-            </ToolbarContainer>
-            <TableScrollContainer>
-                {!policiesLoading && tableData?.length === 0 ? (
-                    <EmptyContainer>
-                        <Text size="md" color="gray">
-                            No Policies!
-                        </Text>
-                    </EmptyContainer>
-                ) : (
-                    <Table
-                        columns={tableColumns}
-                        data={tableData || []}
-                        rowKey="urn"
-                        isScrollable
-                        isLoading={policiesLoading}
-                        style={{ tableLayout: 'fixed' }}
-                        onRowClick={(record: any) => onViewPolicy(record.policy)}
+        <>
+            <PageContainer>
+                <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
+                {policiesError && toast.error('Failed to load policies! An unexpected error occurred.')}
+                {updateError && toast.error('Failed to update policies. An unexpected error occurred.')}
+                <ToolbarContainer>
+                    <SearchBar
+                        placeholder="Search policies..."
+                        value={query || ''}
+                        onChange={(value) => {
+                            setPage(1);
+                            setQuery(value);
+                        }}
+                        width="250px"
+                        allowClear
                     />
-                )}
-            </TableScrollContainer>
-            <PaginationContainer>
-                <Pagination
-                    currentPage={page}
-                    itemsPerPage={pageSize}
-                    total={totalPolicies}
-                    onPageChange={onChangePage}
-                />
-            </PaginationContainer>
+                    <SimpleSelect
+                        options={STATUS_OPTIONS}
+                        values={[statusFilter]}
+                        onUpdate={onStatusChange}
+                        showClear={false}
+                        width={120}
+                        minWidth="120px"
+                        position="start"
+                        size="md"
+                        dataTestId="policy-filter"
+                    />
+                </ToolbarContainer>
+                <TableScrollContainer>
+                    {!policiesLoading && tableData?.length === 0 ? (
+                        <EmptyContainer>
+                            <Text size="md" color="gray">
+                                No Policies!
+                            </Text>
+                        </EmptyContainer>
+                    ) : (
+                        <Table
+                            columns={tableColumns}
+                            data={tableData || []}
+                            rowKey="urn"
+                            isScrollable
+                            isLoading={policiesLoading}
+                            style={{ tableLayout: 'fixed' }}
+                            onRowClick={(record: any) => onViewPolicy(record.policy)}
+                        />
+                    )}
+                </TableScrollContainer>
+                <PaginationContainer>
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        total={totalPolicies}
+                        onPageChange={onChangePage}
+                    />
+                </PaginationContainer>
+            </PageContainer>
             {showPolicyBuilderModal && (
                 <PolicyBuilderModal
                     focusPolicyUrn={focusPolicyUrn}
@@ -517,6 +513,6 @@ export const ManagePolicies = ({ createPolicyRequested, onCreatePolicyHandled }:
                     privileges={getPrivilegeNames(focusPolicy)}
                 />
             )}
-        </PageContainer>
+        </>
     );
 };
