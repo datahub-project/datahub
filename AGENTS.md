@@ -11,6 +11,8 @@ Prefer LSP tools over Grep for code navigation tasks:
 - Use `workspaceSymbol` to find symbols by name
 - Use diagnostics after any edit to catch type errors immediately
 
+See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
+
 ## Essential Commands
 
 **Build and test:**
