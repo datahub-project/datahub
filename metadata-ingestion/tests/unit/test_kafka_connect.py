@@ -3018,6 +3018,68 @@ class TestJdbcSinkConnector:
         # MySQL doesn't use schema, so should be database.table
         assert lineages[0].target_dataset == "myapp.events"
 
+    def test_jdbc_sink_lineage_empty_runtime_topics_falls_back_to_config(
+        self,
+    ) -> None:
+        """When the runtime /topics API returns nothing, lineage is built from the
+        connector's own `topics` config rather than producing an empty result."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="debezium-jdbc-sink",
+            type="sink",
+            config={
+                "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+                "topics": "server.public.users,server.public.orders",
+            },
+            tasks=[],
+            topic_names=[],  # runtime API returned nothing
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "server.public.users" in source_datasets
+        assert "server.public.orders" in source_datasets
+
+    def test_jdbc_sink_lineage_stale_topic_filter_still_applies(self) -> None:
+        """When the runtime /topics API returns topics, stale topics not in the
+        connector config are excluded via intersection."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="postgres-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+                "topics": "users,orders",
+            },
+            tasks=[],
+            topic_names=["users", "orders", "old_stale_topic"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "users" in source_datasets
+        assert "orders" in source_datasets
+        assert "old_stale_topic" not in source_datasets
+
     def test_jdbc_sink_flow_property_bag_sanitization(self) -> None:
         """Test that sensitive credentials are removed from flow property bag."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
