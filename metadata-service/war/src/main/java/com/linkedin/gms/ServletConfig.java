@@ -7,6 +7,7 @@ import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
 import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
+import com.datahub.gms.servlet.ReadinessCheck;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -22,12 +23,17 @@ import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
+import io.ebean.Database;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.rest.RESTSerializers;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.neo4j.driver.Driver;
+import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
@@ -46,12 +52,6 @@ import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.neo4j.driver.Driver;
-import org.opensearch.client.RestHighLevelClient;
-import io.ebean.Database;
-import com.datahub.gms.servlet.ReadinessCheck;
 
 /**
  * Common configuration for all servlets. Generally this list also includes dependencies of the
