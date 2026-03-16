@@ -951,10 +951,8 @@ class BaseConnector:
 
             # Build target URN using DatasetUrn helper with correct target platform
             # Use platform_instance if configured in platform_instance_map for Kafka
-            kafka_platform_instance = (
-                self.config.platform_instance_map.get(target_platform)
-                if self.config.platform_instance_map
-                else None
+            kafka_platform_instance = get_platform_instance(
+                self.config, self.connector_manifest.name, target_platform
             )
             target_urn = DatasetUrn.create_from_ids(
                 platform_id=target_platform,

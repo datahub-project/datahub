@@ -52,7 +52,7 @@ jobs:
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
-  build:
+  build-and-test:
     strategy:
       fail-fast: false
       matrix:

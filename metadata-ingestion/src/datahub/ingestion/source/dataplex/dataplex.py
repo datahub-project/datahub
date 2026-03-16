@@ -14,7 +14,7 @@ from typing import Iterable, Optional
 
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
-from google.cloud.datacatalog.lineage_v1 import LineageClient
+from google.cloud.datacatalog_lineage import LineageClient
 from google.oauth2 import service_account
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

@@ -50,7 +50,7 @@ jobs:
           checkout-head-only: false
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
-  build:
+  build-metadata-io:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 60
     needs: setup

@@ -158,7 +158,7 @@ def create_mock_entry_with_schema(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
-@patch("google.cloud.datacatalog.lineage_v1.LineageClient")
+@patch("google.cloud.datacatalog_lineage.LineageClient")
 def test_dataplex_entries_integration(
     mock_lineage_client_class,
     mock_catalog_client_class,
@@ -239,7 +239,7 @@ def test_dataplex_entries_integration(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
-@patch("google.cloud.datacatalog.lineage_v1.LineageClient")
+@patch("google.cloud.datacatalog_lineage.LineageClient")
 def test_dataplex_multiple_entry_groups(
     mock_lineage_client_class,
     mock_catalog_client_class,
@@ -324,7 +324,7 @@ def test_dataplex_multiple_entry_groups(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
-@patch("google.cloud.datacatalog.lineage_v1.LineageClient")
+@patch("google.cloud.datacatalog_lineage.LineageClient")
 def test_dataplex_empty_catalog(
     mock_lineage_client_class,
     mock_catalog_client_class,
