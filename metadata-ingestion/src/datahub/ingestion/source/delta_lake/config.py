@@ -71,19 +71,39 @@ class AzureBlob(ConfigModel):
     credential: Optional[AzureCredentialConfig] = Field(
         default=None,
         description=(
-            "Unified Azure credential configuration. If provided, takes precedence "
-            "over static keys."
+            "Unified Azure credential configuration. Mutually exclusive with "
+            "`account_key`, `sas_token`, and service principal fields."
         ),
     )
 
     @model_validator(mode="after")
-    def validate_service_principal_fields(self) -> "AzureBlob":
+    def validate_authentication_fields(self) -> "AzureBlob":
         has_any_sp_field = any([self.client_id, self.client_secret, self.tenant_id])
         has_all_sp_fields = all([self.client_id, self.client_secret, self.tenant_id])
         if has_any_sp_field and not has_all_sp_fields:
             raise ValueError(
                 "Service principal auth requires `client_id`, `client_secret`, and `tenant_id`."
             )
+
+        configured_auth_methods = [
+            name
+            for name, enabled in [
+                ("account_key", self.account_key is not None),
+                ("sas_token", self.sas_token is not None),
+                ("service_principal", has_all_sp_fields),
+                ("credential", self.credential is not None),
+            ]
+            if enabled
+        ]
+        # Do not require at least one auth method here.
+        # Some valid flows still rely on account_name-only or downstream/runtime auth.
+        if len(configured_auth_methods) > 1:
+            raise ValueError(
+                "Azure auth configuration accepts only one method at a time: "
+                "`account_key`, `sas_token`, service principal "
+                "(`client_id` + `client_secret` + `tenant_id`), or `credential`."
+            )
+
         return self
 
     def build_storage_options(

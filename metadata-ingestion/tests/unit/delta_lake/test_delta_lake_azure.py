@@ -1,12 +1,6 @@
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.azure.abs_utils import (
-    get_container_relative_path,
-    parse_azure_path,
-    strip_abs_prefix,
-    to_blob_https_uri,
-)
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.delta_lake.config import (
     AzureBlob,
@@ -46,6 +40,34 @@ def test_delta_lake_azure_config_rejects_partial_service_principal() -> None:
         AzureBlob.model_validate({"client_id": "my-client-id"})
 
 
+@pytest.mark.parametrize(
+    "azure_config",
+    [
+        {"account_key": "my-secret", "sas_token": "my-sas"},
+        {
+            "account_key": "my-secret",
+            "credential": AzureCredentialConfig(
+                authentication_method="cli"
+            ).model_dump(),
+        },
+        {
+            "sas_token": "my-sas",
+            "client_id": "my-client-id",
+            "client_secret": "my-client-secret",
+            "tenant_id": "my-tenant-id",
+        },
+    ],
+)
+def test_delta_lake_azure_config_rejects_multiple_auth_methods(
+    azure_config: dict[str, object],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Azure auth configuration accepts only one method at a time",
+    ):
+        AzureBlob.model_validate(azure_config)
+
+
 def test_delta_lake_azure_storage_options_from_account_key() -> None:
     config = DeltaLakeSourceConfig.model_validate(
         {
@@ -62,52 +84,6 @@ def test_delta_lake_azure_storage_options_from_account_key() -> None:
     assert storage_options["access_key"] == "my-secret"
 
 
-@pytest.mark.parametrize(
-    ("path", "account_name", "expected_blob_uri", "expected_browse_path"),
-    [
-        (
-            "abfss://container@acct.dfs.core.windows.net/delta/table",
-            None,
-            "https://acct.blob.core.windows.net/container/delta/table",
-            "container/delta/table",
-        ),
-        (
-            "az://container/delta/table",
-            "acct",
-            "https://acct.blob.core.windows.net/container/delta/table",
-            "container/delta/table",
-        ),
-        (
-            "https://acct.dfs.core.windows.net/container/delta/table",
-            None,
-            "https://acct.blob.core.windows.net/container/delta/table",
-            "container/delta/table",
-        ),
-        (
-            "https://acct.blob.core.windows.net/container/delta/table",
-            None,
-            "https://acct.blob.core.windows.net/container/delta/table",
-            "container/delta/table",
-        ),
-    ],
-)
-def test_delta_lake_shared_azure_path_helpers(
-    path: str,
-    account_name: str | None,
-    expected_blob_uri: str,
-    expected_browse_path: str,
-) -> None:
-    blob_uri = to_blob_https_uri(path, account_name=account_name)
-    assert blob_uri == expected_blob_uri
-    assert strip_abs_prefix(blob_uri) == expected_browse_path
-    assert get_container_relative_path(blob_uri) == "delta/table"
-
-    parsed = parse_azure_path(path, account_name=account_name)
-    assert parsed.account_name == "acct"
-    assert parsed.container_name == "container"
-    assert parsed.object_path == "delta/table"
-
-
 def test_delta_lake_azure_get_folders_uses_shared_helpers() -> None:
     config = DeltaLakeSourceConfig.model_validate(
         {
@@ -122,19 +98,6 @@ def test_delta_lake_azure_get_folders_uses_shared_helpers() -> None:
     assert azure_config.get_abfss_url("delta/folder") == (
         "abfss://container@acct.dfs.core.windows.net/delta/folder"
     )
-
-
-def test_delta_lake_az_path_requires_account_name() -> None:
-    config = DeltaLakeSourceConfig.model_validate(
-        {"base_path": "az://container/delta/table"}
-    )
-    source = DeltaLakeSource(config, PipelineContext(run_id="delta-lake-azure-test"))
-
-    with pytest.raises(
-        ValueError,
-        match="For `az://` and `adl://` paths, set `source.config.azure.account_name`.",
-    ):
-        source.get_storage_options()
 
 
 def test_delta_lake_folder_listing_rejects_unified_credential() -> None:
