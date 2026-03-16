@@ -1,4 +1,5 @@
 import React from "react";
+import Head from "@docusaurus/Head";
 import Layout from "@theme/Layout";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
@@ -82,11 +83,63 @@ export function FilterPage(
     }
   );
 
+  const collectionPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: title,
+    description: subtitle,
+    url: "https://datahubproject.io/integrations",
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: metadata.length,
+      itemListElement: metadata.map((source, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        item: {
+          "@type": "SoftwareApplication",
+          name: source.Title,
+          description: source.Description,
+          applicationCategory: source.tags?.["Platform Type"] || undefined,
+          url: source.Path
+            ? `https://datahubproject.io/${source.Path}`
+            : undefined,
+        },
+      })),
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Docs",
+        item: "https://datahubproject.io/docs",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Integrations",
+        item: "https://datahubproject.io/integrations",
+      },
+    ],
+  };
+
   return (
     <Layout
       title={siteConfig.tagline}
       description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
     >
+      <Head>
+        <script type="application/ld+json">
+          {JSON.stringify(collectionPageJsonLd)}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify(breadcrumbJsonLd)}
+        </script>
+      </Head>
       <header className={"hero"}>
         <div className="container">
           <div className="hero__content">
@@ -123,15 +176,11 @@ export function FilterPage(
         }}
       >
         Don&apos;t see your data source?{" "}
-        <a
-          href="https://github.com/datahub-project/datahub/issues/new?template=feature_request.md&title=[Connector+Request]&labels=connector-request"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="docs/metadata-ingestion/request-connector">
           Request a Connector
         </a>
         {" | "}
-        <a href="docs/metadata-ingestion/adding-source">Build Your Own</a>
+        <a href="docs/metadata-ingestion/datahub-skills">Build Your Own</a>
       </div>
     </Layout>
   );
