@@ -1,5 +1,5 @@
 Entities
-=======
+========
 
 The DataHub SDK provides a set of entities that can be used to interact with DataHub's metadata.
 
