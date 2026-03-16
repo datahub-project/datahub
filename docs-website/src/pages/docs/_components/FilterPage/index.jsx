@@ -88,7 +88,7 @@ export function FilterPage(
     "@type": "CollectionPage",
     name: title,
     description: subtitle,
-    url: "https://datahubproject.io/integrations",
+    url: "https://docs.datahub.com/integrations",
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: metadata.length,
@@ -101,7 +101,7 @@ export function FilterPage(
           description: source.Description,
           applicationCategory: source.tags?.["Platform Type"] || undefined,
           url: source.Path
-            ? `https://datahubproject.io/${source.Path}`
+            ? `https://docs.datahub.com/${source.Path}`
             : undefined,
         },
       })),
@@ -116,13 +116,13 @@ export function FilterPage(
         "@type": "ListItem",
         position: 1,
         name: "Docs",
-        item: "https://datahubproject.io/docs",
+        item: "https://docs.datahub.com/docs",
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Integrations",
-        item: "https://datahubproject.io/integrations",
+        item: "https://docs.datahub.com/integrations",
       },
     ],
   };
