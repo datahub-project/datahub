@@ -29,6 +29,7 @@ on:
       - "metadata model generate"
       - "Metadata Models Custom CI"
       - "Prefect Plugin"
+      - "PR Title Check"
       - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
       - "Python Build"
       - "Quickstart Test"
