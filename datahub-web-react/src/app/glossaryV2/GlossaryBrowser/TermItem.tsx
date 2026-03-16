@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
-import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
+import { SelectedMark } from '@app/sharedV2/icons/SelectedMark';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';

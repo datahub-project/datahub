@@ -6,9 +6,9 @@ import styled from 'styled-components/macro';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { SelectedMark } from '@app/sharedV2/icons/SelectedMark';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
 
