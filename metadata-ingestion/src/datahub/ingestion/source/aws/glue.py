@@ -853,15 +853,17 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object references a named Glue connection (visual editor style)
             elif (node_args.get("connection_options") or {}).get("connectionName"):
-                node_urn = self._process_glue_connection_node(node, node_args, flow_urn)
-                if node_urn is None:
+                _urn = self._process_glue_connection_node(node, node_args, flow_urn)
+                if _urn is None:
                     return None
+                node_urn = _urn
 
             # if data object is a JDBC source (e.g. Postgres, MySQL, Redshift)
             elif node_args.get("connection_type") in JDBC_PLATFORM_MAP:
-                node_urn = self._process_jdbc_node(node, node_args, flow_urn)
-                if node_urn is None:
+                _urn = self._process_jdbc_node(node, node_args, flow_urn)
+                if _urn is None:
                     return None
+                node_urn = _urn
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
