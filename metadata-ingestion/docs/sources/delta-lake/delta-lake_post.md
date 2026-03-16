@@ -172,7 +172,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-#### Example using service principal
+##### Example using service principal
 
 ```yaml
 source:
