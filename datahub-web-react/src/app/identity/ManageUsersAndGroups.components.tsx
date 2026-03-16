@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { Button, PageTitle, Pill } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 export const PageContainer = styled.div`
     padding: 16px 20px;
@@ -32,9 +31,11 @@ export const HeaderRight = styled.div`
 
 export const Content = styled.div`
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    overflow: hidden;
+    color: ${(props) => props.theme.colors.textSecondary};
 
     &&& .ant-tabs-nav {
         margin-bottom: 0;
