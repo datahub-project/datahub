@@ -1,4 +1,3 @@
-import DatePicker from '@utils/DayjsDatePicker';
 import dayjs from 'dayjs';
 import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -9,6 +8,7 @@ import useDateRangeFilterValues from '@app/searchV2/filters/value/useDateRangeFi
 import { Text } from '@src/alchemy-components';
 import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
 import { FacetFilterInput, FacetMetadata, FilterOperator } from '@src/types.generated';
+import DatePicker from '@utils/DayjsDatePicker';
 
 const { RangePicker } = DatePicker;
 

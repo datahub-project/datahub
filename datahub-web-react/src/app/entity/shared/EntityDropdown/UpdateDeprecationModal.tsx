@@ -1,11 +1,11 @@
 import { Button, Form, Modal, message } from 'antd';
-import DatePicker from '@utils/DayjsDatePicker';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { handleBatchError } from '@app/entity/shared/utils';
+import DatePicker from '@utils/DayjsDatePicker';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 

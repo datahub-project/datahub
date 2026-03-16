@@ -1,6 +1,5 @@
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Checkbox, Form, Input, Select, Tooltip } from 'antd';
-import DatePicker from '@utils/DayjsDatePicker';
 import Button from 'antd/lib/button';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -14,6 +13,7 @@ import DictField, {
 } from '@app/ingest/source/builder/RecipeForm/DictField';
 import SecretField, { StyledFormItem } from '@app/ingest/source/builder/RecipeForm/SecretField/SecretField';
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import DatePicker from '@utils/DayjsDatePicker';
 
 import { Secret } from '@types';
 

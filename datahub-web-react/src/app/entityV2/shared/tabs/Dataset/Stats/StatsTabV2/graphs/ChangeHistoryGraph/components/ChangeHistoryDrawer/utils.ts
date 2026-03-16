@@ -1,6 +1,6 @@
-import { uniq } from 'lodash';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
+import { uniq } from 'lodash';
 
 import { Operation } from '@src/types.generated';
 

@@ -1,5 +1,4 @@
 import { Form, Select, Skeleton, message } from 'antd';
-import DatePicker from '@utils/DayjsDatePicker';
 import TextArea from 'antd/lib/input/TextArea';
 import dayjs from 'dayjs';
 import React from 'react';
@@ -15,6 +14,7 @@ import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Modal } from '@src/alchemy-components';
+import DatePicker from '@utils/DayjsDatePicker';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';

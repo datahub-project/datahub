@@ -1,7 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import DatePicker from '@utils/DayjsDatePicker';
 import dayjs from 'dayjs';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -13,6 +12,7 @@ import { FilterOperatorType, FilterPredicate, FilterValue } from '@app/searchV2/
 import { getIsDateRangeFilter, useFilterDisplayName } from '@app/searchV2/filters/utils';
 import ValueName from '@app/searchV2/filters/value/ValueName';
 import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
+import DatePicker from '@utils/DayjsDatePicker';
 
 const Values = styled.div`
     border: 1.5px solid transparent;

@@ -1,8 +1,8 @@
 import type { Dayjs } from 'dayjs';
 
-import AntdDatePicker from '@utils/DayjsDatePicker';
-
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
+
+import AntdDatePicker from '@utils/DayjsDatePicker';
 
 export type DatePickerProps = {
     value?: DatePickerValue;

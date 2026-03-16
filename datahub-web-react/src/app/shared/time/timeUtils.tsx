@@ -1,6 +1,5 @@
 import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
-import type { ManipulateType } from 'dayjs';
+import type { Dayjs, ManipulateType } from 'dayjs';
 
 import { DateInterval } from '@types';
 
@@ -58,10 +57,7 @@ export const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeM
 };
 
 export const addInterval = (interval_num: number, date: Date, interval: DateInterval): Date => {
-    return dayjs(date)
-        .utc()
-        .add(interval_num, INTERVAL_TO_DURATION_UNIT[interval])
-        .toDate();
+    return dayjs(date).utc().add(interval_num, INTERVAL_TO_DURATION_UNIT[interval]).toDate();
 };
 
 /**

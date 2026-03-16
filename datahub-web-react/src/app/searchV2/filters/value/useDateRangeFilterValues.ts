@@ -28,9 +28,7 @@ export default function useDateRangeFilterValues({ filterField, setStartDate, se
 
     useEffect(() => {
         if (startDateFromFilter) {
-            setStartDate(
-                dayjs(parseInt(startDateFromFilter, 10)).startOf('day'),
-            );
+            setStartDate(dayjs(parseInt(startDateFromFilter, 10)).startOf('day'));
         } else {
             setStartDate(null);
         }
@@ -38,9 +36,7 @@ export default function useDateRangeFilterValues({ filterField, setStartDate, se
 
     useEffect(() => {
         if (endDateFromFilter) {
-            setEndDate(
-                dayjs(parseInt(endDateFromFilter, 10)).endOf('day'),
-            );
+            setEndDate(dayjs(parseInt(endDateFromFilter, 10)).endOf('day'));
         } else {
             setEndDate(null);
         }
