@@ -128,6 +128,9 @@
                         },
                         "name": "avro",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/flights-database-lineage/avro",
+                        "created": {
+                            "time": 1623248255000
+                        },
                         "lastModified": {
                             "time": 1623248255000
                         },

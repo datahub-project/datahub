@@ -128,6 +128,9 @@
                         },
                         "name": "avro-profiling",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/flights-database-profiling/avro-profiling",
+                        "created": {
+                            "time": 1623248255000
+                        },
                         "lastModified": {
                             "time": 1623248255000
                         },

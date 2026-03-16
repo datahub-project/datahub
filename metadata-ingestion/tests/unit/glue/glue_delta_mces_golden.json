@@ -118,6 +118,9 @@
                         },
                         "name": "delta_table_1",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/delta-database/delta_table_1",
+                        "created": {
+                            "time": 1623248255000
+                        },
                         "lastModified": {
                             "time": 1623248255000
                         },
