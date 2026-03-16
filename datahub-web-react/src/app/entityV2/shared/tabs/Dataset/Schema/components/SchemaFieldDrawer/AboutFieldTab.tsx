@@ -1,4 +1,4 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -77,7 +77,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
 
-    const notes = properties.notes?.sort((a, b) => moment(b.lastModified.time).diff(moment(a.lastModified.time))) || [];
+    const notes = properties.notes?.sort((a, b) => dayjs(b.lastModified.time).diff(dayjs(a.lastModified.time))) || [];
 
     const delayedRefetchNotes = () =>
         setTimeout(() => refetchNotes?.(), 2000) && setTimeout(() => refetchNotes?.(), 5000);

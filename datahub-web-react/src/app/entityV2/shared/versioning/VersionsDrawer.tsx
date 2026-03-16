@@ -2,7 +2,7 @@ import { CloseOutlined } from '@ant-design/icons';
 import { Icon, Input, Table, Text, colors } from '@components';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
@@ -169,15 +169,15 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     sections={[
                         {
                             title: 'Created in Source',
-                            content: moment(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
+                            content: dayjs(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
                         },
                         {
                             title: 'Synced to DataHub',
-                            content: moment(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
+                            content: dayjs(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
                         },
                     ]}
                 >
-                    {moment(versionProperties?.created?.time).fromNow()}
+                    {dayjs(versionProperties?.created?.time).fromNow()}
                 </StructuredPopover>
             ),
             menu: (

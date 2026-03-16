@@ -70,6 +70,19 @@ const COLOR_ENFORCEMENT_RULES = {
                     message:
                         'ANTD_GRAY / REDESIGN_COLORS / LINEAGE_COLORS are deprecated. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`.',
                 },
+                {
+                    name: 'moment',
+                    message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
+                },
+                {
+                    name: 'moment-timezone',
+                    message:
+                        'moment-timezone was removed for bundle size. Use dayjs with timezone plugin from @utils/dayjs instead.',
+                },
+                {
+                    name: 'moment/moment',
+                    message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
+                },
             ],
         },
     ],
@@ -105,6 +118,26 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     rules: {
+        'no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: 'moment',
+                        message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
+                    },
+                    {
+                        name: 'moment-timezone',
+                        message:
+                            'moment-timezone was removed for bundle size. Use dayjs with timezone plugin from @utils/dayjs instead.',
+                    },
+                    {
+                        name: 'moment/moment',
+                        message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
+                    },
+                ],
+            },
+        ],
         '@typescript-eslint/no-explicit-any': 'off',
         '@stylistic/js/comma-dangle': ['error', 'always-multiline'],
         'arrow-body-style': 'off',

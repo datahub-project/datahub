@@ -74,8 +74,6 @@
         "html-to-image": "^1.11.11",
         "js-cookie": "^2.2.1",
         "js-yaml": "^4.1.0",
-        "moment": "^2.29.4",
-        "moment-timezone": "^0.5.35",
         "monaco-editor": "^0.28.1",
         "phosphor-react": "^1.4.1",
         "prosemirror-autocomplete": "^0.4.3",

@@ -1,4 +1,4 @@
-import moment from 'moment/moment';
+import dayjs from 'dayjs';
 
 import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
 import { UnionType } from '@app/searchV2/utils/constants';
@@ -6,12 +6,7 @@ import { UnionType } from '@app/searchV2/utils/constants';
 import { FilterOperator, SortCriterion, SortOrder } from '@types';
 
 export const buildRecentlyCreatedDatasetsFilters = (sinceDays: number): FilterSet => {
-    const startDate = moment().utcOffset(0).subtract(sinceDays, 'days').set({
-        hour: 0,
-        minute: 0,
-        second: 0,
-        millisecond: 0,
-    });
+    const startDate = dayjs().utcOffset(0).subtract(sinceDays, 'days').startOf('day');
     return {
         unionType: UnionType.AND,
         filters: [

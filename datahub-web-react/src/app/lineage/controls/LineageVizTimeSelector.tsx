@@ -1,4 +1,5 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router';
 
@@ -43,9 +44,9 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
         }
     };
 
-    const initialDates: [moment.Moment | null, moment.Moment | null] = [
-        startTimeMillis ? moment(startTimeMillis) : null,
-        endTimeMillis ? moment(endTimeMillis) : null,
+    const initialDates: [Dayjs | null, Dayjs | null] = [
+        startTimeMillis ? dayjs(startTimeMillis) : null,
+        endTimeMillis ? dayjs(endTimeMillis) : null,
     ];
 
     return <LineageTimeSelector onChange={lineageTimeSelectorOnChange} initialDates={initialDates} />;

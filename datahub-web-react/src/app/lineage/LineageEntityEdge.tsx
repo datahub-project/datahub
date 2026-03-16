@@ -4,14 +4,11 @@ import { Group } from '@visx/group';
 import { LinePath } from '@visx/shape';
 import { Tooltip } from 'antd';
 import dayjs from 'dayjs';
-import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { VizEdge } from '@app/lineage/types';
-
-dayjs.extend(LocalizedFormat);
 
 const EdgeTimestamp = styled.div``;
 

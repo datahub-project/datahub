@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React from 'react';
 
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
@@ -56,7 +56,7 @@ export default function ValueName({ field, value }: Props) {
         }
         case FieldType.BUCKETED_TIMESTAMP:
             // Note: Currently unused, as SelectedFilter.tsx renders DatePicker instead
-            return <>{moment(value.value).format('YYYY-MM-DD')}</>;
+            return <>{dayjs(value.value).format('YYYY-MM-DD')}</>;
         default:
             console.error(`Unknown field type: ${field}`);
             return <>n/a</>;

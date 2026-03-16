@@ -1,5 +1,5 @@
-import { DatePicker } from 'antd';
-import moment from 'moment';
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from 'dayjs';
 import React from 'react';
 
 type Props = {
@@ -15,7 +15,7 @@ export const getValue = (selected) => {
         const firstItem: number = +selected[0];
         if (!Number.isNaN(firstItem)) {
             // It's a number!
-            return moment(firstItem);
+            return dayjs(firstItem);
         }
     }
     return undefined;

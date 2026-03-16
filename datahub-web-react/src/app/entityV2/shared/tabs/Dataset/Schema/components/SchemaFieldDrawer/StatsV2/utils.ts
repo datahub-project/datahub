@@ -1,13 +1,6 @@
 import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 
 import { isValuePresent } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(advancedFormat);
 
 // Example: 9/9/2024, 07:36 AM PDT
 export const DATE_COMMA_TIME_TZ = 'L hh:mm A z';

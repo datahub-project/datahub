@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -25,7 +25,7 @@ interface Props {
 }
 
 const TimeProperty = ({ labelText, time, titleTip }: Props) => {
-    const timeFormatted = moment(time).format('hh:mm A');
+    const timeFormatted = dayjs(time).format('hh:mm A');
     return (
         <PropertyContainer>
             <Tooltip showArrow={false} title={titleTip}>

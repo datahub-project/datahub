@@ -1,3 +1,4 @@
+import '@utils/dayjs';
 import React from 'react';
 import ReactDOM from 'react-dom';
 

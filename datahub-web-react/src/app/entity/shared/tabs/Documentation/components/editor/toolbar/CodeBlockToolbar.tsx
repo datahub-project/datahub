@@ -1,8 +1,7 @@
 import { findParentNodeOfType, isElementDomNode } from '@remirror/core';
 import { FloatingWrapper, useAttrs, useCommands } from '@remirror/react';
 import { Select } from 'antd';
-import React from 'react';
-import { listLanguages } from 'refractor';
+import React, { useEffect, useState } from 'react';
 import { Positioner, defaultAbsolutePosition, hasStateChanged, isPositionVisible } from 'remirror/extensions';
 import styled from 'styled-components';
 
@@ -58,7 +57,12 @@ export const CodeBlockMenu = () => {
     const commands = useCommands();
     const value = (useAttrs(true).codeBlock()?.language as string) ?? 'markup';
 
-    const options = listLanguages().map((language) => ({ value: language }));
+    const [options, setOptions] = useState<{ value: string }[]>([]);
+    useEffect(() => {
+        import('refractor').then(({ listLanguages }) => {
+            setOptions(listLanguages().map((lang) => ({ value: lang })));
+        });
+    }, []);
 
     const onChange = (language) => {
         commands.updateCodeBlock({ language });

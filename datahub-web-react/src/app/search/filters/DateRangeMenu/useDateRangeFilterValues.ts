@@ -1,10 +1,11 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { useEffect, useMemo } from 'react';
 
 import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
 import { FilterOperator } from '@src/types.generated';
 
-export type Datetime = moment.Moment | null;
+export type Datetime = Dayjs | null;
 
 interface Props {
     filterField: string;
@@ -30,7 +31,7 @@ export default function useDateRangeFilterValues({ filterField, setStartDate, se
     useEffect(() => {
         if (startDateFromFilter) {
             setStartDate(
-                moment(parseInt(startDateFromFilter, 10)).set({ hour: 0, minute: 0, second: 0, millisecond: 0 }),
+                dayjs(parseInt(startDateFromFilter, 10)).startOf('day'),
             );
         } else {
             setStartDate(null);
@@ -40,7 +41,7 @@ export default function useDateRangeFilterValues({ filterField, setStartDate, se
     useEffect(() => {
         if (endDateFromFilter) {
             setEndDate(
-                moment(parseInt(endDateFromFilter, 10)).set({ hour: 23, minute: 59, second: 59, millisecond: 999 }),
+                dayjs(parseInt(endDateFromFilter, 10)).endOf('day'),
             );
         } else {
             setEndDate(null);

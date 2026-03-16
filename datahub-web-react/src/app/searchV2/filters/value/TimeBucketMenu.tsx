@@ -1,5 +1,5 @@
 import type { ItemType } from 'antd/lib/menu/hooks/useItems';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -37,9 +37,9 @@ export default function TimeBucketMenu({ field, values, type = 'card', onChangeV
     const filterMenuOptions = useMemo(
         () =>
             field.options.map(({ label, startOffsetMillis }): ItemType => {
-                const timestamp = moment()
+                const timestamp = dayjs()
                     .subtract(startOffsetMillis, 'milliseconds')
-                    .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
+                    .startOf('day')
                     .valueOf()
                     .toString();
                 return {

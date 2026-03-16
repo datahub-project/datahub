@@ -1,4 +1,4 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
@@ -110,11 +110,11 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
 };
 
 export function getRelativeTimeColor(time: number) {
-    const relativeTime = moment(time);
-    if (relativeTime.isAfter(moment().subtract(1, 'week'))) {
+    const relativeTime = dayjs(time);
+    if (relativeTime.isAfter(dayjs().subtract(1, 'week'))) {
         return `${REDESIGN_COLORS.GREEN_NORMAL}`;
     }
-    if (relativeTime.isAfter(moment().subtract(1, 'month'))) {
+    if (relativeTime.isAfter(dayjs().subtract(1, 'month'))) {
         return `${REDESIGN_COLORS.WARNING_YELLOW}`;
     }
     return `${REDESIGN_COLORS.WARNING_RED}`;

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useState } from 'react';
 
 import { DatePicker, datePickerDefault } from '@components/components/DatePicker/DatePicker';
@@ -52,7 +52,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 function WrappedDatePicker(props) {
-    const [value, setValue] = useState<DatePickerValue>(moment());
+    const [value, setValue] = useState<DatePickerValue>(dayjs());
     return <DatePicker value={value} onChange={(v) => setValue(v)} {...props} />;
 }
 

@@ -1,7 +1,9 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { Button, DatePicker, Space, Typography } from 'antd';
-import moment from 'moment';
+import { Button, Space, Typography } from 'antd';
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,7 +11,7 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const { RangePicker } = DatePicker;
 
-export type Datetime = moment.Moment | null;
+export type Datetime = Dayjs | null;
 
 const ConfirmButtonWrapper = styled.div`
     position: absolute;
@@ -40,17 +42,17 @@ export type Props = {
 };
 
 export default function LineageTimeSelector({ onChange, startTimeMillis, endTimeMillis }: Props) {
-    const [startDate, setStartDate] = useState<Datetime>(startTimeMillis ? moment(startTimeMillis) : null);
-    const [endDate, setEndDate] = useState<Datetime>(endTimeMillis ? moment(endTimeMillis) : null);
+    const [startDate, setStartDate] = useState<Datetime>(startTimeMillis ? dayjs(startTimeMillis) : null);
+    const [endDate, setEndDate] = useState<Datetime>(endTimeMillis ? dayjs(endTimeMillis) : null);
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const ref = useRef<any>(null);
 
     useEffect(() => {
-        setStartDate(startTimeMillis ? moment(startTimeMillis) : null);
+        setStartDate(startTimeMillis ? dayjs(startTimeMillis) : null);
     }, [startTimeMillis]);
 
     useEffect(() => {
-        setEndDate(endTimeMillis ? moment(endTimeMillis) : null);
+        setEndDate(endTimeMillis ? dayjs(endTimeMillis) : null);
     }, [endTimeMillis]);
 
     const handleOpenChange = useCallback(
@@ -67,19 +69,16 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
     const handleRangeChange = useCallback((dates: [Datetime, Datetime] | null) => {
         const [start, end] = dates || [null, null];
 
-        start?.set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
-        end?.set({ hour: 23, minute: 59, second: 59, millisecond: 999 });
-
-        setStartDate(start);
-        setEndDate(end);
+        setStartDate(start?.startOf('day') ?? null);
+        setEndDate(end?.endOf('day') ?? null);
     }, []);
 
     const showText = !isOpen && (startDate === null || endDate === null);
 
     const [ranges] = useState<Array<[Datetime, Datetime]>>([
-        [moment().subtract(7, 'days'), null],
-        [moment().subtract(14, 'days'), null],
-        [moment().subtract(28, 'days'), null],
+        [dayjs().subtract(7, 'days'), null],
+        [dayjs().subtract(14, 'days'), null],
+        [dayjs().subtract(28, 'days'), null],
         [null, null],
     ]);
 
@@ -105,7 +104,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                         bordered={false}
                         value={[startDate, endDate]}
                         disabledDate={(current: any) => {
-                            return current && current > moment().endOf('day');
+                            return current && current > dayjs().endOf('day');
                         }}
                         renderExtraFooter={() => (
                             <ConfirmButtonWrapper>
@@ -128,7 +127,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
     );
 }
 
-function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
         return 'All Time';
     }
@@ -138,7 +137,7 @@ function getTimeRangeDescription(startDate: moment.Moment | null, endDate: momen
     }
 
     if (startDate && !endDate) {
-        const dayDiff = moment().diff(startDate, 'days');
+        const dayDiff = dayjs().diff(startDate, 'days');
         if (dayDiff <= 30) {
             return `Last ${dayDiff} days`;
         }

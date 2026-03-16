@@ -1,6 +1,6 @@
 import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
@@ -165,7 +165,7 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                                             <QueryCreatedBy createdBy={query.createdBy} />
                                         </StyledCreatedBy>
                                     )}
-                                    on {moment(query.lastRun).format('MM/DD/YYYY')}
+                                    on {dayjs(query.lastRun).format('MM/DD/YYYY')}
                                 </SubtitleSection>
                             </QuerySubtitleContainer>
                         </StyledQueryCard>

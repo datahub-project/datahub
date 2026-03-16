@@ -1,4 +1,4 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -121,7 +121,7 @@ export default function useQueryTableColumns({
         field: 'createdAt',
         sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.createdTime - queryB.createdTime,
         render: (date: number) => {
-            return <div>{moment(date).format('MM/DD/YYYY')}</div>;
+            return <div>{dayjs(date).format('MM/DD/YYYY')}</div>;
         },
     };
 

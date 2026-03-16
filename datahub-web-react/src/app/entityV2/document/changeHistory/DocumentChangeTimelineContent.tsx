@@ -1,6 +1,4 @@
 import dayjs from 'dayjs';
-import LocalizedFormat from 'dayjs/plugin/localizedFormat';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -12,9 +10,6 @@ import { Popover, Text } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
 import { DocumentChange, DocumentChangeType } from '@types';
-
-dayjs.extend(LocalizedFormat);
-dayjs.extend(relativeTime);
 
 const Content = styled.div`
     position: relative;

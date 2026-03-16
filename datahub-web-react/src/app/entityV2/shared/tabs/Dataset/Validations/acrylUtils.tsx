@@ -1,7 +1,7 @@
 import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
-import * as moment from 'moment-timezone';
+import dayjs from 'dayjs';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -281,7 +281,7 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
         const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
         const nextDate = interval.next().toDate(); // Get next date as JavaScript Date object
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const nextDateInUserTz = moment.tz(nextDate, userTimezone); // Convert to user's timezone
+        const nextDateInUserTz = dayjs.tz(nextDate, userTimezone); // Convert to user's timezone
         return nextDateInUserTz.valueOf();
     } catch (e) {
         console.log('Failed to parse cron expression', e);
@@ -303,7 +303,7 @@ export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, mayb
         }
         const prevDate = interval.prev().toDate(); // Get prev date as JavaScript Date object
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const prevDateInUserTz = moment.tz(prevDate, userTimezone); // Convert to user's timezone
+        const prevDateInUserTz = dayjs.tz(prevDate, userTimezone); // Convert to user's timezone
         return prevDateInUserTz.valueOf();
     } catch (e) {
         console.log('Failed to parse cron expression', e);

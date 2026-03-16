@@ -1,4 +1,4 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
@@ -88,7 +88,7 @@ export default function useQueryCountData(urn: string | undefined, timeRange?: T
                     urn,
                     timeRange,
                     startTime,
-                    timeZone: moment.tz.guess(),
+                    timeZone: dayjs.tz.guess(),
                 },
             });
         }

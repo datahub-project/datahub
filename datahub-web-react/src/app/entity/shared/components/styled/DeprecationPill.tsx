@@ -2,7 +2,7 @@ import { blue } from '@ant-design/colors';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Popover, Tooltip, colors } from '@components';
 import { Divider, Modal, Typography, message } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -120,12 +120,12 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
     }
     const decommissionTimeLocal =
         (decommissionTimeSeconds &&
-            `Scheduled to be decommissioned on ${moment
+            `Scheduled to be decommissioned on ${dayjs
                 .unix(decommissionTimeSeconds)
                 .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
-        decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
+        decommissionTimeSeconds && dayjs.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;

@@ -1,7 +1,7 @@
 import { Tooltip, colors } from '@components';
 import { Divider, Typography, message } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -117,7 +117,7 @@ export const DeprecationIcon = ({
             `Scheduled to be decommissioned on ${toLocalDateString(decommissionTimeSeconds * 1000)}`) ||
         undefined;
     const decommissionTimeGMT =
-        decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
+        decommissionTimeSeconds && dayjs.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;

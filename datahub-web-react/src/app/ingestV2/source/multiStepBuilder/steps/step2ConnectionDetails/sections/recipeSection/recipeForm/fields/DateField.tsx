@@ -1,4 +1,4 @@
-import { DatePicker } from 'antd';
+import DatePicker from '@utils/DayjsDatePicker';
 import React from 'react';
 
 import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';

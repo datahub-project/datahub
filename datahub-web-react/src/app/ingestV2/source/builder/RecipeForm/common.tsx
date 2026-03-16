@@ -1,5 +1,6 @@
 import { get, omit, set } from 'lodash';
-import moment, { Moment } from 'moment-timezone';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import React from 'react';
 
 export enum FieldType {
@@ -96,7 +97,7 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
 
 const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
 
-export function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
+export function setDateValueOnRecipe(recipe: any, value: Dayjs | undefined, fieldPath: string) {
     const updatedRecipe = { ...recipe };
     if (value !== undefined) {
         if (!value) {
@@ -537,11 +538,11 @@ export const START_TIME: RecipeField = {
     getValueFromRecipeOverride: (recipe: any) => {
         const isoDateString = get(recipe, startTimeFieldPath);
         if (isoDateString) {
-            return moment(isoDateString);
+            return dayjs(isoDateString);
         }
         return isoDateString;
     },
-    setValueOnRecipeOverride: (recipe: any, value?: Moment) => setDateValueOnRecipe(recipe, value, startTimeFieldPath),
+    setValueOnRecipeOverride: (recipe: any, value?: Dayjs) => setDateValueOnRecipe(recipe, value, startTimeFieldPath),
 };
 
 const envFieldPath = 'source.config.env';

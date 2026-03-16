@@ -1,7 +1,7 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -170,9 +170,9 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
 
     const [deletePost] = useDeletePostMutation();
 
-    const time = moment(note.lastModified.time);
-    const isToday = time.isSame(moment(), 'day');
-    const isYesterday = time.isSame(moment().subtract(1, 'day'), 'day');
+    const time = dayjs(note.lastModified.time);
+    const isToday = time.isSame(dayjs(), 'day');
+    const isYesterday = time.isSame(dayjs().subtract(1, 'day'), 'day');
 
     // parsedName should strip the urn:li:corpuser: prefix from actor
     const parsedName = note?.lastModified?.actor?.split(':')?.slice(-1)[0] || '';

@@ -1,5 +1,6 @@
-import { DatePicker as AntdDatePicker } from 'antd';
-import { Moment } from 'moment';
+import type { Dayjs } from 'dayjs';
+
+import AntdDatePicker from '@utils/DayjsDatePicker';
 
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
 
@@ -25,7 +26,7 @@ export type ExtendedInputRenderProps = React.InputHTMLAttributes<HTMLInputElemen
 
 export type AntdDatePickerProps = React.ComponentProps<typeof AntdDatePicker>;
 
-export type DatePickerValue = Moment | null | undefined;
+export type DatePickerValue = Dayjs | null | undefined;
 
 export type VariantProps = Omit<AntdDatePickerProps, 'inputRender'> & {
     inputRender?: (props: ExtendedInputRenderProps) => React.ReactNode;

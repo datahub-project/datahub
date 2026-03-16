@@ -1,8 +1,4 @@
 import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -36,11 +32,6 @@ import {
     SortOrder,
     StringMapEntryInput,
 } from '@types';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(advancedFormat);
-dayjs.extend(localizedFormat);
 
 export const CUSTOM_SOURCE_NAME = 'custom';
 export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';

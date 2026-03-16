@@ -1,4 +1,5 @@
-import { DatePicker, Form, Select, Skeleton, message } from 'antd';
+import { Form, Select, Skeleton, message } from 'antd';
+import DatePicker from '@utils/DayjsDatePicker';
 import TextArea from 'antd/lib/input/TextArea';
 import dayjs from 'dayjs';
 import React from 'react';
@@ -118,7 +119,6 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                     <TextArea placeholder="Add Reason" autoFocus rows={4} />
                 </Form.Item>
                 <Form.Item name="decommissionTime" label="Decommission Date" initialValue={dayjs()}>
-                    {/* @ts-expect-error dayjs type mismatch with DatePicker defaultValue */}
                     <DatePicker style={{ width: '100%' }} defaultValue={dayjs()} />
                 </Form.Item>
                 <Form.Item name="replacement" label="Replacement">

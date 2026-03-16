@@ -1,5 +1,5 @@
-import { DatePicker } from 'antd';
-import moment from 'moment';
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from 'dayjs';
 import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -30,7 +30,7 @@ interface Props {
 
 export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
     const displayName = useFilterDisplayName(field);
-    moment.tz.setDefault('GMT');
+    dayjs.tz.setDefault('GMT');
 
     const [startDate, setStartDate] = useState<Datetime>(null);
     const [endDate, setEndDate] = useState<Datetime>(null);
@@ -66,8 +66,8 @@ export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
     const handleRangeChange = useCallback((dates: [Datetime, Datetime] | null) => {
         const [start, end] = dates || [null, null];
 
-        start?.set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
-        end?.set({ hour: 23, minute: 59, second: 59, millisecond: 999 });
+        start?.startOf('day');
+        end?.endOf('day');
 
         setStartDate(start);
         setEndDate(end);
