@@ -141,26 +141,6 @@ class Mapper:
     def assets_urn_to_lowercase(self, value):
         return Mapper.urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
 
-    def _to_work_unit(
-        self, mcp: MetadataChangeProposalWrapper, is_primary_source: bool = True
-    ) -> MetadataWorkUnit:
-        return mcp.as_workunit(is_primary_source=is_primary_source)
-
-    def _to_user_work_unit(
-        self, mcp: MetadataChangeProposalWrapper
-    ) -> MetadataWorkUnit:
-        """
-        Create work unit for user entities with is_primary_source=False.
-
-        PowerBI is NOT the authoritative source for users (LDAP/Okta/SCIM are).
-        By marking is_primary_source=False, we prevent stateful ingestion from:
-        1. Tracking these user entities in its state
-        2. Soft-deleting them when they disappear from PowerBI
-
-        This follows the pattern used by dbt, Unity Catalog, and other non-authoritative sources.
-        """
-        return self._to_work_unit(mcp, is_primary_source=False)
-
     def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         """
         Generate DataPlatformInstanceClass aspect for PowerBI entities.
@@ -1217,14 +1197,16 @@ class Mapper:
 
         # Convert MCP to work_units
         work_units: List[MetadataWorkUnit] = [
-            wu for wu in map(self._to_work_unit, mcps) if wu is not None
+            wu.as_workunit() for wu in mcps if wu is not None
         ]
 
         # Handle user MCPs separately with is_primary_source=False
         # This prevents stateful ingestion from tracking/soft-deleting users
         if self.__config.ownership.create_corp_user:
             user_work_units = [
-                wu for wu in map(self._to_user_work_unit, user_mcps) if wu is not None
+                wu.as_workunit(is_primary_source=False)
+                for wu in user_mcps
+                if wu is not None
             ]
             work_units.extend(user_work_units)
 
@@ -1487,13 +1469,13 @@ class Mapper:
 
         # Convert primary MCPs to work units
         for mcp in mcps:
-            yield self._to_work_unit(mcp)
+            yield mcp.as_workunit()
 
         # Handle user MCPs separately with is_primary_source=False
         # This prevents stateful ingestion from tracking/soft-deleting users
         if self.__config.ownership.create_corp_user:
             for mcp in user_mcps:
-                yield self._to_user_work_unit(mcp)
+                yield mcp.as_workunit(is_primary_source=False)
 
 
 @platform_name("PowerBI")
