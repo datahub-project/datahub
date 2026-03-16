@@ -88,6 +88,7 @@ class BIContainerSubTypes(StrEnum):
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
+    METABASE_COLLECTION = "Collection"
     MODE_COLLECTION = "Collection"
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"

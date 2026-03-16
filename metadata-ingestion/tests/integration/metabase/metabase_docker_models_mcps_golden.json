@@ -1,5 +1,94 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "metabase",
+                "env": "PROD",
+                "collection_id": "2"
+            },
+            "name": "Examples",
+            "description": "Some examples to get started with",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000414,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000414,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:metabase"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000414,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000414,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000414,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,37)",
     "changeType": "UPSERT",
@@ -180,6 +269,220 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0feb55ae817c93d77e58fa5d22b2d080",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "metabase",
+                "env": "PROD",
+                "collection_id": "4"
+            },
+            "name": "Test Admin's Personal Collection",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000504,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0feb55ae817c93d77e58fa5d22b2d080",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000504,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0feb55ae817c93d77e58fa5d22b2d080",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:metabase"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000504,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0feb55ae817c93d77e58fa5d22b2d080",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000504,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0feb55ae817c93d77e58fa5d22b2d080",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000505,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "metabase",
+                "env": "PROD",
+                "collection_id": "5"
+            },
+            "name": "Sales Analytics",
+            "description": "Collection for sales-related queries",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000415,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000415,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,37)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000540,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,37)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000540,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:metabase"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000415,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000415,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000415,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,22)",
     "changeType": "UPSERT",
@@ -322,6 +625,43 @@
     "systemMetadata": {
         "lastObserved": 1705752001477,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,22)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000580,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,22)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000580,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -706,6 +1046,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,25)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000559,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,25)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000559,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,26)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -800,6 +1177,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,5)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000669,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,5)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000669,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,19)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -869,6 +1283,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,6)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000612,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,6)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000612,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,16)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -898,6 +1349,43 @@
     "systemMetadata": {
         "lastObserved": 1705752001928,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,21)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000595,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,21)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000595,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1064,6 +1552,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,26)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000713,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,26)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000713,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,38)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1085,6 +1610,43 @@
     "systemMetadata": {
         "lastObserved": 1705752000902,
         "runId": "metabase-2024_01_20-12_00_00-au3i6v",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,31)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000631,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,31)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000632,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1202,6 +1764,80 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,34)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000682,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,34)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000682,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,19)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000745,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,19)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000745,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,10)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1292,6 +1928,43 @@
     "systemMetadata": {
         "lastObserved": 1705752002136,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000655,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000655,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1592,6 +2265,80 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,29)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000698,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,29)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000698,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000812,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000812,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,18)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -1851,6 +2598,80 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,16)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000766,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,35)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000933,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,35)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000933,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,16)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000766,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,27)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -2031,6 +2852,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,23)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000729,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,23)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000729,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,12)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -2121,6 +2979,43 @@
     "systemMetadata": {
         "lastObserved": 1705752002618,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,36)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000917,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,36)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000917,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2264,6 +3159,154 @@
     "systemMetadata": {
         "lastObserved": 1705752002698,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,41)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000789,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,4)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001045,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,42)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001060,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,42)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001060,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001045,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,18)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001028,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,18)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001029,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,41)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000789,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2550,6 +3593,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000834,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000834,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,8)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -2738,6 +3818,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,7)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000990,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,7)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000990,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,30)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -2818,6 +3935,43 @@
     "systemMetadata": {
         "lastObserved": 1705752003786,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,24)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000878,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,24)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000879,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3345,6 +4499,43 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,32)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000952,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,32)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000953,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
     "changeType": "UPSERT",
@@ -3393,6 +4584,80 @@
     "systemMetadata": {
         "lastObserved": 1705752002584,
         "runId": "metabase-2024_01_20-12_00_00-r1nmvm",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,17)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001229,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,17)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001229,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,15)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001298,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,15)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001298,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3488,6 +4753,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001192,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001192,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,14)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -3499,6 +4801,80 @@
     "systemMetadata": {
         "lastObserved": 1705752003969,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,9)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001099,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,9)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001099,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001361,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001361,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3547,6 +4923,43 @@
     "systemMetadata": {
         "lastObserved": 1705752003970,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,27)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001077,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,27)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001077,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3648,6 +5061,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,12)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001121,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,12)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001121,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,23)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -3723,6 +5173,43 @@
     "systemMetadata": {
         "lastObserved": 1705752003976,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002041,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002041,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3826,6 +5313,43 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,33)",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001284,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,33)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001284,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,33)",
+    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -3872,6 +5396,43 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,13)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001168,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,13)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001168,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,36)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -3883,6 +5444,43 @@
     "systemMetadata": {
         "lastObserved": 1705752003980,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,8)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001343,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,8)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001343,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3931,6 +5529,43 @@
     "systemMetadata": {
         "lastObserved": 1705752003981,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,28)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001262,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,28)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001262,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4107,6 +5742,228 @@
     "systemMetadata": {
         "lastObserved": 1705752003985,
         "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002050,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002050,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001416,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001416,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,30)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001434,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,30)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001434,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,11)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001942,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,11)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001942,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001960,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001960,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,14)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001317,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,14)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001317,
+        "runId": "metabase-2024_01_20-12_00_00-arisz7",
         "lastRunId": "no-run-id-provided"
     }
 }

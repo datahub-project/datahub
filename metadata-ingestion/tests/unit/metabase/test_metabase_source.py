@@ -6,7 +6,9 @@ from requests.exceptions import HTTPError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.metabase import (
+    _KNOWN_METABASE_ENGINES,
     DATASOURCE_URN_RECURSION_LIMIT,
+    METABASE_CHART_DISPLAY_TYPE_MAP,
     DatasourceInfo,
     MetabaseCard,
     MetabaseCardInfo,
@@ -1390,5 +1392,73 @@ def test_empty_query_returns_empty_list(mock_post, mock_get, mock_delete):
     for card in test_cases:
         table_urns = metabase_source._get_table_urns_from_native_query(card)
         assert table_urns == [], f"Failed for: {card}"
+
+    metabase_source.close()
+
+
+def test_known_engines_suppresses_platform_warning():
+    """Engines with a 1:1 mapping to DataHub platform names must not trigger
+    the 'Unrecognized Data Platform' warning path."""
+    for engine in ("clickhouse", "h2", "mysql", "postgres", "redshift", "snowflake"):
+        assert engine in _KNOWN_METABASE_ENGINES, (
+            f"Engine '{engine}' missing from _KNOWN_METABASE_ENGINES — "
+            "it will generate a spurious 'Unrecognized Data Platform' warning"
+        )
+
+
+def test_chart_type_map_covers_known_types():
+    """object and sankey must be present so they do not generate a warning."""
+    for chart_type in ("object", "sankey"):
+        assert chart_type in METABASE_CHART_DISPLAY_TYPE_MAP, (
+            f"Chart type '{chart_type}' missing from METABASE_CHART_DISPLAY_TYPE_MAP"
+        )
+
+
+def test_metabase_collection_is_root():
+    assert MetabaseCollection(id="root", name="Our analytics").is_root
+    assert not MetabaseCollection(id=1, name="Analytics").is_root
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_root_collection_is_skipped(mock_post, mock_get, mock_delete):
+    """The Metabase root collection (id='root') must be silently skipped."""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+        extract_collections_as_tags=True,
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+
+    collections_response = MagicMock()
+    collections_response.status_code = 200
+    collections_response.json.return_value = [
+        {
+            "authority_level": None,
+            "can_write": True,
+            "name": "Our analytics",
+            "id": "root",
+            "is_personal": False,
+        },
+        {"id": 1, "name": "Analytics"},
+    ]
+
+    metabase_source.session.get = MagicMock(return_value=collections_response)  # type: ignore[method-assign]
+    collections = metabase_source._get_collections_map()
+
+    assert "root" not in collections
+    assert "1" in collections
+    assert len(metabase_source.report.warnings) == 0
 
     metabase_source.close()

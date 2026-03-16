@@ -1,5 +1,98 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "metabase",
+                "env": "PROD",
+                "collection_id": "150"
+            },
+            "name": "John Doe",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:metabase"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,1)",
     "changeType": "UPSERT",
@@ -9,7 +102,8 @@
             "customProperties": {
                 "Metrics": "",
                 "Filters": "",
-                "Dimensions": "customer_id, first_name, last_name, amount, payment_date, rental_id"
+                "Dimensions": "customer_id, first_name, last_name, amount, payment_date, rental_id",
+                "database_id": "1"
             },
             "title": "Customer Payment",
             "description": "",
@@ -105,7 +199,8 @@
             "customProperties": {
                 "Metrics": "Count",
                 "Filters": "['=', ['field', 136, None], 2006]",
-                "Dimensions": "Rating"
+                "Dimensions": "Rating",
+                "database_id": "2"
             },
             "title": "Films, Count, Grouped by Rating, Filtered by Release Year, Sorted by [Unknown Field] descending",
             "description": "",
@@ -176,7 +271,8 @@
             "customProperties": {
                 "Metrics": "Distinct values of order_number, Sum of nominal_total",
                 "Filters": "['time-interval', ['field', 'completed_at', {'base-type': 'type/DateTimeWithTZ'}], -8, 'day', {'include-current': False}]",
-                "Dimensions": "completed_at"
+                "Dimensions": "completed_at",
+                "database_id": "2"
             },
             "title": "Question with data from other question",
             "description": "",
@@ -245,6 +341,45 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7d4a07a81661f9a5038ca3c0dc950791"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7d4a07a81661f9a5038ca3c0dc950791",
+                    "urn": "urn:li:container:7d4a07a81661f9a5038ca3c0dc950791"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(metabase,10)",
     "changeType": "UPSERT",
@@ -281,6 +416,13 @@
             "datasets": [],
             "datasetEdges": [
                 {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
+                    }
+                },
+                {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
                     "lastModified": {
                         "time": 1705398694904,
@@ -289,13 +431,6 @@
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
                     "lastModified": {
                         "time": 1705398694904,
                         "actor": "urn:li:corpuser:admin@metabase.com"
@@ -352,6 +487,45 @@
 },
 {
     "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c",
+                    "urn": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(metabase,20)",
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
@@ -387,6 +561,13 @@
             "datasets": [],
             "datasetEdges": [
                 {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
+                    }
+                },
+                {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
                     "lastModified": {
                         "time": 1705398694904,
@@ -395,13 +576,6 @@
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
                     "lastModified": {
                         "time": 1705398694904,
                         "actor": "urn:li:corpuser:admin@metabase.com"
@@ -458,101 +632,12 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "entityUrn": "urn:li:dashboard:(metabase,20)",
     "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "title": "Dashboard 1",
-            "description": "",
-            "charts": [],
-            "chartEdges": [
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,1)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,2)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,3)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                }
-            ],
-            "datasets": [],
-            "datasetEdges": [
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                }
-            ],
-            "dashboards": [],
-            "lastModified": {
-                "created": {
-                    "time": 1705398694904,
-                    "actor": "urn:li:corpuser:admin@metabase.com"
-                },
-                "lastModified": {
-                    "time": 1705398694904,
-                    "actor": "urn:li:corpuser:admin@metabase.com"
-                }
-            },
-            "dashboardUrl": "http://localhost:3000/dashboard/10"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1636614000000,
-        "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(metabase,10)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:admin@metabase.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
+            "container": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
         }
     },
     "systemMetadata": {
@@ -566,99 +651,15 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(metabase,20)",
     "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "title": "Dashboard 2",
-            "description": "",
-            "charts": [],
-            "chartEdges": [
+            "path": [
                 {
-                    "destinationUrn": "urn:li:chart:(metabase,1)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,2)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,3)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
+                    "id": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c",
+                    "urn": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
                 }
-            ],
-            "datasets": [],
-            "datasetEdges": [
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
-                    "lastModified": {
-                        "time": 1705398694904,
-                        "actor": "urn:li:corpuser:admin@metabase.com"
-                    }
-                }
-            ],
-            "dashboards": [],
-            "lastModified": {
-                "created": {
-                    "time": 1705398694904,
-                    "actor": "urn:li:corpuser:admin@metabase.com"
-                },
-                "lastModified": {
-                    "time": 1705398694904,
-                    "actor": "urn:li:corpuser:admin@metabase.com"
-                }
-            },
-            "dashboardUrl": "http://localhost:3000/dashboard/20"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1636614000000,
-        "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(metabase,20)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:admin@metabase.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
+            ]
         }
     },
     "systemMetadata": {

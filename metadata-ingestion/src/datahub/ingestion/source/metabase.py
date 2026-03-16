@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Pattern, Tuple, Type, Union
+from typing import Dict, Iterable, List, Literal, Optional, Pattern, Tuple, Type, Union
 
 import dateutil.parser as dp
 import requests
@@ -25,6 +25,11 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
+    ContainerKey,
+    add_entity_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -36,6 +41,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -250,11 +256,14 @@ class MetabaseCard(MetabaseBaseModel):
             if self.dataset_query and self.dataset_query.query
             else []
         )
-        return {
+        props = {
             "Metrics": ", ".join(metrics),
             "Filters": str(filters) if filters else "",
             "Dimensions": ", ".join(dimensions),
         }
+        if self.database_id is not None:
+            props["database_id"] = str(self.database_id)
+        return props
 
 
 class MetabaseCardInfo(MetabaseBaseModel):
@@ -308,11 +317,16 @@ class MetabaseCollectionItemsResponse(MetabaseBaseModel):
 
 
 class MetabaseCollection(MetabaseBaseModel):
-    id: int
+    # Metabase returns id='root' for the top-level "Our analytics" collection.
+    id: Union[int, Literal["root"]]
     name: str
     slug: Optional[str] = None
     description: Optional[str] = None
     archived: Optional[bool] = None
+
+    @property
+    def is_root(self) -> bool:
+        return self.id == "root"
 
     @property
     def tag_slug(self) -> str:
@@ -456,6 +470,13 @@ _TWO_TIER_PLATFORMS: frozenset = frozenset(
     }
 )
 
+# Union of all engines we explicitly handle. The "unrecognised platform" warning
+# is suppressed for these — they either translate via METABASE_ENGINE_TO_DATAHUB_PLATFORM
+# or map 1:1 and are covered by _ENGINE_TO_DB_DETAIL_FIELD.
+_KNOWN_METABASE_ENGINES: frozenset = frozenset(
+    {*METABASE_ENGINE_TO_DATAHUB_PLATFORM, *_ENGINE_TO_DB_DETAIL_FIELD}
+)
+
 METABASE_CHART_DISPLAY_TYPE_MAP: Dict[str, Optional[str]] = {
     "table": ChartTypeClass.TABLE,
     "bar": ChartTypeClass.BAR,
@@ -469,10 +490,12 @@ METABASE_CHART_DISPLAY_TYPE_MAP: Dict[str, Optional[str]] = {
     "smartscalar": ChartTypeClass.TEXT,
     "pivot": ChartTypeClass.TABLE,
     "waterfall": ChartTypeClass.BAR,
-    "progress": None,
     "combo": None,
     "gauge": None,
     "map": None,
+    "object": None,
+    "progress": None,
+    "sankey": None,
 }
 
 METABASE_TYPE_TO_DATAHUB_TYPE: Dict[
@@ -509,6 +532,13 @@ METABASE_TYPE_TO_DATAHUB_TYPE: Dict[
     "DateTimeWithTZ": DateTypeClass,
     "Time": TimeTypeClass,
 }
+
+
+class MetabaseCollectionKey(ContainerKey):
+    collection_id: int
+
+    def property_dict(self) -> Dict[str, str]:
+        return {k: str(v) for k, v in super().property_dict().items()}
 
 
 class MetabaseConfig(
@@ -700,6 +730,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                         context=f"Data: {collection_data}, Error: {str(e)}",
                     )
                     continue
+                if collection.is_root:
+                    continue
 
                 collection_dashboards_response = self.session.get(
                     f"{self.config.connect_uri}/api/collection/{collection.id}/items?models=dashboard"
@@ -838,6 +870,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 entityUrn=dashboard_urn,
                 aspect=tags,
             ).as_workunit()
+
+        if dashboard.collection_id is not None:
+            yield from add_entity_to_container(
+                container_key=self._gen_collection_key(dashboard.collection_id),
+                entity_type="dashboard",
+                entity_urn=dashboard_urn,
+            )
 
     def construct_dashboard_lineage(
         self, dashboard: MetabaseDashboard, last_modified: AuditStampClass
@@ -1245,7 +1284,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
             for coll_data in collections_data:
                 try:
                     coll = MetabaseCollection.model_validate(coll_data)
-                    collections_dict[str(coll.id)] = coll
                 except ValidationError as e:
                     self.report.report_warning(
                         title="Invalid Collection Data",
@@ -1253,6 +1291,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
                         context=f"Data: {coll_data}, Error: {str(e)}",
                     )
                     continue
+                if coll.is_root:
+                    continue
+                collections_dict[str(coll.id)] = coll
             return collections_dict
         except HTTPError as http_error:
             if (
@@ -1268,6 +1309,24 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 context=f"Error: {str(http_error)} - Check API credentials and permissions",
             )
             return {}
+
+    def _gen_collection_key(self, collection_id: int) -> MetabaseCollectionKey:
+        return MetabaseCollectionKey(
+            collection_id=collection_id,
+            platform=self.platform,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
+        )
+
+    def emit_collection_containers(self) -> Iterable[MetadataWorkUnit]:
+        for collection in self._get_collections_map().values():
+            assert isinstance(collection.id, int)
+            yield from gen_containers(
+                container_key=self._gen_collection_key(collection.id),
+                name=collection.name,
+                description=collection.description,
+                sub_types=[BIContainerSubTypes.METABASE_COLLECTION],
+            )
 
     def _get_tags_from_collection(
         self, collection_id: Optional[Union[int, str]]
@@ -1434,6 +1493,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 aspect=tags,
             ).as_workunit()
 
+        if card_details.collection_id is not None:
+            yield from add_entity_to_container(
+                container_key=self._gen_collection_key(card_details.collection_id),
+                entity_type="chart",
+                entity_urn=chart_urn,
+            )
+
     def _get_chart_type(self, card_id: int, display_type: str) -> Optional[str]:
         if not display_type:
             self.report.report_warning(
@@ -1538,7 +1604,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
         :return: platform instance name or None
         """
         platform_instance = None
-        # Allows users to distinguish prod-clickhouse vs dev-clickhouse, or us-east-postgres vs eu-west-postgres
         if datasource_id is not None and self.config.database_id_to_instance_map:
             platform_instance = self.config.database_id_to_instance_map.get(
                 str(datasource_id)
@@ -1584,11 +1649,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
             platform = engine_mapping[engine]
         else:
             platform = engine
-            self.report.report_warning(
-                title="Unrecognized Data Platform found",
-                message="Data Platform was not found. Using platform name as is",
-                context=f"Platform: {platform}",
-            )
+            if engine not in _KNOWN_METABASE_ENGINES:
+                self.report.report_warning(
+                    title="Unrecognized Data Platform found",
+                    message="Data Platform was not found. Using platform name as is",
+                    context=f"Platform: {platform}",
+                )
 
         platform_instance = self.get_platform_instance(
             platform=platform, datasource_id=database.id
@@ -1800,7 +1866,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 aspect=tags,
             ).as_workunit()
 
+        if card.collection_id is not None:
+            yield from add_entity_to_container(
+                container_key=self._gen_collection_key(card.collection_id),
+                entity_type="dataset",
+                entity_urn=model_urn,
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        yield from self.emit_collection_containers()
         yield from self.emit_chart_workunits()
         yield from self.emit_dashboard_workunits()
         yield from self.emit_model_workunits()
