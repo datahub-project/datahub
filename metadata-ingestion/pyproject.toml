@@ -618,6 +618,8 @@ glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
+    "patchy==2.8.0",
+    "sqlglot[c]==30.0.3",
     "urllib3>=1.26,<3.0",
 ]
 
