@@ -22,6 +22,7 @@ export const FlexWrapper = styled.div`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 6px;
 `;
 
 export const FlexSpacer = styled.div`
