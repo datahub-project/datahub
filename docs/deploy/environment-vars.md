@@ -673,7 +673,7 @@ Reference Links:
 | `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                                             | GMS        |
 | `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                  | GMS        |
 | `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                   | GMS        |
-| `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `false` | Allow assets to belong to multiple Data Products simultaneously                                 | GMS        |
+| `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                 | GMS        |
 | `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                      | GMS        |
 | `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                            | GMS        |
 

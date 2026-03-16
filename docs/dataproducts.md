@@ -79,18 +79,18 @@ To remove an asset from a Data Product, click the 'x' icon on the Data Product l
 
 #### Multiple Data Products per Asset
 
-By default, an asset can only be associated with a single Data Product at a time. However, you can enable support for associating an asset with multiple Data Products simultaneously by setting the `MULTIPLE_DATA_PRODUCTS_PER_ASSET` environment variable to `true` in your GMS configuration.
+**By default**, assets can be associated with multiple Data Products simultaneously. This provides flexibility for different organizational perspectives - for example, a dataset might be part of both a domain-specific product and a cross-functional analytics product.
 
-When this feature is enabled:
+With this default behavior:
 
-- Assets can belong to multiple Data Products at once, providing flexibility for different organizational perspectives
-- The UI will allow you to add an asset to multiple Data Products without removing it from existing ones
+- Assets can belong to multiple Data Products at once
+- The UI allows you to add an asset to multiple Data Products without removing it from existing ones
 - You can view all Data Products an asset belongs to from the asset's profile page
 
-To enable this feature, set the following environment variable:
+If you prefer the behavior where an asset can only belong to a single Data Product at a time (automatically removing it from other Data Products when assigned to a new one), you can disable this feature by setting the `MULTIPLE_DATA_PRODUCTS_PER_ASSET` environment variable to `false`:
 
 ```bash
-MULTIPLE_DATA_PRODUCTS_PER_ASSET=true
+MULTIPLE_DATA_PRODUCTS_PER_ASSET=false
 ```
 
 See the [Environment Variables](deploy/environment-vars.md#feature-flags) documentation for more details on configuring feature flags.
