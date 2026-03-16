@@ -36,12 +36,6 @@ Prefer LSP tools over Grep for code navigation tasks:
 ./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
 ```
 
-If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
-
-```
-./gradlew ... -x generateGitPropertiesGlobal
-```
-
 **IMPORTANT: Verifying Python code changes:**
 
 - **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
