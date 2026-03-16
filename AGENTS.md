@@ -3,6 +3,14 @@
 This is the canonical reference for working with the DataHub codebase. It applies to all coding
 agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 
+## Code Navigation (LSP)
+
+Prefer LSP tools over Grep for code navigation tasks:
+- Use `goToDefinition` to find where something is defined
+- Use `findReferences` to find all call sites
+- Use `workspaceSymbol` to find symbols by name
+- Use diagnostics after any edit to catch type errors immediately
+
 ## Essential Commands
 
 **Build and test:**
@@ -26,6 +34,12 @@ agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 ./gradlew :datahub-web-react:mdPrettierWrite        # Format markdown files
 ./gradlew :datahub-web-react:graphqlPrettierWrite   # Format GraphQL schemas
 ./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
+```
+
+If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
+
+```
+./gradlew ... -x generateGitPropertiesGlobal
 ```
 
 **IMPORTANT: Verifying Python code changes:**
