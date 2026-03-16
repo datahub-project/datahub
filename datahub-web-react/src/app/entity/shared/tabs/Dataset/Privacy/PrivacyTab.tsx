@@ -7,6 +7,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { CompliancePropertyQualifiedName } from '@app/entity/shared/tabs/Dataset/Privacy/constant';
 import { Annotation } from '@app/entity/shared/tabs/Dataset/Privacy/pii/Annotation';
 import { RecordsClass } from '@app/entity/shared/tabs/Dataset/Privacy/recordsClass/RecordsClass';
+import { Retention } from '@app/entity/shared/tabs/Dataset/Privacy/retention/Retention';
 import { getStructuredList, getStructuredValue } from '@app/entity/shared/tabs/Dataset/Privacy/utils';
 
 const { Title, Text } = Typography;
@@ -29,9 +30,6 @@ export function PrivacyTab() {
     const lastCheckDate = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.LastCheckDate);
     const lastStatus = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.LastStatus);
     const nonComplyingRules = getStructuredList(structuredProps, CompliancePropertyQualifiedName.NonComplyingRules);
-    const retentionColumn = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.RetentionColumn);
-    const retentionDays = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.RetentionDays);
-    const retentionJira = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.RetentionJira);
     const scrubbingOp = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.ScrubbingOp);
     const scrubbingState = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.ScrubbingState);
     const scrubbingStatus = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.ScrubbingStatus);
@@ -90,13 +88,7 @@ export function PrivacyTab() {
                 </Panel>
 
                 <Panel header="Retention" key="retention">
-                    <Descriptions bordered column={1}>
-                        <Descriptions.Item label="Retention Column">{retentionColumn || '—'}</Descriptions.Item>
-                        <Descriptions.Item label="Retention Days">
-                            {retentionDays ? <Tag color="purple">{retentionDays} days</Tag> : '—'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Retention Exception Jira">{retentionJira || '—'}</Descriptions.Item>
-                    </Descriptions>
+                    <Retention />
                 </Panel>
 
                 <Panel header="Scrubbing" key="scrubbing">
