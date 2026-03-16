@@ -110,6 +110,8 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
+    OperationClass,
+    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -1324,13 +1326,37 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         # Create the main dataset snapshot
+        dataset_properties = self._get_dataset_properties(table)
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[
                 Status(removed=False),
-                self._get_dataset_properties(table),
+                dataset_properties,
             ],
         )
+
+        # Add operations if available
+        if dataset_properties.created:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.CREATE,
+                    lastUpdatedTimestamp=dataset_properties.created.time,
+                    timestampMillis=dataset_properties.created.time,
+                ),
+            ).as_workunit()
+        if (
+            dataset_properties.lastModified
+            and dataset_properties.lastModified != dataset_properties.created
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.UPDATE,
+                    lastUpdatedTimestamp=dataset_properties.lastModified.time,
+                    timestampMillis=dataset_properties.lastModified.time,
+                ),
+            ).as_workunit()
 
         # Add schema metadata if available
         schema_metadata = self._get_schema_metadata(table, table_name, dataset_urn)
