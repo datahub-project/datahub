@@ -196,7 +196,6 @@ export const createAndRunIngestionSource = (sourceName) => {
 
   // Wait for the source selection modal to appear and any loading to finish
   // Multi-step builder uses "Search..." while old builder uses "Search data sources..."
-  cy.wait(1000); // Wait for modal animations to complete
   cy.get('[placeholder="Search..."], [placeholder="Search data sources..."]', {
     timeout: 10000,
   })
