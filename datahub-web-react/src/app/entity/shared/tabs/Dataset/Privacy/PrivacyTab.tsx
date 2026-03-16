@@ -8,6 +8,7 @@ import { CompliancePropertyQualifiedName } from '@app/entity/shared/tabs/Dataset
 import { Annotation } from '@app/entity/shared/tabs/Dataset/Privacy/pii/Annotation';
 import { RecordsClass } from '@app/entity/shared/tabs/Dataset/Privacy/recordsClass/RecordsClass';
 import { Retention } from '@app/entity/shared/tabs/Dataset/Privacy/retention/Retention';
+import { Scrubbing } from '@app/entity/shared/tabs/Dataset/Privacy/scrubbing/Scrubbing';
 import { getStructuredList, getStructuredValue } from '@app/entity/shared/tabs/Dataset/Privacy/utils';
 
 const { Title, Text } = Typography;
@@ -30,10 +31,6 @@ export function PrivacyTab() {
     const lastCheckDate = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.LastCheckDate);
     const lastStatus = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.LastStatus);
     const nonComplyingRules = getStructuredList(structuredProps, CompliancePropertyQualifiedName.NonComplyingRules);
-    const scrubbingOp = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.ScrubbingOp);
-    const scrubbingState = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.ScrubbingState);
-    const scrubbingStatus = getStructuredValue(structuredProps, CompliancePropertyQualifiedName.ScrubbingStatus);
-
     const getStatusColor = (status: string) => (status.toLowerCase() === 'compliant' ? 'green' : 'red');
 
     return (
@@ -92,13 +89,7 @@ export function PrivacyTab() {
                 </Panel>
 
                 <Panel header="Scrubbing" key="scrubbing">
-                    <Descriptions bordered column={1}>
-                        <Descriptions.Item label="Scrubbing Operation">{scrubbingOp || '—'}</Descriptions.Item>
-                        <Descriptions.Item label="Scrubbing State">{scrubbingState || '—'}</Descriptions.Item>
-                        <Descriptions.Item label="Scrubbing Status">
-                            {scrubbingStatus ? <Tag color="cyan">{scrubbingStatus}</Tag> : '—'}
-                        </Descriptions.Item>
-                    </Descriptions>
+                    <Scrubbing />
                 </Panel>
             </Collapse>
         </Container>
