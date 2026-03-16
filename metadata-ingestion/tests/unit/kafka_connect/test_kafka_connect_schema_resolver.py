@@ -1093,7 +1093,7 @@ class TestFineGrainedLineagePlatformInstance:
         assert result is not None
         assert len(result) == 2
         for lineage in result:
-            downstream_urn = lineage["downstreams"][0]
+            downstream_urn = lineage.downstreams[0]
             assert "DEV.dev.mssql-source.dbo.users" in downstream_urn, (
                 f"Expected platform instance 'DEV.' prefix in downstream URN, got: {downstream_urn}"
             )
@@ -1122,7 +1122,7 @@ class TestFineGrainedLineagePlatformInstance:
 
         assert result is not None
         for lineage in result:
-            downstream_urn = lineage["downstreams"][0]
+            downstream_urn = lineage.downstreams[0]
             assert "DEV.dev.mssql-source.dbo.users" in downstream_urn, (
                 f"Expected platform instance 'DEV.' prefix in downstream URN, got: {downstream_urn}"
             )
@@ -1150,7 +1150,7 @@ class TestFineGrainedLineagePlatformInstance:
         )
 
         assert result is not None
-        downstream_urn = result[0]["downstreams"][0]
+        downstream_urn = result[0].downstreams[0]
         assert "CONNECTOR_INSTANCE." in downstream_urn, (
             f"Expected connect_to_platform_map instance to win, got: {downstream_urn}"
         )
@@ -1176,7 +1176,7 @@ class TestFineGrainedLineagePlatformInstance:
         )
 
         assert result is not None
-        downstream_urn = result[0]["downstreams"][0]
+        downstream_urn = result[0].downstreams[0]
         assert "dev.mssql-source.dbo.users" in downstream_urn
 
 
