@@ -9,9 +9,8 @@ k3d cluster: datahub-dev (port 80 → Traefik ingress)
 │
 ├── Namespace: datahub-infra (shared, deployed once)
 │   ├── MySQL 8.0
-│   ├── Kafka (KRaft)
-│   ├── Elasticsearch 7.10.1
-│   └── Schema Registry
+│   ├── Kafka (Zookeeper mode)
+│   └── Elasticsearch 7.17
 │
 ├── Namespace: dh-main (worktree: datahub/)
 │   ├── GMS (embedded MAE/MCE/PE consumers)
@@ -35,28 +34,26 @@ k3d cluster: datahub-dev (port 80 → Traefik ingress)
 
 | Component | Memory Request | Memory Limit |
 |-----------|---------------|--------------|
-| Shared infra (total) | ~1.15Gi | ~2.3Gi |
-| Per worktree (total) | ~0.9Gi | ~2.7Gi |
-| **2 worktrees** | **~3Gi** | **~7.3Gi** |
+| Shared infra (total) | ~1.5Gi | ~2.3Gi |
+| Per worktree (total) | ~1.4Gi | ~1.5Gi |
+| **2 worktrees** | **~4.3Gi** | **~5.3Gi** |
 
 ## Prerequisites
 
 - Docker Desktop (or colima/lima) running
-- `devbox shell` (installs k3d, kubectl, helm, k9s)
-
-Or install manually: [k3d](https://k3d.io), [kubectl](https://kubernetes.io/docs/tasks/tools/), [helm](https://helm.sh/docs/intro/install/)
+- [uv](https://docs.astral.sh/uv/) (Python package manager — runs the CLI)
+- [k3d](https://k3d.io), [kubectl](https://kubernetes.io/docs/tasks/tools/), [helm](https://helm.sh/docs/intro/install/)
+- Optional: [k9s](https://k9scli.io/) (interactive cluster browser)
 
 ## Quick Start
 
 ```bash
-# Enter devbox shell (installs all tools)
-devbox shell
-
 # 1. Create cluster and deploy shared infra
-devbox run k3d-up
+k3d/dh cluster-up
+k3d/dh infra-up
 
 # 2. Deploy DataHub for the current worktree
-devbox run k3d-deploy
+k3d/dh deploy
 
 # 3. Open in browser
 open http://main.datahub.localhost   # (or whatever your worktree name is)
@@ -64,32 +61,32 @@ open http://main.datahub.localhost   # (or whatever your worktree name is)
 
 ## CLI Reference
 
-All commands are available via `k3d/dh.sh <command>` or `devbox run k3d-*` shortcuts.
+All commands are available via `k3d/dh <command>`.
 
 ### Cluster Management
 
 ```bash
-k3d/dh.sh cluster-up          # Create the k3d cluster
-k3d/dh.sh cluster-down        # Delete the k3d cluster (destroys everything)
+k3d/dh cluster-up          # Create the k3d cluster
+k3d/dh cluster-down        # Delete the k3d cluster (destroys everything)
 ```
 
 ### Shared Infrastructure
 
 ```bash
-k3d/dh.sh infra-up            # Deploy MySQL, Kafka, ES, Schema Registry
-k3d/dh.sh infra-down          # Remove shared infra (warns if worktrees exist)
-k3d/dh.sh infra-down --force  # Force remove even with active worktrees
+k3d/dh infra-up            # Deploy MySQL, Kafka, Elasticsearch
+k3d/dh infra-down          # Remove shared infra (warns if worktrees exist)
+k3d/dh infra-down --force  # Force remove even with active worktrees
 ```
 
 ### Per-Worktree Deployment
 
 ```bash
-k3d/dh.sh deploy                       # Deploy using published images (tag: head)
-k3d/dh.sh deploy --version v0.14.1     # Deploy a specific version
-k3d/dh.sh deploy --local               # Build & import local images, then deploy
-k3d/dh.sh deploy --debug               # Enable JDWP debug ports (GMS:5001, Frontend:5002)
-k3d/dh.sh deploy --local --debug       # Local images + debug mode
-k3d/dh.sh teardown                     # Remove this worktree's deployment + data
+k3d/dh deploy                       # Deploy using published images (tag: head)
+k3d/dh deploy --version v0.14.1     # Deploy a specific version
+k3d/dh deploy --local               # Build & import local images, then deploy
+k3d/dh deploy --debug               # Enable JDWP debug ports (GMS:5001, Frontend:5002)
+k3d/dh deploy --local --debug       # Local images + debug mode
+k3d/dh teardown                     # Remove this worktree's deployment + data
 ```
 
 ### Deployment Profiles
@@ -127,16 +124,16 @@ k3d/dh deploy --profile minimal --set acryl-datahub-actions.enabled=true
 ### Status & Discovery
 
 ```bash
-k3d/dh.sh status              # Full status: cluster, infra, all deployments
-k3d/dh.sh list                # List all deployed worktree instances
+k3d/dh status              # Full status: cluster, infra, all deployments
+k3d/dh list                # List all deployed worktree instances
 ```
 
 ### Local Image Management
 
 ```bash
-k3d/dh.sh import-images                       # Build & import gms,frontend
-k3d/dh.sh import-images --services gms        # Import only GMS
-k3d/dh.sh import-images --services gms,frontend,upgrade  # Multiple services
+k3d/dh import-images                       # Build & import gms,frontend
+k3d/dh import-images --services gms        # Import only GMS
+k3d/dh import-images --services gms,frontend,upgrade  # Multiple services
 ```
 
 Available services: `gms`, `frontend`, `upgrade`, `mysql-setup`, `elasticsearch-setup`
@@ -146,24 +143,13 @@ Available services: `gms`, `frontend`, `upgrade`, `mysql-setup`, `elasticsearch-
 Rebuild images and restart only the affected deployments — the k3d equivalent of `./gradlew quickstartReload`:
 
 ```bash
-k3d/dh.sh reload                              # Rebuild gms,frontend → reimport → restart
-k3d/dh.sh reload --services gms               # Rebuild only GMS
-k3d/dh.sh reload --services gms,frontend,upgrade  # Rebuild multiple services
-k3d/dh.sh reload --no-build                   # Skip build, just reimport existing images and restart
+k3d/dh reload                              # Rebuild gms,frontend → reimport → restart
+k3d/dh reload --services gms               # Rebuild only GMS
+k3d/dh reload --services gms,frontend,upgrade  # Rebuild multiple services
+k3d/dh reload --no-build                   # Skip build, just reimport existing images and restart
 ```
 
 Requires a prior `dh deploy --local`. Only long-running deployments (GMS, Frontend) are restarted — job-only services (upgrade, mysql-setup, etc.) are imported but not restarted.
-
-## Devbox Script Shortcuts
-
-```bash
-devbox run k3d-up              # cluster-up + infra-up
-devbox run k3d-deploy          # deploy (published images)
-devbox run k3d-deploy-local    # deploy --local (build from source)
-devbox run k3d-status          # status
-devbox run k3d-teardown        # teardown current worktree
-devbox run k3d-down            # cluster-down (destroys everything)
-```
 
 ## How Worktree Names Work
 
@@ -175,7 +161,7 @@ The worktree name is derived automatically from your git repository directory:
 | `datahub.feature-x/` | `feature-x` | `dh-feature-x` | `feature-x.datahub.localhost` |
 | `datahub-my-branch/` | `my-branch` | `dh-my-branch` | `my-branch.datahub.localhost` |
 
-Override with: `DH_WORKTREE_NAME=custom-name k3d/dh.sh deploy`
+Override with: `DH_WORKTREE_NAME=custom-name k3d/dh deploy`
 
 ## Environment Variables
 
@@ -204,7 +190,7 @@ echo "127.0.0.1 main.datahub.localhost" | sudo tee -a /etc/hosts
 Deploy with `--debug` to enable JDWP debug ports and dev-friendly settings (equivalent to `./gradlew quickstartDebug`):
 
 ```bash
-k3d/dh.sh deploy --debug           # or --local --debug
+k3d/dh deploy --debug           # or --local --debug
 ```
 
 This sets:
@@ -242,27 +228,27 @@ k9s
 ### Using a different port (port 80 is taken)
 
 ```bash
-K3D_HTTP_PORT=8080 k3d/dh.sh cluster-up
+K3D_HTTP_PORT=8080 k3d/dh cluster-up
 # Then access via: http://main.datahub.localhost:8080
 ```
 
 ### Overriding Helm values
 
-Create a file `k3d/values/overrides.yaml` and pass it manually:
+Pass extra values files or `--set` flags via the CLI:
 
 ```bash
-helm upgrade --install datahub-main datahub/datahub \
-  -n dh-main \
-  -f <generated-values> \
-  -f k3d/values/overrides.yaml
+k3d/dh deploy -f k3d/values/my-overrides.yaml
+k3d/dh deploy --set datahub-gms.resources.limits.memory=2Gi
 ```
+
+Per-worktree overrides are auto-loaded from `k3d/values/overrides/<worktree-name>.yaml` if present.
 
 ## Comparison with Docker Compose Quickstart
 
 | Feature | Docker Compose | k3d |
 |---------|---------------|-----|
 | Setup time | ~2 min | ~5 min (first time) |
-| Memory (1 instance) | ~8Gi | ~2Gi |
+| Memory (1 instance) | ~8Gi | ~1.5Gi |
 | Multiple instances | Port conflicts | Hostname-based routing |
 | Shared infra | No | Yes (MySQL, Kafka, ES) |
 | Local images | Volume mounts | `k3d image import` |

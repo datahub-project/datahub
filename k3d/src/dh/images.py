@@ -243,8 +243,13 @@ def helm_set_args_for_local(services: list[str], local_tag: str) -> list[str]:
     return args
 
 
-def import_specific(cfg: K3dConfig, services: str) -> None:
-    """Build and import specific service images (for import-images command)."""
+def import_specific(cfg: K3dConfig, services: str) -> list[str]:
+    """Build and import specific service images (for import-images command).
+
+    Returns the list of service names that were built and imported.
+    """
+    from dh.utils import get_output_context
+
     require_cmd("docker")
     require_cmd("k3d")
     root = git_root()
@@ -272,9 +277,14 @@ def import_specific(cfg: K3dConfig, services: str) -> None:
     for svc in svc_list:
         _retag_and_import(cfg, svc, version_tag, local_tag)
 
-    ok("Images imported. Restart pods to pick them up:")
-    ns = namespace_for(name)
-    click.echo(f"  kubectl rollout restart deployment -n {ns}")
+    ok("Images imported.")
+
+    ctx = get_output_context()
+    if not (ctx and ctx.json_mode):
+        ns = namespace_for(name)
+        click.echo(f"  Restart pods: kubectl rollout restart deployment -n {ns}")
+
+    return svc_list
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import click
 
 from dh.config import K3dConfig
 from dh.helm import HelmChartSource, ensure_helm_repo
-from dh.utils import info, ok, require_cmd, require_cluster, run, wait_for_pods, warn
+from dh.utils import die, info, ok, require_cmd, require_cluster, run, wait_for_pods, warn
 
 
 def infra_up(cfg: K3dConfig, chart_source: HelmChartSource) -> None:
@@ -69,12 +69,13 @@ def infra_down(cfg: K3dConfig, force: bool = False) -> None:
     )
     active_ns = result.stdout.strip() if result.returncode == 0 else ""
     if active_ns:
-        warn("Active worktree deployments still exist:")
-        for line in active_ns.splitlines():
-            click.echo(f"  - {line.replace('namespace/', '')}")
+        active_list = ", ".join(
+            line.replace("namespace/", "") for line in active_ns.splitlines() if line
+        )
+        warn(f"Active worktree deployments still exist: {active_list}")
         warn("Tear them down first with 'dh teardown' from each worktree, or pass --force.")
         if not force:
-            raise SystemExit(1)
+            die("Infra teardown aborted — active deployments exist. Use --force to override.")
 
     ns_check = run(
         ["kubectl", "get", "namespace", cfg.infra_namespace],

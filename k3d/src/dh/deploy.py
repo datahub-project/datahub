@@ -24,6 +24,7 @@ from dh.naming import (
 from dh.template import expand_template
 from dh.utils import (
     die,
+    get_output_context,
     info,
     ok,
     require_cmd,
@@ -46,6 +47,7 @@ def deploy(
     kustomize_dir: Optional[Path] = None,
     debug: bool = False,
     profiles: tuple[str, ...] = (),
+    dry_run: bool = False,
 ) -> None:
     require_cmd("helm")
     require_cmd("kubectl")
@@ -75,15 +77,14 @@ def deploy(
         local_services = build_and_import_modified(cfg, name)
 
     info(f"Deploying DataHub for worktree '{name}'...")
-    click.echo(f"  Namespace:  {ns}")
-    click.echo(f"  Database:   {db_name}")
-    click.echo(f"  ES prefix:  {es_prefix}")
-    click.echo(f"  Kafka pfx:  {kafka_prefix}")
-    click.echo(f"  Hostname:   {hostname}")
-    click.echo(f"  Version:    {effective_version}")
+    info(f"Namespace:  {ns}")
+    info(f"Database:   {db_name}")
+    info(f"ES prefix:  {es_prefix}")
+    info(f"Kafka pfx:  {kafka_prefix}")
+    info(f"Hostname:   {hostname}")
+    info(f"Version:    {effective_version}")
     if local_services:
-        click.echo(f"  Local:      {', '.join(local_services)} (tag: {local_tag})")
-    click.echo()
+        info(f"Local:      {', '.join(local_services)} (tag: {local_tag})")
 
     # Create namespace with labels and annotations
     root = git_root()
@@ -233,29 +234,31 @@ def deploy(
 
     has_frontend = "backend" not in profiles
 
-    click.echo()
     ok(f"DataHub '{name}' deployed!")
-    click.echo()
-    if has_frontend:
-        click.echo(f"  Frontend:  {click.style(f'http://{hostname}', bold=True)}")
-    else:
-        click.echo(
-            "  Frontend disabled — run locally: cd datahub-web-react && yarn start"
-        )
-    click.echo(
-        f"  GMS:       {click.style(f'http://{gms_hostname}', bold=True)}"
-    )
-    if debug:
+
+    ctx = get_output_context()
+    if not (ctx and ctx.json_mode):
         click.echo()
-        click.echo(click.style("  Debug ports (JDWP):", bold=True))
-        click.echo(
-            f"  GMS:       {click.style(f'kubectl port-forward -n {ns} deployment/{release_name}-datahub-gms 5001:5001', bold=True)}"
-        )
         if has_frontend:
+            click.echo(f"  Frontend:  {click.style(f'http://{hostname}', bold=True)}")
+        else:
             click.echo(
-                f"  Frontend:  {click.style(f'kubectl port-forward -n {ns} deployment/{release_name}-datahub-frontend 5002:5002', bold=True)}"
+                "  Frontend disabled — run locally: cd datahub-web-react && yarn start"
             )
-    click.echo()
+        click.echo(
+            f"  GMS:       {click.style(f'http://{gms_hostname}', bold=True)}"
+        )
+        if debug:
+            click.echo()
+            click.echo(click.style("  Debug ports (JDWP):", bold=True))
+            click.echo(
+                f"  GMS:       {click.style(f'kubectl port-forward -n {ns} deployment/{release_name}-datahub-gms 5001:5001', bold=True)}"
+            )
+            if has_frontend:
+                click.echo(
+                    f"  Frontend:  {click.style(f'kubectl port-forward -n {ns} deployment/{release_name}-datahub-frontend 5002:5002', bold=True)}"
+                )
+        click.echo()
 
 
 def teardown(cfg: K3dConfig) -> None:
@@ -289,7 +292,12 @@ def teardown(cfg: K3dConfig) -> None:
     ok(f"Teardown complete for '{name}'.")
 
 
-def list_deployments(cfg: K3dConfig) -> None:
+def list_deployments(cfg: K3dConfig) -> list[dict]:
+    """List all deployed worktree instances.
+
+    Returns a list of dicts with keys: worktree, namespace, git_root.
+    Also prints a human-readable table in pretty mode.
+    """
     from dh.utils import require_cluster
 
     require_cluster(cfg.cluster_name)
@@ -314,22 +322,34 @@ def list_deployments(cfg: K3dConfig) -> None:
     )
 
     output = result.stdout.strip() if result.returncode == 0 else ""
+
+    ctx = get_output_context()
     if not output:
-        click.echo("No DataHub worktree deployments found.")
-        return
+        if not (ctx and ctx.json_mode):
+            click.echo("No DataHub worktree deployments found.")
+        return []
 
     # kubectl jsonpath may return literal \t and \n instead of real tab/newline
     output = output.replace("\\t", "\t").replace("\\n", "\n")
 
-    click.echo(click.style("Active DataHub deployments:", bold=True))
-    click.echo()
-    click.echo(f"  {'WORKTREE':<20} {'NAMESPACE':<25} GIT ROOT")
-    click.echo(f"  {'--------':<20} {'---------':<25} --------")
+    deployments: list[dict] = []
     for line in output.splitlines():
         parts = line.split("\t")
         if len(parts) == 3:
-            click.echo(f"  {parts[0]:<20} {parts[1]:<25} {parts[2]}")
-    click.echo()
+            deployments.append(
+                {"worktree": parts[0], "namespace": parts[1], "git_root": parts[2]}
+            )
+
+    if not (ctx and ctx.json_mode):
+        click.echo(click.style("Active DataHub deployments:", bold=True))
+        click.echo()
+        click.echo(f"  {'WORKTREE':<20} {'NAMESPACE':<25} GIT ROOT")
+        click.echo(f"  {'--------':<20} {'---------':<25} --------")
+        for d in deployments:
+            click.echo(f"  {d['worktree']:<20} {d['namespace']:<25} {d['git_root']}")
+        click.echo()
+
+    return deployments
 
 
 def deploy_status(cfg: K3dConfig, output_json: bool = False) -> None:
