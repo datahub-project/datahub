@@ -21,6 +21,7 @@ from typing import (
 from urllib.parse import urlparse
 
 import botocore.exceptions
+import sqlglot
 import yaml
 from pydantic import field_validator
 from pydantic.fields import Field
@@ -588,6 +589,43 @@ class GlueSource(StatefulIngestionSourceBase):
         database = url.path.lstrip("/").split("?")[0]
         return platform, database
 
+    def _extract_dbtable_from_query(
+        self, query: str, flow_urn: str, node_label: str
+    ) -> Optional[str]:
+        """Extract a single table reference from a SQL query string.
+
+        Returns a "schema.table" or "table" string if exactly one table is found.
+        Warns and returns None for parse failures, zero tables, or multi-table queries
+        (e.g. JOINs) that can't be represented as a single dataset URN.
+        """
+        try:
+            tree = sqlglot.parse_one(query)
+            tables = list(tree.find_all(sqlglot.exp.Table))
+        except Exception as e:
+            self.report_warning(
+                flow_urn,
+                f"Failed to parse SQL query for node {node_label}: {e}. Skipping",
+            )
+            return None
+
+        if not tables:
+            self.report_warning(
+                flow_urn,
+                f"No tables found in SQL query for node {node_label}. Skipping",
+            )
+            return None
+
+        if len(tables) > 1:
+            self.report_warning(
+                flow_urn,
+                f"SQL query for node {node_label} references multiple tables; "
+                "lineage cannot be extracted for multi-table queries. Skipping",
+            )
+            return None
+
+        t = tables[0]
+        return f"{t.db}.{t.name}" if t.db else t.name
+
     def _resolve_glue_connection(
         self, connection_name: str, flow_urn: str
     ) -> Optional[Tuple[str, str]]:
@@ -604,9 +642,12 @@ class GlueSource(StatefulIngestionSourceBase):
             connection = response["Connection"]
             conn_type = connection.get("ConnectionType", "")
             props = connection.get("ConnectionProperties", {})
+            spark_props = connection.get("SparkProperties", {})
 
             if conn_type == "JDBC":
-                jdbc_url = props.get("JDBC_CONNECTION_URL")
+                jdbc_url = props.get("JDBC_CONNECTION_URL") or spark_props.get(
+                    "JDBC_CONNECTION_URL"
+                )
                 if not jdbc_url:
                     self.report_warning(
                         flow_urn,
@@ -662,6 +703,88 @@ class GlueSource(StatefulIngestionSourceBase):
                     extension = node_args.get("format")
 
                     yield s3_uri, extension
+
+    def _resolve_dbtable(
+        self,
+        connection_options: Dict[str, Any],
+        flow_urn: str,
+        node_label: str,
+    ) -> Optional[str]:
+        dbtable = connection_options.get("dbtable")
+        if not dbtable:
+            query = connection_options.get("query")
+            if query:
+                dbtable = self._extract_dbtable_from_query(query, flow_urn, node_label)
+        return dbtable
+
+    def _build_jdbc_dataset_name(
+        self, platform: str, database: str, dbtable: str
+    ) -> str:
+        if "." in dbtable:
+            schema, table = dbtable.rsplit(".", 1)
+            return f"{database}.{schema}.{table}"
+        default_schema = JDBC_DEFAULT_SCHEMA.get(platform)
+        if default_schema:
+            return f"{database}.{default_schema}.{dbtable}"
+        return f"{database}.{dbtable}"
+
+    def _process_glue_connection_node(
+        self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
+    ) -> Optional[str]:
+        connection_options = node_args.get("connection_options", {})
+        connection_name = connection_options["connectionName"]
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        dbtable = self._resolve_dbtable(connection_options, flow_urn, node_label)
+        if not dbtable:
+            self.report_warning(
+                flow_urn,
+                f"Missing dbtable for node {node_label}. Skipping",
+            )
+            return None
+
+        resolved = self._resolve_glue_connection(connection_name, flow_urn)
+        if resolved is None:
+            return None
+
+        platform, database = resolved
+        return make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=self._build_jdbc_dataset_name(platform, database, dbtable),
+            env=self.env,
+            platform_instance=None,
+        )
+
+    def _process_jdbc_node(
+        self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
+    ) -> Optional[str]:
+        connection_options = node_args.get("connection_options", {})
+        jdbc_url = connection_options.get("url")
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        dbtable = self._resolve_dbtable(connection_options, flow_urn, node_label)
+        if not jdbc_url or not dbtable:
+            self.report_warning(
+                flow_urn,
+                f"Missing JDBC URL or table for node {node_label}. Skipping",
+            )
+            return None
+
+        try:
+            platform, database = self._parse_jdbc_url(jdbc_url)
+        except ValueError as e:
+            self.report_warning(
+                flow_urn,
+                f"Failed to parse JDBC URL for node {node_label}: {e}. Skipping",
+            )
+            return None
+
+        return make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=self._build_jdbc_dataset_name(platform, database, dbtable),
+            env=self.env,
+            platform_instance=None,
+        )
 
     def process_dataflow_node(
         self,
@@ -729,78 +852,16 @@ class GlueSource(StatefulIngestionSourceBase):
                 new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
 
             # if data object references a named Glue connection (visual editor style)
-            elif (node_args.get("connection_info") or {}).get("connectionName"):
-                connection_name = node_args["connection_info"]["connectionName"]
-                dbtable = node_args.get("dbtable")
-
-                if not dbtable:
-                    self.report_warning(
-                        flow_urn,
-                        f"Missing dbtable for node {node['NodeType']}-{node['Id']}. Skipping",
-                    )
+            elif (node_args.get("connection_options") or {}).get("connectionName"):
+                node_urn = self._process_glue_connection_node(node, node_args, flow_urn)
+                if node_urn is None:
                     return None
-
-                resolved = self._resolve_glue_connection(connection_name, flow_urn)
-                if resolved is None:
-                    return None
-
-                platform, database = resolved
-
-                if "." in dbtable:
-                    schema, table = dbtable.rsplit(".", 1)
-                    dataset_name = f"{database}.{schema}.{table}"
-                else:
-                    default_schema = JDBC_DEFAULT_SCHEMA.get(platform)
-                    if default_schema:
-                        dataset_name = f"{database}.{default_schema}.{dbtable}"
-                    else:
-                        dataset_name = f"{database}.{dbtable}"
-
-                node_urn = make_dataset_urn_with_platform_instance(
-                    platform=platform,
-                    name=dataset_name,
-                    env=self.env,
-                    platform_instance=None,
-                )
 
             # if data object is a JDBC source (e.g. Postgres, MySQL, Redshift)
             elif node_args.get("connection_type") in JDBC_PLATFORM_MAP:
-                connection_options = node_args.get("connection_options", {})
-                jdbc_url = connection_options.get("url")
-                dbtable = connection_options.get("dbtable")
-
-                if not jdbc_url or not dbtable:
-                    self.report_warning(
-                        flow_urn,
-                        f"Missing JDBC URL or table for node {node['NodeType']}-{node['Id']}. Skipping",
-                    )
+                node_urn = self._process_jdbc_node(node, node_args, flow_urn)
+                if node_urn is None:
                     return None
-
-                try:
-                    platform, database = self._parse_jdbc_url(jdbc_url)
-                except ValueError as e:
-                    self.report_warning(
-                        flow_urn,
-                        f"Failed to parse JDBC URL for node {node['NodeType']}-{node['Id']}: {e}. Skipping",
-                    )
-                    return None
-
-                if "." in dbtable:
-                    schema, table = dbtable.rsplit(".", 1)
-                    dataset_name = f"{database}.{schema}.{table}"
-                else:
-                    default_schema = JDBC_DEFAULT_SCHEMA.get(platform)
-                    if default_schema:
-                        dataset_name = f"{database}.{default_schema}.{dbtable}"
-                    else:
-                        dataset_name = f"{database}.{dbtable}"
-
-                node_urn = make_dataset_urn_with_platform_instance(
-                    platform=platform,
-                    name=dataset_name,
-                    env=self.env,
-                    platform_instance=None,
-                )
 
             else:
                 if self.source_config.ignore_unsupported_connectors:

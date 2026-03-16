@@ -1109,13 +1109,8 @@ def _make_glue_connection_node(
         "NodeType": node_type,
         "Args": [
             {
-                "Name": "connection_info",
-                "Value": f'{{"connectionName": "{connection_name}"}}',
-                "Param": False,
-            },
-            {
-                "Name": "dbtable",
-                "Value": f'"{dbtable}"',
+                "Name": "connection_options",
+                "Value": f'{{"connectionName": "{connection_name}", "dbtable": "{dbtable}"}}',
                 "Param": False,
             },
         ],
@@ -1211,7 +1206,7 @@ def test_process_dataflow_node_glue_connection_missing_dbtable() -> None:
         "NodeType": "DataSource",
         "Args": [
             {
-                "Name": "connection_info",
+                "Name": "connection_options",
                 "Value": '{"connectionName": "My Connection"}',
                 "Param": False,
             },
@@ -1285,3 +1280,124 @@ def test_glue_native_connection_type_map_coverage() -> None:
         result = source._resolve_glue_connection(conn_type, flow_urn)
         assert result is not None, f"Failed for {conn_type}"
         assert result[0] == expected_platform
+
+
+def test_resolve_glue_connection_spark_properties_fallback() -> None:
+    """SparkProperties (v2 schema) is used when ConnectionProperties has no JDBC_CONNECTION_URL."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {},
+            "SparkProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb"
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+
+    result = source._resolve_glue_connection("My Connection", flow_urn)
+
+    assert result == ("postgres", "mydb")
+
+
+@pytest.mark.parametrize(
+    "query, expected_dbtable",
+    [
+        ("SELECT * FROM public.customers WHERE id = 1", "public.customers"),
+        ("SELECT id, name FROM orders", "orders"),
+    ],
+)
+def test_process_dataflow_node_glue_connection_query_fallback(
+    query: str, expected_dbtable: str
+) -> None:
+    """query ConnectionOption is used when dbtable is absent (single-table queries)."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": f'{{"connectionName": "My PG Connection", "query": "{query}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert expected_dbtable in result["urn"]
+
+
+def test_process_dataflow_node_glue_connection_query_multi_table_warns() -> None:
+    """Multi-table queries cannot be resolved to a single URN — warns and skips."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": '{"connectionName": "My PG Connection", "query": "SELECT a.id FROM orders a JOIN customers b ON a.cid = b.id"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_process_dataflow_node_jdbc_query_fallback() -> None:
+    """query ConnectionOption is used in the direct JDBC path when dbtable is absent."""
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_type",
+                "Value": '"postgresql"',
+                "Param": False,
+            },
+            {
+                "Name": "connection_options",
+                "Value": '{"url": "jdbc:postgresql://myhost:5432/mydb", "query": "SELECT * FROM public.orders"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert (
+        result["urn"]
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    )
