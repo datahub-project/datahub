@@ -15,20 +15,26 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
+import java.util.function.Supplier;
 
 public class ReadinessCheck extends HttpServlet {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Logger log = LoggerFactory.getLogger(ReadinessCheck.class);
+    private static final long CHECK_TIMEOUT_SECONDS = 2L;
 
     private final AdminClient kafkaAdmin;
     private final RestHighLevelClient elasticClient;
     private final Database database;
     private final Driver neo4jDriver;
+    private final ExecutorService healthCheckExecutor = Executors.newFixedThreadPool(4);
 
     public ReadinessCheck(
             AdminClient kafkaAdmin,
@@ -42,14 +48,18 @@ public class ReadinessCheck extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) {
         Map<String, String> result = new LinkedHashMap<>();
 
-        boolean kafkaUp = checkKafka();
-        boolean mysqlUp = checkMySql();
-        boolean elasticUp = checkElastic();
-        boolean neo4jUp = checkNeo4j();
+        CompletableFuture<Boolean> kafkaFuture = runCheck(this::checkKafka, "Kafka");
+        CompletableFuture<Boolean> mysqlFuture = runCheck(this::checkMySql, "MySQL");
+        CompletableFuture<Boolean> elasticFuture = runCheck(this::checkElastic, "Elastic");
+        CompletableFuture<Boolean> neo4jFuture = runCheck(this::checkNeo4j, "Neo4j");
+
+        boolean kafkaUp = kafkaFuture.join();
+        boolean mysqlUp = mysqlFuture.join();
+        boolean elasticUp = elasticFuture.join();
+        boolean neo4jUp = neo4jFuture.join();
 
         boolean allUp = kafkaUp && mysqlUp && elasticUp && neo4jUp;
 
@@ -58,22 +68,32 @@ public class ReadinessCheck extends HttpServlet {
         result.put("elasticsearch", elasticUp ? "UP" : "DOWN");
         result.put("neo4j", neo4jUp ? "UP" : "DOWN");
 
-        resp.setStatus(
-                allUp
-                        ? HttpServletResponse.SC_OK
-                        : HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-
+        resp.setStatus(allUp
+                ? HttpServletResponse.SC_OK
+                : HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
         resp.setContentType("application/json");
 
-        MAPPER.writeValue(resp.getOutputStream(), result);
+        try {
+            MAPPER.writeValue(resp.getOutputStream(), result);
+            resp.getOutputStream().flush();
+        } catch (IOException e) {
+            log.error("Error writing the health readiness response", e);
+        }
+    }
+
+    private CompletableFuture<Boolean> runCheck(Supplier<Boolean> check, String name) {
+        return CompletableFuture.supplyAsync(check, healthCheckExecutor)
+                .completeOnTimeout(false, CHECK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .exceptionally(ex -> {
+                    log.error("{} readiness check failed", name, ex);
+                    return false;
+                });
     }
 
     private boolean checkKafka() {
         try {
-            kafkaAdmin.describeCluster()
-                    .clusterId()
-                    .get(2, TimeUnit.SECONDS);
+            kafkaAdmin.describeCluster().clusterId().get(2, TimeUnit.SECONDS);
             return true;
         } catch (Exception e) {
             log.error("Kafka readiness check failed", e);
@@ -83,7 +103,9 @@ public class ReadinessCheck extends HttpServlet {
 
     private boolean checkMySql() {
         try {
-            database.sqlQuery("select 1").findOne();
+            if (database.sqlQuery("select 1").findOne() == null) {
+                throw new SQLException("No result returned from MySQL health check query");
+            }
             return true;
         } catch (Exception e) {
             log.error("MySQL readiness check failed", e);
@@ -108,5 +130,11 @@ public class ReadinessCheck extends HttpServlet {
             log.error("Neo4j readiness check failed", e);
             return false;
         }
+    }
+
+    @Override
+    public void destroy() {
+        healthCheckExecutor.shutdown();
+        super.destroy();
     }
 }
