@@ -18,10 +18,9 @@ from tenacity import (
 )
 
 if TYPE_CHECKING:
-    from google.cloud.datacatalog.lineage_v1 import LineageClient
+    from google.cloud.datacatalog_lineage import LineageClient
 
-# google-cloud-datacatalog-lineage is a required dependency (pinned to 0.2.2 in setup.py)
-from google.cloud.datacatalog.lineage_v1 import EntityReference, SearchLinksRequest
+from google.cloud.datacatalog_lineage import EntityReference, SearchLinksRequest
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
