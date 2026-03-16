@@ -1013,6 +1013,12 @@ qlik-sense = [
     "websocket-client<2.0.0",
 ]
 
+rdf = [
+    "rdflib==6.3.2",
+    "requests==2.32.5",
+    "requests_file==3.0.1",
+]
+
 redash = [
     "patchy==2.8.0",
     "redash-toolbelt<0.2.0",
@@ -1447,10 +1453,12 @@ all = [
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid<2",
+    "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
     "requests-gssapi<2.0.0",
-    "requests>=2.28.0,<3.0.0",
+    "requests>=2.28.0,==2.32.5,<3.0.0",
+    "requests_file==3.0.1",
     "requests_ntlm<2.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
@@ -1613,12 +1621,13 @@ dev = [
     "python-ldap>=2.4,<4.0.0",
     "python-liquid<2",
     "PyYAML<7.0.0",
+    "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests<3.0.0",
-    "requests_file<4.0.0",
+    "requests==2.32.5,<3.0.0",
+    "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.19.0",
     "ruff==0.11.7",
@@ -1805,12 +1814,13 @@ docs = [
     "python-ldap>=2.4,<4.0.0",
     "python-liquid<2",
     "PyYAML<7.0.0",
+    "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests<3.0.0",
-    "requests_file<4.0.0",
+    "requests==2.32.5,<3.0.0",
+    "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.19.0",
     "ruff==0.11.7",
@@ -1937,8 +1947,10 @@ integration-tests = [
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "pyzipper>=0.3.6,<1.0",
+    "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "requests>=2.28.0,<3.0.0",
+    "requests>=2.28.0,==2.32.5,<3.0.0",
+    "requests_file==3.0.1",
     "responses>=0.25.0,<1.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
@@ -2029,6 +2041,7 @@ doris = "datahub.ingestion.source.sql.doris.doris_source:DorisSource"
 okta = "datahub.ingestion.source.identity.okta:OktaSource"
 oracle = "datahub.ingestion.source.sql.oracle:OracleSource"
 postgres = "datahub.ingestion.source.sql.postgres:PostgresSource"
+rdf = "datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource"
 redash = "datahub.ingestion.source.redash:RedashSource"
 redshift = "datahub.ingestion.source.redshift.redshift:RedshiftSource"
 slack = "datahub.ingestion.source.slack.slack:SlackSource"
