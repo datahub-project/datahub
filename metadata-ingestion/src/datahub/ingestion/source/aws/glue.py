@@ -11,6 +11,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Mapping,
     Optional,
     Set,
@@ -165,7 +166,7 @@ class GlueSourceConfig(
         "emit_s3_lineage",
         "emit_storage_lineage",
     )
-    glue_storage_lineage_direction: str = Field(
+    glue_storage_lineage_direction: Literal["upstream", "downstream"] = Field(
         default="upstream",
         description="If `upstream`, storage locations are upstream to Glue. If `downstream`, they are downstream to Glue.",
     )
