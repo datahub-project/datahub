@@ -118,6 +118,16 @@ module.exports = {
               type: "doc",
               id: "docs/dev-guides/agent-context/copilot-studio",
             },
+            {
+              label: "Google Vertex AI",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-vertex-ai",
+            },
+            {
+              label: "Google ADK",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-adk",
+            },
           ],
         },
         {
@@ -164,6 +174,12 @@ module.exports = {
               label: "Smart Assertions ⚡ (Anomaly Detection)",
               type: "doc",
               id: "docs/managed-datahub/observe/smart-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Backfill Assertion History",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-backfill",
               className: "saasOnly",
             },
             {

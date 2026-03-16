@@ -35,13 +35,16 @@ class TestTypeMapping:
             get_column_profiler_type(sa_types.Float(), "postgresql")
             == ProfilerDataType.FLOAT
         )
+
+    def test_get_column_profiler_type_numeric(self):
+        """Test numeric type detection (DECIMAL, NUMERIC - fixed precision)."""
         assert (
             get_column_profiler_type(sa_types.Numeric(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
         assert (
             get_column_profiler_type(sa_types.DECIMAL(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
 
     def test_get_column_profiler_type_string(self):
@@ -235,18 +238,20 @@ class TestTypeMapping:
             == ProfilerDataType.INT
         )
 
-        # Test all float variants
+        # Test float type (real floating point)
         assert (
             get_column_profiler_type(sa_types.Float(), "postgresql")
             == ProfilerDataType.FLOAT
         )
+
+        # Test numeric types (DECIMAL, NUMERIC - fixed precision)
         assert (
             get_column_profiler_type(sa_types.Numeric(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
         assert (
             get_column_profiler_type(sa_types.DECIMAL(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
 
         # Test all string variants

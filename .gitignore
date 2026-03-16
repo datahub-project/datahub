@@ -93,6 +93,9 @@ scripts/.venv/
 tmp*
 temp/**
 
+# Test result artifacts
+test-results/
+
 # frontend assets
 datahub-frontend/public/**
 
@@ -112,12 +115,12 @@ docker/profiles/my-settings.env
 .agents/
 skills-lock.json
 
-# Claude ignores
-.claude/
+# Claude ignores — ignore everything except committed config
+.claude/*
+!.claude/commands/
+!.claude/agents/
+!.claude/settings.json
 **/.claude/settings.local.json
-# Claude agent files (session-specific, not to be committed)
-**/.claude/agents/
-**/.claude/*.md
 
 # Environment files with credentials
 .env*
