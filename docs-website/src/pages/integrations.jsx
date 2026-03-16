@@ -14,7 +14,7 @@ function DataProviderComponent() {
     siteConfig,
     metadata,
     "DataHub Integrations",
-    "Services that integrate with DataHub",
+    `Connect to ${Math.floor(metadata.length / 10) * 10}+ data and AI systems`,
     false,
     true
   );
