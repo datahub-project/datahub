@@ -60,8 +60,11 @@ dependencies {
     implementation('commons-beanutils:commons-beanutils:1.11.0') {
       because("CVE-2025-48734")
     }
-    implementation('io.netty:netty-codec-smtp:4.1.130.Final') {
+    implementation("io.netty:netty-codec-smtp:${rootProject.ext.nettyVersion}") {
       because("CVE: GHSA-jq43-27x9-3v86 - Netty SMTP Command Injection, CVE-2025-67735 - CRLF Injection")
+    }
+    implementation(externalDependency.commonsLang3) {
+      because("CVE-2025-48924")
     }
   }
 
@@ -351,7 +354,7 @@ task runLoadIndices(type: Exec) {
 /**
  * Runs SqlSetup for MySQL on locally running system.
  * Configured for quickstart MySQL service running on localhost:3306
- * Uses environment variables for backwards compatibility with docker/mysql-setup
+ * Uses environment variables for compatibility with Docker Compose and external callers.
  *
  * Usage:
  * ./gradlew runSqlSetupMysql
@@ -361,7 +364,7 @@ task runLoadIndices(type: Exec) {
 task runSqlSetupMysql(type: Exec) {
     dependsOn bootJar
     group = "Execution"
-    description = "Run the SqlSetup process for MySQL locally - creates tables and optionally users/CDC. Uses environment variables for backwards compatibility."
+    description = "Run the SqlSetup process for MySQL locally - creates tables and optionally users/CDC. Uses environment variables for compatibility with Docker Compose and external callers."
     environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
 
     // Set standard Ebean environment variables for MySQL
@@ -387,7 +390,7 @@ task runSqlSetupMysql(type: Exec) {
 /**
  * Runs SqlSetup for PostgreSQL on locally running system.
  * Configured for quickstart PostgreSQL service running on localhost:5432
- * Uses environment variables for backwards compatibility with docker/postgres-setup
+ * Uses environment variables for compatibility with Docker Compose and external callers.
  *
  * Usage:
  * ./gradlew runSqlSetupPostgres
@@ -397,7 +400,7 @@ task runSqlSetupMysql(type: Exec) {
 task runSqlSetupPostgres(type: Exec) {
     dependsOn bootJar
     group = "Execution"
-    description = "Run the SqlSetup process for PostgreSQL locally - creates database, tables and optionally users/CDC. Uses environment variables for backwards compatibility."
+    description = "Run the SqlSetup process for PostgreSQL locally - creates database, tables and optionally users/CDC. Uses environment variables for compatibility with Docker Compose and external callers."
     environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
 
     // Set standard Ebean environment variables for PostgreSQL
