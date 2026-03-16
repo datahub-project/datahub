@@ -4,7 +4,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import auto
 from typing import (
     Any,
@@ -2388,9 +2388,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 and self.config.entities_enabled.can_emit_catalog_stats
             ):
                 if node.row_count is not None or node.size_in_bytes is not None:
-                    # Use catalog's generated_at timestamp if available, else fallback to now
+                    # Use catalog's generated_at timestamp if available, else fallback to now (UTC)
                     profile_timestamp = (
-                        self.report.catalog_generated_at or datetime.now()
+                        self.report.catalog_generated_at
+                        or datetime.now(tz=timezone.utc)
                     )
                     dataset_profile = DatasetProfileClass(
                         timestampMillis=int(profile_timestamp.timestamp() * 1000),
