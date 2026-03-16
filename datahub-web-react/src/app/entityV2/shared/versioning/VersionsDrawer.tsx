@@ -182,7 +182,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
             ),
             menu: (
                 <StyledDropdown
-                    menu={{ items, style: { borderRadius: '12px', boxShadow: '0px 0px 14px 0px rgba(0, 0, 0, 0.15)' } }}
+                    menu={{ items, style: { borderRadius: '12px' } }}
                     trigger={['click']}
                     overlayStyle={{ borderRadius: '100px' }}
                 >

@@ -5,9 +5,8 @@ import { LinePath } from '@visx/shape';
 import { Tooltip } from 'antd';
 import dayjs from 'dayjs';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { VizEdge } from '@app/lineage/types';
 
 const EdgeTimestamp = styled.div``;
@@ -29,6 +28,7 @@ type Props = {
 };
 
 export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Props) {
+    const theme = useTheme();
     const createdOnTimestamp = edge?.createdOn;
     const updatedOnTimestamp = edge?.updatedOn;
     const createdOn = createdOnTimestamp ? dayjs(createdOnTimestamp).format('ll') : undefined;
@@ -70,7 +70,7 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         }}
                         curve={curveBasis}
                         data={edge.curve}
-                        stroke={isHighlighted ? '#1890FF' : ANTD_GRAY[6]}
+                        stroke={isHighlighted ? theme.colors.hyperlinks : theme.colors.border}
                         strokeWidth="1"
                         markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
                         markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}

@@ -5,7 +5,6 @@ import type { Dayjs } from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { getTimeRangeDescription } from '@app/shared/time/timeUtils';
 import DatePicker from '@utils/DayjsDatePicker';
@@ -14,7 +13,7 @@ const RangePickerWrapper = styled.div`
     transition: color 0s;
     position: relative;
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         cursor: pointer;
     }
     .ant-picker-range {

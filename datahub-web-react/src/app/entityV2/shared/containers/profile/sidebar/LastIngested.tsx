@@ -7,14 +7,13 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledDot = styled.div<{ color: string }>`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 50%;
     background-color: ${(props) => props.color};
     width: 5px;
@@ -40,7 +39,7 @@ const PopoverContentWrapper = styled.div``;
 const MainContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
+    color: ${(props) => props.theme.colors.text};
     font-size: 10px;
     font-weight: 400;
     line-height: 20px;
@@ -53,13 +52,13 @@ const RelativeDescription = styled.div`
 `;
 
 const SubText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 10px;
     font-style: italic;
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-left: 7px;
     font-size: 10px;
 `;

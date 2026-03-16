@@ -7,7 +7,6 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 
@@ -46,7 +45,7 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ThinDivider = styled(Divider)`

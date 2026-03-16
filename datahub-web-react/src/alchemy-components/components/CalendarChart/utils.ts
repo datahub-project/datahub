@@ -190,13 +190,16 @@ export function getMockedProps(
         {
             insertsAndUpdates: {
                 valueAccessor: (datum) => datum.inserts + datum.updates,
+                // eslint-disable-next-line rulesdir/no-hardcoded-colors
                 colors: ['#CAC3F1', '#705EE4', '#3E2F9D'],
             },
             deletes: {
                 valueAccessor: (datum) => datum.deletes,
+                // eslint-disable-next-line rulesdir/no-hardcoded-colors
                 colors: ['#f1c3ca', '#CF6D6D', '#ab4242'],
             },
         },
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         '#EBECF0',
     );
 
