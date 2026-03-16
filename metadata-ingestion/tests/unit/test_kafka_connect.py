@@ -2907,6 +2907,58 @@ class TestJdbcSinkConnector:
         assert "admin" not in property_bag["connection.url"]
         assert "secret123" not in property_bag["connection.url"]
 
+    @pytest.mark.parametrize(
+        "connection_url,expected_platform",
+        [
+            ("jdbc:postgresql://localhost:5432/mydb", "postgres"),
+            ("jdbc:mysql://localhost:3306/mydb", "mysql"),
+            ("jdbc:oracle:thin:@localhost:1521/orcl", "oracle"),
+            ("jdbc:sqlserver://localhost:1433;databaseName=mydb", "mssql"),
+        ],
+    )
+    def test_jdbc_sink_platform_auto_detection(
+        self, connection_url: str, expected_platform: str
+    ) -> None:
+        """Test that platform is auto-detected from connection.url when not explicitly provided."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+                "connection.url": connection_url,
+            },
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        assert connector.get_platform() == expected_platform
+
+    def test_jdbc_sink_platform_auto_detection_no_url(self) -> None:
+        """Test that platform falls back to 'unknown' when connection.url is absent."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={"connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector"},
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        assert connector.get_platform() == "unknown"
+
 
 class TestConfluentCloudConnectorManifest:
     """Test Confluent Cloud connector manifest handling."""
