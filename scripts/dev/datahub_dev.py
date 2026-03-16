@@ -11,6 +11,7 @@ Usage:
     python3 scripts/dev/datahub_dev.py wait [--timeout 300]
     python3 scripts/dev/datahub_dev.py setup [module]
     python3 scripts/dev/datahub_dev.py frontend
+    python3 scripts/dev/datahub_dev.py docs [--build]
     python3 scripts/dev/datahub_dev.py rebuild [--wait] [--module gms]
     python3 scripts/dev/datahub_dev.py test <path> [pytest-args...]
     python3 scripts/dev/datahub_dev.py flag list
@@ -1176,6 +1177,27 @@ def cmd_frontend(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Command: docs
+# ---------------------------------------------------------------------------
+
+
+def cmd_docs(args: argparse.Namespace) -> int:
+    """Start the docs dev server (Docusaurus)."""
+    docs_dir = REPO_ROOT / "docs-website"
+    if args.build:
+        _log("Building and starting docs dev server (full regeneration)...")
+        return _run(["./gradlew", ":docs-website:yarnStart"], cwd=REPO_ROOT).returncode
+    _log("Starting docs dev server on http://localhost:3001 ...")
+    _log("  (Use --build for full regeneration including docGen)")
+    try:
+        result = subprocess.run(["yarn", "start"], cwd=docs_dir, text=True)
+        return result.returncode
+    except KeyboardInterrupt:
+        _log("\nDocs dev server stopped.")
+        return 0
+
+
+# ---------------------------------------------------------------------------
 # Command: start
 # ---------------------------------------------------------------------------
 
@@ -1259,6 +1281,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     # frontend
     subparsers.add_parser("frontend", help="Start the frontend dev server (yarn start)")
+
+    # docs
+    docs_p = subparsers.add_parser(
+        "docs", help="Start documentation dev server (Docusaurus)"
+    )
+    docs_p.add_argument(
+        "--build",
+        action="store_true",
+        help="Full rebuild including docGen before starting",
+    )
 
     # start
     start_p = subparsers.add_parser(
@@ -1359,6 +1391,7 @@ def main() -> int:
         "status": cmd_status,
         "setup": cmd_setup,
         "frontend": cmd_frontend,
+        "docs": cmd_docs,
         "start": cmd_start,
         "stop": cmd_stop,
         "wait": cmd_wait,

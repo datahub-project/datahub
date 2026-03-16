@@ -411,7 +411,7 @@ fastjsonschema==2.21.2
     # via nbformat
 fastuuid==0.14.0
     # via litellm
-feast==0.41.3
+feast==0.47.0
     # via acryl-datahub
 filelock==3.25.0
     # via
@@ -478,7 +478,9 @@ google-auth==2.49.0
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-datacatalog
+    #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
+    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   google-cloud-storage
     #   google-genai
@@ -501,11 +503,11 @@ google-cloud-core==2.5.0
     #   google-cloud-storage
 google-cloud-datacatalog==3.29.0
     # via acryl-datahub
-google-cloud-datacatalog-lineage==0.2.2
+google-cloud-datacatalog-lineage==0.5.0
     # via acryl-datahub
 google-cloud-dataplex==2.16.0
     # via acryl-datahub
-google-cloud-logging==3.5.0
+google-cloud-logging==3.14.0
     # via acryl-datahub
 google-cloud-resource-manager==1.16.0
     # via
@@ -554,7 +556,9 @@ grpcio==1.78.0
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-datacatalog
+    #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
+    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -562,7 +566,7 @@ grpcio==1.78.0
     #   grpcio-tools
 grpcio-status==1.62.3
     # via google-api-core
-grpcio-tools==1.62.3
+grpcio-tools==1.71.2
     # via acryl-datahub
 gssapi==1.11.1
     # via requests-gssapi
@@ -962,6 +966,7 @@ openpyxl==3.1.5
     #   dataflows-tabulator
 opentelemetry-api==1.40.0
     # via
+    #   google-cloud-logging
     #   mlflow-skinny
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
@@ -1081,8 +1086,9 @@ proto-plus==1.27.1
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.8
+protobuf==5.29.6
     # via
+    #   acryl-datahub
     #   databricks-sdk
     #   feast
     #   google-api-core
@@ -1122,7 +1128,7 @@ py-partiql-parser==0.5.0
     # via moto
 py4j==0.10.9.9
     # via pyspark
-pyarrow==22.0.0
+pyarrow==18.0.0
     # via
     #   acryl-datahub
     #   dask-expr
