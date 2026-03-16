@@ -1080,6 +1080,59 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         return self.two_level_access_pattern(data_access_func_detail)
 
 
+class MSSqlMultiDatabaseLineage(AbstractLineage):
+    # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
+    DEFAULT_SCHEMA = "dbo"  # Default schema name in MS-SQL is dbo
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.MS_SQL.value
+
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) function detail {data_access_func_detail}"
+        )
+
+        accessor = data_access_func_detail.identifier_accessor
+        if accessor is None or accessor.next is None:
+            return Lineage.empty()
+
+        # First is host name
+        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+        if server is None:
+            logger.debug("Server not found in MSSQL Sql.Databases data access function")
+            return Lineage.empty()
+
+        # Second is database name
+        db_name: str = accessor.items["Name"]
+        # Third is schema name and table name
+        schema_name: str = accessor.next.items["Schema"]
+        table_name: str = accessor.next.items["Item"]
+
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
+
+
 class ThreeStepDataAccessPattern(AbstractLineage, ABC):
     def get_datasource_server(
         self,
@@ -1700,6 +1753,11 @@ class SupportedPattern(Enum):
     MS_SQL = (
         MSSqlLineage,
         FunctionName.MSSQL_DATA_ACCESS,
+    )
+
+    MS_SQL_MULTI_DATABASE = (
+        MSSqlMultiDatabaseLineage,
+        FunctionName.MSSQL_MULTI_DATABASE_DATA_ACCESS,
     )
 
     GOOGLE_BIG_QUERY = (
