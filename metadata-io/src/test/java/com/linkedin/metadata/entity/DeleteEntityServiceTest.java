@@ -23,12 +23,13 @@ import com.linkedin.file.BucketStorageLocation;
 import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EntityAspect;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
@@ -45,9 +46,11 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -60,6 +63,32 @@ public class DeleteEntityServiceTest {
   protected DeleteEntityService _deleteEntityService;
   protected UpdateIndicesService _mockUpdateIndicesService;
   protected EntitySearchService _mockSearchService;
+
+  private static RelatedEntitiesScrollResult emptyScrollGraphResult() {
+    return RelatedEntitiesScrollResult.builder()
+        .numResults(0)
+        .pageSize(0)
+        .scrollId(null)
+        .entities(ImmutableList.of())
+        .build();
+  }
+
+  private static RelatedEntitiesScrollResult scrollGraphResult(
+      int numResults, String scrollId, List<RelatedEntities> entities) {
+    return RelatedEntitiesScrollResult.builder()
+        .numResults(numResults)
+        .pageSize(entities.size())
+        .scrollId(scrollId)
+        .entities(entities)
+        .build();
+  }
+
+  /** Creates a RelatedEntities for INCOMING direction (entity references the deleted URN). */
+  private static RelatedEntities incomingRelation(
+      String relationshipType, String entityUrn, String deletedUrn) {
+    return new RelatedEntities(
+        relationshipType, entityUrn, deletedUrn, RelationshipDirection.INCOMING, null);
+  }
 
   public DeleteEntityServiceTest() {
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -128,12 +157,15 @@ public class DeleteEntityServiceTest {
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
 
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(
-            0, 1, 1, ImmutableList.of(new RelatedEntity("IsPartOf", dataset.toString())));
+    final RelatedEntitiesScrollResult mockScrollResult =
+        scrollGraphResult(
+            1,
+            null,
+            ImmutableList.of(
+                incomingRelation("IsPartOf", dataset.toString(), container.toString())));
 
     Mockito.when(
-            _graphService.findRelatedEntities(
+            _graphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
                 eq(newFilter("urn", container.toString())),
@@ -141,9 +173,13 @@ public class DeleteEntityServiceTest {
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(mockRelatedEntities);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(mockScrollResult);
 
     final EntityResponse entityResponse = new EntityResponse();
     entityResponse.setUrn(dataset);
@@ -267,10 +303,8 @@ public class DeleteEntityServiceTest {
         .thenReturn(formsAspect);
 
     // no entities with relationships on forms
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
-            _graphService.findRelatedEntities(
+            _graphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
                 eq(newFilter("urn", form.toString())),
@@ -278,9 +312,13 @@ public class DeleteEntityServiceTest {
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(mockRelatedEntities);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
@@ -341,10 +379,8 @@ public class DeleteEntityServiceTest {
         .thenReturn(scrollResult);
 
     // no entities with relationships on forms
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
-            _graphService.findRelatedEntities(
+            _graphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
                 eq(newFilter("urn", form.toString())),
@@ -352,9 +388,13 @@ public class DeleteEntityServiceTest {
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(mockRelatedEntities);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
@@ -435,10 +475,8 @@ public class DeleteEntityServiceTest {
         .thenReturn(scrollResult2);
 
     // no entities with relationships on forms
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
-            _graphService.findRelatedEntities(
+            _graphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
                 eq(newFilter("urn", form.toString())),
@@ -446,9 +484,13 @@ public class DeleteEntityServiceTest {
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(mockRelatedEntities);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
@@ -462,6 +504,106 @@ public class DeleteEntityServiceTest {
             Mockito.eq(true));
     assertEquals(1, (int) response.getTotal());
     assertTrue(response.getRelatedAspects().isEmpty());
+  }
+
+  /**
+   * Tests that dry-run with graph references returns the correct total and does not process any
+   * deletions. The scroll-based pagination should not continue past the first page in dry-run mode.
+   */
+  @Test
+  public void testDryRunWithGraphReferencesReturnsCountWithoutProcessing()
+      throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+
+    final Urn container = UrnUtils.getUrn("urn:li:container:dry-run-test");
+    final String containerStr = container.toString();
+
+    // Graph has 3 referencing entities across 2 pages — but dry-run should not paginate
+    ImmutableList<RelatedEntities> entities =
+        ImmutableList.of(
+            incomingRelation(
+                "IsPartOf", "urn:li:dataset:(urn:li:dataPlatform:s,t1,PROD)", containerStr),
+            incomingRelation(
+                "IsPartOf", "urn:li:dataset:(urn:li:dataPlatform:s,t2,PROD)", containerStr));
+
+    RelatedEntitiesScrollResult firstPage = scrollGraphResult(3, "scroll-1", entities);
+
+    Mockito.when(
+            mockGraphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", containerStr)),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(firstPage);
+
+    // Mock empty search results (files, forms, etc.)
+    ScrollResult emptyScrollResult = new ScrollResult();
+    emptyScrollResult.setEntities(new SearchEntityArray());
+    emptyScrollResult.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyInt()))
+        .thenReturn(emptyScrollResult);
+
+    // Mock entity lookups for the preview (getRelatedAspectStream)
+    Mockito.when(
+            mockEntityService.getEntityV2(
+                any(OperationContext.class),
+                Mockito.anyString(),
+                Mockito.any(Urn.class),
+                Mockito.anySet()))
+        .thenReturn(null);
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, container, true);
+
+    // Total should reflect graph count (3) even though only 2 were in the first page
+    assertEquals(3, (int) response.getTotal());
+
+    // Dry-run: scrollRelatedEntities should be called exactly once (no pagination)
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", containerStr)),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            eq("5m"),
+            eq(1000),
+            nullable(Long.class),
+            nullable(Long.class));
+
+    // No deletions should have been attempted
+    Mockito.verify(mockEntityService, Mockito.never())
+        .ingestProposal(
+            any(),
+            Mockito.any(MetadataChangeProposal.class),
+            Mockito.any(AuditStamp.class),
+            Mockito.anyBoolean());
   }
 
   /** Test that file cleanup is triggered when deleting an entity with files */
@@ -535,10 +677,8 @@ public class DeleteEntityServiceTest {
         .thenReturn(fileInfo);
 
     // No other relationships
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
-            _graphService.findRelatedEntities(
+            _graphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
                 eq(newFilter("urn", dataset.toString())),
@@ -546,9 +686,13 @@ public class DeleteEntityServiceTest {
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(mockRelatedEntities);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
@@ -635,10 +779,8 @@ public class DeleteEntityServiceTest {
         .thenReturn(fileInfo);
 
     // No other relationships
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
-            _graphService.findRelatedEntities(
+            _graphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
                 eq(newFilter("urn", dataset.toString())),
@@ -646,9 +788,13 @@ public class DeleteEntityServiceTest {
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(mockRelatedEntities);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
@@ -741,10 +887,8 @@ public class DeleteEntityServiceTest {
         .deleteObject("test-bucket", "test-key");
 
     // No other relationships
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
     Mockito.when(
-            _graphService.findRelatedEntities(
+            _graphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
                 eq(newFilter("urn", dataset.toString())),
@@ -752,9 +896,13 @@ public class DeleteEntityServiceTest {
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(mockRelatedEntities);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
 
     // Operation should succeed despite S3 failure
     final DeleteReferencesResponse response =
@@ -776,14 +924,13 @@ public class DeleteEntityServiceTest {
   }
 
   /**
-   * Tests that deleteReferencesTo processes ALL related entities when the total exceeds the graph
-   * query batch size. Simulates the real-world scenario where findRelatedEntities returns results
-   * in multiple batches because the graph index is eventually consistent — after processing batch 1
-   * and sleeping, re-fetching from offset 0 returns the remaining entities whose graph edges
-   * haven't been deleted yet.
+   * Tests that deleteReferencesTo processes ALL related entities across multiple scroll pages.
+   * Simulates a real-world scenario where scroll-based pagination returns results in batches via
+   * PIT + search_after cursors.
    *
-   * <p>This test reproduces a bug where the pagination loop exits early, leaving entities with
-   * orphaned references. At 10K scale, ~37% of entities were permanently orphaned.
+   * <p>This verifies the fix for a bug where offset-based pagination caused stalls when deleting
+   * entities referenced by >5000 entities, as graph edge deletions between iterations shifted the
+   * result window.
    */
   @Test
   public void testDeleteReferencesToProcessesAllBatchesWhenTotalExceedsBatchSize()
@@ -795,50 +942,61 @@ public class DeleteEntityServiceTest {
         new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
 
     final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:stress-hot-tag-1");
+    final String tagUrnStr = tagUrn.toString();
 
-    // Create two batches of related entities (simulating graph query batch limit)
-    ImmutableList<RelatedEntity> batch1Entities =
+    // Create two batches of related entities (simulating scroll pages)
+    ImmutableList<RelatedEntities> batch1Entities =
         ImmutableList.of(
-            new RelatedEntity(
-                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t1,PROD)"),
-            new RelatedEntity(
-                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t2,PROD)"),
-            new RelatedEntity(
-                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t3,PROD)"));
+            incomingRelation(
+                "TaggedWith",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t1,PROD)",
+                tagUrnStr),
+            incomingRelation(
+                "TaggedWith",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t2,PROD)",
+                tagUrnStr),
+            incomingRelation(
+                "TaggedWith",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t3,PROD)",
+                tagUrnStr));
 
-    ImmutableList<RelatedEntity> batch2Entities =
+    ImmutableList<RelatedEntities> batch2Entities =
         ImmutableList.of(
-            new RelatedEntity(
-                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t4,PROD)"),
-            new RelatedEntity(
-                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t5,PROD)"),
-            new RelatedEntity(
-                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t6,PROD)"));
+            incomingRelation(
+                "TaggedWith",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t4,PROD)",
+                tagUrnStr),
+            incomingRelation(
+                "TaggedWith",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t5,PROD)",
+                tagUrnStr),
+            incomingRelation(
+                "TaggedWith",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t6,PROD)",
+                tagUrnStr));
 
-    // First call: returns batch1 (3 entities) but reports total=6 (more exist beyond batch limit)
-    RelatedEntitiesResult firstResult =
-        new RelatedEntitiesResult(0, batch1Entities.size(), 6, batch1Entities);
+    // First scroll page: returns batch1 (3 entities), total=6, scrollId to continue
+    RelatedEntitiesScrollResult firstResult = scrollGraphResult(6, "scroll-1", batch1Entities);
 
-    // Second call (re-fetch from offset 0 after batch1 processed):
-    // Graph index has partially updated — returns the 3 remaining entities
-    RelatedEntitiesResult secondResult =
-        new RelatedEntitiesResult(0, batch2Entities.size(), 3, batch2Entities);
-
-    // Third call: all edges deleted, returns empty
-    RelatedEntitiesResult emptyResult = new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
+    // Second scroll page: returns batch2 (3 entities), no more pages (scrollId=null)
+    RelatedEntitiesScrollResult secondResult = scrollGraphResult(6, null, batch2Entities);
 
     Mockito.when(
-            mockGraphService.findRelatedEntities(
+            mockGraphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
-                eq(newFilter("urn", tagUrn.toString())),
+                eq(newFilter("urn", tagUrnStr)),
                 nullable(Set.class),
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(firstResult, secondResult, emptyResult);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(firstResult, secondResult);
 
     // Mock empty results for search-based references (files, subscriptions, forms)
     ScrollResult emptyScrollResult = new ScrollResult();
@@ -869,38 +1027,34 @@ public class DeleteEntityServiceTest {
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, tagUrn, false);
 
-    // Verify findRelatedEntities was called at least twice (pagination happened)
-    Mockito.verify(mockGraphService, Mockito.atLeast(2))
-        .findRelatedEntities(
-            any(OperationContext.class),
-            nullable(Set.class),
-            eq(newFilter("urn", tagUrn.toString())),
-            nullable(Set.class),
-            eq(EMPTY_FILTER),
-            eq(ImmutableSet.of()),
-            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(0),
-            nullable(Integer.class));
-
-    // The critical assertion: the total reported should include ALL entities (6),
-    // not just the first batch (3). The current bug causes only 3 to be processed.
+    // The critical assertion: the total reported should include ALL entities (6)
     assertEquals(6, (int) response.getTotal());
 
-    // Verify findRelatedEntities was called 3 times total:
-    // 1st: initial fetch (returns batch1, total=6)
-    // 2nd: re-fetch after processing batch1 (returns batch2, total=3)
-    // 3rd: re-fetch after processing batch2 (returns empty) — loop exits
-    Mockito.verify(mockGraphService, Mockito.times(3))
-        .findRelatedEntities(
+    // Capture scrollId arguments to verify cursor forwarding between pages
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<String> scrollIdCaptor = ArgumentCaptor.forClass(String.class);
+    Mockito.verify(mockGraphService, Mockito.times(2))
+        .scrollRelatedEntities(
             any(OperationContext.class),
             nullable(Set.class),
-            eq(newFilter("urn", tagUrn.toString())),
+            eq(newFilter("urn", tagUrnStr)),
             nullable(Set.class),
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of()),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(0),
-            nullable(Integer.class));
+            eq(Edge.EDGE_SORT_CRITERION),
+            scrollIdCaptor.capture(),
+            eq("5m"),
+            eq(1000),
+            nullable(Long.class),
+            nullable(Long.class));
+
+    // 1st call: scrollId=null (initial fetch)
+    // 2nd call: scrollId="scroll-1" (forwarded from first result)
+    List<String> capturedScrollIds = scrollIdCaptor.getAllValues();
+    assertEquals(2, capturedScrollIds.size());
+    assertEquals(null, capturedScrollIds.get(0));
+    assertEquals("scroll-1", capturedScrollIds.get(1));
   }
 
   /**
@@ -932,27 +1086,32 @@ public class DeleteEntityServiceTest {
     final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:orphan-test");
 
     // One related entity that will hit the error path
-    ImmutableList<RelatedEntity> entities =
+    final String tagUrnStr = tagUrn.toString();
+    ImmutableList<RelatedEntities> entities =
         ImmutableList.of(
-            new RelatedEntity(
-                "TaggedWith", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t1,PROD)"));
+            incomingRelation(
+                "TaggedWith",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t1,PROD)",
+                tagUrnStr));
 
-    RelatedEntitiesResult relatedResult =
-        new RelatedEntitiesResult(0, entities.size(), 1, entities);
-    RelatedEntitiesResult emptyResult = new RelatedEntitiesResult(0, 0, 0, ImmutableList.of());
+    RelatedEntitiesScrollResult relatedResult = scrollGraphResult(1, null, entities);
 
     Mockito.when(
-            mockGraphService.findRelatedEntities(
+            mockGraphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
-                eq(newFilter("urn", tagUrn.toString())),
+                eq(newFilter("urn", tagUrnStr)),
                 nullable(Set.class),
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-                eq(0),
-                nullable(Integer.class)))
-        .thenReturn(relatedResult, emptyResult);
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(relatedResult);
 
     ScrollResult emptyScrollResult = new ScrollResult();
     emptyScrollResult.setEntities(new SearchEntityArray());
