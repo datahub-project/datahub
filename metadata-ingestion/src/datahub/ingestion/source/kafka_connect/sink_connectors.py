@@ -1003,17 +1003,29 @@ class JdbcSinkConnector(BaseConnector):
             # Get topics the connector subscribes to from its configuration
             subscribed_topics = set(self.get_topics_from_config())
 
-            # Filter available topics to only those the connector subscribes to
             if subscribed_topics:
-                topic_list = list(available_topics.intersection(subscribed_topics))
-                logger.debug(
-                    f"Filtered to {len(topic_list)} subscribed topics for {self.connector_manifest.name}: {topic_list}"
-                )
+                if available_topics:
+                    # Runtime topic data available — intersect to exclude stale topics
+                    topic_list = list(available_topics.intersection(subscribed_topics))
+                    logger.debug(
+                        f"Resolved {len(topic_list)} topics for {self.connector_manifest.name} "
+                        f"(intersection of {len(available_topics)} runtime topics and "
+                        f"{len(subscribed_topics)} configured topics)"
+                    )
+                else:
+                    # Runtime /topics API returned nothing (connector hasn't processed
+                    # messages yet, or topics were reset) — trust the config directly
+                    topic_list = list(subscribed_topics)
+                    logger.debug(
+                        f"Runtime topics empty for {self.connector_manifest.name}, "
+                        f"using {len(topic_list)} topics from connector config"
+                    )
             else:
-                # If no subscription config, use all available topics (OSS behavior)
+                # No subscription config found — use whatever the runtime API returned
                 topic_list = list(available_topics)
                 logger.debug(
-                    f"No subscription filter found, using all {len(topic_list)} available topics"
+                    f"No subscription config found for {self.connector_manifest.name}, "
+                    f"using all {len(topic_list)} available topics"
                 )
             transform_result = get_transform_pipeline().apply_forward(
                 topic_list, self.connector_manifest.config
