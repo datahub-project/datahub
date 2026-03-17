@@ -84,6 +84,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     placement = 'bottomLeft',
     renderSelectBase,
     renderOptionsFooter,
+    emptyState,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -224,7 +225,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                 {isLoading ? (
                                     <Loader size="sm" />
                                 ) : (
-                                    !filteredOptions.length && <NoResultsFoundPlaceholder />
+                                    !filteredOptions.length && (emptyState ?? <NoResultsFoundPlaceholder />)
                                 )}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel

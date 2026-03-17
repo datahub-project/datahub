@@ -107,6 +107,7 @@ export default interface ColorTheme {
     scrollbarTrack: string;
     scrollbarThumb: string;
     scrollbarThumbHover: string;
+    scrollbarThumbOnDarkBg: string;
     // Code blocks
     bgCode: string;
     bgCodeBlock: string;

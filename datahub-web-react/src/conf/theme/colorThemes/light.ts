@@ -110,6 +110,7 @@ const lightTheme: ColorTheme = {
     scrollbarTrack: 'transparent',
     scrollbarThumb: colors.gray100,
     scrollbarThumbHover: colors.gray500,
+    scrollbarThumbOnDarkBg: colors.gray500,
     // Code blocks
     bgCode: colors.gray200,
     bgCodeBlock: colors.gray200,
