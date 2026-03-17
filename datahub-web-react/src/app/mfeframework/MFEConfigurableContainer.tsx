@@ -12,7 +12,7 @@ import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 16px;
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -202,10 +202,7 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
     }
 
     return (
-        <MFEConfigurableContainer
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            data-testid="mfe-configurable-container"
-        >
+        <MFEConfigurableContainer $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="mfe-configurable-container">
             <div ref={box} style={{ minHeight: 480 }} />
         </MFEConfigurableContainer>
     );

@@ -34,8 +34,8 @@ export default function GlossaryRoutes() {
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
 
-    const renderPage = (shouldShowGlossary: boolean) => {
-        if (shouldShowGlossary) {
+    const renderPage = (isGlossaryAvailable: boolean) => {
+        if (isGlossaryAvailable) {
             return <BusinessGlossaryPageV2 />;
         }
         return <Redirect to="/" />;

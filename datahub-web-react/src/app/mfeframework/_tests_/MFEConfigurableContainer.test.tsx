@@ -36,7 +36,10 @@ const validParsedYaml = {
 const sampleTheme = {
     styles: {
         'border-radius-navbar-redesign': '16px',
-        'box-shadow-navbar-redesign': '0 2px 8px rgba(0,0,0,0.15)',
+        'box-shadow-navbar-redesign': 'none',
+    },
+    colors: {
+        bg: 'none',
     },
     assets: {},
     content: {},

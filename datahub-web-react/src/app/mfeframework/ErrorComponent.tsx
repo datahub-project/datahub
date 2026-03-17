@@ -6,10 +6,10 @@ const ErrorContainer = styled.div`
     align-items: center;
     justify-content: center;
     min-height: 480px;
-    background-color: #f5f5f5;
-    border: 2px dashed #d9d9d9;
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 2px dashed ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    color: #595959;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     text-align: center;
     padding: 20px;

@@ -1,10 +1,9 @@
 import { Card, Divider, Switch, Typography, message } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import { useUpdateUserSettingMutation } from '@graphql/me.generated';
 import { UserSetting } from '@types';
@@ -44,7 +43,7 @@ const UserSettingRow = styled.div`
 `;
 
 const DescriptionText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 11px;
 `;
 
@@ -53,6 +52,7 @@ const SettingText = styled(Typography.Text)`
 `;
 
 export const Preferences = () => {
+    const theme = useTheme();
     // Current User Urn
     const { user, refetchUser } = useUserContext();
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
@@ -107,7 +107,7 @@ export const Preferences = () => {
                     </Card>
                 )}
                 {!showSimplifiedHomepageSetting && (
-                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+                    <div style={{ color: theme.colors.textTertiary }}>No appearance settings found.</div>
                 )}
             </SourceContainer>
         </Page>

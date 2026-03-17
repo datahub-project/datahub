@@ -47,7 +47,7 @@ export const ProtectedRoutes = (): JSX.Element => {
     return (
         <OnboardingContextProvider>
             <DataHubTitle />
-            <StyledLayout className={'themeV2'}>
+            <StyledLayout className="themeV2">
                 <Switch>
                     <Route exact path="/" render={() => <FinalHomePage />} />
                     <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />

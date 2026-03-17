@@ -8,7 +8,7 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';
+import { Icon, Input as InputComponent, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { getStructuredPropertiesSearchInputs } from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
@@ -33,7 +33,7 @@ const AddButton = styled.div<{ isV1Drawer?: boolean }>`
 const DropdownContainer = styled.div`
     border-radius: 12px;
     box-shadow: 0px 0px 14px 0px ${(props) => props.theme.colors.overlayMedium};
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     padding-bottom: 8px;
     width: 300px;
 `;

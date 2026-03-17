@@ -13,7 +13,7 @@ import { useListDomainsQuery } from '@graphql/domain.generated';
 import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `

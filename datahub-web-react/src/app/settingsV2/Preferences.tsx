@@ -1,7 +1,7 @@
-import { PageTitle, Switch, colors } from '@components';
+import { PageTitle, Switch } from '@components';
 import { message } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useAppConfig } from '@app/useAppConfig';
@@ -20,9 +20,9 @@ const HeaderContainer = styled.div`
 `;
 
 const StyledCard = styled.div`
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     padding: 16px;
     display: flex;
     justify-content: space-between;
@@ -54,18 +54,19 @@ const UserSettingRow = styled.div`
 
 const SettingText = styled.div`
     font-size: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 `;
 
 const DescriptionText = styled.div`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
     font-weight: 400;
     line-height: 1.5;
 `;
 
 export const Preferences = () => {
+    const theme = useTheme();
     // Current User Urn
     const userContext = useUserContext();
     const appConfig = useAppConfig();
@@ -113,7 +114,7 @@ export const Preferences = () => {
                     </StyledCard>
                 )}
                 {!canManageApplicationAppearance && (
-                    <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
+                    <div style={{ color: theme.colors.textSecondary }}>No appearance settings found.</div>
                 )}
             </SourceContainer>
         </Page>

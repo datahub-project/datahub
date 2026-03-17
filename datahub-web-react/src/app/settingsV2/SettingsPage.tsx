@@ -33,7 +33,7 @@ const PageContainer = styled.div`
 
 const NavBarContainer = styled.div`
     padding: 20px 20px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
@@ -74,7 +74,7 @@ const ContentContainer = styled.div`
     flex: 1;
     display: flex;
     overflow: auto;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
 `;
 
