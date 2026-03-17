@@ -20,6 +20,10 @@ module.exports = defineConfig({
     // We've imported your old cypress plugins here.
     // You may want to clean this up later by importing these.
     setupNodeEvents(on, config) {
+      // Must be registered first so it can attach after:spec / after:run hooks before
+      // other plugins consume the same events.
+      // eslint-disable-next-line global-require
+      require("cypress-mochawesome-reporter/plugin")(on);
       // eslint-disable-next-line global-require
       return require("./cypress/plugins/index")(on, config);
     },
@@ -31,20 +35,23 @@ module.exports = defineConfig({
   },
   reporter: "cypress-multi-reporters",
   reporterOptions: {
-    reporterEnabled: "cypress-junit-reporter, mochawesome",
+    reporterEnabled: "cypress-mochawesome-reporter, cypress-junit-reporter",
+    cypressMochawesomeReporterReporterOptions: {
+      // cypress-mochawesome-reporter hooks into Cypress after:spec (not mocha end),
+      // writing one JSON per spec as it completes. Plain mochawesome only writes at
+      // the end of the full run, so a mid-run Electron crash produces no output at all.
+      reportDir: "build/mochawesome-report",
+      overwrite: false,
+      html: false,
+      json: true,
+      embeddedScreenshots: true,
+    },
     cypressJunitReporterReporterOptions: {
       mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
       toConsole: true,
       testCaseSwitchClassnameAndName: true,
       suiteNameTemplate: "{dirpath}",
       classNameTemplate: "{filepath}",
-    },
-    mochawesomeReporterOptions: {
-      // Write one JSON file per spec so partial results survive an Electron crash
-      reportDir: "build/mochawesome-report",
-      overwrite: false,
-      html: false,
-      json: true,
     },
   },
 });
