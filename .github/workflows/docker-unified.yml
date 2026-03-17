@@ -792,14 +792,15 @@ jobs:
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload Cypress mochawesome JSON results
-        # Per-spec JSON files written by cypress-mochawesome-reporter via the Cypress after:spec
-        # event. Uploading raw JSONs here so the post-matrix cypress_html_report job can merge
-        # all batches into one unified HTML report.
+        # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
+        # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
+        # required so upload-artifact picks up that dot-prefixed directory.
         uses: actions/upload-artifact@v4
         if: always() && matrix.test_strategy == 'cypress'
         with:
           name: cypress-mochawesome-json-${{ matrix.batch }}
           path: smoke-test/tests/cypress/build/mochawesome-report/
+          include-hidden-files: true
           retention-days: 1
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
@@ -888,11 +889,12 @@ jobs:
           merge-multiple: true
       - name: Generate HTML report
         run: |
-          # actions/upload-artifact preserves the full workspace-relative path inside the
-          # zip, so after merge-multiple extraction files land at:
-          #   mochawesome-results/smoke-test/tests/cypress/build/mochawesome-report/*.json
-          # Use find to locate them regardless of nesting depth.
-          mapfile -t JSON_FILES < <(find mochawesome-results -name "*.json" 2>/dev/null)
+          # cypress-mochawesome-reporter writes one JSON per spec to {reportDir}/.jsons/
+          # via the Cypress after:spec hook (crash-safe). Artifacts are uploaded with
+          # include-hidden-files:true so that dot-prefixed directory is included.
+          # After merge-multiple extraction, per-spec JSONs land at:
+          #   mochawesome-results/.jsons/mochawesome_<uuid>.json
+          mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
           if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
             # mochawesome-merge and marge (mochawesome-report-generator CLI) are
             # separate npm packages; "marge" is the correct binary name, not a typo.

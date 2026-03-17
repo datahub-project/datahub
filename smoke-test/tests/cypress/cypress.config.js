@@ -23,7 +23,7 @@ module.exports = defineConfig({
       // Must be registered first so it can attach after:spec / after:run hooks before
       // other plugins consume the same events.
       // eslint-disable-next-line global-require
-      require("cypress-mochawesome-reporter/plugin")(on);
+      require("cypress-mochawesome-reporter/plugin")(on, config);
       // eslint-disable-next-line global-require
       return require("./cypress/plugins/index")(on, config);
     },
@@ -43,7 +43,10 @@ module.exports = defineConfig({
       reportDir: "build/mochawesome-report",
       overwrite: false,
       html: false,
-      json: true,
+      // json: false because we only need the per-spec files in .jsons/ (always written
+      // by the Cypress after:spec hook, crash-safe). The post-matrix job merges those
+      // directly, so a redundant merged mochawesome.json here would cause duplication.
+      json: false,
       embeddedScreenshots: true,
     },
     cypressJunitReporterReporterOptions: {
