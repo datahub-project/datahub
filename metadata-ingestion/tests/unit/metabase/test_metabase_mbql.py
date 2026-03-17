@@ -738,7 +738,7 @@ def test_emit_model_uses_cll_for_query_builder(mock_post, mock_get, mock_delete)
 @patch("requests.Session.get")
 @patch("requests.post")
 def test_emit_model_uses_plain_lineage_for_native_sql(mock_post, mock_get, mock_delete):
-    """A native-SQL model should emit UpstreamLineageClass without fineGrainedLineages."""
+    """Native SQL models emit UpstreamLineageClass with fineGrainedLineages."""
     src = _make_source(mock_post, mock_get, mock_delete)
     src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
     src._get_collections_map = MagicMock(return_value={})  # type: ignore[method-assign]
@@ -774,9 +774,22 @@ def test_emit_model_uses_plain_lineage_for_native_sql(mock_post, mock_get, mock_
         ),
         None,
     )
-    # If lineage is present (depends on SQL parser), it must NOT have CLL
-    if lineage_wu is not None:
-        assert isinstance(lineage_wu.metadata, MetadataChangeProposalWrapper)
-        assert isinstance(lineage_wu.metadata.aspect, UpstreamLineageClass)
-        assert not lineage_wu.metadata.aspect.fineGrainedLineages
+    assert lineage_wu is not None
+    assert isinstance(lineage_wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(lineage_wu.metadata.aspect, UpstreamLineageClass)
+    lineage = lineage_wu.metadata.aspect
+    assert len(lineage.upstreams) == 1
+    assert lineage.fineGrainedLineages is not None
+    assert len(lineage.fineGrainedLineages) >= 1
+    rating_fgl = next(
+        (
+            fg
+            for fg in lineage.fineGrainedLineages
+            if fg.downstreams and any("rating" in d for d in fg.downstreams)
+        ),
+        None,
+    )
+    assert rating_fgl is not None
+    assert rating_fgl.upstreams is not None
+    assert any("rating" in u for u in rating_fgl.upstreams)
     src.close()

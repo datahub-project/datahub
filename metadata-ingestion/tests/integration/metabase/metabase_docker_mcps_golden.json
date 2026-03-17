@@ -393,6 +393,55 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,37)",
     "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Month",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Quantity",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000852,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,37)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -477,6 +526,183 @@
     "systemMetadata": {
         "lastObserved": 1705752001565,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,25)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),ACTIVE_SUBSCRIPTION)",
+                    "schemaField": {
+                        "fieldPath": "ACTIVE_SUBSCRIPTION",
+                        "nullable": true,
+                        "description": "Active Subscription",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.BooleanType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Boolean",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),CANCELED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CANCELED_AT",
+                        "nullable": true,
+                        "description": "Canceled At",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),FIRST_NAME)",
+                    "schemaField": {
+                        "fieldPath": "FIRST_NAME",
+                        "nullable": true,
+                        "description": "First Name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),ID)",
+                    "schemaField": {
+                        "fieldPath": "ID",
+                        "nullable": true,
+                        "description": "ID",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),LAST_NAME)",
+                    "schemaField": {
+                        "fieldPath": "LAST_NAME",
+                        "nullable": true,
+                        "description": "Last Name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),PLAN)",
+                    "schemaField": {
+                        "fieldPath": "PLAN",
+                        "nullable": true,
+                        "description": "Plan",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),SOURCE)",
+                    "schemaField": {
+                        "fieldPath": "SOURCE",
+                        "nullable": true,
+                        "description": "Source",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),TRIAL_CONVERTED)",
+                    "schemaField": {
+                        "fieldPath": "TRIAL_CONVERTED",
+                        "nullable": true,
+                        "description": "Trial Converted",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.BooleanType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Boolean",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),TRIAL_ENDS_AT)",
+                    "schemaField": {
+                        "fieldPath": "TRIAL_ENDS_AT",
+                        "nullable": true,
+                        "description": "Trial Ends At",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000878,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -645,6 +871,39 @@
     "systemMetadata": {
         "lastObserved": 1705752001661,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,22)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD),avg)",
+                    "schemaField": {
+                        "fieldPath": "avg",
+                        "nullable": true,
+                        "description": "Average of Rating",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000929,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1194,6 +1453,71 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),RATING)",
+                    "schemaField": {
+                        "fieldPath": "RATING",
+                        "nullable": true,
+                        "description": "Product \u2192 Rating",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001046,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,29)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1357,6 +1681,151 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,5)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),ACCOUNT_ID)",
+                    "schemaField": {
+                        "fieldPath": "ACCOUNT_ID",
+                        "nullable": true,
+                        "description": "Account ID",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),BODY)",
+                    "schemaField": {
+                        "fieldPath": "BODY",
+                        "nullable": true,
+                        "description": "Body",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),DATE_RECEIVED)",
+                    "schemaField": {
+                        "fieldPath": "DATE_RECEIVED",
+                        "nullable": true,
+                        "description": "Date Received",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),EMAIL)",
+                    "schemaField": {
+                        "fieldPath": "EMAIL",
+                        "nullable": true,
+                        "description": "Email",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),EMAIL_2)",
+                    "schemaField": {
+                        "fieldPath": "EMAIL_2",
+                        "nullable": true,
+                        "description": "Account ID",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),ID)",
+                    "schemaField": {
+                        "fieldPath": "ID",
+                        "nullable": true,
+                        "description": "ID",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),RATING)",
+                    "schemaField": {
+                        "fieldPath": "RATING",
+                        "nullable": true,
+                        "description": "Rating",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Integer",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD),RATING_MAPPED)",
+                    "schemaField": {
+                        "fieldPath": "RATING_MAPPED",
+                        "nullable": true,
+                        "description": "Rating Mapped",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001068,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,21)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1415,6 +1884,55 @@
     "systemMetadata": {
         "lastObserved": 1705752001954,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,34)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Discount",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001091,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1654,6 +2172,55 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,29)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Month",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Quantity",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001112,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,16)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -1766,6 +2333,55 @@
     "systemMetadata": {
         "lastObserved": 1705752002107,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,26)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Month",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Quantity",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001136,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1906,6 +2522,183 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,23)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),ACTIVE_SUBSCRIPTION)",
+                    "schemaField": {
+                        "fieldPath": "ACTIVE_SUBSCRIPTION",
+                        "nullable": true,
+                        "description": "Active Subscription",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.BooleanType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Boolean",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),CANCELED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CANCELED_AT",
+                        "nullable": true,
+                        "description": "Canceled At",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),FIRST_NAME)",
+                    "schemaField": {
+                        "fieldPath": "FIRST_NAME",
+                        "nullable": true,
+                        "description": "First Name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),ID)",
+                    "schemaField": {
+                        "fieldPath": "ID",
+                        "nullable": true,
+                        "description": "ID",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),LAST_NAME)",
+                    "schemaField": {
+                        "fieldPath": "LAST_NAME",
+                        "nullable": true,
+                        "description": "Last Name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),PLAN)",
+                    "schemaField": {
+                        "fieldPath": "PLAN",
+                        "nullable": true,
+                        "description": "Plan",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),SOURCE)",
+                    "schemaField": {
+                        "fieldPath": "SOURCE",
+                        "nullable": true,
+                        "description": "Source",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),TRIAL_CONVERTED)",
+                    "schemaField": {
+                        "fieldPath": "TRIAL_CONVERTED",
+                        "nullable": true,
+                        "description": "Trial Converted",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.BooleanType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Boolean",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD),TRIAL_ENDS_AT)",
+                    "schemaField": {
+                        "fieldPath": "TRIAL_ENDS_AT",
+                        "nullable": true,
+                        "description": "Trial Ends At",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001157,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,34)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -2018,6 +2811,55 @@
     "systemMetadata": {
         "lastObserved": 1705752001321,
         "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,19)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Month",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001180,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2241,6 +3083,71 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,41)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),category)",
+                    "schemaField": {
+                        "fieldPath": "category",
+                        "nullable": true,
+                        "description": "category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),order_count)",
+                    "schemaField": {
+                        "fieldPath": "order_count",
+                        "nullable": true,
+                        "description": "order_count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),total_quantity)",
+                    "schemaField": {
+                        "fieldPath": "total_quantity",
+                        "nullable": true,
+                        "description": "total_quantity",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001251,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,10)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
@@ -2395,7 +3302,8 @@
             "customProperties": {
                 "Metrics": "Count",
                 "Filters": "['between', ['field', 'Age', {'base-type': 'type/BigInteger'}], 20, 70]",
-                "Dimensions": "Age, User \u2192 Source"
+                "Dimensions": "Age, User \u2192 Source",
+                "database_id": "1"
             },
             "title": "Orders by source per age group",
             "description": "Shows a distribution of orders broken down by source across our customers' age groups",
@@ -2405,30 +3313,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001460,
+                    "time": 1705752001362,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/36",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752001460,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752001460,
+                        "time": 1705752001362,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
                     "lastModified": {
-                        "time": 1705752001460,
+                        "time": 1705752001362,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2437,8 +3338,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001671,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752001499,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2465,6 +3366,71 @@
     "systemMetadata": {
         "lastObserved": 1705752002408,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),ID)",
+                    "schemaField": {
+                        "fieldPath": "ID",
+                        "nullable": true,
+                        "description": "ID",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001302,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2498,7 +3464,8 @@
             "customProperties": {
                 "Metrics": "Count",
                 "Filters": "",
-                "Dimensions": "Age, User \u2192 Source"
+                "Dimensions": "Age, User \u2192 Source",
+                "database_id": "1"
             },
             "title": "Orders by source per individual age",
             "description": "Shows a distribution of orders broken down by source across our customers' individual age values",
@@ -2508,30 +3475,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001632,
+                    "time": 1705752001464,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/35",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752001632,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752001632,
+                        "time": 1705752001464,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
                     "lastModified": {
-                        "time": 1705752001632,
+                        "time": 1705752001464,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2540,8 +3500,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001699,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752001565,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2673,6 +3633,71 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,24)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001409,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,32)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -2694,6 +3719,71 @@
     "systemMetadata": {
         "lastObserved": 1705752002485,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "CREATED_AT",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),SOURCE)",
+                    "schemaField": {
+                        "fieldPath": "SOURCE",
+                        "nullable": true,
+                        "description": "SOURCE",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "sum",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001336,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2844,7 +3934,8 @@
             "customProperties": {
                 "Metrics": "Count",
                 "Filters": "",
-                "Dimensions": "Age, Products \u2192 Category"
+                "Dimensions": "Age, Products \u2192 Category",
+                "database_id": "1"
             },
             "title": "Product category orders per age",
             "description": "Shows a distribution of orders broken down by product category across our customers' individual age values",
@@ -2854,30 +3945,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001751,
+                    "time": 1705752001608,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/18",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752001751,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752001751,
+                        "time": 1705752001608,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
                     "lastModified": {
-                        "time": 1705752001751,
+                        "time": 1705752001608,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -2886,8 +3970,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001836,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752001722,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2904,6 +3988,71 @@
     "systemMetadata": {
         "lastObserved": 1705752000947,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,35)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
+                    "schemaField": {
+                        "fieldPath": "Age",
+                        "nullable": true,
+                        "description": "Age",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),SOURCE)",
+                    "schemaField": {
+                        "fieldPath": "SOURCE",
+                        "nullable": true,
+                        "description": "User \u2192 Source",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001566,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2993,6 +4142,71 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,36)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
+                    "schemaField": {
+                        "fieldPath": "Age",
+                        "nullable": true,
+                        "description": "Age",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Decimal",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),SOURCE)",
+                    "schemaField": {
+                        "fieldPath": "SOURCE",
+                        "nullable": true,
+                        "description": "User \u2192 Source",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001499,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,18)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
@@ -3021,7 +4235,8 @@
             "customProperties": {
                 "Metrics": "Count",
                 "Filters": "['between', ['field', 'Age', {'base-type': 'type/BigInteger'}], 20, 70]",
-                "Dimensions": "Age, Products \u2192 Category"
+                "Dimensions": "Age, Products \u2192 Category",
+                "database_id": "1"
             },
             "title": "Product category orders per age group",
             "description": "Shows a distribution of orders broken down by product categories across our customers' age groups",
@@ -3031,30 +4246,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001803,
+                    "time": 1705752001689,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/4",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752001803,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752001803,
+                        "time": 1705752001689,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
                     "lastModified": {
-                        "time": 1705752001803,
+                        "time": 1705752001689,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -3063,8 +4271,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001856,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752001824,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3111,6 +4319,231 @@
     "systemMetadata": {
         "lastObserved": 1705752002677,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,32)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),ADDRESS)",
+                    "schemaField": {
+                        "fieldPath": "ADDRESS",
+                        "nullable": true,
+                        "description": "Address",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),Age)",
+                    "schemaField": {
+                        "fieldPath": "Age",
+                        "nullable": true,
+                        "description": "Age",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),BIRTH_DATE)",
+                    "schemaField": {
+                        "fieldPath": "BIRTH_DATE",
+                        "nullable": true,
+                        "description": "Birth Date",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Date",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),CITY)",
+                    "schemaField": {
+                        "fieldPath": "CITY",
+                        "nullable": true,
+                        "description": "City",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),EMAIL)",
+                    "schemaField": {
+                        "fieldPath": "EMAIL",
+                        "nullable": true,
+                        "description": "Email",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),ID)",
+                    "schemaField": {
+                        "fieldPath": "ID",
+                        "nullable": true,
+                        "description": "ID",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),LATITUDE)",
+                    "schemaField": {
+                        "fieldPath": "LATITUDE",
+                        "nullable": true,
+                        "description": "Latitude",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),LONGITUDE)",
+                    "schemaField": {
+                        "fieldPath": "LONGITUDE",
+                        "nullable": true,
+                        "description": "Longitude",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),NAME)",
+                    "schemaField": {
+                        "fieldPath": "NAME",
+                        "nullable": true,
+                        "description": "Name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),SOURCE)",
+                    "schemaField": {
+                        "fieldPath": "SOURCE",
+                        "nullable": true,
+                        "description": "Source",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),STATE)",
+                    "schemaField": {
+                        "fieldPath": "STATE",
+                        "nullable": true,
+                        "description": "State",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD),ZIP)",
+                    "schemaField": {
+                        "fieldPath": "ZIP",
+                        "nullable": true,
+                        "description": "Zip",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001592,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3367,6 +4800,71 @@
     "systemMetadata": {
         "lastObserved": 1705752002724,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,18)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
+                    "schemaField": {
+                        "fieldPath": "Age",
+                        "nullable": true,
+                        "description": "Age",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Decimal",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Products \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001722,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3749,6 +5247,103 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,42)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),category)",
+                    "schemaField": {
+                        "fieldPath": "category",
+                        "nullable": true,
+                        "description": "category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),id)",
+                    "schemaField": {
+                        "fieldPath": "id",
+                        "nullable": true,
+                        "description": "id",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Integer",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),name)",
+                    "schemaField": {
+                        "fieldPath": "name",
+                        "nullable": true,
+                        "description": "name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),price)",
+                    "schemaField": {
+                        "fieldPath": "price",
+                        "nullable": true,
+                        "description": "price",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Decimal",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),total_sold)",
+                    "schemaField": {
+                        "fieldPath": "total_sold",
+                        "nullable": true,
+                        "description": "total_sold",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001861,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,10)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -3814,7 +5409,8 @@
             "customProperties": {
                 "Metrics": "Sum of Total",
                 "Filters": "",
-                "Dimensions": "State"
+                "Dimensions": "State",
+                "database_id": "1"
             },
             "title": "Revenue by state",
             "description": "Revenue in the US broken down by state",
@@ -3824,23 +5420,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752001981,
+                    "time": 1705752001990,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/2",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752001981,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752001981,
+                        "time": 1705752001990,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -3848,8 +5437,73 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002037,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752002079,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,4)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
+                    "schemaField": {
+                        "fieldPath": "Age",
+                        "nullable": true,
+                        "description": "Age",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Decimal",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Products \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001825,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3969,6 +5623,55 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,9)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001918,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,17)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
@@ -3997,7 +5700,8 @@
             "customProperties": {
                 "Metrics": "Sum of Total",
                 "Filters": "['between', ['field', 'Age', {'base-type': 'type/BigInteger'}], 20, 70]",
-                "Dimensions": "Age"
+                "Dimensions": "Age",
+                "database_id": "1"
             },
             "title": "Revenue per age group",
             "description": "Shows the revenue distributed by age group",
@@ -4007,23 +5711,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002054,
+                    "time": 1705752002094,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/28",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752002054,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752002054,
+                        "time": 1705752002094,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -4032,8 +5729,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002154,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752002194,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4139,6 +5836,168 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,13)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Month",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),avg)",
+                    "schemaField": {
+                        "fieldPath": "avg",
+                        "nullable": true,
+                        "description": "Average of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),max)",
+                    "schemaField": {
+                        "fieldPath": "max",
+                        "nullable": true,
+                        "description": "Max of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum_2)",
+                    "schemaField": {
+                        "fieldPath": "sum_2",
+                        "nullable": true,
+                        "description": "Sum of Discount",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002027,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,27)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Quantity",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001883,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,28)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
@@ -4167,7 +6026,8 @@
             "customProperties": {
                 "Metrics": "Sum of Total",
                 "Filters": "",
-                "Dimensions": "Age"
+                "Dimensions": "Age",
+                "database_id": "1"
             },
             "title": "Revenue per individual age",
             "description": "Shows a distribution of revenue per individual age values",
@@ -4177,23 +6037,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002113,
+                    "time": 1705752002165,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/33",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752002113,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752002113,
+                        "time": 1705752002165,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -4202,8 +6055,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002186,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752002248,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4504,6 +6357,152 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,12)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum_2)",
+                    "schemaField": {
+                        "fieldPath": "sum_2",
+                        "nullable": true,
+                        "description": "Sum of Quantity",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum_3)",
+                    "schemaField": {
+                        "fieldPath": "sum_3",
+                        "nullable": true,
+                        "description": "Sum of Discount",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001955,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,17)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002124,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,8)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -4647,7 +6646,8 @@
             "customProperties": {
                 "Metrics": "Distinct values of Customer Email",
                 "Filters": "['time-interval', ['field', 'CREATED_AT', {'base-type': 'type/DateTime'}], -2, 'quarter']",
-                "Dimensions": "Created At: Quarter"
+                "Dimensions": "Created At: Quarter",
+                "database_id": "1"
             },
             "title": "Unique customers per month",
             "description": "Unique customer email addresses last quarter compared to the previous",
@@ -4657,23 +6657,16 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002334,
+                    "time": 1705752002338,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
             "chartUrl": "http://localhost:3001/card/30",
             "inputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
                     "lastModified": {
-                        "time": 1705752002334,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752002334,
+                        "time": 1705752002338,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -4682,8 +6675,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002397,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752002409,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4710,6 +6703,55 @@
     "systemMetadata": {
         "lastObserved": 1705752003256,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),STATE)",
+                    "schemaField": {
+                        "fieldPath": "STATE",
+                        "nullable": true,
+                        "description": "State",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002080,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4794,6 +6836,55 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,33)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
+                    "schemaField": {
+                        "fieldPath": "Age",
+                        "nullable": true,
+                        "description": "Age",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002248,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,17)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -4864,204 +6955,167 @@
                 {
                     "destinationUrn": "urn:li:chart:(metabase,21)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,24)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,22)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,2)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,18)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,12)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,15)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,17)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,13)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,10)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,20)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,7)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,8)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,3)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,5)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,6)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,16)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,23)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,11)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,14)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,38)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,39)",
                     "lastModified": {
-                        "time": 1705752002596,
+                        "time": 1705752002578,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
             ],
             "datasets": [],
-            "datasetEdges": [
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.feedback,PROD)",
-                    "lastModified": {
-                        "time": 1705752002596,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD)",
-                    "lastModified": {
-                        "time": 1705752002596,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.products,PROD)",
-                    "lastModified": {
-                        "time": 1705752002596,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.people,PROD)",
-                    "lastModified": {
-                        "time": 1705752002596,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.accounts,PROD)",
-                    "lastModified": {
-                        "time": 1705752002596,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                }
-            ],
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1705752002596,
+                    "time": 1705752002578,
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002596,
+                    "time": 1705752002578,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
@@ -5069,8 +7123,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003195,
-        "runId": "metabase-2024_01_20-12_00_00-mf4tiz",
+        "lastObserved": 1705752002604,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5124,6 +7178,55 @@
     "systemMetadata": {
         "lastObserved": 1705752001627,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,28)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
+                    "schemaField": {
+                        "fieldPath": "Age",
+                        "nullable": true,
+                        "description": "Age",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Decimal",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002195,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5249,6 +7352,119 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,8)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),QUANTITY)",
+                    "schemaField": {
+                        "fieldPath": "QUANTITY",
+                        "nullable": true,
+                        "description": "Quantity: 8 bins",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Decimal",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum_2)",
+                    "schemaField": {
+                        "fieldPath": "sum_2",
+                        "nullable": true,
+                        "description": "Sum of Discount",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002305,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,27)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -5344,6 +7560,55 @@
     "systemMetadata": {
         "lastObserved": 1705752004292,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,15)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of Total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002262,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5617,6 +7882,55 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002325,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
     "changeType": "UPSERT",
@@ -5830,6 +8144,55 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.orders,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002364,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,16)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -5857,6 +8220,55 @@
     "systemMetadata": {
         "lastObserved": 1705752004311,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,30)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Quarter",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Distinct values of Customer Email",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002410,
+        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
         "lastRunId": "no-run-id-provided"
     }
 },

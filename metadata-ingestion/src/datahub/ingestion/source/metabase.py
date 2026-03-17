@@ -70,6 +70,8 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    InputFieldClass,
+    InputFieldsClass,
     MySqlDDLClass,
     NullTypeClass,
     NumberTypeClass,
@@ -839,10 +841,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
             )
 
-        dataset_edges = self.construct_dashboard_lineage(
-            dashboard=dashboard, last_modified=last_modified.lastModified
-        )
-
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=DashboardInfoClass(
@@ -852,7 +850,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 lastModified=last_modified,
                 dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
                 customProperties={},
-                datasetEdges=dataset_edges if dataset_edges else None,
             ),
         ).as_workunit()
 
@@ -877,43 +874,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 entity_type="dashboard",
                 entity_urn=dashboard_urn,
             )
-
-    def construct_dashboard_lineage(
-        self, dashboard: MetabaseDashboard, last_modified: AuditStampClass
-    ) -> Optional[List[EdgeClass]]:
-        upstream_tables = []
-
-        for dashcard in dashboard.dashcards:
-            if not dashcard.card or not dashcard.card.id:
-                continue
-
-            card_id = dashcard.card.id
-
-            if not card_id:
-                continue
-
-            card = self.get_card_details_by_id(card_id)
-            if not card:
-                continue
-
-            table_urns = self._get_table_urns_from_card(card)
-            if table_urns:
-                upstream_tables.extend(table_urns)
-
-        unique_table_urns = list(set(upstream_tables))
-
-        if not unique_table_urns:
-            return None
-
-        dataset_edges = [
-            EdgeClass(
-                destinationUrn=table_urn,
-                lastModified=last_modified,
-            )
-            for table_urn in unique_table_urns
-        ]
-
-        return dataset_edges
 
     def _check_recursion_limit(
         self, recursion_depth: int, context: str, card_id: int
@@ -992,10 +952,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self, card: MetabaseCard, recursion_depth: int = 0
     ) -> List[str]:
         """
-        Metabase's query builder allows cards to reference other cards as their source:
-        - source-table: 123 — direct table ID
-        - source-table: "card__456" — nested card reference
-        - joins[].source-table — additional tables via MBQL joins
+        Extract table/model URNs from MBQL query builder cards.
+
+        Metabase allows cards to reference other cards as sources:
+        - source-table: 123 — direct table reference
+        - source-table: "card__456" — model or question reference
+        - joins[].source-table — additional tables
         """
         if not card.dataset_query or not card.dataset_query.query:
             return []
@@ -1014,11 +976,20 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 referenced_card_id = source_table_str.replace(_CARD_REF_PREFIX, "")
                 referenced_card = self.get_card_details_by_id(referenced_card_id)
                 if referenced_card:
-                    table_urns.extend(
-                        self._get_table_urns_from_card(
-                            card=referenced_card, recursion_depth=recursion_depth + 1
+                    if referenced_card.type == _CARD_TYPE_MODEL:
+                        model_urn = builder.make_dataset_urn(
+                            platform="metabase",
+                            name=f"model.{referenced_card.id}",
+                            env=self.config.env,
                         )
-                    )
+                        table_urns.append(model_urn)
+                    else:
+                        table_urns.extend(
+                            self._get_table_urns_from_card(
+                                card=referenced_card,
+                                recursion_depth=recursion_depth + 1,
+                            )
+                        )
                 continue
 
             if not card.database_id:
@@ -1223,6 +1194,84 @@ class MetabaseSource(StatefulIngestionSourceBase):
             fineGrainedLineages=fine_grained if fine_grained else None,
         )
 
+    def _get_cll_from_native_sql(
+        self, card: MetabaseCard, entity_urn: str
+    ) -> Optional[UpstreamLineageClass]:
+        """Extract column-level lineage from native SQL queries."""
+        if not card.database_id:
+            return None
+
+        datasource = self.get_datasource_from_id(card.database_id)
+        if not datasource or not datasource.platform:
+            return None
+
+        raw_query = self._extract_native_query(card)
+        if not raw_query:
+            return None
+
+        raw_query_stripped = self.strip_template_expressions(raw_query)
+
+        result = create_lineage_sql_parsed_result(
+            query=raw_query_stripped,
+            default_db=self._normalize(datasource.database_name)
+            if datasource.database_name
+            else None,
+            default_schema=datasource.schema or self.config.default_schema,
+            platform=datasource.platform,
+            platform_instance=datasource.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+        )
+
+        if result.debug_info.table_error:
+            logger.debug(
+                "Failed to parse table lineage from native SQL: %s",
+                result.debug_info.table_error,
+            )
+            return None
+
+        table_urns = [str(t) for t in result.in_tables]
+        if not table_urns:
+            return None
+
+        fine_grained: List[FineGrainedLineageClass] = []
+
+        if result.column_lineage:
+            for col_lineage in result.column_lineage:
+                if not col_lineage.downstream.column:
+                    continue
+
+                upstream_urns = [
+                    builder.make_schema_field_urn(
+                        parent_urn=str(upstream.table), field_path=upstream.column
+                    )
+                    for upstream in col_lineage.upstreams
+                    if upstream.column
+                ]
+
+                if upstream_urns:
+                    fine_grained.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=upstream_urns,
+                            downstreams=[
+                                builder.make_schema_field_urn(
+                                    parent_urn=entity_urn,
+                                    field_path=col_lineage.downstream.column,
+                                )
+                            ],
+                        )
+                    )
+
+        return UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=urn, type=DatasetLineageTypeClass.TRANSFORMED)
+                for urn in table_urns
+            ],
+            fineGrainedLineages=fine_grained if fine_grained else None,
+        )
+
     @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
         user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
@@ -1408,6 +1457,45 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def _get_input_fields_from_card(self, card: MetabaseCard) -> List[InputFieldClass]:
+        """Extract InputFields from result_metadata for column-level usage tracking."""
+        input_fields: List[InputFieldClass] = []
+
+        if not card.result_metadata:
+            return input_fields
+
+        datasource_urns = self.get_datasource_urn(card)
+        if not datasource_urns:
+            return input_fields
+
+        primary_datasource_urn = datasource_urns[0]
+
+        for meta in card.result_metadata:
+            if not meta.name:
+                continue
+
+            input_fields.append(
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(
+                        parent_urn=primary_datasource_urn,
+                        field_path=meta.name,
+                    ),
+                    schemaField=SchemaFieldClass(
+                        fieldPath=meta.name,
+                        type=SchemaFieldDataTypeClass(
+                            type=self._map_metabase_type_to_datahub_type(
+                                meta.base_type or ""
+                            )
+                        ),
+                        nativeDataType=meta.base_type or "",
+                        description=meta.display_name or meta.name,
+                        nullable=True,
+                    ),
+                )
+            )
+
+        return input_fields
+
     def _emit_chart_workunits(
         self, card_info: MetabaseCardListItem
     ) -> Iterable[MetadataWorkUnit]:
@@ -1491,6 +1579,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=tags,
+            ).as_workunit()
+
+        input_fields = self._get_input_fields_from_card(card_details)
+        if input_fields:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=InputFieldsClass(
+                    fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                ),
             ).as_workunit()
 
         if card_details.collection_id is not None:
@@ -1830,6 +1927,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_QUERY:
             cll = self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
+            if cll:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=model_urn,
+                    aspect=cll,
+                ).as_workunit()
+        elif card.query_type == _QUERY_TYPE_NATIVE:
+            cll = self._get_cll_from_native_sql(card=card, entity_urn=model_urn)
             if cll:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=model_urn,
