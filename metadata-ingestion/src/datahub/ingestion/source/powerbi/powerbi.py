@@ -45,6 +45,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.powerbi.config import (
     Constant,
+    PowerBiAppUrlPattern,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
@@ -1759,6 +1760,15 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 name=powerbi_data_classes.App.get_urn_part_by_id(workspace.app.id),
             )
 
+            base_url = self.source_config.environment.web_app_base_url
+            if (
+                self.source_config.app_url_pattern
+                == PowerBiAppUrlPattern.REDIRECT_BASED
+            ):
+                app_url = f"{base_url}/Redirect?action=OpenApp&appId={workspace.app.id}"
+            else:
+                app_url = f"{base_url}/groups/{workspace.id}/apps/{workspace.app.id}"
+
             dashboard_info: DashboardInfoClass = DashboardInfoClass(
                 title=workspace.app.name,
                 description=workspace.app.description
@@ -1777,6 +1787,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     if workspace.app.last_update
                     else None
                 ),
+                dashboardUrl=app_url,
                 dashboards=assets_within_app,
             )
 

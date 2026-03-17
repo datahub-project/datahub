@@ -80,7 +80,7 @@ def glue_source(
     use_s3_bucket_tags: bool = True,
     use_s3_object_tags: bool = True,
     extract_delta_schema_from_parameters: bool = False,
-    emit_s3_lineage: bool = False,
+    emit_storage_lineage: bool = False,
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
     extract_lakeformation_tags: bool = False,
@@ -98,7 +98,7 @@ def glue_source(
             use_s3_bucket_tags=use_s3_bucket_tags,
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
-            emit_s3_lineage=emit_s3_lineage,
+            emit_storage_lineage=emit_storage_lineage,
             include_column_lineage=include_column_lineage,
             extract_lakeformation_tags=extract_lakeformation_tags,
         ),
@@ -536,7 +536,7 @@ def test_glue_ingest_include_table_lineage(
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
         mock_datahub_graph_instance=mock_datahub_graph_instance,
-        emit_s3_lineage=True,
+        emit_storage_lineage=True,
     )
 
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
@@ -631,7 +631,7 @@ def test_glue_ingest_include_column_lineage(
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
         mock_datahub_graph_instance=mock_datahub_graph_instance,
-        emit_s3_lineage=True,
+        emit_storage_lineage=True,
         include_column_lineage=True,
         use_s3_bucket_tags=False,
         use_s3_object_tags=False,

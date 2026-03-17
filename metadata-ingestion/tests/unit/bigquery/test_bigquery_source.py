@@ -35,6 +35,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryTableSnapshot,
     BigqueryView,
+    ExternalTableOptions,
     get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
@@ -1692,4 +1693,50 @@ def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
 
     match = shard_matcher.match(table_id)
     assert match is not None
-    assert match[3] == "20240101"
+
+
+@pytest.mark.parametrize(
+    "ddl, expected",
+    [
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'PARQUET', uris = [\"gs://bucket/path/*\"])",
+            ExternalTableOptions(
+                source_format="PARQUET",
+                source_uris=["gs://bucket/path/*"],
+            ),
+        ),
+        (
+            'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = \'CSV\', uris = ["gs://bucket/a.csv","gs://bucket/b.csv"])',
+            ExternalTableOptions(
+                source_format="CSV",
+                source_uris=["gs://bucket/a.csv", "gs://bucket/b.csv"],
+            ),
+        ),
+        (
+            'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(uris = ["gs://bucket/path/*"])',
+            ExternalTableOptions(source_uris=["gs://bucket/path/*"]),
+        ),
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(FORMAT = 'orc', uris = [\"gs://bucket/path/*\"])",
+            ExternalTableOptions(
+                source_format="ORC",
+                source_uris=["gs://bucket/path/*"],
+            ),
+        ),
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'CSV', uris = [\"gs://bucket/a.csv\"], compression = 'GZIP', max_bad_records = 10)",
+            ExternalTableOptions(
+                source_format="CSV",
+                source_uris=["gs://bucket/a.csv"],
+                compression="GZIP",
+                max_bad_records=10,
+            ),
+        ),
+        (
+            "CREATE TABLE `p.d.t` (id INT64)",
+            ExternalTableOptions(),
+        ),
+    ],
+)
+def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) -> None:
+    assert ExternalTableOptions.from_ddl(ddl) == expected

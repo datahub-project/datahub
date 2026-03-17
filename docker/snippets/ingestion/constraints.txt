@@ -16,7 +16,8 @@ jaraco.context>=6.1.0,<7
 aiohttp>=3.13.3
 pillow>=12.1.1
 setuptools>=80.10.1
-authlib>=1.6.7
+# JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
+authlib>=1.6.9
 werkzeug>=3.1.6
 azure-core>=1.38.0
 # CVE-2026-25087: Apache Arrow C++ Use After Free; fixed in pyarrow 23.0.1. Docker minimum.
