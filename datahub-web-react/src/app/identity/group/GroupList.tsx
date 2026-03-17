@@ -5,22 +5,6 @@ import { useLocation } from 'react-router';
 import analytics, { EventType } from '@app/analytics';
 import CreateGroupModal from '@app/identity/group/CreateGroupModal';
 import {
-    DEFAULT_GROUP_LIST_PAGE_SIZE,
-    addGroupToListGroupsCache,
-    removeGroupFromListGroupsCache,
-} from '@app/identity/group/cacheUtils';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { GROUPS_INTRO_ID } from '@app/onboarding/config/GroupsOnboardingConfig';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { NO_ROLE_URN, useRoleAssignment } from '@app/identity/useRoleAssignment';
-import { Button, EmptyState, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
-
-import { ListGroupsQuery, useListGroupsQuery } from '@graphql/group.generated';
-import { useListRolesQuery } from '@graphql/role.generated';
-import { CorpGroup, DataHubRole } from '@types';
-
-import {
     ActionsContainer,
     FiltersHeader,
     GroupActionsMenu,
@@ -34,6 +18,21 @@ import {
     SearchContainer,
     TableContainer,
 } from '@app/identity/group/GroupList.components';
+import {
+    DEFAULT_GROUP_LIST_PAGE_SIZE,
+    addGroupToListGroupsCache,
+    removeGroupFromListGroupsCache,
+} from '@app/identity/group/cacheUtils';
+import { NO_ROLE_URN, useRoleAssignment } from '@app/identity/useRoleAssignment';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { GROUPS_INTRO_ID } from '@app/onboarding/config/GroupsOnboardingConfig';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { Button, EmptyState, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
+
+import { ListGroupsQuery, useListGroupsQuery } from '@graphql/group.generated';
+import { useListRolesQuery } from '@graphql/role.generated';
+import { CorpGroup, DataHubRole } from '@types';
 
 export type ListGroupsGroup = NonNullable<ListGroupsQuery['listGroups']>['groups'][number];
 

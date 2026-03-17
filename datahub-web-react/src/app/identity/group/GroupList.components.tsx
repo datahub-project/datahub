@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
+import type { ListGroupsGroup } from '@app/identity/group/GroupList';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Avatar, Button, Modal, Pill, Text, toast } from '@src/alchemy-components';
@@ -12,8 +13,6 @@ import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 import { useRemoveGroupMutation } from '@graphql/group.generated';
 import { CorpGroup, DataHubRole, EntityType, OriginType } from '@types';
-
-import type { ListGroupsGroup } from '@app/identity/group/GroupList';
 
 // --- Styled components ---
 
@@ -148,9 +147,7 @@ export const GroupRoleCell = ({
     const entityRegistry = useEntityRegistry();
     const roleRelationships = group.roles?.relationships;
     const serverRole =
-        roleRelationships && roleRelationships.length > 0
-            ? (roleRelationships[0]?.entity as DataHubRole)
-            : undefined;
+        roleRelationships && roleRelationships.length > 0 ? (roleRelationships[0]?.entity as DataHubRole) : undefined;
     const serverRoleUrn = serverRole?.urn || noRoleUrn;
     const currentRoleUrn = optimisticRoleUrn ?? serverRoleUrn;
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);

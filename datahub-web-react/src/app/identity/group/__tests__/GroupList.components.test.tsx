@@ -4,11 +4,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { toast } from '@src/alchemy-components';
-import theme from '@src/alchemy-components/theme';
-
-import { EntityType, OriginType } from '@types';
-
 import type { ListGroupsGroup } from '@app/identity/group/GroupList';
 import {
     GroupActionsMenu,
@@ -17,6 +12,10 @@ import {
     GroupNameCell,
     GroupRoleCell,
 } from '@app/identity/group/GroupList.components';
+import { toast } from '@src/alchemy-components';
+import theme from '@src/alchemy-components/theme';
+
+import { EntityType, OriginType } from '@types';
 
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => ({
