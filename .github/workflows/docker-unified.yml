@@ -15,6 +15,16 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - "**"
+    paths-ignore:
+      - ".github/**"
+      - "!.github/workflows/docker-unified.yml"
+      - "!.github/scripts/send_failed_tests_to_posthog.py"
+      - "!.github/scripts/docker_helpers.sh"
+      - "!.github/actions/ci-optimization"
+      - "!.github/scripts/check_python_package.py"
+      - "!.github/scripts/parse_failed_cypress_tests.py"
+      - "!.github/scripts/parse_failed_pytest_tests.py"
+      - "!.github/scripts/docker_logs.sh"
   release:
     types: [published]
 
@@ -32,8 +42,6 @@ env:
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "s0gr1cr3jd"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
-  # Include Alpine variants for releases, or when PR has 'build-alpine-variant' label
-  INCLUDE_ALPINE_VARIANTS: ${{ github.event_name == 'release' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-alpine-variant')) }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
@@ -68,9 +76,6 @@ jobs:
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       backend_only: ${{ steps.ci-optimize.outputs.backend-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
-      mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
-      postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
-      elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
       java_client_change: ${{ steps.ci-optimize.outputs.java-client-change == 'true' || github.event_name != 'pull_request' }}
       integrations_service_change: "false"
@@ -298,15 +303,13 @@ jobs:
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
-
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
         # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
-
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
       - name: Capture build Id
         id: capture-build-id
         run: |
@@ -372,7 +375,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.2
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -454,20 +457,6 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - name: Free up disk space
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/.ghcup || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /usr/share/swift || true
-          sudo rm -rf /usr/local/julia* || true
-          sudo rm -rf /usr/local/share/powershell || true
-          sudo rm -rf /usr/share/miniconda || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker system prune -a -f || true
-          df -h
-
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -488,7 +477,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v4
         with:
           checkout-head-only: false
-
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
@@ -678,7 +668,7 @@ jobs:
       - name: build images
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -930,7 +920,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint, smoke_test, publish_images]
+    needs: [setup, smoke_test, publish_images]
     steps:
       - uses: aws-actions/configure-aws-credentials@v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}

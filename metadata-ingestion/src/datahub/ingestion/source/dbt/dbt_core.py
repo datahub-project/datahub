@@ -37,6 +37,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -175,6 +176,41 @@ def get_columns(
     return columns
 
 
+def _extract_catalog_stats(
+    catalog_node: Optional[Dict[str, Any]],
+    node_name: Optional[str] = None,
+) -> Tuple[Optional[int], Optional[int]]:
+    """Extract row_count and size_in_bytes from catalog node stats.
+
+    Returns:
+        Tuple of (row_count, size_in_bytes), each can be None if not available.
+    """
+    if catalog_node is None:
+        return None, None
+
+    catalog_stats = catalog_node.get("stats", {})
+    row_count: Optional[int] = None
+    size_in_bytes: Optional[int] = None
+
+    # Extract row count (num_rows)
+    num_rows_stat = catalog_stats.get("num_rows", {})
+    if num_rows_stat.get("include", False) and num_rows_stat.get("value") is not None:
+        try:
+            row_count = int(num_rows_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_rows stat for {node_name}: {e}")
+
+    # Extract size in bytes (num_bytes)
+    num_bytes_stat = catalog_stats.get("num_bytes", {})
+    if num_bytes_stat.get("include", False) and num_bytes_stat.get("value") is not None:
+        try:
+            size_in_bytes = int(num_bytes_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_bytes stat for {node_name}: {e}")
+
+    return row_count, size_in_bytes
+
+
 def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Optional[Dict[str, Dict[str, Any]]],
@@ -234,6 +270,9 @@ def extract_dbt_entities(
                     )
         else:
             catalog_type = catalog_node["metadata"]["type"]
+
+        # Extract stats from catalog (e.g., num_rows, num_bytes from BigQuery/Snowflake)
+        row_count, size_in_bytes = _extract_catalog_stats(catalog_node, node_name=key)
 
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")
@@ -337,6 +376,8 @@ def extract_dbt_entities(
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
             freshness_info=freshness_info,
+            row_count=row_count,
+            size_in_bytes=size_in_bytes,
         )
 
         # Load columns from catalog, and override some properties from manifest.
@@ -405,6 +446,101 @@ def extract_dbt_exposures(
             )
         )
     return exposures
+
+
+def _resolve_database_schema(
+    node_relation: Dict[str, Any],
+    depends_on: Dict[str, Any],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve database/schema from node_relation or upstream dependencies."""
+    database = node_relation.get("database")
+    schema = node_relation.get("schema")
+
+    if database and schema:
+        return database, schema
+
+    depends_on_nodes = (
+        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+    )
+    for ref_node_id in depends_on_nodes:
+        if ref_node_id in manifest_nodes:
+            ref_node = manifest_nodes[ref_node_id]
+            return (
+                database or ref_node.get("database"),
+                schema or ref_node.get("schema"),
+            )
+
+    return database, schema
+
+
+def extract_semantic_models(
+    manifest_semantic_models: Dict[str, Dict[str, Any]],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+    manifest_adapter: Optional[str],
+    tag_prefix: str,
+) -> List[DBTNode]:
+    """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
+    semantic_model_nodes: List[DBTNode] = []
+
+    for key, sm_node in manifest_semantic_models.items():
+        name = sm_node.get("name", "")
+        description = sm_node.get("description", "")
+
+        node_relation = sm_node.get("node_relation", {})
+        depends_on = sm_node.get("depends_on", {})
+        database, schema = _resolve_database_schema(
+            node_relation, depends_on, manifest_nodes
+        )
+        alias = node_relation.get("alias")
+
+        entities = sm_node.get("entities", [])
+        dimensions = sm_node.get("dimensions", [])
+        measures = sm_node.get("measures", [])
+
+        columns = convert_semantic_model_fields_to_columns(
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
+        )
+
+        tags = sm_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        upstream_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        semantic_model_nodes.append(
+            DBTNode(
+                dbt_name=key,
+                dbt_adapter=manifest_adapter,
+                dbt_package_name=sm_node.get("package_name"),
+                database=database,
+                schema=schema,
+                name=name,
+                alias=alias,
+                dbt_file_path=sm_node.get("original_file_path"),
+                node_type="semantic_model",
+                max_loaded_at=None,
+                comment="",
+                description=description,
+                upstream_nodes=upstream_nodes,
+                materialization=None,
+                catalog_type=None,
+                missing_from_catalog=False,
+                meta=sm_node.get("meta", {}),
+                query_tag={},
+                tags=tags,
+                owner=None,
+                language="yaml",
+                columns=columns,
+                compiled_code=None,
+                raw_code=None,
+            )
+        )
+
+    return semantic_model_nodes
 
 
 class DBTRunTiming(BaseModel):
@@ -620,6 +756,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
                 project_name=dbt_catalog_metadata.get("project_name", "unknown"),
             )
+            # Parse and store catalog's generated_at for use in DatasetProfile timestamps
+            if generated_at_str := dbt_catalog_metadata.get("generated_at"):
+                try:
+                    self.report.catalog_generated_at = parse_dbt_timestamp(
+                        generated_at_str
+                    )
+                except Exception:
+                    logger.debug(
+                        f"Failed to parse catalog generated_at: {generated_at_str}"
+                    )
         else:
             self.report.warning(
                 title="No catalog file configured",
@@ -651,6 +797,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
         manifest_exposures = dbt_manifest_json.get("exposures", {})
+        manifest_semantic_models = dbt_manifest_json.get("semantic_models", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
@@ -679,6 +826,24 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             manifest_exposures=manifest_exposures,
             tag_prefix=self.config.tag_prefix,
         )
+
+        # Extract semantic models from manifest (dbt 1.6+)
+        if (
+            self.config.entities_enabled.can_emit_semantic_models
+            and manifest_semantic_models
+        ):
+            semantic_model_nodes = extract_semantic_models(
+                manifest_semantic_models=manifest_semantic_models,
+                manifest_nodes=manifest_nodes,
+                manifest_adapter=manifest_adapter,
+                tag_prefix=self.config.tag_prefix,
+            )
+            nodes.extend(semantic_model_nodes)
+            self.report.num_semantic_models_emitted = len(semantic_model_nodes)
+            if semantic_model_nodes:
+                logger.info(
+                    f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
+                )
 
         return (
             nodes,

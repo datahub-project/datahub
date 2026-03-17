@@ -27,8 +27,7 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 import { LoadingWrapper } from '@src/app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 
-export const selectDefaults: SelectProps = {
-    options: [],
+export const selectDefaults: Partial<SelectProps> = {
     label: '',
     size: 'md',
     showSearch: false,
@@ -46,8 +45,8 @@ export const selectDefaults: SelectProps = {
     ignoreMaxHeight: false,
 };
 
-export const SimpleSelect = ({
-    options = selectDefaults.options,
+export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
+    options = [],
     label = selectDefaults.label,
     values,
     initialValues,
@@ -82,8 +81,12 @@ export const SimpleSelect = ({
     isLoading = false,
     dataTestId,
     visibilityDeps,
+    placement = 'bottomLeft',
+    renderSelectBase,
+    renderOptionsFooter,
+    emptyState,
     ...props
-}: SelectProps) => {
+}: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const selectRef = useRef<HTMLDivElement>(null);
@@ -181,7 +184,7 @@ export const SimpleSelect = ({
                 <Dropdown
                     open={isOpen}
                     disabled={isDisabled}
-                    placement="bottomRight"
+                    placement={placement}
                     dropdownRender={() => (
                         <DropdownContainer
                             ref={dropdownRef}
@@ -210,7 +213,7 @@ export const SimpleSelect = ({
                                         <LoadingOutlined />
                                     </LoadingWrapper>
                                 ) : (
-                                    !filteredOptions.length && <NoResultsFoundPlaceholder />
+                                    !filteredOptions.length && (emptyState ?? <NoResultsFoundPlaceholder />)
                                 )}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
@@ -279,46 +282,54 @@ export const SimpleSelect = ({
                                         )}
                                     </OptionLabel>
                                 ))}
+                                {renderOptionsFooter?.()}
                             </OptionList>
                         </DropdownContainer>
                     )}
                 >
-                    <SelectBase
-                        isDisabled={isDisabled}
-                        isReadOnly={isReadOnly}
-                        isRequired={isRequired}
-                        isOpen={isOpen}
-                        onClick={handleSelectClick}
-                        fontSize={size}
-                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
-                        {...props}
-                        position={position}
-                    >
-                        <SelectLabelContainer>
-                            {icon && <StyledIcon icon={icon} size="lg" />}
-                            <SelectLabelRenderer
-                                selectedValues={selectedValues}
-                                options={finalOptions}
-                                placeholder={placeholder || 'Select an option'}
-                                isMultiSelect={isMultiSelect}
-                                removeOption={handleOptionChange}
-                                disabledValues={disabledValues}
-                                showDescriptions={showDescriptions}
-                                renderCustomSelectedValue={renderCustomSelectedValue}
-                                selectedOptionListStyle={selectedOptionListStyle}
-                                {...(selectLabelProps || {})}
-                            />
-                        </SelectLabelContainer>
-                        <SelectActionButtons
-                            hasSelectedValues={selectedValues.length > 0}
+                    {renderSelectBase ? (
+                        renderSelectBase({
+                            isOpened: isOpen,
+                            onClick: handleSelectClick,
+                        })
+                    ) : (
+                        <SelectBase
+                            isDisabled={isDisabled}
+                            isReadOnly={isReadOnly}
+                            isRequired={isRequired}
                             isOpen={isOpen}
-                            isDisabled={!!isDisabled}
-                            isReadOnly={!!isReadOnly}
-                            handleClearSelection={handleClearSelection}
+                            onClick={handleSelectClick}
                             fontSize={size}
-                            showClear={!!showClear}
-                        />
-                    </SelectBase>
+                            data-testid={dataTestId ? `${dataTestId}-base` : undefined}
+                            {...props}
+                            position={position}
+                        >
+                            <SelectLabelContainer>
+                                {icon && <StyledIcon icon={icon} size="lg" />}
+                                <SelectLabelRenderer
+                                    selectedValues={selectedValues}
+                                    options={finalOptions}
+                                    placeholder={placeholder || 'Select an option'}
+                                    isMultiSelect={isMultiSelect}
+                                    removeOption={handleOptionChange}
+                                    disabledValues={disabledValues}
+                                    showDescriptions={showDescriptions}
+                                    renderCustomSelectedValue={renderCustomSelectedValue}
+                                    selectedOptionListStyle={selectedOptionListStyle}
+                                    {...(selectLabelProps || {})}
+                                />
+                            </SelectLabelContainer>
+                            <SelectActionButtons
+                                hasSelectedValues={selectedValues.length > 0}
+                                isOpen={isOpen}
+                                isDisabled={!!isDisabled}
+                                isReadOnly={!!isReadOnly}
+                                handleClearSelection={handleClearSelection}
+                                fontSize={size}
+                                showClear={!!showClear}
+                            />
+                        </SelectBase>
+                    )}
                 </Dropdown>
             )}
         </Container>

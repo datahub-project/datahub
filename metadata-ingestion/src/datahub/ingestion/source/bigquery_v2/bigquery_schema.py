@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -6,6 +7,7 @@ from functools import lru_cache
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     FrozenSet,
     Iterable,
@@ -38,11 +40,54 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryQuery,
     BigqueryTableType,
 )
+from datahub.ingestion.source.common.gcp_project_filter import (
+    GcpProjectFilterConfig,
+    resolve_gcp_projects,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExternalTableOptions:
+    _FORMAT_RE: ClassVar[re.Pattern] = re.compile(
+        r"format\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _URIS_RE: ClassVar[re.Pattern] = re.compile(
+        r"uris\s*=\s*\[([^\]]+)\]", re.IGNORECASE
+    )
+    _URI_ITEM_RE: ClassVar[re.Pattern] = re.compile(r"['\"]([^'\"]+)['\"]")
+    _COMPRESSION_RE: ClassVar[re.Pattern] = re.compile(
+        r"compression\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _MAX_BAD_RECORDS_RE: ClassVar[re.Pattern] = re.compile(
+        r"max_bad_records\s*=\s*(\d+)", re.IGNORECASE
+    )
+
+    source_format: Optional[str] = None
+    source_uris: Optional[List[str]] = None
+    compression: Optional[str] = None
+    max_bad_records: Optional[int] = None
+
+    @classmethod
+    def from_ddl(cls, ddl: str) -> "ExternalTableOptions":
+        """Parse source_format, source_uris, compression, and max_bad_records from a BigQuery external table DDL."""
+        opts = cls()
+
+        if m := cls._FORMAT_RE.search(ddl):
+            opts.source_format = m.group(1).upper()
+        if m := cls._URIS_RE.search(ddl):
+            if items := cls._URI_ITEM_RE.findall(m.group(1)):
+                opts.source_uris = items
+        if m := cls._COMPRESSION_RE.search(ddl):
+            opts.compression = m.group(1).upper()
+        if m := cls._MAX_BAD_RECORDS_RE.search(ddl):
+            opts.max_bad_records = int(m.group(1))
+
+        return opts
 
 
 @dataclass
@@ -130,6 +175,10 @@ class BigqueryTable(BaseTable):
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     external: bool = False
+    external_source_format: Optional[str] = None
+    external_source_uris: Optional[List[str]] = None
+    external_compression: Optional[str] = None
+    external_max_bad_records: Optional[int] = None
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
 
@@ -451,6 +500,12 @@ class BigQuerySchemaApi:
             expiration = None
 
         _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
+        external = table.table_type == BigqueryTableType.EXTERNAL
+        ext_opts = (
+            ExternalTableOptions.from_ddl(table.ddl)
+            if external and table.ddl
+            else ExternalTableOptions()
+        )
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
@@ -471,7 +526,11 @@ class BigQuerySchemaApi:
             num_partitions=table.get("num_partitions"),
             active_billable_bytes=table.get("active_billable_bytes"),
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
-            external=(table.table_type == BigqueryTableType.EXTERNAL),
+            external=external,
+            external_source_format=ext_opts.source_format,
+            external_source_uris=ext_opts.source_uris,
+            external_compression=ext_opts.compression,
+            external_max_bad_records=ext_opts.max_bad_records,
         )
 
     def get_views_for_dataset(
@@ -815,7 +874,14 @@ def get_projects(
             for project_id in filters.filter_config.project_ids
         ]
     elif filters.filter_config.project_labels:
-        return list(query_project_list_from_labels(schema_api, report, filters))
+        filter_cfg = GcpProjectFilterConfig(
+            project_labels=filters.filter_config.project_labels,
+            project_id_pattern=filters.filter_config.project_id_pattern,
+        )
+        resolved_projects = resolve_gcp_projects(
+            filter_cfg, report, projects_client=schema_api.projects_client
+        )
+        return [BigqueryProject(id=p.id, name=p.name) for p in resolved_projects]
     else:
         return list(query_project_list(schema_api, report, filters))
 

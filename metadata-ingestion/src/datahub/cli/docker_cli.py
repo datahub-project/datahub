@@ -1,3 +1,4 @@
+import base64
 import datetime
 import functools
 import itertools
@@ -5,6 +6,7 @@ import logging
 import os
 import pathlib
 import platform
+import secrets
 import signal
 import subprocess
 import sys
@@ -173,6 +175,52 @@ def is_apple_silicon() -> bool:
         return False
 
 
+def _resolve_token_service_secrets() -> None:
+    """Resolve DATAHUB_TOKEN_SERVICE_SIGNING_KEY and DATAHUB_TOKEN_SERVICE_SALT using this priority:
+    1. Shell environment variables (highest priority — lets CI/prod override)
+    2. ~/.datahub/quickstart/.local-secrets.env (persists generated values across restarts)
+    3. Generate random values and save them to the file for future runs
+    """
+    secrets_file = Path(DATAHUB_ROOT_FOLDER) / "quickstart" / ".local-secrets.env"
+
+    persisted: Dict[str, str] = {}
+    if secrets_file.exists():
+        for line in secrets_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                persisted[key.strip()] = value.strip()
+
+    signing_key = os.environ.get("DATAHUB_TOKEN_SERVICE_SIGNING_KEY") or persisted.get(
+        "DATAHUB_TOKEN_SERVICE_SIGNING_KEY"
+    )
+    salt = os.environ.get("DATAHUB_TOKEN_SERVICE_SALT") or persisted.get(
+        "DATAHUB_TOKEN_SERVICE_SALT"
+    )
+
+    generated = False
+    if not signing_key:
+        signing_key = base64.b64encode(secrets.token_bytes(32)).decode()
+        generated = True
+    if not salt:
+        salt = base64.b64encode(secrets.token_bytes(32)).decode()
+        generated = True
+
+    if generated:
+        secrets_file.parent.mkdir(parents=True, exist_ok=True)
+        secrets_file.write_text(
+            f"# Auto-generated local dev secrets — do not commit\n"
+            f"DATAHUB_TOKEN_SERVICE_SIGNING_KEY={signing_key}\n"
+            f"DATAHUB_TOKEN_SERVICE_SALT={salt}\n"
+        )
+        logger.debug(
+            f"Generated token service secrets saved to {secrets_file} for reuse across restarts"
+        )
+
+    os.environ["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"] = signing_key
+    os.environ["DATAHUB_TOKEN_SERVICE_SALT"] = salt
+
+
 def _set_environment_variables(
     version: Optional[str],
     mysql_port: Optional[int],
@@ -196,6 +244,7 @@ def _set_environment_variables(
         os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
 
     os.environ["METADATA_SERVICE_AUTH_ENABLED"] = "false"
+    _resolve_token_service_secrets()
 
     cliVersion = nice_version_name()
     if is_dev_mode():  # This should only happen during development/CI.
@@ -316,6 +365,7 @@ def _restore(
     restore_indices: Optional[bool],
     primary_restore_file: Optional[str],
 ) -> int:
+    _resolve_token_service_secrets()
     assert restore_primary or restore_indices, (
         "Either restore_primary or restore_indices must be set"
     )
@@ -370,7 +420,8 @@ GRAPH_SERVICE_IMPL=elasticsearch
 KAFKA_BOOTSTRAP_SERVER=broker:29092
 KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-registry/api/
 SCHEMA_REGISTRY_TYPE=INTERNAL
-
+DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT}
 ELASTICSEARCH_HOST=search
 ELASTICSEARCH_PORT=${DATAHUB_MAPPED_ELASTIC_PORT:-9200}
 ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true

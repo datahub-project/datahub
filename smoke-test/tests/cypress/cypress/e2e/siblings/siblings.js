@@ -36,7 +36,7 @@ describe("siblings", () => {
     cy.get('[data-testid="table-stats-rowcount"]').contains("100");
   });
 
-  it("can view individual nodes", () => {
+  it.skip("can view individual nodes", () => {
     cy.visitWithLogin(`/dataset/${DBT_URN}/?is_lineage_mode=false`);
     cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity

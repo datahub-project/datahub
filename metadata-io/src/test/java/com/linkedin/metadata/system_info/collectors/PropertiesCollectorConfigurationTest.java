@@ -114,6 +114,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+          // K8 scale-down and Kubernetes config (label selectors, KEDA, rollout, env JSON - not
+          // secrets)
+          "systemUpdate.kubernetesScaleDown.*",
 
           // Consistency checks configuration
           "consistencyChecks.checks.*.*",
@@ -188,6 +191,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "kubernetes.serviceHost",
+          "kubernetes.operationsApiEnabled",
           "tokenService",
           // Configuration keys and settings (not secret keys)
           "key",
@@ -420,6 +425,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "bootstrap.servlets.waitTimeout",
           "configEntityRegistry.path",
           "configEntityRegistry.resource",
+          "configEntityRegistry.useOptimizedLoading",
           "spring.application.name",
           "spring.application.pid",
           "spring.error.include-exception",
@@ -467,6 +473,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.dataContractsEnabled",
           "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
+          "featureFlags.multipleDataProductsPerAsset",
           "featureFlags.entityVersioning",
           "featureFlags.erModelRelationshipFeatureEnabled",
           "featureFlags.fineGrainedLineageNotAllowedForPlatforms",
@@ -547,6 +554,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.reindexOptimizationEnabled",
           "elasticsearch.buildIndices.retentionUnit",
           "elasticsearch.buildIndices.retentionValue",
+          "elasticsearch.buildIndices.slowOperationTimeoutSeconds",
+          "elasticsearch.buildIndices.countRetryMaxAttempts",
+          "elasticsearch.buildIndices.countRetryWaitSeconds",
+          "elasticsearch.buildIndices.createIndexRetryEnabled",
           "elasticsearch.bulkDelete.batchSize",
           "elasticsearch.bulkDelete.numRetries",
           "elasticsearch.bulkDelete.pollInterval",
@@ -565,6 +576,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
           "elasticsearch.connectionRequestTimeout",
+          "elasticsearch.socketTimeout",
           "elasticsearch.host",
           "elasticsearch.idHashAlgo",
           "elasticsearch.implementation",
@@ -674,6 +686,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.introspectionEnabled",
           "graphQL.query.maxParentDepth",
           "graphQL.query.maxVisitedUrns",
+          "graphQL.query.slowQueryThresholdMs",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
