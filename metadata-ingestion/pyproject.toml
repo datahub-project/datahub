@@ -670,6 +670,7 @@ hightouch = [
     "patchy==2.8.0",
     "requests<3.0.0",
     "sqlglot[c]==29.0.1",
+    "sqlglotc==29.0.1",
     "sqlparse<0.6.0",
 ]
 

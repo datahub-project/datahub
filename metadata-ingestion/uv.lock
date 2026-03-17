@@ -1128,6 +1128,7 @@ hightouch = [
     { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
+    { name = "sqlglotc" },
     { name = "sqlparse" },
 ]
 hive = [
@@ -3295,6 +3296,7 @@ requires-dist = [
     { name = "sqlglotc", marker = "extra == 'fivetran'", specifier = "==29.0.1" },
     { name = "sqlglotc", marker = "extra == 'grafana'", specifier = "==29.0.1" },
     { name = "sqlglotc", marker = "extra == 'hana'", specifier = "==29.0.1" },
+    { name = "sqlglotc", marker = "extra == 'hightouch'", specifier = "==29.0.1" },
     { name = "sqlglotc", marker = "extra == 'hive'", specifier = "==29.0.1" },
     { name = "sqlglotc", marker = "extra == 'hive-metastore'", specifier = "==29.0.1" },
     { name = "sqlglotc", marker = "extra == 'integration-tests'", specifier = "==29.0.1" },
