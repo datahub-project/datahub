@@ -10,29 +10,9 @@ import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
 import { Icon, SearchBar, colors, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
-const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
-
-const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
+const StyledSearchBar = styled(SearchBar)`
     border-width: 2px !important;
     border-color: ${colors.gray[100]};
-
-    ${(props) =>
-        !props.$isShowNavBarRedesign &&
-        `
-        background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-        border-color: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-
-        &:hover,
-        &:focus,
-        &:focus-within {
-            border-color: ${props.theme.styles['primary-color']} !important;
-        }
-
-        .ant-input, .ant-input-clear-icon {
-            color: ${colors.white};
-            background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-        }
-    `}
 `;
 
 const ViewSelectContainer = styled.div``;
@@ -69,7 +49,7 @@ const SuffixWrapper = styled.div`
 `;
 
 interface Props {
-    value: string;
+    defaultValue?: string;
     onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSearch?: () => void;
     onFocus?: () => void;
@@ -84,12 +64,14 @@ interface Props {
     isViewsSelectOpened?: boolean;
     setIsViewsSelectOpened?: (value: boolean) => void;
     width?: string;
+    onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
+    onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
         {
-            value,
+            defaultValue,
             onChange,
             onSearch,
             onFocus,
@@ -104,6 +86,8 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             width,
             isViewsSelectOpened,
             setIsViewsSelectOpened,
+            onCompositionStart,
+            onCompositionEnd,
         },
         ref,
     ) => {
@@ -144,10 +128,10 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
+                    defaultValue={defaultValue}
                     placeholder={placeholder}
                     onPressEnter={onSearch}
                     onKeyDown={onKeyDown}
-                    value={value}
                     onChange={(_, event) => onChange?.(event)}
                     data-testid="search-input"
                     onFocus={onFocusHandler}
@@ -163,6 +147,9 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                         />
                     }
                     ref={ref}
+                    onCompositionStart={onCompositionStart}
+                    onCompositionEnd={onCompositionEnd}
+                    forceUncontrolled
                     suffix={
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
@@ -185,7 +172,6 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     }
                     width={width ?? (isShowNavBarRedesign ? '664px' : '620px')}
                     height="44px"
-                    $isShowNavBarRedesign={isShowNavBarRedesign}
                 />
             </Wrapper>
         );
