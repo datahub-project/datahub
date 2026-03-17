@@ -196,6 +196,17 @@ class MetabaseQuery(MetabaseBaseModel):
                 refs.append(join.source_table)
         return refs
 
+    def is_passthrough(self) -> bool:
+        return (
+            self.source_table is not None
+            and not self.filter
+            and not self.aggregation
+            and not self.breakout
+            and not self.fields
+            and not self.joins
+            and not self.expressions
+        )
+
     def collect_field_ids(self) -> List[int]:
         field_ids: List[int] = []
         for clause_list in [
@@ -1069,11 +1080,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
         field_ref: List[object],
         ctx: _MBQLContext,
     ) -> List[str]:
-        """
-        Resolve upstream URNs for an aggregation field_ref ["aggregation", index].
-        Returns all resolved field URNs for COUNT(*)-style aggregations with no
-        explicit field argument (i.e. the aggregation references no specific field ID).
-        """
         agg_index = field_ref[1] if len(field_ref) > 1 else None
         if agg_index is None or not ctx.query.aggregation:
             return []
@@ -1105,14 +1111,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
         field_ref: List[object],
         ctx: _MBQLContext,
     ) -> List[str]:
-        """
-        Resolve a result_metadata field_ref to a list of upstream DataHub field URNs.
-
-        Handles the three MBQL field_ref types:
-        - ["field", id, opts]      — direct column pass-through
-        - ["expression", name]     — calculated column referencing query.expressions[name]
-        - ["aggregation", index]   — metric referencing query.aggregation[index]
-        """
         if not field_ref:
             return []
         ref_type = field_ref[0]
@@ -1156,18 +1154,55 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return _MBQLContext(query=query, datasource=datasource, resolved=resolved)
 
+    def _get_passthrough_cll(
+        self, card: MetabaseCard, entity_urn: str
+    ) -> Optional[UpstreamLineageClass]:
+        if not card.result_metadata:
+            return None
+
+        table_urns = self._get_table_urns_from_query_builder(card)
+        if not table_urns or len(table_urns) != 1:
+            return None
+
+        source_table_urn = table_urns[0]
+        fine_grained: List[FineGrainedLineageClass] = []
+
+        for meta in card.result_metadata:
+            if not meta.name:
+                continue
+
+            upstream_field_urn = builder.make_schema_field_urn(
+                parent_urn=source_table_urn,
+                field_path=meta.name,
+            )
+            downstream_field_urn = builder.make_schema_field_urn(
+                parent_urn=entity_urn,
+                field_path=meta.name,
+            )
+
+            fine_grained.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[upstream_field_urn],
+                    downstreams=[downstream_field_urn],
+                )
+            )
+
+        return UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=source_table_urn, type=DatasetLineageTypeClass.COPY
+                )
+            ],
+            fineGrainedLineages=fine_grained if fine_grained else None,
+        )
+
     def _get_cll_from_query_builder(
         self,
         card: MetabaseCard,
         entity_urn: str,
     ) -> Optional[UpstreamLineageClass]:
-        """
-        Extract column-level lineage from an MBQL (query builder) card.
-
-        Uses result_metadata.field_ref as a pre-built lineage map: Metabase records exactly
-        which MBQL expression produced each output column, so we read that and resolve the
-        referenced field IDs back to upstream column names via /api/field/{id}.
-        """
         if not card.result_metadata:
             return None
 
@@ -1213,7 +1248,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _get_cll_from_native_sql(
         self, card: MetabaseCard, entity_urn: str
     ) -> Optional[UpstreamLineageClass]:
-        """Extract column-level lineage from native SQL queries."""
         if not card.database_id:
             return None
 
@@ -1924,7 +1958,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _get_model_view_properties(
         self, card: MetabaseCard
     ) -> Optional[ViewPropertiesClass]:
-        """Extract ViewPropertiesClass for native SQL models only."""
         if card.dataset_query and card.query_type == _QUERY_TYPE_NATIVE:
             raw_query = self._extract_native_query(card)
             if raw_query:
@@ -1934,6 +1967,17 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     viewLanguage="SQL",
                 )
         return None
+
+    def _get_model_subtypes(self, card: MetabaseCard) -> List[str]:
+        is_passthrough = False
+        if card.dataset_query and card.dataset_query.query:
+            is_passthrough = card.dataset_query.query.is_passthrough()
+
+        subtypes: List[str] = [DatasetSubTypes.METABASE_MODEL]
+        if not is_passthrough:
+            subtypes.append(DatasetSubTypes.VIEW)
+
+        return subtypes
 
     def _emit_model_workunits(
         self, card_info: MetabaseCardListItem
@@ -1996,9 +2040,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
-            aspect=SubTypesClass(
-                typeNames=[DatasetSubTypes.METABASE_MODEL, DatasetSubTypes.VIEW]
-            ),
+            aspect=SubTypesClass(typeNames=self._get_model_subtypes(card)),
         ).as_workunit()
 
         view_properties = self._get_model_view_properties(card)
@@ -2009,7 +2051,19 @@ class MetabaseSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
         if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_QUERY:
+            # Always try to use field_ref metadata first (most accurate)
             cll = self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
+
+            # Fall back to pass-through lineage if no field_ref available
+            if not cll:
+                is_passthrough = (
+                    card.dataset_query.query.is_passthrough()
+                    if card.dataset_query.query
+                    else False
+                )
+                if is_passthrough:
+                    cll = self._get_passthrough_cll(card=card, entity_urn=model_urn)
+
             if cll:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=model_urn,
