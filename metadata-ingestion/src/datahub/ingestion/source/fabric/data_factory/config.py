@@ -5,7 +5,10 @@ from typing import Optional
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -16,7 +19,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 
 class FabricDataFactorySourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
 ):
     """Configuration for Fabric Data Factory source.
 
@@ -32,61 +37,71 @@ class FabricDataFactorySourceConfig(
         default_factory=AzureCredentialConfig,
         description=(
             "Azure authentication configuration. Supports service principal, "
-            "managed identity, Azure CLI, or auto-detection (DefaultAzureCredential)."
+            "managed identity, Azure CLI, or auto-detection (DefaultAzureCredential). "
+            "See AzureCredentialConfig for detailed options."
         ),
     )
 
     # Filtering
     workspace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter workspaces by name.",
+        description=(
+            "Regex patterns to filter workspaces by name. "
+            "Example: allow=['prod-.*'], deny=['.*-test']"
+        ),
     )
 
     pipeline_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter data pipelines by name.",
+        description=(
+            "Regex patterns to filter data pipelines by name. "
+            "Applied to all workspaces matching workspace_pattern."
+        ),
     )
 
-    copyjob_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter copy jobs by name.",
-    )
-
-    dataflow_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter Dataflow Gen2 items by name.",
-    )
-
-    # Feature flags
+    # Feature Flags
     extract_pipelines: bool = Field(
         default=True,
         description="Whether to extract Data Pipelines and their activities.",
     )
 
-    extract_copyjobs: bool = Field(
+    include_lineage: bool = Field(
         default=True,
-        description="Whether to extract Copy Jobs with dataset lineage.",
+        description=(
+            "Extract lineage from activity inputs/outputs. "
+            "Maps Fabric connections to DataHub datasets based on connection type."
+        ),
     )
 
-    extract_dataflows: bool = Field(
+    include_execution_history: bool = Field(
         default=True,
-        description="Whether to extract Dataflow Gen2 items.",
+        description=(
+            "Extract pipeline and activity execution history as DataProcessInstance. "
+            "Includes run status, duration, and parameters. "
+            "Enables lineage extraction from parameterized activities using actual runtime values."
+        ),
     )
 
-    # Pipeline runs
-    extract_pipeline_runs: bool = Field(
-        default=True,
-        description="Whether to extract pipeline run history as DataProcessInstances.",
-    )
-
-    lookback_days: int = Field(
+    execution_history_days: int = Field(
         default=7,
         description=(
-            "Number of days of pipeline run history to ingest. "
-            "Only runs with startTimeUtc within this window are fetched. "
+            "Number of days of execution history to extract. "
+            "Only used when include_execution_history is True. "
+            "Higher values increase ingestion time. "
             "Note: Fabric API returns at most 100 recently completed runs per pipeline."
         ),
         ge=1,
+        le=90,
+    )
+
+    # Platform Mapping
+    platform_instance_map: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Map connection names to DataHub platform instances. "
+            "Example: {'my-snowflake-connection': 'prod_snowflake'}. "
+            "Used for accurate lineage resolution to existing datasets."
+        ),
     )
 
     # API timeout

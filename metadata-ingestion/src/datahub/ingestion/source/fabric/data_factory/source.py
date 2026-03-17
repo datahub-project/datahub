@@ -1,11 +1,4 @@
-"""Microsoft Fabric Data Factory ingestion source for DataHub.
-
-This connector extracts metadata from Microsoft Fabric Data Factory items:
-- Workspaces as Containers
-- Data Pipelines as DataFlows with Activities as DataJobs
-- Copy Jobs as DataFlows with dataset-level lineage
-- Dataflow Gen2 as DataFlows (metadata only)
-"""
+"""Microsoft Fabric Data Factory ingestion source for DataHub."""
 
 import logging
 from datetime import datetime, timedelta, timezone
@@ -27,7 +20,6 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapabi
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.models import (
-    FABRIC_WORKSPACE_PLATFORM,
     FabricConnection,
     FabricItem,
     FabricItemType,
@@ -36,11 +28,14 @@ from datahub.ingestion.source.fabric.common.models import (
     ItemJobStatus,
     WorkspaceKey,
     build_workspace_container,
+    make_workspace_key,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_activity_job_id,
+    make_activity_job_urn,
     make_activity_run_id,
     make_pipeline_flow_id,
+    make_pipeline_flow_urn,
     make_pipeline_run_id,
 )
 from datahub.ingestion.source.fabric.data_factory.client import (
@@ -51,8 +46,13 @@ from datahub.ingestion.source.fabric.data_factory.config import (
 )
 from datahub.ingestion.source.fabric.data_factory.lineage import (
     CopyActivityLineageExtractor,
+    InvokePipelineLineageExtractor,
 )
-from datahub.ingestion.source.fabric.data_factory.models import PipelineActivityRun
+from datahub.ingestion.source.fabric.data_factory.models import (
+    InvokePipelineActivityLineage,
+    PipelineActivity,
+    PipelineActivityRun,
+)
 from datahub.ingestion.source.fabric.data_factory.report import (
     FabricDataFactoryClientReport,
     FabricDataFactorySourceReport,
@@ -146,21 +146,24 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         # used to set parent_instance on activity run DPIs.
         self._pipeline_run_urns: dict[str, DataProcessInstanceUrn] = {}
 
-    def _cache_connections(self) -> None:
-        """Fetch all tenant connections and cache them keyed by ID.
+        # Pipeline activities cache: (workspace_id, pipeline_id) → list[PipelineActivity]
+        # Populated in first pass of _process_pipelines, used by InvokePipeline lineage.
+        self._pipeline_activities_cache: dict[
+            tuple[str, str], list[PipelineActivity]
+        ] = {}
 
-        Mirrors ADF's _cache_factory_resources pattern — called once in
-        get_workunits_internal before processing any workspaces.
-        """
+        # Cross-pipeline edges: child_datajob_urn → list of parent InvokePipeline URNs.
+        # Built after pass 1 resolves all InvokePipeline activities, consumed in pass 2
+        # when emitting the child activity's DataJobInputOutput to merge the edge in.
+        self._cross_pipeline_edges: dict[str, list[str]] = {}
+
+    def _cache_connections(self) -> None:
+        """Fetch all tenant connections and cache them keyed by ID."""
         for raw in self.client.list_connections():
             connection_id = raw.get("id", "")
             if connection_id:
                 self._connections_cache[connection_id] = FabricConnection.from_dict(raw)
         logger.info(f"Cached {len(self._connections_cache)} Fabric connection(s)")
-
-    def get_connection(self, connection_id: str) -> Optional[FabricConnection]:
-        """Look up a cached connection by GUID."""
-        return self._connections_cache.get(connection_id)
 
     @classmethod
     def create(
@@ -189,17 +192,22 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         logger.info("Starting Fabric Data Factory ingestion")
 
         try:
-            # Cache connections up-front for lineage resolution
+            # Tenant-wide caches
             self._cache_connections()
             self._copy_lineage_extractor = CopyActivityLineageExtractor(
                 connections_cache=self._connections_cache,
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
+            self._invoke_pipeline_extractor = InvokePipelineLineageExtractor(
+                pipeline_activities_cache=self._pipeline_activities_cache,
+                platform=PLATFORM,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
 
-            workspaces = list(self.client.list_workspaces())
-
-            for workspace in workspaces:
+            # Process one workspace at a time: fetch → resolve → emit
+            for workspace in self.client.list_workspaces():
                 if not self.config.workspace_pattern.allowed(workspace.name):
                     self.report.report_workspace_filtered(workspace.name)
                     continue
@@ -210,9 +218,16 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 try:
                     yield from self._create_workspace_container(workspace)
 
-                    yield from self._process_pipelines(workspace)
-                    # TODO: yield from self._process_copyjobs(workspace)
-                    # TODO: yield from self._process_dataflows(workspace)
+                    if self.config.extract_pipelines:
+                        pipeline_items = self._fetch_pipeline_activities(workspace.id)
+                        invoke_pipeline_lineage = self._resolve_invoke_pipeline_edges(
+                            workspace.id, pipeline_items
+                        )
+                        yield from self._emit_pipelines(
+                            workspace,
+                            pipeline_items,
+                            invoke_pipeline_lineage,
+                        )
 
                 except Exception as e:
                     self.report.report_warning(
@@ -232,6 +247,37 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         finally:
             self.client.close()
 
+    def _fetch_pipeline_activities(self, workspace_id: str) -> list[FabricItem]:
+        """Fetch pipelines and their activities for a workspace into cache.
+
+        Applies pipeline_pattern filter. Populates
+        ``self._pipeline_activities_cache``.
+        """
+        pipeline_items: list[FabricItem] = []
+        for item in self.client.list_items(
+            workspace_id, item_type=FabricItemType.DATA_PIPELINE
+        ):
+            if not self.config.pipeline_pattern.allowed(item.name):
+                self.report.report_pipeline_filtered(item.name)
+                continue
+            pipeline_items.append(item)
+            try:
+                activities = self.client.get_pipeline_activities(
+                    workspace_id=workspace_id,
+                    pipeline_id=item.id,
+                )
+                self._pipeline_activities_cache[(workspace_id, item.id)] = activities
+            except Exception as e:
+                self.report.report_warning(
+                    title="Failed to Fetch Pipeline Activities",
+                    message="Could not retrieve activities. "
+                    "Skipping activities for this pipeline.",
+                    context=f"pipeline={item.name}",
+                    exc=e,
+                )
+                self._pipeline_activities_cache[(workspace_id, item.id)] = []
+        return pipeline_items
+
     def _create_workspace_container(
         self, workspace: FabricWorkspace
     ) -> Iterable[Entity]:
@@ -241,28 +287,22 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-    def _process_pipelines(
-        self, workspace: FabricWorkspace
+    def _emit_pipelines(
+        self,
+        workspace: FabricWorkspace,
+        pipeline_items: list[FabricItem],
+        invoke_pipeline_lineage: dict[str, InvokePipelineActivityLineage],
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        if not self.config.extract_pipelines:
-            return
-
-        workspace_key = WorkspaceKey(
-            platform=FABRIC_WORKSPACE_PLATFORM,
-            instance=self.config.platform_instance,
-            env=self.config.env,
+        """Emit DataFlow and DataJob entities for cached pipelines."""
+        workspace_key = make_workspace_key(
             workspace_id=workspace.id,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
-        for item in self.client.list_items(
-            workspace.id, item_type=FabricItemType.DATA_PIPELINE
-        ):
-            if not self.config.pipeline_pattern.allowed(item.name):
-                self.report.report_pipeline_filtered(item.name)
-                continue
-
+        for item in pipeline_items:
             self.report.report_pipeline_scanned()
-            logger.debug(f"Processing pipeline: {item.name} ({item.id})")
+            logger.debug(f"Emitting pipeline: {item.name} ({item.id})")
 
             flow_id = make_pipeline_flow_id(
                 workspace_id=workspace.id,
@@ -283,31 +323,73 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             )
             yield dataflow
 
-            yield from self._process_pipeline_activities(item, dataflow, workspace_key)
+            yield from self._emit_pipeline_activities(
+                item, dataflow, workspace_key, invoke_pipeline_lineage
+            )
 
-            if self.config.extract_pipeline_runs:
+            if self.config.include_execution_history:
                 yield from self._process_pipeline_runs(item, dataflow.urn)
 
-    def _process_pipeline_activities(
+    def _resolve_invoke_pipeline_edges(
+        self,
+        workspace_id: str,
+        pipeline_items: list[FabricItem],
+    ) -> dict[str, InvokePipelineActivityLineage]:
+        """Resolve all InvokePipeline activities and build cross-pipeline edge map.
+
+        Must run after all activities are cached so that child pipeline
+        lookups succeed regardless of processing order.
+
+        Returns a cache keyed by the InvokePipeline activity's DataJob URN
+        string. Also populates ``self._cross_pipeline_edges`` mapping
+        child root activity URN → list of parent InvokePipeline URNs.
+        """
+        invoke_pipeline_lineage: dict[str, InvokePipelineActivityLineage] = {}
+
+        for item in pipeline_items:
+            flow_urn = make_pipeline_flow_urn(
+                workspace_id=workspace_id,
+                pipeline_id=item.id,
+                platform=PLATFORM,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
+
+            activities = self._pipeline_activities_cache.get(
+                (workspace_id, item.id), []
+            )
+            for activity in activities:
+                if activity.type != "InvokePipeline":
+                    continue
+
+                result = self._invoke_pipeline_extractor.extract_lineage(
+                    activity=activity,
+                    parent_workspace_id=workspace_id,
+                )
+                if not result:
+                    continue
+
+                parent_job_urn = str(make_activity_job_urn(activity.name, flow_urn))
+                invoke_pipeline_lineage[parent_job_urn] = result
+
+                if result.child_datajob_urn:
+                    self._cross_pipeline_edges.setdefault(
+                        result.child_datajob_urn, []
+                    ).append(parent_job_urn)
+
+        return invoke_pipeline_lineage
+
+    def _emit_pipeline_activities(
         self,
         pipeline_item: FabricItem,
         dataflow: DataFlow,
         workspace_key: WorkspaceKey,
+        invoke_pipeline_lineage: dict[str, InvokePipelineActivityLineage],
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """Emit DataJobs for pipeline activities with dependency lineage."""
-        try:
-            activities = self.client.get_pipeline_activities(
-                workspace_id=pipeline_item.workspace_id,
-                pipeline_id=pipeline_item.id,
-            )
-        except Exception as e:
-            self.report.report_warning(
-                title="Failed to Fetch Pipeline Activities",
-                message="Could not retrieve activities. Skipping activities for this pipeline.",
-                context=f"pipeline={pipeline_item.name}",
-                exc=e,
-            )
-            return
+        activities = self._pipeline_activities_cache.get(
+            (pipeline_item.workspace_id, pipeline_item.id), []
+        )
 
         if not activities:
             return
@@ -315,10 +397,8 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         # Build activity_name → DataJobUrn lookup for dependency resolution
         activity_urn_map: dict[str, DataJobUrn] = {}
         for activity in activities:
-            job_id = make_activity_job_id(activity.name)
-            activity_urn_map[activity.name] = DataJobUrn.create_from_ids(
-                job_id=job_id,
-                data_flow_urn=str(dataflow.urn),
+            activity_urn_map[activity.name] = make_activity_job_urn(
+                activity.name, dataflow.urn
             )
 
         # Emit each activity as a DataJob
@@ -367,10 +447,27 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     workspace_id=pipeline_item.workspace_id,
                 )
 
+            datajob_urn = activity_urn_map[activity.name]
+            datajob_urn_str = str(datajob_urn)
+
+            # Merge InvokePipeline custom properties (resolved during fetch)
+            invoke_result = invoke_pipeline_lineage.get(datajob_urn_str)
+            if invoke_result:
+                custom_props.update(invoke_result.custom_properties)
+
+            # Merge cross-pipeline incoming edges from InvokePipeline parents.
+            # If another pipeline's InvokePipeline targets this activity as
+            # the child's root activity, add the parent as an upstream edge.
+            cross_pipeline_parents = self._cross_pipeline_edges.get(datajob_urn_str, [])
+            for parent_urn in cross_pipeline_parents:
+                upstream_edges.append(EdgeClass(destinationUrn=parent_urn))
+
+            has_io = upstream_edges or input_urns or output_urns
             datajob = DataJob(
                 name=make_activity_job_id(activity.name),
                 flow=dataflow,
                 display_name=activity.name,
+                description=activity.description,
                 custom_properties=custom_props,
                 extra_aspects=[
                     DataJobInputOutputClass(
@@ -379,7 +476,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                         inputDatajobEdges=upstream_edges,
                     )
                 ]
-                if upstream_edges or input_urns or output_urns
+                if has_io
                 else None,
             )
             datajob._set_container(workspace_key)
@@ -394,7 +491,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Emit DataProcessInstances for recent pipeline runs and their activity runs."""
         lookback_window_start = datetime.now(timezone.utc) - timedelta(
-            days=self.config.lookback_days
+            days=self.config.execution_history_days
         )
 
         try:
@@ -523,11 +620,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Emit MCPs for a single activity run as a DataProcessInstance."""
         # Build the template URN: the activity DataJob this run belongs to
-        job_id = make_activity_job_id(activity_run.activity_name)
-        template_urn = DataJobUrn.create_from_ids(
-            job_id=job_id,
-            data_flow_urn=str(flow_urn),
-        )
+        template_urn = make_activity_job_urn(activity_run.activity_name, flow_urn)
 
         dpi_id = make_activity_run_id(
             pipeline_id=pipeline_item.id,

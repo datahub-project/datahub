@@ -72,6 +72,7 @@ class PipelineActivity:
 
     name: str
     type: str
+    description: Optional[str] = None
     state: Optional[str] = None  # "Active" | "InActive"
     on_inactive_mark_as: Optional[str] = None  # "Succeeded" | "Failed" | "Skipped"
     depends_on: List[ActivityDependency] = field(default_factory=list)
@@ -108,6 +109,7 @@ class PipelineActivity:
         return cls(
             name=activity_dict["name"],
             type=activity_dict["type"],
+            description=activity_dict.get("description"),
             state=activity_dict.get("state"),
             on_inactive_mark_as=activity_dict.get("onInactiveMarkAs"),
             depends_on=depends_on,
@@ -115,6 +117,14 @@ class PipelineActivity:
             policy=policy,
             external_references=ext_ref,
         )
+
+
+@dataclass
+class InvokePipelineActivityLineage:
+    """Resolved lineage result for an InvokePipeline activity."""
+
+    child_datajob_urn: Optional[str] = None
+    custom_properties: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

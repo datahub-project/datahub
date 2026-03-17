@@ -7,6 +7,7 @@ making it easy to update the pattern in the future if needed.
 from typing import Optional
 
 import datahub.emitter.mce_builder as builder
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 
 # URN pattern configuration
 # Pattern: {workspaceGUID}.{itemGUID}.{schema}.{table}
@@ -99,6 +100,23 @@ def make_pipeline_flow_id(workspace_id: str, pipeline_id: str) -> str:
     return f"{workspace_id}{URN_PATTERN_SEPARATOR}{pipeline_id}"
 
 
+def make_pipeline_flow_urn(
+    workspace_id: str,
+    pipeline_id: str,
+    platform: str,
+    env: str,
+    platform_instance: Optional[str] = None,
+) -> DataFlowUrn:
+    """Generate a DataFlowUrn for a Fabric Data Pipeline."""
+    flow_id = make_pipeline_flow_id(workspace_id, pipeline_id)
+    return DataFlowUrn.create_from_ids(
+        orchestrator=platform,
+        flow_id=flow_id,
+        env=env,
+        platform_instance=platform_instance,
+    )
+
+
 def make_pipeline_run_id(workspace_id: str, pipeline_id: str, run_id: str) -> str:
     """Generate DPI ID for a Fabric Data Pipeline run.
 
@@ -114,6 +132,18 @@ def make_activity_job_id(activity_name: str) -> str:
     so the name is used directly as the job ID.
     """
     return activity_name
+
+
+def make_activity_job_urn(
+    activity_name: str,
+    flow_urn: DataFlowUrn,
+) -> DataJobUrn:
+    """Generate a DataJobUrn for a pipeline activity."""
+    job_id = make_activity_job_id(activity_name)
+    return DataJobUrn.create_from_ids(
+        job_id=job_id,
+        data_flow_urn=str(flow_urn),
+    )
 
 
 def make_activity_run_id(pipeline_id: str, activity_run_id: str) -> str:

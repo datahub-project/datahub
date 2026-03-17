@@ -37,6 +37,20 @@ class WorkspaceKey(ContainerKey):
     workspace_id: str
 
 
+def make_workspace_key(
+    workspace_id: str,
+    platform_instance: Optional[str],
+    env: Optional[str],
+) -> WorkspaceKey:
+    """Create the canonical WorkspaceKey for a Fabric workspace."""
+    return WorkspaceKey(
+        platform=FABRIC_WORKSPACE_PLATFORM,
+        instance=platform_instance,
+        env=env,
+        workspace_id=workspace_id,
+    )
+
+
 def build_workspace_container(
     workspace: "FabricWorkspace",
     platform_instance: Optional[str],
@@ -48,11 +62,10 @@ def build_workspace_container(
     produces exactly one container node in DataHub regardless of which
     connector ingested it.
     """
-    container_key = WorkspaceKey(
-        platform=FABRIC_WORKSPACE_PLATFORM,
-        instance=platform_instance,
-        env=env,
+    container_key = make_workspace_key(
         workspace_id=workspace.id,
+        platform_instance=platform_instance,
+        env=env,
     )
     yield Container(
         container_key=container_key,
