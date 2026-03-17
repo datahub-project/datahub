@@ -70,17 +70,19 @@ logger = logging.getLogger(__name__)
 
 # Platform identifier
 PLATFORM = "fabric-onelake"
-WORKSPACE_PLATFORM = "fabric"
 
 
 class LakehouseKey(WorkspaceKey):
     """Container key for Fabric lakehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
+    platform: Literal["fabric-onelake"] = PLATFORM
     lakehouse_id: str
 
     def parent_key(self) -> Optional[ContainerKey]:
+        # Default ContainerKey.parent_key() would preserve this key's platform
+        # (`fabric-onelake`) when deriving WorkspaceKey. We must force workspace
+        # containers onto the canonical Fabric platform.
         return WorkspaceKey(
-            platform=WORKSPACE_PLATFORM,
             instance=self.instance,
             env=self.env,
             workspace_id=self.workspace_id,
@@ -90,11 +92,13 @@ class LakehouseKey(WorkspaceKey):
 class WarehouseKey(WorkspaceKey):
     """Container key for Fabric warehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
+    platform: Literal["fabric-onelake"] = PLATFORM
     warehouse_id: str
 
     def parent_key(self) -> Optional[ContainerKey]:
+        # Same rationale as LakehouseKey: workspace parents must be `fabric`,
+        # not inherited as `fabric-onelake`.
         return WorkspaceKey(
-            platform=WORKSPACE_PLATFORM,
             instance=self.instance,
             env=self.env,
             workspace_id=self.workspace_id,
@@ -229,7 +233,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     ) -> Iterable[Container]:
         """Create a workspace container."""
         container_key = WorkspaceKey(
-            platform=WORKSPACE_PLATFORM,
             instance=self.config.platform_instance,
             env=self.config.env,
             workspace_id=workspace.id,

@@ -1,10 +1,12 @@
 """Unit tests for Fabric OneLake source key hierarchy."""
 
 from datahub.emitter.mce_builder import datahub_guid
-from datahub.ingestion.source.fabric.common.keys import WorkspaceKey
+from datahub.ingestion.source.fabric.common.keys import (
+    WORKSPACE_PLATFORM,
+    WorkspaceKey,
+)
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
-    WORKSPACE_PLATFORM,
     LakehouseKey,
     LakehouseSchemaKey,
     WarehouseKey,
