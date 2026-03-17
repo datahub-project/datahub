@@ -2559,6 +2559,65 @@ def test_expand_s3_glob_client_error():
         )
 
 
+def test_expand_s3_glob_no_cross_slash_matching():
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "results/a/run_results.json"},
+                {"Key": "results/a/b/run_results.json"},
+                {"Key": "results/a/b/c/run_results.json"},
+            ]
+        }
+    ]
+
+    result = DBTCoreSource._expand_s3_glob(
+        "s3://bucket/results/*/run_results.json", mock_aws
+    )
+    assert result == ["s3://bucket/results/a/run_results.json"]
+
+
+def test_expand_run_results_paths_s3_error_reports_failure():
+    from botocore.exceptions import ClientError
+
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "s3://bucket/results/*/run_results.json",
+    ]
+    source.config.aws_connection = mock.MagicMock()
+
+    mock_s3_client = mock.MagicMock()
+    source.config.aws_connection.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.side_effect = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+        "ListObjectsV2",
+    )
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("S3 glob expansion failed" in str(f) for f in source.report.failures)
+
+
+def test_expand_run_results_paths_missing_aws_connection():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "s3://bucket/results/*/run_results.json",
+    ]
+    source.config.aws_connection = None
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("Missing AWS connection" in str(f) for f in source.report.failures)
+
+
 def _make_dbt_node(dbt_name, node_type="model", **overrides):
     defaults = dict(
         database=None,

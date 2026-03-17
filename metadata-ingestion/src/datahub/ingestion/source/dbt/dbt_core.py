@@ -754,13 +754,18 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         s3_client = aws_connection.get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
 
+        pattern_parts = key_pattern.split("/")
         matched_keys: List[str] = []
         total_scanned = 0
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
             for obj in page.get("Contents", []):
                 total_scanned += 1
                 key = obj["Key"]
-                if fnmatch.fnmatch(key, key_pattern):
+                key_parts = key.split("/")
+                if len(key_parts) == len(pattern_parts) and all(
+                    fnmatch.fnmatchcase(k, p)
+                    for k, p in zip(key_parts, pattern_parts, strict=True)
+                ):
                     matched_keys.append(key)
 
         logger.info(
@@ -778,8 +783,20 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 continue
 
             if is_s3_uri(path):
-                assert self.config.aws_connection
-                s3_paths = self._expand_s3_glob(path, self.config.aws_connection)
+                if not self.config.aws_connection:
+                    self.report.failure(
+                        title="Missing AWS connection for S3 glob",
+                        message=f"aws_connection is required for S3 glob pattern: {path}",
+                    )
+                    continue
+                try:
+                    s3_paths = self._expand_s3_glob(path, self.config.aws_connection)
+                except Exception as e:
+                    self.report.failure(
+                        title="S3 glob expansion failed",
+                        message=f"Failed to expand S3 glob pattern '{path}': {e}",
+                    )
+                    continue
                 if not s3_paths:
                     self.report.warning(
                         title="S3 glob pattern matched no objects",
