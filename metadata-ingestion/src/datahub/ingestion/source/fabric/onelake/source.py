@@ -32,6 +32,7 @@ from datahub.ingestion.source.common.subtypes import (
     GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
+from datahub.ingestion.source.fabric.common.keys import WorkspaceKey
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_schema_name,
@@ -69,12 +70,7 @@ logger = logging.getLogger(__name__)
 
 # Platform identifier
 PLATFORM = "fabric-onelake"
-
-
-class WorkspaceKey(ContainerKey):
-    """Container key for Fabric workspaces."""
-
-    workspace_id: str
+WORKSPACE_PLATFORM = "fabric"
 
 
 class LakehouseKey(WorkspaceKey):
@@ -82,11 +78,27 @@ class LakehouseKey(WorkspaceKey):
 
     lakehouse_id: str
 
+    def parent_key(self) -> Optional[ContainerKey]:
+        return WorkspaceKey(
+            platform=WORKSPACE_PLATFORM,
+            instance=self.instance,
+            env=self.env,
+            workspace_id=self.workspace_id,
+        )
+
 
 class WarehouseKey(WorkspaceKey):
     """Container key for Fabric warehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
     warehouse_id: str
+
+    def parent_key(self) -> Optional[ContainerKey]:
+        return WorkspaceKey(
+            platform=WORKSPACE_PLATFORM,
+            instance=self.instance,
+            env=self.env,
+            workspace_id=self.workspace_id,
+        )
 
 
 class LakehouseSchemaKey(LakehouseKey):
@@ -94,11 +106,29 @@ class LakehouseSchemaKey(LakehouseKey):
 
     schema_name: str
 
+    def parent_key(self) -> Optional[ContainerKey]:
+        return LakehouseKey(
+            platform=PLATFORM,
+            instance=self.instance,
+            env=self.env,
+            workspace_id=self.workspace_id,
+            lakehouse_id=self.lakehouse_id,
+        )
+
 
 class WarehouseSchemaKey(WarehouseKey):
     """Container key for Fabric schemas under warehouses. Inherits from WarehouseKey to enable parent_key() traversal."""
 
     schema_name: str
+
+    def parent_key(self) -> Optional[ContainerKey]:
+        return WarehouseKey(
+            platform=PLATFORM,
+            instance=self.instance,
+            env=self.env,
+            workspace_id=self.workspace_id,
+            warehouse_id=self.warehouse_id,
+        )
 
 
 @platform_name("Fabric OneLake")
@@ -199,7 +229,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     ) -> Iterable[Container]:
         """Create a workspace container."""
         container_key = WorkspaceKey(
-            platform=PLATFORM,
+            platform=WORKSPACE_PLATFORM,
             instance=self.config.platform_instance,
             env=self.config.env,
             workspace_id=workspace.id,
