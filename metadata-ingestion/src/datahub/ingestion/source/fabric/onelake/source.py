@@ -79,14 +79,19 @@ class LakehouseKey(WorkspaceKey):
     lakehouse_id: str
 
     def parent_key(self) -> Optional[ContainerKey]:
-        # Default ContainerKey.parent_key() would preserve this key's platform
-        # (`fabric-onelake`) when deriving WorkspaceKey. We must force workspace
-        # containers onto the canonical Fabric platform.
-        return WorkspaceKey(
-            instance=self.instance,
-            env=self.env,
-            workspace_id=self.workspace_id,
-        )
+        if type(self) is LakehouseKey:
+            # Default ContainerKey.parent_key() would preserve this key's
+            # platform (`fabric-onelake`) when deriving WorkspaceKey.
+            # For the lakehouse level, workspace parents must be `fabric`.
+            return WorkspaceKey(
+                instance=self.instance,
+                env=self.env,
+                workspace_id=self.workspace_id,
+            )
+
+        # For subclasses like LakehouseSchemaKey, keep standard traversal:
+        # LakehouseSchemaKey -> LakehouseKey.
+        return ContainerKey.parent_key(self)
 
 
 class WarehouseKey(WorkspaceKey):
@@ -96,13 +101,18 @@ class WarehouseKey(WorkspaceKey):
     warehouse_id: str
 
     def parent_key(self) -> Optional[ContainerKey]:
-        # Same rationale as LakehouseKey: workspace parents must be `fabric`,
-        # not inherited as `fabric-onelake`.
-        return WorkspaceKey(
-            instance=self.instance,
-            env=self.env,
-            workspace_id=self.workspace_id,
-        )
+        if type(self) is WarehouseKey:
+            # Same rationale as LakehouseKey: workspace parents must be `fabric`,
+            # not inherited as `fabric-onelake`.
+            return WorkspaceKey(
+                instance=self.instance,
+                env=self.env,
+                workspace_id=self.workspace_id,
+            )
+
+        # For subclasses like WarehouseSchemaKey, keep standard traversal:
+        # WarehouseSchemaKey -> WarehouseKey.
+        return ContainerKey.parent_key(self)
 
 
 class LakehouseSchemaKey(LakehouseKey):
@@ -110,29 +120,11 @@ class LakehouseSchemaKey(LakehouseKey):
 
     schema_name: str
 
-    def parent_key(self) -> Optional[ContainerKey]:
-        return LakehouseKey(
-            platform=PLATFORM,
-            instance=self.instance,
-            env=self.env,
-            workspace_id=self.workspace_id,
-            lakehouse_id=self.lakehouse_id,
-        )
-
 
 class WarehouseSchemaKey(WarehouseKey):
     """Container key for Fabric schemas under warehouses. Inherits from WarehouseKey to enable parent_key() traversal."""
 
     schema_name: str
-
-    def parent_key(self) -> Optional[ContainerKey]:
-        return WarehouseKey(
-            platform=PLATFORM,
-            instance=self.instance,
-            env=self.env,
-            workspace_id=self.workspace_id,
-            warehouse_id=self.warehouse_id,
-        )
 
 
 @platform_name("Fabric OneLake")
