@@ -3,7 +3,7 @@ import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -20,7 +20,7 @@ import UserSideBar from '@app/entityV2/user/UserSidebar';
 import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -28,7 +28,7 @@ import { PageRoutes } from '@conf/Global';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
-import { EntityRelationship, EntityType } from '@types';
+import { CorpGroup, EntityRelationship, EntityType } from '@types';
 
 export interface Props {
     urn: string;
@@ -52,16 +52,10 @@ const defaultTabDisplayConfig = {
  * Styled Components
  */
 const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    &&& .ant-tabs-nav {
-        margin: 0;
-    }
     background-color: ${(props) => props.theme.colors.bg};
     height: 100%;
     overflow: hidden;
     display: flex;
-    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-        padding-left: 15px;
-    }
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -92,12 +86,22 @@ const TabsContainer = styled.div``;
 
 const Tabs = styled.div``;
 
+const SidebarColumn = styled(Col)`
+    height: 100%;
+    overflow: auto;
+`;
+
+const ContentColumn = styled(Col)`
+    border-left: 1px solid ${(props) => props.theme.colors.border};
+    height: 100%;
+    padding: 8px 16px;
+`;
+
 /**
  * Responsible for reading & writing users.
  */
 export default function UserProfile({ urn }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
@@ -105,17 +109,18 @@ export default function UserProfile({ urn }: Props) {
 
     const { error, data, loading, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
-    const castedCorpUser = data?.corpUser as any;
+    const corpUser = data?.corpUser;
 
+    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const userGroups: Array<EntityRelationship> =
-        castedCorpUser?.groups?.relationships
+        corpUser?.groups?.relationships
             ?.filter((relationship) => {
-                const group = relationship?.entity;
+                const group = relationship?.entity as CorpGroup | undefined;
                 return group?.info || group?.editableProperties;
             })
             ?.map((relationship) => relationship as EntityRelationship) || [];
     const userRoles: Array<EntityRelationship> =
-        castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
+        corpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
     const { groupUrns } = useGetUserGroupUrns(urn);
 
@@ -223,19 +228,12 @@ export default function UserProfile({ urn }: Props) {
             <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>
+                <SidebarColumn xl={7} lg={7} md={7} sm={24} xs={24}>
                     <UserSideBar sidebarData={sidebarData} refetch={refetch} />
-                </Col>
-                <Col
-                    xl={17}
-                    lg={17}
-                    md={17}
-                    sm={24}
-                    xs={24}
-                    style={{ borderLeft: `1px solid ${theme.colors.border}`, height: '100%' }}
-                >
-                    <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
-                </Col>
+                </SidebarColumn>
+                <ContentColumn xl={17} lg={17} md={17} sm={24} xs={24}>
+                    <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                </ContentColumn>
             </UserProfileWrapper>
         </EntityContext.Provider>
     );

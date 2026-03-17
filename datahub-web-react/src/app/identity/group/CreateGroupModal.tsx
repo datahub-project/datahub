@@ -204,10 +204,9 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 <ActorsSearchSelect
                     label="Members"
                     selectedActorUrns={stagedMemberUrns}
-                    onUpdate={(actors: ActorEntity[]) =>
-                        setStagedMemberUrns(actors.filter((a) => a.type === EntityType.CorpUser).map((a) => a.urn))
-                    }
+                    onUpdate={(actors: ActorEntity[]) => setStagedMemberUrns(actors.map((a) => a.urn))}
                     placeholder="Search for users to add as members..."
+                    entityTypes={[EntityType.CorpUser]}
                 />
             </FormSection>
             <AdvancedButton

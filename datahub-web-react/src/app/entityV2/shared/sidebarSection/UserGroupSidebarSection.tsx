@@ -6,7 +6,7 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 
-import { EntityRelationship } from '@types';
+import { CorpGroup, EntityRelationship } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 
@@ -30,9 +30,10 @@ export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
             color: theme.colors.icon,
         },
     };
+    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const validGroups = groupsDetails.filter((detail) => {
-        const group = detail?.entity;
-        return group && ((group as any).info || (group as any).editableProperties);
+        const group = detail?.entity as CorpGroup | undefined;
+        return group && (group.info || group.editableProperties);
     });
     const groupsDetailsCount = validGroups.length;
     return (

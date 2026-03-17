@@ -52,6 +52,7 @@ export interface ActorsSearchSelectProps {
     isDisabled?: boolean;
     width?: number | 'full' | 'fit-content';
     showSearch?: boolean;
+    entityTypes?: EntityType[];
 }
 
 /**
@@ -61,6 +62,8 @@ export interface ActorsSearchSelectProps {
  *
  * TODO: Support resolving selected entities from selectedActorUrns on initial render.
  */
+const DEFAULT_ACTOR_TYPES = [EntityType.CorpUser, EntityType.CorpGroup];
+
 export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     selectedActorUrns,
     onUpdate,
@@ -70,6 +73,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     isDisabled = false,
     width = 'full',
     showSearch = true,
+    entityTypes = DEFAULT_ACTOR_TYPES,
 }) => {
     const entityRegistry = useEntityRegistryV2();
     const [selectedActorEntities, setSelectedActorEntities] = useState<ActorEntity[]>([]);
@@ -94,10 +98,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             fetchPolicy: 'no-cache',
         });
 
-    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([
-        EntityType.CorpGroup,
-        EntityType.CorpUser,
-    ]);
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations(entityTypes);
 
     // Get results from the recommendations or autocomplete
     const searchResults: Array<Entity> = useMemo(() => {
@@ -154,7 +155,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
                 autoCompleteQuery({
                     variables: {
                         input: {
-                            types: [EntityType.CorpUser, EntityType.CorpGroup],
+                            types: entityTypes,
                             query: query.trim(),
                             limit: 10,
                         },
@@ -162,7 +163,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
                 });
             }
         },
-        [autoCompleteQuery],
+        [autoCompleteQuery, entityTypes],
     );
 
     // Render actor entity in dropdown

@@ -1,6 +1,6 @@
 import { Col, Row } from 'antd';
 import React from 'react';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
 import { decodeUrn } from '@app/entity/shared/utils';
@@ -13,7 +13,7 @@ import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetUserQuery } from '@graphql/user.generated';
-import { EntityRelationship, EntityType } from '@types';
+import { CorpGroup, EntityRelationship, EntityType } from '@types';
 
 export interface Props {
     onTabChange: (selectedTab: string) => void;
@@ -27,22 +27,13 @@ const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
 
 const GROUP_PAGE_SIZE = 20;
 
-/**
- * Styled Components
- */
-const UserProfileWrapper = styled.div`
-    &&& .ant-tabs-nav {
-        margin: 0;
-    }
-`;
-
 const Content = styled.div`
     color: ${(props) => props.theme.colors.text};
     height: calc(100vh - 60px);
+`;
 
-    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-        padding-left: 15px;
-    }
+const ContentColumn = styled(Col)`
+    border-left: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 export const EmptyValue = styled.div`
@@ -60,22 +51,22 @@ export const EmptyValue = styled.div`
 export default function UserProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = decodeUrn(encodedUrn);
-    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
 
     const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
-    const castedCorpUser = data?.corpUser as any;
+    const corpUser = data?.corpUser;
 
+    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const userGroups: Array<EntityRelationship> =
-        castedCorpUser?.groups?.relationships
+        corpUser?.groups?.relationships
             ?.filter((relationship) => {
-                const group = relationship?.entity;
+                const group = relationship?.entity as CorpGroup | undefined;
                 return group?.info || group?.editableProperties;
             })
             ?.map((relationship) => relationship as EntityRelationship) || [];
     const userRoles: Array<EntityRelationship> =
-        castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
+        corpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
     // Routed Tabs Constants
     const getTabs = () => {
@@ -133,25 +124,16 @@ export default function UserProfile() {
     return (
         <>
             {error && <ErrorSection />}
-            <UserProfileWrapper>
-                <Row>
-                    <Col xl={5} lg={5} md={5} sm={24} xs={24}>
-                        <UserInfoSideBar sideBarData={sideBarData} refetch={refetch} />
-                    </Col>
-                    <Col
-                        xl={19}
-                        lg={19}
-                        md={19}
-                        sm={24}
-                        xs={24}
-                        style={{ borderLeft: `1px solid ${theme.colors.border}` }}
-                    >
-                        <Content>
-                            <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
-                        </Content>
-                    </Col>
-                </Row>
-            </UserProfileWrapper>
+            <Row>
+                <Col xl={5} lg={5} md={5} sm={24} xs={24}>
+                    <UserInfoSideBar sideBarData={sideBarData} refetch={refetch} />
+                </Col>
+                <ContentColumn xl={19} lg={19} md={19} sm={24} xs={24}>
+                    <Content>
+                        <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                    </Content>
+                </ContentColumn>
+            </Row>
         </>
     );
 }

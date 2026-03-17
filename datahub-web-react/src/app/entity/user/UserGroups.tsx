@@ -91,6 +91,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     };
 
     const relationships = groupsData ? groupsData.corpUser?.relationships?.relationships : initialRelationships;
+    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const userGroups = [...(relationships || [])]
         .filter((rel) => {
             const group = rel?.entity as CorpGroup;
