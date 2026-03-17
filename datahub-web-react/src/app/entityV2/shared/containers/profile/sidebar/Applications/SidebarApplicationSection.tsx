@@ -1,6 +1,5 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, message } from 'antd';
+import { toast } from '@components';
+import { Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -66,13 +65,13 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
             },
         })
             .then(() => {
-                message.success({ content: 'Removed Application.', duration: 2 });
+                toast.success('Removed Application.', { duration: 2 });
                 refetch?.();
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove application: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(`Failed to remove application: \n ${e.message || ''}`, { duration: 3 });
                 }
             });
     };
@@ -127,7 +126,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                     !readOnly && (
                         <SectionActionButton
                             dataTestId="add-applications-button"
-                            button={applications.length > 0 ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                            icon={applications.length > 0 ? 'PencilSimple' : 'Plus'}
                             onClick={(event) => {
                                 setShowModal(true);
                                 event.stopPropagation();

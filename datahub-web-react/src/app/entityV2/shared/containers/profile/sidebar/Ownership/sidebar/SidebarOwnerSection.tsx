@@ -1,4 +1,3 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -92,7 +91,6 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                                         key={ownershipTypeName}
                                         ownershipType={ownershipType}
                                         owners={owners}
-                                        readOnly={readOnly}
                                     />
                                 );
                             })}
@@ -103,7 +101,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                 extra={
                     !readOnly && (
                         <SectionActionButton
-                            button={<AddRoundedIcon />}
+                            icon="Plus"
                             onClick={(event) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();

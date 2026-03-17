@@ -21,6 +21,7 @@ import { DataPlatform, EntityType, Post } from '@types';
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
     gap: 5px;
+    padding: 0 20px;
 `;
 
 const EntityDetailsContainer = styled.div`

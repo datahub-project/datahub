@@ -1,4 +1,3 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -69,7 +68,7 @@ export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
                 }
                 extra={
                     <SectionActionButton
-                        button={<AddRoundedIcon />}
+                        icon="Plus"
                         onClick={(event) => {
                             setShowAddModal(true);
                             setAddModalType(EntityType.Tag);

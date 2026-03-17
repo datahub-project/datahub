@@ -1,9 +1,7 @@
-import { LinkOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
+import { Button, Icon } from '@components';
 import React from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { StyledLink } from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 export default function SourceRefSection() {
@@ -15,24 +13,20 @@ export default function SourceRefSection() {
     if (!sourceRef) return null;
 
     return (
-        <>
-            <SidebarSection
-                title="Source"
-                content={
-                    <>
-                        <Typography.Paragraph>
-                            {sourceUrl ? (
-                                <StyledLink type="link" href={sourceUrl} target="_blank" rel="noreferrer">
-                                    <LinkOutlined />
-                                    {sourceRef}
-                                </StyledLink>
-                            ) : (
-                                <span>{sourceRef}</span>
-                            )}
-                        </Typography.Paragraph>
-                    </>
-                }
-            />
-        </>
+        <SidebarSection
+            title="Source"
+            content={
+                sourceUrl ? (
+                    <a href={sourceUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                        <Button variant="text" color="violet">
+                            <Icon icon="Link" source="phosphor" size="md" color="inherit" />
+                            {sourceRef}
+                        </Button>
+                    </a>
+                ) : (
+                    <span>{sourceRef}</span>
+                )
+            }
+        />
     );
 }

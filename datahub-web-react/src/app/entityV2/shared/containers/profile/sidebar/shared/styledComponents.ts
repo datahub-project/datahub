@@ -1,33 +1,21 @@
-import { Typography } from 'antd';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
-export const RelativeTime = styled.div<{ relativeTimeColor: string }>`
-    display: flex;
-    padding: 2px 8px;
-    border-radius: 20px;
-    border: 1px solid;
-    border-color: ${(props) => props.relativeTimeColor};
-    color: ${(props) => props.relativeTimeColor};
-`;
-
-export const ContentText = styled(Typography.Text)<{ color?: string }>`
+export const ContentText = styled.span`
     font-size: 12px;
     font-weight: 500;
-    color: ${(props) => props.color || REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
-export const LabelText = styled(Typography.Text)`
+export const LabelText = styled.span`
     font-size: 12px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const InstanceIcon = styled.div`
     height: 22px;
     width: 22px;
-    background-color: #c9fff2;
+    background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
     border-radius: 6px;
     display: flex;
     align-items: center;
@@ -42,5 +30,5 @@ export const InstanceIcon = styled.div`
 export const StyledLabel = styled.span`
     font-size: 16px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;

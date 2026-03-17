@@ -5,9 +5,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import LinkButton from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
 
-const AddLinksWrapper = styled.div`
-    margin-left: -15px;
-`;
+const AddLinksWrapper = styled.div``;
 
 interface Props {
     hideLinksButton?: boolean;

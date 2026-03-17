@@ -1,5 +1,3 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React, { useState } from 'react';
 
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
@@ -153,7 +151,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             extra={
                                 <>
                                     <SectionActionButton
-                                        button={values ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                        icon={values ? 'PencilSimple' : 'Plus'}
                                         onClick={(event) => {
                                             setSelectedProperty(property);
                                             setIsPropModalVisible(true);

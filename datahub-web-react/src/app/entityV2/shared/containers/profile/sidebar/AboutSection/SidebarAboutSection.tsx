@@ -1,5 +1,3 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React from 'react';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -74,7 +72,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                     <>
                         {!readOnly && (
                             <SectionActionButton
-                                button={hasContent ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                icon={hasContent ? 'PencilSimple' : 'Plus'}
                                 dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {
