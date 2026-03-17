@@ -46,8 +46,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
 
     svg {
         font-size: 16px !important;
-        color: ${(props) =>
-            props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.textSecondary} !important;
+        color: ${(props) => (props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.icon)} !important;
     }
 
     .ant-btn {
@@ -56,13 +55,12 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     }
 `;
 
-const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant: DomainNavigatorVariant }>`
+const RowWrapper = styled.div<{ $isSelected: boolean; $variant: DomainNavigatorVariant }>`
     align-items: center;
     display: flex;
     width: 100%;
     border-bottom: ${(props) => (props.$variant === 'select' ? 'none' : `1px solid ${props.theme.colors.border}`)};
     padding: ${({ $variant }) => ($variant === 'select' ? '6px' : '12px')};
-    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
     ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSelected};`}
     &:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
@@ -79,7 +77,7 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant
 
 const StyledExpander = styled(BodyGridExpander)<{ paddingLeft: number }>`
     padding-left: 0px;
-    background: ${(props) => props.theme.colors.bgSurface};
+    background: ${(props) => props.theme.colors.bg};
     display: flex;
     width: 100%;
     overflow: auto;
@@ -176,7 +174,6 @@ export default function DomainNode({
             <RowWrapper
                 data-testid="domain-options-list"
                 $isSelected={isDomainNodeSelected && !isCollapsed}
-                isOpen={isOpen && !isClosing}
                 $variant={variant}
             >
                 {!isCollapsed && hasDomainChildren && (

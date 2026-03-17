@@ -1,8 +1,7 @@
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { Button, Icon } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
-import styled, { useTheme } from 'styled-components';
-
-import { RotatingButton } from '@app/shared/components';
+import styled from 'styled-components';
 
 export const SidebarWrapper = styled.div<{ width: number; $isShowNavBarRedesign?: boolean }>`
     max-height: 100%;
@@ -20,6 +19,13 @@ export const SidebarWrapper = styled.div<{ width: number; $isShowNavBarRedesign?
     `}
 `;
 
+const StyledIcon = styled(Icon)<{ $isOpen?: boolean }>`
+    color: ${(props) => props.theme.colors.icon};
+
+    transform: rotate(${(props) => (props.$isOpen ? '90' : '0')}deg);
+    transition: transform 250ms;
+`;
+
 export function RotatingTriangle({
     isOpen,
     onClick,
@@ -29,16 +35,9 @@ export function RotatingTriangle({
     onClick?: () => void;
     dataTestId?: string;
 }) {
-    const theme = useTheme();
     return (
-        <RotatingButton
-            ghost
-            size="small"
-            type="ghost"
-            deg={isOpen ? 90 : 0}
-            icon={<ChevronRightIcon style={{ color: theme.colors.text }} />}
-            onClick={onClick}
-            data-testid={dataTestId}
-        />
+        <Button onClick={onClick} data-testid={dataTestId} variant="text">
+            <StyledIcon icon={CaretRight} $isOpen={isOpen} size="md" />
+        </Button>
     );
 }

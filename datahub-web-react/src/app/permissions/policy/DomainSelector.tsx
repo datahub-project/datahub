@@ -1,4 +1,4 @@
-import { Select, Tag, Typography } from 'antd';
+import { Select, Tag } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -137,43 +137,37 @@ export function DomainSelector({ resources, setResources }: Props) {
     }
 
     return (
-        <>
-            <Typography.Paragraph>
-                The policy will apply to any chosen domains and all their nested domains. If <b>none</b> are selected,
-                the policy is applied to <b>all</b> resources of in all domains.
-            </Typography.Paragraph>
-            <ClickOutside onClickOutside={handleCLickOutside}>
-                <Select
-                    showSearch
-                    value={domainSelectValue}
-                    mode="multiple"
-                    filterOption={false}
-                    placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
-                    onSelect={(value) => onSelectDomain(value)}
-                    onDeselect={onDeselectDomain}
-                    onSearch={handleDomainSearch}
-                    onFocus={() => setIsFocusedOnInput(true)}
-                    onBlur={handleBlur}
-                    tagRender={(tagProps) => (
-                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                            {displayStringWithMaxLength(
-                                domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                75,
-                            )}
-                        </Tag>
-                    )}
-                    dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                >
-                    {domainSearchResults?.map((result) => (
-                        <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                            {renderSearchResult(result)}
-                        </Select.Option>
-                    ))}
-                </Select>
-                <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
-                    <DomainNavigator selectDomainOverride={selectDomainFromBrowser} selectedUrns={domainSelectValue} />
-                </BrowserWrapper>
-            </ClickOutside>
-        </>
+        <ClickOutside onClickOutside={handleCLickOutside}>
+            <Select
+                showSearch
+                value={domainSelectValue}
+                mode="multiple"
+                filterOption={false}
+                placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
+                onSelect={(value) => onSelectDomain(value)}
+                onDeselect={onDeselectDomain}
+                onSearch={handleDomainSearch}
+                onFocus={() => setIsFocusedOnInput(true)}
+                onBlur={handleBlur}
+                tagRender={(tagProps) => (
+                    <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                        {displayStringWithMaxLength(
+                            domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
+                            75,
+                        )}
+                    </Tag>
+                )}
+                dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+            >
+                {domainSearchResults?.map((result) => (
+                    <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                        {renderSearchResult(result)}
+                    </Select.Option>
+                ))}
+            </Select>
+            <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
+                <DomainNavigator selectDomainOverride={selectDomainFromBrowser} selectedUrns={domainSelectValue} />
+            </BrowserWrapper>
+        </ClickOutside>
     );
 }

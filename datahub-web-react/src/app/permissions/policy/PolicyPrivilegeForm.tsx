@@ -559,6 +559,10 @@ export default function PolicyPrivilegeForm({
             )}
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Select Domains</Typography.Text>}>
+                    <Typography.Paragraph>
+                        The policy will apply to any chosen domains and all their nested domains. If <b>none</b> are
+                        selected, the policy is applied to <b>all</b> resources of in all domains.
+                    </Typography.Paragraph>
                     <DomainSelector resources={resources} setResources={setResources} />
                 </Form.Item>
             )}
@@ -598,6 +602,11 @@ export default function PolicyPrivilegeForm({
             )}
             {showResourceFilterInput && isGlossaryBasedPoliciesEnabled && (
                 <Form.Item label={<Typography.Text strong>Select Glossary Terms & Term Groups</Typography.Text>}>
+                    <Typography.Paragraph>
+                        The policy will apply to resources with the chosen glossary terms or any term under the chosen
+                        glossary term groups. If <b>none</b> are selected, the policy will not account for glossary
+                        terms.
+                    </Typography.Paragraph>
                     <GlossarySelector resources={resources} setResources={setResources} />
                 </Form.Item>
             )}

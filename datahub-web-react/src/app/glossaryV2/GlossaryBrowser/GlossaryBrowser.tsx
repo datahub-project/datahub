@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
@@ -29,7 +29,6 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${(props) => props.theme.colors.icon};
     }
 `;
 
@@ -123,7 +122,7 @@ function GlossaryBrowser(props: Props) {
                 ))}
             {loading && (
                 <LoadingWrapper>
-                    <LoadingOutlined />
+                    <Loader />
                 </LoadingWrapper>
             )}
         </BrowserWrapper>
