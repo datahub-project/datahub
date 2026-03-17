@@ -20,7 +20,7 @@ function clickMenuAction(actionText) {
 }
 
 function clickFocusAndType(Id, text) {
-  cy.clickOptionWithTestId(Id).focused().clear().type(text);
+  cy.get(`[data-testid="${Id}"]`).should("be.visible").clear().type(text);
 }
 
 function updateAndSave(Id, groupName, text) {
@@ -72,7 +72,7 @@ function editPolicy(
   cy.waitTextVisible(visibleDiscription);
 }
 
-function deletePolicy(policyEdited, deletePolicy) {
+function deletePolicy(policyEdited, deletePolicyTitle) {
   cy.visit("/settings/permissions/policies");
   cy.waitTextVisible("Manage Permissions");
   cy.get('[data-testid="policy-filter"]').click();
@@ -82,12 +82,14 @@ function deletePolicy(policyEdited, deletePolicy) {
   openRowMenu(policyEdited);
   clickMenuAction("Deactivate");
   cy.waitTextVisible("Successfully deactivated policy.");
+  cy.contains("Successfully deactivated policy.").should("not.exist");
   openRowMenu(policyEdited);
   clickMenuAction("Activate");
   cy.waitTextVisible("Successfully activated policy.");
+  cy.contains("Successfully activated policy.").should("not.exist");
   openRowMenu(policyEdited);
   clickMenuAction("Delete");
-  cy.waitTextVisible(deletePolicy);
+  cy.waitTextVisible(deletePolicyTitle);
   cy.clickOptionWithText("Yes");
   cy.waitTextVisible("Successfully removed policy.");
   cy.contains("Successfully removed policy.").should("not.exist");
@@ -123,7 +125,6 @@ describe("create and manage platform and metadata policies", () => {
     deletePolicy(
       `${platform_policy_edited}`,
       `Delete ${platform_policy_edited}`,
-      `${platform_policy_edited}`,
     );
   });
 
@@ -145,9 +146,8 @@ describe("create and manage platform and metadata policies", () => {
       `Metadata policy description ${test_id} EDITED`,
     );
     deletePolicy(
-      `${metadata_policy_name}`,
-      `Delete ${metadata_policy_name}`,
       `${metadata_policy_edited}`,
+      `Delete ${metadata_policy_edited}`,
     );
   });
 });
