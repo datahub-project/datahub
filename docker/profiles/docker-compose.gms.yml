@@ -259,7 +259,7 @@ x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
 
 services:
   #################################
-  # System Update
+  # System Update (runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true, then SystemUpdate incl. BuildIndices)
   #################################
   system-update-quickstart:
     <<: *datahub-system-update-service
@@ -269,14 +269,15 @@ services:
       - quickstart-consumers
       - quickstart-frontend
       - quickstart-backend
+    environment:
+      <<: *datahub-system-update-env
+      DATAHUB_SQL_SETUP_ENABLED: 'true'
     depends_on:
-      mysql-setup:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
       opensearch:
         condition: service_healthy
-      mysql:
+      kafka-broker:
         condition: service_healthy
   system-update-quickstart-cdc:
     <<: *datahub-system-update-service
@@ -291,13 +292,9 @@ services:
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       DEBEZIUM_PLUGIN_NAME: pgoutput
     depends_on:
-      mysql-setup-cdc:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
-      opensearch:
-        condition: service_healthy
       mysql:
+        condition: service_healthy
+      opensearch:
         condition: service_healthy
       kafka-connect:
         condition: service_started
@@ -312,8 +309,8 @@ services:
         condition: service_healthy
       cassandra-setup:
         condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
   system-update-quickstart-postgres:
     <<: *datahub-system-update-service
     profiles:
@@ -321,10 +318,10 @@ services:
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
     depends_on:
-      postgres-setup:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-quickstart-postgres-cdc:
     <<: *datahub-system-update-service
     profiles:
@@ -339,10 +336,12 @@ services:
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       CDC_DB_TYPE: postgres
     depends_on:
-      postgres-setup-cdc:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      kafka-connect:
+        condition: service_started
   system-update-debug: &system-update-debug
     <<: *datahub-system-update-service-dev
     profiles:
@@ -363,10 +362,10 @@ services:
       - debug-backend-aws
       - debug-aws
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
     profiles:
@@ -376,10 +375,10 @@ services:
     profiles:
       - debug-consumers-cdc
     depends_on:
-      mysql-setup-dev-cdc:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
       kafka-connect:
         condition: service_started
     environment:
@@ -398,10 +397,10 @@ services:
       <<: *datahub-system-update-dev-env
       ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      elasticsearch-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -409,10 +408,10 @@ services:
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env]
     depends_on:
-      postgres-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-debug-postgres-cdc:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -420,10 +419,12 @@ services:
     environment:
       <<: *system-update-quickstart-postgres-cdc-env
     depends_on:
-      postgres-setup-dev-cdc:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      kafka-connect:
+        condition: service_started
   system-update-debug-cassandra:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -433,8 +434,8 @@ services:
     depends_on:
       cassandra-setup:
         condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
   system-update-debug-neo4j:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -444,8 +445,8 @@ services:
     depends_on:
       neo4j:
         condition: service_healthy
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
   #################################
   # GMS
   #################################

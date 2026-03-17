@@ -1,46 +1,45 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { Button, Modal, Text } from '@src/alchemy-components';
-import { IconNames } from '@src/alchemy-components/components/Icon/types';
+import { Button, Icon, Modal, Text, toast } from '@src/alchemy-components';
+import { radius, spacing, typography } from '@src/alchemy-components/theme';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const ModalContent = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: ${spacing.lg};
 `;
 
 const InfoAlert = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: ${spacing.xsm};
+    padding: ${spacing.sm} ${spacing.md};
     background: ${(props) => props.theme.colors.bgSurfaceInfo};
     border: 1px solid ${(props) => props.theme.colors.borderInformation};
-    border-radius: 8px;
+    border-radius: ${radius.md};
     color: ${(props) => props.theme.colors.textInformation};
 `;
 
-const InfoIcon = styled(InfoCircleOutlined)`
-    font-size: 16px;
-    color: ${(props) => props.theme.colors.textInformation};
+const InfoIconWrapper = styled.div`
+    display: flex;
+    font-size: ${typography.fontSizes.lg};
+    color: ${(props) => props.theme.colors.iconInformation};
 `;
 
 const Section = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 const CodeBlock = styled.div`
     position: relative;
     background: ${(props) => props.theme.colors.bgCode};
     border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 6px;
-    padding: 12px;
+    border-radius: ${radius.md};
+    padding: ${spacing.sm};
     overflow-x: auto;
 `;
 
@@ -48,16 +47,16 @@ const CodeContent = styled.pre`
     margin: 0;
     white-space: pre-wrap;
     word-break: break-all;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 12px;
+    font-family: ${typography.fonts.mono};
+    font-size: ${typography.fontSizes.sm};
     line-height: 1.5;
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const CopyButton = styled(Button)`
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: ${spacing.xsm};
+    right: ${spacing.xsm};
     background: ${(props) => props.theme.colors.bg};
 
     &:hover {
@@ -67,12 +66,12 @@ const CopyButton = styled(Button)`
 
 const Kbd = styled.code`
     display: inline;
-    padding: 2px 6px;
+    padding: ${spacing.xxsm} ${spacing.xsm};
     background: ${(props) => props.theme.colors.bgCode};
     border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 4px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 12px;
+    border-radius: ${radius.sm};
+    font-family: ${typography.fonts.mono};
+    font-size: ${typography.fontSizes.sm};
 `;
 
 const ExpirationText = styled(Text)`
@@ -108,8 +107,10 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
 --data-raw '{"query":"{\\n  me {\\n    corpUser {\\n        username\\n    }\\n  }\\n}","variables":{}}'`;
 
     const copyToClipboard = (text: string, label: string) => {
-        navigator.clipboard.writeText(text);
-        message.success(`${label} copied to clipboard`);
+        navigator.clipboard.writeText(text).then(
+            () => toast.success(`${label} copied to clipboard`),
+            () => toast.error(`Failed to copy ${label.toLowerCase()}`),
+        );
     };
 
     if (!visible) {
@@ -132,7 +133,9 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
         >
             <ModalContent>
                 <InfoAlert>
-                    <InfoIcon />
+                    <InfoIconWrapper>
+                        <Icon icon="Info" size="inherit" />
+                    </InfoIconWrapper>
                     <Text size="sm">
                         Make sure to copy your access token now. You won&apos;t be able to see it again.
                     </Text>
@@ -150,7 +153,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessToken, 'Token')}
                             data-testid="copy-token-button"
-                            icon={{ icon: 'Copy' as IconNames }}
+                            icon={{ icon: 'Copy' }}
                         >
                             Copy
                         </CopyButton>
@@ -172,7 +175,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessTokenCurl, 'cURL command')}
                             data-testid="copy-curl-button"
-                            icon={{ icon: 'Copy' as IconNames }}
+                            icon={{ icon: 'Copy' }}
                         >
                             Copy
                         </CopyButton>

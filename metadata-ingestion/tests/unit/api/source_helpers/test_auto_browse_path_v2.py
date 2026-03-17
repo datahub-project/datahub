@@ -5,6 +5,7 @@ from unittest.mock import patch
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
     make_container_urn,
+    make_data_flow_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
 )
@@ -494,3 +495,127 @@ def _make_container_browse_path_entries(
 
 def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryClass]:
     return [models.BrowsePathEntryClass(id=s, urn=None) for s in path]
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_dataflow_with_platform_instance(telemetry_ping_mock):
+    """DataFlow with platform_instance but no container gets [pi] fallback."""
+    platform = "fivetran"
+    platform_instance = "my-fivetran"
+    pi_urn = make_dataplatform_instance_urn(platform, platform_instance)
+    pi_entry = models.BrowsePathEntryClass(pi_urn, pi_urn)
+
+    flow_urn = make_data_flow_urn(
+        platform, "my_flow", platform_instance=platform_instance
+    )
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(
+        auto_browse_path_v2(wus, platform=platform, platform_instance=platform_instance)
+    )
+
+    paths = _get_browse_paths_from_wu(new_wus)
+    flow_key = flow_urn.split(":")[-1]
+    assert flow_key in paths
+    assert paths[flow_key] == [pi_entry]
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_dataflow_without_platform_instance(telemetry_ping_mock):
+    """DataFlow without platform_instance does NOT get a fallback browse path."""
+    platform = "fivetran"
+
+    flow_urn = make_data_flow_urn(platform, "my_flow")
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(auto_browse_path_v2(wus, platform=platform))
+
+    browse_path_count = sum(
+        bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus
+    )
+    assert browse_path_count == 0
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_dataset_no_fallback_with_platform_instance(
+    telemetry_ping_mock,
+):
+    """Dataset with platform_instance but no container does NOT get a fallback.
+    Only DataFlow/DataJob get the platform_instance fallback."""
+    platform = "delta-lake"
+    platform_instance = "my-platform"
+
+    dataset_urn = make_dataset_urn(platform, "my_dataset", env="PROD")
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(
+        auto_browse_path_v2(wus, platform=platform, platform_instance=platform_instance)
+    )
+
+    browse_path_count = sum(
+        bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus
+    )
+    assert browse_path_count == 0
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_mixed_entities_with_platform_instance(
+    telemetry_ping_mock,
+):
+    """Mix of containers (with hierarchy) and a standalone DataFlow.
+    Containers get container-based paths; the DataFlow gets the platform instance
+    fallback; datasets without containers get nothing."""
+    platform = "fivetran"
+    platform_instance = "my-fivetran"
+    pi_urn = make_dataplatform_instance_urn(platform, platform_instance)
+    pi_entry = models.BrowsePathEntryClass(pi_urn, pi_urn)
+
+    container_wus = list(
+        auto_status_aspect(_create_container_aspects({"a": {"b": []}}))
+    )
+
+    flow_urn = make_data_flow_urn(
+        platform, "my_flow", platform_instance=platform_instance
+    )
+    flow_wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(
+        auto_browse_path_v2(
+            container_wus + flow_wus,
+            platform=platform,
+            platform_instance=platform_instance,
+        )
+    )
+
+    paths = _get_browse_paths_from_wu(new_wus)
+
+    # Containers get container-based paths with platform instance prepended
+    assert paths["a"] == [pi_entry]
+    assert paths["b"] == [
+        pi_entry,
+        *_make_container_browse_path_entries(["a"]),
+    ]
+
+    # DataFlow gets platform instance fallback
+    flow_key = flow_urn.split(":")[-1]
+    assert paths[flow_key] == [pi_entry]

@@ -1,0 +1,7 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Anaplan icon/mark: stylized "A" in navy blue -->
+  <!-- Outer shape of the A -->
+  <path d="M152 8L40 248H96L112 208H180L212 248H240L152 8Z" fill="#152354"/>
+  <!-- Inner triangular counter (white cutout) -->
+  <path d="M124 168L152 56L192 168H124Z" fill="white"/>
+</svg>
