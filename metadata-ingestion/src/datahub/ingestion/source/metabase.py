@@ -814,7 +814,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             timestamp = None
 
         modified_actor = builder.make_user_urn(email)
-        modified_ts = self.get_timestamp_millis_from_ts_string(f"{timestamp}")
+        modified_ts = (
+            self.get_timestamp_millis_from_ts_string(timestamp)
+            if timestamp
+            else int(datetime.now(timezone.utc).timestamp() * 1000)
+        )
         title = dashboard.name
         description = dashboard.description or ""
         last_modified = ChangeAuditStampsClass(
@@ -1129,6 +1133,25 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return []
 
+    def _get_mbql_context(self, card: MetabaseCard) -> Optional[_MBQLContext]:
+        if not card.dataset_query or not card.dataset_query.query:
+            return None
+        if not card.database_id:
+            return None
+
+        datasource = self.get_datasource_from_id(card.database_id)
+        if not datasource or not datasource.platform:
+            return None
+
+        query = card.dataset_query.query
+        resolved = {}
+        for fid in set(query.collect_field_ids()):
+            f = self.get_field_from_id(fid)
+            if f is not None:
+                resolved[fid] = f
+
+        return _MBQLContext(query=query, datasource=datasource, resolved=resolved)
+
     def _get_cll_from_query_builder(
         self,
         card: MetabaseCard,
@@ -1141,23 +1164,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
         which MBQL expression produced each output column, so we read that and resolve the
         referenced field IDs back to upstream column names via /api/field/{id}.
         """
-        if not card.dataset_query or not card.dataset_query.query:
-            return None
-        if not card.result_metadata or not card.database_id:
+        if not card.result_metadata:
             return None
 
-        datasource = self.get_datasource_from_id(card.database_id)
-        if not datasource or not datasource.platform:
+        ctx = self._get_mbql_context(card)
+        if not ctx:
             return None
-
-        query = card.dataset_query.query
-
-        resolved = {
-            fid: f
-            for fid in set(query.collect_field_ids())
-            if (f := self.get_field_from_id(fid)) is not None
-        }
-        ctx = _MBQLContext(query=query, datasource=datasource, resolved=resolved)
 
         fine_grained: List[FineGrainedLineageClass] = []
         for meta in card.result_metadata:
@@ -1457,11 +1469,57 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def _create_input_field(
+        self, upstream_urn: str, meta: MetabaseResultMetadata
+    ) -> InputFieldClass:
+        return InputFieldClass(
+            schemaFieldUrn=upstream_urn,
+            schemaField=SchemaFieldClass(
+                fieldPath=meta.name or "",
+                type=SchemaFieldDataTypeClass(
+                    type=self._map_metabase_type_to_datahub_type(meta.base_type or "")
+                ),
+                nativeDataType=meta.base_type or "",
+                description=meta.display_name or meta.name or "",
+                nullable=True,
+            ),
+        )
+
     def _get_input_fields_from_card(self, card: MetabaseCard) -> List[InputFieldClass]:
-        """Extract InputFields from result_metadata for column-level usage tracking."""
         input_fields: List[InputFieldClass] = []
 
         if not card.result_metadata:
+            return input_fields
+
+        ctx = self._get_mbql_context(card)
+        if ctx:
+            for meta in card.result_metadata:
+                if not meta.name:
+                    continue
+
+                upstream_urns: List[str] = []
+                if meta.field_ref and isinstance(meta.field_ref, list):
+                    upstream_urns = self._resolve_field_ref_upstream_urns(
+                        meta.field_ref, ctx
+                    )
+
+                if upstream_urns:
+                    for upstream_urn in upstream_urns:
+                        input_fields.append(
+                            self._create_input_field(upstream_urn, meta)
+                        )
+                else:
+                    datasource_urns = self.get_datasource_urn(card)
+                    if datasource_urns:
+                        input_fields.append(
+                            self._create_input_field(
+                                builder.make_schema_field_urn(
+                                    parent_urn=datasource_urns[0],
+                                    field_path=meta.name,
+                                ),
+                                meta,
+                            )
+                        )
             return input_fields
 
         datasource_urns = self.get_datasource_urn(card)
@@ -1475,22 +1533,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 continue
 
             input_fields.append(
-                InputFieldClass(
-                    schemaFieldUrn=builder.make_schema_field_urn(
+                self._create_input_field(
+                    builder.make_schema_field_urn(
                         parent_urn=primary_datasource_urn,
                         field_path=meta.name,
                     ),
-                    schemaField=SchemaFieldClass(
-                        fieldPath=meta.name,
-                        type=SchemaFieldDataTypeClass(
-                            type=self._map_metabase_type_to_datahub_type(
-                                meta.base_type or ""
-                            )
-                        ),
-                        nativeDataType=meta.base_type or "",
-                        description=meta.display_name or meta.name,
-                        nullable=True,
-                    ),
+                    meta,
                 )
             )
 
@@ -1516,7 +1564,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             timestamp = None
 
         modified_actor = builder.make_user_urn(email)
-        modified_ts = self.get_timestamp_millis_from_ts_string(f"{timestamp}")
+        modified_ts = (
+            self.get_timestamp_millis_from_ts_string(timestamp)
+            if timestamp
+            else int(datetime.now(timezone.utc).timestamp() * 1000)
+        )
         last_modified = ChangeAuditStampsClass(
             created=None,
             lastModified=AuditStampClass(time=modified_ts, actor=modified_actor),

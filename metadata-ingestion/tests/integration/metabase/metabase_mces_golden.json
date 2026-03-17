@@ -436,22 +436,6 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD),count)",
-                    "schemaField": {
-                        "fieldPath": "count",
-                        "nullable": true,
-                        "description": "Count",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/BigInteger",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD),rating)",
                     "schemaField": {
                         "fieldPath": "rating",
@@ -463,6 +447,22 @@
                             }
                         },
                         "nativeDataType": "type/PostgresEnum",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD),rating)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
                         "recursive": false,
                         "isPartOfKey": false
                     }

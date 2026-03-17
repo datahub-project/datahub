@@ -138,6 +138,9 @@ def default_json_response_map():
         "http://localhost:3000/api/card/2": "card_2.json",
         "http://localhost:3000/api/table/21": "table_21.json",
         "http://localhost:3000/api/card/3": "card_3.json",
+        # Field endpoints for resolving MBQL field references in charts
+        "http://localhost:3000/api/field/131": "field_131.json",
+        "http://localhost:3000/api/field/136": "field_136.json",
     }
 
 
