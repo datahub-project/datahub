@@ -85,12 +85,9 @@ function makeGroup(overrides: Partial<ListGroupsGroup> = {}): ListGroupsGroup {
             pictureLink: null,
             name: null,
         },
-        memberCount: { __typename: 'EntityCount' as const, total: 5 },
+        memberCount: { __typename: 'EntityRelationshipsResult' as const, total: 5 },
         roles: {
             __typename: 'EntityRelationshipsResult' as const,
-            start: 0,
-            count: 0,
-            total: 0,
             relationships: [],
         },
         ...overrides,
@@ -162,7 +159,7 @@ describe('GroupDescriptionCell', () => {
 
 describe('GroupMembersCell', () => {
     it('should render member count', () => {
-        const group = makeGroup({ memberCount: { __typename: 'EntityCount' as const, total: 42 } });
+        const group = makeGroup({ memberCount: { __typename: 'EntityRelationshipsResult' as const, total: 42 } });
         wrap(<GroupMembersCell group={group} />);
 
         expect(screen.getByText('42 members')).toBeInTheDocument();
@@ -187,14 +184,9 @@ describe('GroupRoleCell', () => {
         const group = makeGroup({
             roles: {
                 __typename: 'EntityRelationshipsResult' as const,
-                start: 0,
-                count: 1,
-                total: 1,
                 relationships: [
                     {
                         __typename: 'EntityRelationship' as const,
-                        type: 'IsMemberOfRole',
-                        direction: 'OUTGOING' as any,
                         entity: { urn: 'urn:li:dataHubRole:Admin', name: 'Admin', type: EntityType.DatahubRole },
                     },
                 ],
@@ -263,14 +255,9 @@ describe('GroupRoleCell', () => {
         const group = makeGroup({
             roles: {
                 __typename: 'EntityRelationshipsResult' as const,
-                start: 0,
-                count: 1,
-                total: 1,
                 relationships: [
                     {
                         __typename: 'EntityRelationship' as const,
-                        type: 'IsMemberOfRole',
-                        direction: 'OUTGOING' as any,
                         entity: { urn: 'urn:li:dataHubRole:Admin', name: 'Admin', type: EntityType.DatahubRole },
                     },
                 ],
