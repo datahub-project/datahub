@@ -70,19 +70,6 @@ const COLOR_ENFORCEMENT_RULES = {
                     message:
                         'ANTD_GRAY / REDESIGN_COLORS / LINEAGE_COLORS are deprecated. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`.',
                 },
-                {
-                    name: 'moment',
-                    message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
-                },
-                {
-                    name: 'moment-timezone',
-                    message:
-                        'moment-timezone was removed for bundle size. Use dayjs with timezone plugin from @utils/dayjs instead.',
-                },
-                {
-                    name: 'moment/moment',
-                    message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
-                },
             ],
         },
     ],
@@ -124,16 +111,16 @@ module.exports = {
                 paths: [
                     {
                         name: 'moment',
-                        message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
                     },
                     {
                         name: 'moment-timezone',
                         message:
-                            'moment-timezone was removed for bundle size. Use dayjs with timezone plugin from @utils/dayjs instead.',
+                            'moment-timezone was removed for bundle size. Use dayjs with timezone plugin instead.',
                     },
                     {
                         name: 'moment/moment',
-                        message: 'moment was removed for bundle size. Use dayjs from @utils/dayjs instead.',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
                     },
                 ],
             },

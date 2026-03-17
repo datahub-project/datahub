@@ -2,7 +2,6 @@ import { FolderFilled } from '@ant-design/icons';
 import React from 'react';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     PlatformIcon,
     canCreateViewFromFilters,
@@ -123,9 +122,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
     it('should get the correct icon and label for entity filters', () => {
         const { icon, label } = getFilterIconAndLabel('entity', EntityType.Dataset, mockEntityRegistry, dataset1);
 
-        expect(icon).toMatchObject(
-            mockEntityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT, ANTD_GRAY[9]),
-        );
+        expect(icon).toMatchObject(mockEntityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT, undefined));
         expect(label).toBe(mockEntityRegistry.getCollectionName(EntityType.Dataset));
     });
 
@@ -140,7 +137,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
         const { icon, label } = getFilterIconAndLabel('domains', glossaryTerm1.urn, mockEntityRegistry, glossaryTerm1);
 
         expect(icon).toMatchObject(
-            mockEntityRegistry.getIcon(EntityType.GlossaryTerm, 12, IconStyleType.ACCENT, ANTD_GRAY[9]),
+            mockEntityRegistry.getIcon(EntityType.GlossaryTerm, 12, IconStyleType.ACCENT, undefined),
         );
         expect(label).toBe(mockEntityRegistry.getDisplayName(EntityType.GlossaryTerm, glossaryTerm1));
     });

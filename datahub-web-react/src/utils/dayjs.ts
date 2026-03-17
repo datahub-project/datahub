@@ -25,5 +25,9 @@ dayjs.extend(weekOfYear);
 dayjs.extend(weekYear);
 dayjs.extend(weekday);
 
+// Default timezone for date filter parsing (structured properties, search filters).
+// Previously set inside render functions — moved here to avoid mutating global state on every render.
+dayjs.tz.setDefault('GMT');
+
 export default dayjs;
 export type { Dayjs } from 'dayjs';

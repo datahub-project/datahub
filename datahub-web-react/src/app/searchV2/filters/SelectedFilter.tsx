@@ -83,7 +83,6 @@ export default function SelectedFilter({
     onRemoveFilter,
     isCompact,
 }: SelectedFilterProps) {
-    dayjs.tz.setDefault('GMT');
     const { field, operator, values, defaultValueOptions } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
     const displayName = useFilterDisplayName(predicate.field);

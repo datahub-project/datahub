@@ -1,4 +1,3 @@
-import dayjs from 'dayjs';
 import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -25,7 +24,6 @@ interface Props {
 
 export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
     const displayName = useFilterDisplayName(field);
-    dayjs.tz.setDefault('GMT');
 
     const [startDate, setStartDate] = useState<Datetime>(null);
     const [endDate, setEndDate] = useState<Datetime>(null);
@@ -61,11 +59,8 @@ export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
     const handleRangeChange = useCallback((dates: [Datetime, Datetime] | null) => {
         const [start, end] = dates || [null, null];
 
-        start?.startOf('day');
-        end?.endOf('day');
-
-        setStartDate(start);
-        setEndDate(end);
+        setStartDate(start?.startOf('day') ?? null);
+        setEndDate(end?.endOf('day') ?? null);
     }, []);
 
     return (

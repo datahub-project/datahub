@@ -8,12 +8,12 @@ export const getUniqueActorsFromOperations = (operations: Omit<Operation, 'lastU
     return uniq(operations.filter((operation) => operation.actor).map((operation) => operation.actor || ''));
 };
 
-export function dateStringToMoment(value: string | null | undefined): Dayjs | null {
+export function parseDateString(value: string | null | undefined): Dayjs | null {
     if (!value) return null;
     return dayjs(value);
 }
 
-export function momentToDateString(value: Dayjs | null | undefined): string | null {
+export function formatDateString(value: Dayjs | null | undefined): string | null {
     if (!value) return null;
     return value.format('YYYY-MM-DD');
 }
