@@ -802,9 +802,6 @@ class AirbyteOSSClient(AirbyteBaseClient):
             )
 
         # OSS only supports client_credentials grant type
-        self._acquire_oauth_token()
-
-    def _acquire_oauth_token(self) -> None:
         self._request_oauth_token()
 
     def _request_oauth_token(self) -> None:
@@ -862,7 +859,7 @@ class AirbyteOSSClient(AirbyteBaseClient):
         if hasattr(self, "token_expiry") and time.time() >= (
             self.token_expiry - TOKEN_REFRESH_BUFFER_SECONDS
         ):
-            self._acquire_oauth_token()
+            self._request_oauth_token()
 
     def _check_auth_before_request(self) -> None:
         """Check and refresh OAuth token if needed."""
@@ -1015,11 +1012,10 @@ class AirbyteCloudClient(AirbyteBaseClient):
                     )
                     return response_data
                 except Exception:
-                    logger.error(
-                        "Token refresh failed, authentication error is terminal"
-                    )
+                    error_msg = "Token refresh failed after 401/403 response"
+                    logger.error(error_msg)
+                    raise AirbyteAuthenticationError(error_msg) from e
 
-            # Fall through to raise original error
             error_message = f"Airbyte API request failed: {e.response.status_code}"
             try:
                 error_details = e.response.json()

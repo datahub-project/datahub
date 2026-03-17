@@ -32,9 +32,7 @@ source:
     incremental_lineage: true          # Emit lineage as patch (incremental) rather than full replacement
                                        # Set to false to re-state all lineage on each run
 
-    # Optional: Extract ownership and tags
-    extract_owners: false              # Extract owners from connection names
-    #owner_extraction_pattern: ".*owner:([\\w-]+).*" # Regex to extract owner
+    # Optional: Extract tags
     extract_tags: false                # Extract tags from Airbyte metadata
 
     # Filtering options - uncomment to use

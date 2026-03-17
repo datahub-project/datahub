@@ -56,17 +56,14 @@ class TestCreateAirbyteClient:
         assert client == mock_client_instance
 
     def test_create_invalid_client(self):
-        with pytest.raises(ValueError):
-            config = AirbyteClientConfig(
-                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-                host_port="localhost:8000",
-            )
-
-            with patch(
-                "datahub.ingestion.source.airbyte.client.create_airbyte_client"
-            ) as mock_create:
-                mock_create.side_effect = ValueError("Unsupported deployment type")
-                mock_create(config)
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="localhost:8000",
+        )
+        # Force an invalid deployment type by bypassing pydantic validation
+        object.__setattr__(config, "deployment_type", "invalid_type")
+        with pytest.raises(ValueError, match="Invalid deployment type"):
+            create_airbyte_client(config)
 
 
 class TestAirbyteOSSClient:

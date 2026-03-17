@@ -332,15 +332,6 @@ class AirbyteSourceConfig(
         description="Maximum number of job statuses to retrieve per connection",
     )
 
-    extract_owners: bool = Field(
-        default=False,
-        description="Extract owners from connection names",
-    )
-    owner_extraction_pattern: Optional[str] = Field(
-        default=None,
-        description="Regex pattern with a capture group to extract owner from connection name",
-    )
-
     extract_tags: bool = Field(
         default=False,
         description="Extract tags from Airbyte metadata",

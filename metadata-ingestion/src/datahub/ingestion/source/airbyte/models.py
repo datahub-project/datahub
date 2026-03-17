@@ -561,15 +561,6 @@ class AirbyteTagInfo(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class ValidatedPipelineIds(BaseModel):
-    """Model for validated workspace and connection IDs."""
-
-    workspace_id: str
-    connection_id: str
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
 class AirbyteDatasetUrns(BaseModel):
     """Model for paired source and destination dataset URNs."""
 

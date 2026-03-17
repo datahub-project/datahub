@@ -23,9 +23,8 @@ You'll need to have an Airbyte instance running with configured sources and dest
      - API token if available
 
    - **For Airbyte Cloud**:
-     - OAuth2 client ID
-     - OAuth2 client secret
-     - OAuth2 refresh token
+     - OAuth2 client ID and client secret (required)
+     - OAuth2 refresh token (optional — omit to use `client_credentials` grant; provide to use `refresh_token` grant)
      - Your Airbyte Cloud workspace ID
 
 3. **API Access**:
