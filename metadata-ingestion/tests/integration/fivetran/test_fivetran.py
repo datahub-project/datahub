@@ -25,6 +25,16 @@ from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
+
+@pytest.fixture(autouse=True)
+def mock_service_account_credentials():
+    """Mock from_service_account_info so tests with dummy private keys don't fail PEM validation."""
+    with mock.patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+    ):
+        yield
+
+
 default_connector_query_results = [
     {
         "connection_id": "calendar_elected",
