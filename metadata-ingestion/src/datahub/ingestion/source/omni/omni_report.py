@@ -13,6 +13,7 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = field(default_factory=LossyList)
     connections_scanned: int = 0
     models_scanned: int = 0
+    topics_scanned: int = 0
     documents_scanned: int = 0
     dashboards_scanned: int = 0
     semantic_datasets_emitted: int = 0
