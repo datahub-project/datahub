@@ -52,7 +52,7 @@ buildscript {
   ext.sparkLineageJetty94Version = '9.4.57.v20241219' // CVE-2024-13009 (Jetty 9.4 EOL line)
   ext.sparkLineageCommonsConfiguration2Version = '2.10.1' // CVE-2024-29131, CVE-2024-29133
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.5.21'
+  ext.logbackClassic = '1.5.32'
   ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.6.0'
@@ -638,7 +638,6 @@ subprojects {
         implementation('org.apache.commons:commons-configuration2:2.10.1') // GHSA-xjp4-hw94-mvp5: StackOverflowError
         implementation("org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}")
         implementation('org.apache.velocity:velocity-engine-core:2.4')
-        implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion")
         implementation('com.squareup.okhttp3:okhttp:4.12.0')

@@ -46,6 +46,8 @@ With backfill enabled, the system queries your warehouse for historical data and
 
 For full details on how backfill works, how to configure it, and how to retry failed backfills, see the dedicated [Backfill Assertion History](./assertion-backfill.md) page.
 
+<div align="center"><iframe width="640" height="444" src="https://www.loom.com/embed/61a201aea8464f58826c965fdbfbe255" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+
 ## Improving Smart assertion quality
 
 You can improve predictions through two key levers:
