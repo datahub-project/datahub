@@ -29,12 +29,22 @@ module.exports = defineConfig({
     experimentalMemoryManagement: true,
     numTestsKeptInMemory: 0,
   },
-  reporter: "cypress-junit-reporter",
+  reporter: "cypress-multi-reporters",
   reporterOptions: {
-    mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
-    toConsole: true,
-    testCaseSwitchClassnameAndName: true,
-    suiteNameTemplate: "{dirpath}",
-    classNameTemplate: "{filepath}",
+    reporterEnabled: "cypress-junit-reporter, mochawesome",
+    cypressJunitReporterReporterOptions: {
+      mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
+      toConsole: true,
+      testCaseSwitchClassnameAndName: true,
+      suiteNameTemplate: "{dirpath}",
+      classNameTemplate: "{filepath}",
+    },
+    mochawesomeReporterOptions: {
+      // Write one JSON file per spec so partial results survive an Electron crash
+      reportDir: "build/mochawesome-report",
+      overwrite: false,
+      html: false,
+      json: true,
+    },
   },
 });

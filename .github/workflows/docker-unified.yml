@@ -791,6 +791,30 @@ jobs:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: "docker_logs/*.log"
           retention-days: 5
+      - name: Generate Cypress HTML report
+        # Runs even on failure/crash: merges per-spec mochawesome JSONs written during the run
+        # and produces a single self-contained HTML file. Skipped for non-cypress batches.
+        if: always() && matrix.test_strategy == 'cypress'
+        run: |
+          REPORT_DIR="smoke-test/tests/cypress/build/mochawesome-report"
+          if compgen -G "$REPORT_DIR/*.json" > /dev/null 2>&1; then
+            npx --prefix smoke-test/tests/cypress mochawesome-merge "$REPORT_DIR/*.json" \
+              --output "$REPORT_DIR/merged.json"
+            npx --prefix smoke-test/tests/cypress marge "$REPORT_DIR/merged.json" \
+              --reportDir "$REPORT_DIR/html" \
+              --reportTitle "Cypress – ${{ matrix.test_strategy }} batch ${{ matrix.batch }}" \
+              --inline
+            echo "HTML report generated at $REPORT_DIR/html"
+          else
+            echo "No mochawesome JSON files found – Cypress may have crashed before any spec completed"
+          fi
+      - name: Upload Cypress HTML report
+        uses: actions/upload-artifact@v4
+        if: always() && matrix.test_strategy == 'cypress'
+        with:
+          name: cypress-html-report-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          path: smoke-test/tests/cypress/build/mochawesome-report/html/
+          retention-days: 5
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: failure()
