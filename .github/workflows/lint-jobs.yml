@@ -1,12 +1,15 @@
 name: lint
 on:
+  # Only run on PRs. Assuming all commits come in via PRs, there is no need for lint post commit
   pull_request:
+    # Run only on below branches
     branches:
       - master
       - releases/**
+      - hotfix/**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,7 +19,6 @@ jobs:
     outputs:
       markdown: ${{ steps.filter.outputs.markdown }}
       github-actions: ${{ steps.filter.outputs.github-actions }}
-      yaml-general: ${{ steps.filter.outputs.yaml-general }}
       workflow-files: ${{ steps.filter.outputs.workflow-files }}
       workflow-validation: ${{ steps.filter.outputs.workflow-validation }}
       code-check-sources: ${{ steps.filter.outputs.code-check-sources }}
@@ -32,10 +34,6 @@ jobs:
             github-actions:
               - ".github/**/*.yml"
               - ".github/**/*.yaml"
-            yaml-general:
-              - "**/*.{yml,yaml}"
-              - "!.github/**/*.yml"
-              - "!.github/**/*.yaml"
             workflow-files:
               - ".github/workflows/**"
             workflow-validation:
@@ -99,19 +97,6 @@ jobs:
       - name: Write step summary
         if: always()
         run: cat post-workflow-validation-summary.md >> "$GITHUB_STEP_SUMMARY"
-
-  yaml-format:
-    name: yaml_format_check
-    runs-on: ubuntu-latest
-    needs: setup
-    if: needs.setup.outputs.yaml-general == 'true'
-    steps:
-      - uses: acryldata/sane-checkout-action@v4
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
-      - name: run prettier --check
-        run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
 
   actionlint:
     name: actionlint
