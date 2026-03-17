@@ -409,7 +409,7 @@ jobs:
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
           if [[ "${{ env.IS_FORK }}" == "true" ]]; then
-            echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
             echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"

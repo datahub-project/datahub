@@ -34,6 +34,8 @@ module.exports = (on, config) => {
       launchOptions.args.push("--disable-dev-shm-usage");
       launchOptions.args.push("--disable-gpu");
       launchOptions.args.push("--no-sandbox");
+      // Disable VizDisplayCompositor to reduce per-renderer GPU memory overhead in CI
+      launchOptions.args.push("--disable-features=VizDisplayCompositor");
       launchOptions.args.push("--js-flags=--max-old-space-size=8192");
     }
     return launchOptions;
