@@ -251,7 +251,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       if (previousSearchDocument.isPresent()) {
         if (searchDocument.get().toString().equals(previousSearchDocument.get().toString())) {
           // No changes to search document, skip writing no-op update
-          log.info(
+          log.debug(
               "No changes detected for V2 search document for urn: {} aspect: {}",
               urn,
               aspectSpec.getName());
@@ -288,6 +288,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     // Dual-write to semantic index if enabled for this entity
     if (shouldWrite) {
       writeToSemanticIndex(entityName, finalDocument, docId);
+    }
+
+    // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
+    if (systemMetadata != null && systemMetadata.hasRunId()) {
+      elasticSearchService.appendRunId(opContext, urn, systemMetadata.getRunId());
     }
   }
 
@@ -478,12 +483,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull OperationContext opContext, @Nonnull String entityName) {
     // Condition 1: Semantic search must be configured and enabled
     if (semanticSearchConfig == null) {
-      log.info(
+      log.debug(
           "Semantic dual-write check for '{}': SKIP - semanticSearchConfig is null", entityName);
       return false;
     }
     if (!semanticSearchConfig.isEnabled()) {
-      log.info(
+      log.debug(
           "Semantic dual-write check for '{}': SKIP - semantic search disabled (enabled={})",
           entityName,
           semanticSearchConfig.isEnabled());
@@ -493,7 +498,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     // Condition 2: Entity must be in the enabled entities list
     Set<String> enabledEntities = semanticSearchConfig.getEnabledEntities();
     if (enabledEntities == null || !enabledEntities.contains(entityName)) {
-      log.info(
+      log.debug(
           "Semantic dual-write check for '{}': SKIP - entity not in enabled list (enabledEntities={})",
           entityName,
           enabledEntities);
@@ -507,7 +512,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       // Check if the index exists and cache the result
       indexExists = checkSemanticIndexExists(semanticIndexName);
       semanticIndexExistsCache.put(semanticIndexName, indexExists);
-      log.info(
+      log.debug(
           "Semantic dual-write check for '{}': index existence check for '{}' = {} (cached)",
           entityName,
           semanticIndexName,
@@ -515,14 +520,14 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
 
     if (!indexExists) {
-      log.info(
+      log.debug(
           "Semantic dual-write check for '{}': SKIP - semantic index '{}' does not exist",
           entityName,
           semanticIndexName);
       return false;
     }
 
-    log.info(
+    log.debug(
         "Semantic dual-write check for '{}': ENABLED - will write to '{}'",
         entityName,
         semanticIndexName);

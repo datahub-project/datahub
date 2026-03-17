@@ -838,6 +838,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       // Create root field mapping - this is the target field that aspect fields will copy_to
       Map<String, Object> rootFieldMapping = new HashMap<>();
       rootFieldMapping.put(TYPE, resolvedElasticsearchType);
+      if (ESUtils.OBJECT_FIELD_TYPE.equals(resolvedElasticsearchType)) {
+        rootFieldMapping.put("dynamic", true);
+      }
 
       // Check if any of the conflicting fields have eagerGlobalOrdinals set to true
       boolean hasEagerGlobalOrdinals =
@@ -926,8 +929,12 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       log.debug("Creating root alias for _entityName -> _search.entityName");
     } else {
       // Create root field mapping - this is the target field that aspect fields will copy_to
+      String resolvedType = FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType);
       Map<String, Object> rootFieldMapping = new HashMap<>();
-      rootFieldMapping.put(TYPE, FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType));
+      rootFieldMapping.put(TYPE, resolvedType);
+      if (ESUtils.OBJECT_FIELD_TYPE.equals(resolvedType)) {
+        rootFieldMapping.put("dynamic", true);
+      }
 
       // Check if any of the conflicting fields have eagerGlobalOrdinals set to true
       boolean hasEagerGlobalOrdinals =

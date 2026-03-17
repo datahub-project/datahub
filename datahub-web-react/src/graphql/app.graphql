@@ -123,6 +123,7 @@ query appConfig {
             contextDocumentsEnabled
             hideLineageInSearchCards
             glossaryBasedPoliciesEnabled
+            multipleDataProductsPerAsset
         }
         chromeExtensionConfig {
             enabled

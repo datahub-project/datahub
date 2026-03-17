@@ -113,7 +113,7 @@ public class UsageServiceUtil {
                     opContext, timeseriesAspectService, filter, resource, duration, timeZone),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(UsageServiceUtil.class, "getBuckets"));
-    log.info("Usage stats for resource {} returned {} buckets", resource, buckets.size());
+    log.debug("Usage stats for resource {} returned {} buckets", resource, buckets.size());
 
     // 3. Get aggregations.
     UsageQueryResultAggregations aggregations =
@@ -122,7 +122,7 @@ public class UsageServiceUtil {
             () -> getAggregations(opContext, timeseriesAspectService, filter),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(UsageServiceUtil.class, "getAggregations"));
-    log.info("Usage stats aggregation for resource {}", resource);
+    log.debug("Usage stats aggregation for resource {}", resource);
 
     // 4. Compute totalSqlQuery count from the buckets itself.
     // We want to avoid issuing an additional query with a sum aggregation.
