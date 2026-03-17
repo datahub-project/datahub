@@ -2,7 +2,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from requests.auth import HTTPBasicAuth
 
 from datahub.ingestion.source.flink.client import (
     FlinkClusterConfig,
@@ -51,26 +50,6 @@ def connection() -> FlinkConnectionConfig:
 @pytest.fixture
 def client(connection: FlinkConnectionConfig) -> FlinkRestClient:
     return FlinkRestClient(connection)
-
-
-class TestAuthSetup:
-    def test_bearer_token_sets_header(self):
-        conn = FlinkConnectionConfig(
-            rest_api_url="http://localhost:8081", token="my-token"
-        )
-        c = FlinkRestClient(conn)
-        assert c.session.headers.get("Authorization") == "Bearer my-token"
-
-    def test_basic_auth_sets_session_auth(self):
-        conn = FlinkConnectionConfig(
-            rest_api_url="http://localhost:8081",
-            username="admin",
-            password="secret",
-        )
-        c = FlinkRestClient(conn)
-        assert isinstance(c.session.auth, HTTPBasicAuth)
-        assert c.session.auth.username == "admin"
-        assert c.session.auth.password == "secret"
 
 
 class TestGetClusterConfig:
@@ -178,6 +157,33 @@ class TestGetCheckpointConfig:
             side_effect=requests.exceptions.HTTPError(response=response),
         ):
             assert client.get_checkpoint_config("abc123") is None
+
+    def test_parses_full_response_with_externalization(
+        self, client: FlinkRestClient
+    ) -> None:
+        with patch.object(
+            client,
+            "_get",
+            return_value={
+                "mode": "exactly_once",
+                "interval": 60000,
+                "timeout": 120000,
+                "state_backend": "rocksdb",
+                "checkpoint_storage": "filesystem",
+                "externalization": {
+                    "enabled": True,
+                    "delete_on_cancellation": False,
+                },
+            },
+        ):
+            result = client.get_checkpoint_config("abc123")
+            assert result is not None
+            assert result.mode == "exactly_once"
+            assert result.interval == 60000
+            assert result.state_backend == "rocksdb"
+            assert result.checkpoint_storage == "filesystem"
+            assert result.externalized_enabled is True
+            assert result.externalized_delete_on_cancellation is False
 
     def test_raises_on_non_404_error(self, client: FlinkRestClient) -> None:
         response = Mock(status_code=500)

@@ -1,7 +1,6 @@
 import logging
 import re
 import time
-from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import urljoin
 
@@ -26,16 +25,6 @@ def _validate_identifier(name: str, kind: str) -> str:
             "Only alphanumeric characters, underscores, dots, and hyphens are allowed."
         )
     return name
-
-
-@dataclass(frozen=True)
-class FlinkColumnSchema:
-    """Column metadata from Flink SQL Gateway DESCRIBE output."""
-
-    name: str
-    type: str
-    nullable: bool
-    comment: Optional[str]
 
 
 class FlinkSQLGatewayClient:
@@ -124,7 +113,7 @@ class FlinkSQLGatewayClient:
             if data:
                 yield data
 
-            if not result_response.get("nextResultUri") or not data:
+            if not result_response.get("nextResultUri"):
                 break
             result_token += 1
 
@@ -168,51 +157,68 @@ class FlinkSQLGatewayClient:
     def get_catalogs(self) -> List[str]:
         return self._extract_field_values(self.execute_statement("SHOW CATALOGS"))
 
-    def get_databases(self, catalog: str) -> List[str]:
-        _validate_identifier(catalog, "catalog")
-        list(self.execute_statement(f"USE CATALOG `{catalog}`"))
-        return self._extract_field_values(self.execute_statement("SHOW DATABASES"))
+    def get_catalog_info(self, catalog: str) -> Dict[str, str]:
+        """Execute DESCRIBE CATALOG EXTENDED to get catalog type and properties.
 
-    def get_tables(self, catalog: str, database: str) -> List[str]:
+        Returns a dict with at minimum 'type' key (e.g., 'jdbc', 'hive', 'iceberg',
+        'paimon', 'generic_in_memory'). Extended properties are returned as
+        'option:<key>' entries (e.g., 'option:base-url' for JDBC catalogs).
+        """
         _validate_identifier(catalog, "catalog")
-        _validate_identifier(database, "database")
-        list(self.execute_statement(f"USE CATALOG `{catalog}`"))
-        list(self.execute_statement(f"USE `{database}`"))
-        return self._extract_field_values(self.execute_statement("SHOW TABLES"))
+        info: Dict[str, str] = {}
+        for batch in self.execute_statement(f"DESC CATALOG EXTENDED `{catalog}`"):
+            for row in batch:
+                if (
+                    isinstance(row, dict)
+                    and "fields" in row
+                    and len(row["fields"]) >= 2
+                ):
+                    key = str(row["fields"][0]).strip()
+                    value = str(row["fields"][1]).strip()
+                    if key and value:
+                        info[key] = value
+        return info
 
-    def get_table_schema(
+    def get_table_connector(
         self, catalog: str, database: str, table: str
-    ) -> List[FlinkColumnSchema]:
+    ) -> Dict[str, str]:
+        """Execute SHOW CREATE TABLE to extract connector properties from the WITH clause.
+
+        Returns a dict of connector properties (e.g., {'connector': 'kafka', 'topic': 'orders',
+        'properties.bootstrap.servers': 'broker:9092'}). Returns empty dict if DDL cannot be
+        parsed (e.g., for JdbcCatalog auto-discovered tables that have no Flink DDL).
+        """
         _validate_identifier(catalog, "catalog")
         _validate_identifier(database, "database")
         _validate_identifier(table, "table")
         full_name = f"`{catalog}`.`{database}`.`{table}`"
-        columns: List[FlinkColumnSchema] = []
-        for batch in self.execute_statement(f"DESCRIBE {full_name}"):
-            for row in batch:
-                if isinstance(row, dict) and "fields" in row:
-                    col = self._parse_column(row["fields"])
-                    if col:
-                        columns.append(col)
-        return columns
+        try:
+            ddl_lines: List[str] = []
+            for batch in self.execute_statement(f"SHOW CREATE TABLE {full_name}"):
+                for row in batch:
+                    if isinstance(row, dict) and "fields" in row and row["fields"]:
+                        ddl_lines.append(str(row["fields"][0]))
+            ddl = "\n".join(ddl_lines)
+            return self._parse_with_properties(ddl)
+        except Exception:
+            logger.debug(
+                "Could not get CREATE TABLE DDL for %s (may be auto-discovered table)",
+                full_name,
+                exc_info=True,
+            )
+            return {}
 
     @staticmethod
-    def _parse_column(fields: List[Any]) -> Optional[FlinkColumnSchema]:
-        """Parse a DESCRIBE result row into a column schema."""
-        if len(fields) < 2:
-            return None
-        name = str(fields[0])
-        col_type = str(fields[1])
-        if not name or not col_type:
-            return None
-        nullable = fields[2] != "false" if len(fields) > 2 else True
-        comment = str(fields[3]) if len(fields) > 3 and fields[3] else None
-        return FlinkColumnSchema(
-            name=name,
-            type=col_type,
-            nullable=nullable,
-            comment=comment,
-        )
+    def _parse_with_properties(ddl: str) -> Dict[str, str]:
+        """Parse the WITH (...) clause from a CREATE TABLE DDL statement."""
+        with_match = re.search(r"\bWITH\s*\((.*)\)\s*$", ddl, re.DOTALL | re.IGNORECASE)
+        if not with_match:
+            return {}
+        with_content = with_match.group(1)
+        props: Dict[str, str] = {}
+        for pair_match in re.finditer(r"'([^']+)'\s*=\s*'([^']*)'", with_content):
+            props[pair_match.group(1)] = pair_match.group(2)
+        return props
 
     def test_connection(self) -> Optional[Exception]:
         """Returns None on success, or the exception on failure."""

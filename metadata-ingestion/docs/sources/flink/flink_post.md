@@ -1,57 +1,38 @@
 ### Capabilities
 
-#### Extracting Lineage from Kafka Connectors
+#### Lineage Extraction
 
-The connector automatically extracts table-level lineage from Kafka sources and sinks by analyzing Flink execution plans. It supports both the **DataStream API** and the **SQL/Table API**.
+The connector extracts table-level lineage by analyzing Flink execution plans. It handles two distinct cases:
 
-Supported plan node formats:
+**DataStream API (Kafka only):** The connector recognizes `KafkaSource-{topic}` and `KafkaSink-{topic}` patterns in operator descriptions. Platform is always `kafka`, and the topic name is extracted directly from the description. No SQL Gateway needed.
 
-| API Style                      | Source Pattern                                      | Sink Pattern                         |
-| ------------------------------ | --------------------------------------------------- | ------------------------------------ |
-| DataStream API                 | `KafkaSource-{topic}`                               | `KafkaSink-{topic}`                  |
-| SQL/Table API                  | `TableSourceScan(table=[[catalog, db, table]])`     | `Sink(table=[[catalog, db, table]])` |
-| SQL/Table API (operator chain) | `[N]:TableSourceScan(table=[[catalog, db, table]])` | `tableName[N]: Writer`               |
+**SQL/Table API (all connectors):** The connector parses `TableSourceScan(table=[[catalog, db, table]])` and `Sink(table=[[catalog, db, table]])` patterns. These are generic Flink plan formats — the same for Kafka, JDBC, Iceberg, Paimon, and every other connector. The connector resolves the actual platform via SQL Gateway catalog introspection:
 
-Lineage is emitted as DataJob inlets (sources) and outlets (sinks), linking Flink jobs to the Kafka topics they read from and write to.
+1. **`catalog_platform_map` config** — user-provided overrides; take priority over all auto-detection
+2. **DESCRIBE CATALOG** (Flink 1.20+) — determines catalog type (jdbc, iceberg, paimon, hive, etc.)
+3. **SHOW CREATE TABLE** — reads the `connector` property from the table DDL (for hive/generic_in_memory catalogs with mixed connector types)
 
-The lineage extractor is designed for Kafka connectors. For DataStream API jobs, non-Kafka connectors (e.g., `JdbcSource`, `ElasticsearchSink`) will be reported as "unclassified" (since not yet supported) in the ingestion report. For SQL/Table API jobs, the `TableSourceScan` and `Writer` patterns are generic Flink plan formats — any connector using these patterns will be matched and the extracted table name will be attributed to the `kafka` platform. This means non-Kafka SQL connectors (e.g., datagen, blackhole, JDBC via SQL) may produce lineage with incorrect platform attribution.
+#### Platform Resolution Examples
 
-#### Mapping Kafka Topics to Platform Instances
+A Flink job reads from a Postgres JDBC catalog table `pg_catalog.mydb.public.users`:
 
-If your Kafka topics belong to a specific platform instance (e.g., a particular Kafka cluster), use `platform_instance_map` to ensure lineage URNs are constructed correctly:
-
-```yml
-source:
-  type: "flink"
-  config:
-    connection:
-      rest_api_url: "http://localhost:8081"
-    platform_instance_map:
-      kafka: "my-kafka-cluster"
+```
+Plan: TableSourceScan(table=[[pg_catalog, mydb, public.users]])
+  → SQL Gateway: SHOW CREATE TABLE → connector=jdbc, url=jdbc:postgresql://
+  → URN: urn:li:dataset:(urn:li:dataPlatform:postgres, mydb.public.users, PROD)
 ```
 
-#### Operator Granularity
+A Flink job reads from an Iceberg catalog table `ice_catalog.lake.events`:
 
-By default (`operator_granularity: job`), the connector emits **one DataJob per Flink job** with all source and sink lineage coalesced into that single DataJob.
-
-Set `operator_granularity: vertex` to emit **one DataJob per operator/vertex** in the execution plan. This gives finer-grained lineage at the cost of more entities:
-
-```yml
-source:
-  type: "flink"
-  config:
-    connection:
-      rest_api_url: "http://localhost:8081"
-    operator_granularity: "vertex"
+```
+Plan: TableSourceScan(table=[[ice_catalog, lake, events]])
+  → SQL Gateway: DESCRIBE CATALOG → type=iceberg  (Flink 1.20+)
+  → URN: urn:li:dataset:(urn:li:dataPlatform:iceberg, lake.events, PROD)
 ```
 
-#### Catalog Metadata via SQL Gateway
+#### Platform Instance Mapping
 
-When `include_catalog_metadata` is enabled with a `sql_gateway_url`, the connector queries the Flink SQL Gateway to extract:
-
-- **Catalogs** as top-level containers
-- **Databases** as nested containers within catalogs
-- **Tables** as Dataset entities with column names and types
+If your datasets belong to specific platform instances (e.g., a particular Kafka cluster or Postgres deployment), use `catalog_platform_map` for per-catalog mapping or `platform_instance_map` as a platform-wide fallback:
 
 ```yml
 source:
@@ -60,27 +41,66 @@ source:
     connection:
       rest_api_url: "http://localhost:8081"
       sql_gateway_url: "http://localhost:8083"
-    include_catalog_metadata: true
-    catalog_pattern:
-      allow:
-        - "^my_catalog$"
+    # Per-catalog: takes priority
+    catalog_platform_map:
+      pg_us:
+        platform_instance: "us-postgres"
+      pg_eu:
+        platform_instance: "eu-postgres"
+    # Platform-wide fallback
+    platform_instance_map:
+      kafka: "prod-kafka-cluster"
 ```
+
+#### Iceberg/Paimon on Flink < 1.20
+
+On Flink versions before 1.20, `DESCRIBE CATALOG` is not available. The connector falls back to `SHOW CREATE TABLE`, but Iceberg and Paimon tables do not have a `connector` property in their DDL. In this case, provide the platform explicitly via `catalog_platform_map`:
+
+```yml
+source:
+  type: "flink"
+  config:
+    connection:
+      rest_api_url: "http://localhost:8081"
+      sql_gateway_url: "http://localhost:8083"
+    catalog_platform_map:
+      ice_catalog:
+        platform: "iceberg"
+      paimon_catalog:
+        platform: "paimon"
+```
+
+On Flink 1.20+, this config is not needed — the platform is auto-detected from the catalog type.
+
+#### Operator Granularity
+
+By default (`operator_granularity: job`), the connector emits **one DataJob per Flink job** with all source and sink lineage coalesced into that single DataJob.
+
+Set `operator_granularity: vertex` to emit **one DataJob per operator/vertex** in the execution plan. This gives finer-grained lineage at the cost of more entities.
 
 #### Run History
 
-When `include_run_history` is enabled (the default), the connector emits `DataProcessInstance` entities that track individual job executions. Each instance captures:
+When `include_run_history` is enabled (the default), the connector emits `DataProcessInstance` entities that track individual job executions:
 
 - **Start and end timestamps** from the Flink job timeline
 - **Run result**: `FINISHED` maps to SUCCESS, `FAILED` maps to FAILURE, `CANCELED` maps to SKIPPED
 - **Process type**: STREAMING or BATCH, based on the Flink job type
 
-Jobs in `RUNNING` state emit a start event only (no end event). Completed jobs emit both start and end events.
+Jobs in `RUNNING` state emit a start event only. Completed jobs emit both start and end events.
 
 ### Limitations
 
-1. **Kafka-centric lineage**: Lineage extraction is designed for Kafka connectors. DataStream API non-Kafka operators (e.g., JDBC, Elasticsearch) appear as "unclassified." SQL/Table API non-Kafka connectors using `TableSourceScan`/`Writer` patterns will be matched but incorrectly attributed to the `kafka` platform.
-2. **No column-level lineage**: Only table-level lineage is extracted from execution plans.
-3. **SQL Gateway dependency**: Catalog metadata extraction requires a running Flink SQL Gateway, which is not always deployed alongside the Flink cluster.
+1. **SQL Gateway required for SQL/Table API lineage.** Without a SQL Gateway URL, the connector cannot resolve `TableSourceScan(table=[[catalog, db, table]])` references to their actual platform. DataStream Kafka lineage (`KafkaSource-{topic}`) works without SQL Gateway.
+
+2. **Catalogs must be visible to the SQL Gateway session.** Catalogs registered programmatically in job code, via ephemeral SQL client sessions, or in a separate FileCatalogStore are invisible to the connector. Production deployments should use a persistent catalog (e.g., HiveCatalog backed by Hive Metastore) so that table definitions are visible across sessions.
+
+3. **Iceberg/Paimon on Flink < 1.20 require config.** `DESCRIBE CATALOG` was introduced in Flink 1.20. On earlier versions, Iceberg and Paimon catalogs cannot be auto-detected because their tables don't have a `connector` property in `SHOW CREATE TABLE`. Use `catalog_platform_map` to specify the platform manually.
+
+4. **Operator-chained sinks have no catalog info.** The `tableName[N]: Writer` pattern produced by Flink's operator chaining does not include catalog or database information. Only the bare table name is available. These sinks cannot be resolved to a platform and are reported as unclassified.
+
+5. **DataStream non-Kafka connectors are not supported.** Only `KafkaSource-{topic}` and `KafkaSink-{topic}` DataStream patterns are recognized. Other DataStream connectors (Kinesis, Pulsar, RabbitMQ, custom) produce user-provided names with no platform information.
+
+6. **No column-level lineage.** Only table-level (coarse) lineage is extracted from execution plans.
 
 ### Troubleshooting
 
@@ -88,7 +108,19 @@ Jobs in `RUNNING` state emit a start event only (no end event). Completed jobs e
 Verify the `rest_api_url` is correct and reachable. Test manually: `curl http://<host>:8081/v1/config`
 
 **Jobs appear but no lineage is extracted**
-The connector currently only extracts Kafka lineage. Check the ingestion report for "unclassified" operators — these are nodes the connector could not parse. If the job has no Kafka sources or sinks, no lineage will be emitted.
+Check the ingestion report for "unclassified" nodes. Common causes:
 
-**Catalog metadata not appearing**
-Ensure both `include_catalog_metadata: true` and `sql_gateway_url` are configured. Verify the SQL Gateway is running and can open a session: `curl -X POST http://<host>:8083/v1/sessions -H 'Content-Type: application/json' -d '{"properties":{}}'`
+- SQL/Table API jobs without `sql_gateway_url` configured — add the SQL Gateway URL
+- Tables in `default_catalog` (GenericInMemoryCatalog) created in ephemeral sessions — use a persistent catalog like HiveCatalog
+- DataStream jobs using non-Kafka connectors — not currently supported
+
+**SQL Gateway configured but platform not resolved**
+On Flink < 1.20, `DESCRIBE CATALOG` is unavailable. Check if the table's `SHOW CREATE TABLE` output includes a `connector` property. For Iceberg/Paimon catalogs, add `catalog_platform_map` config.
+
+**Lineage URNs don't match other connectors (e.g., Kafka connector)**
+Ensure `platform_instance_map` or `catalog_platform_map` produces the same platform instance as your other ingestion sources. For example, if the Kafka connector uses `platform_instance: "prod-cluster"`, configure:
+
+```yml
+platform_instance_map:
+  kafka: "prod-cluster"
+```

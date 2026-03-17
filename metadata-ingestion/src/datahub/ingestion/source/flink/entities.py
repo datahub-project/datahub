@@ -27,16 +27,18 @@ def compute_dataset_urns(
     nodes: List[ClassifiedNode],
     config: FlinkSourceConfig,
 ) -> List[DatasetUrnOrStr]:
-    """Build dataset URN strings from classified lineage nodes using platform_instance_map."""
+    """Build dataset URN strings from classified lineage nodes."""
     urns: List[DatasetUrnOrStr] = []
     for node in nodes:
         if not node.dataset_name or not node.platform:
             continue
-        platform_instance = (
-            config.platform_instance_map.get(node.platform)
-            if config.platform_instance_map
-            else None
-        )
+        platform_instance = None
+        if node.catalog_ref and node.catalog_ref.catalog:
+            detail = config.catalog_platform_map.get(node.catalog_ref.catalog)
+            if detail and detail.platform_instance:
+                platform_instance = detail.platform_instance
+        if platform_instance is None and config.platform_instance_map:
+            platform_instance = config.platform_instance_map.get(node.platform)
         urns.append(
             make_dataset_urn_with_platform_instance(
                 platform=node.platform,
@@ -153,7 +155,6 @@ class FlinkEntityBuilder:
         lineage_result: LineageResult,
     ) -> List[DataJob]:
         """Build one DataJob per plan node (operator_granularity='vertex')."""
-        # Index lineage by node_id for source/sink lookup
         source_by_node: Dict[str, ClassifiedNode] = {
             n.node_id: n for n in lineage_result.sources
         }
@@ -195,15 +196,13 @@ class FlinkEntityBuilder:
         self,
         job_detail: FlinkJobDetail,
         datajob: DataJob,
-        lineage_result: LineageResult,
+        inlets: List[DatasetUrnOrStr],
+        outlets: List[DatasetUrnOrStr],
     ) -> Iterable[MetadataWorkUnit]:
         if job_detail.job_type == "BATCH":
             process_type = DataProcessTypeClass.BATCH_SCHEDULED
         else:
             process_type = DataProcessTypeClass.STREAMING
-
-        inlets = compute_dataset_urns(lineage_result.sources, self.config)
-        outlets = compute_dataset_urns(lineage_result.sinks, self.config)
 
         dpi = DataProcessInstance(
             id=f"{job_detail.name}_{job_detail.start_time}",
@@ -215,8 +214,8 @@ class FlinkEntityBuilder:
                 "flink_job_id": job_detail.jid,
                 "job_state": job_detail.state,
             },
-            inlets=[DatasetUrn.from_string(u) for u in inlets],
-            outlets=[DatasetUrn.from_string(u) for u in outlets],
+            inlets=[DatasetUrn.from_string(str(u)) for u in inlets],
+            outlets=[DatasetUrn.from_string(str(u)) for u in outlets],
             data_platform_instance=self.config.platform_instance,
         )
 

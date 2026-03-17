@@ -9,9 +9,11 @@ from datahub.ingestion.source.flink.client import (
 from datahub.ingestion.source.flink.config import FlinkSourceConfig
 from datahub.ingestion.source.flink.entities import (
     FlinkEntityBuilder,
+    compute_dataset_urns,
     materialize_dataset_workunits,
 )
 from datahub.ingestion.source.flink.lineage import (
+    CatalogTableReference,
     ClassifiedNode,
     LineageResult,
     NodeRole,
@@ -140,6 +142,42 @@ class TestBuildDatajob:
         assert datajob.inlets is not None
         assert "prod-kafka" in str(datajob.inlets[0])
 
+    def test_catalog_platform_map_takes_priority_over_platform_instance_map(
+        self,
+    ) -> None:
+        """catalog_platform_map.platform_instance is primary;
+        platform_instance_map is fallback."""
+        config = _config(
+            platform_instance_map={"kafka": "fallback-kafka"},
+            catalog_platform_map={
+                "my_kafka_catalog": {"platform_instance": "primary-kafka"},
+            },
+        )
+        lineage = LineageResult(
+            sources=[
+                ClassifiedNode(
+                    node_id="1",
+                    description="TableSourceScan",
+                    role=NodeRole.SOURCE,
+                    platform="kafka",
+                    dataset_name="orders",
+                    catalog_ref=CatalogTableReference(
+                        catalog="my_kafka_catalog",
+                        database="default_database",
+                        table="orders",
+                    ),
+                )
+            ],
+        )
+        builder = FlinkEntityBuilder(config)
+        job = _job_detail()
+        dataflow = builder.build_dataflow(job, None, "1.20.0")
+        datajob = builder.build_datajob(dataflow, job, lineage)
+        assert datajob.inlets is not None
+        # catalog_platform_map takes priority
+        assert "primary-kafka" in str(datajob.inlets[0])
+        assert "fallback-kafka" not in str(datajob.inlets[0])
+
     def test_vertex_granularity_routes_lineage_per_node(self) -> None:
         builder = FlinkEntityBuilder(_config())
         job = _job_detail()
@@ -164,7 +202,7 @@ class TestBuildDpiWorkunits:
         datajob = builder.build_datajob(dataflow, job, LineageResult())
         return [
             wu
-            for wu in builder.build_dpi_workunits(job, datajob, LineageResult())
+            for wu in builder.build_dpi_workunits(job, datajob, inlets=[], outlets=[])
             if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         ]
 
@@ -247,3 +285,31 @@ class TestBuildDpiWorkunits:
             wu for wu in wus if wu.metadata.aspectName == "dataProcessInstanceRunEvent"
         ]
         assert len(run_events) == 0
+
+
+class TestComputeDatasetUrns:
+    def test_skips_none_platform(self) -> None:
+        nodes = [
+            ClassifiedNode(
+                node_id="1",
+                description="unresolved source",
+                role=NodeRole.SOURCE,
+                platform=None,
+                dataset_name="some.table",
+            )
+        ]
+        urns = compute_dataset_urns(nodes, _config())
+        assert urns == []
+
+    def test_skips_none_dataset_name(self) -> None:
+        nodes = [
+            ClassifiedNode(
+                node_id="1",
+                description="unresolved source",
+                role=NodeRole.SOURCE,
+                platform="kafka",
+                dataset_name=None,
+            )
+        ]
+        urns = compute_dataset_urns(nodes, _config())
+        assert urns == []

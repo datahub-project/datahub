@@ -1,5 +1,6 @@
+import json
 import pathlib
-from typing import Any
+from typing import Any, Dict
 
 import pytest
 import time_machine
@@ -45,6 +46,7 @@ def flink_runner(docker_compose_runner, test_resources_dir):  # type: ignore
     ) as docker_services:
         wait_for_port(docker_services, "test_flink_jobmanager", 8081, timeout=120)
         wait_for_port(docker_services, "test_flink_sql_gateway", 8083, timeout=120)
+        wait_for_port(docker_services, "test-flink-hive-metastore", 9083, timeout=120)
         setup_test_data()
         yield docker_services
 
@@ -53,7 +55,7 @@ def flink_runner(docker_compose_runner, test_resources_dir):  # type: ignore
 def test_flink_ingest(
     flink_runner: Any, pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
-    """Full ingestion: jobs + catalog + lineage + DPI → golden file."""
+    """Full ingestion: jobs + platform-resolved lineage via SQL Gateway."""
     output_file = tmp_path / "flink_mces.json"
 
     pipeline = Pipeline.create(
@@ -68,9 +70,12 @@ def test_flink_ingest(
                     },
                     "include_lineage": True,
                     "include_run_history": False,
-                    "include_catalog_metadata": True,
-                    "catalog_pattern": {"allow": ["^pg_catalog$"]},
                     "env": "TEST",
+                    # Flink 1.19 doesn't support DESCRIBE CATALOG.
+                    # Iceberg/Paimon catalogs need explicit platform in catalog_platform_map.
+                    "catalog_platform_map": {
+                        "ice_catalog": {"platform": "iceberg"},
+                    },
                 },
             },
             "sink": {
@@ -91,27 +96,23 @@ def test_flink_ingest(
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_flink_ingest_catalog_only(
+def test_flink_ingest_no_sql_gateway(
     flink_runner: Any, pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
-    """Catalog-only ingestion: containers + datasets + schemaMetadata → golden file."""
-    output_file = tmp_path / "flink_catalog_mces.json"
+    """Ingestion without SQL Gateway: DataFlow + DataJob emitted, no SQL lineage."""
+    output_file = tmp_path / "flink_no_gw_mces.json"
 
     pipeline = Pipeline.create(
         {
-            "run_id": "flink-catalog-golden-test",
+            "run_id": "flink-no-gw-golden-test",
             "source": {
                 "type": "flink",
                 "config": {
                     "connection": {
                         "rest_api_url": FLINK_REST_URL,
-                        "sql_gateway_url": SQL_GATEWAY_URL,
                     },
-                    "include_lineage": False,
+                    "include_lineage": True,
                     "include_run_history": False,
-                    "include_catalog_metadata": True,
-                    "catalog_pattern": {"allow": ["^pg_catalog$"]},
-                    "job_name_pattern": {"deny": [".*"]},
                     "env": "TEST",
                 },
             },
@@ -124,12 +125,11 @@ def test_flink_ingest_catalog_only(
     pipeline.run()
     pipeline.raise_from_status()
 
-    # Catalog data is fully deterministic — no dynamic ignore paths needed
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_file,
-        golden_path=TEST_RESOURCES_DIR / "flink_catalog_mces_golden.json",
-        ignore_paths=[],
+        golden_path=TEST_RESOURCES_DIR / "flink_no_gw_mces_golden.json",
+        ignore_paths=FLINK_IGNORE_PATHS,
     )
 
 
@@ -149,9 +149,89 @@ def test_connection_success(flink_runner: Any) -> None:
         capability_report=report.capability_report,
         success_capabilities=[
             SourceCapability.LINEAGE_COARSE,
-            SourceCapability.SCHEMA_METADATA,
-            SourceCapability.CONTAINERS,
         ],
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_flink_datastream_chained_lineage(
+    flink_runner: Any, tmp_path: pathlib.Path
+) -> None:
+    """DataStream jobs with Kafka Sink V2 produce correct lineage despite the ': Writer' suffix.
+
+    Flink 1.19 changed how Kafka sinks appear in plan descriptions:
+      - Legacy (Flink < 1.15):   "Sink: KafkaSink-{topic}"
+      - Flink 1.19 Sink V2:      "KafkaSink-{topic}: Writer"  (possibly chained with source)
+
+    This test verifies that:
+    1. The connector correctly parses the ': Writer' suffix format.
+    2. If operators are chained into a single plan node (source + sink in one
+       node with '<br/>' separator), both source and sink lineage are extracted.
+
+    Jobs under test (submitted by setup_flink_test_data.py via PyFlink DataStream API):
+      test_ds_kafka_hop1: orders -> enriched-orders
+      test_ds_kafka_hop2: enriched-orders -> final-output
+    """
+    output_file = tmp_path / "flink_ds_chain_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "flink-ds-chain-test",
+            "source": {
+                "type": "flink",
+                "config": {
+                    "connection": {
+                        "rest_api_url": FLINK_REST_URL,
+                        "sql_gateway_url": SQL_GATEWAY_URL,
+                    },
+                    "include_lineage": True,
+                    "include_run_history": False,
+                    "env": "TEST",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": str(output_file)},
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mces = json.loads(output_file.read_text())
+
+    def get_lineage(job_name: str) -> Dict[str, Any]:
+        for mce in mces:
+            if mce.get("aspectName") == "dataJobInputOutput" and job_name in mce.get(
+                "entityUrn", ""
+            ):
+                return mce["aspect"]["json"]  # type: ignore[no-any-return]
+        return {}
+
+    hop1 = get_lineage("test_ds_kafka_hop1")
+    assert hop1, "test_ds_kafka_hop1 lineage not found in output"
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)"
+        in hop1["inputDatasets"]
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
+        in hop1["outputDatasets"]
+    ), (
+        "test_ds_kafka_hop1 sink 'enriched-orders' missing — likely KAFKA_DATASTREAM_SINK regex bug"
+    )
+
+    hop2 = get_lineage("test_ds_kafka_hop2")
+    assert hop2, "test_ds_kafka_hop2 lineage not found in output"
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
+        in hop2["inputDatasets"]
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)"
+        in hop2["outputDatasets"]
+    ), (
+        "test_ds_kafka_hop2 sink 'final-output' missing — likely KAFKA_DATASTREAM_SINK regex bug"
     )
 
 

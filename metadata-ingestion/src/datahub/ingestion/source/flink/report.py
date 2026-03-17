@@ -21,9 +21,6 @@ class FlinkSourceReport(StaleEntityRemovalSourceReport):
     lineage_sinks_found: int = 0
     lineage_unclassified_nodes: LossyList[str] = field(default_factory=LossyList)
     dpis_emitted: int = 0
-    catalogs_scanned: int = 0
-    databases_scanned: int = 0
-    tables_scanned: int = 0
     flink_version: Optional[str] = None
     cluster_config_timer: PerfTimer = field(default_factory=PerfTimer)
     jobs_overview_timer: PerfTimer = field(default_factory=PerfTimer)
@@ -76,12 +73,3 @@ class FlinkSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dpi_emitted(self) -> None:
         self.dpis_emitted += 1
-
-    def report_catalog_scanned(self) -> None:
-        self.catalogs_scanned += 1
-
-    def report_database_scanned(self) -> None:
-        self.databases_scanned += 1
-
-    def report_table_scanned(self) -> None:
-        self.tables_scanned += 1

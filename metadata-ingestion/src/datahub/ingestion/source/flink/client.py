@@ -81,7 +81,6 @@ def _is_retryable(exception: BaseException) -> bool:
 
 
 def create_authenticated_session(config: FlinkConnectionConfig) -> requests.Session:
-    """Create an HTTP session with auth configured from FlinkConnectionConfig."""
     session = requests.Session()
     session.verify = config.verify_ssl
     if config.token:

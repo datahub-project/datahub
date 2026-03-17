@@ -1,17 +1,16 @@
 """Create test data in Flink for integration tests.
 
-Three setup steps are needed:
+Test scenarios:
+1. Multi-hop Kafka via HiveCatalog: orders → job_1 → enriched-orders → job_2 → final-output
+2. JDBC/Postgres 3-level naming: pg_catalog.flink_catalog.public.users
+3. Iceberg 2-level naming: ice_catalog.lake.events
 
-1. **SQL client** (docker exec): Creates datagen/blackhole tables in the
-   default in-memory catalog and submits a streaming job. Jobs appear on
-   the JobManager REST API.
-
-2. **psql** (docker exec): Creates test tables directly in Postgres.
-   The JDBC catalog reflects these as Flink tables.
-
-3. **SQL Gateway REST API**: Registers a JDBC catalog pointing to Postgres.
-   The FileCatalogStore persists this registration so the connector's
-   own SQL Gateway session can discover the catalog and its tables.
+Infrastructure:
+- Kafka topics created via docker exec
+- Postgres tables created via psql
+- JDBC + Iceberg + Hive catalogs registered via SQL Gateway (persistent FileCatalogStore)
+- Kafka tables created in HiveCatalog (visible across SQL Gateway sessions)
+- All 4 streaming jobs submitted via SQL client (each creates its own catalogs)
 """
 
 import logging
@@ -28,11 +27,57 @@ JOBMANAGER_CONTAINER = "test_flink_jobmanager"
 POSTGRES_CONTAINER = "test_flink_postgres"
 BROKER_CONTAINER = "test_flink_broker"
 
-# Streaming job via SQL client (default_catalog, in-memory).
-# Uses Kafka source/sink so the execution plan has real KafkaSource/KafkaSink
-# nodes that the lineage extractor can parse into source-to-sink lineage.
-JOB_SQL = """\
-CREATE TABLE orders (
+KAFKA_TOPICS = [
+    "orders",
+    "enriched-orders",
+    "final-output",
+    "user-events",
+    "enriched-user-events",
+    "matched-events",
+]
+
+# ── Catalogs registered via SQL Gateway (persistent FileCatalogStore) ──
+# These are visible to the connector's own SQL Gateway session for platform resolution.
+
+CREATE_JDBC_CATALOG_SQL = """\
+DROP CATALOG IF EXISTS pg_catalog;
+CREATE CATALOG pg_catalog WITH (
+    'type' = 'jdbc',
+    'default-database' = 'flink_catalog',
+    'username' = 'flink',
+    'password' = 'flink',
+    'base-url' = 'jdbc:postgresql://postgres:5432'
+)"""
+
+CREATE_ICEBERG_CATALOG_SQL = """\
+DROP CATALOG IF EXISTS ice_catalog;
+CREATE CATALOG ice_catalog WITH (
+    'type' = 'iceberg',
+    'catalog-type' = 'hadoop',
+    'warehouse' = 'file:///tmp/iceberg-warehouse'
+)"""
+
+CREATE_ICEBERG_DB_SQL = "CREATE DATABASE IF NOT EXISTS ice_catalog.lake"
+
+CREATE_ICEBERG_TABLE_SQL = """CREATE TABLE IF NOT EXISTS ice_catalog.lake.events (
+    event_id BIGINT,
+    event_type STRING,
+    event_time TIMESTAMP(6)
+)"""
+
+CREATE_HIVE_CATALOG_SQL = """\
+DROP CATALOG IF EXISTS hive_catalog;
+CREATE CATALOG hive_catalog WITH (
+    'type' = 'hive',
+    'default-database' = 'default',
+    'hive-conf-dir' = '/opt/hive-conf'
+)"""
+
+# Kafka tables in HiveCatalog persist across SQL Gateway sessions (production-correct setup).
+HIVE_KAFKA_TABLES_SQL = """\
+CREATE DATABASE IF NOT EXISTS hive_catalog.flink_db;
+
+CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.orders (
     order_id BIGINT,
     amount DECIMAL(10,2),
     customer_name STRING,
@@ -45,7 +90,7 @@ CREATE TABLE orders (
     'format' = 'json'
 );
 
-CREATE TABLE enriched_orders (
+CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.enriched_orders (
     order_id BIGINT,
     amount DECIMAL(10,2),
     customer_name STRING,
@@ -54,15 +99,25 @@ CREATE TABLE enriched_orders (
     'connector' = 'kafka',
     'topic' = 'enriched-orders',
     'properties.bootstrap.servers' = 'broker:9092',
+    'scan.startup.mode' = 'earliest-offset',
     'format' = 'json'
 );
 
-SET 'pipeline.name' = 'test_enrich_orders';
+CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.final_output (
+    order_id BIGINT,
+    amount DECIMAL(10,2),
+    customer_name STRING,
+    order_time TIMESTAMP(3)
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'final-output',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'scan.startup.mode' = 'earliest-offset',
+    'format' = 'json'
+)"""
 
-INSERT INTO enriched_orders SELECT * FROM orders;
-"""
+# ── Postgres tables (reflected by JDBC catalog as public.users, public.products) ──
 
-# Tables created directly in Postgres (reflected by JDBC catalog)
 POSTGRES_DDL = """\
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT,
@@ -76,26 +131,127 @@ CREATE TABLE IF NOT EXISTS products (
     price DOUBLE PRECISION,
     in_stock BOOLEAN
 );
-CREATE TABLE IF NOT EXISTS events (
-    event_id BIGINT,
-    event_type VARCHAR(100),
-    payload VARCHAR(1000),
-    event_time TIMESTAMP
-);
 """
 
-# JDBC catalog registration (persisted by FileCatalogStore on SQL Gateway)
-CREATE_CATALOG_SQL = """CREATE CATALOG pg_catalog WITH (
+# ── Streaming jobs submitted via SQL client ──
+# Each job creates its own HiveCatalog reference (SQL client session is independent
+# from SQL Gateway). Tables are already persisted in Hive Metastore, so the job
+# only needs to register the catalog and reference the existing tables.
+
+# Job 1: orders → enriched-orders (multi-hop first leg, via HiveCatalog)
+JOB1_SQL = """\
+CREATE CATALOG hive_catalog WITH (
+    'type' = 'hive',
+    'default-database' = 'default',
+    'hive-conf-dir' = '/opt/hive-conf'
+);
+
+SET 'pipeline.name' = 'test_enrich_orders';
+
+INSERT INTO hive_catalog.flink_db.enriched_orders
+SELECT * FROM hive_catalog.flink_db.orders;
+"""
+
+# Job 2: enriched-orders → final-output (multi-hop second leg, via HiveCatalog)
+JOB2_SQL = """\
+CREATE CATALOG hive_catalog WITH (
+    'type' = 'hive',
+    'default-database' = 'default',
+    'hive-conf-dir' = '/opt/hive-conf'
+);
+
+SET 'pipeline.name' = 'test_final_output';
+
+INSERT INTO hive_catalog.flink_db.final_output
+SELECT * FROM hive_catalog.flink_db.enriched_orders;
+"""
+
+# Job 3: JDBC 3-level naming test.
+# Uses UNION ALL of JDBC scan (bounded) + Kafka (unbounded).
+# FLIP-147 guarantees the job stays RUNNING — the Kafka branch is unbounded.
+# Plan shows TableSourceScan(table=[[pg_catalog, flink_catalog, public.users]]).
+JOB3_SQL = """\
+CREATE CATALOG pg_catalog WITH (
     'type' = 'jdbc',
     'default-database' = 'flink_catalog',
     'username' = 'flink',
     'password' = 'flink',
     'base-url' = 'jdbc:postgresql://postgres:5432'
-)"""
+);
+
+CREATE TEMPORARY TABLE user_events (
+    user_id BIGINT,
+    username STRING,
+    email STRING,
+    active BOOLEAN
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'user-events',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'scan.startup.mode' = 'earliest-offset',
+    'format' = 'json'
+);
+
+CREATE TEMPORARY TABLE enriched_user_events (
+    user_id BIGINT,
+    username STRING,
+    email STRING,
+    active BOOLEAN
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'enriched-user-events',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'format' = 'json'
+);
+
+SET 'pipeline.name' = 'test_pg_users_pipeline';
+
+INSERT INTO enriched_user_events
+SELECT * FROM pg_catalog.flink_catalog.`public.users`
+UNION ALL
+SELECT * FROM user_events;
+"""
+
+# Job 4: Iceberg 2-level naming test.
+# Uses Iceberg streaming read (monitor-interval polls for new snapshots).
+# Job stays RUNNING even with empty table (confirmed by Iceberg Issue #5803).
+# Plan shows TableSourceScan(table=[[ice_catalog, lake, events]]).
+JOB4_SQL = """\
+CREATE CATALOG ice_catalog WITH (
+    'type' = 'iceberg',
+    'catalog-type' = 'hadoop',
+    'warehouse' = 'file:///tmp/iceberg-warehouse'
+);
+
+CREATE DATABASE IF NOT EXISTS ice_catalog.lake;
+
+CREATE TABLE IF NOT EXISTS ice_catalog.lake.events (
+    event_id BIGINT,
+    event_type STRING,
+    event_time TIMESTAMP(6)
+);
+
+CREATE TEMPORARY TABLE matched_events (
+    event_id BIGINT,
+    event_type STRING,
+    event_time TIMESTAMP(6)
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'matched-events',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'format' = 'json'
+);
+
+SET 'pipeline.name' = 'test_iceberg_events_pipeline';
+
+INSERT INTO matched_events
+SELECT * FROM ice_catalog.lake.events
+  /*+ OPTIONS('streaming'='true', 'monitor-interval'='5s') */;
+"""
 
 
-def _wait_for_running_job(timeout: float = 60.0) -> None:
-    """Poll JobManager until at least one job is RUNNING."""
+def _wait_for_running_jobs(expected: int, timeout: float = 120.0) -> None:
+    """Poll JobManager until expected number of jobs are RUNNING."""
     waited = 0.0
     while waited < timeout:
         try:
@@ -103,19 +259,35 @@ def _wait_for_running_job(timeout: float = 60.0) -> None:
             resp.raise_for_status()
             jobs = resp.json().get("jobs", [])
             running = [j for j in jobs if j.get("state") == "RUNNING"]
-            if running:
-                logger.info("Found %d running job(s)", len(running))
+            if len(running) >= expected:
+                logger.info(
+                    "Found %d running job(s): %s",
+                    len(running),
+                    [j["name"] for j in running],
+                )
                 return
         except Exception:
             pass
-        time.sleep(1.0)
-        waited += 1.0
-    raise TimeoutError("No RUNNING job found within timeout")
+        time.sleep(2.0)
+        waited += 2.0
+    # On timeout, show what we have
+    try:
+        resp = requests.get(f"{JOBMANAGER_URL}/v1/jobs/overview", timeout=5)
+        jobs = resp.json().get("jobs", [])
+        logger.error(
+            "Timeout: only %d/%d jobs running. States: %s",
+            len([j for j in jobs if j.get("state") == "RUNNING"]),
+            expected,
+            [(j["name"], j["state"]) for j in jobs],
+        )
+    except Exception:
+        pass
+    raise TimeoutError(f"Expected {expected} RUNNING jobs within {timeout}s")
 
 
 def _create_kafka_topics() -> None:
-    """Create Kafka topics used by Flink source/sink tables."""
-    for topic in ["orders", "enriched-orders"]:
+    """Create Kafka topics used by all Flink jobs."""
+    for topic in KAFKA_TOPICS:
         result = subprocess.run(
             [
                 "docker",
@@ -139,31 +311,43 @@ def _create_kafka_topics() -> None:
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to create topic {topic}: {result.stderr}")
-    logger.info("Kafka topics created")
+    logger.info("Kafka topics created: %s", KAFKA_TOPICS)
 
 
-def _setup_streaming_job() -> None:
-    """Submit Kafka->Kafka streaming job via SQL client."""
-    result = subprocess.run(
-        [
-            "docker",
-            "exec",
-            "-i",
-            JOBMANAGER_CONTAINER,
-            "/opt/flink/bin/sql-client.sh",
-            "embedded",
-        ],
-        input=JOB_SQL,
-        capture_output=True,
-        text=True,
-        timeout=120,
+def _execute_sql_gateway(sql: str) -> None:
+    """Execute one or more SQL statements via the SQL Gateway REST API."""
+    resp = requests.post(
+        f"{SQL_GATEWAY_URL}/v1/sessions",
+        json={"properties": {}},
+        timeout=10,
     )
-    if result.returncode != 0:
-        logger.error("SQL client stderr: %s", result.stderr)
-        raise RuntimeError(
-            f"Flink SQL client failed (exit {result.returncode}): {result.stderr}"
+    resp.raise_for_status()
+    session = resp.json()["sessionHandle"]
+
+    for statement in sql.split(";"):
+        statement = statement.strip()
+        if not statement:
+            continue
+        resp = requests.post(
+            f"{SQL_GATEWAY_URL}/v1/sessions/{session}/statements",
+            json={"statement": statement},
+            timeout=30,
         )
-    logger.info("Streaming job submitted")
+        resp.raise_for_status()
+        op = resp.json()["operationHandle"]
+
+        for _ in range(60):
+            status = requests.get(
+                f"{SQL_GATEWAY_URL}/v1/sessions/{session}/operations/{op}/status",
+                timeout=10,
+            ).json()
+            if status.get("status") in ("FINISHED", "ERROR", "CANCELED"):
+                if status.get("status") == "ERROR":
+                    raise RuntimeError(f"SQL Gateway statement failed: {status}")
+                break
+            time.sleep(0.5)
+
+    logger.info("SQL Gateway statements executed")
 
 
 def _setup_postgres_tables() -> None:
@@ -190,44 +374,108 @@ def _setup_postgres_tables() -> None:
     logger.info("Postgres tables created")
 
 
-def _register_jdbc_catalog() -> None:
-    """Register JDBC catalog via SQL Gateway (persisted by FileCatalogStore)."""
-    resp = requests.post(
-        f"{SQL_GATEWAY_URL}/v1/sessions",
-        json={"properties": {}},
-        timeout=10,
+def _register_catalogs() -> None:
+    """Register JDBC, Iceberg, and Hive catalogs via SQL Gateway (persistent).
+
+    Catalogs are registered in the SQL Gateway for the connector's platform
+    resolution (SHOW CREATE TABLE). Kafka tables are created in HiveCatalog
+    so they persist across sessions (production-correct setup). Iceberg tables
+    are created in the SQL client session (runs on JobManager where the
+    Iceberg warehouse volume is mounted).
+    """
+    _execute_sql_gateway(CREATE_JDBC_CATALOG_SQL)
+    logger.info("JDBC catalog 'pg_catalog' registered")
+    _execute_sql_gateway(CREATE_ICEBERG_CATALOG_SQL)
+    logger.info("Iceberg catalog 'ice_catalog' registered")
+    _execute_sql_gateway(CREATE_HIVE_CATALOG_SQL)
+    logger.info("Hive catalog 'hive_catalog' registered")
+    _execute_sql_gateway(HIVE_KAFKA_TABLES_SQL)
+    logger.info("Kafka tables created in hive_catalog")
+
+
+def _submit_sql_job(sql: str, label: str) -> None:
+    """Submit a Flink SQL job via the SQL client."""
+    result = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "-i",
+            JOBMANAGER_CONTAINER,
+            "/opt/flink/bin/sql-client.sh",
+            "embedded",
+        ],
+        input=sql,
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
-    resp.raise_for_status()
-    session = resp.json()["sessionHandle"]
+    if result.returncode != 0:
+        logger.error("SQL client stderr for %s: %s", label, result.stderr)
+        raise RuntimeError(
+            f"Flink SQL client failed for {label} (exit {result.returncode}): "
+            f"{result.stderr[:500]}"
+        )
+    logger.info("Job '%s' submitted", label)
 
-    resp = requests.post(
-        f"{SQL_GATEWAY_URL}/v1/sessions/{session}/statements",
-        json={"statement": CREATE_CATALOG_SQL},
-        timeout=30,
+
+def _submit_pyflink_job(input_topic: str, output_topic: str, job_name: str) -> None:
+    """Submit a DataStream Kafka job via PyFlink inside the JobManager container.
+
+    Produces KafkaSource-{input_topic} / KafkaSink-{output_topic} plan patterns
+    that the DataStreamKafkaExtractor parses for lineage.
+    """
+    result = subprocess.run(
+        [
+            "docker",
+            "exec",
+            JOBMANAGER_CONTAINER,
+            "/opt/flink/bin/flink",
+            "run",
+            "--detached",
+            "--python",
+            "/opt/flink/pyflink_kafka_job.py",
+            "--input-topic",
+            input_topic,
+            "--output-topic",
+            output_topic,
+            "--bootstrap-servers",
+            "broker:9092",
+            "--job-name",
+            job_name,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
-    resp.raise_for_status()
-    op = resp.json()["operationHandle"]
-
-    for _ in range(30):
-        status = requests.get(
-            f"{SQL_GATEWAY_URL}/v1/sessions/{session}/operations/{op}/status",
-            timeout=10,
-        ).json()
-        if status.get("status") in ("FINISHED", "ERROR", "CANCELED"):
-            if status.get("status") == "ERROR":
-                raise RuntimeError(f"CREATE CATALOG failed: {status}")
-            break
-        time.sleep(0.5)
-
-    logger.info("JDBC catalog 'pg_catalog' registered via SQL Gateway")
+    if result.returncode != 0:
+        logger.error("PyFlink stderr for %s: %s", job_name, result.stderr)
+        raise RuntimeError(
+            f"PyFlink job failed for {job_name} (exit {result.returncode}): "
+            f"{result.stderr[:500]}"
+        )
+    logger.info("PyFlink job '%s' submitted", job_name)
 
 
 def setup_test_data() -> None:
-    """Create streaming job + JDBC catalog with Postgres tables."""
+    """Create all test data: catalogs, tables, and streaming jobs.
+
+    Jobs cover three lineage patterns:
+    - DataStream Kafka: KafkaSource-{topic} / KafkaSink-{topic} (via PyFlink)
+    - SQL/Table API with HiveCatalog: TableSourceScan(table=[[hive_catalog, ...]])
+    - SQL/Table API with JDBC/Iceberg catalogs: 3-level and 2-level naming
+    """
     logger.info("Setting up Flink test data...")
     _create_kafka_topics()
-    _setup_streaming_job()
-    _wait_for_running_job()
     _setup_postgres_tables()
-    _register_jdbc_catalog()
+    _register_catalogs()
+    # DataStream Kafka multi-hop: topic1 → flink → topic2 → flink → topic3
+    _submit_pyflink_job("orders", "enriched-orders", "test_ds_kafka_hop1")
+    _submit_pyflink_job("enriched-orders", "final-output", "test_ds_kafka_hop2")
+    # SQL/Table API with HiveCatalog (Kafka tables visible across sessions)
+    _submit_sql_job(JOB1_SQL, "test_enrich_orders")
+    _submit_sql_job(JOB2_SQL, "test_final_output")
+    # SQL/Table API with JDBC (3-level naming) and Iceberg (2-level naming)
+    _submit_sql_job(JOB3_SQL, "test_pg_users_pipeline")
+    _submit_sql_job(JOB4_SQL, "test_iceberg_events_pipeline")
+    _wait_for_running_jobs(expected=6)
     logger.info("Test data setup complete.")

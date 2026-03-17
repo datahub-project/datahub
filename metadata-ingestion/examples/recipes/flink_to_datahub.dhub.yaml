@@ -6,7 +6,7 @@ source:
     connection:
       rest_api_url: "http://localhost:8081"
 
-      # Optional: SQL Gateway for catalog metadata extraction
+      # Optional: SQL Gateway for platform-resolved SQL/Table API lineage
       # sql_gateway_url: "http://localhost:8083"
 
       # Optional: authentication
@@ -15,15 +15,11 @@ source:
       # username: "admin"
       # password: "${FLINK_PASSWORD}"
 
-    # Include table-level lineage from Kafka sources/sinks (default: true)
+    # Include table-level lineage from job execution plans (default: true)
     include_lineage: true
 
     # Emit DataProcessInstance entities for job run tracking (default: true)
     include_run_history: true
-
-    # Extract catalog metadata via SQL Gateway (default: false)
-    # Requires sql_gateway_url in connection config
-    # include_catalog_metadata: true
 
     # Filter jobs by name (default: allow all)
     # job_name_pattern:
@@ -36,6 +32,19 @@ source:
     # include_job_states:
     #   - "RUNNING"
     #   - "FINISHED"
+
+    # Per-catalog platform_instance overrides. Platform is auto-detected via
+    # SQL Gateway for most catalog types; specify platform only when
+    # auto-detection is unavailable (see documentation for details).
+    # catalog_platform_map:
+    #   pg_catalog:
+    #     platform_instance: "prod-postgres"
+    #   kafka_catalog:
+    #     platform_instance: "prod-kafka"
+
+    # Platform-wide fallback for platform_instance
+    # platform_instance_map:
+    #   kafka: "prod-kafka-cluster"
 
 # see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

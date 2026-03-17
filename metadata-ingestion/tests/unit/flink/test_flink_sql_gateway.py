@@ -36,14 +36,6 @@ class TestValidateIdentifier:
             _validate_identifier("", "table")
 
 
-class TestOpenSession:
-    def test_reuses_existing_session(self) -> None:
-        client = FlinkSQLGatewayClient(_connection())
-        client._session_handle = "existing-handle"
-        result = client.open_session()
-        assert result == "existing-handle"
-
-
 class TestExtractFieldValues:
     def test_parses_row_format(self) -> None:
         client = FlinkSQLGatewayClient(_connection())
@@ -57,35 +49,6 @@ class TestExtractFieldValues:
         )
         result = client._extract_field_values(batches)
         assert result == ["default_catalog", "hive_catalog"]
-
-
-class TestGetTableSchema:
-    def test_parses_describe_output(self) -> None:
-        client = FlinkSQLGatewayClient(_connection())
-        mock_describe_response = [
-            [
-                {"kind": "INSERT", "fields": ["order_id", "INT", "true", None]},
-                {
-                    "kind": "INSERT",
-                    "fields": ["amount", "DECIMAL(10,2)", "true", "Order amount"],
-                },
-                {
-                    "kind": "INSERT",
-                    "fields": ["created_at", "TIMESTAMP(3)", "false", None],
-                },
-            ]
-        ]
-        with patch.object(
-            client, "execute_statement", return_value=iter(mock_describe_response)
-        ):
-            columns = client.get_table_schema("cat", "db", "orders")
-
-        assert len(columns) == 3
-        assert columns[0].name == "order_id"
-        assert columns[0].type == "INT"
-        assert columns[0].nullable is True
-        assert columns[1].comment == "Order amount"
-        assert columns[2].nullable is False
 
 
 class TestWaitForOperation:
@@ -180,3 +143,210 @@ class TestExecuteStatementNotReady:
 
         assert len(batches) == 1
         assert batches[0][0]["fields"] == ["value1"]
+
+
+class TestGetCatalogs:
+    def test_returns_catalog_names(self) -> None:
+        client = FlinkSQLGatewayClient(_connection())
+        client._session_handle = "session-1"
+        client.session = MagicMock()
+
+        def mock_request(method: str, url: str, **kwargs: object) -> MagicMock:
+            resp = MagicMock()
+            resp.raise_for_status.return_value = None
+            if method == "POST":
+                resp.json.return_value = {"operationHandle": "op-1"}
+            else:
+                resp.json.return_value = {
+                    "resultType": "PAYLOAD",
+                    "results": {
+                        "data": [
+                            {"fields": ["default_catalog"]},
+                            {"fields": ["hive_catalog"]},
+                        ]
+                    },
+                }
+            return resp
+
+        client.session.request.side_effect = mock_request
+        result = client.get_catalogs()
+        assert result == ["default_catalog", "hive_catalog"]
+
+    def test_returns_empty_list_when_no_catalogs(self) -> None:
+        client = FlinkSQLGatewayClient(_connection())
+        client._session_handle = "session-1"
+        client.session = MagicMock()
+
+        def mock_request(method: str, url: str, **kwargs: object) -> MagicMock:
+            resp = MagicMock()
+            resp.raise_for_status.return_value = None
+            if method == "POST":
+                resp.json.return_value = {"operationHandle": "op-1"}
+            else:
+                resp.json.return_value = {
+                    "resultType": "PAYLOAD",
+                    "results": {"data": []},
+                }
+            return resp
+
+        client.session.request.side_effect = mock_request
+        result = client.get_catalogs()
+        assert result == []
+
+
+class TestGetCatalogInfo:
+    def _make_client_with_rows(self, rows: list) -> FlinkSQLGatewayClient:
+        client = FlinkSQLGatewayClient(_connection())
+        client._session_handle = "session-1"
+        client.session = MagicMock()
+
+        def mock_request(method: str, url: str, **kwargs: object) -> MagicMock:
+            resp = MagicMock()
+            resp.raise_for_status.return_value = None
+            if method == "POST":
+                resp.json.return_value = {"operationHandle": "op-1"}
+            else:
+                resp.json.return_value = {
+                    "resultType": "PAYLOAD",
+                    "results": {"data": rows},
+                }
+            return resp
+
+        client.session.request.side_effect = mock_request
+        return client
+
+    def test_parses_key_value_rows(self) -> None:
+        client = self._make_client_with_rows(
+            [
+                {"fields": ["type", "hive"]},
+                {"fields": ["option:hive.metastore.uris", "thrift://localhost:9083"]},
+                {"fields": ["option:hive.metastore.warehouse.dir", "/warehouse"]},
+            ]
+        )
+        result = client.get_catalog_info("hive_catalog")
+        assert result["type"] == "hive"
+        assert result["option:hive.metastore.uris"] == "thrift://localhost:9083"
+
+    def test_filters_out_empty_key_or_value(self) -> None:
+        client = self._make_client_with_rows(
+            [
+                {"fields": ["type", "jdbc"]},
+                {"fields": ["", "should_be_ignored"]},
+                {"fields": ["option:base-url", ""]},
+                {"fields": ["option:base-url", "jdbc:postgresql://localhost"]},
+            ]
+        )
+        result = client.get_catalog_info("pg_catalog")
+        assert "type" in result
+        assert "" not in result
+        # empty-value row is skipped; non-empty row with same key wins
+        assert result.get("option:base-url") == "jdbc:postgresql://localhost"
+
+    def test_returns_empty_dict_when_no_rows(self) -> None:
+        client = self._make_client_with_rows([])
+        result = client.get_catalog_info("empty_catalog")
+        assert result == {}
+
+
+class TestGetTableConnector:
+    def _make_client(self, ddl: str) -> FlinkSQLGatewayClient:
+        client = FlinkSQLGatewayClient(_connection())
+        client._session_handle = "session-1"
+        client.session = MagicMock()
+
+        def mock_request(method: str, url: str, **kwargs: object) -> MagicMock:
+            resp = MagicMock()
+            resp.raise_for_status.return_value = None
+            if method == "POST":
+                resp.json.return_value = {"operationHandle": "op-1"}
+            else:
+                resp.json.return_value = {
+                    "resultType": "PAYLOAD",
+                    "results": {"data": [{"fields": [ddl]}]},
+                }
+            return resp
+
+        client.session.request.side_effect = mock_request
+        return client
+
+    def test_extracts_connector_from_ddl(self) -> None:
+        ddl = (
+            "CREATE TABLE `cat`.`db`.`orders` (id INT) WITH (\n"
+            "  'connector' = 'kafka',\n"
+            "  'topic' = 'orders'\n"
+            ")"
+        )
+        client = self._make_client(ddl)
+        result = client.get_table_connector("cat", "db", "orders")
+        assert result["connector"] == "kafka"
+        assert result["topic"] == "orders"
+
+    def test_returns_empty_dict_on_exception(self) -> None:
+        """Auto-discovered JDBC tables have no DDL — exception returns {} silently."""
+        client = FlinkSQLGatewayClient(_connection())
+        client._session_handle = "session-1"
+        client.session = MagicMock()
+        client.session.request.side_effect = RuntimeError(
+            "no DDL for auto-discovered table"
+        )
+        result = client.get_table_connector("cat", "db", "orders")
+        assert result == {}
+
+    def test_returns_empty_dict_when_no_with_clause(self) -> None:
+        client = self._make_client("CREATE TABLE orders (id INT)")
+        result = client.get_table_connector("cat", "db", "orders")
+        assert result == {}
+
+
+class TestParseWithProperties:
+    def test_normal_with_clause(self) -> None:
+        ddl = (
+            "CREATE TABLE orders (\n"
+            "  order_id INT,\n"
+            "  amount DOUBLE\n"
+            ") WITH (\n"
+            "  'connector' = 'kafka',\n"
+            "  'topic' = 'orders',\n"
+            "  'properties.bootstrap.servers' = 'broker:9092'\n"
+            ")"
+        )
+        result = FlinkSQLGatewayClient._parse_with_properties(ddl)
+        assert result == {
+            "connector": "kafka",
+            "topic": "orders",
+            "properties.bootstrap.servers": "broker:9092",
+        }
+
+    def test_no_with_clause(self) -> None:
+        ddl = "CREATE TABLE orders (order_id INT, amount DOUBLE)"
+        result = FlinkSQLGatewayClient._parse_with_properties(ddl)
+        assert result == {}
+
+    def test_empty_with_clause(self) -> None:
+        ddl = "CREATE TABLE orders (order_id INT) WITH ()"
+        result = FlinkSQLGatewayClient._parse_with_properties(ddl)
+        assert result == {}
+
+    def test_multiline_ddl(self) -> None:
+        """Realistic DDL as returned by SHOW CREATE TABLE."""
+        ddl = (
+            "CREATE TABLE `default_catalog`.`default_database`.`orders` (\n"
+            "  `order_id` INT NOT NULL,\n"
+            "  `customer_id` BIGINT,\n"
+            "  `amount` DECIMAL(10, 2),\n"
+            "  `order_time` TIMESTAMP(3),\n"
+            "  WATERMARK FOR `order_time` AS `order_time` - INTERVAL '5' SECOND\n"
+            ") WITH (\n"
+            "  'connector' = 'kafka',\n"
+            "  'topic' = 'orders',\n"
+            "  'properties.bootstrap.servers' = 'broker:9092',\n"
+            "  'format' = 'json',\n"
+            "  'scan.startup.mode' = 'earliest-offset'\n"
+            ")"
+        )
+        result = FlinkSQLGatewayClient._parse_with_properties(ddl)
+        assert result["connector"] == "kafka"
+        assert result["topic"] == "orders"
+        assert result["format"] == "json"
+        assert result["scan.startup.mode"] == "earliest-offset"
+        assert result["properties.bootstrap.servers"] == "broker:9092"

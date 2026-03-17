@@ -6,6 +6,10 @@ from unittest.mock import patch
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.flink.source import FlinkSource
 
+_SQL_GATEWAY_BUILD_CATALOG = (
+    "datahub.ingestion.source.flink.lineage.PlatformResolver.build_catalog_context"
+)
+
 _FLINK_REST_CLIENT_GET = "datahub.ingestion.source.flink.client.FlinkRestClient._get"
 
 
@@ -206,6 +210,53 @@ def _mock_flink_api_with_duplicate_jobs(path: str) -> dict:
     if "checkpoints/config" in path:
         return {}
     return {}
+
+
+def test_flink_source_dedup_keeps_existing_when_newer(tmp_path: pathlib.Path) -> None:
+    """When a duplicate arrives with an OLDER start_time, the existing (newer) job is kept."""
+
+    def mock_api(path: str) -> dict:
+        if path == "/v1/config":
+            return {"flink-version": "1.19.0", "timezone-name": "UTC"}
+        if path == "/v1/jobs/overview":
+            return {
+                "jobs": [
+                    {
+                        "jid": "newer111",
+                        "name": "my_job",
+                        "state": "RUNNING",
+                        "start-time": 2000000000000,
+                        "end-time": -1,
+                        "duration": 500000,
+                    },
+                    {
+                        "jid": "older222",
+                        "name": "my_job",
+                        "state": "RUNNING",
+                        "start-time": 1000000000000,
+                        "end-time": -1,
+                        "duration": 1000000,
+                    },
+                ]
+            }
+        if path == "/v1/jobs/newer111":
+            return {
+                "jid": "newer111",
+                "name": "my_job",
+                "state": "RUNNING",
+                "start-time": 2000000000000,
+                "end-time": -1,
+                "duration": 500000,
+                "plan": {"nodes": []},
+            }
+        if "checkpoints/config" in path:
+            return {}
+        return {}
+
+    urns = _run_pipeline(tmp_path, mock_api, {"include_run_history": False})
+    flow_urns = [u for u in urns if u.startswith("urn:li:dataFlow:")]
+    # Only one DataFlow — the newer job was kept, older discarded
+    assert len(flow_urns) == 1
 
 
 def test_flink_source_deduplicates_by_name(tmp_path: pathlib.Path) -> None:
@@ -441,3 +492,126 @@ class TestTestConnection:
             )
         assert report.basic_connectivity is not None
         assert report.basic_connectivity.capable is False
+
+    def test_sql_gateway_success_reports_capability(self) -> None:
+        def mock_api(path: str) -> dict:
+            if path == "/v1/config":
+                return {"flink-version": "1.19.0"}
+            if path == "/v1/jobs/overview":
+                return {"jobs": []}
+            return {}
+
+        with (
+            patch(_FLINK_REST_CLIENT_GET, side_effect=mock_api),
+            patch(
+                "datahub.ingestion.source.flink.source.FlinkSQLGatewayClient.test_connection",
+                return_value=None,
+            ),
+        ):
+            report = FlinkSource.test_connection(
+                {
+                    "connection": {
+                        "rest_api_url": "http://localhost:8081",
+                        "sql_gateway_url": "http://localhost:8083",
+                    }
+                }
+            )
+        assert report.capability_report is not None
+        assert "sql_gateway" in report.capability_report
+        assert report.capability_report["sql_gateway"].capable is True
+
+    def test_sql_gateway_failure_preserves_lineage_capability(self) -> None:
+        """SQL Gateway failure does not prevent LINEAGE_COARSE from being reported."""
+
+        def mock_api(path: str) -> dict:
+            if path == "/v1/config":
+                return {"flink-version": "1.19.0"}
+            if path == "/v1/jobs/overview":
+                return {"jobs": []}
+            return {}
+
+        with (
+            patch(_FLINK_REST_CLIENT_GET, side_effect=mock_api),
+            patch(
+                "datahub.ingestion.source.flink.source.FlinkSQLGatewayClient.test_connection",
+                return_value=RuntimeError("SQL Gateway unreachable"),
+            ),
+        ):
+            report = FlinkSource.test_connection(
+                {
+                    "connection": {
+                        "rest_api_url": "http://localhost:8081",
+                        "sql_gateway_url": "http://localhost:8083",
+                    }
+                }
+            )
+        assert report.capability_report is not None
+        from datahub.ingestion.api.source import SourceCapability
+
+        assert report.capability_report[SourceCapability.LINEAGE_COARSE].capable is True
+        assert "sql_gateway" in report.capability_report
+        assert report.capability_report["sql_gateway"].capable is False
+
+
+def _mock_flink_api_single_job(path: str) -> dict:
+    """Mock API returning a single running job."""
+    if path == "/v1/config":
+        return {"flink-version": "1.19.0", "timezone-name": "UTC"}
+    if path == "/v1/jobs/overview":
+        return {
+            "jobs": [
+                {
+                    "jid": "abc123",
+                    "name": "my_sql_job",
+                    "state": "RUNNING",
+                    "start-time": 1707676800000,
+                    "end-time": -1,
+                    "duration": 3600000,
+                }
+            ]
+        }
+    if path == "/v1/jobs/abc123":
+        return {
+            "jid": "abc123",
+            "name": "my_sql_job",
+            "state": "RUNNING",
+            "start-time": 1707676800000,
+            "end-time": -1,
+            "duration": 3600000,
+            "plan": {"nodes": []},
+        }
+    if "checkpoints/config" in path:
+        return {}
+    return {}
+
+
+def test_catalog_context_failure_still_processes_jobs(tmp_path: pathlib.Path) -> None:
+    """build_catalog_context failure does not prevent job processing."""
+    output_file = tmp_path / "flink_mces.json"
+    with (
+        patch(_FLINK_REST_CLIENT_GET, side_effect=_mock_flink_api_single_job),
+        patch(
+            "datahub.ingestion.source.flink.source.FlinkSQLGatewayClient",
+        ) as mock_sql_cls,
+        patch(
+            _SQL_GATEWAY_BUILD_CATALOG,
+            side_effect=RuntimeError("SQL Gateway unavailable"),
+        ),
+    ):
+        mock_sql_cls.return_value.test_connection.return_value = None
+        pipeline = _create_pipeline(
+            output_file,
+            {
+                "connection": {
+                    "rest_api_url": "http://localhost:8081",
+                    "sql_gateway_url": "http://localhost:8083",
+                },
+                "include_run_history": False,
+            },
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    entity_urns = _collect_entity_urns(output_file)
+    assert any("dataFlow" in urn and "my_sql_job" in urn for urn in entity_urns)
+    assert any("dataJob" in urn and "my_sql_job" in urn for urn in entity_urns)

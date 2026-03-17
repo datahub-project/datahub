@@ -40,11 +40,41 @@ services:
       POSTGRES_USER: flink
       POSTGRES_PASSWORD: flink
       POSTGRES_DB: flink_catalog
+      # md5 auth required: Hive 3.1.3 bundles an old Postgres JDBC driver
+      # that doesn't support scram-sha-256 (Postgres 16 default).
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U flink"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  hive-metastore:
+    image: apache/hive:3.1.3
+    hostname: hive-metastore
+    container_name: test-flink-hive-metastore
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9083:9083"
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+      SERVICE_OPTS: >-
+        -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://postgres:5432/hive_metastore
+        -Djavax.jdo.option.ConnectionUserName=flink
+        -Djavax.jdo.option.ConnectionPassword=flink
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9083' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
 
   jobmanager:
     build: .
@@ -54,9 +84,14 @@ services:
         condition: service_healthy
       broker:
         condition: service_healthy
+      hive-metastore:
+        condition: service_healthy
     ports:
       - "8082:8081"
     command: jobmanager
+    volumes:
+      - iceberg-warehouse:/tmp/iceberg-warehouse
+      - ./pyflink_kafka_job.py:/opt/flink/pyflink_kafka_job.py:ro
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - |
@@ -68,21 +103,30 @@ services:
     build: .
     container_name: test_flink_taskmanager
     depends_on:
-      - jobmanager
+      jobmanager:
+        condition: service_started
+      hive-metastore:
+        condition: service_healthy
     command: taskmanager
+    volumes:
+      - iceberg-warehouse:/tmp/iceberg-warehouse
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
-        taskmanager.numberOfTaskSlots: 2
+        taskmanager.numberOfTaskSlots: 8
 
   sql-gateway:
     build: .
     container_name: test_flink_sql_gateway
     depends_on:
-      - jobmanager
-      - postgres
+      jobmanager:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      hive-metastore:
+        condition: service_healthy
     ports:
       - "8084:8083"
     command: >
@@ -90,7 +134,16 @@ services:
         /opt/flink/bin/sql-gateway.sh start -Dsql-gateway.endpoint.rest.address=0.0.0.0 -Dtable.catalog-store.kind=file -Dtable.catalog-store.file.path=/tmp/catalog-store &&
         tail -f /dev/null
       "
+    volumes:
+      - iceberg-warehouse:/tmp/iceberg-warehouse
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
+
+networks:
+  default:
+    name: flink-test
+
+volumes:
+  iceberg-warehouse:

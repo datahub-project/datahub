@@ -1,5 +1,5 @@
 import logging
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -32,7 +32,9 @@ class FlinkConnectionConfig(ConfigModel):
     sql_gateway_url: Optional[str] = Field(
         default=None,
         description="SQL Gateway REST API endpoint (e.g., http://localhost:8083). "
-        "Required when include_catalog_metadata is enabled.",
+        "Enables platform resolution for SQL/Table API lineage. "
+        "When provided, the connector resolves table references to their actual platform "
+        "(kafka, postgres, iceberg, etc.) via catalog introspection.",
     )
 
     token: Optional[SecretStr] = Field(
@@ -89,6 +91,40 @@ class FlinkConnectionConfig(ConfigModel):
         return self
 
 
+class CatalogPlatformDetail(ConfigModel):
+    """Platform details for a Flink catalog, used in dataset URN construction.
+
+    Provides two pieces of information for a given Flink catalog:
+
+    - ``platform``: The DataHub platform name (e.g., "iceberg", "postgres").
+      On Flink 1.20+, this is auto-detected via DESCRIBE CATALOG and only needs
+      to be specified for catalogs where auto-detection fails. On Flink < 1.20,
+      this is required for Iceberg and Paimon catalogs (which don't expose a
+      ``connector`` property in SHOW CREATE TABLE).
+
+    - ``platform_instance``: The DataHub platform instance (e.g., "prod-postgres").
+      Used when a Flink cluster connects to multiple deployments of the same
+      platform and you need distinct dataset URNs per deployment.
+
+    Follows the same pattern as Fivetran's ``PlatformDetail`` and Looker's
+    ``LookerConnectionDefinition``.
+    """
+
+    platform: Optional[str] = Field(
+        default=None,
+        description="DataHub platform name for datasets in this catalog "
+        "(e.g., 'iceberg', 'postgres', 'kafka'). "
+        "When omitted, the connector auto-detects the platform via SQL Gateway.",
+    )
+
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="DataHub platform instance for datasets in this catalog "
+        "(e.g., 'prod-postgres', 'us-east-kafka'). "
+        "Used to distinguish multiple deployments of the same platform.",
+    )
+
+
 class FlinkSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -103,12 +139,6 @@ class FlinkSourceConfig(
     job_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Flink jobs by name.",
-    )
-
-    catalog_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter Flink catalogs by name. "
-        "Only applies when include_catalog_metadata is enabled.",
     )
 
     include_job_states: List[str] = Field(
@@ -126,10 +156,17 @@ class FlinkSourceConfig(
         description="Emit DataProcessInstance entities for job execution tracking.",
     )
 
-    include_catalog_metadata: bool = Field(
-        default=False,
-        description="Extract catalog metadata (tables and schemas) via SQL Gateway. "
-        "Requires sql_gateway_url in connection config.",
+    catalog_platform_map: Dict[str, CatalogPlatformDetail] = Field(
+        default_factory=dict,
+        description="Platform overrides for Flink catalogs, keyed by catalog name. "
+        "Values take priority over SQL Gateway auto-detection. "
+        "Example: {'ice_catalog': {'platform': 'iceberg', 'platform_instance': 'prod-iceberg'}, "
+        "'pg_catalog': {'platform_instance': 'prod-postgres'}}. "
+        "The 'platform' field overrides auto-detection. Required for Iceberg/Paimon catalogs "
+        "on Flink < 1.20 (DESCRIBE CATALOG unavailable). On Flink 1.20+, platform is "
+        "auto-detected via SQL Gateway unless overridden here. "
+        "The 'platform_instance' field takes priority over the inherited "
+        "platform_instance_map (platform -> platform_instance) for catalogs listed here.",
     )
 
     operator_granularity: Literal["job", "vertex"] = Field(
@@ -164,10 +201,11 @@ class FlinkSourceConfig(
         return [s.upper() for s in v]
 
     @model_validator(mode="after")
-    def validate_catalog_integration(self) -> "FlinkSourceConfig":
-        if self.include_catalog_metadata and not self.connection.sql_gateway_url:
-            raise ValueError(
-                "connection.sql_gateway_url must be configured when "
-                "include_catalog_metadata is enabled."
+    def warn_lineage_without_sql_gateway(self) -> "FlinkSourceConfig":
+        if self.include_lineage and not self.connection.sql_gateway_url:
+            logger.info(
+                "include_lineage is enabled but sql_gateway_url is not configured. "
+                "Lineage for SQL/Table API jobs will be limited to DataStream Kafka sources/sinks. "
+                "Configure sql_gateway_url to resolve platforms for SQL/Table API table references."
             )
         return self

@@ -49,15 +49,6 @@ class TestFlinkSourceConfig:
                 }
             )
 
-    def test_catalog_requires_sql_gateway(self):
-        with pytest.raises(ValueError, match="sql_gateway_url must be configured"):
-            FlinkSourceConfig.model_validate(
-                {
-                    "connection": {"rest_api_url": "http://localhost:8081"},
-                    "include_catalog_metadata": True,
-                }
-            )
-
     def test_empty_job_states_rejected(self):
         with pytest.raises(ValueError, match="must not be empty"):
             FlinkSourceConfig.model_validate(

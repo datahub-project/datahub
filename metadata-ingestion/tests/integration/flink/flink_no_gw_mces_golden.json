@@ -1,169 +1,6 @@
 [
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004102,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "36d4464dffd123bfd236cc8d99659d20",
-                "job_state": "RUNNING",
-                "flink_version": "1.19.3",
-                "start_time": "1773755862883",
-                "duration_ms": "9871490",
-                "state_backend": "HashMapStateBackend",
-                "checkpoint_interval_ms": "9223372036854775807",
-                "checkpoint_mode": "at_least_once",
-                "externalized_checkpoints": "false"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/36d4464dffd123bfd236cc8d99659d20",
-            "name": "test_ds_kafka_hop2",
-            "description": "Flink streaming job",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004102,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004105,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "36d4464dffd123bfd236cc8d99659d20",
-                "operator_count": "1"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/36d4464dffd123bfd236cc8d99659d20",
-            "name": "test_ds_kafka_hop2",
-            "description": "Coalesced Flink job operators for test_ds_kafka_hop2",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004106,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004106,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "test_ds_kafka_hop2",
-                    "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004107,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004107,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004107,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -173,8 +10,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004107,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000389,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -190,7 +27,7 @@
                 "job_state": "RUNNING",
                 "flink_version": "1.19.3",
                 "start_time": "1773755877138",
-                "duration_ms": "9857237",
+                "duration_ms": "9858781",
                 "state_backend": "HashMapStateBackend",
                 "checkpoint_interval_ms": "9223372036854775807",
                 "checkpoint_mode": "at_least_once",
@@ -203,8 +40,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004107,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000389,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -219,8 +56,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004108,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000391,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -246,27 +83,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004108,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST),test_iceberg_events_pipeline)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,lake.events,TEST)"
-            ],
-            "outputDatasets": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004108,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000391,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -286,187 +104,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004108,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,lake.events,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:iceberg"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004108,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004109,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "e461f6ce6c6269e9f677ef251eb3d916",
-                "job_state": "RUNNING",
-                "flink_version": "1.19.3",
-                "start_time": "1773755861579",
-                "duration_ms": "9872795",
-                "state_backend": "HashMapStateBackend",
-                "checkpoint_interval_ms": "9223372036854775807",
-                "checkpoint_mode": "at_least_once",
-                "externalized_checkpoints": "false"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/e461f6ce6c6269e9f677ef251eb3d916",
-            "name": "test_ds_kafka_hop1",
-            "description": "Flink streaming job",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004109,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004109,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "e461f6ce6c6269e9f677ef251eb3d916",
-                "operator_count": "1"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/e461f6ce6c6269e9f677ef251eb3d916",
-            "name": "test_ds_kafka_hop1",
-            "description": "Coalesced Flink job operators for test_ds_kafka_hop1",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004109,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004109,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "test_ds_kafka_hop1",
-                    "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004109,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004110,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004620,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000392,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -481,8 +120,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004621,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000392,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -498,7 +137,7 @@
                 "job_state": "RUNNING",
                 "flink_version": "1.19.3",
                 "start_time": "1773755865731",
-                "duration_ms": "9868644",
+                "duration_ms": "9870190",
                 "state_backend": "HashMapStateBackend",
                 "checkpoint_interval_ms": "9223372036854775807",
                 "checkpoint_mode": "at_least_once",
@@ -511,8 +150,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004621,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000392,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -527,8 +166,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004621,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000393,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -554,27 +193,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004621,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)"
-            ],
-            "outputDatasets": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004621,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000393,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -594,24 +214,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004621,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004712,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000393,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -626,8 +230,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004712,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000394,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -643,7 +247,7 @@
                 "job_state": "RUNNING",
                 "flink_version": "1.19.3",
                 "start_time": "1773755869484",
-                "duration_ms": "9864891",
+                "duration_ms": "9866437",
                 "state_backend": "HashMapStateBackend",
                 "checkpoint_interval_ms": "9223372036854775807",
                 "checkpoint_mode": "at_least_once",
@@ -656,8 +260,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004712,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000394,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -672,8 +276,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004713,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000394,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -699,27 +303,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004713,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_final_output,TEST),test_final_output)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
-            ],
-            "outputDatasets": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685004713,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000394,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -739,8 +324,139 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685004713,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000394,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000394,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "36d4464dffd123bfd236cc8d99659d20",
+                "job_state": "RUNNING",
+                "flink_version": "1.19.3",
+                "start_time": "1773755862883",
+                "duration_ms": "9873038",
+                "state_backend": "HashMapStateBackend",
+                "checkpoint_interval_ms": "9223372036854775807",
+                "checkpoint_mode": "at_least_once",
+                "externalized_checkpoints": "false"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/36d4464dffd123bfd236cc8d99659d20",
+            "name": "test_ds_kafka_hop2",
+            "description": "Flink streaming job",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000394,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000395,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "36d4464dffd123bfd236cc8d99659d20",
+                "operator_count": "1"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/36d4464dffd123bfd236cc8d99659d20",
+            "name": "test_ds_kafka_hop2",
+            "description": "Coalesced Flink job operators for test_ds_kafka_hop2",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000395,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000395,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_ds_kafka_hop2",
+                    "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000395,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -755,8 +471,187 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005237,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000395,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000395,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000395,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "e461f6ce6c6269e9f677ef251eb3d916",
+                "job_state": "RUNNING",
+                "flink_version": "1.19.3",
+                "start_time": "1773755861579",
+                "duration_ms": "9874342",
+                "state_backend": "HashMapStateBackend",
+                "checkpoint_interval_ms": "9223372036854775807",
+                "checkpoint_mode": "at_least_once",
+                "externalized_checkpoints": "false"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/e461f6ce6c6269e9f677ef251eb3d916",
+            "name": "test_ds_kafka_hop1",
+            "description": "Flink streaming job",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000396,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000396,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "e461f6ce6c6269e9f677ef251eb3d916",
+                "operator_count": "1"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/e461f6ce6c6269e9f677ef251eb3d916",
+            "name": "test_ds_kafka_hop1",
+            "description": "Coalesced Flink job operators for test_ds_kafka_hop1",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000396,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000396,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST),test_ds_kafka_hop1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_ds_kafka_hop1",
+                    "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000396,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000396,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000396,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -771,8 +666,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005238,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000397,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -788,7 +683,7 @@
                 "job_state": "RUNNING",
                 "flink_version": "1.19.3",
                 "start_time": "1773755873172",
-                "duration_ms": "9861202",
+                "duration_ms": "9862749",
                 "state_backend": "HashMapStateBackend",
                 "checkpoint_interval_ms": "9223372036854775807",
                 "checkpoint_mode": "at_least_once",
@@ -801,8 +696,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005238,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000397,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -817,8 +712,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005238,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000397,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -844,27 +739,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005238,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_pg_users_pipeline,TEST),test_pg_users_pipeline)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,flink_catalog.public.users,TEST)"
-            ],
-            "outputDatasets": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685005239,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000397,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -884,24 +760,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005239,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,flink_catalog.public.users,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:postgres"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685005239,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000397,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -916,8 +776,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005240,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -932,8 +792,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005240,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -948,8 +808,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005240,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -964,8 +824,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005240,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -980,8 +840,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005240,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -996,8 +856,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005240,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1012,8 +872,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005241,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1028,8 +888,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005241,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1044,8 +904,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005241,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000398,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1060,8 +920,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005241,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000399,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1076,8 +936,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005241,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000399,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1092,24 +952,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005242,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,lake.events,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685005242,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000399,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1124,8 +968,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005242,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000399,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1140,8 +984,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005242,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000399,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1156,24 +1000,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685005242,
-        "runId": "flink-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,flink_catalog.public.users,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685005242,
-        "runId": "flink-golden-test",
+        "lastObserved": 1772685000399,
+        "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
 }
