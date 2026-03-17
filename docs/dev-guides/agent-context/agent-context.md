@@ -106,6 +106,7 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 | Gemini CLI               | Launched    | [Gemini CLI Guide](./gemini-cli.md)             |
 | Langchain                | Launched    | [LangChain Guide](./langchain.md)               |
 | Snowflake                | Launched    | [Snowflake Guide](./snowflake.md)               |
+| Snowflake Cortex Code    | Launched    | [Cortex Code Guide](./cortex-code.md)           |
 | Google ADK               | Launched    | [Google ADK Guide](./google-adk.md)             |
 | Google Vertex AI         | Launched    | [Google Vertex AI Guide](./google-vertex-ai.md) |
 | Microsoft Copilot Studio | Launched    | [Copilot Studio Guide](./copilot-studio.md)     |
