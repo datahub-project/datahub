@@ -53,7 +53,8 @@ CREATE_ICEBERG_CATALOG_SQL = """\
 DROP CATALOG IF EXISTS ice_catalog;
 CREATE CATALOG ice_catalog WITH (
     'type' = 'iceberg',
-    'catalog-type' = 'hadoop',
+    'catalog-type' = 'hive',
+    'uri' = 'thrift://hive-metastore:9083',
     'warehouse' = 'file:///tmp/iceberg-warehouse'
 )"""
 
@@ -219,7 +220,8 @@ SELECT * FROM user_events;
 JOB4_SQL = """\
 CREATE CATALOG ice_catalog WITH (
     'type' = 'iceberg',
-    'catalog-type' = 'hadoop',
+    'catalog-type' = 'hive',
+    'uri' = 'thrift://hive-metastore:9083',
     'warehouse' = 'file:///tmp/iceberg-warehouse'
 );
 
@@ -387,6 +389,10 @@ def _register_catalogs() -> None:
     logger.info("JDBC catalog 'pg_catalog' registered")
     _execute_sql_gateway(CREATE_ICEBERG_CATALOG_SQL)
     logger.info("Iceberg catalog 'ice_catalog' registered")
+    _execute_sql_gateway(CREATE_ICEBERG_DB_SQL)
+    logger.info("Iceberg database 'lake' created")
+    _execute_sql_gateway(CREATE_ICEBERG_TABLE_SQL)
+    logger.info("Iceberg table 'lake.events' created")
     _execute_sql_gateway(CREATE_HIVE_CATALOG_SQL)
     logger.info("Hive catalog 'hive_catalog' registered")
     _execute_sql_gateway(HIVE_KAFKA_TABLES_SQL)

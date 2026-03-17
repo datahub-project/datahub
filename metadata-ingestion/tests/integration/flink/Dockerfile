@@ -66,3 +66,8 @@ RUN apt-get update -y && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
     cp /opt/flink/opt/flink-python-*.jar /opt/flink/lib/
+
+# Iceberg Hive catalog writes metadata files as the 'flink' user.
+# Pre-create the warehouse directory with open permissions so the flink process
+# can create namespace and table directories without needing a pre-mkdir step.
+RUN mkdir -p /tmp/iceberg-warehouse && chmod 777 /tmp/iceberg-warehouse
