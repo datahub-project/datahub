@@ -254,4 +254,5 @@ public class DatasetMapperTest {
 
     Assert.assertNull(actual.getLogicalParent());
   }
+
 }

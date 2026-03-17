@@ -18,7 +18,6 @@ import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.dataproduct.DataProductKey;
 import com.linkedin.dataproduct.DataProductProperties;
-import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
