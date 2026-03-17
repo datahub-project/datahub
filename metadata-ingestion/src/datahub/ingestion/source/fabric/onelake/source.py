@@ -75,7 +75,7 @@ PLATFORM = "fabric-onelake"
 class LakehouseKey(WorkspaceKey):
     """Container key for Fabric lakehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
-    platform: Literal["fabric-onelake"] = PLATFORM
+    platform: str = PLATFORM
     lakehouse_id: str
 
     def parent_key(self) -> Optional[ContainerKey]:
@@ -97,7 +97,7 @@ class LakehouseKey(WorkspaceKey):
 class WarehouseKey(WorkspaceKey):
     """Container key for Fabric warehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
-    platform: Literal["fabric-onelake"] = PLATFORM
+    platform: str = PLATFORM
     warehouse_id: str
 
     def parent_key(self) -> Optional[ContainerKey]:
