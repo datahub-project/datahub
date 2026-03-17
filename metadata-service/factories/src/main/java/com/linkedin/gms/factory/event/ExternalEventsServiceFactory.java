@@ -1,16 +1,13 @@
 package com.linkedin.gms.factory.event;
 
-import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME;
-import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME;
-import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.mxe.TopicConvention;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import io.datahubproject.event.ExternalEventsService;
-import io.datahubproject.event.TopicAllowList;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,48 +24,36 @@ public class ExternalEventsServiceFactory {
   @Value("${eventsApi.defaultLimit:100}")
   private int defaultLimit;
 
-  @Value("${eventsApi.pollAllowedTopics}")
-  private String pollAllowedTopics;
-
-  @Value("${kafka.topicPrefixEnabled}")
-  private boolean topicPrefixEnabled;
-
-  @Value("${kafka.topicPrefix}")
-  private String topicPrefix;
-
-  @Autowired private TopicConvention topicConvention;
+  @Autowired private ConfigurationProvider configurationProvider;
 
   @Autowired private KafkaConsumerPool consumerPool;
 
   @Autowired private ObjectMapper objectMapper;
 
   @Bean
-  public TopicAllowList topicAllowList() {
-    return new TopicAllowList(pollAllowedTopics);
-  }
-
-  @Bean
-  public ExternalEventsService externalEventsService(TopicAllowList topicAllowList) {
+  public ExternalEventsService externalEventsService() {
     return new ExternalEventsService(
-        topicAllowList,
+        buildPollAllowedTopics(),
         consumerPool,
         objectMapper,
         buildTopicNameMappings(),
-        topicPrefixEnabled,
-        topicPrefix,
         pollTimeout,
         defaultLimit);
   }
 
+  private Set<String> buildPollAllowedTopics() {
+    return configurationProvider.getKafka().getTopics().getTopics().values().stream()
+        .filter(t -> t.getPollEnabled())
+        .map(TopicsConfiguration.TopicConfiguration::getName)
+        .collect(Collectors.toSet());
+  }
+
   private Map<String, String> buildTopicNameMappings() {
-    final Map<String, String> topicNames = new HashMap<>();
-    topicNames.put(PLATFORM_EVENT_TOPIC_NAME, topicConvention.getPlatformEventTopicName());
-    topicNames.put(
-        METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
-        topicConvention.getMetadataChangeLogVersionedTopicName());
-    topicNames.put(
-        METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
-        topicConvention.getMetadataChangeLogTimeseriesTopicName());
-    return topicNames;
+    return configurationProvider.getKafka().getTopics().getTopics().values().stream()
+        .filter(t -> t.getPollEnabled())
+        .collect(
+            Collectors.toMap(
+                TopicsConfiguration.TopicConfiguration::getName,
+                TopicsConfiguration.TopicConfiguration::getName));
   }
 }

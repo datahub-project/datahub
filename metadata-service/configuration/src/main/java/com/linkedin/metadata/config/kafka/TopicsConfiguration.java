@@ -72,5 +72,6 @@ public class TopicsConfiguration {
     private Integer replicationFactor;
     private Map<String, String> configProperties;
     private Boolean enabled = true; // Default to true if not specified
+    private Boolean pollEnabled = false; // Default to false if not specified
   }
 }

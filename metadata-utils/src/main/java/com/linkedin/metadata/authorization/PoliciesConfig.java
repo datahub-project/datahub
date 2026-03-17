@@ -239,13 +239,6 @@ public class PoliciesConfig {
           "Get Topic Events",
           "The ability to use the Events API to read events from custom Kafka topics.");
 
-  public static final ResourcePrivileges TOPIC_PRIVILEGES =
-      ResourcePrivileges.of(
-          "topic",
-          "Topics",
-          "Kafka topics available via the Events API",
-          ImmutableList.of(GET_TOPIC_EVENTS_PRIVILEGE));
-
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -287,7 +280,8 @@ public class PoliciesConfig {
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
           GET_METADATA_CHANGE_LOG_EVENTS,
-          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
+          GET_TOPIC_EVENTS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -1005,8 +999,7 @@ public class PoliciesConfig {
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
           APPLICATION_PRIVILEGES,
-          DATAHUB_VIEW_PRIVILEGES,
-          TOPIC_PRIVILEGES);
+          DATAHUB_VIEW_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

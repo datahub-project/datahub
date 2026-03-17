@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -49,12 +50,13 @@ public class ExternalEventsServiceTest {
     topicNames.put(
         ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
         "InstanceSpecificTimeseriesTopicName");
-    TopicAllowList allowList =
-        new TopicAllowList(
-            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1");
+    Set<String> allowedTopics =
+        Set.of(
+            "PlatformEvent_v1",
+            "MetadataChangeLog_Versioned_v1",
+            "MetadataChangeLog_Timeseries_v1");
     service =
-        new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, false, null, 10, 100);
+        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, topicNames, 10, 100);
 
     // Setup to simulate fetching records from Kafka
     String topicName = "InstanceSpecificTopicName";
@@ -157,84 +159,60 @@ public class ExternalEventsServiceTest {
     verify(consumerPool).shutdownPool();
   }
 
-  @Test
-  public void testKnownTopicWithPrefixEnabledUsesConventionMapping() throws Exception {
-    TopicAllowList allowList =
-        new TopicAllowList(
-            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1");
-    ExternalEventsService prefixedService =
-        new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, true, "acme", 10, 100);
+  @Test(expectedExceptions = UnsupportedTopicException.class)
+  public void testPollInvalidTopic() throws Exception {
+    service.poll("SomeUnknownTopic", null, 10, 5, null);
+  }
 
+  @Test
+  public void testKnownTopicUsesMapping() throws Exception {
     when(kafkaConsumer.partitionsFor("InstanceSpecificTopicName"))
         .thenReturn(Collections.emptyList());
     when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
 
-    prefixedService.poll(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, null, 10, 5, null);
+    service.poll(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, null, 10, 5, null);
 
     verify(kafkaConsumer).partitionsFor("InstanceSpecificTopicName");
   }
 
   @Test
-  public void testCustomTopicWithPrefixEnabledGetsPrepended() throws Exception {
-    TopicAllowList allowList =
-        new TopicAllowList(
-            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,myTopic");
-    ExternalEventsService prefixedService =
-        new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, true, "acme", 10, 100);
+  public void testCustomTopicUsesIdentityMapping() throws Exception {
+    Map<String, String> names = new HashMap<>(topicNames);
+    names.put("myTopic", "myTopic");
+    Set<String> allowedTopics = Set.of("PlatformEvent_v1", "myTopic");
+    ExternalEventsService svc =
+        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, names, 10, 100);
 
-    when(kafkaConsumer.partitionsFor("acme_myTopic")).thenReturn(Collections.emptyList());
+    when(kafkaConsumer.partitionsFor("myTopic")).thenReturn(Collections.emptyList());
     when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
 
-    prefixedService.poll("myTopic", null, 10, 5, null);
+    svc.poll("myTopic", null, 10, 5, null);
 
-    verify(kafkaConsumer).partitionsFor("acme_myTopic");
+    verify(kafkaConsumer).partitionsFor("myTopic");
   }
 
   @Test
-  public void testCustomTopicAlreadyPrefixedUsedAsIs() throws Exception {
-    TopicAllowList allowList =
-        new TopicAllowList(
-            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,acme_myTopic");
-    ExternalEventsService prefixedService =
-        new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, true, "acme", 10, 100);
+  public void testCustomTopicWithNonDefaultName() throws Exception {
+    Map<String, String> names = new HashMap<>(topicNames);
+    names.put("myTopic", "acme_myTopic");
+    Set<String> allowedTopics = Set.of("PlatformEvent_v1", "myTopic");
+    ExternalEventsService svc =
+        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, names, 10, 100);
 
     when(kafkaConsumer.partitionsFor("acme_myTopic")).thenReturn(Collections.emptyList());
     when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
 
-    prefixedService.poll("acme_myTopic", null, 10, 5, null);
+    svc.poll("myTopic", null, 10, 5, null);
 
     verify(kafkaConsumer).partitionsFor("acme_myTopic");
   }
 
   @Test(expectedExceptions = UnsupportedTopicException.class)
-  public void testPrefixEnabledWithoutPrefixBlocksCustomTopics() throws Exception {
-    TopicAllowList allowList =
-        new TopicAllowList(
-            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,customTopic");
+  public void testUnmappedTopicThrows() throws Exception {
+    Set<String> allowedTopics = Set.of("PlatformEvent_v1", "customTopic");
     ExternalEventsService svc =
-        new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, true, "", 10, 100);
+        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, topicNames, 10, 100);
 
     svc.poll("customTopic", null, 10, 5, null);
-  }
-
-  @Test
-  public void testPrefixDisabledCustomTopicPassesThrough() throws Exception {
-    TopicAllowList allowList =
-        new TopicAllowList(
-            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,customTopic");
-    ExternalEventsService noPrefixService =
-        new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, false, null, 10, 100);
-
-    when(kafkaConsumer.partitionsFor("customTopic")).thenReturn(Collections.emptyList());
-    when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
-
-    noPrefixService.poll("customTopic", null, 10, 5, null);
-
-    verify(kafkaConsumer).partitionsFor("customTopic");
   }
 }

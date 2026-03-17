@@ -20,7 +20,6 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -33,7 +32,6 @@ import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.event.ExternalEventsService;
-import io.datahubproject.event.TopicAllowList;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.metadata.context.OperationContext;
@@ -288,49 +286,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
         .andExpect(status().isOk())
         .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(0))
         .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID));
-  }
-
-  /**
-   * Allow list for this test config:
-   * PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,
-   * MetadataCustomTopic1,MetadataCustomTopic2,DataHubInternal_*
-   */
-  @Test
-  public void testPollTopicsNotInAllowList() throws Exception {
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
-    ExternalEvents externalEvents = createMockEvents();
-
-    String[] allowedTopics = {
-      PLATFORM_EVENT_TOPIC_NAME, "MetadataCustomTopic1", "DataHubInternal_Audit"
-    };
-    for (String topic : allowedTopics) {
-      when(mockEventsService.poll(
-              eq(topic), nullable(String.class), anyInt(), anyInt(), nullable(Integer.class)))
-          .thenReturn(externalEvents);
-
-      mockMvc
-          .perform(
-              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
-                  .param("topic", topic)
-                  .param("limit", "100")
-                  .param("pollTimeoutSeconds", "10")
-                  .accept(MediaType.APPLICATION_JSON))
-          .andExpect(status().isOk());
-    }
-
-    String[] rejectedTopics = {"DataHubUsageEvent_v1", "MetadataChangeEvent_v5", "SomeRandomTopic"};
-    for (String topic : rejectedTopics) {
-      mockMvc
-          .perform(
-              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
-                  .param("topic", topic)
-                  .param("limit", "100")
-                  .param("pollTimeoutSeconds", "10")
-                  .accept(MediaType.APPLICATION_JSON))
-          .andExpect(status().isForbidden());
-    }
   }
 
   @Test
@@ -629,30 +584,17 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
     // This ensures the 403 is caused by missing event privileges specifically,
     // not by a blanket auth denial.
     try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
-      // Platform/MCL overload: isAPIAuthorized(OperationContext, Privilege)
       authUtilMock
           .when(
               () ->
                   AuthUtil.isAPIAuthorized(
                       any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
           .thenAnswer(invocation -> !EVENT_PRIVILEGES.contains(invocation.getArgument(1)));
-      // Custom topic overload: isAPIAuthorized(OperationContext, Privilege, EntitySpec)
-      authUtilMock
-          .when(
-              () ->
-                  AuthUtil.isAPIAuthorized(
-                      any(OperationContext.class),
-                      any(PoliciesConfig.Privilege.class),
-                      any(EntitySpec.class)))
-          .thenAnswer(invocation -> !EVENT_PRIVILEGES.contains(invocation.getArgument(1)));
 
       String[] deniedTopics = {
         PLATFORM_EVENT_TOPIC_NAME,
         METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
         METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
-        "MetadataCustomTopic1",
-        "MetadataCustomTopic2",
-        "DataHubInternal_Audit"
       };
 
       for (String topic : deniedTopics) {
@@ -668,82 +610,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
     }
   }
 
-  @Test
-  public void testPollTopicsAllowedByDirectMatch() throws Exception {
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
-    ExternalEvents externalEvents = createMockEvents();
-
-    // All 3 platform topics + 2 custom topics are direct matches in the allow list
-    String[] allowedTopics = {
-      PLATFORM_EVENT_TOPIC_NAME,
-      METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
-      METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
-      "MetadataCustomTopic1",
-      "MetadataCustomTopic2"
-    };
-
-    for (String topic : allowedTopics) {
-      when(mockEventsService.poll(
-              eq(topic), nullable(String.class), anyInt(), anyInt(), nullable(Integer.class)))
-          .thenReturn(externalEvents);
-
-      mockMvc
-          .perform(
-              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
-                  .param("topic", topic)
-                  .param("limit", "100")
-                  .param("pollTimeoutSeconds", "10")
-                  .accept(MediaType.APPLICATION_JSON))
-          .andExpect(status().isOk())
-          .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
-          .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID));
-    }
-  }
-
-  @Test
-  public void testPollTopicsAllowedByPrefixMatch() throws Exception {
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
-    ExternalEvents externalEvents = createMockEvents();
-
-    // These match the "DataHubInternal_*" prefix pattern in the allow list
-    String[] prefixMatchedTopics = {"DataHubInternal_Audit", "DataHubInternal_Metrics"};
-
-    for (String topic : prefixMatchedTopics) {
-      when(mockEventsService.poll(
-              eq(topic), nullable(String.class), anyInt(), anyInt(), nullable(Integer.class)))
-          .thenReturn(externalEvents);
-
-      mockMvc
-          .perform(
-              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
-                  .param("topic", topic)
-                  .param("limit", "100")
-                  .param("pollTimeoutSeconds", "10")
-                  .accept(MediaType.APPLICATION_JSON))
-          .andExpect(status().isOk())
-          .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
-          .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID));
-    }
-  }
-
-  private ExternalEvents createMockEvents() {
-    List<ExternalEvent> events = new ArrayList<>();
-    ExternalEvent event = new ExternalEvent();
-    event.setValue(TEST_CONTENT);
-    event.setContentType(TEST_CONTENT_TYPE);
-    events.add(event);
-
-    ExternalEvents externalEvents = new ExternalEvents();
-    externalEvents.setEvents(events);
-    externalEvents.setOffsetId(TEST_OFFSET_ID);
-    externalEvents.setCount(1L);
-    return externalEvents;
-  }
-
   @TestConfiguration
   public static class ExternalEventsControllerTestConfig {
     @MockBean public ExternalEventsService eventsService;
@@ -754,13 +620,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
     @Bean
     public ObjectMapper objectMapper() {
       return new ObjectMapper();
-    }
-
-    @Bean
-    public TopicAllowList topicAllowList() {
-      return new TopicAllowList(
-          "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,"
-              + "MetadataCustomTopic1,MetadataCustomTopic2,DataHubInternal_*");
     }
 
     @Bean(name = "systemOperationContext")

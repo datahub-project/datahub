@@ -7,7 +7,6 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -16,7 +15,6 @@ import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchRequest;
 import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchResponse;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.event.ExternalEventsService;
-import io.datahubproject.event.TopicAllowList;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.event.models.v1.ExternalEventsResponse;
@@ -59,7 +57,6 @@ public class ExternalEventsController {
   private AuthorizerChain authorizationChain;
   private OperationContext systemOperationContext;
   private final DataHubUsageService dataHubUsageService;
-  private final TopicAllowList topicAllowList;
 
   @Autowired ObjectMapper objectMapper;
 
@@ -67,13 +64,11 @@ public class ExternalEventsController {
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       AuthorizerChain authorizerChain,
       DataHubUsageService dataHubUsageService,
-      ExternalEventsService eventsService,
-      TopicAllowList topicAllowList) {
+      ExternalEventsService eventsService) {
     this.systemOperationContext = systemOperationContext;
     this.authorizationChain = authorizerChain;
     this.dataHubUsageService = dataHubUsageService;
     this.eventsService = eventsService;
-    this.topicAllowList = topicAllowList;
   }
 
   @GetMapping(path = "/poll", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -150,21 +145,14 @@ public class ExternalEventsController {
 
   private boolean isAuthorizedToGetEvents(
       @Nonnull final OperationContext opContext, @Nonnull final String topic) {
-    if (!topicAllowList.isAllowed(topic)) {
-      return false;
-    }
     if (Topics.PLATFORM_EVENT.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE);
     }
-    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)) {
+    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)
+        || Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
     }
-    if (Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
-      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
-    }
-
-    return AuthUtil.isAPIAuthorized(
-        opContext, PoliciesConfig.GET_TOPIC_EVENTS_PRIVILEGE, new EntitySpec("topic", topic));
+    return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_TOPIC_EVENTS_PRIVILEGE);
   }
 
   @Nullable

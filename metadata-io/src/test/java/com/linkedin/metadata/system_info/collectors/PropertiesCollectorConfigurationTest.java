@@ -78,8 +78,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "PWD", // Current directory may contain sensitive info
           // CDC db password
           "mclProcessing.cdcSource.debeziumConfig.config.database.password",
-          // Events API allowed topics may reveal internal Kafka topic names
-          "eventsApi.pollAllowedTopics",
           // Kafka topic prefix reveals tenant identity
           "kafka.topicPrefix");
 
@@ -127,6 +125,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.topics.*.name",
           "kafka.topics.*.partitions",
           "kafka.topics.*.enabled",
+          "kafka.topics.*.pollEnabled",
           "kafka.topics.*.replicationFactor",
           "kafka.topics.*.configProperties.max.message.bytes",
           "kafka.topics.*.configProperties.retention.ms",
