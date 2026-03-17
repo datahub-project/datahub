@@ -374,8 +374,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 dashboard.set_last_modified(dt)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Skipping dashboard last_modified: failed to parse %r: %s", updated_at, exc)
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
             dashboard.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
@@ -409,8 +409,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 chart.set_last_modified(dt)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Skipping chart last_modified: failed to parse %r: %s", updated_at, exc)
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
             chart.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
