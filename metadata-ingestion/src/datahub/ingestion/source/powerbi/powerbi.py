@@ -1558,7 +1558,7 @@ class Mapper:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Disabled by default, configured using `extract_column_level_lineage`. ",
+    "Enabled by default, configured using `extract_column_level_lineage`.",
 )
 @capability(
     SourceCapability.DATA_PROFILING,

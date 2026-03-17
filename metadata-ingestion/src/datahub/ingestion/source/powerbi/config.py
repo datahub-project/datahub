@@ -588,10 +588,10 @@ class PowerBiDashboardSourceConfig(
 
     # Enable CLL extraction
     extract_column_level_lineage: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to extract column level lineage. "
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
-        "enabled."
+        "enabled. "
         "Works for M-Query where native SQL is used for transformation.",
     )
 
