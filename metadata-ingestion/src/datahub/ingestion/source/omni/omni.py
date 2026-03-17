@@ -1068,6 +1068,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         chart_urls: Dict[str, str],
         dashboard_topics: Set[str],
         dashboard_topic_urns: Set[str],
+        model_id_out: Optional[str] = None,          # ← new parameter
     ) -> Iterator[MetadataWorkUnit]:
         """Fetch dashboard payload and populate tile/topic state dicts.
 
