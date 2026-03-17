@@ -14,7 +14,7 @@ import {
 describe("run history tab in manage data sources", () => {
   beforeEach(() => {
     setIngestionRedesignFlags(true);
-    cy.loginWithCredentials();
+    cy.login();
     goToIngestionPage();
   });
 

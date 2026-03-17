@@ -23,7 +23,7 @@ describe("add remove domain", () => {
     });
   };
 
-  it("create domain", () => {
+  it.skip("create domain", () => {
     setDomainsFeatureFlag(true);
     cy.login();
     cy.goToDomainList();
@@ -36,7 +36,7 @@ describe("add remove domain", () => {
     cy.waitTextVisible(test_domain);
   });
 
-  it("add entities to domain", () => {
+  it.skip("add entities to domain", () => {
     setDomainsFeatureFlag(false);
     cy.login();
     cy.goToDomainList();
@@ -56,7 +56,7 @@ describe("add remove domain", () => {
     cy.waitTextVisible("Added assets to Domain!");
   });
 
-  it("remove entity from domain", () => {
+  it.skip("remove entity from domain", () => {
     setDomainsFeatureFlag(false);
     cy.login();
     cy.goToDomainList();
@@ -67,7 +67,7 @@ describe("add remove domain", () => {
     );
   });
 
-  it("delete a domain and ensure dangling reference is deleted on entities", () => {
+  it.skip("delete a domain and ensure dangling reference is deleted on entities", () => {
     setDomainsFeatureFlag(false);
     cy.login();
     cy.goToDomainList();

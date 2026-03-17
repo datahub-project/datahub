@@ -45,9 +45,7 @@ describe("uploadFiles", () => {
   };
 
   beforeEach(() => {
-    applyGraphqlInterceptors([
-      getSetRequiredFeatureFlagsInterceptor(),
-    ]);
+    applyGraphqlInterceptors([getSetRequiredFeatureFlagsInterceptor()]);
 
     cy.login();
     cy.skipIntroducePage();

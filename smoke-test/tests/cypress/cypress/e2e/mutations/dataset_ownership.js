@@ -5,7 +5,7 @@ const password = "Example password";
 const group_name = `Test group ${test_id}`;
 
 const loginAndGoToDataset = () => {
-  cy.loginWithCredentials();
+  cy.login();
   cy.goToDataset(
     "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
     "SampleCypressHiveDataset",
@@ -60,7 +60,7 @@ describe("add, remove ownership for dataset", () => {
   });
 
   it("create test user and test group, add user to a group", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.createUser(username, password, email);
     cy.createGroup(group_name, "Test group description", test_id);
     cy.addGroupMember(

@@ -23,8 +23,7 @@ describe("manage access tokens", () => {
   it("create and revoke access token", () => {
     // create access token, verify token on ui
     setTokenAuthEnabledFlag(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToAccessTokenSettings();
     cy.clickOptionWithTestId("add-token-button");
     cy.clickOptionWithText("Personal Token");

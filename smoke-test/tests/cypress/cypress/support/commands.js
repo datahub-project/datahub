@@ -611,20 +611,17 @@ Cypress.Commands.add("deleteStructuredProperty", (prop) => {
   cy.get('[data-testid="modal-confirm-button"').click();
 });
 
-Cypress.Commands.add(
-  "setFeatureFlags",
-  (updateFeatureFlags) => {
-    cy.intercept("POST", "/api/v2/graphql", (req) => {
-      if (hasOperationName(req, "appConfig")) {
-        req.alias = "gqlappConfigQuery";
+Cypress.Commands.add("setFeatureFlags", (updateFeatureFlags) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.alias = "gqlappConfigQuery";
 
-        req.on("response", (res) => {
-          updateFeatureFlags(res);
-        });
-      }
-    });
-  },
-);
+      req.on("response", (res) => {
+        updateFeatureFlags(res);
+      });
+    }
+  });
+});
 
 Cypress.Commands.add("interceptGraphQLOperation", (operationName) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {

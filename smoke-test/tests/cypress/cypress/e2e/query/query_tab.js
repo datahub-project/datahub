@@ -45,7 +45,7 @@ const verifyViewCardDetails = (query, title, description) => {
 
 describe("manage queries", () => {
   beforeEach(() => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.goToDataset(DATASET_URN, "SampleCypressHdfsDataset");
     cy.openEntityTab("Queries");
   });

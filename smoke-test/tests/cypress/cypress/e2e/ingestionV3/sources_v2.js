@@ -23,7 +23,7 @@ const ingestionSourceDetails = {
 describe("ingestion sources", () => {
   beforeEach(() => {
     setIngestionRedesignFlags(true);
-    cy.loginWithCredentials();
+    cy.login();
     goToIngestionPage();
   });
 

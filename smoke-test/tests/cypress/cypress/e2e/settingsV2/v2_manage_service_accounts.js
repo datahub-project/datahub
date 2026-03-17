@@ -36,8 +36,7 @@ describe("manage service accounts", () => {
     const newTokenDescription = `New UI test token ${newTestId}`;
 
     setFeatureFlags(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
 
     navigateToServiceAccountsTab();
 
@@ -106,8 +105,7 @@ describe("manage service accounts", () => {
     const cancelServiceAccountName = `Cancel Test ${cancelTestId}`;
 
     setFeatureFlags(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
 
     navigateToServiceAccountsTab();
 
@@ -136,8 +134,7 @@ describe("manage service accounts", () => {
     const keepServiceAccountName = `Keep Test ${keepTestId}`;
 
     setFeatureFlags(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
 
     navigateToServiceAccountsTab();
 

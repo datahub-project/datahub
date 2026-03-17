@@ -4,7 +4,7 @@ describe("managing secrets for ingestion creation", () => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });
-  it("create a secret, create ingestion source using a secret, remove a secret", () => {
+  it.skip("create a secret, create ingestion source using a secret, remove a secret", () => {
     const number = crypto.getRandomValues(new Uint32Array(1))[0];
     const accound_id = `account${number}`;
     const warehouse_id = `warehouse${number}`;

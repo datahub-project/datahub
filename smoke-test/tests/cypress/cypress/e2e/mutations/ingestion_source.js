@@ -21,8 +21,7 @@ describe("ingestion source creation flow", () => {
 
   it("create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source", () => {
     // Go to ingestion page, create a snowflake source
-    cy.loginWithCredentials();
-    cy.goToIngestionPage();
+    cy.login();
     cy.clickOptionWithId('[data-node-key="Sources"]');
     cy.clickOptionWithTestId("create-ingestion-source-button");
     cy.clickOptionWithTextToScrollintoView("Snowflake");
