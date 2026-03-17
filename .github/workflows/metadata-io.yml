@@ -43,9 +43,6 @@ jobs:
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
-      mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
-      postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
-      elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
@@ -53,7 +50,7 @@ jobs:
           checkout-head-only: false
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
-  build:
+  build-metadata-io:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 60
     needs: setup

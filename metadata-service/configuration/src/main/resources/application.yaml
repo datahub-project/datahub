@@ -251,6 +251,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
   # Priority is given to the `path` setting above (outside jar)
   resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
+  useOptimizedLoading: ${CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING:true}
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
@@ -572,34 +573,49 @@ kafka:
     # The key name matches the programmatic identifier used in code
     metadataChangeProposal:
       name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}
+      partitions: ${METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     failedMetadataChangeProposal:
       name: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:FailedMetadataChangeProposal_v1}
+      partitions: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogVersioned:
       name: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:MetadataChangeLog_Versioned_v1}
+      partitions: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogTimeseries:
       name: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:MetadataChangeLog_Timeseries_v1}
+      partitions: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
       configProperties:
         retention.ms: 7776000000
 
     platformEvent:
       name: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
+      partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     datahubUpgradeHistory:
       name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      partitions: 1
+      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
+      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
       configProperties:
         retention.ms: -1
 
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
       enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+      partitions: ${DATAHUB_USAGE_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${DATAHUB_USAGE_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     cdcTopic:
       name: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
       enabled: ${CDC_MCL_PROCESSING_ENABLED:false}
+      partitions: ${CDC_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${CDC_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:
@@ -1160,6 +1176,7 @@ graphQL:
     maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
     # Relationship resolution cap per request (cycle/unbounded protection)
     maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
+    slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)

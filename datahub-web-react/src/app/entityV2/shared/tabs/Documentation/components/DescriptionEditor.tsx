@@ -208,7 +208,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     return !loading ? (
         <>
             <EditorSourceWrapper>
-                <EditorContainer>
+                <EditorContainer data-testid="description-editor">
                     <Editor
                         key={editorKey}
                         content={updatedDescription}
