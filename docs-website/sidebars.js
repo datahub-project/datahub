@@ -46,9 +46,54 @@ module.exports = {
         // "docs/how/ui-tabs-guide",
         {
           label: "Ask DataHub",
-          type: "doc",
-          id: "docs/features/feature-guides/ask-datahub",
+          type: "category",
           className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/ask-datahub",
+          },
+          items: [
+            {
+              label: "Plugins",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/ask-datahub-plugins/overview",
+              },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/snowflake",
+                },
+                {
+                  label: "Databricks",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/databricks",
+                },
+                {
+                  label: "BigQuery",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/bigquery",
+                },
+                {
+                  label: "dbt Cloud",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/dbt",
+                },
+                {
+                  label: "GitHub",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/github",
+                },
+                {
+                  label: "Glean",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/glean",
+                },
+              ],
+            },
+          ],
         },
         {
           label: "Agent Context Kit",
@@ -67,6 +112,21 @@ module.exports = {
               label: "Snowflake",
               type: "doc",
               id: "docs/dev-guides/agent-context/snowflake",
+            },
+            {
+              label: "Microsoft Copilot Studio",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/copilot-studio",
+            },
+            {
+              label: "Google Vertex AI",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-vertex-ai",
+            },
+            {
+              label: "Google ADK",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-adk",
             },
           ],
         },
@@ -114,6 +174,12 @@ module.exports = {
               label: "Smart Assertions ⚡ (Anomaly Detection)",
               type: "doc",
               id: "docs/managed-datahub/observe/smart-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Backfill Assertion History",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-backfill",
               className: "saasOnly",
             },
             {
@@ -669,7 +735,7 @@ module.exports = {
           ],
         },
         {
-          PowerBI: [
+          "Power BI": [
             "docs/quick-ingestion-guides/powerbi/overview",
             "docs/quick-ingestion-guides/powerbi/setup",
             "docs/quick-ingestion-guides/powerbi/configuration",
@@ -992,6 +1058,7 @@ module.exports = {
       items: [
         "docs/cli-commands/dataset",
         "docs/cli-commands/graphql",
+        "docs/cli-commands/search",
         "docs/datahub_lite",
       ],
     },

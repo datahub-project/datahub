@@ -13,6 +13,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -39,6 +40,7 @@ import io.datahubproject.openapi.v1.models.TraceStatus;
 import io.datahubproject.openapi.v1.models.TraceStorageStatus;
 import io.datahubproject.openapi.v1.models.TraceWriteStatus;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -473,5 +475,106 @@ public class TraceServiceImplTest {
     // Test case 4: Null system metadata
     Long epochMillisNull = TraceServiceImpl.extractTraceIdEpochMillis(null);
     assertNull(epochMillisNull);
+  }
+
+  @Test
+  public void testExtractTraceIdEpochMillis_externalW3CTraceId() {
+    // W3C trace IDs from external OTel systems don't encode epoch micros in the first 16 chars.
+    // Parsing them produces an implausible timestamp, which should return null.
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+    // Example W3C trace ID — first 16 hex chars are random, not epoch micros
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "4bf92f3577b34da6a3ce929d0e0e4736");
+    systemMetadata.setProperties(new StringMap(properties));
+
+    assertNull(TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata));
+  }
+
+  @Test
+  public void testExtractTraceIdEpochMillis_malformedTraceId() {
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+
+    // Too short
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "abc123");
+    systemMetadata.setProperties(new StringMap(properties));
+    assertNull(TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata));
+
+    // Not valid hex
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "zzzzzzzzzzzzzzzz0000000000000000");
+    systemMetadata.setProperties(new StringMap(properties));
+    assertNull(TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata));
+  }
+
+  @Test
+  public void testExtractTraceIdEpochMillis_w3cTraceIdWouldCauseArithmeticOverflow() {
+    // Reproduces the production incident: 538 ArithmeticException stack traces in 20 minutes.
+    //
+    // When a service mesh/API gateway propagates W3C trace IDs via traceparent headers,
+    // the first 16 hex chars are random (not epoch micros). TraceIdGenerator.getTimestampMillis()
+    // parses them as unsigned long, producing a nonsensical epoch far in the future.
+    //
+    // The downstream code in MCLKafkaListener.updateMetrics() computes:
+    //   queueTimeMs = System.currentTimeMillis() - extractedEpochMillis
+    // then calls:
+    //   Duration.ofMillis(queueTimeMs).record()
+    // which internally calls Duration.toNanos() → Math.multiplyExact(seconds, NANOS_PER_SECOND)
+    //
+    // With a far-future epoch, queueTimeMs is a large negative number (~-3.7 trillion),
+    // and toNanos() overflows: multiplyExact(-3.7 billion sec, 1 billion) → ArithmeticException
+
+    // This is the actual W3C trace ID from the production incident report
+    String w3cTraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+
+    // Step 1: Verify that parsing this trace ID produces a far-future epoch
+    // (without the fix, this would be returned as the epoch millis)
+    long rawEpochMicros = Long.parseUnsignedLong(w3cTraceId.substring(0, 16), 16);
+    long rawEpochMillis = rawEpochMicros / 1000;
+    // 4bf92f3577b34da6 → 5,475,922,892,990,000,550 micros → ~5.4 trillion millis (~year 2143)
+    assertTrue(
+        rawEpochMillis > System.currentTimeMillis() * 2,
+        "Raw parsed epoch should be far in the future: " + rawEpochMillis);
+
+    // Step 2: Verify that the queue time calculation would produce a value that overflows
+    long queueTimeMs = System.currentTimeMillis() - rawEpochMillis;
+    // queueTimeMs ≈ -3.7 trillion ms
+    assertTrue(
+        queueTimeMs < -1_000_000_000_000L, "Queue time should be a large negative: " + queueTimeMs);
+
+    // Step 3: Confirm that Duration.ofMillis(queueTimeMs).toNanos() would overflow
+    // This is the exact crash that occurred 538 times in 20 minutes in production
+    try {
+      Duration.ofMillis(queueTimeMs).toNanos();
+      fail("Expected ArithmeticException from Duration.toNanos() overflow");
+    } catch (ArithmeticException e) {
+      // This is the exception that was crashing MCLKafkaListener.updateMetrics()
+      assertTrue(
+          e.getMessage().contains("overflow"),
+          "Expected 'long overflow' but got: " + e.getMessage());
+    }
+
+    // Step 4: Verify the fix — extractTraceIdEpochMillis returns null for this trace ID,
+    // so the Duration.ofMillis() path is never reached
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, w3cTraceId);
+    systemMetadata.setProperties(new StringMap(properties));
+
+    assertNull(
+        TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata),
+        "extractTraceIdEpochMillis should return null for W3C trace IDs to prevent overflow");
+  }
+
+  @Test
+  public void testExtractTraceIdEpochMillis_preDataHubEpoch() {
+    // A trace ID encoding a timestamp from before 2020 (before DataHub tracing existed)
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+    // Generate a trace ID with epoch = 0 (1970-01-01)
+    String ancientTraceId = SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId(0L);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, ancientTraceId);
+    systemMetadata.setProperties(new StringMap(properties));
+
+    assertNull(TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata));
   }
 }

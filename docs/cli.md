@@ -515,6 +515,8 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
 - `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
 - `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
+- `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` (default `10`) - Maximum number of failure entries to include in the ingestion report. Increase to capture more failure samples when debugging.
+- `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` (default `10`) - Maximum number of warning entries to include in the ingestion report. Increase to capture more warning samples when debugging.
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
@@ -523,6 +525,8 @@ DATAHUB_GMS_TOKEN=
 DATAHUB_TELEMETRY_ENABLED=true
 DATAHUB_TELEMETRY_TIMEOUT=10
 DATAHUB_DEBUG=false
+DATAHUB_REPORT_FAILURE_SAMPLE_SIZE=10
+DATAHUB_REPORT_WARNING_SAMPLE_SIZE=10
 ```
 
 ### container
@@ -676,6 +680,35 @@ Key features:
 - **Recursive exploration**: Deep-dive into complex GraphQL types
 
 ➡️ [Learn more about the GraphQL command](./cli-commands/graphql.md)
+
+### search
+
+The `search` command allows you to search across all DataHub entities from the command line with support for both keyword and semantic search.
+
+```shell
+# Basic keyword search
+datahub search "users"
+
+# Semantic search
+datahub search --semantic "financial reports"
+
+# Search with filters
+datahub search "*" --filter platform=snowflake --filter entity_type=dataset
+
+# Get results in table format
+datahub search "*" --table
+```
+
+Key features:
+
+- **Dual search modes**: Keyword search (default) and semantic search
+- **Flexible filtering**: Simple key=value filters and complex JSON filters with AND/OR/NOT logic
+- **Multiple output formats**: JSON (default), table, and URNs-only
+- **Discovery features**: List available filters and describe specific filters
+- **Faceted search**: Explore data distribution with aggregation counts
+- **Pagination & sorting**: Control result size and ordering
+
+➡️ [Learn more about the search command](./cli-commands/search.md)
 
 ### put
 
