@@ -529,6 +529,7 @@ fragment nonRecursiveDataJobFields on DataJob {
     urn
     properties {
         name
+        env
         description
         externalUrl
         customProperties {
@@ -571,6 +572,7 @@ fragment dataJobFields on DataJob {
     }
     properties {
         name
+        env
         description
         externalUrl
         customProperties {
@@ -1276,6 +1278,7 @@ fragment entityContainer on Container {
     }
     properties {
         name
+        env
     }
     subTypes {
         typeNames

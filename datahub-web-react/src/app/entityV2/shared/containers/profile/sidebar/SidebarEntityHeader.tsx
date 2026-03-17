@@ -16,7 +16,9 @@ import NotesIcon from '@app/previewV2/NotesIcon';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, EntityType, Post } from '@types';
+import { Pill } from '@components/components/Pills';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { DataPlatform, EntityType, FabricType, Post } from '@types';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
@@ -43,6 +45,8 @@ const SidebarEntityHeader = () => {
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
+    const rawOrigin = entityData?.origin ?? entityData?.properties?.env;
+    const origin = rawOrigin ? (capitalizeFirstLetterOnly(rawOrigin.toLowerCase()) as FabricType) : undefined;
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
@@ -65,6 +69,15 @@ const SidebarEntityHeader = () => {
             <EntityDetailsContainer>
                 <NameWrapper>
                     <EntityName isNameEditable={false} />
+                    {origin && (
+                        <Pill
+                            label={origin}
+                            size="sm"
+                            variant="outline"
+                            color="gray"
+                            style={{ marginLeft: 8 }}
+                        />
+                    )}
                     {!!entityData?.notes?.total && (
                         <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
                     )}

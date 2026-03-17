@@ -37,7 +37,7 @@ import { isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDataFlowQuery, useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
-import { DataFlow, EntityType, SearchResult } from '@types';
+import { DataFlow, EntityType, FabricType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
@@ -185,8 +185,10 @@ export class DataFlowEntity implements Entity<DataFlow> {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const name = dataFlow?.properties?.name;
         const externalUrl = dataFlow?.properties?.externalUrl;
+        const origin = dataFlow?.cluster as FabricType;
         return {
             name,
+            origin,
             externalUrl,
         };
     };

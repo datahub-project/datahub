@@ -6,7 +6,7 @@ import { pluralize } from '@app/shared/textUtil';
 
 type Props = {
     icon: any;
-    count: number;
+    count?: number;
     label: string;
     onClick?: (e: React.MouseEvent) => void;
     enabled?: boolean;
@@ -93,30 +93,32 @@ const HighlightedText = styled.div`
 // pluralize
 
 const SearchPill = ({ icon, onClick, enabled, label, count, countLabel, active, highlightedText }: Props) => {
+    const hasCount = typeof count === 'number';
     const isHighlightedTextPresent = !!highlightedText;
+    const tooltipTitle = hasCount
+        ? `${count} ${pluralize(count, countLabel, countLabel === 'match' ? 'es' : 's')}`
+        : label;
+
     return (
-        <Tooltip
-            title={`${count} ${pluralize(count, countLabel, countLabel === 'match' ? 'es' : 's')}`}
-            showArrow={false}
-        >
+        <Tooltip title={tooltipTitle} showArrow={false}>
             <PillContainer
                 active={active}
                 enabled={enabled}
                 onClick={onClick}
                 isHighlightedTextPresent={isHighlightedTextPresent}
             >
-                {isHighlightedTextPresent ? (
-                    <>
-                        <Container>
-                            {icon} {label}
-                            <HighlightedText>{highlightedText}</HighlightedText>
-                        </Container>
+                <Container>
+                    {icon}
+                    <span>{label}</span>
+                    {isHighlightedTextPresent && <HighlightedText>{highlightedText}</HighlightedText>}
+                </Container>
+
+                {hasCount && (
+                    isHighlightedTextPresent ? (
                         <CountContainer active={active}>{count}</CountContainer>
-                    </>
-                ) : (
-                    <>
-                        {icon} {label} {count}
-                    </>
+                    ) : (
+                        <span>{count}</span>
+                    )
                 )}
             </PillContainer>
         </Tooltip>
