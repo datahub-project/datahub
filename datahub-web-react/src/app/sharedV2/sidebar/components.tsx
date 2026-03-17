@@ -19,6 +19,12 @@ export const SidebarWrapper = styled.div<{ width: number; $isShowNavBarRedesign?
     `}
 `;
 
+const StyledButton = styled(Button)`
+    padding: 0;
+    height: 16px;
+    width: 16px;
+`;
+
 const StyledIcon = styled(Icon)<{ $isOpen?: boolean }>`
     color: ${(props) => props.theme.colors.icon};
 
@@ -36,8 +42,8 @@ export function RotatingTriangle({
     dataTestId?: string;
 }) {
     return (
-        <Button onClick={onClick} data-testid={dataTestId} variant="text">
+        <StyledButton onClick={onClick} data-testid={dataTestId} variant="text">
             <StyledIcon icon={CaretRight} $isOpen={isOpen} size="md" />
-        </Button>
+        </StyledButton>
     );
 }
