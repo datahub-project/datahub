@@ -14,6 +14,7 @@ from typing import Iterable, Optional
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
+from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
 from datahub.sdk.container import Container
 
 # Shared platform name for Fabric workspace containers.
@@ -72,6 +73,7 @@ def build_workspace_container(
         display_name=workspace.name,
         description=workspace.description,
         subtype=GenericContainerSubTypes.FABRIC_WORKSPACE,
+        external_url=f"{FABRIC_APP_BASE_URL}/groups/{workspace.id}/list",
         parent_container=None,
         qualified_name=workspace.id,
     )

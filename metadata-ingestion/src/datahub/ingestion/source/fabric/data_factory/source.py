@@ -18,7 +18,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DataJobSubTypes
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
+from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
 from datahub.ingestion.source.fabric.common.models import (
     FabricConnection,
     FabricItem,
@@ -94,6 +96,48 @@ _FABRIC_STATUS_TO_RESULT: dict[str, InstanceRunResult] = {
 }
 
 # Activity run status → DataHub InstanceRunResult
+# Fabric activity type → DataHub DataJob subtype.
+# Reuses ADF subtypes where activity semantics match.
+_ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
+    "Copy": DataJobSubTypes.ADF_COPY_ACTIVITY,
+    "InvokePipeline": DataJobSubTypes.ADF_EXECUTE_PIPELINE,
+    "ExecutePipeline": DataJobSubTypes.ADF_EXECUTE_PIPELINE,
+    "Lookup": DataJobSubTypes.ADF_LOOKUP_ACTIVITY,
+    "GetMetadata": DataJobSubTypes.ADF_GET_METADATA_ACTIVITY,
+    "SqlServerStoredProcedure": DataJobSubTypes.ADF_STORED_PROCEDURE_ACTIVITY,
+    "Script": DataJobSubTypes.ADF_SCRIPT_ACTIVITY,
+    "WebActivity": DataJobSubTypes.ADF_WEB_ACTIVITY,
+    "WebHook": DataJobSubTypes.ADF_WEBHOOK_ACTIVITY,
+    "IfCondition": DataJobSubTypes.ADF_IF_CONDITION,
+    "ForEach": DataJobSubTypes.ADF_FOREACH_LOOP,
+    "Until": DataJobSubTypes.ADF_UNTIL_LOOP,
+    "Wait": DataJobSubTypes.ADF_WAIT_ACTIVITY,
+    "SetVariable": DataJobSubTypes.ADF_SET_VARIABLE,
+    "AppendVariable": DataJobSubTypes.ADF_APPEND_VARIABLE,
+    "Switch": DataJobSubTypes.ADF_SWITCH_ACTIVITY,
+    "Filter": DataJobSubTypes.ADF_FILTER_ACTIVITY,
+    "Fail": DataJobSubTypes.ADF_FAIL_ACTIVITY,
+    "Delete": DataJobSubTypes.ADF_DELETE_ACTIVITY,
+    "Custom": DataJobSubTypes.ADF_CUSTOM_ACTIVITY,
+    "AzureFunction": DataJobSubTypes.ADF_AZURE_FUNCTION_ACTIVITY,
+    "DatabricksNotebook": DataJobSubTypes.ADF_DATABRICKS_NOTEBOOK,
+    # Fabric-specific activity types
+    "SparkJobDefinition": DataJobSubTypes.FABRIC_SPARK_JOB_DEFINITION,
+    "InvokeCopyJob": DataJobSubTypes.FABRIC_INVOKE_COPY_JOB,
+    "ExecuteSSISPackage": DataJobSubTypes.FABRIC_EXECUTE_SSIS_PACKAGE,
+    "AzureHDInsight": DataJobSubTypes.FABRIC_HDINSIGHT_ACTIVITY,
+    "KustoQueryLanguage": DataJobSubTypes.FABRIC_KQL_ACTIVITY,
+    "DataLakeAnalyticsScope": DataJobSubTypes.FABRIC_DATA_LAKE_ANALYTICS,
+    "AzureMLExecutePipeline": DataJobSubTypes.FABRIC_AZURE_ML_EXECUTE_PIPELINE,
+    "TridentNotebook": DataJobSubTypes.FABRIC_TRIDENT_NOTEBOOK,
+    "RefreshDataFlow": DataJobSubTypes.FABRIC_REFRESH_DATAFLOW,
+    "Office365Email": DataJobSubTypes.FABRIC_OFFICE365_EMAIL,
+    "Email": DataJobSubTypes.FABRIC_EMAIL_ACTIVITY,
+    "MicrosoftTeams": DataJobSubTypes.FABRIC_TEAMS_ACTIVITY,
+    "Teams": DataJobSubTypes.FABRIC_TEAMS_ACTIVITY,
+    "PBISemanticModelRefresh": DataJobSubTypes.FABRIC_PBI_SEMANTIC_MODEL_REFRESH,
+}
+
 # Activity runs use "Succeeded"/"Failed"/"Cancelled" (not ItemJobStatus constants)
 _ACTIVITY_STATUS_TO_RESULT: dict[str, InstanceRunResult] = {
     "Succeeded": InstanceRunResult.SUCCESS,
@@ -287,6 +331,20 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    @staticmethod
+    def _get_pipeline_url(workspace_id: str, pipeline_id: str) -> str:
+        """Generate Fabric web UI URL for a data pipeline."""
+        return f"{FABRIC_APP_BASE_URL}/groups/{workspace_id}/pipelines/{pipeline_id}"
+
+    @staticmethod
+    def _get_pipeline_run_url(workspace_id: str, pipeline_id: str, run_id: str) -> str:
+        """Generate Fabric web UI URL for a specific pipeline run."""
+        return (
+            f"{FABRIC_APP_BASE_URL}/workloads/data-pipeline"
+            f"/monitoring/workspaces/{workspace_id}"
+            f"/pipelines/{pipeline_id}/{run_id}"
+        )
+
     def _emit_pipelines(
         self,
         workspace: FabricWorkspace,
@@ -315,6 +373,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 env=self.config.env,
                 display_name=item.name,
                 description=item.description,
+                external_url=self._get_pipeline_url(workspace.id, item.id),
                 custom_properties={
                     "pipeline_id": item.id,
                     "workspace_id": workspace.id,
@@ -463,11 +522,16 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 upstream_edges.append(EdgeClass(destinationUrn=parent_urn))
 
             has_io = upstream_edges or input_urns or output_urns
+            subtype = _ACTIVITY_SUBTYPE_MAP.get(activity.type)
             datajob = DataJob(
                 name=make_activity_job_id(activity.name),
                 flow=dataflow,
                 display_name=activity.name,
                 description=activity.description,
+                subtype=subtype,
+                external_url=self._get_pipeline_url(
+                    pipeline_item.workspace_id, pipeline_item.id
+                ),
                 custom_properties=custom_props,
                 extra_aspects=[
                     DataJobInputOutputClass(
@@ -551,6 +615,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             template_urn=flow_urn,
             type=DataProcessTypeClass.BATCH_SCHEDULED,
             properties=custom_properties,
+            url=self._get_pipeline_run_url(run.workspace_id, run.item_id, run.id),
             data_platform_instance=self.config.platform_instance,
         )
 
@@ -649,6 +714,11 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             parent_instance=parent_instance_urn,
             type=DataProcessTypeClass.BATCH_SCHEDULED,
             properties=custom_properties,
+            url=self._get_pipeline_run_url(
+                pipeline_item.workspace_id,
+                pipeline_item.id,
+                activity_run.pipeline_run_id,
+            ),
             data_platform_instance=self.config.platform_instance,
         )
 

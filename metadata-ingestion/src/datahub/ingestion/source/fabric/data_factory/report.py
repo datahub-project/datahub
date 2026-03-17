@@ -22,8 +22,6 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     # Entity counts
     workspaces_scanned: int = 0
     pipelines_scanned: int = 0
-    copyjobs_scanned: int = 0
-    dataflows_scanned: int = 0
     activities_scanned: int = 0
     pipeline_runs_scanned: int = 0
     activity_runs_scanned: int = 0
@@ -31,8 +29,6 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
     filtered_pipelines: LossyList[str] = field(default_factory=LossyList)
-    filtered_copyjobs: LossyList[str] = field(default_factory=LossyList)
-    filtered_dataflows: LossyList[str] = field(default_factory=LossyList)
 
     # Client report
     client_report: Optional[FabricDataFactoryClientReport] = None
@@ -48,18 +44,6 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
 
     def report_pipeline_filtered(self, pipeline_name: str) -> None:
         self.filtered_pipelines.append(pipeline_name)
-
-    def report_copyjob_scanned(self) -> None:
-        self.copyjobs_scanned += 1
-
-    def report_copyjob_filtered(self, copyjob_name: str) -> None:
-        self.filtered_copyjobs.append(copyjob_name)
-
-    def report_dataflow_scanned(self) -> None:
-        self.dataflows_scanned += 1
-
-    def report_dataflow_filtered(self, dataflow_name: str) -> None:
-        self.filtered_dataflows.append(dataflow_name)
 
     def report_activity_scanned(self) -> None:
         self.activities_scanned += 1

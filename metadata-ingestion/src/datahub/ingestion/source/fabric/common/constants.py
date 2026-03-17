@@ -2,7 +2,12 @@
 
 from typing import Dict
 
+# Fabric web UI base URL for building external links
+FABRIC_APP_BASE_URL = "https://app.fabric.microsoft.com"
+
 # Source: https://learn.microsoft.com/en-us/rest/api/fabric/core/connections/list-supported-connection-types?tabs=HTTP
+# Unmapped connection types fall back to using the connection type string
+# itself as the platform name (e.g. "SapHana" → platform "SapHana").
 FABRIC_CONNECTION_PLATFORM_MAP: Dict[str, str] = {
     # --- Fabric OneLake (data-bearing items ingested by the OneLake connector) ---
     "Lakehouse": "fabric-onelake",
@@ -104,8 +109,6 @@ FABRIC_CONNECTION_PLATFORM_MAP: Dict[str, str] = {
     # --- Delta Lake / Delta Sharing ---
     "DeltaSharing": "delta-lake",
 }
-# Connection types NOT listed above will fall back to "fabric" platform.
-# Add new entries here as DataHub adds support for more platforms.
 
 # ADF LinkedService type → DataHub platform.
 # Used as a fallback when the connection type matches ADF naming conventions
