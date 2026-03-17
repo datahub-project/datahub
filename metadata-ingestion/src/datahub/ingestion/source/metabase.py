@@ -1930,17 +1930,49 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return NullTypeClass()
 
     def _get_schema_fields_from_result_metadata(
-        self, result_metadata: List[MetabaseResultMetadata]
+        self,
+        result_metadata: List[MetabaseResultMetadata],
+        card: Optional[MetabaseCard] = None,
     ) -> List[SchemaFieldClass]:
         schema_fields: List[SchemaFieldClass] = []
 
         for field_meta in result_metadata:
             field_name = field_meta.name or field_meta.display_name or ""
             base_type = field_meta.base_type or ""
-            display_name = field_meta.display_name or field_name
 
             if not field_name:
                 continue
+
+            description = ""
+            if (
+                field_meta.field_ref
+                and isinstance(field_meta.field_ref, list)
+                and len(field_meta.field_ref) > 0
+            ):
+                ref_type = field_meta.field_ref[0]
+
+                if (
+                    ref_type == _MBQL_REF_EXPRESSION
+                    and card
+                    and card.dataset_query
+                    and card.dataset_query.query
+                    and card.dataset_query.query.expressions
+                ):
+                    expr_name = (
+                        field_meta.field_ref[1]
+                        if len(field_meta.field_ref) > 1
+                        else None
+                    )
+                    if expr_name:
+                        expr_value = card.dataset_query.query.expressions.get(
+                            str(expr_name)
+                        )
+                        if expr_value:
+                            description = f"Expression: {expr_value}"
+                elif ref_type == _MBQL_REF_AGGREGATION:
+                    description = (
+                        f"Aggregation: {field_meta.display_name or field_name}"
+                    )
 
             data_type = self._map_metabase_type_to_datahub_type(base_type)
 
@@ -1948,7 +1980,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 fieldPath=field_name,
                 type=SchemaFieldDataTypeClass(type=data_type),
                 nativeDataType=base_type,
-                description=display_name,
+                description=description,
                 nullable=True,
             )
             schema_fields.append(schema_field)
@@ -1978,6 +2010,41 @@ class MetabaseSource(StatefulIngestionSourceBase):
             subtypes.append(DatasetSubTypes.VIEW)
 
         return subtypes
+
+    def _get_model_lineage(
+        self, card: MetabaseCard, model_urn: str
+    ) -> Optional[UpstreamLineageClass]:
+        if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_QUERY:
+            cll = self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
+
+            if cll and not cll.fineGrainedLineages:
+                is_passthrough = (
+                    card.dataset_query.query.is_passthrough()
+                    if card.dataset_query.query
+                    else False
+                )
+                if is_passthrough:
+                    passthrough_cll = self._get_passthrough_cll(
+                        card=card, entity_urn=model_urn
+                    )
+                    if passthrough_cll and passthrough_cll.fineGrainedLineages:
+                        cll = passthrough_cll
+
+            return cll
+        elif card.query_type == _QUERY_TYPE_NATIVE:
+            return self._get_cll_from_native_sql(card=card, entity_urn=model_urn)
+        else:
+            table_urns = self._get_table_urns_from_card(card)
+            if table_urns:
+                return UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=table_urn, type=DatasetLineageTypeClass.TRANSFORMED
+                        )
+                        for table_urn in table_urns
+                    ]
+                )
+        return None
 
     def _emit_model_workunits(
         self, card_info: MetabaseCardListItem
@@ -2023,7 +2090,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         if card.result_metadata:
             schema_fields = self._get_schema_fields_from_result_metadata(
-                card.result_metadata
+                card.result_metadata, card
             )
             if schema_fields:
                 yield MetadataChangeProposalWrapper(
@@ -2050,47 +2117,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 aspect=view_properties,
             ).as_workunit()
 
-        if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_QUERY:
-            # Always try to use field_ref metadata first (most accurate)
-            cll = self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
-
-            # Fall back to pass-through lineage if no field_ref available
-            if not cll:
-                is_passthrough = (
-                    card.dataset_query.query.is_passthrough()
-                    if card.dataset_query.query
-                    else False
-                )
-                if is_passthrough:
-                    cll = self._get_passthrough_cll(card=card, entity_urn=model_urn)
-
-            if cll:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=model_urn,
-                    aspect=cll,
-                ).as_workunit()
-        elif card.query_type == _QUERY_TYPE_NATIVE:
-            cll = self._get_cll_from_native_sql(card=card, entity_urn=model_urn)
-            if cll:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=model_urn,
-                    aspect=cll,
-                ).as_workunit()
-        else:
-            table_urns = self._get_table_urns_from_card(card)
-            if table_urns:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=model_urn,
-                    aspect=UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=table_urn,
-                                type=DatasetLineageTypeClass.TRANSFORMED,
-                            )
-                            for table_urn in table_urns
-                        ]
-                    ),
-                ).as_workunit()
+        lineage = self._get_model_lineage(card=card, model_urn=model_urn)
+        if lineage:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=model_urn,
+                aspect=lineage,
+            ).as_workunit()
 
         if card.creator_id:
             ownership = self._get_ownership(card.creator_id)

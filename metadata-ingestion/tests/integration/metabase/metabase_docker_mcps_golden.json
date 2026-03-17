@@ -7926,7 +7926,7 @@
                 {
                     "fieldPath": "ID",
                     "nullable": true,
-                    "description": "ID",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -7939,7 +7939,7 @@
                 {
                     "fieldPath": "USER_ID",
                     "nullable": true,
-                    "description": "User ID",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -7952,7 +7952,7 @@
                 {
                     "fieldPath": "PRODUCT_ID",
                     "nullable": true,
-                    "description": "Product ID",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -7965,7 +7965,7 @@
                 {
                     "fieldPath": "SUBTOTAL",
                     "nullable": true,
-                    "description": "Subtotal",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -7978,7 +7978,7 @@
                 {
                     "fieldPath": "TAX",
                     "nullable": true,
-                    "description": "Tax",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -7991,7 +7991,7 @@
                 {
                     "fieldPath": "TOTAL",
                     "nullable": true,
-                    "description": "Total",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -8004,7 +8004,7 @@
                 {
                     "fieldPath": "DISCOUNT",
                     "nullable": true,
-                    "description": "Discount",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -8017,7 +8017,7 @@
                 {
                     "fieldPath": "CREATED_AT",
                     "nullable": true,
-                    "description": "Created At",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -8030,7 +8030,7 @@
                 {
                     "fieldPath": "QUANTITY",
                     "nullable": true,
-                    "description": "Quantity",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -8043,7 +8043,7 @@
                 {
                     "fieldPath": "Age",
                     "nullable": true,
-                    "description": "Age",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -8056,7 +8056,7 @@
                 {
                     "fieldPath": "EMAIL",
                     "nullable": true,
-                    "description": "Customer Email",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -8069,7 +8069,7 @@
                 {
                     "fieldPath": "STATE",
                     "nullable": true,
-                    "description": "State",
+                    "description": "",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -8083,8 +8083,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752004304,
-        "runId": "metabase-docker-test",
+        "lastObserved": 1705752003003,
+        "runId": "metabase-2024_01_20-12_00_00-0jfgce",
         "lastRunId": "no-run-id-provided"
     }
 },
