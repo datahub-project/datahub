@@ -11,7 +11,6 @@ import {
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
 import { Message } from '@app/shared/Message';
 import { Button, Icon, Modal, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 const PageContainer = styled.div`
     display: flex;
@@ -28,7 +27,7 @@ const NoPermissionContainer = styled.div`
     padding: 60px 20px;
     text-align: center;
     gap: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type ServiceAccountListProps = {
@@ -136,7 +135,6 @@ export const ServiceAccountList = ({
                 }}
                 onDelete={handleDelete}
                 onRoleChange={handleRoleChange}
-                refetch={refetch}
             />
 
             {isCreatingServiceAccount && (

@@ -37,8 +37,6 @@ import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeN
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
-import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -94,16 +92,16 @@ const ScrollableContent = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #a9adbd;
+        background: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: #81879f;
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: #a9adbd transparent;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg} transparent;
 `;
 
 const Footer = styled.div`
@@ -145,9 +143,6 @@ export const NavSidebar = () => {
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
-
-    const { hasIngestionSources } = useHasIngestionSources();
-    const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showStructuredProperties =
@@ -329,15 +324,7 @@ export const NavSidebar = () => {
                         isHidden: !showDataSources,
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
-                        link: ingestionLink,
-                        onClick: () => {
-                            if (ingestionLink === PageRoutes.INGESTION_CREATE) {
-                                analytics.event({
-                                    type: EventType.EnterIngestionFlowEvent,
-                                    entryPoint: 'nav_menu',
-                                });
-                            }
-                        },
+                        link: PageRoutes.INGESTION,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

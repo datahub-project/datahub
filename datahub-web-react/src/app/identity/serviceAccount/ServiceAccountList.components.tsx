@@ -11,7 +11,7 @@ import styled from 'styled-components/macro';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
-import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text, colors } from '@src/alchemy-components';
+import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -29,7 +29,6 @@ export const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 330px);
     overflow: auto;
     padding: 0 16px;
 
@@ -38,13 +37,13 @@ export const TableContainer = styled.div`
         position: sticky;
         top: 0;
         z-index: 1;
-        background: white;
+        background: ${(props) => props.theme.colors.bg};
     }
 
     /* Ensure header cells have proper background */
     .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+        background: ${(props) => props.theme.colors.bg} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -83,7 +82,7 @@ const ServiceAccountInfo = styled.div`
 const ServiceAccountDetails = styled.div`
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ActionsButtonStyle = {
@@ -175,14 +174,9 @@ export const ServiceAccountRoleCell = ({
 type ServiceAccountActionsMenuProps = {
     serviceAccount: ServiceAccount;
     onDelete: (urn: string) => void;
-    refetch?: () => void;
 };
 
-export const ServiceAccountActionsMenu = ({
-    serviceAccount,
-    onDelete,
-    refetch: _refetch,
-}: ServiceAccountActionsMenuProps) => {
+export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
     const history = useHistory();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -300,7 +294,6 @@ type ServiceAccountTableProps = {
     onChangePage: (page: number) => void;
     onDelete: (urn: string) => void;
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
-    refetch?: () => void;
 };
 
 export const ServiceAccountTable = ({
@@ -317,7 +310,6 @@ export const ServiceAccountTable = ({
     onChangePage,
     onDelete,
     onRoleChange,
-    refetch,
 }: ServiceAccountTableProps) => {
     const columns = [
         {
@@ -355,7 +347,7 @@ export const ServiceAccountTable = ({
             minWidth: '5%',
             render: (serviceAccount: ServiceAccount) => (
                 <ActionsContainer>
-                    <ServiceAccountActionsMenu serviceAccount={serviceAccount} onDelete={onDelete} refetch={refetch} />
+                    <ServiceAccountActionsMenu serviceAccount={serviceAccount} onDelete={onDelete} />
                 </ActionsContainer>
             ),
         },

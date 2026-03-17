@@ -112,7 +112,7 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 
 Connector documentation follows a structured format with specific file types and heading conventions.
 
-**Authoring guidelines**: See `docs/sources/CLAUDE.md` in this directory for:
+**Authoring guidelines**: See `docs/sources/AGENTS.md` in this directory for:
 
 - File structure (`_pre.md`, `_post.md`, `_recipe.yml`)
 - Heading level rules (H3 baseline, H2 reserved for module headings)
@@ -127,7 +127,7 @@ Connector documentation follows a structured format with specific file types and
 ./gradlew :metadata-ingestion:docGen
 
 # Preview locally
-./gradlew :docs-website:yarnStart  # Opens localhost:3000
+./gradlew :docs-website:yarnStart  # Opens localhost:3001
 
 # Format markdown before committing
 ./gradlew :datahub-web-react:mdPrettierWrite

@@ -84,7 +84,7 @@ export function ScheduleSection() {
         } else {
             const newState: SourceBuilderState = {
                 ...state,
-                schedule: undefined,
+                schedule: null,
             };
             updateState(newState);
         }
