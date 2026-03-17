@@ -423,7 +423,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         for _, text in model_yaml.items():
             try:
                 parsed = yaml.safe_load(text) or {}
-            except Exception:
+            except Exception as exc:
+                logger.warning("Skipping model YAML file: failed to parse: %s", exc)
                 continue
             if (
                 isinstance(parsed, dict)
@@ -470,7 +471,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         for _, text in model_yaml_files.items():
             try:
                 parsed = yaml.safe_load(text) or {}
-            except Exception:
+            except Exception as exc:
+                logger.warning("Skipping model YAML file: failed to parse: %s", exc)
                 continue
             if not isinstance(parsed, dict):
                 continue
@@ -478,9 +480,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             pname = parsed.get("name")
             if ptype == "topic" and pname:
                 topic_specs[str(pname)] = parsed
-            elif ptype == "view" and pname:
-      			view_specs[str(pname)] = parsed
-            elif pname
+            elif (
+                ptype == "view"
+                and pname
+                or pname
                 and (
                     parsed.get("dimensions")
                     or parsed.get("measures")
@@ -1068,7 +1071,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         chart_urls: Dict[str, str],
         dashboard_topics: Set[str],
         dashboard_topic_urns: Set[str],
-        model_id_out: Optional[str] = None,          # ← new parameter
     ) -> Iterator[MetadataWorkUnit]:
         """Fetch dashboard payload and populate tile/topic state dicts.
 
@@ -1411,4 +1413,3 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._ingest_documents()
         except Exception as exc:
             self.report.failure("omni-source", str(exc))
-            raise exc
