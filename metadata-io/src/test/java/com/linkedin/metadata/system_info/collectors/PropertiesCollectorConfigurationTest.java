@@ -77,9 +77,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
-          // Kafka topic prefix reveals tenant identity
-          "kafka.topicPrefix");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -954,9 +952,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
-          "metadataChangeLog.consumer.batch.size",
-          // Kafka topic prefix
-          "kafka.topicPrefixEnabled"
+          "metadataChangeLog.consumer.batch.size"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
