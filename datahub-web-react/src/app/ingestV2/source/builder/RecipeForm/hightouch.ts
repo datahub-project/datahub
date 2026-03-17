@@ -56,6 +56,7 @@ export const HIGHTOUCH_SYNC_ALLOW: FilterRecipeField = {
     fieldPath: 'source.config.sync_patterns.allow',
     rules: null,
     rule: FilterRule.INCLUDE,
+    filteringResource: 'Sync',
     section: 'Syncs',
     placeholder: '.*',
 };
@@ -69,6 +70,7 @@ export const HIGHTOUCH_SYNC_DENY: FilterRecipeField = {
     fieldPath: 'source.config.sync_patterns.deny',
     rules: null,
     rule: FilterRule.EXCLUDE,
+    filteringResource: 'Sync',
     section: 'Syncs',
     placeholder: 'test-.*',
 };
@@ -82,6 +84,7 @@ export const HIGHTOUCH_MODEL_ALLOW: FilterRecipeField = {
     fieldPath: 'source.config.model_patterns.allow',
     rules: null,
     rule: FilterRule.INCLUDE,
+    filteringResource: 'Model',
     section: 'Models',
     placeholder: '.*',
 };
@@ -95,6 +98,7 @@ export const HIGHTOUCH_MODEL_DENY: FilterRecipeField = {
     fieldPath: 'source.config.model_patterns.deny',
     rules: null,
     rule: FilterRule.EXCLUDE,
+    filteringResource: 'Model',
     section: 'Models',
     placeholder: 'draft-.*',
 };
