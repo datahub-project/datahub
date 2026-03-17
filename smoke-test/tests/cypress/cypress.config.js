@@ -8,7 +8,7 @@ module.exports = defineConfig({
   projectId: "s6gjkt",
   defaultCommandTimeout: 10000,
   retries: {
-    runMode: 5,
+    runMode: 2,
     openMode: 0,
   },
   video: false,
