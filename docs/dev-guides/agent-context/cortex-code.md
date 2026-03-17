@@ -1,6 +1,6 @@
 # Snowflake Cortex Code Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Snowflake Intelligence Integration](./snowflake.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md)
 
 ## What Problem Does This Solve?
 
@@ -145,7 +145,7 @@ For more info on the tools exposed by the DataHub MCP server, see the [DataHub A
 
 ## Troubleshooting
 
-#### Problem: DataHub MCP Tools Not Used
+### Problem: DataHub MCP Tools Not Used
 
 **Symptoms**: Cortex Code generates SQL without consulting DataHub metadata
 
@@ -156,7 +156,7 @@ For more info on the tools exposed by the DataHub MCP server, see the [DataHub A
 - Ensure your DataHub token hasn't expired
 - Re-run `cortex mcp add` with updated credentials
 
-#### Problem: MCP Connection Errors
+### Problem: MCP Connection Errors
 
 **Symptoms**: Errors connecting to DataHub MCP endpoint
 
@@ -167,7 +167,7 @@ For more info on the tools exposed by the DataHub MCP server, see the [DataHub A
 - Confirm the MCP endpoint path: `https://<your-instance>.acryl.io/integrations/ai/mcp`
 - Try accessing the URL in your browser to check for auth errors
 
-#### Problem: Empty or No Results from DataHub
+### Problem: Empty or No Results from DataHub
 
 **Symptoms**: DataHub tools return no results for queries
 
