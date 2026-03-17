@@ -791,6 +791,17 @@ jobs:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: "docker_logs/*.log"
           retention-days: 5
+      - name: Upload Cypress mochawesome JSON results
+        # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
+        # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
+        # required so upload-artifact picks up that dot-prefixed directory.
+        uses: actions/upload-artifact@v4
+        if: always() && matrix.test_strategy == 'cypress'
+        with:
+          name: cypress-mochawesome-json-${{ matrix.batch }}
+          path: smoke-test/tests/cypress/build/mochawesome-report/
+          include-hidden-files: true
+          retention-days: 1
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: failure()
@@ -863,6 +874,44 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
+
+  cypress_html_report:
+    name: Generate unified Cypress HTML report
+    runs-on: ubuntu-latest
+    needs: [smoke_test]
+    if: ${{ !cancelled() && needs.smoke_test.result != 'skipped' }}
+    steps:
+      - name: Download all Cypress mochawesome JSON artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cypress-mochawesome-json-*
+          path: mochawesome-results
+          merge-multiple: true
+      - name: Generate HTML report
+        run: |
+          # cypress-mochawesome-reporter writes one JSON per spec to {reportDir}/.jsons/
+          # via the Cypress after:spec hook (crash-safe). Artifacts are uploaded with
+          # include-hidden-files:true so that dot-prefixed directory is included.
+          # After merge-multiple extraction, per-spec JSONs land at:
+          #   mochawesome-results/.jsons/mochawesome_<uuid>.json
+          mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
+          if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
+            # mochawesome-merge and marge (mochawesome-report-generator CLI) are
+            # separate npm packages; "marge" is the correct binary name, not a typo.
+            npx --yes mochawesome-merge "${JSON_FILES[@]}" --output mochawesome-results/merged.json
+            npx --yes mochawesome-report-generator mochawesome-results/merged.json \
+              --reportDir cypress-html-report \
+              --reportTitle "Cypress smoke tests" \
+              --inline
+          else
+            echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
+          fi
+      - name: Upload unified Cypress HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-html-report
+          path: cypress-html-report/
+          retention-days: 5
 
   publish_images:
     name: Push images after tests pass
