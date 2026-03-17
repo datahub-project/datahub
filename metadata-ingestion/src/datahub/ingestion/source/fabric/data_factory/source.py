@@ -160,6 +160,14 @@ def _parse_iso_to_millis(iso_str: str) -> int:
 @support_status(SupportStatus.TESTING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default via Copy and InvokePipeline activities",
+)
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via stateful_ingestion config",
+)
 class FabricDataFactorySource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric Data Factory."""
 
@@ -593,11 +601,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         flow_urn: DataFlowUrn,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit MCPs for a single pipeline run as a DataProcessInstance."""
-        dpi_id = make_pipeline_run_id(
-            workspace_id=run.workspace_id,
-            pipeline_id=run.item_id,
-            run_id=run.id,
-        )
+        dpi_id = make_pipeline_run_id(run_id=run.id)
 
         custom_properties: dict[str, str] = {
             "run_id": run.id,
@@ -689,7 +693,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         template_urn = make_activity_job_urn(activity_run.activity_name, flow_urn)
 
         dpi_id = make_activity_run_id(
-            pipeline_id=pipeline_item.id,
+            pipeline_run_id=activity_run.pipeline_run_id,
             activity_run_id=activity_run.activity_run_id,
         )
 

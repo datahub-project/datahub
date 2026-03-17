@@ -117,12 +117,9 @@ def make_pipeline_flow_urn(
     )
 
 
-def make_pipeline_run_id(workspace_id: str, pipeline_id: str, run_id: str) -> str:
-    """Generate DPI ID for a Fabric Data Pipeline run.
-
-    Run ID format: {workspaceGUID}.{pipelineGUID}.{runGUID}
-    """
-    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{pipeline_id}{URN_PATTERN_SEPARATOR}{run_id}"
+def make_pipeline_run_id(run_id: str) -> str:
+    """Generate DPI ID for a Fabric Data Pipeline run."""
+    return run_id
 
 
 def make_activity_job_id(activity_name: str) -> str:
@@ -146,12 +143,14 @@ def make_activity_job_urn(
     )
 
 
-def make_activity_run_id(pipeline_id: str, activity_run_id: str) -> str:
+def make_activity_run_id(pipeline_run_id: str, activity_run_id: str) -> str:
     """Generate DPI ID for an activity run within a pipeline run.
 
-    Run ID format: {pipelineGUID}.{activityRunGUID}
+    Run ID format: {pipelineRunGUID}.{activityRunGUID}
+    Includes the pipeline run ID so the activity run has a direct
+    reference to the pipeline run it belongs to.
     """
-    return f"{pipeline_id}{URN_PATTERN_SEPARATOR}{activity_run_id}"
+    return f"{pipeline_run_id}{URN_PATTERN_SEPARATOR}{activity_run_id}"
 
 
 def make_onelake_urn(
