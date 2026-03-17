@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set
+from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Set
 
 import yaml
 
@@ -79,6 +79,8 @@ from datahub.sdk import Chart, Dashboard, Dataset
 
 logger = logging.getLogger(__name__)
 
+FieldConfidence = Literal["unresolved", "exact", "derived"]
+
 
 @dataclass
 class SemanticField:
@@ -86,7 +88,7 @@ class SemanticField:
     view_name: str
     field_name: str
     expression: str = ""
-    confidence: str = "unresolved"
+    confidence: FieldConfidence = "unresolved"
     upstream_physical_urns: Set[str] = field(default_factory=set)
 
 
