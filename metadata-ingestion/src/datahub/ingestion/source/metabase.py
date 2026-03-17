@@ -41,7 +41,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -598,10 +601,11 @@ class MetabaseConfig(
         description="Extract Metabase models (saved questions used as data sources) as datasets",
     )
     convert_lineage_urns_to_lowercase: bool = Field(
-        default=True,
-        description="Whether to convert upstream dataset URN names to lowercase. "
-        "Required for platforms that normalise identifiers to lowercase (e.g. Snowflake). "
-        "Disable only if all upstream connectors preserve original identifier case.",
+        default=False,
+        description="Whether to convert dataset (table) names to lowercase when creating lineage URNs. "
+        "Column names always preserve their original case to match upstream source connectors. "
+        "Most DataHub connectors (including Postgres, ClickHouse, BigQuery) preserve the original case from the database. "
+        "Only set to true if your upstream connector explicitly lowercases table names (rare).",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
@@ -1043,7 +1047,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         )
         return builder.make_schema_field_urn(
             parent_urn=dataset_urn,
-            field_path=self._normalize(field.name),
+            field_path=field.name,
         )
 
     def _upstream_urns_for_field_ids(
@@ -1917,6 +1921,20 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return schema_fields
 
+    def _get_model_view_properties(
+        self, card: MetabaseCard
+    ) -> Optional[ViewPropertiesClass]:
+        """Extract ViewPropertiesClass for native SQL models only."""
+        if card.dataset_query and card.query_type == _QUERY_TYPE_NATIVE:
+            raw_query = self._extract_native_query(card)
+            if raw_query:
+                return ViewPropertiesClass(
+                    materialized=False,
+                    viewLogic=raw_query,
+                    viewLanguage="SQL",
+                )
+        return None
+
     def _emit_model_workunits(
         self, card_info: MetabaseCardListItem
     ) -> Iterable[MetadataWorkUnit]:
@@ -1930,16 +1948,32 @@ class MetabaseSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+        custom_properties = {
+            "model_id": str(card.id),
+            "display_type": card.display or "",
+            "metabase_url": f"{self.config.display_uri}/model/{card.id}",
+            "query_type": card.query_type or "unknown",
+        }
+
+        if card.query_type == _QUERY_TYPE_NATIVE:
+            raw_query = self._extract_native_query(card)
+            if raw_query:
+                custom_properties["query"] = raw_query
+        elif card.query_type == _QUERY_TYPE_QUERY:
+            custom_properties["query_type"] = "query_builder"
+            if card.dataset_query and card.dataset_query.query:
+                custom_properties["mbql_query"] = json.dumps(
+                    card.dataset_query.query.model_dump(
+                        exclude_none=True, by_alias=True
+                    )
+                )
+
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=DatasetPropertiesClass(
                 name=card.name,
                 description=card.description or "",
-                customProperties={
-                    "model_id": str(card.id),
-                    "display_type": card.display or "",
-                    "metabase_url": f"{self.config.display_uri}/model/{card.id}",
-                },
+                customProperties=custom_properties,
             ),
         ).as_workunit()
 
@@ -1962,20 +1996,17 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
-            aspect=SubTypesClass(typeNames=["Model", "View"]),
+            aspect=SubTypesClass(
+                typeNames=[DatasetSubTypes.METABASE_MODEL, DatasetSubTypes.VIEW]
+            ),
         ).as_workunit()
 
-        if card.dataset_query and card.query_type == _QUERY_TYPE_NATIVE:
-            raw_query = self._extract_native_query(card)
-            if raw_query:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=model_urn,
-                    aspect=ViewPropertiesClass(
-                        materialized=False,
-                        viewLogic=raw_query,
-                        viewLanguage="SQL",
-                    ),
-                ).as_workunit()
+        view_properties = self._get_model_view_properties(card)
+        if view_properties:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=model_urn,
+                aspect=view_properties,
+            ).as_workunit()
 
         if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_QUERY:
             cll = self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
