@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 
 import pydantic
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -27,6 +27,15 @@ class OmniSourceConfig(
             "Found in your Omni organization settings."
         )
     )
+
+    @field_validator("base_url", mode="after")
+    @classmethod
+    def validate_base_url(cls, v: str) -> str:
+        v = v.rstrip("/")
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        return v
+
     api_key: pydantic.SecretStr = Field(
         description=(
             "Omni Organization API key (not a Personal Access Token). "
