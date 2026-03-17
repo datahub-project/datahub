@@ -1,0 +1,169 @@
+name: lint
+on:
+  pull_request:
+    branches:
+      - master
+      - releases/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: Detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      markdown: ${{ steps.filter.outputs.markdown }}
+      github-actions: ${{ steps.filter.outputs.github-actions }}
+      yaml-general: ${{ steps.filter.outputs.yaml-general }}
+      workflow-files: ${{ steps.filter.outputs.workflow-files }}
+      workflow-validation: ${{ steps.filter.outputs.workflow-validation }}
+      code-check-sources: ${{ steps.filter.outputs.code-check-sources }}
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          token: "" # Empty token forces raw git commands
+          filters: |
+            markdown:
+              - "**/*.md"
+            github-actions:
+              - ".github/**/*.yml"
+              - ".github/**/*.yaml"
+            yaml-general:
+              - "**/*.{yml,yaml}"
+              - "!.github/**/*.yml"
+              - "!.github/**/*.yaml"
+            workflow-files:
+              - ".github/workflows/**"
+            workflow-validation:
+              - ".github/workflows/**"
+              - ".github/scripts/validate_post_workflow_list.py"
+            code-check-sources:
+              - "metadata-io/**"
+              - "datahub-web-react/**"
+              - "metadata-service/war/src/main/resources/boot/policies.json"
+              - "**/build.gradle"
+              - "**/build.gradle.kts"
+              - "**/gradle.lockfile"
+              - ".github/scripts/check_*.py"
+
+  markdown-format:
+    name: markdown_format_check
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.markdown == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: run prettier --check
+        run: ./gradlew :datahub-web-react:mdPrettierCheck
+
+  github-actions-format:
+    name: github_actions_format_check
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.github-actions == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: run prettier --check
+        run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
+
+  validate-post-workflow-list:
+    name: validate_post_workflow_list
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.workflow-validation == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install pyyaml
+        run: uv pip install pyyaml --system
+      - name: Validate post-workflow-actions.yml workflow list
+        run: python .github/scripts/validate_post_workflow_list.py
+      - name: Write step summary
+        if: always()
+        run: cat post-workflow-validation-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+  yaml-format:
+    name: yaml_format_check
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.yaml-general == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: run prettier --check
+        run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.workflow-files == 'true'
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-pr-review
+
+  check-event-types:
+    name: check-event-types
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.code-check-sources == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: run check
+        run: python .github/scripts/check_event_type.py
+
+  check-policies:
+    name: check-policies
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.code-check-sources == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: run check
+        run: python .github/scripts/check_policies.py
+
+  check-gradle-lockfiles:
+    name: check-gradle-lockfiles
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.code-check-sources == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: run check
+        run: python .github/scripts/check_gradle_lockfiles.py
