@@ -12,13 +12,14 @@ import {
     toast,
 } from '@components';
 import * as QueryString from 'query-string';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 import { ItemType } from '@components/components/Menu/types';
+import { AlignmentOptions } from '@components/theme/config';
 
 import analytics, { EventType } from '@app/analytics';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -157,15 +158,15 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
         setPage(newPage);
     };
 
-    const onClickNewPolicy = () => {
+    const onClickNewPolicy = useCallback(() => {
         setFocusPolicyUrn(undefined);
         setFocusPolicy(EMPTY_POLICY);
         setShowPolicyBuilderModal(true);
-    };
+    }, []);
 
     useEffect(() => {
         onRegisterCreatePolicy?.(onClickNewPolicy);
-    }); // intentionally no deps — keeps registration in sync
+    }, [onRegisterCreatePolicy, onClickNewPolicy]);
 
     const onClosePolicyBuilder = () => {
         setFocusPolicyUrn(undefined);
@@ -226,6 +227,18 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
     );
 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
+
+    useEffect(() => {
+        if (policiesError) {
+            toast.error('Failed to load policies! An unexpected error occurred.');
+        }
+    }, [policiesError]);
+
+    useEffect(() => {
+        if (updateError) {
+            toast.error('Failed to update policies. An unexpected error occurred.');
+        }
+    }, [updateError]);
 
     const tableColumns = [
         {
@@ -341,7 +354,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             title: '',
             key: 'actions',
             width: '60px',
-            alignment: 'right' as const,
+            alignment: 'right' as AlignmentOptions,
             render: (record: any) => {
                 const isActive = record?.state === PolicyState.Active;
                 if (!record?.editable) {
@@ -442,8 +455,6 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
         <>
             <PageContainer>
                 <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
-                {policiesError && toast.error('Failed to load policies! An unexpected error occurred.')}
-                {updateError && toast.error('Failed to update policies. An unexpected error occurred.')}
                 <ToolbarContainer>
                     <SearchBar
                         placeholder="Search policies..."
