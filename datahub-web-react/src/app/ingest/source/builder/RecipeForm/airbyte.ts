@@ -83,7 +83,8 @@ export const AIRBYTE_OAUTH2_CLIENT_SECRET: RecipeField = {
 export const AIRBYTE_OAUTH2_REFRESH_TOKEN: RecipeField = {
     name: 'oauth2_refresh_token',
     label: 'OAuth2 Refresh Token',
-    tooltip: 'OAuth2 refresh token for Airbyte Cloud authentication (refresh_token grant). Omit to use client_credentials grant instead.',
+    tooltip:
+        'OAuth2 refresh token for Airbyte Cloud authentication (refresh_token grant). Omit to use client_credentials grant instead.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.oauth2_refresh_token',
     placeholder: 'refresh-token',
