@@ -1410,3 +1410,4 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._ingest_documents()
         except Exception as exc:
             self.report.failure("omni-source", str(exc))
+            raise exc
