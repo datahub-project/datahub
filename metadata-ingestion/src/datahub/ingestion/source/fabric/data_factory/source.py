@@ -242,6 +242,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 connections_cache=self._connections_cache,
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
+                platform_instance_map=self.config.platform_instance_map,
             )
             self._invoke_pipeline_extractor = InvokePipelineLineageExtractor(
                 pipeline_activities_cache=self._pipeline_activities_cache,

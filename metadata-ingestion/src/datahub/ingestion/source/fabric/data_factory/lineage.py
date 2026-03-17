@@ -33,10 +33,12 @@ class CopyActivityLineageExtractor:
         connections_cache: Dict[str, FabricConnection],
         env: str,
         platform_instance: Optional[str] = None,
+        platform_instance_map: Optional[Dict[str, str]] = None,
     ) -> None:
         self._connections_cache = connections_cache
         self._env = env
         self._platform_instance = platform_instance
+        self._platform_instance_map = platform_instance_map or {}
 
     def extract_lineage(
         self,
@@ -70,7 +72,9 @@ class CopyActivityLineageExtractor:
         matching the OneLake connector. For external platforms, produces
         a standard DatasetUrn.
         """
-        connection_type = self._resolve_connection_type(dataset_settings)
+        connection_name, connection_type = self._resolve_connection_and_type(
+            dataset_settings
+        )
         if not connection_type:
             logger.debug(
                 f"Could not resolve connection type for activity '{activity.name}'"
@@ -92,32 +96,39 @@ class CopyActivityLineageExtractor:
             )
             return None
 
+        # Resolve platform instance: prefer per-connection mapping, fall back to global
+        platform_instance = self._resolve_platform_instance(connection_name)
+
         return str(
             DatasetUrn.create_from_ids(
                 platform_id=platform,
                 table_name=table_name,
                 env=self._env,
-                platform_instance=self._platform_instance,
+                platform_instance=platform_instance,
             )
         )
 
-    def _resolve_connection_type(
+    def _resolve_connection_and_type(
         self,
         dataset_settings: Dict[str, Any],
-    ) -> Optional[str]:
-        """Resolve the connection type from a datasetSettings dict.
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Resolve the connection name and type from a datasetSettings dict.
+
+        Returns (connection_name, connection_type). The name is extracted from
+        whichever source resolves the type — FabricConnection.display_name for
+        cached connections, connectionSettings.name, or linkedService.name.
 
         Resolution order:
-        1. externalReferences.connection → cache → type
-        2. connectionSettings.properties.externalReferences.connection
-           → cache → type, then connectionSettings.properties.type
-        3. linkedService.properties.type
-        4. activity-level externalReferences → cache → type
+        1. externalReferences.connection → cache → (display_name, type)
+        2a. connectionSettings.properties.externalReferences.connection
+            → cache → (display_name, type)
+        2b. connectionSettings (name, properties.type)
+        3. linkedService (name, properties.type)
         """
-        conn_settings_props = (dataset_settings.get("connectionSettings") or {}).get(
-            "properties"
-        ) or {}
-        ls_props = (dataset_settings.get("linkedService") or {}).get("properties") or {}
+        conn_settings = dataset_settings.get("connectionSettings") or {}
+        conn_settings_props = conn_settings.get("properties") or {}
+        linked_service = dataset_settings.get("linkedService") or {}
+        ls_props = linked_service.get("properties") or {}
 
         # 1. externalReferences.connection → cache
         ds_conn_id = (dataset_settings.get("externalReferences") or {}).get(
@@ -126,7 +137,7 @@ class CopyActivityLineageExtractor:
         if ds_conn_id:
             conn = self._connections_cache.get(ds_conn_id)
             if conn:
-                return conn.connection_type
+                return conn.display_name, conn.connection_type
 
         # 2a. connectionSettings externalReferences → cache
         cs_conn_id = (conn_settings_props.get("externalReferences") or {}).get(
@@ -135,19 +146,35 @@ class CopyActivityLineageExtractor:
         if cs_conn_id:
             conn = self._connections_cache.get(cs_conn_id)
             if conn:
-                return conn.connection_type
+                return conn.display_name, conn.connection_type
 
         # 2b. connectionSettings.properties.type (inline)
         cs_type: Optional[str] = conn_settings_props.get("type")
         if cs_type:
-            return cs_type
+            cs_name: Optional[str] = conn_settings.get("name")
+            return cs_name, cs_type
 
-        # 3. linkedService.properties.type
+        # 3. linkedService (name, type)
         ls_type: Optional[str] = ls_props.get("type")
         if ls_type:
-            return ls_type
+            ls_name: Optional[str] = linked_service.get("name")
+            return ls_name, ls_type
 
-        return None
+        return None, None
+
+    def _resolve_platform_instance(
+        self, connection_name: Optional[str]
+    ) -> Optional[str]:
+        """Resolve the platform instance for a dataset.
+
+        Checks platform_instance_map using the connection name,
+        falling back to the global platform_instance.
+        """
+        if connection_name and self._platform_instance_map:
+            mapped = self._platform_instance_map.get(connection_name)
+            if mapped:
+                return mapped
+        return self._platform_instance
 
     @staticmethod
     def _resolve_platform(connection_type: str) -> str:
