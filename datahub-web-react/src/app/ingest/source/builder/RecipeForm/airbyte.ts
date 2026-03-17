@@ -83,12 +83,12 @@ export const AIRBYTE_OAUTH2_CLIENT_SECRET: RecipeField = {
 export const AIRBYTE_OAUTH2_REFRESH_TOKEN: RecipeField = {
     name: 'oauth2_refresh_token',
     label: 'OAuth2 Refresh Token',
-    tooltip: 'OAuth2 refresh token for Airbyte Cloud authentication.',
+    tooltip: 'OAuth2 refresh token for Airbyte Cloud authentication (refresh_token grant). Omit to use client_credentials grant instead.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.oauth2_refresh_token',
     placeholder: 'refresh-token',
     rules: null,
-    required: true,
+    required: false,
 };
 
 export const AIRBYTE_CLOUD_WORKSPACE_ID: RecipeField = {
@@ -128,27 +128,6 @@ export const AIRBYTE_INCLUDE_STATUSES: RecipeField = {
     tooltip: 'Include status information from Airbyte connection jobs.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_statuses',
-    rules: null,
-    required: false,
-};
-
-export const AIRBYTE_EXTRACT_OWNERS: RecipeField = {
-    name: 'extract_owners',
-    label: 'Extract Owners',
-    tooltip: 'Extract ownership information from connection names.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.extract_owners',
-    rules: null,
-    required: false,
-};
-
-export const AIRBYTE_OWNER_EXTRACTION_PATTERN: RecipeField = {
-    name: 'owner_extraction_pattern',
-    label: 'Owner Extraction Pattern',
-    tooltip: 'Regular expression pattern to extract owner from connection names.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.owner_extraction_pattern',
-    placeholder: '.*owner:([\\w-]+).*',
     rules: null,
     required: false,
 };

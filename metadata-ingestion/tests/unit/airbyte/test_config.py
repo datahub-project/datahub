@@ -139,13 +139,11 @@ class TestAirbyteSourceConfig:
             platform_instance="dev",
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
-            extract_owners=True,
             extract_tags=True,
         )
         assert config.platform_instance == "dev"
         assert config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
         assert config.host_port == "http://localhost:8000"
-        assert config.extract_owners is True
         assert config.extract_tags is True
 
     def test_cloud_config(self):

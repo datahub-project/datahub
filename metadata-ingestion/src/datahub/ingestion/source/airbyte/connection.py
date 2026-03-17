@@ -35,8 +35,11 @@ def _log_authentication_info(config: AirbyteClientConfig) -> None:
                 "No authentication credentials provided for Open Source deployment"
             )
     else:  # Cloud deployment
-        if config.oauth2_client_id and config.oauth2_refresh_token:
-            logger.debug("Using OAuth2 authentication for Airbyte Cloud")
+        if config.oauth2_client_id and config.oauth2_client_secret:
+            if config.oauth2_refresh_token:
+                logger.debug("Using OAuth2 refresh_token grant for Airbyte Cloud")
+            else:
+                logger.debug("Using OAuth2 client_credentials grant for Airbyte Cloud")
         else:
             logger.debug("OAuth2 credentials incomplete for Airbyte Cloud")
 

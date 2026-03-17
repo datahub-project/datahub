@@ -59,18 +59,7 @@ def source(config, mock_ctx, mock_client):
         "datahub.ingestion.source.airbyte.source.create_airbyte_client"
     ) as mock_create_client:
         mock_create_client.return_value = mock_client
-        source = AirbyteSource(config, mock_ctx)
-
-        source._get_source_platform = MagicMock(return_value="postgres")  # type: ignore[attr-defined]
-        source._get_destination_platform = MagicMock(return_value="postgres")  # type: ignore[attr-defined]
-        source._get_source_type_from_definition = MagicMock(  # type: ignore[attr-defined]
-            return_value="postgres"
-        )
-        source._get_destination_type_from_definition = MagicMock(  # type: ignore[attr-defined]
-            return_value="postgres"
-        )
-
-        return source
+        return AirbyteSource(config, mock_ctx)
 
 
 @pytest.fixture
@@ -263,8 +252,6 @@ def test_create_lineage_workunits(source, pipeline_info, stream):
     stream_info = AirbyteStreamInfo(config=mock_stream_config, details=stream)
 
     with (
-        patch.object(source, "_get_source_platform", return_value="postgres"),
-        patch.object(source, "_get_destination_platform", return_value="postgres"),
         patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
         patch.object(
             source, "_extract_connection_tags", return_value=["airbyte", "etl"]
@@ -317,8 +304,6 @@ def test_create_lineage_workunits_with_disabled_pipeline(source, pipeline_info):
     pipeline_info.connection.status = "inactive"
 
     with (
-        patch.object(source, "_get_source_platform", return_value="postgres"),
-        patch.object(source, "_get_destination_platform", return_value="postgres"),
         patch.object(source, "_extract_connection_tags", return_value=[]),
         patch.object(source, "_fetch_streams_for_source", return_value=[]),
         patch.object(

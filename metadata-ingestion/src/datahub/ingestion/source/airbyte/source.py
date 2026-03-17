@@ -52,7 +52,6 @@ from datahub.ingestion.source.airbyte.models import (
     DataJobResult,
     PlatformInfo,
     PropertyFieldPath,
-    ValidatedPipelineIds,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -289,33 +288,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         )
         self._dest_platform_cache[destination.destination_id] = result
         return result
-
-    def _validate_pipeline_ids(
-        self, pipeline_info: AirbytePipelineInfo, operation: str
-    ) -> Optional[ValidatedPipelineIds]:
-        """Validate and extract required IDs from pipeline info.
-
-        Args:
-            pipeline_info: Pipeline information to validate
-            operation: Operation name for logging purposes
-
-        Returns:
-            ValidatedPipelineIds object if valid, None otherwise
-        """
-        workspace_id = pipeline_info.workspace.workspace_id
-        connection_id = pipeline_info.connection.connection_id
-
-        if not workspace_id or not connection_id:
-            self.report.warning(
-                title="Missing Pipeline IDs",
-                message=f"Skipping {operation} - missing required IDs",
-                context=f"workspace_id={workspace_id}, connection_id={connection_id}",
-            )
-            return None
-
-        return ValidatedPipelineIds(
-            workspace_id=workspace_id, connection_id=connection_id
-        )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -672,46 +644,40 @@ class AirbyteSource(StatefulIngestionSourceBase):
             f"Found {len(pipeline_info.connection.sync_catalog.streams)} stream configs in sync_catalog"
         )
 
-        if (
-            pipeline_info.connection.sync_catalog
-            and pipeline_info.connection.sync_catalog.streams
-        ):
-            for stream_config in pipeline_info.connection.sync_catalog.streams:
-                if not stream_config or not stream_config.stream:
-                    logger.debug("Skipping stream_config with no stream")
-                    continue
-                if not stream_config.is_enabled():
-                    logger.debug(
-                        f"Skipping disabled stream: {stream_config.stream.name if stream_config.stream else 'unknown'}"
-                    )
-                    continue
+        for stream_config in pipeline_info.connection.sync_catalog.streams:
+            if not stream_config or not stream_config.stream:
+                logger.debug("Skipping stream_config with no stream")
+                continue
+            if not stream_config.is_enabled():
+                logger.debug(
+                    f"Skipping disabled stream: {stream_config.stream.name if stream_config.stream else 'unknown'}"
+                )
+                continue
 
-                stream = stream_config.stream
-                namespace = (
-                    stream.namespace if stream.namespace else source_schema or ""
+            stream = stream_config.stream
+            namespace = stream.namespace if stream.namespace else source_schema or ""
+
+            properties = {}
+            if stream.json_schema and "properties" in stream.json_schema:
+                properties = stream.json_schema.get("properties", {})
+            elif not stream.json_schema:
+                logger.debug(
+                    f"Stream {stream.name} has no jsonSchema - column-level lineage will not be available"
                 )
 
-                properties = {}
-                if stream.json_schema and "properties" in stream.json_schema:
-                    properties = stream.json_schema.get("properties", {})
-                elif not stream.json_schema:
-                    logger.debug(
-                        f"Stream {stream.name} has no jsonSchema - column-level lineage will not be available"
-                    )
+            property_fields = []
+            for field_name, _field_schema in properties.items():
+                if stream_config.is_field_selected(field_name):
+                    property_fields.append(PropertyFieldPath(path=[field_name]))
 
-                property_fields = []
-                for field_name, _field_schema in properties.items():
-                    if stream_config.is_field_selected(field_name):
-                        property_fields.append(PropertyFieldPath(path=[field_name]))
-
-                stream_details = AirbyteStreamDetails(
-                    stream_name=stream.name,
-                    namespace=namespace,
-                    property_fields=property_fields,
-                )
-                streams.append(
-                    AirbyteStreamInfo(config=stream_config, details=stream_details)
-                )
+            stream_details = AirbyteStreamDetails(
+                stream_name=stream.name,
+                namespace=namespace,
+                property_fields=property_fields,
+            )
+            streams.append(
+                AirbyteStreamInfo(config=stream_config, details=stream_details)
+            )
 
         logger.debug("Using %d streams from connection sync catalog", len(streams))
         return streams
@@ -757,6 +723,58 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 tag_names_seen.add(tag_info.name)
 
         return tags
+
+    def _build_fine_grained_lineages(
+        self,
+        pipeline_info: AirbytePipelineInfo,
+        stream: AirbyteStreamDetails,
+        source_urn: str,
+        destination_urn: str,
+    ) -> List[FineGrainedLineageClass]:
+        """Build column-level lineage entries for a stream."""
+        if not self.source_config.extract_column_level_lineage:
+            return []
+
+        property_fields = stream.get_column_names()
+        if not property_fields:
+            return []
+
+        source = pipeline_info.source
+        destination = pipeline_info.destination
+        source_platform_info = self._get_platform_for_source(source)
+        dest_platform_info = self._get_platform_for_destination(destination)
+        source_details = self.source_config.sources_to_platform_instance.get(
+            source.source_id, PlatformDetail()
+        )
+        dest_details = self.source_config.destinations_to_platform_instance.get(
+            destination.destination_id, PlatformDetail()
+        )
+
+        lineages = []
+        for column_name in property_fields:
+            # Snowflake lowercases columns when convert_urns_to_lowercase is true.
+            # Other platforms keep column case as-is regardless of convert_urns_to_lowercase.
+            source_column = (
+                column_name.lower()
+                if source_platform_info.platform == "snowflake"
+                and source_details.convert_urns_to_lowercase
+                else column_name
+            )
+            dest_column = (
+                column_name.lower()
+                if dest_platform_info.platform == "snowflake"
+                and dest_details.convert_urns_to_lowercase
+                else column_name
+            )
+            lineages.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[make_schema_field_urn(source_urn, source_column)],
+                    downstreams=[make_schema_field_urn(destination_urn, dest_column)],
+                )
+            )
+        return lineages
 
     def _create_connection_dataflow(
         self, pipeline_info: AirbytePipelineInfo, tags: List[str]
@@ -881,52 +899,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
             customProperties=custom_props,
         )
 
-        fine_grained_lineages: List[FineGrainedLineageClass] = []
-        if self.source_config.extract_column_level_lineage:
-            property_fields = stream.get_column_names()
-            if property_fields:
-                # Get platform info and details for column case handling
-                source_platform_info = self._get_platform_for_source(source)
-                dest_platform_info = self._get_platform_for_destination(destination)
-                source_details = self.source_config.sources_to_platform_instance.get(
-                    source.source_id, PlatformDetail()
-                )
-                dest_details = self.source_config.destinations_to_platform_instance.get(
-                    destination.destination_id, PlatformDetail()
-                )
-
-                logger.debug(
-                    f"Processing column-level lineage for {len(property_fields)} columns on DataJob"
-                )
-                for column_name in property_fields:
-                    # Snowflake lowercases columns when convert_urns_to_lowercase is true
-                    # Other platforms keep column case as-is regardless of convert_urns_to_lowercase
-                    source_column = column_name
-                    if (
-                        source_platform_info.platform == "snowflake"
-                        and source_details.convert_urns_to_lowercase
-                    ):
-                        source_column = column_name.lower()
-
-                    dest_column = column_name
-                    if (
-                        dest_platform_info.platform == "snowflake"
-                        and dest_details.convert_urns_to_lowercase
-                    ):
-                        dest_column = column_name.lower()
-
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            upstreams=[
-                                make_schema_field_urn(source_urn, source_column)
-                            ],
-                            downstreams=[
-                                make_schema_field_urn(destination_urn, dest_column)
-                            ],
-                        )
-                    )
+        fine_grained_lineages = self._build_fine_grained_lineages(
+            pipeline_info, stream, source_urn, destination_urn
+        )
 
         input_output = DataJobInputOutputClass(
             inputDatasets=[source_urn],
@@ -970,53 +945,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
         """Emit dataset lineage with column-level mappings. Marked as non-primary source."""
         work_units = []
 
-        fine_grained_lineages: List[FineGrainedLineageClass] = []
-        if self.source_config.extract_column_level_lineage:
-            property_fields = stream.get_column_names()
-            if property_fields:
-                # Get platform info and details for column case handling
-                source_platform_info = self._get_platform_for_source(
-                    pipeline_info.source
-                )
-                dest_platform_info = self._get_platform_for_destination(
-                    pipeline_info.destination
-                )
-                source_details = self.source_config.sources_to_platform_instance.get(
-                    pipeline_info.source.source_id, PlatformDetail()
-                )
-                dest_details = self.source_config.destinations_to_platform_instance.get(
-                    pipeline_info.destination.destination_id, PlatformDetail()
-                )
-
-                for column_name in property_fields:
-                    # Snowflake lowercases columns when convert_urns_to_lowercase is true
-                    # Other platforms keep column case as-is regardless of convert_urns_to_lowercase
-                    source_column = column_name
-                    if (
-                        source_platform_info.platform == "snowflake"
-                        and source_details.convert_urns_to_lowercase
-                    ):
-                        source_column = column_name.lower()
-
-                    dest_column = column_name
-                    if (
-                        dest_platform_info.platform == "snowflake"
-                        and dest_details.convert_urns_to_lowercase
-                    ):
-                        dest_column = column_name.lower()
-
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            upstreams=[
-                                make_schema_field_urn(source_urn, source_column)
-                            ],
-                            downstreams=[
-                                make_schema_field_urn(destination_urn, dest_column)
-                            ],
-                        )
-                    )
+        fine_grained_lineages = self._build_fine_grained_lineages(
+            pipeline_info, stream, source_urn, destination_urn
+        )
 
         # Only emit lineage if destination is also a source (prevents phantom datasets)
         if destination_urn in self.known_urns:
@@ -1422,8 +1353,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             return
 
-        airbyte_tags = self._fetch_tags_for_workspace(workspace_id)
-        tags = self._extract_connection_tags(pipeline_info, airbyte_tags)
+        if self.source_config.extract_tags:
+            airbyte_tags = self._fetch_tags_for_workspace(workspace_id)
+            tags = self._extract_connection_tags(pipeline_info, airbyte_tags)
+        else:
+            tags = []
         dataflow_result = self._create_connection_dataflow(pipeline_info, tags)
 
         yield from dataflow_result.work_units
