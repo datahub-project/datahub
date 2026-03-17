@@ -5,11 +5,9 @@ import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
-import * as themeHooks from '@app/useIsThemeV2';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
 
 // Mock theme and navbar hooks
-vi.spyOn(themeHooks, 'useIsThemeV2').mockReturnValue(true);
 vi.spyOn(navBarHooks, 'useShowNavBarRedesign').mockReturnValue(true);
 
 const validParsedYaml = {

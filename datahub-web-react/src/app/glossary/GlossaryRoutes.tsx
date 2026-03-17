@@ -5,14 +5,12 @@ import styled from 'styled-components/macro';
 import { EntityPage } from '@app/entity/EntityPage';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
-import BusinessGlossaryPage from '@app/glossary/BusinessGlossaryPage';
 import GlossarySidebar from '@app/glossary/GlossarySidebar';
 import BusinessGlossaryPageV2 from '@app/glossaryV2/BusinessGlossaryPage';
 import { shouldShowGlossary } from '@app/identity/user/UserUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { PageRoutes } from '@conf/Global';
 import { Entity } from '@src/types.generated';
 
@@ -32,20 +30,13 @@ export default function GlossaryRoutes() {
 
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
-    const isThemeV2 = useIsThemeV2();
     const canManageGlossary = authenticatedUser?.platformPrivileges?.manageGlossaries || false;
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
 
-    const renderPage = (type1: boolean, type2: boolean) => {
-        if (type1) {
-            if (type2) {
-                return <BusinessGlossaryPageV2 />;
-            }
-            return <Redirect to="/" />;
-        }
-        if (type2) {
-            return <BusinessGlossaryPage />;
+    const renderPage = (shouldShowGlossary: boolean) => {
+        if (shouldShowGlossary) {
+            return <BusinessGlossaryPageV2 />;
         }
         return <Redirect to="/" />;
     };
@@ -76,7 +67,7 @@ export default function GlossaryRoutes() {
                             render={() => <EntityPage entityType={entity.type} />}
                         />
                     ))}
-                    <Route path={PageRoutes.GLOSSARY} render={() => renderPage(isThemeV2, showGlossary)} />
+                    <Route path={PageRoutes.GLOSSARY} render={() => renderPage(showGlossary)} />
                 </Switch>
             </ContentWrapper>
         </GlossaryEntityContext.Provider>

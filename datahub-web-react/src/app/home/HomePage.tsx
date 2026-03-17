@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
-import DeprecationBanner from '@app/home/DeprecationBanner';
 import { HomePageBody } from '@app/home/HomePageBody';
 import { HomePageHeader } from '@app/home/HomePageHeader';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -30,7 +29,6 @@ export const HomePage = () => {
                     HOME_PAGE_SEARCH_BAR_ID,
                 ]}
             />
-            <DeprecationBanner />
             <HomePageHeader />
             <HomePageBody />
         </>

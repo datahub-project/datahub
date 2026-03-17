@@ -19,7 +19,6 @@ import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
 import { useAppConfig } from '@app/useAppConfig';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button, colors } from '@src/alchemy-components';
 
@@ -85,7 +84,6 @@ export const SettingsPage = () => {
     const history = useHistory();
     const subscriptionsEnabled = false;
     const me = useUserContext();
-    const isThemeV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { config } = useAppConfig();
 
@@ -245,7 +243,7 @@ export const SettingsPage = () => {
                         <NavBarTitle>Settings</NavBarTitle>
                         <NavBarSubTitle>Manage your settings</NavBarSubTitle>
                     </div>
-                    {isThemeV2 && !isShowNavBarRedesign && (
+                    {!isShowNavBarRedesign && (
                         <a href="/logOut">
                             <Button
                                 variant="outline"
