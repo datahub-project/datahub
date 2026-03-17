@@ -555,8 +555,6 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
-  topicPrefixEnabled: ${KAFKA_TOPIC_PREFIX_ENABLED:true}
-  topicPrefix: ${KAFKA_TOPIC_PREFIX:}
   setup:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:false}

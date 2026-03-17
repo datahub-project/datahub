@@ -32,6 +32,7 @@ import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.event.ExternalEventsService;
+import io.datahubproject.event.exception.UnsupportedTopicException;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.metadata.context.OperationContext;
@@ -607,6 +608,82 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
                     .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isForbidden());
       }
+    }
+  }
+
+  @Test
+  public void testGetTopicEventsPrivilegeAllowsAnyTopic() throws Exception {
+    // GET_TOPIC_EVENTS_PRIVILEGE alone should grant access to all topics,
+    // even without the topic-specific privileges.
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+          .thenAnswer(
+              invocation ->
+                  PoliciesConfig.GET_TOPIC_EVENTS_PRIVILEGE.equals(invocation.getArgument(1)));
+
+      ExternalEvents externalEvents = new ExternalEvents();
+      externalEvents.setEvents(new ArrayList<>());
+      externalEvents.setOffsetId(TEST_OFFSET_ID);
+      externalEvents.setCount(0L);
+
+      when(mockEventsService.poll(
+              any(String.class),
+              nullable(String.class),
+              anyInt(),
+              anyInt(),
+              nullable(Integer.class)))
+          .thenReturn(externalEvents);
+
+      String[] topics = {
+        PLATFORM_EVENT_TOPIC_NAME,
+        METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+        METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+      };
+
+      for (String topic : topics) {
+        mockMvc
+            .perform(
+                MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                    .param("topic", topic)
+                    .param("limit", "100")
+                    .param("pollTimeoutSeconds", "10")
+                    .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk());
+      }
+    }
+  }
+
+  @Test
+  public void testUnsupportedTopicReturns500() throws Exception {
+    // A topic that passes auth but is not configured in the service should return 500.
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+          .thenReturn(true);
+
+      when(mockEventsService.poll(
+              eq("UnknownTopic"),
+              nullable(String.class),
+              anyInt(),
+              anyInt(),
+              nullable(Integer.class)))
+          .thenThrow(new UnsupportedTopicException("UnknownTopic"));
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                  .param("topic", "UnknownTopic")
+                  .param("limit", "100")
+                  .param("pollTimeoutSeconds", "10")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isInternalServerError());
     }
   }
 

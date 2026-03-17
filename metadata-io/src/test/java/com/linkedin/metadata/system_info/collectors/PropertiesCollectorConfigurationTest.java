@@ -292,8 +292,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.schemaRegistry.type",
           "kafka.schemaRegistry.url",
           "kafka.schema.registry.security.protocol",
-          "kafka.topicPrefix",
-          "kafka.topicPrefixEnabled",
           "kafka.topics.dataHubUsage",
           "spring.kafka.security.protocol",
           // Entity/field names that happen to contain sensitive keywords
