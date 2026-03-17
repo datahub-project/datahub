@@ -478,10 +478,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             pname = parsed.get("name")
             if ptype == "topic" and pname:
                 topic_specs[str(pname)] = parsed
-            elif (
-                ptype == "view"
-                and pname
-                or pname
+            elif ptype == "view" and pname:
+      			view_specs[str(pname)] = parsed
+            elif pname
                 and (
                     parsed.get("dimensions")
                     or parsed.get("measures")
