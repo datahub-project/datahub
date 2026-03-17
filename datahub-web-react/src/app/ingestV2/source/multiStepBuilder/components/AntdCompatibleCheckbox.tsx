@@ -6,7 +6,7 @@ const CheckboxWithHelper = styled.div`
     // compensate checkbox container size
     // see datahub-web-react/src/alchemy-components/components/Checkbox/components.ts -> CheckboxBase for details
     position: relative;
-    left: -5px;
+    left: -2px;
 
     display: flex;
     flex-direction: row;
@@ -31,6 +31,7 @@ export function AntdFormCompatibleCheckbox({ id, checked, onChange, helper, disa
                 onCheckboxChange={onChange}
                 justifyContent="flex-start"
                 isDisabled={disabled}
+                size="lg"
             />
             {helper && (
                 <Text size="sm" color="gray" colorLevel={600}>
