@@ -1,6 +1,7 @@
-import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
+import { Button, Menu, Pill, Table, Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTheme } from 'styled-components';
 
 import { TableWithInfiniteScroll } from '@components/components/Table/TableWithInfiniteScroll';
 
@@ -62,6 +63,7 @@ const StructuredPropsTable = ({
     isSearchLoading,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
@@ -143,7 +145,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            <TableIcon color="#705EE4" />
+                            <TableIcon color={theme.colors.textBrand} />
                         </IconContainer>
                         <DataContainer>
                             <PropName
@@ -311,7 +313,16 @@ const StructuredPropsTable = ({
                     <>
                         <CardIcons>
                             <Menu items={items} trigger={['click']}>
-                                <Icon icon="MoreVert" size="md" data-testid="structured-props-more-options-icon" />
+                                <Button
+                                    variant="text"
+                                    size="md"
+                                    icon={{
+                                        icon: 'DotsThreeVertical',
+                                        size: '2xl',
+                                        weight: 'bold',
+                                    }}
+                                    data-testid="structured-props-more-options-icon"
+                                />
                             </Menu>
                         </CardIcons>
                     </>

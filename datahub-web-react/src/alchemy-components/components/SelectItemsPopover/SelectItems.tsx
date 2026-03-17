@@ -1,8 +1,8 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react';
 import { Checkbox, Empty, Typography } from 'antd';
 import { CheckboxValueType } from 'antd/lib/checkbox/Group';
 import React, { ReactNode } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { Button } from '@components/components/Button';
 // Import your custom hook
@@ -10,7 +10,6 @@ import { SelectItemCheckboxGroup } from '@components/components/SelectItemsPopov
 import { useEntityOperations } from '@components/components/SelectItemsPopover/hooks';
 
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType } from '@src/types.generated';
 
@@ -36,7 +35,7 @@ const StyledSubSection = styled(Typography.Text)`
     justify-content: space-between;
     font-weight: 700;
     line-height: 15.06px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const StyledFooter = styled.div`
@@ -44,7 +43,7 @@ const StyledFooter = styled.div`
     justify-content: center;
     gap: 16px;
     padding: 8px 0 0 0;
-    border-top: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const StyledSelectContainer = styled.div`
@@ -73,6 +72,16 @@ const StyledCheckBoxContainer = styled.div`
     padding: 12px 0;
 `;
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinContainer = styled.span`
+    display: inline-flex;
+    animation: ${spin} 1s linear infinite;
+`;
+
 const StyledLoader = styled.div`
     display: flex;
     justify-content: center;
@@ -85,7 +94,7 @@ const StyledEmpty = styled(Empty)`
     .ant-empty-image {
         display: none;
     }
-    color: #8d95b1;
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom 12px;
 `;
 
@@ -153,7 +162,9 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
             />
             {isLoading ? (
                 <StyledLoader>
-                    <LoadingOutlined />
+                    <SpinContainer>
+                        <CircleNotch />
+                    </SpinContainer>
                 </StyledLoader>
             ) : (
                 <StyledCheckBoxContainer>

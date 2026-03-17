@@ -1,16 +1,15 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react';
 import { FloatingWrapper, useRemirrorContext } from '@remirror/react';
 import { Empty, Spin } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDebounce } from 'react-use';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { MentionsDropdown } from '@components/components/Editor/extensions/mentions/MentionsDropdown';
 import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
 import { calculateMentionsPlacement } from '@components/components/Editor/extensions/mentions/utils';
-import { colors } from '@components/theme';
 
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
@@ -20,9 +19,9 @@ import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.
  * Used by both FloatingWrapper (document editor) and portal (chat sidebar).
  */
 const DropdownWrapper = styled.div`
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px ${(props) => props.theme.colors.overlayLight};
     overflow: hidden;
 
     .ant-spin-container {
@@ -41,9 +40,19 @@ const PortalPositioner = styled.div<{ $bottom: string; $left: number }>`
     z-index: 10000;
 `;
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinContainer = styled.span`
+    display: inline-flex;
+    animation: ${spin} 1s linear infinite;
+`;
+
 const StyledEmpty = styled(Empty)`
     margin: 16px;
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textPlaceholder};
 `;
 
 interface MentionsComponentProps {
@@ -107,7 +116,15 @@ export const MentionsComponent = ({ renderOutsideEditor = false }: MentionsCompo
     }));
 
     const dropdownContent = (
-        <Spin spinning={loading} delay={100} indicator={<LoadingOutlined />}>
+        <Spin
+            spinning={loading}
+            delay={100}
+            indicator={
+                <SpinContainer>
+                    <CircleNotch />
+                </SpinContainer>
+            }
+        >
             {suggestions?.length > 0 ? (
                 <MentionsDropdown suggestions={suggestions} />
             ) : (

@@ -1,12 +1,12 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Icon, Input, Table, Text, colors } from '@components';
+import { Icon, Input, Table, Text } from '@components';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
 import moment from 'moment';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
@@ -65,13 +65,13 @@ const Title = styled(Text)`
 `;
 
 const CloseIcon = styled.div`
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
 `;
 
 const MenuIcon = styled(Icon)`
     border-radius: 200px;
-    border: ${colors.gray[100]} 1px solid;
+    border: ${(props) => props.theme.colors.border} 1px solid;
     cursor: pointer;
     transition: border 0.3s ease;
 
@@ -100,6 +100,7 @@ interface Props {
 }
 
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { setDrawer } = useEntityContext();
 
@@ -182,11 +183,11 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
             ),
             menu: (
                 <StyledDropdown
-                    menu={{ items, style: { borderRadius: '12px', boxShadow: '0px 0px 14px 0px rgba(0, 0, 0, 0.15)' } }}
+                    menu={{ items, style: { borderRadius: '12px', boxShadow: theme.colors.shadowLg } }}
                     trigger={['click']}
                     overlayStyle={{ borderRadius: '100px' }}
                 >
-                    <MenuIcon icon="MoreVert" variant="outline" size="2xl" color="gray" />
+                    <MenuIcon icon="DotsThreeVertical" size="2xl" color="gray" weight="bold" />
                 </StyledDropdown>
             ),
         };

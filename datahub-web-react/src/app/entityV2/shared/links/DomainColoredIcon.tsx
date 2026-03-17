@@ -1,9 +1,9 @@
-import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import styled from 'styled-components';
 
 import { hexToRgb, hexToRgba, useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import { getIconComponent } from '@src/alchemy-components/components/Icon/utils';
 
 import { Domain } from '@types';
 
@@ -32,20 +32,9 @@ type Props = {
     onClick?: () => void;
 };
 
-// looks through the object keys of Muicon and finds the best match for the search string
-// returns the icon if found, otherwise returns undefined
-function getIcon(search: string): React.ElementType | undefined {
-    // If the search string is empty or consists only of whitespace after trimming,
-    // return undefined to signify that no valid search string is present.
-    if (!search.trim()) return undefined;
-
-    const icon = Object.keys(Muicon).find((key) => key.toLowerCase().includes(search.toLowerCase()));
-    return icon ? Muicon[icon] : undefined;
-}
-
 export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20, onClick }: Props): JSX.Element => {
     const iconName = domain?.displayProperties?.icon?.name || '';
-    const MaterialIcon = getIcon(iconName);
+    const ResolvedIcon = iconName.trim() ? (getIconComponent(iconName) as React.ElementType | undefined) : undefined;
 
     const generateColor = useGenerateDomainColorFromPalette();
     const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
@@ -57,8 +46,8 @@ export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20,
 
     return (
         <DomainIconContainer color={domainBackgroundColor} size={size} onClick={onClick}>
-            {MaterialIcon ? (
-                <MaterialIcon style={{ color: domainIconColor }} fontSize="large" sx={{ px: 1 }} />
+            {ResolvedIcon ? (
+                <ResolvedIcon style={{ color: domainIconColor }} size={24} />
             ) : (
                 <DomainCharacterIcon color={domainIconColor} $fontSize={fontSize}>
                     {domain?.properties?.name.charAt(0)}

@@ -12,7 +12,6 @@ const IconWrapper = styled.div`
 
 function getIconProps(notificationType: NotificationType): IconProps {
     const defaultProps: IconProps = {
-        source: 'phosphor',
         icon: 'X',
         size: 'lg',
     };

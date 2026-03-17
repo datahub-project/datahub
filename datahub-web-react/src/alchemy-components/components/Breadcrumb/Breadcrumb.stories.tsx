@@ -111,13 +111,13 @@ export const withCustomSeparator = () => (
                 key: 'Home',
                 label: 'Home',
                 href: '/',
-                separator: <Icon icon="ArrowRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />,
+                separator: <Icon icon="ArrowRight" size="sm" />,
             },
             {
                 key: 'Projects',
                 label: 'Projects',
                 href: '/projects',
-                separator: <Icon icon="ArrowRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />,
+                separator: <Icon icon="ArrowRight" size="sm" />,
             },
             { key: 'Overview', label: 'Overview', isActive: true },
         ]}

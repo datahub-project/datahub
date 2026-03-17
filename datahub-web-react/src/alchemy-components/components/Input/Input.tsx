@@ -72,7 +72,7 @@ export const Input = ({
 
     // Show/hide password text
     const [showPassword, setShowPassword] = React.useState(false);
-    const passwordIcon = showPassword ? 'Visibility' : 'VisibilityOff';
+    const passwordIcon = showPassword ? 'Eye' : 'EyeSlash';
 
     // Input base props
     const inputBaseProps = {
@@ -109,14 +109,12 @@ export const Input = ({
                 />
                 {!isPassword && (
                     <Tooltip title={errorOnHover ? error : ''} showArrow={false}>
-                        {invalid && <Icon icon="WarningAmber" color="red" size="lg" />}
+                        {invalid && <Icon icon="Warning" color="red" size="lg" />}
                         {isSuccess && <Icon icon="CheckCircle" color="green" size="lg" />}
-                        {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
+                        {warning && <Icon icon="WarningCircle" color="yellow" size="lg" />}
                     </Tooltip>
                 )}
-                {!!onClear && value && (
-                    <ClearIcon className="clear-search" source="phosphor" icon="X" size="lg" onClick={onClear} />
-                )}
+                {!!onClear && value && <ClearIcon className="clear-search" icon="X" size="lg" onClick={onClear} />}
                 {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}

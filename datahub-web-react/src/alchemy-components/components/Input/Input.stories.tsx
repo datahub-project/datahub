@@ -4,7 +4,7 @@ import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { AVAILABLE_ICONS } from '@components/components/Icon';
-import { MATERIAL_UI_ICONS, PHOSPHOR_ICONS } from '@components/components/Icon/constants';
+import { PHOSPHOR_ICONS } from '@components/components/Icon/constants';
 import { Input, inputDefaults } from '@components/components/Input/Input';
 
 const meta = {
@@ -53,10 +53,7 @@ const meta = {
             description: 'The icon to display in the Input.',
             type: 'string',
             options: AVAILABLE_ICONS,
-            mapping: Object.fromEntries([
-                ...MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material' }]),
-                ...PHOSPHOR_ICONS.map((icon) => [icon, { icon, source: 'phosphor' }]),
-            ]),
+            mapping: Object.fromEntries([...PHOSPHOR_ICONS.map((icon) => [icon, { icon }])]),
             table: {
                 defaultValue: { summary: 'undefined' },
             },

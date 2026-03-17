@@ -124,10 +124,10 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                     data-testid="document-actions-menu-button"
                     icon={{
                         icon: 'DotsThreeVertical',
-                        source: 'phosphor',
                         size: '2xl',
                         color: 'gray',
                         colorLevel: 1800,
+                        weight: 'bold',
                     }}
                     variant="text"
                     isCircle

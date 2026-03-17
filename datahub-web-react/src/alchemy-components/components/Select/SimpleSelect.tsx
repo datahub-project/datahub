@@ -1,7 +1,8 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Dropdown, Text } from '@components';
+import { CircleNotch } from '@phosphor-icons/react';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import styled, { keyframes } from 'styled-components';
 
 import {
     ActionButtonsContainer,
@@ -26,6 +27,16 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 import { LoadingWrapper } from '@src/app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinContainer = styled.span`
+    display: inline-flex;
+    animation: ${spin} 1s linear infinite;
+`;
 
 export const selectDefaults: Partial<SelectProps> = {
     label: '',
@@ -210,7 +221,9 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                 )}
                                 {isLoading ? (
                                     <LoadingWrapper>
-                                        <LoadingOutlined />
+                                        <SpinContainer>
+                                            <CircleNotch />
+                                        </SpinContainer>
                                     </LoadingWrapper>
                                 ) : (
                                     !filteredOptions.length && (emptyState ?? <NoResultsFoundPlaceholder />)

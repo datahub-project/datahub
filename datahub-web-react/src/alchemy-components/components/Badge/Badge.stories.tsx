@@ -94,8 +94,8 @@ export const colors = () => (
 
 export const withIcon = () => (
     <GridList>
-        <Badge count={100} leftIcon="AutoMode" />
-        <Badge count={100} rightIcon="Close" />
-        <Badge count={100} leftIcon="AutoMode" rightIcon="Close" />
+        <Badge count={100} leftIcon="ArrowsClockwise" />
+        <Badge count={100} rightIcon="X" />
+        <Badge count={100} leftIcon="ArrowsClockwise" rightIcon="X" />
     </GridList>
 );

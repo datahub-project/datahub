@@ -155,7 +155,7 @@ export const states = () => (
     <GridList isVertical>
         <Switch label="Disabled" isDisabled />
         <Switch label="Required" isRequired />
-        <Switch label="with Icon" icon="Add" />
+        <Switch label="with Icon" icon="Plus" />
     </GridList>
 );
 

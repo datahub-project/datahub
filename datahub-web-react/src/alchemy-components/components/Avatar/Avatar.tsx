@@ -40,7 +40,7 @@ export const Avatar = ({
             )}
             {type === AvatarType.group && !imageUrl && (
                 <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
-                    <Icon icon="UsersThree" source="phosphor" variant="filled" size="lg" />
+                    <Icon icon="UsersThree" weight="fill" size="lg" />
                 </AvatarImageWrapper>
             )}
             {type === AvatarType.role && !imageUrl && (

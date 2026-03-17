@@ -1,8 +1,8 @@
-import { Icon, Menu, Text, colors } from '@components';
+import { Button, Menu, Text } from '@components';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
 import { getTagColor } from '@app/tags/utils';
@@ -18,7 +18,7 @@ import { Entity, EntityType } from '@src/types.generated';
 const TagName = styled.div`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -27,7 +27,7 @@ const TagName = styled.div`
 const TagDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: normal;
     line-height: 1.4;
 `;
@@ -124,6 +124,7 @@ export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
 });
 
 export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
+    const theme = useTheme();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const entityFilters = [{ field: 'tags', values: [tagUrn] }];
@@ -196,7 +197,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                     }
                 }}
             >
-                <Text style={{ color: colors.violet[500] }}>
+                <Text style={{ color: theme.colors.textBrand }}>
                     {totalCount} {totalCount === 1 ? 'entity' : 'entities'}
                 </Text>
             </div>
@@ -216,7 +217,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                             }
                         }}
                     >
-                        <Text style={{ color: colors.violet[500] }}>
+                        <Text style={{ color: theme.colors.textBrand }}>
                             {agg.count} {entityRegistry.getCollectionName(agg.value as unknown as EntityType)}
                         </Text>
                     </div>
@@ -243,7 +244,7 @@ export const TagActionsColumn = React.memo(
                 type: 'item' as const,
                 key: 'edit',
                 title: 'Edit',
-                icon: 'Edit' as const,
+                icon: 'PencilSimple' as const,
                 onClick: onEdit,
                 'data-testid': 'action-edit',
             },
@@ -251,7 +252,7 @@ export const TagActionsColumn = React.memo(
                 type: 'item' as const,
                 key: 'copy-urn',
                 title: 'Copy URN',
-                icon: 'ContentCopy' as const,
+                icon: 'Copy' as const,
                 onClick: () => {
                     navigator.clipboard.writeText(tagUrn);
                 },
@@ -262,7 +263,7 @@ export const TagActionsColumn = React.memo(
                           type: 'item' as const,
                           key: 'delete',
                           title: 'Delete',
-                          icon: 'Delete' as const,
+                          icon: 'Trash' as const,
                           danger: true,
                           onClick: onDelete,
                           'data-testid': 'action-delete',
@@ -274,7 +275,16 @@ export const TagActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Icon icon="MoreVert" size="md" data-testid={`${tagUrn}-actions`} />
+                    <Button
+                        variant="text"
+                        size="md"
+                        icon={{
+                            icon: 'DotsThreeVertical',
+                            size: '2xl',
+                            weight: 'bold',
+                        }}
+                        data-testid={`${tagUrn}-actions`}
+                    />
                 </Menu>
             </CardIcons>
         );
