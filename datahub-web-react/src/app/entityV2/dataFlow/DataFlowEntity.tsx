@@ -1,8 +1,8 @@
-import { ShareAltOutlined } from '@ant-design/icons';
 import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Share } from '@phosphor-icons/react/dist/csr/Share';
+import { ShareNetwork } from '@phosphor-icons/react/dist/csr/ShareNetwork';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import * as React from 'react';
@@ -50,21 +50,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
     type: EntityType = EntityType.DataFlow;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
-                <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#d6246c' }} />
-            );
-        }
-
         return (
-            <ShareAltOutlined
+            <ShareNetwork
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };

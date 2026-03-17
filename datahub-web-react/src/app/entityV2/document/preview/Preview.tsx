@@ -1,8 +1,7 @@
-import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { PreviewType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -54,8 +53,7 @@ export const Preview = ({
             platform={platformName}
             logoUrl={platformLogo || undefined}
             platformInstanceId={platformInstanceId}
-            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token
-            typeIcon={<FileText size={14} color="#BFBFBF" weight="duotone" />}
+            typeIcon={entityRegistry.getIcon(EntityType.Document, 14, IconStyleType.ACCENT)}
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}

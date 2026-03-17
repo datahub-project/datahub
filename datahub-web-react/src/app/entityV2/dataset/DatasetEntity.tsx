@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import {
     CheckCircleOutlined,
     CodeOutlined,
@@ -12,9 +11,9 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import * as React from 'react';
 
@@ -98,28 +97,15 @@ export class DatasetEntity implements Entity<Dataset> {
     type: EntityType = EntityType.Dataset;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ViewComfyOutlinedIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ViewComfyOutlinedIcon
-                    className={TYPE_ICON_CLASS_NAME}
-                    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
-                    style={{ fontSize, color: color || '#B37FEB' }}
-                />
-            );
-        }
-
         if (styleType === IconStyleType.SVG) {
-            return <path d="M2 4v16h20V4zm2 2h16v5H4zm0 12v-5h4v5zm6 0v-5h10v5z" />;
+            return <path d="M2 4v16h20V4zm2 2h16v5H4zm0 12v-5h4v5zm6 0v-5h10v5z" fill="currentColor" />;
         }
-
         return (
-            <ViewComfyOutlinedIcon
+            <Table
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
