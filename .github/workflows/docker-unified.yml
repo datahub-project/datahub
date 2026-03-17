@@ -886,14 +886,17 @@ jobs:
         with:
           pattern: cypress-mochawesome-json-*
           path: mochawesome-results
-          merge-multiple: true
+          # Do NOT use merge-multiple: all batches write files with the same names
+          # (mochawesome.json, mochawesome_001.json, ...). merge-multiple would cause
+          # later batches to overwrite earlier ones in the same directory. Without it,
+          # each artifact extracts to its own subdirectory:
+          #   mochawesome-results/cypress-mochawesome-json-0/.jsons/mochawesome.json
+          #   mochawesome-results/cypress-mochawesome-json-1/.jsons/mochawesome.json
+          #   ...
       - name: Generate HTML report
         run: |
-          # cypress-mochawesome-reporter writes one JSON per spec to {reportDir}/.jsons/
-          # via the Cypress after:spec hook (crash-safe). Artifacts are uploaded with
-          # include-hidden-files:true so that dot-prefixed directory is included.
-          # After merge-multiple extraction, per-spec JSONs land at:
-          #   mochawesome-results/.jsons/mochawesome_<uuid>.json
+          # Each artifact extracts to its own subdirectory, so per-spec JSONs land at:
+          #   mochawesome-results/cypress-mochawesome-json-<N>/.jsons/mochawesome_NNN.json
           mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
           if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
             # mochawesome-merge and marge (mochawesome-report-generator CLI) are
