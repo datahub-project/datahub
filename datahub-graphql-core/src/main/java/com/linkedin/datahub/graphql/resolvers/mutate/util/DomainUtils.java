@@ -120,12 +120,11 @@ public class DomainUtils {
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
-  private static MetadataChangeProposal buildSetDomainProposal(
+  private static MetadataChangeProposal buildSetDomainsToExactList(
       @Nonnull OperationContext opContext,
-      @Nullable Urn domainUrn,
       ResourceRefInput resource,
-      Urn actor,
-      EntityService<?> entityService) {
+      EntityService<?> entityService,
+      List<Urn> domainUrns) {
     Domains domains =
         (Domains)
             EntityUtils.getAspectFromEntity(
@@ -134,13 +133,22 @@ public class DomainUtils {
                 Constants.DOMAINS_ASPECT_NAME,
                 entityService,
                 new Domains());
-    final UrnArray newDomains = new UrnArray();
-    if (domainUrn != null) {
-      newDomains.add(domainUrn);
-    }
-    domains.setDomains(newDomains);
+    domains.setDomains(new UrnArray(domainUrns));
     return buildMetadataChangeProposalWithUrn(
         UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
+  }
+
+  private static MetadataChangeProposal buildSetDomainProposal(
+      @Nonnull OperationContext opContext,
+      @Nullable Urn domainUrn,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
+    final List<Urn> list = new ArrayList<>();
+    if (domainUrn != null) {
+      list.add(domainUrn);
+    }
+    return buildSetDomainsToExactList(opContext, resource, entityService, list);
   }
 
   private static MetadataChangeProposal buildAddDomainsProposal(
@@ -162,9 +170,8 @@ public class DomainUtils {
             ? new java.util.HashSet<>(domains.getDomains())
             : new java.util.HashSet<>();
     existingDomains.addAll(domainUrns);
-    domains.setDomains(new UrnArray(existingDomains));
-    return buildMetadataChangeProposalWithUrn(
-        UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
+    return buildSetDomainsToExactList(
+        opContext, resource, entityService, new ArrayList<>(existingDomains));
   }
 
   private static MetadataChangeProposal buildRemoveDomainsProposal(
@@ -182,16 +189,13 @@ public class DomainUtils {
                 entityService,
                 new Domains());
     final java.util.Set<Urn> domainsToRemove = new java.util.HashSet<>(domainUrns);
-    final UrnArray remainingDomains =
-        new UrnArray(
-            domains.hasDomains()
-                ? domains.getDomains().stream()
-                    .filter(domainUrn -> !domainsToRemove.contains(domainUrn))
-                    .collect(Collectors.toList())
-                : Collections.emptyList());
-    domains.setDomains(remainingDomains);
-    return buildMetadataChangeProposalWithUrn(
-        UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
+    final List<Urn> remaining =
+        domains.hasDomains()
+            ? domains.getDomains().stream()
+                .filter(u -> !domainsToRemove.contains(u))
+                .collect(Collectors.toList())
+            : Collections.emptyList();
+    return buildSetDomainsToExactList(opContext, resource, entityService, remaining);
   }
 
   public static void validateDomain(

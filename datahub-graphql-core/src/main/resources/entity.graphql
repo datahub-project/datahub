@@ -679,37 +679,38 @@ type Mutation {
   deleteDomain("The urn of the Domain to delete" urn: String!): Boolean
 
   """
-  Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
+  Legacy single-domain API: sets the entity's domain to exactly one domain (replaces any existing).
+  For multi-domain support, use addDomains/removeDomains when multipleDomainsPerEntityEnabled is true.
   """
   setDomain(entityUrn: String!, domainUrn: String!): Boolean
 
   """
-  Set domain for multiple Entities
+  Legacy single-domain API: set one domain for multiple entities (replaces existing per entity).
   """
   batchSetDomain(input: BatchSetDomainInput!): Boolean
 
   """
-  Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
+  Legacy single-domain API: clears the entity's domain.
   """
   unsetDomain(entityUrn: String!): Boolean
 
   """
-  Adds multiple Domains to a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Preserves existing domains. Returns true if the Domains were successfully added. Requires the Edit Domains privilege for the Entity.
+  Multi-domain API (requires multipleDomainsPerEntityEnabled): adds domains to an entity, preserving existing.
   """
   addDomains(entityUrn: String!, domainUrns: [String!]!): Boolean
 
   """
-  Removes multiple Domains from a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Preserves other domains. Returns true if the Domains were successfully removed. Requires the Edit Domains privilege for the Entity.
+  Multi-domain API (requires multipleDomainsPerEntityEnabled): removes specified domains from an entity.
   """
   removeDomains(entityUrn: String!, domainUrns: [String!]!): Boolean
 
   """
-  Add domains to multiple Entities
+  Multi-domain API (requires multipleDomainsPerEntityEnabled): add domains to multiple entities.
   """
   batchAddDomains(input: BatchAddDomainsInput!): Boolean
 
   """
-  Remove domains from multiple Entities
+  Multi-domain API (requires multipleDomainsPerEntityEnabled): remove domains from multiple entities.
   """
   batchRemoveDomains(input: BatchRemoveDomainsInput!): Boolean
 

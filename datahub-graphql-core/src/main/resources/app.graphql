@@ -853,6 +853,13 @@ type FeatureFlagsConfig {
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!
+
+  """
+  If enabled, entities can be associated with multiple domains via addDomains, removeDomains,
+  batchAddDomains, and batchRemoveDomains. When disabled, only the legacy single-domain API
+  (setDomain, unsetDomain, batchSetDomain) is available.
+  """
+  multipleDomainsPerEntityEnabled: Boolean!
 }
 
 """

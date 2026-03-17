@@ -374,6 +374,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
 import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.TypeRuntimeWiring;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
@@ -1236,8 +1237,9 @@ public class GmsGraphQLEngine {
     builder.type(
         "Mutation",
         typeWiring -> {
-          typeWiring
-              .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
+          TypeRuntimeWiring.Builder w =
+              typeWiring
+                  .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
               .dataFetcher("updateDatasets", new MutableTypeBatchResolver<>(datasetType))
               .dataFetcher(
                   "createTag", new CreateTagResolver(this.entityClient, this.entityService))
@@ -1311,20 +1313,28 @@ public class GmsGraphQLEngine {
                   new UpdateDeprecationResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
-              .dataFetcher(
-                  "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "addDomains", new AddDomainsResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "removeDomains", new RemoveDomainsResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "batchAddDomains", new BatchAddDomainsResolver(this.entityService, entityClient))
-              .dataFetcher(
-                  "batchRemoveDomains",
-                  new BatchRemoveDomainsResolver(this.entityService, entityClient))
-              .dataFetcher(
-                  "createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
-              .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
+                  .dataFetcher(
+                      "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService));
+          if (featureFlags.isMultipleDomainsPerEntityEnabled()) {
+            w =
+                w.dataFetcher(
+                        "addDomains",
+                        new AddDomainsResolver(this.entityClient, this.entityService))
+                    .dataFetcher(
+                        "removeDomains",
+                        new RemoveDomainsResolver(this.entityClient, this.entityService))
+                    .dataFetcher(
+                        "batchAddDomains",
+                        new BatchAddDomainsResolver(this.entityService, entityClient))
+                    .dataFetcher(
+                        "batchRemoveDomains",
+                        new BatchRemoveDomainsResolver(this.entityService, entityClient));
+          }
+          w =
+              w.dataFetcher(
+                      "createSecret",
+                      new CreateSecretResolver(this.entityClient, this.secretService))
+                  .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
               .dataFetcher(
                   "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher(
@@ -1507,35 +1517,39 @@ public class GmsGraphQLEngine {
                   "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
-            typeWiring
-                .dataFetcher(
-                    "createBusinessAttribute",
-                    new CreateBusinessAttributeResolver(
-                        this.entityClient, this.entityService, this.businessAttributeService))
-                .dataFetcher(
-                    "updateBusinessAttribute",
-                    new UpdateBusinessAttributeResolver(
-                        this.entityClient, this.businessAttributeService))
-                .dataFetcher(
-                    "deleteBusinessAttribute",
-                    new DeleteBusinessAttributeResolver(this.entityClient))
-                .dataFetcher(
-                    "addBusinessAttribute", new AddBusinessAttributeResolver(this.entityService))
-                .dataFetcher(
-                    "removeBusinessAttribute",
-                    new RemoveBusinessAttributeResolver(this.entityService));
+            w =
+                w.dataFetcher(
+                        "createBusinessAttribute",
+                        new CreateBusinessAttributeResolver(
+                            this.entityClient,
+                            this.entityService,
+                            this.businessAttributeService))
+                    .dataFetcher(
+                        "updateBusinessAttribute",
+                        new UpdateBusinessAttributeResolver(
+                            this.entityClient, this.businessAttributeService))
+                    .dataFetcher(
+                        "deleteBusinessAttribute",
+                        new DeleteBusinessAttributeResolver(this.entityClient))
+                    .dataFetcher(
+                        "addBusinessAttribute",
+                        new AddBusinessAttributeResolver(this.entityService))
+                    .dataFetcher(
+                        "removeBusinessAttribute",
+                        new RemoveBusinessAttributeResolver(this.entityService));
           }
           if (featureFlags.isEntityVersioning()) {
-            typeWiring
-                .dataFetcher(
-                    "linkAssetVersion",
-                    new LinkAssetVersionResolver(this.entityVersioningService, this.featureFlags))
-                .dataFetcher(
-                    "unlinkAssetVersion",
-                    new UnlinkAssetVersionResolver(
-                        this.entityVersioningService, this.featureFlags));
+            w =
+                w.dataFetcher(
+                        "linkAssetVersion",
+                        new LinkAssetVersionResolver(
+                            this.entityVersioningService, this.featureFlags))
+                    .dataFetcher(
+                        "unlinkAssetVersion",
+                        new UnlinkAssetVersionResolver(
+                            this.entityVersioningService, this.featureFlags));
           }
-          return typeWiring;
+          return w;
         });
   }
 
