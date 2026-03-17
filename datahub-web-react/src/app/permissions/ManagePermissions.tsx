@@ -1,7 +1,9 @@
-import { PageTitle } from '@components';
-import React from 'react';
+import { Button, PageTitle } from '@components';
+import React, { useCallback, useRef } from 'react';
+import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { POLICIES_CREATE_POLICY_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
 import { ManageRoles } from '@app/permissions/roles/ManageRoles';
 import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
@@ -18,7 +20,18 @@ const PageContainer = styled.div`
 
 const PageHeaderContainer = styled.div`
     display: flex;
+    justify-content: space-between;
+`;
+
+const HeaderLeft = styled.div`
+    display: flex;
     flex-direction: column;
+`;
+
+const HeaderRight = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
 `;
 
 const Content = styled.div`
@@ -40,6 +53,14 @@ enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
+    const location = useLocation();
+    const createPolicyRef = useRef<() => void>(() => {});
+    const registerCreatePolicy = useCallback((fn: () => void) => {
+        createPolicyRef.current = fn;
+    }, []);
+
+    const isPoliciesTab = location.pathname.includes('/policies');
+
     const getTabs = () => {
         return [
             {
@@ -53,7 +74,7 @@ export const ManagePermissions = () => {
             {
                 name: TabType.Policies,
                 path: TabType.Policies.toLocaleLowerCase(),
-                content: <ManagePolicies />,
+                content: <ManagePolicies onRegisterCreatePolicy={registerCreatePolicy} />,
                 display: {
                     enabled: () => true,
                 },
@@ -66,10 +87,25 @@ export const ManagePermissions = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle
-                    title="Manage Permissions"
-                    subTitle="View your DataHub permissions. Take administrative actions."
-                />
+                <HeaderLeft>
+                    <PageTitle
+                        title="Manage Permissions"
+                        subTitle="View your DataHub permissions. Take administrative actions."
+                    />
+                </HeaderLeft>
+                {isPoliciesTab && (
+                    <HeaderRight>
+                        <Button
+                            id={POLICIES_CREATE_POLICY_ID}
+                            variant="filled"
+                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                            onClick={() => createPolicyRef.current()}
+                            data-testid="add-policy-button"
+                        >
+                            Create new policy
+                        </Button>
+                    </HeaderRight>
+                )}
             </PageHeaderContainer>
             <Content>
                 <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} />

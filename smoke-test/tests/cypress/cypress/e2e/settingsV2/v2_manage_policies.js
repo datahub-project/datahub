@@ -4,22 +4,41 @@ const platform_policy_edited = `Platform test policy ${test_id} EDITED`;
 const metadata_policy_name = `Metadata test policy ${test_id}`;
 const metadata_policy_edited = `Metadata test policy ${test_id} EDITED`;
 
-function searchAndToggleMetadataPolicyStatus(metadataPolicyName, targetStatus) {
-  cy.contains("Platform").should("be.visible");
-  cy.get('[data-testid="search-input"]').should("be.visible");
-  cy.get('[data-testid="search-input"]').eq(1).type(metadataPolicyName);
-  cy.contains("tr", metadataPolicyName).as("metadataPolicyRow");
-  cy.contains(targetStatus).click();
+function searchForPolicy(policyName) {
+  cy.get('[data-testid="search-bar-input"]').should("be.visible").clear();
+  cy.get('[data-testid="search-bar-input"]').type(policyName);
+  cy.wait(500);
+}
+
+function openRowMenu(policyName) {
+  cy.contains("tr", policyName)
+    .find("button")
+    .last()
+    .should("not.be.disabled")
+    .click();
+  cy.get('[data-testid^="menu-item-"]').should("be.visible");
+}
+
+function clickMenuAction(actionText) {
+  cy.get('[data-testid^="menu-item-"]')
+    .contains(actionText)
+    .should("be.visible")
+    .click();
 }
 
 function clickFocusAndType(Id, text) {
-  cy.clickOptionWithTestId(Id).focused().clear().type(text);
+  cy.get(`[data-testid="${Id}"]`).should("be.visible").click();
+  cy.get(`[data-testid="${Id}"]`).clear().type(text);
 }
 
 function updateAndSave(Id, groupName, text) {
   cy.clickOptionWithTestId(Id).type(groupName);
   cy.get(`[title='${text}']`).click();
-  cy.focused().blur();
+  cy.document().then((doc) => {
+    if (doc.activeElement && doc.activeElement !== doc.body) {
+      doc.activeElement.blur();
+    }
+  });
 }
 
 function clickOnButton(saveButton) {
@@ -36,8 +55,8 @@ function createPolicy(decription, policyName) {
   clickOnButton("saveButton");
   cy.waitTextVisible("Successfully saved policy.");
   cy.contains("Successfully saved policy.").should("not.exist");
-  cy.get('[data-testid="search-input"]').eq(1).type(policyName);
-  cy.get(".ant-table-tbody").contains(policyName).should("be.visible");
+  searchForPolicy(policyName);
+  cy.get("tbody").contains(policyName).should("be.visible");
 }
 
 function editPolicy(
@@ -48,8 +67,12 @@ function editPolicy(
   visibleDiscription,
 ) {
   cy.visit("/settings/permissions/policies");
-  cy.waitTextVisible("Users & Groups");
-  searchAndToggleMetadataPolicyStatus(policyName, "EDIT");
+  cy.waitTextVisible("Manage Permissions");
+  cy.get('[data-testid="search-bar-input"]').should("be.visible");
+  cy.get("tbody tr").should("have.length.at.least", 1);
+  searchForPolicy(policyName);
+  openRowMenu(policyName);
+  clickMenuAction("Edit");
   cy.clickOptionWithTestId("policy-name");
   cy.focused().clear().type(editPolicy);
   cy.clickOptionWithTestId("policy-description");
@@ -63,25 +86,29 @@ function editPolicy(
   cy.waitTextVisible(visibleDiscription);
 }
 
-function deletePolicy(policyEdited, deletePolicy) {
+function deletePolicy(policyEdited, deletePolicyTitle) {
   cy.visit("/settings/permissions/policies");
-  cy.waitTextVisible("Users & Groups");
-  cy.get(".ant-select-selection-item").should("be.visible").click();
-  cy.get(".rc-virtual-list-holder-inner")
-    .contains("All")
-    .should("be.visible")
-    .click();
-  cy.get(".ant-select-selection-item").should("be.visible").click();
-  searchAndToggleMetadataPolicyStatus(policyEdited, "DEACTIVATE");
+  cy.waitTextVisible("Manage Permissions");
+  cy.get('[data-testid="search-bar-input"]').should("be.visible");
+  cy.get("tbody tr").should("have.length.at.least", 1);
+  cy.get('[data-testid="policy-filter-base"]').should("be.visible").click();
+  cy.get('[data-testid="option-ALL"]').should("be.visible").click();
+  cy.wait(500);
+  searchForPolicy(policyEdited);
+  openRowMenu(policyEdited);
+  clickMenuAction("Deactivate");
   cy.waitTextVisible("Successfully deactivated policy.");
-  cy.contains("DEACTIVATE").should("not.exist");
-  cy.contains("ACTIVATE").click();
+  cy.contains("Successfully deactivated policy.").should("not.exist");
+  openRowMenu(policyEdited);
+  clickMenuAction("Activate");
   cy.waitTextVisible("Successfully activated policy.");
-  cy.get("[data-icon='delete']").click();
-  cy.waitTextVisible(deletePolicy);
+  cy.contains("Successfully activated policy.").should("not.exist");
+  openRowMenu(policyEdited);
+  clickMenuAction("Delete");
+  cy.waitTextVisible(deletePolicyTitle);
   cy.clickOptionWithText("Yes");
   cy.waitTextVisible("Successfully removed policy.");
-  cy.waitTextVisible("Successfully removed policy.").should("not.exist");
+  cy.contains("Successfully removed policy.").should("not.exist");
   cy.ensureTextNotPresent(policyEdited);
 }
 
@@ -94,8 +121,11 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("verify create, edit, delete platform policy", () => {
-    cy.waitTextVisible("Users & Groups");
-    cy.clickOptionWithText("Create new policy");
+    cy.waitTextVisible("Manage Permissions");
+    cy.get('[data-testid="search-bar-input"]').should("be.visible");
+    cy.get("tbody tr").should("have.length.at.least", 1);
+    cy.get('[data-testid="add-policy-button"]').should("be.visible").click();
+    cy.get('[data-testid="policy-name"]').should("be.visible");
     clickFocusAndType("policy-name", platform_policy_name);
     cy.get('[data-testid="policy-type"] [title="Metadata"]').click();
     cy.clickOptionWithTestId("platform");
@@ -113,20 +143,21 @@ describe("create and manage platform and metadata policies", () => {
     deletePolicy(
       `${platform_policy_edited}`,
       `Delete ${platform_policy_edited}`,
-      `${platform_policy_edited}`,
     );
   });
 
   it("verify create, edit, delete metadata policy", () => {
-    cy.waitTextVisible("Users & Groups");
-    cy.clickOptionWithText("Create new policy");
+    cy.waitTextVisible("Manage Permissions");
+    cy.get('[data-testid="search-bar-input"]').should("be.visible");
+    cy.get("tbody tr").should("have.length.at.least", 1);
+    cy.get('[data-testid="add-policy-button"]').should("be.visible").click();
+    cy.get('[data-testid="policy-name"]').should("be.visible");
     clickFocusAndType("policy-name", metadata_policy_name);
     cy.get('[data-testid="policy-type"]').should("have.text", "Metadata");
     createPolicy(
       `Metadata policy description ${test_id}`,
       metadata_policy_name,
     );
-    // cy.get('span[title="All"]').click()
     editPolicy(
       `${metadata_policy_name}`,
       metadata_policy_edited,
@@ -135,9 +166,8 @@ describe("create and manage platform and metadata policies", () => {
       `Metadata policy description ${test_id} EDITED`,
     );
     deletePolicy(
-      `${metadata_policy_name}`,
-      `Delete ${metadata_policy_name}`,
       `${metadata_policy_edited}`,
+      `Delete ${metadata_policy_edited}`,
     );
   });
 });
