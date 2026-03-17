@@ -105,7 +105,9 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
 
             <SpaceFiller />
 
-            {item.children && <Icon icon="CaretRight" color="gray" colorLevel={1800} size="lg" />}
+            {item.children && (
+                <Icon icon="CaretRight" color={itemColors.iconColor} colorLevel={itemColors.iconColorLevel} size="lg" />
+            )}
         </Wrapper>
     );
 

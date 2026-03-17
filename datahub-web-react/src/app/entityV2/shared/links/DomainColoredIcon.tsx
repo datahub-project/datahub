@@ -1,10 +1,9 @@
-import * as PhosphorIcons from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 
-import { MUI_TO_PHOSPHOR_MAP } from '@app/entityV2/shared/containers/profile/header/IconPicker/muiToPhosphorMap';
 import { hexToRgb, hexToRgba, useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import { getIconComponent } from '@src/alchemy-components/components/Icon/utils';
 
 import { Domain } from '@types';
 
@@ -33,20 +32,9 @@ type Props = {
     onClick?: () => void;
 };
 
-function resolveIcon(name: string): React.ElementType | undefined {
-    if (!name.trim()) return undefined;
-
-    if (PhosphorIcons[name]) return PhosphorIcons[name] as React.ElementType;
-
-    const mapped = MUI_TO_PHOSPHOR_MAP[name];
-    if (mapped && PhosphorIcons[mapped]) return PhosphorIcons[mapped] as React.ElementType;
-
-    return undefined;
-}
-
 export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20, onClick }: Props): JSX.Element => {
     const iconName = domain?.displayProperties?.icon?.name || '';
-    const ResolvedIcon = resolveIcon(iconName);
+    const ResolvedIcon = iconName.trim() ? (getIconComponent(iconName) as React.ElementType | undefined) : undefined;
 
     const generateColor = useGenerateDomainColorFromPalette();
     const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
