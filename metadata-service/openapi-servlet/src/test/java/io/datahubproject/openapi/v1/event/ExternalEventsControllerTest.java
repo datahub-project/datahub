@@ -658,6 +658,28 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   }
 
   @Test
+  public void testPollWithUnsupportedTopic() throws Exception {
+    // An unsupported topic without GET_TOPIC_EVENTS_PRIVILEGE should be denied.
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                  .param("topic", "UnsupportedTopic")
+                  .param("limit", "100")
+                  .param("pollTimeoutSeconds", "10")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+    }
+  }
+
+  @Test
   public void testUnsupportedTopicReturns500() throws Exception {
     // A topic that passes auth but is not configured in the service should return 500.
     try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {

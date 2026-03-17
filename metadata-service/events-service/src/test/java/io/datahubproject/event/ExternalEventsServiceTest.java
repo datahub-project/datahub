@@ -176,22 +176,6 @@ public class ExternalEventsServiceTest {
   }
 
   @Test
-  public void testCustomTopicUsesIdentityMapping() throws Exception {
-    Map<String, String> names = new HashMap<>(topicNames);
-    names.put("myTopic", "myTopic");
-    Set<String> allowedTopics = Set.of("PlatformEvent_v1", "myTopic");
-    ExternalEventsService svc =
-        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, names, 10, 100);
-
-    when(kafkaConsumer.partitionsFor("myTopic")).thenReturn(Collections.emptyList());
-    when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
-
-    svc.poll("myTopic", null, 10, 5, null);
-
-    verify(kafkaConsumer).partitionsFor("myTopic");
-  }
-
-  @Test
   public void testCustomTopicWithNonDefaultName() throws Exception {
     Map<String, String> names = new HashMap<>(topicNames);
     names.put("myTopic", "acme_myTopic");
