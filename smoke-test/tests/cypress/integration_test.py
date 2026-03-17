@@ -292,7 +292,7 @@ def test_run_cypress(auth_session):
     test_spec_arg = f" --spec '{specs_str}' "
 
     logger.info("Running Cypress tests with command")
-    node_options = "--max-old-space-size=500"
+    node_options = "--max-old-space-size=8192"
     electron_args = 'ELECTRON_EXTRA_LAUNCH_ARGS="--disable-dev-shm-usage --disable-gpu --no-sandbox --js-flags=--max-old-space-size=8192"'
     command = f'{electron_args} NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run --browser chrome {record_arg} {test_spec_arg} {tag_arg}'
     logger.info(command)
