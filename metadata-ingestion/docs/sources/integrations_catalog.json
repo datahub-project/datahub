@@ -602,7 +602,6 @@
     "description": "RDF (Resource Description Framework) is a standard model for data interchange on the web, enabling ingestion of ontologies and knowledge graphs as DataHub glossary terms."
   },
   "flink": {
-    "api_connector": true,
     "platform_type": "ETL/ELT",
     "title": "Apache Flink",
     "description": "Real-time stream processing framework for stateful computations over bounded and unbounded data streams.",
