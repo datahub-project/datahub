@@ -293,8 +293,8 @@ def test_run_cypress(auth_session):
 
     logger.info("Running Cypress tests with command")
     node_options = "--max-old-space-size=500"
-    electron_args = 'ELECTRON_EXTRA_LAUNCH_ARGS="--js-flags=\'--max-old-space-size=8192 --disable-dev-shm-usage --disable-gpu --no-sandbox"'
-    command = f'{electron_args} NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg}'
+    electron_args = 'ELECTRON_EXTRA_LAUNCH_ARGS="--disable-dev-shm-usage --disable-gpu --no-sandbox --js-flags=--max-old-space-size=8192"'
+    command = f'{electron_args} NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run --browser chrome {record_arg} {test_spec_arg} {tag_arg}'
     logger.info(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
