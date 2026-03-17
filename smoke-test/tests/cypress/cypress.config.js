@@ -23,7 +23,7 @@ module.exports = defineConfig({
       // Must be registered first so it can attach after:spec / after:run hooks before
       // other plugins consume the same events.
       // eslint-disable-next-line global-require
-      require("cypress-mochawesome-reporter/plugin")(on, config);
+      require("cypress-mochawesome-reporter/plugin")(on);
       // eslint-disable-next-line global-require
       return require("./cypress/plugins/index")(on, config);
     },
@@ -37,16 +37,16 @@ module.exports = defineConfig({
   reporterOptions: {
     reporterEnabled: "cypress-mochawesome-reporter, cypress-junit-reporter",
     cypressMochawesomeReporterReporterOptions: {
-      // cypress-mochawesome-reporter hooks into Cypress after:spec (not mocha end),
-      // writing one JSON per spec as it completes. Plain mochawesome only writes at
-      // the end of the full run, so a mid-run Electron crash produces no output at all.
+      // The mocha reporter writes one JSON per spec to {reportDir}/.jsons/ during the run.
+      // The Cypress after:run hook then merges them into index.html and by default deletes
+      // .jsons/. We set removeJsonsFolderAfterMerge:false so the per-spec JSONs survive
+      // and are picked up by the post-matrix cypress_html_report job (which merges all
+      // batches into one unified report). saveHtml:false skips the per-batch index.html
+      // since the unified one is generated post-matrix.
       reportDir: "build/mochawesome-report",
       overwrite: false,
-      html: false,
-      // json: false because we only need the per-spec files in .jsons/ (always written
-      // by the Cypress after:spec hook, crash-safe). The post-matrix job merges those
-      // directly, so a redundant merged mochawesome.json here would cause duplication.
-      json: false,
+      saveHtml: false,
+      removeJsonsFolderAfterMerge: false,
       embeddedScreenshots: true,
     },
     cypressJunitReporterReporterOptions: {
