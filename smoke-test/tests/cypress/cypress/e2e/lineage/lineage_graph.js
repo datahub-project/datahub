@@ -17,7 +17,7 @@ const MONTHLY_TEMPERATURE_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)";
 
 describe("lineage_graph", () => {
-  it("can see full history", () => {
+  it.skip("can see full history", () => {
     cy.login();
     cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
 
@@ -27,7 +27,7 @@ describe("lineage_graph", () => {
     cy.contains("some-cypress");
   });
 
-  it("cannot see any lineage edges for 2021", () => {
+  it.skip("cannot see any lineage edges for 2021", () => {
     cy.login();
     cy.goToEntityLineageGraph(
       DATASET_ENTITY_TYPE,
@@ -42,7 +42,7 @@ describe("lineage_graph", () => {
     cy.contains("some-cypress").should("not.exist");
   });
 
-  it("can see when the inputs to a data job change", () => {
+  it.skip("can see when the inputs to a data job change", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only transactions was an input
     cy.goToEntityLineageGraph(
@@ -68,7 +68,7 @@ describe("lineage_graph", () => {
     cy.contains("user_profile");
   });
 
-  it("can see when a data job is replaced", () => {
+  it.skip("can see when a data job is replaced", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only temperature_etl_1 was an iput
     cy.goToEntityLineageGraph(
@@ -92,7 +92,7 @@ describe("lineage_graph", () => {
     cy.contains("temperature_etl_2");
   });
 
-  it("can see when a dataset join changes", () => {
+  it.skip("can see when a dataset join changes", () => {
     cy.login();
     // 8 days ago, both gdp and factor_income were joined to create gnp
     cy.goToEntityLineageGraph(

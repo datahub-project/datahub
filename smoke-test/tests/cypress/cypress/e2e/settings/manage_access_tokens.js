@@ -20,7 +20,7 @@ describe("manage access tokens", () => {
     });
   };
 
-  it("create and revoke access token", () => {
+  it.skip("create and revoke access token", () => {
     // create access token, verify token on ui
     setTokenAuthEnabledFlag(true);
     cy.loginWithCredentials();

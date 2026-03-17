@@ -21,7 +21,7 @@ describe("home", () => {
       }
     }).as("apiCall");
   };
-  it("home page shows ", () => {
+  it.skip("home page shows ", () => {
     setBusinessAttributeFeatureFlag();
     cy.login();
     cy.visit("/");

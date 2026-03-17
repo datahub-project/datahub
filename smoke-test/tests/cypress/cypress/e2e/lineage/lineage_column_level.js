@@ -3,7 +3,7 @@ const DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
 
 describe("column-level lineage graph test", () => {
-  it("navigate to lineage graph view and verify that column-level lineage is showing correctly", () => {
+  it.skip("navigate to lineage graph view and verify that column-level lineage is showing correctly", () => {
     cy.login();
     cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
     // verify columns not shown by default

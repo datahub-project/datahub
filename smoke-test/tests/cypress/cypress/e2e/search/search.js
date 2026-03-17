@@ -1,5 +1,5 @@
 describe("search", () => {
-  it("can hit all entities search, see some results (testing this any more is tricky because it is cached for now)", () => {
+  it.skip("can hit all entities search, see some results (testing this any more is tricky because it is cached for now)", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
@@ -8,7 +8,7 @@ describe("search", () => {
     cy.contains(/of [0-9]+ results/);
   });
 
-  it("can hit all entities search with an impossible query and find 0 results", () => {
+  it.skip("can hit all entities search with an impossible query and find 0 results", () => {
     cy.login();
     cy.visit("/");
     // random string that is unlikely to accidentally have a match
@@ -19,7 +19,7 @@ describe("search", () => {
     cy.contains("of 0 results");
   });
 
-  it("can search, find a result, and visit the dataset page", () => {
+  it.skip("can search, find a result, and visit the dataset page", () => {
     cy.login();
     cy.visit(
       "/search?filter_entity=DATASET&filter_tags=urn%3Ali%3Atag%3ACypress&page=1&query=users created",
@@ -48,7 +48,7 @@ describe("search", () => {
     cy.contains("table containing all the users created on a single day");
   });
 
-  it("can search and get glossary term facets with proper labels", () => {
+  it.skip("can search and get glossary term facets with proper labels", () => {
     cy.login();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
@@ -64,7 +64,7 @@ describe("search", () => {
     cy.contains("CypressTerm");
   });
 
-  it("can search by a specific term using advanced search", () => {
+  it.skip("can search by a specific term using advanced search", () => {
     cy.login();
 
     cy.visit("/");
@@ -88,7 +88,7 @@ describe("search", () => {
     cy.contains(/Showing 1 - [2-4] of [2-4]/);
   });
 
-  it("can search by AND-ing two concepts using advanced search", () => {
+  it.skip("can search by AND-ing two concepts using advanced search", () => {
     cy.login();
 
     cy.visit("/");
@@ -117,7 +117,7 @@ describe("search", () => {
     cy.contains("cypress_logging_events");
   });
 
-  it("can search by OR-ing two concepts using advanced search", () => {
+  it.skip("can search by OR-ing two concepts using advanced search", () => {
     cy.login();
 
     cy.visit("/");

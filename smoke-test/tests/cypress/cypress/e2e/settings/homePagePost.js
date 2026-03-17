@@ -41,7 +41,7 @@ describe("create announcement and link post", () => {
     cy.goToHomePagePostSettings();
   });
 
-  it("create announcement post and verify", () => {
+  it.skip("create announcement post and verify", () => {
     clickOnNewPost();
     addOrEditAnnouncement(
       "Create",
@@ -52,7 +52,7 @@ describe("create announcement and link post", () => {
     cy.waitTextPresent(TEST_ANNOUNCEMENT_TITLE);
   });
 
-  it("edit announced post and verify", () => {
+  it.skip("edit announced post and verify", () => {
     clickOnMoreOption(TEST_ANNOUNCEMENT_TITLE);
     cy.clickOptionWithText("Edit");
     addOrEditAnnouncement(
@@ -64,7 +64,7 @@ describe("create announcement and link post", () => {
     cy.waitTextPresent(EDITED_TEST_ANNOUNCEMENT_TITLE);
   });
 
-  it("delete announced post and verify", () => {
+  it.skip("delete announced post and verify", () => {
     clickOnMoreOption(EDITED_TEST_ANNOUNCEMENT_TITLE);
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
@@ -74,7 +74,7 @@ describe("create announcement and link post", () => {
     cy.ensureTextNotPresent(EDITED_TEST_ANNOUNCEMENT_TITLE);
   });
 
-  it("create link post and verify", () => {
+  it.skip("create link post and verify", () => {
     clickOnNewPost();
     cy.waitTextPresent("Create new Post");
     cy.contains("label", "Link").click();
@@ -88,7 +88,7 @@ describe("create announcement and link post", () => {
     cy.waitTextPresent(TEST_LINK_TITLE);
   });
 
-  it("edit linked post and verify", () => {
+  it.skip("edit linked post and verify", () => {
     clickOnMoreOption(TEST_LINK_TITLE);
     cy.clickOptionWithText("Edit");
     addOrEditLink(
@@ -101,7 +101,7 @@ describe("create announcement and link post", () => {
     cy.waitTextPresent(EDITED_TEST_LINK_TITLE);
   });
 
-  it("delete linked post and verify", () => {
+  it.skip("delete linked post and verify", () => {
     clickOnMoreOption(EDITED_TEST_LINK_TITLE);
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");

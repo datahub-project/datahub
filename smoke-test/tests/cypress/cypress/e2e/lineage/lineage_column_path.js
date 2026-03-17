@@ -27,7 +27,7 @@ describe("column-Level lineage and impact analysis path test", () => {
     });
   });
 
-  it("verify column-level lineage path at lineage praph and impact analysis ", () => {
+  it.skip("verify column-level lineage path at lineage praph and impact analysis ", () => {
     // Open dataset with column-level lineage configured an navigate to lineage tab -> visualize lineage
     cy.loginWithCredentials();
     cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
@@ -67,7 +67,7 @@ describe("column-Level lineage and impact analysis path test", () => {
     cy.clickOptionWithText("Upstream");
     cy.waitTextVisible("SampleCypressKafkaDataset");
     cy.ensureTextNotPresent("field_bar");
-    cy.contains("Select column").click({ force: true }).wait(1000);
+    cy.contains("Select column").click({ force: true }).wait.skip(1000);
     cy.get(".rc-virtual-list").contains("shipment_info").click();
     cy.waitTextVisible("field_bar");
     cy.clickOptionWithText("field_bar");

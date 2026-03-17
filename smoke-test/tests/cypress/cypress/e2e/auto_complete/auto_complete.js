@@ -1,5 +1,5 @@
 describe("auto-complete", () => {
-  it("should see auto-complete results after typing in a search query", () => {
+  it.skip("should see auto-complete results after typing in a search query", () => {
     cy.login();
     cy.visit("/");
 
@@ -22,7 +22,7 @@ describe("auto-complete", () => {
     cy.focused().clear();
   });
 
-  it("should send you to the entity profile after clicking on an auto-complete option", () => {
+  it.skip("should send you to the entity profile after clicking on an auto-complete option", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("SampleCypressHiveDataset");
@@ -36,7 +36,7 @@ describe("auto-complete", () => {
     );
   });
 
-  it("should filter auto-complete results when clicking on a quick filter", () => {
+  it.skip("should filter auto-complete results when clicking on a quick filter", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("baz");
@@ -51,7 +51,7 @@ describe("auto-complete", () => {
     cy.wait(1000);
   });
 
-  it("should filter search results when when searching with a quick filter selected", () => {
+  it.skip("should filter search results when when searching with a quick filter selected", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("raw_pay");

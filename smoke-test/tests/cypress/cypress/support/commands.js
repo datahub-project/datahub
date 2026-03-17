@@ -611,47 +611,15 @@ Cypress.Commands.add("deleteStructuredProperty", (prop) => {
   cy.get('[data-testid="modal-confirm-button"').click();
 });
 
-Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
-  // set the theme V2 enabled flag on/off to show the V2 UI or not
-  cy.intercept("POST", "/api/v2/graphql", (req) => {
-    if (hasOperationName(req, "appConfig")) {
-      req.alias = "gqlappConfigQuery";
-
-      req.on("response", (res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
-        res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
-        res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
-      });
-    } else if (hasOperationName(req, "getMe")) {
-      req.alias = "gqlgetMeQuery";
-      req.on("response", (res) => {
-        res.body.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
-      });
-    }
-  });
-});
-
 Cypress.Commands.add(
   "setFeatureFlags",
-  (itThemeV2Enabled, updateFeatureFlags) => {
+  (updateFeatureFlags) => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "appConfig")) {
         req.alias = "gqlappConfigQuery";
 
         req.on("response", (res) => {
-          res.body.data.appConfig.featureFlags.themeV2Enabled =
-            itThemeV2Enabled;
-          res.body.data.appConfig.featureFlags.themeV2Default =
-            itThemeV2Enabled;
-          res.body.data.appConfig.featureFlags.showNavBarRedesign =
-            itThemeV2Enabled;
           updateFeatureFlags(res);
-        });
-      } else if (hasOperationName(req, "getMe")) {
-        req.alias = "gqlgetMeQuery";
-        req.on("response", (res) => {
-          res.body.data.me.corpUser.settings.appearance.showThemeV2 =
-            itThemeV2Enabled;
         });
       }
     });

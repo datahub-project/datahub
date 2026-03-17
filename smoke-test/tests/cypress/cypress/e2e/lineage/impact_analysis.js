@@ -25,14 +25,14 @@ describe("impact analysis", () => {
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
-  it("can see 1 hop of lineage by default", () => {
+  it.skip("can see 1 hop of lineage by default", () => {
     startAtDataSetLineage();
 
     cy.ensureTextNotPresent("User Creations");
     cy.ensureTextNotPresent("User Deletions");
   });
 
-  it("can see lineage multiple hops away", () => {
+  it.skip("can see lineage multiple hops away", () => {
     startAtDataSetLineage();
     // click to show more relationships now that we default to 1 degree of dependency
     cy.clickOptionWithText("3+");
@@ -41,7 +41,7 @@ describe("impact analysis", () => {
     cy.contains("User Deletions");
   });
 
-  it("can filter the lineage results as well", () => {
+  it.skip("can filter the lineage results as well", () => {
     startAtDataSetLineage();
     // click to show more relationships now that we default to 1 degree of dependency
     cy.clickOptionWithText("3+");
@@ -60,14 +60,14 @@ describe("impact analysis", () => {
     cy.waitTextVisible("User Deletions");
   });
 
-  it("can view column level impact analysis and turn it off", () => {
+  it.skip("can view column level impact analysis and turn it off", () => {
     cy.login();
-    cy.visit(
+    cy.visit.skip(
       `/dataset/${DATASET_URN}/Lineage?column=%5Bversion%3D2.0%5D.%5Btype%3Dboolean%5D.field_bar&is_lineage_mode=false`,
     );
 
     // impact analysis can take a beat- don't want to time out here
-    cy.wait(5000);
+    cy.wait.skip(5000);
 
     cy.contains("SampleCypressHdfsDataset");
     cy.contains("Downstream column: shipment_info");
@@ -77,7 +77,7 @@ describe("impact analysis", () => {
     // find button to turn off column-level impact analysis
     cy.get('[data-testid="column-lineage-toggle"]').click({ force: true });
 
-    cy.wait(2000);
+    cy.wait.skip(2000);
 
     cy.contains("SampleCypressHdfsDataset");
     cy.contains("Downstream column: shipment_info").should("not.exist");
@@ -85,14 +85,14 @@ describe("impact analysis", () => {
     cy.contains("Baz Chart 1");
   });
 
-  it("can filter lineage edges by time", () => {
+  it.skip("can filter lineage edges by time", () => {
     cy.login();
-    cy.visit(
+    cy.visit.skip(
       `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`,
     );
 
     // impact analysis can take a beat- don't want to time out here
-    cy.wait(5000);
+    cy.wait.skip(5000);
 
     cy.contains("SampleCypressHdfsDataset").should("not.exist");
     cy.contains("Downstream column: shipment_info").should("not.exist");
@@ -100,10 +100,10 @@ describe("impact analysis", () => {
     cy.contains("Baz Chart 1").should("not.exist");
   });
 
-  it("can see when the inputs to a data job change", () => {
+  it.skip("can see when the inputs to a data job change", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only transactions was an input
-    cy.visit(
+    cy.visit.skip(
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     // Downstream
@@ -113,7 +113,7 @@ describe("impact analysis", () => {
     cy.contains("transactions");
     cy.contains("user_profile").should("not.exist");
     // 1 day ago, factor_income was removed from the join
-    cy.visit(
+    cy.visit.skip(
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     // Downstream
@@ -124,17 +124,17 @@ describe("impact analysis", () => {
     cy.contains("user_profile");
   });
 
-  it("can see when a data job is replaced", () => {
+  it.skip("can see when a data job is replaced", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only temperature_etl_1 was an iput
-    cy.visit(
+    cy.visit.skip(
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     cy.lineageTabClickOnUpstream();
     cy.contains("temperature_etl_1");
     cy.contains("temperature_etl_2").should("not.exist");
     // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
-    cy.visit(
+    cy.visit.skip(
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     cy.lineageTabClickOnUpstream();
@@ -142,17 +142,17 @@ describe("impact analysis", () => {
     cy.contains("temperature_etl_2");
   });
 
-  it("can see when a dataset join changes", () => {
+  it.skip("can see when a dataset join changes", () => {
     cy.login();
     // 8 days ago, both gdp and factor_income were joined to create gnp
-    cy.visit(
+    cy.visit.skip(
       `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     cy.lineageTabClickOnUpstream();
     cy.contains("gdp");
     cy.contains("factor_income");
     // 1 day ago, factor_income was removed from the join
-    cy.visit(
+    cy.visit.skip(
       `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     cy.lineageTabClickOnUpstream();

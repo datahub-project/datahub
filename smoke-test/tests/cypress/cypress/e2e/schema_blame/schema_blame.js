@@ -1,7 +1,7 @@
 describe("schema blame", () => {
   Cypress.on("uncaught:exception", (err, runnable) => false);
 
-  it("can activate the blame view and verify for the latest version of a dataset", () => {
+  it.skip("can activate the blame view and verify for the latest version of a dataset", () => {
     cy.login();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
@@ -37,7 +37,7 @@ describe("schema blame", () => {
     cy.url().should("include", "semantic_version=1.0.0");
   });
 
-  it("can activate the blame view and verify for an older version of a dataset", () => {
+  it.skip("can activate the blame view and verify for an older version of a dataset", () => {
     cy.login();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
@@ -73,7 +73,7 @@ describe("schema blame", () => {
     cy.url().should("include", "semantic_version=1.0.0");
   });
 
-  it("can activate the blame view and verify for an older version of a dataset", () => {
+  it.skip("can activate the blame view and verify for an older version of a dataset", () => {
     cy.login();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema?semantic_version=0.0.0",

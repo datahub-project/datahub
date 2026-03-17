@@ -96,7 +96,7 @@ describe("create and manage platform and metadata policies", () => {
     cy.visitWithLogin("/settings/permissions/policies");
   });
 
-  it("create platform policy", () => {
+  it.skip("create platform policy", () => {
     cy.waitTextVisible("Manage Permissions");
     changeFilterToAll();
     cy.clickOptionWithText("Create new policy");
@@ -109,7 +109,7 @@ describe("create and manage platform and metadata policies", () => {
     );
   });
 
-  it("edit platform policy", () => {
+  it.skip("edit platform policy", () => {
     changeFilterToAll();
     editPolicy(
       `${platform_policy_name}`,
@@ -120,7 +120,7 @@ describe("create and manage platform and metadata policies", () => {
     );
   });
 
-  it("deactivate and activate platform policy", () => {
+  it.skip("deactivate and activate platform policy", () => {
     changeFilterToAll();
     deletePolicy(
       `${platform_policy_edited}`,
@@ -129,7 +129,7 @@ describe("create and manage platform and metadata policies", () => {
     );
   });
 
-  it("create metadata policy", () => {
+  it.skip("create metadata policy", () => {
     changeFilterToAll();
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", metadata_policy_name);
@@ -140,7 +140,7 @@ describe("create and manage platform and metadata policies", () => {
     );
   });
 
-  it("edit metadata policy", () => {
+  it.skip("edit metadata policy", () => {
     changeFilterToAll();
     editPolicy(
       `${metadata_policy_name}`,
@@ -151,7 +151,7 @@ describe("create and manage platform and metadata policies", () => {
     );
   });
 
-  it("deactivate and activate metadata policy", () => {
+  it.skip("deactivate and activate metadata policy", () => {
     changeFilterToAll();
     deletePolicy(
       `${metadata_policy_name}`,

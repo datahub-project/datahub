@@ -17,8 +17,6 @@ describe("add remove domain", () => {
         req.alias = "gqlappConfigQuery";
         req.on("response", (res) => {
           res.body.data.appConfig.featureFlags.nestedDomainsEnabled = isOn;
-          res.body.data.appConfig.featureFlags.themeV2Enabled = false;
-          res.body.data.appConfig.featureFlags.themeV2Default = false;
           res.body.data.appConfig.featureFlags.showNavBarRedesign = false;
         });
       }

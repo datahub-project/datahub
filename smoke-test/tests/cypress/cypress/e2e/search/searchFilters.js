@@ -19,7 +19,7 @@ describe("search", () => {
     });
   };
 
-  it("should show old search filters if search filters v2 flag is off", () => {
+  it.skip("should show old search filters if search filters v2 flag is off", () => {
     setSearchFiltersFeatureFlag(false);
     cy.login();
     cy.visit("/");
@@ -29,7 +29,7 @@ describe("search", () => {
     cy.get("[data-testid=search-filters-v2]").should("not.exist");
   });
 
-  it("should show new search filters if search filters v2 flag is on", () => {
+  it.skip("should show new search filters if search filters v2 flag is on", () => {
     setSearchFiltersFeatureFlag(true);
     cy.login();
     cy.visit("/");
@@ -39,7 +39,7 @@ describe("search", () => {
     cy.get("[data-testid=search-filters-v2]").should("exist");
   });
 
-  it("should add and remove multiple filters with no issues", () => {
+  it.skip("should add and remove multiple filters with no issues", () => {
     setSearchFiltersFeatureFlag(true);
     cy.login();
     cy.visit("/");

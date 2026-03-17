@@ -13,8 +13,6 @@ describe("manage service accounts", () => {
         req.alias = "gqlappConfigQuery";
         req.on("response", (res) => {
           res.body.data.appConfig.authConfig.tokenAuthEnabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Default = true;
           res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
           res.body.data.appConfig.featureFlags.inviteUsersEnabled =
             inviteUsersEnabled;

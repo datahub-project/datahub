@@ -8,7 +8,7 @@ const ingestion_source_name = `ingestion source ${number}`;
 
 describe("ingestion source creation flow", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });

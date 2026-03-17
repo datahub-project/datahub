@@ -31,7 +31,6 @@ const downloadCsvFile = (filename) => {
 
 describe("download lineage results to .csv file", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 

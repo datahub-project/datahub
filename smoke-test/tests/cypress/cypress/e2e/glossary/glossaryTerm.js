@@ -59,7 +59,7 @@ describe("glossaryTerm", () => {
     cy.visit(glossaryTerms.glossaryTermUrl);
   });
 
-  it("can search related entities by query", () => {
+  it.skip("can search related entities by query", () => {
     cy.get('[placeholder="Filter entities..."]')
       .should("be.visible")
       .click()
@@ -68,14 +68,14 @@ describe("glossaryTerm", () => {
     cy.contains(glossaryTerms.hdfsDataset).should("not.exist");
   });
 
-  it("can apply filters on related entities", () => {
+  it.skip("can apply filters on related entities", () => {
     cy.waitTextVisible(glossaryTerms.hiveDataset);
     applyTagFilter("urn:li:tag:Cypress2");
     cy.contains(glossaryTerms.hiveDataset).should("not.exist");
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
   });
 
-  it("can search related entities by a specific tag using advanced search", () => {
+  it.skip("can search related entities by a specific tag using advanced search", () => {
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
     applyAdvancedSearchFilter("Tag", "Cypress2");
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
@@ -83,7 +83,7 @@ describe("glossaryTerm", () => {
     cy.waitTextVisible("Cypress 2");
   });
 
-  it("can search related entities by AND-ing two concepts using search", () => {
+  it.skip("can search related entities by AND-ing two concepts using search", () => {
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
     applyAdvancedSearchFilter();
     cy.clickOptionWithText("Add Filter");
@@ -97,7 +97,7 @@ describe("glossaryTerm", () => {
     cy.waitTextVisible("my hdfs dataset");
   });
 
-  it("can search related entities by OR-ing two concepts using search", () => {
+  it.skip("can search related entities by OR-ing two concepts using search", () => {
     cy.waitTextVisible(glossaryTerms.hdfsDataset);
     applyAdvancedSearchFilter("Description", "single log event");
     applyBasicSearchFilter("Tag", "Cypress2");

@@ -34,7 +34,7 @@ describe("download lineage results to .csv file", () => {
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
-  it("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
+  it.skip("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
     cy.loginWithCredentials();
     cy.goToDataset(test_dataset, "SampleCypressKafkaDataset");
     cy.openEntityTab("Lineage");

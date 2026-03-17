@@ -1,5 +1,5 @@
 import {
-  setThemeV2AndIngestionRedesignFlags,
+  setIngestionRedesignFlags,
   createAndRunIngestionSource,
   createIngestionSource,
   updateIngestionSource,
@@ -22,7 +22,7 @@ const ingestionSourceDetails = {
 
 describe("ingestion sources", () => {
   beforeEach(() => {
-    setThemeV2AndIngestionRedesignFlags(true);
+    setIngestionRedesignFlags(true);
     cy.loginWithCredentials();
     goToIngestionPage();
   });

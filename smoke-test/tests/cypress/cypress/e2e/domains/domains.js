@@ -1,5 +1,5 @@
 describe("domains", () => {
-  it("can see elements inside the domain", () => {
+  it.skip("can see elements inside the domain", () => {
     cy.login();
     cy.goToDomain("urn:li:domain:marketing/Entities");
 

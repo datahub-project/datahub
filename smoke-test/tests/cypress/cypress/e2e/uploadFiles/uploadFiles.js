@@ -1,6 +1,5 @@
 import {
   applyGraphqlInterceptors,
-  getThemeV2Interceptor,
   getUniqueTestId,
   hasOperationName,
 } from "../utils";
@@ -47,7 +46,6 @@ describe("uploadFiles", () => {
 
   beforeEach(() => {
     applyGraphqlInterceptors([
-      getThemeV2Interceptor(true),
       getSetRequiredFeatureFlagsInterceptor(),
     ]);
 

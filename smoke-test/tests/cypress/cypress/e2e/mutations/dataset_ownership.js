@@ -55,7 +55,6 @@ const addAndRemoveOwnerOnDataset = (owner, type, elementId) => {
 
 describe("add, remove ownership for dataset", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(false);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });

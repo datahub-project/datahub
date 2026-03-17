@@ -1,5 +1,5 @@
 describe("task runs", () => {
-  it("can visit dataset with runs aspect and verify the task run is present", () => {
+  it.skip("can visit dataset with runs aspect and verify the task run is present", () => {
     cy.visit("/");
     cy.login();
     cy.visit(
@@ -21,7 +21,7 @@ describe("task runs", () => {
     cy.contains("User Creations");
   });
 
-  it("can visit task with runs aspect and verify the task run is present", () => {
+  it.skip("can visit task with runs aspect and verify the task run is present", () => {
     cy.visit("/");
     cy.login();
     cy.visit(

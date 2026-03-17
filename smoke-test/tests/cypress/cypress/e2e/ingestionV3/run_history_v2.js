@@ -1,5 +1,5 @@
 import {
-  setThemeV2AndIngestionRedesignFlags,
+  setIngestionRedesignFlags,
   createAndRunIngestionSource,
   deleteIngestionSource,
   shouldNavigateToRunHistoryTab,
@@ -13,7 +13,7 @@ import {
 
 describe("run history tab in manage data sources", () => {
   beforeEach(() => {
-    setThemeV2AndIngestionRedesignFlags(true);
+    setIngestionRedesignFlags(true);
     cy.loginWithCredentials();
     goToIngestionPage();
   });

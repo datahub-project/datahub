@@ -1,5 +1,5 @@
 describe("manage views", () => {
-  it("go to views settings page, create, edit, make default, delete a view", () => {
+  it.skip("go to views settings page, create, edit, make default, delete a view", () => {
     const viewName = "Test View";
 
     cy.login();

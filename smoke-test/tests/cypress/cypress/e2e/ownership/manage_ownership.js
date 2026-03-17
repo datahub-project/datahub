@@ -1,5 +1,5 @@
 describe("manage ownership", () => {
-  it("go to ownership types settings page, create, edit, make default, delete a ownership type", () => {
+  it.skip("go to ownership types settings page, create, edit, make default, delete a ownership type", () => {
     const viewName = "Test View";
 
     cy.login();

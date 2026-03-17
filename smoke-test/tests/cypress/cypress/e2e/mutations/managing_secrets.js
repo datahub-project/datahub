@@ -1,6 +1,6 @@
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(false, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });

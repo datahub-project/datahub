@@ -9,7 +9,7 @@ const role = `role${number}`;
 const ingestion_source_name = `ingestion source ${number}`;
 
 export const setIngestionRedesignFlag = (isOn) => {
-  cy.setFeatureFlags(false, (res) => {
+  cy.setFeatureFlags((res) => {
     res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
   });
 };

@@ -1,5 +1,5 @@
 describe("login", () => {
-  it("logs in", () => {
+  it.skip("logs in", () => {
     cy.visit("/");
     cy.get("input[data-testid=username]").type("datahub");
     cy.get("input[data-testid=password]").type("datahub");

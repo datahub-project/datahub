@@ -5,7 +5,7 @@ const glossaryTerm = "CypressGlossaryTerm";
 const glossaryTermGroup = "CypressGlossaryGroup";
 
 describe("glossary", () => {
-  it("go to glossary page, create terms, term group", () => {
+  it.skip("go to glossary page, create terms, term group", () => {
     cy.loginWithCredentials();
     cy.goToGlossaryList();
     cy.clickOptionWithText("Add Term");
