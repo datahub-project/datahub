@@ -1240,86 +1240,93 @@ public class GmsGraphQLEngine {
           TypeRuntimeWiring.Builder w =
               typeWiring
                   .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
-              .dataFetcher("updateDatasets", new MutableTypeBatchResolver<>(datasetType))
-              .dataFetcher(
-                  "createTag", new CreateTagResolver(this.entityClient, this.entityService))
-              .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
-              .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
-              .dataFetcher("deleteTag", new DeleteTagResolver(entityClient))
-              .dataFetcher("updateChart", new MutableTypeResolver<>(chartType))
-              .dataFetcher("updateDashboard", new MutableTypeResolver<>(dashboardType))
-              .dataFetcher("updateNotebook", new MutableTypeResolver<>(notebookType))
-              .dataFetcher("updateDataJob", new MutableTypeResolver<>(dataJobType))
-              .dataFetcher("updateDataFlow", new MutableTypeResolver<>(dataFlowType))
-              .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
-              .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
-              .dataFetcher(
-                  "updateERModelRelationship",
-                  new UpdateERModelRelationshipResolver(this.entityClient))
-              .dataFetcher(
-                  "createERModelRelationship",
-                  new CreateERModelRelationshipResolver(
-                      this.entityClient, this.erModelRelationshipService))
-              .dataFetcher("addTag", new AddTagResolver(entityService))
-              .dataFetcher("addTags", new AddTagsResolver(entityService))
-              .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
-              .dataFetcher("removeTag", new RemoveTagResolver(entityService))
-              .dataFetcher("batchRemoveTags", new BatchRemoveTagsResolver(entityService))
-              .dataFetcher("addTerm", new AddTermResolver(entityService))
-              .dataFetcher("batchAddTerms", new BatchAddTermsResolver(entityService))
-              .dataFetcher("addTerms", new AddTermsResolver(entityService))
-              .dataFetcher("removeTerm", new RemoveTermResolver(entityService))
-              .dataFetcher("batchRemoveTerms", new BatchRemoveTermsResolver(entityService))
-              .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
-              .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
-              .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
-              .dataFetcher(
-                  "updateDescription",
-                  new UpdateDescriptionResolver(entityService, this.entityClient))
-              .dataFetcher("addOwner", new AddOwnerResolver(entityService, entityClient))
-              .dataFetcher("addOwners", new AddOwnersResolver(entityService, entityClient))
-              .dataFetcher(
-                  "batchAddOwners", new BatchAddOwnersResolver(entityService, entityClient))
-              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService, entityClient))
-              .dataFetcher(
-                  "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
-              .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
-              .dataFetcher(
-                  "patchEntity",
-                  new PatchEntityResolver(entityService, entityClient, entityRegistry))
-              .dataFetcher(
-                  "patchEntities",
-                  new PatchEntitiesResolver(entityService, entityClient, entityRegistry))
-              .dataFetcher("updateLink", new UpdateLinkResolver(entityService, this.entityClient))
-              .dataFetcher("upsertLink", new UpsertLinkResolver(entityService, this.entityClient))
-              .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
-              .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
-              .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
-              .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
-              .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
-              .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
-              .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
-              .dataFetcher(
-                  "createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
-              .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
-              .dataFetcher(
-                  "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "batchSetDomain", new BatchSetDomainResolver(this.entityService, entityClient))
-              .dataFetcher(
-                  "updateDeprecation",
-                  new UpdateDeprecationResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
+                  .dataFetcher("updateDatasets", new MutableTypeBatchResolver<>(datasetType))
                   .dataFetcher(
-                      "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService));
+                      "createTag", new CreateTagResolver(this.entityClient, this.entityService))
+                  .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
+                  .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
+                  .dataFetcher("deleteTag", new DeleteTagResolver(entityClient))
+                  .dataFetcher("updateChart", new MutableTypeResolver<>(chartType))
+                  .dataFetcher("updateDashboard", new MutableTypeResolver<>(dashboardType))
+                  .dataFetcher("updateNotebook", new MutableTypeResolver<>(notebookType))
+                  .dataFetcher("updateDataJob", new MutableTypeResolver<>(dataJobType))
+                  .dataFetcher("updateDataFlow", new MutableTypeResolver<>(dataFlowType))
+                  .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
+                  .dataFetcher(
+                      "updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
+                  .dataFetcher(
+                      "updateERModelRelationship",
+                      new UpdateERModelRelationshipResolver(this.entityClient))
+                  .dataFetcher(
+                      "createERModelRelationship",
+                      new CreateERModelRelationshipResolver(
+                          this.entityClient, this.erModelRelationshipService))
+                  .dataFetcher("addTag", new AddTagResolver(entityService))
+                  .dataFetcher("addTags", new AddTagsResolver(entityService))
+                  .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
+                  .dataFetcher("removeTag", new RemoveTagResolver(entityService))
+                  .dataFetcher("batchRemoveTags", new BatchRemoveTagsResolver(entityService))
+                  .dataFetcher("addTerm", new AddTermResolver(entityService))
+                  .dataFetcher("batchAddTerms", new BatchAddTermsResolver(entityService))
+                  .dataFetcher("addTerms", new AddTermsResolver(entityService))
+                  .dataFetcher("removeTerm", new RemoveTermResolver(entityService))
+                  .dataFetcher("batchRemoveTerms", new BatchRemoveTermsResolver(entityService))
+                  .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
+                  .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
+                  .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
+                  .dataFetcher(
+                      "updateDescription",
+                      new UpdateDescriptionResolver(entityService, this.entityClient))
+                  .dataFetcher("addOwner", new AddOwnerResolver(entityService, entityClient))
+                  .dataFetcher("addOwners", new AddOwnersResolver(entityService, entityClient))
+                  .dataFetcher(
+                      "batchAddOwners", new BatchAddOwnersResolver(entityService, entityClient))
+                  .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService, entityClient))
+                  .dataFetcher(
+                      "batchRemoveOwners",
+                      new BatchRemoveOwnersResolver(entityService, entityClient))
+                  .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
+                  .dataFetcher(
+                      "patchEntity",
+                      new PatchEntityResolver(entityService, entityClient, entityRegistry))
+                  .dataFetcher(
+                      "patchEntities",
+                      new PatchEntitiesResolver(entityService, entityClient, entityRegistry))
+                  .dataFetcher(
+                      "updateLink", new UpdateLinkResolver(entityService, this.entityClient))
+                  .dataFetcher(
+                      "upsertLink", new UpsertLinkResolver(entityService, this.entityClient))
+                  .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
+                  .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
+                  .dataFetcher(
+                      "removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
+                  .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
+                  .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
+                  .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
+                  .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
+                  .dataFetcher(
+                      "createDomain",
+                      new CreateDomainResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
+                  .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
+                  .dataFetcher(
+                      "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "batchSetDomain",
+                      new BatchSetDomainResolver(this.entityService, entityClient))
+                  .dataFetcher(
+                      "updateDeprecation",
+                      new UpdateDeprecationResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
+                  .dataFetcher(
+                      "unsetDomain",
+                      new UnsetDomainResolver(this.entityClient, this.entityService));
           if (featureFlags.isMultipleDomainsPerEntityEnabled()) {
             w =
                 w.dataFetcher(
-                        "addDomains",
-                        new AddDomainsResolver(this.entityClient, this.entityService))
+                        "addDomains", new AddDomainsResolver(this.entityClient, this.entityService))
                     .dataFetcher(
                         "removeDomains",
                         new RemoveDomainsResolver(this.entityClient, this.entityService))
@@ -1335,195 +1342,206 @@ public class GmsGraphQLEngine {
                       "createSecret",
                       new CreateSecretResolver(this.entityClient, this.secretService))
                   .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
-              .dataFetcher(
-                  "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
-              .dataFetcher(
-                  "createAccessToken",
-                  new CreateAccessTokenResolver(this.statefulTokenService, this.entityClient))
-              .dataFetcher(
-                  "revokeAccessToken",
-                  new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
-              .dataFetcher(
-                  "createServiceAccount", new CreateServiceAccountResolver(this.entityClient))
-              .dataFetcher(
-                  "deleteServiceAccount", new DeleteServiceAccountResolver(this.entityClient))
-              .dataFetcher(
-                  "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
-              .dataFetcher(
-                  "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
-              .dataFetcher(
-                  "deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
-              .dataFetcher(
-                  "createIngestionExecutionRequest",
-                  new CreateIngestionExecutionRequestResolver(
-                      this.entityClient, this.ingestionConfiguration))
-              .dataFetcher(
-                  "cancelIngestionExecutionRequest",
-                  new CancelIngestionExecutionRequestResolver(this.entityClient))
-              .dataFetcher(
-                  "createTestConnectionRequest",
-                  new CreateTestConnectionRequestResolver(
-                      this.entityClient, this.ingestionConfiguration))
-              .dataFetcher(
-                  "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
-              .dataFetcher(
-                  "reportAssertionResult", new ReportAssertionResultResolver(assertionService))
-              .dataFetcher(
-                  "deleteAssertion",
-                  new DeleteAssertionResolver(this.entityClient, this.entityService))
-              .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
-              .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
-              .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
-              .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
-              .dataFetcher(
-                  "createGlossaryTerm",
-                  new CreateGlossaryTermResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "createGlossaryNode",
-                  new CreateGlossaryNodeResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "updateParentNode",
-                  new UpdateParentNodeResolver(this.entityService, this.entityClient))
-              .dataFetcher(
-                  "deleteGlossaryEntity",
-                  new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
-              .dataFetcher(
-                  "addRelatedTerms",
-                  new AddRelatedTermsResolver(this.entityService, this.entityClient))
-              .dataFetcher(
-                  "removeRelatedTerms",
-                  new RemoveRelatedTermsResolver(this.entityService, this.entityClient))
-              .dataFetcher(
-                  "createNativeUserResetToken",
-                  new CreateNativeUserResetTokenResolver(this.nativeUserService))
-              .dataFetcher(
-                  "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
-              .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
-              .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
-              .dataFetcher(
-                  "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
-              .dataFetcher(
-                  "acceptRole",
-                  new AcceptRoleResolver(
-                      this.roleService, this.inviteTokenService, this.systemEntityClient))
-              .dataFetcher("createPost", new CreatePostResolver(this.postService))
-              .dataFetcher("deletePost", new DeletePostResolver(this.postService))
-              .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
-              .dataFetcher(
-                  "batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
-              .dataFetcher("createView", new CreateViewResolver(this.viewService))
-              .dataFetcher("updateView", new UpdateViewResolver(this.viewService))
-              .dataFetcher("deleteView", new DeleteViewResolver(this.viewService))
-              .dataFetcher(
-                  "updateGlobalViewsSettings",
-                  new UpdateGlobalViewsSettingsResolver(this.settingsService))
-              .dataFetcher(
-                  "updateCorpUserViewsSettings",
-                  new UpdateCorpUserViewsSettingsResolver(this.settingsService))
-              .dataFetcher(
-                  "updateUserHomePageSettings",
-                  new UpdateUserHomePageSettingsResolver(this.settingsService))
-              .dataFetcher(
-                  "updateLineage",
-                  new UpdateLineageResolver(this.entityService, this.lineageService))
-              .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
-              .dataFetcher("createQuery", new CreateQueryResolver(this.queryService))
-              .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
-              .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
-              .dataFetcher(
-                  "createDataProduct",
-                  new CreateDataProductResolver(this.dataProductService, this.entityService))
-              .dataFetcher(
-                  "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
-              .dataFetcher(
-                  "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
-              .dataFetcher(
-                  "batchSetDataProduct", new BatchSetDataProductResolver(this.dataProductService))
-              .dataFetcher(
-                  "createApplication",
-                  new CreateApplicationResolver(this.applicationService, this.entityService))
-              .dataFetcher(
-                  "deleteApplication",
-                  new DeleteApplicationResolver(this.entityClient, this.applicationService))
-              .dataFetcher(
-                  "batchSetApplication", new BatchSetApplicationResolver(this.applicationService))
-              .dataFetcher(
-                  "batchUnsetApplication",
-                  new BatchUnsetApplicationResolver(this.applicationService))
-              .dataFetcher(
-                  "createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
-              .dataFetcher(
-                  "updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
-              .dataFetcher(
-                  "updateDisplayProperties",
-                  new UpdateDisplayPropertiesResolver(this.entityService))
-              .dataFetcher(
-                  "deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
-              .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))
-              .dataFetcher("batchAssignForm", new BatchAssignFormResolver(this.formService))
-              .dataFetcher(
-                  "createDynamicFormAssignment",
-                  new CreateDynamicFormAssignmentResolver(this.formService))
-              .dataFetcher(
-                  "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
-              .dataFetcher("batchRemoveForm", new BatchRemoveFormResolver(this.formService))
-              .dataFetcher(
-                  "upsertStructuredProperties",
-                  new UpsertStructuredPropertiesResolver(this.entityClient))
-              .dataFetcher(
-                  "removeStructuredProperties",
-                  new RemoveStructuredPropertiesResolver(this.entityClient))
-              .dataFetcher(
-                  "createStructuredProperty",
-                  new CreateStructuredPropertyResolver(this.entityClient))
-              .dataFetcher(
-                  "updateStructuredProperty",
-                  new UpdateStructuredPropertyResolver(this.entityClient))
-              .dataFetcher(
-                  "deleteStructuredProperty",
-                  new DeleteStructuredPropertyResolver(this.entityClient))
-              .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
-              .dataFetcher(
-                  "updateIncidentStatus",
-                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "updateIncident",
-                  new UpdateIncidentResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "createForm", new CreateFormResolver(this.entityClient, this.formService))
-              .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
-              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
-              .dataFetcher(
-                  "upsertPageTemplate", new UpsertPageTemplateResolver(this.pageTemplateService))
-              .dataFetcher(
-                  "deletePageTemplate", new DeletePageTemplateResolver(this.pageTemplateService))
-              .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
-              .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
-              .dataFetcher(
-                  "createDataHubFile",
-                  new CreateDataHubFileResolver(
-                      this.dataHubFileService, this.datahubConfiguration.getS3()))
-              .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
-              .dataFetcher(
-                  "updateDocPropagationSettings",
-                  new UpdateDocPropagationSettingsResolver(this.settingsService))
-              .dataFetcher(
-                  "updateApplicationsSettings",
-                  new UpdateApplicationsSettingsResolver(this.settingsService))
-              .dataFetcher(
-                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
+                  .dataFetcher(
+                      "updateSecret",
+                      new UpdateSecretResolver(this.entityClient, this.secretService))
+                  .dataFetcher(
+                      "createAccessToken",
+                      new CreateAccessTokenResolver(this.statefulTokenService, this.entityClient))
+                  .dataFetcher(
+                      "revokeAccessToken",
+                      new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
+                  .dataFetcher(
+                      "createServiceAccount", new CreateServiceAccountResolver(this.entityClient))
+                  .dataFetcher(
+                      "deleteServiceAccount", new DeleteServiceAccountResolver(this.entityClient))
+                  .dataFetcher(
+                      "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+                  .dataFetcher(
+                      "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+                  .dataFetcher(
+                      "deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
+                  .dataFetcher(
+                      "createIngestionExecutionRequest",
+                      new CreateIngestionExecutionRequestResolver(
+                          this.entityClient, this.ingestionConfiguration))
+                  .dataFetcher(
+                      "cancelIngestionExecutionRequest",
+                      new CancelIngestionExecutionRequestResolver(this.entityClient))
+                  .dataFetcher(
+                      "createTestConnectionRequest",
+                      new CreateTestConnectionRequestResolver(
+                          this.entityClient, this.ingestionConfiguration))
+                  .dataFetcher(
+                      "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
+                  .dataFetcher(
+                      "reportAssertionResult", new ReportAssertionResultResolver(assertionService))
+                  .dataFetcher(
+                      "deleteAssertion",
+                      new DeleteAssertionResolver(this.entityClient, this.entityService))
+                  .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
+                  .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
+                  .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
+                  .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
+                  .dataFetcher(
+                      "createGlossaryTerm",
+                      new CreateGlossaryTermResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "createGlossaryNode",
+                      new CreateGlossaryNodeResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "updateParentNode",
+                      new UpdateParentNodeResolver(this.entityService, this.entityClient))
+                  .dataFetcher(
+                      "deleteGlossaryEntity",
+                      new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
+                  .dataFetcher(
+                      "addRelatedTerms",
+                      new AddRelatedTermsResolver(this.entityService, this.entityClient))
+                  .dataFetcher(
+                      "removeRelatedTerms",
+                      new RemoveRelatedTermsResolver(this.entityService, this.entityClient))
+                  .dataFetcher(
+                      "createNativeUserResetToken",
+                      new CreateNativeUserResetTokenResolver(this.nativeUserService))
+                  .dataFetcher(
+                      "batchUpdateSoftDeleted",
+                      new BatchUpdateSoftDeletedResolver(this.entityService))
+                  .dataFetcher(
+                      "updateUserSetting", new UpdateUserSettingResolver(this.entityService))
+                  .dataFetcher(
+                      "rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
+                  .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+                  .dataFetcher(
+                      "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
+                  .dataFetcher(
+                      "acceptRole",
+                      new AcceptRoleResolver(
+                          this.roleService, this.inviteTokenService, this.systemEntityClient))
+                  .dataFetcher("createPost", new CreatePostResolver(this.postService))
+                  .dataFetcher("deletePost", new DeletePostResolver(this.postService))
+                  .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
+                  .dataFetcher(
+                      "batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
+                  .dataFetcher("createView", new CreateViewResolver(this.viewService))
+                  .dataFetcher("updateView", new UpdateViewResolver(this.viewService))
+                  .dataFetcher("deleteView", new DeleteViewResolver(this.viewService))
+                  .dataFetcher(
+                      "updateGlobalViewsSettings",
+                      new UpdateGlobalViewsSettingsResolver(this.settingsService))
+                  .dataFetcher(
+                      "updateCorpUserViewsSettings",
+                      new UpdateCorpUserViewsSettingsResolver(this.settingsService))
+                  .dataFetcher(
+                      "updateUserHomePageSettings",
+                      new UpdateUserHomePageSettingsResolver(this.settingsService))
+                  .dataFetcher(
+                      "updateLineage",
+                      new UpdateLineageResolver(this.entityService, this.lineageService))
+                  .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
+                  .dataFetcher("createQuery", new CreateQueryResolver(this.queryService))
+                  .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
+                  .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
+                  .dataFetcher(
+                      "createDataProduct",
+                      new CreateDataProductResolver(this.dataProductService, this.entityService))
+                  .dataFetcher(
+                      "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
+                  .dataFetcher(
+                      "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
+                  .dataFetcher(
+                      "batchSetDataProduct",
+                      new BatchSetDataProductResolver(this.dataProductService))
+                  .dataFetcher(
+                      "createApplication",
+                      new CreateApplicationResolver(this.applicationService, this.entityService))
+                  .dataFetcher(
+                      "deleteApplication",
+                      new DeleteApplicationResolver(this.entityClient, this.applicationService))
+                  .dataFetcher(
+                      "batchSetApplication",
+                      new BatchSetApplicationResolver(this.applicationService))
+                  .dataFetcher(
+                      "batchUnsetApplication",
+                      new BatchUnsetApplicationResolver(this.applicationService))
+                  .dataFetcher(
+                      "createOwnershipType",
+                      new CreateOwnershipTypeResolver(this.ownershipTypeService))
+                  .dataFetcher(
+                      "updateOwnershipType",
+                      new UpdateOwnershipTypeResolver(this.ownershipTypeService))
+                  .dataFetcher(
+                      "updateDisplayProperties",
+                      new UpdateDisplayPropertiesResolver(this.entityService))
+                  .dataFetcher(
+                      "deleteOwnershipType",
+                      new DeleteOwnershipTypeResolver(this.ownershipTypeService))
+                  .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))
+                  .dataFetcher("batchAssignForm", new BatchAssignFormResolver(this.formService))
+                  .dataFetcher(
+                      "createDynamicFormAssignment",
+                      new CreateDynamicFormAssignmentResolver(this.formService))
+                  .dataFetcher(
+                      "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
+                  .dataFetcher("batchRemoveForm", new BatchRemoveFormResolver(this.formService))
+                  .dataFetcher(
+                      "upsertStructuredProperties",
+                      new UpsertStructuredPropertiesResolver(this.entityClient))
+                  .dataFetcher(
+                      "removeStructuredProperties",
+                      new RemoveStructuredPropertiesResolver(this.entityClient))
+                  .dataFetcher(
+                      "createStructuredProperty",
+                      new CreateStructuredPropertyResolver(this.entityClient))
+                  .dataFetcher(
+                      "updateStructuredProperty",
+                      new UpdateStructuredPropertyResolver(this.entityClient))
+                  .dataFetcher(
+                      "deleteStructuredProperty",
+                      new DeleteStructuredPropertyResolver(this.entityClient))
+                  .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
+                  .dataFetcher(
+                      "updateIncidentStatus",
+                      new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "updateIncident",
+                      new UpdateIncidentResolver(this.entityClient, this.entityService))
+                  .dataFetcher(
+                      "createForm", new CreateFormResolver(this.entityClient, this.formService))
+                  .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
+                  .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
+                  .dataFetcher(
+                      "upsertPageTemplate",
+                      new UpsertPageTemplateResolver(this.pageTemplateService))
+                  .dataFetcher(
+                      "deletePageTemplate",
+                      new DeletePageTemplateResolver(this.pageTemplateService))
+                  .dataFetcher(
+                      "upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
+                  .dataFetcher(
+                      "deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
+                  .dataFetcher(
+                      "createDataHubFile",
+                      new CreateDataHubFileResolver(
+                          this.dataHubFileService, this.datahubConfiguration.getS3()))
+                  .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
+                  .dataFetcher(
+                      "updateDocPropagationSettings",
+                      new UpdateDocPropagationSettingsResolver(this.settingsService))
+                  .dataFetcher(
+                      "updateApplicationsSettings",
+                      new UpdateApplicationsSettingsResolver(this.settingsService))
+                  .dataFetcher(
+                      "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             w =
                 w.dataFetcher(
                         "createBusinessAttribute",
                         new CreateBusinessAttributeResolver(
-                            this.entityClient,
-                            this.entityService,
-                            this.businessAttributeService))
+                            this.entityClient, this.entityService, this.businessAttributeService))
                     .dataFetcher(
                         "updateBusinessAttribute",
                         new UpdateBusinessAttributeResolver(
