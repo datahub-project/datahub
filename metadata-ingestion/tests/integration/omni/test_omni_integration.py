@@ -103,43 +103,47 @@ def _collect_workunits(source: OmniSource) -> List[Dict[str, Any]]:
 
 @time_machine.travel(FROZEN_TIME)
 def test_omni_ingestion_golden_file(
-    pytestconfig: pytest.Config, tmp_path: pathlib.Path
-) -> None:
-    """Full end-to-end ingestion compared against a golden JSON file.
+      pytestconfig: pytest.Config, tmp_path: pathlib.Path
+  ) -> None:
+      output_path = tmp_path / "omni_mces.json"
 
-    Run with --update-golden-files to regenerate after intentional changes.
-    """
-    source = _build_source()
-    events = _collect_workunits(source)
+      pipeline = Pipeline.create(
+          {
+              "source": {
+                  "type": "omni",
+                  "config": {
+                      "base_url": "https://acme.omniapp.co/api",
+                      "api_key": "test-key",
+                      "include_workbook_only": True,
+                      "include_column_lineage": True,
+                      "connection_to_platform": {
+                          "conn-snow-prod": "snowflake",
+                          "conn-snow-staging": "snowflake",
+                      },
+                      "connection_to_database": {
+                          "conn-snow-prod": "ANALYTICS_PROD",
+                          "conn-snow-staging": "ANALYTICS_STAGING",
+                      },
+                      "connection_to_platform_instance": {
+                          "conn-snow-prod": "snowflake",
+                      },
+                  },
+              },
+              "sink": {"type": "file", "config": {"filename": str(output_path)}},
+          }
+      )
+      # inject fake client before running
+      pipeline.source.client = FakeOmniClientFull()
+      pipeline.run()
+      pipeline.raise_from_status()
 
-    if pytestconfig.getoption("--update-golden-files", default=False):
-        GOLDEN_FILE.write_text(
-            json.dumps(events, indent=2, default=str) + "\n",
-            encoding="utf-8",
-        )
-        pytest.skip(f"Golden file updated: {GOLDEN_FILE}")
-        return
-
-    assert GOLDEN_FILE.exists(), (
-        f"Golden file not found: {GOLDEN_FILE}. "
-        "Run with --update-golden-files to generate it."
-    )
-    golden = json.loads(GOLDEN_FILE.read_text(encoding="utf-8"))
-
-    # Compare ignoring aspect-level diffs that include timestamps —
-    # we assert structural completeness instead.
-    actual_keys = {(e["entityUrn"], e["aspectName"]) for e in events}
-    golden_keys = {(e["entityUrn"], e["aspectName"]) for e in golden}
-
-    missing_from_actual = golden_keys - actual_keys
-    extra_in_actual = actual_keys - golden_keys
-
-    assert not missing_from_actual, (
-        f"Expected events missing from output: {sorted(missing_from_actual)}"
-    )
-    assert not extra_in_actual, (
-        f"Unexpected extra events in output: {sorted(extra_in_actual)}"
-    )
+      # ✅ Full JSON diff — every field in every aspect is compared
+      mce_helpers.check_golden_file(
+          pytestconfig,
+          output_path=output_path,
+          golden_path=GOLDEN_FILE,
+          ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+      )
 
 
 # ---------------------------------------------------------------------------
