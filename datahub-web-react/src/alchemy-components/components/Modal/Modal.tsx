@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, ButtonProps, Heading, Icon, Text, typography } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
@@ -11,8 +10,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once rgba(9, 1, 61, 0.12) is mapped
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
         border-radius: 12px;
     }
 
