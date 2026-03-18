@@ -1,3 +1,4 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
 
@@ -42,7 +43,7 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
                 value={localSearchText}
                 placeholder={options?.placeholder || 'Search...'}
                 onChange={(e) => setLocalSearchText(e.target.value)}
-                icon={options?.hidePrefix ? undefined : { icon: 'MagnifyingGlass', source: 'phosphor' }}
+                icon={options?.hidePrefix ? undefined : { icon: MagnifyingGlass }}
                 label=""
             />
             {searchText && !options?.hideMatchCountText && (

@@ -1,4 +1,6 @@
 import { Button } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -38,7 +40,7 @@ export default function ExpandableAnnouncements({ announcements, onDismiss }: Pr
                     <Button
                         color="gray"
                         variant="link"
-                        icon={{ icon: 'CaretUp', source: 'phosphor' }}
+                        icon={{ icon: CaretUp }}
                         iconPosition="right"
                         onClick={() => setIsExpanded(false)}
                     >
@@ -53,7 +55,7 @@ export default function ExpandableAnnouncements({ announcements, onDismiss }: Pr
                 <Button
                     color="gray"
                     variant="link"
-                    icon={{ icon: 'CaretDown', source: 'phosphor' }}
+                    icon={{ icon: CaretDown }}
                     iconPosition="right"
                     onClick={() => setIsExpanded(true)}
                 >

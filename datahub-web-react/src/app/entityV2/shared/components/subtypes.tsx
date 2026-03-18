@@ -1,5 +1,10 @@
 import Icon from '@ant-design/icons';
-import { ChartLine, Database as DatabaseIcon, Funnel, Graph, Stack, Table as TableIcon } from '@phosphor-icons/react';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { Database as DatabaseIcon } from '@phosphor-icons/react/dist/csr/Database';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React from 'react';
 
 import TableauEmbeddedDataSourceLogo from '@images/tableau-embedded-data-source.svg?react';
