@@ -1,4 +1,5 @@
 import { Button } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -7,6 +8,7 @@ import { ALLOWED_RELATED_ASSET_TYPES } from '@app/document/utils/documentUtils';
 import { AddRelatedEntityDropdown } from '@app/entityV2/document/summary/AddRelatedEntityDropdown';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { AndFilterInput, DocumentRelatedAsset, DocumentRelatedDocument, EntityType, FilterOperator } from '@types';
@@ -198,7 +200,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                                 {canEdit && onRemoveEntity && (
                                     <TrashButton
                                         variant="text"
-                                        icon={{ icon: 'Trash', source: 'phosphor', color: 'red' }}
+                                        icon={{ icon: Trash, color: 'red' }}
                                         size="md"
                                         className="trash-button"
                                         onClick={(e) => {

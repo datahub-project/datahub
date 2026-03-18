@@ -6,6 +6,7 @@ import {
     TableOutlined,
 } from '@ant-design/icons';
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Input, Popover, Select, Tooltip, Typography } from 'antd';
 import { debounce } from 'lodash';
 import React from 'react';
@@ -14,6 +15,7 @@ import styled from 'styled-components/macro';
 
 import CustomPagination from '@app/entity/dataset/profile/schema/components/CustomPagination';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import getSchemaFilterFromQueryString from '@app/entity/shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
 import { navigateToVersionedDatasetUrl } from '@app/entity/shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
@@ -247,7 +249,7 @@ export default function SchemaHeader({
                             placeholder="Search in schema..."
                             onChange={debouncedSetFilterText}
                             allowClear
-                            prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                            prefix={<Icon icon={MagnifyingGlass} />}
                         />
                     )}
                 </LeftButtonsGroup>

@@ -1,5 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { colors } from '@components';
-import { X } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import styled from 'styled-components';
 
 export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
