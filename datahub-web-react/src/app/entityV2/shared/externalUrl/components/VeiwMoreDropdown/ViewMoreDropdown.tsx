@@ -1,4 +1,4 @@
-import { CaretDown } from '@phosphor-icons/react';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
