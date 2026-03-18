@@ -173,9 +173,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     return candidate_urn, schema_info
 
         if self.graph:
-            # Exclude URNs already present in the cache, including those stored as None.
-            # A None entry means a prior lookup found nothing, so we skip them
-            # to avoid making repeated API calls for known-missing schemas.
+            # Skip URNs already in cache (None entries included) to avoid repeated API calls.
             urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
 
             if urns_to_fetch:
@@ -213,11 +211,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     AssertionError,
                 ) as e:
                     logger.warning(
-                        f"Batch fetch failed ({type(e).__name__}): {e}. "
-                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
+                        f"Batch schema fetch failed ({type(e).__name__}): {e}. "
+                        f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
                         exc_info=True,
                     )
-                    self._fallback_fetch_schemas(urns_to_fetch)
+                    for fetch_urn in urns_to_fetch:
+                        self._save_to_cache(fetch_urn, None)
 
             for candidate_urn in urns_to_try:
                 schema_info = self._schema_cache.get(candidate_urn)
@@ -240,12 +239,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return self._schema_cache.get(urn) is not None
 
     def _track_cache_hit(self) -> None:
-        """Track a cache hit in the report if reporting is enabled."""
+        """Track a cache hit if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_hits += 1
 
     def _track_cache_miss(self) -> None:
-        """Track a cache miss in the report if reporting is enabled."""
+        """Track a cache miss if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
 
@@ -268,41 +267,20 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
-        """Add schema metadata from an ingestion source.
-
-        Always overwrites any previously cached value because ingestion-provided
-        schemas are authoritative and fresh from the source system.
-        Use this for schemas discovered during ingestion.
-
-        See also: add_schema_metadata_from_fetch (for schemas retrieved on-demand
-        from the DataHub API, which must not override ingestion-provided schemas).
-        """
         schema_info = _convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
     def add_schema_metadata_from_fetch(
         self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
     ) -> None:
-        """Cache a schema retrieved on-demand from the DataHub API.
-
-        Unlike add_schema_metadata, this never overwrites an existing non-None
-        entry, so ingestion-provided schemas always take precedence. Always stores
-        a result (including None) to prevent repeated API calls for missing schemas.
-        Use this for schemas fetched lazily via the graph client.
-        """
-        if urn in self._schema_cache:
-            existing = self._schema_cache[urn]
-            if existing is not None:
-                logger.debug(
-                    f"Skipping DataHub schema for {urn} - already in cache from ingestion"
-                )
-                return
-
-        if schema_metadata is not None:
-            schema_info = _convert_schema_aspect_to_info(schema_metadata)
-            self._save_to_cache(urn, schema_info)
-        else:
-            self._save_to_cache(urn, None)
+        # Always stores a result (including None) to prevent repeated API calls
+        # for schemas not found in DataHub.
+        schema_info = (
+            _convert_schema_aspect_to_info(schema_metadata)
+            if schema_metadata is not None
+            else None
+        )
+        self._save_to_cache(urn, schema_info)
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)

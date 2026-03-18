@@ -199,29 +199,21 @@ class TestResolveTableBatching:
         assert "fresh_col" in schema_info
         mock_graph.get_entities.assert_not_called()
 
-    def test_fallback_on_batch_error(self, schema_resolver, mock_graph):
+    def test_batch_error_caches_none_and_no_fallback(self, schema_resolver, mock_graph):
+        """Test that batch errors cache None for all URNs without falling back to individual fetches."""
         mock_graph.get_entities.side_effect = ConnectionError("Network error")
-        mock_graph.get_aspect.return_value = create_mock_schema([("col1", "string")])
-
-        table = _TableName(database="db", db_schema="schema", table="table")
-        resolved_urn, schema_info = schema_resolver.resolve_table(table)
-
-        assert schema_info is not None
-        assert "col1" in schema_info
-        assert mock_graph.get_entities.call_count == 1
-        assert mock_graph.get_aspect.call_count >= 1
-
-    def test_handles_batch_errors_gracefully(self, schema_resolver, mock_graph):
-        """Test that batch errors trigger fallback to individual fetches."""
-        mock_graph.get_entities.side_effect = ValueError("Unexpected batch error")
-        mock_graph.get_aspect.return_value = None
 
         table = _TableName(database="db", db_schema="schema", table="table")
         resolved_urn, schema_info = schema_resolver.resolve_table(table)
 
         assert schema_info is None
         assert mock_graph.get_entities.call_count == 1
-        assert mock_graph.get_aspect.call_count >= 1
+        mock_graph.get_aspect.assert_not_called()
+
+        # Verify URNs are cached as None to prevent repeated lookups
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 is None
+        assert mock_graph.get_entities.call_count == 1
 
     def test_handles_not_found(self, schema_resolver, mock_graph):
         mock_graph.get_entities.return_value = {}
@@ -306,66 +298,6 @@ class TestResolveTableBatching:
         resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
         assert schema_info2 is None
         assert mock_graph.get_entities.call_count == 1
-
-    def test_http_error_triggers_fallback(self, schema_resolver, mock_graph):
-        """Test that HTTP errors trigger fallback to individual fetches."""
-        from requests.models import HTTPError
-
-        mock_graph.get_entities.side_effect = HTTPError("503 Service Unavailable")
-        mock_graph.get_aspect.return_value = None
-
-        table = _TableName(database="db", db_schema="schema", table="table")
-        resolved_urn, schema_info = schema_resolver.resolve_table(table)
-
-        assert schema_info is None
-        assert mock_graph.get_entities.call_count == 1
-        assert mock_graph.get_aspect.call_count >= 1
-
-    def test_json_decode_error_triggers_fallback(self, schema_resolver, mock_graph):
-        """Test that JSON parsing errors trigger fallback to individual fetches."""
-        import json
-
-        mock_graph.get_entities.side_effect = json.JSONDecodeError(
-            "Invalid JSON", "", 0
-        )
-        mock_graph.get_aspect.return_value = None
-
-        table = _TableName(database="db", db_schema="schema", table="table")
-        resolved_urn, schema_info = schema_resolver.resolve_table(table)
-
-        assert schema_info is None
-        assert mock_graph.get_entities.call_count == 1
-        assert mock_graph.get_aspect.call_count >= 1
-
-    def test_graph_error_triggers_fallback(self, schema_resolver, mock_graph):
-        """Test that GraphError triggers fallback to individual fetches."""
-        from datahub.configuration.common import GraphError
-
-        mock_graph.get_entities.side_effect = GraphError(
-            "Failed to find aspect in response"
-        )
-        mock_graph.get_aspect.return_value = None
-
-        table = _TableName(database="db", db_schema="schema", table="table")
-        resolved_urn, schema_info = schema_resolver.resolve_table(table)
-
-        assert schema_info is None
-        assert mock_graph.get_entities.call_count == 1
-        assert mock_graph.get_aspect.call_count >= 1
-
-    def test_assertion_error_triggers_fallback(self, schema_resolver, mock_graph):
-        """Test that AssertionError during deserialization triggers fallback."""
-        mock_graph.get_entities.side_effect = AssertionError(
-            "Aspect type mismatch during deserialization"
-        )
-        mock_graph.get_aspect.return_value = None
-
-        table = _TableName(database="db", db_schema="schema", table="table")
-        resolved_urn, schema_info = schema_resolver.resolve_table(table)
-
-        assert schema_info is None
-        assert mock_graph.get_entities.call_count == 1
-        assert mock_graph.get_aspect.call_count >= 1
 
 
 class TestTableNameParts:
