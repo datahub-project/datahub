@@ -1,3 +1,9 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
@@ -197,21 +203,21 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
             type: 'item' as const,
             key: 'create-token',
             title: 'Create Token',
-            icon: 'Key',
+            icon: Key,
             onClick: () => setIsCreatingToken(true),
         },
         {
             type: 'item' as const,
             key: 'copy-urn',
             title: 'Copy URN',
-            icon: 'Copy',
+            icon: Copy,
             onClick: handleCopyUrn,
         },
         {
             type: 'item' as const,
             key: 'delete',
             title: 'Delete',
-            icon: 'Trash',
+            icon: Trash,
             danger: true,
             onClick: () => setIsConfirmingDelete(true),
         },
@@ -222,7 +228,7 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
             <Menu items={items}>
                 <Button
                     variant="text"
-                    icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                    icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                     isCircle
                     style={ActionsButtonStyle}
                     data-testid={`service-account-menu-${serviceAccount.name}`}
@@ -392,7 +398,7 @@ export const ServiceAccountTable = ({
                             </Text>
                         ) : (
                             <>
-                                <Icon icon="Robot" source="phosphor" size="4xl" color="gray" />
+                                <Icon icon={Robot} size="4xl" color="gray" />
                                 <Text size="md" color="gray">
                                     No service accounts found
                                 </Text>

@@ -1,4 +1,5 @@
 import { Button, PageTitle } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -38,7 +39,7 @@ export default function ManagePosts() {
                 <Button
                     variant="filled"
                     data-testid="posts-create-post-v2"
-                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                    icon={{ icon: Plus }}
                     onClick={() => setIsCreatingPost(true)}
                 >
                     Create new post

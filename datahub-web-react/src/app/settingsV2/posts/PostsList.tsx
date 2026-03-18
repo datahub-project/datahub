@@ -1,3 +1,4 @@
+import { Note } from '@phosphor-icons/react/dist/csr/Note';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -170,7 +171,7 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                 />
             );
         }
-        return <EmptyState icon="Note" title="No Posts" description="Create a new post to get started." />;
+        return <EmptyState icon={Note} title="No Posts" description="Create a new post to get started." />;
     };
 
     return (

@@ -1,3 +1,5 @@
+import React from 'react';
+
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { SummaryElementType } from '@types';
 
@@ -15,7 +17,7 @@ export enum PropertyType {
 export interface AssetProperty {
     name: string;
     type: SummaryElementType;
-    icon?: string;
+    icon?: React.ComponentType<any>;
     key?: string;
     structuredProperty?: StructuredPropertyFieldsFragment;
 }

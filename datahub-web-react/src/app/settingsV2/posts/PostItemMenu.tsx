@@ -1,3 +1,6 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
 
 import handleGraphQLError from '@app/shared/handleGraphQLError';
@@ -46,14 +49,14 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
                         type: 'item',
                         key: 'edit',
                         title: 'Edit',
-                        icon: 'PencilSimple',
+                        icon: PencilSimple,
                         onClick: () => onEdit?.(),
                     },
                     {
                         type: 'item',
                         key: 'delete',
                         title: 'Delete',
-                        icon: 'Trash',
+                        icon: Trash,
                         danger: true,
                         onClick: () => setShowConfirmDelete(true),
                     },
@@ -63,7 +66,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
                     variant="text"
                     isCircle
                     size="lg"
-                    icon={{ icon: 'DotsThreeVertical', source: 'phosphor', size: 'xl', weight: 'bold' }}
+                    icon={{ icon: DotsThreeVertical, size: 'xl', weight: 'bold' }}
                     data-testid="dropdown-menu-item"
                 />
             </Menu>
