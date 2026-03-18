@@ -1228,7 +1228,7 @@ pyparsing==3.3.2
     #   acryl-great-expectations
     #   pyiceberg
     #   rdflib
-pypdf==6.8.0
+pypdf==6.9.1
     # via unstructured-client
 pypdfium2==5.6.0
     # via unstructured-client
