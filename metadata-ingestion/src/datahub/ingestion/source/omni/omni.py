@@ -203,12 +203,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             displayName="Omni",
             logoUrl=self.DEFAULT_LOGO_URL,
         )
-        yield self._as_wu(
-            MetadataChangeProposalWrapper(
-                entityUrn=make_data_platform_urn(self.PLATFORM),
-                aspect=platform_info,
-            )
-        )
+          MetadataChangeProposalWrapper(
+              entityUrn=make_data_platform_urn(self.PLATFORM),
+              aspect=platform_info,
+          ).as_workunit()
 
     def _emit_upstream_lineage(
         self,
