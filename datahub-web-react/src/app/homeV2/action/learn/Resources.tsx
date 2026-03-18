@@ -1,12 +1,12 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { ApiOutlined } from '@ant-design/icons';
 import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Col, Row, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { PersonaType } from '@app/homeV2/shared/types';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
@@ -42,7 +42,7 @@ const Section = styled.div`
 `;
 
 const Card = styled.div`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     background-color: #ffffff;
     overflow: hidden;
@@ -50,7 +50,7 @@ const Card = styled.div`
 `;
 
 const ResourceLink = styled.a`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 0px 16px;
     font-size: 14px;
     display: flex;
@@ -72,7 +72,7 @@ const ResourceLink = styled.a`
 
 const ResourceTitle = styled.div`
     margin-top: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     text-align: center;
     opacity: 0.9;
     :hover {

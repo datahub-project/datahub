@@ -1,3 +1,4 @@
+import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -68,7 +69,7 @@ const ActorDisplay: React.FC<ActorDisplayProps> = ({ actorName, actor }) => {
     if (isSystem) {
         return (
             <ActorName>
-                <Icon icon="Sparkle" color="violet" size="sm" />
+                <Icon icon={Sparkle} color="violet" size="sm" />
                 {actorName}
             </ActorName>
         );

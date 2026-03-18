@@ -1,4 +1,5 @@
 import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -46,7 +47,7 @@ const ImpactAnalysisWarning = styled.div`
 
 const StyledButton = styled(Button)`
     margin-left: auto;
-    color: #ee9521;
+    color: ${(props) => props.theme.colors.iconWarning};
     padding: 0;
 `;
 
@@ -160,7 +161,7 @@ export default function EmbeddedListSearchHeader({
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}
                         variant="text"
-                        icon={{ icon: 'Close' }}
+                        icon={{ icon: X }}
                         size="xl"
                         data-testid="close-lightning-cache-warning"
                     />

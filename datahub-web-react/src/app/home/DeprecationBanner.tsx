@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -28,7 +29,7 @@ export default function DeprecationBanner() {
     return (
         <PageBanner
             localStorageKey="v1UIDeprecationAnnouncement"
-            icon={<Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />}
+            icon={<Icon icon={ExclamationMark} color="red" weight="fill" />}
             content={content}
         />
     );
