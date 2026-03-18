@@ -1,3 +1,4 @@
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -212,7 +213,7 @@ export const GroupList = ({
                     <EmptyState
                         title="No groups found"
                         description="Create a group to organize users and manage access controls"
-                        icon="UsersThree"
+                        icon={UsersThree}
                         action={{ label: 'Create Group', onClick: () => setIsCreatingGroup(true) }}
                         style={{ flex: 1, justifyContent: 'center' }}
                     />

@@ -1,3 +1,6 @@
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -210,14 +213,14 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
             type: 'item' as const,
             key: 'copy-urn',
             title: 'Copy URN',
-            icon: 'Copy',
+            icon: Copy,
             onClick: handleCopyUrn,
         },
         {
             type: 'item' as const,
             key: 'delete',
             title: 'Delete',
-            icon: 'Trash',
+            icon: Trash,
             danger: true,
             onClick: () => setIsConfirmingDelete(true),
         },
@@ -228,7 +231,7 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
             <Menu items={items}>
                 <Button
                     variant="text"
-                    icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                    icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                     isCircle
                     data-testid={`group-menu-${displayName}`}
                 />

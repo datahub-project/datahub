@@ -1,3 +1,5 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -213,8 +215,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 variant="text"
                 onClick={() => setShowAdvanced(!showAdvanced)}
                 icon={{
-                    icon: showAdvanced ? 'CaretDown' : 'CaretRight',
-                    source: 'phosphor',
+                    icon: showAdvanced ? CaretDown : CaretRight,
                     size: 'md',
                     color: 'gray',
                 }}
