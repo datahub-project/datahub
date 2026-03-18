@@ -9,13 +9,13 @@ References:
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Iterable, Optional
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
 from datahub.sdk.container import Container
+from datahub.utilities.str_enum import StrEnum
 
 # Shared platform name for Fabric workspace containers.
 # All Fabric connectors (OneLake, Data Factory, etc.) use this so that a
@@ -113,7 +113,7 @@ class FabricItem:
     description: Optional[str] = None
 
 
-class ItemJobStatus(str, Enum):
+class ItemJobStatus(StrEnum):
     """Fabric Job Scheduler status values.
 
     Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/list-item-job-instances
@@ -127,7 +127,7 @@ class ItemJobStatus(str, Enum):
     DEDUPED = "Deduped"
 
 
-class InvokeType(str, Enum):
+class InvokeType(StrEnum):
     """Fabric Job Scheduler invoke type values.
 
     Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/list-item-job-instances
