@@ -9,12 +9,13 @@ import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
+import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
+import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { ErrorCodes } from '@app/shared/constants';
-import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
@@ -55,8 +56,8 @@ const injectVariablesLink = new ApolloLink((operation, forward) => {
     // eslint-disable-next-line no-param-reassign
     operation.variables = {
         ...operation.variables,
-        skipSiblingsSearch: showSeparateSiblingsRef.current.showSeparateSiblings,
-        skipLineage: hideLineageInSearchCardsRef.current.hideLineageInSearchCards,
+        skipSiblingsSearch: showSeparateSiblingsRef.current,
+        skipLineage: hideLineageInSearchCardsRef.current,
     };
 
     return forward(operation);
@@ -101,6 +102,7 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <GlobalStyles />
+                <ToastRenderer />
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

@@ -6,6 +6,7 @@ from typing import Dict, Final, Iterable, List, Optional, Tuple
 from sqlalchemy.engine.url import URL, make_url
 
 from datahub.ingestion.source.kafka_connect.common import (
+    JDBC_PREFIX,
     KAFKA,
     BaseConnector,
     ConnectorManifest,
@@ -664,7 +665,7 @@ class JdbcSinkParserFactory:
             JdbcSinkParser with parsed configuration
         """
         # Parse JDBC URL using SQLAlchemy
-        jdbc_url = remove_prefix(connection_url, "jdbc:")
+        jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
         url_instance = make_url(jdbc_url)
 
         # Extract database name
@@ -816,10 +817,12 @@ class JdbcSinkParserFactory:
 @dataclass
 class JdbcSinkConnector(BaseConnector):
     """
-    Generic JDBC sink connector for Confluent Cloud managed JDBC sinks.
+    Generic JDBC sink connector supporting both Confluent Cloud and self-hosted variants.
 
-    Supports PostgresSink and MySqlSink connectors that write Kafka topics
-    to database tables.
+    Supported connector classes:
+    - PostgresSink / MySqlSink (Confluent Cloud): platform passed explicitly
+    - io.debezium.connector.jdbc.JdbcSinkConnector: platform auto-detected from connection.url
+    - io.confluent.connect.jdbc.JdbcSinkConnector: platform auto-detected from connection.url
 
     This implementation follows the patterns established in source connectors:
     - Uses dedicated parser classes for configuration
@@ -827,17 +830,44 @@ class JdbcSinkConnector(BaseConnector):
     - Utilizes common utility functions for consistency
     """
 
-    platform: str = "postgres"  # Default platform, overridden in __init__
+    platform: str = "unknown"
 
     def __init__(
         self,
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
-        platform: str = "postgres",
+        platform: Optional[str] = None,
     ):
         super().__init__(manifest, config, report)
-        self.platform = platform
+        if platform is not None:
+            self.platform = platform
+        else:
+            # Auto-detect from connection.url for self-hosted connectors
+            # (e.g. io.debezium.connector.jdbc.JdbcSinkConnector,
+            #  io.confluent.connect.jdbc.JdbcSinkConnector)
+            connection_url = manifest.config.get("connection.url", "")
+            if connection_url:
+                if not validate_jdbc_url(connection_url):
+                    report.warning(
+                        "Invalid JDBC URL in connector configuration. Expected format: jdbc:<scheme>://<host>/<db>",
+                        context=f"{manifest.name}: {connection_url}",
+                    )
+                    self.platform = "unknown"
+                else:
+                    jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
+                    self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
+                    if self.platform == "external":
+                        report.warning(
+                            "Could not detect target platform from connection.url. JDBC scheme not in known platforms.",
+                            context=f"{manifest.name}: {connection_url}",
+                        )
+            else:
+                report.warning(
+                    "No 'connection.url' found in connector configuration. Cannot auto-detect target platform.",
+                    context=manifest.name,
+                )
+                self.platform = "unknown"
         self._parser_factory = JdbcSinkParserFactory()
 
     def get_parser(self) -> JdbcSinkParser:
@@ -977,17 +1007,29 @@ class JdbcSinkConnector(BaseConnector):
             # Get topics the connector subscribes to from its configuration
             subscribed_topics = set(self.get_topics_from_config())
 
-            # Filter available topics to only those the connector subscribes to
             if subscribed_topics:
-                topic_list = list(available_topics.intersection(subscribed_topics))
-                logger.debug(
-                    f"Filtered to {len(topic_list)} subscribed topics for {self.connector_manifest.name}: {topic_list}"
-                )
+                if available_topics:
+                    # Runtime topic data available — intersect to exclude stale topics
+                    topic_list = list(available_topics.intersection(subscribed_topics))
+                    logger.debug(
+                        f"Resolved {len(topic_list)} topics for {self.connector_manifest.name} "
+                        f"(intersection of {len(available_topics)} runtime topics and "
+                        f"{len(subscribed_topics)} configured topics)"
+                    )
+                else:
+                    # Runtime /topics API returned nothing (connector hasn't processed
+                    # messages yet, or topics were reset) — trust the config directly
+                    topic_list = list(subscribed_topics)
+                    logger.debug(
+                        f"Runtime topics empty for {self.connector_manifest.name}, "
+                        f"using {len(topic_list)} topics from connector config"
+                    )
             else:
-                # If no subscription config, use all available topics (OSS behavior)
+                # No subscription config found — use whatever the runtime API returned
                 topic_list = list(available_topics)
                 logger.debug(
-                    f"No subscription filter found, using all {len(topic_list)} available topics"
+                    f"No subscription config found for {self.connector_manifest.name}, "
+                    f"using all {len(topic_list)} available topics"
                 )
             transform_result = get_transform_pipeline().apply_forward(
                 topic_list, self.connector_manifest.config
@@ -1078,4 +1120,10 @@ BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
 S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+)
+DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
+    "io.debezium.connector.jdbc.JdbcSinkConnector"
+)
+CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
+    "io.confluent.connect.jdbc.JdbcSinkConnector"
 )

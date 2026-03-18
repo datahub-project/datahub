@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { DropdownProps } from '@components/components/Dropdown/types';
-import { IconNames } from '@components/components/Icon';
 
 export interface BaseItemType {
     type: string;
@@ -11,7 +10,7 @@ export interface BaseItemType {
 export interface MenuItemType extends BaseItemType {
     type: 'item';
     title: string;
-    icon?: IconNames;
+    icon?: React.ComponentType<any>;
     description?: string;
     tooltip?: string;
     disabled?: boolean;

@@ -31,8 +31,8 @@ Reference Links:
 | `METADATA_SERVICE_AUTH_ENABLED`                     | `true`     | Enable if you want all requests to the Metadata Service to be authenticated | GMS, MAE Consumer, MCE Consumer, PE Consumer, Frontend          |
 | `DATAHUB_SYSTEM_CLIENT_SECRET`                      |            | System client secret used by AuthServiceController                          | GMS, MAE Consumer, MCE Consumer, PE Consumer, Actions, Frontend |
 | `METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED` | `false`    | Normally failures are only warnings, enable this to throw them              | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 |            | Key used to validate incoming tokens and sign new tokens                    | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SALT`                        |            | Salt used for token validation and signing                                  | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 | `Empty`    | Key used to validate incoming tokens and sign new tokens                    | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SALT`                        | `Empty`    | Salt used for token validation and signing                                  | GMS                                                             |
 | `DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM`           | `HS256`    | Signing algorithm for DataHub tokens                                        | GMS                                                             |
 | `SESSION_TOKEN_DURATION_MS`                         | `86400000` | The max duration of a UI session in milliseconds (defaults to 1 day)        | GMS                                                             |
 | `GUEST_AUTHENTICATION_USER`                         | `guest`    | Guest user for unauthenticated access                                       | GMS                                                             |
@@ -317,6 +317,37 @@ The SQL Setup system provides automated database initialization and user managem
 
 **Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` environment variable. The system will not fall back to Ebean connection credentials for security reasons.
 
+### Kubernetes scale-down (system update)
+
+When the system-update job runs in a Kubernetes cluster, it can optionally prepare for blocking upgrades (e.g. reindex) by scaling down selected deployments and updating environment variables on others. Scale-down is conditional: it runs only when a blocking upgrade (such as BuildIndices when reindex is needed) requires it.
+
+- **Scale-to-zero:** Deployments matched by label selectors (e.g. MAE/MCE consumers) are scaled to zero; their KEDA ScaledObjects are removed. Deployments that do not exist are skipped.
+- **Deployment env updates:** A JSON array configures which deployments (by label selector) receive which env vars when scaling down (e.g. GMS: disable embedded consumers). Previous env values are stored and restored on failure or when retries are exceeded.
+- **Parallel execution:** Rollout and scale-down operations run in parallel across deployments to reduce total wait time.
+- **Retries and restore:** State (replica counts and env per deployment) is stored in a ConfigMap. If the step runs again (e.g. job restart), the attempt count increments. When attempts exceed `maxRetries`, the step restores all saved state, deletes the ConfigMap, and fails so the next run is not blocked.
+
+These variables are typically set by the Helm chart for the system-update job; they are only used when the job runs in-cluster.
+
+| Environment Variable                            | Default | Description                                                                                             | Components    |
+| ----------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------- | ------------- |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED`         | `true`  | Master switch for K8 scale-down (must be true for scale-down to run)                                    | System Update |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED`    | `false` | Use the Java-based scale-down step (opt-in; set true to enable)                                         | System Update |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_MAX_RETRIES`     | `3`     | Max scale-down attempts across job restarts before restoring state, deleting the ConfigMap, failing     | System Update |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_LABEL_SELECTORS` | (Helm)  | Comma-separated label selectors for deployments to scale to zero (e.g. MAE, MCE)                        | System Update |
+| `DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES`     | (Helm)  | JSON array of `{"labelSelector":"...","env":{...}}` for deployments that get env vars when scaling down | System Update |
+| `DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS`   | `1800`  | Max seconds to wait per deployment rollout (scale or env change); default 30 min                        | System Update |
+| `DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS`       | `5`     | Seconds between polls when waiting for rollout                                                          | System Update |
+| `NAMESPACE`                                     | (pod)   | Kubernetes namespace (set via downward API in Helm)                                                     | System Update |
+| `HELM_RELEASE_NAME`                             | (Helm)  | Helm release name (used for state ConfigMap name)                                                       | System Update |
+
+### Kubernetes Operations API (OpenAPI)
+
+When GMS runs inside a Kubernetes cluster, the OpenAPI service can expose a Kubernetes operations controller that allows listing and modifying cluster resources (deployments, pods, config maps, cron jobs) in the current namespace. This is disabled when not in a K8 environment or when the flag below is false.
+
+| Environment Variable                | Default | Description                                                                                           | Components |
+| ----------------------------------- | ------- | ----------------------------------------------------------------------------------------------------- | ---------- |
+| `KUBERNETES_OPERATIONS_API_ENABLED` | `true`  | Enable the OpenAPI Kubernetes operations controller. Set to `false` to disable the K8 operations API. | GMS        |
+
 **IAM Authentication:** IAM authentication is automatically detected when `CREATE_USER=true` and `CREATE_USER_PASSWORD` is not set or is empty. The system will create users with IAM authentication for supported cloud databases:
 
 - **AWS RDS MySQL**: Creates user with AWSAuthenticationPlugin
@@ -339,21 +370,22 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 
 ### Elasticsearch Configuration
 
-| Environment Variable                       | Default         | Description                                  | Components                                     |
-| ------------------------------------------ | --------------- | -------------------------------------------- | ---------------------------------------------- |
-| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `AWS_REGION`                               | `null`          | AWS region                                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch) | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                            | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes           | GMS, MAE Consumer, MCE Consumer, System Update |
+| Environment Variable                       | Default         | Description                                                  | Components                                     |
+| ------------------------------------------ | --------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout (in milliseconds)                 | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_SOCKET_TIMEOUT`             | `30000`         | Socket timeout for established connections (in milliseconds) | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                                       | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                                       | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `AWS_REGION`                               | `null`          | AWS region                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch)                 | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                                            | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes                           | GMS, MAE Consumer, MCE Consumer, System Update |
 
 #### SSL Context Configuration
 

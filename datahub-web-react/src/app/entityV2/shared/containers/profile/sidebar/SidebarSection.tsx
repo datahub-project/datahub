@@ -1,5 +1,6 @@
 import { colors } from '@components';
-import { CaretDown, CaretRight } from '@phosphor-icons/react';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';

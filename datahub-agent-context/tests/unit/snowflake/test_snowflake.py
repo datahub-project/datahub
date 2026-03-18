@@ -723,7 +723,7 @@ class TestCreateSnowflakeAgent:
         assert result.exit_code == 0
         # Check that UDFs file has fewer functions
         udfs_content = (tmp_path / "02_datahub_udfs.sql").read_text()
-        assert "9 Python UDFs" in udfs_content
+        assert "10 Python UDFs" in udfs_content
         assert "ADD_TAGS" not in udfs_content
 
     def test_create_snowflake_agent_execute_requires_password(

@@ -71,7 +71,7 @@ def test_search_with_filters(mock_client, mock_search_response):
     mock_client._graph.execute_graphql.return_value = mock_search_response
 
     with DataHubContext(mock_client):
-        result = search(query="*", filters={"entity_type": ["dataset"]})
+        result = search(query="*", filter="entity_type = dataset")
 
     assert result is not None
     # Note: execute_graphql is called twice - once for fetch_global_default_view, once for search
@@ -131,17 +131,13 @@ def test_search_facet_only_query(mock_client, mock_search_response):
 
 
 def test_search_with_complex_filters(mock_client, mock_search_response):
-    """Test search with complex AND/OR filters."""
+    """Test search with complex AND/OR SQL filters."""
     mock_client._graph.execute_graphql.return_value = mock_search_response
 
-    filters = {
-        "and": [
-            {"entity_type": ["dataset"]},
-            {"platform": ["snowflake"]},
-        ]
-    }
     with DataHubContext(mock_client):
-        result = search(query="*", filters=filters)
+        result = search(
+            query="*", filter="entity_type = dataset AND platform = snowflake"
+        )
 
     assert result is not None
     # Note: execute_graphql is called twice - once for fetch_global_default_view, once for search
@@ -149,14 +145,11 @@ def test_search_with_complex_filters(mock_client, mock_search_response):
 
 
 def test_search_with_string_filters(mock_client, mock_search_response):
-    """Test search with JSON string filters."""
-    import json
-
+    """Test search with SQL string filters."""
     mock_client._graph.execute_graphql.return_value = mock_search_response
 
-    filters_str = json.dumps({"entity_type": ["dataset"]})
     with DataHubContext(mock_client):
-        result = search(query="*", filters=filters_str)
+        result = search(query="*", filter="entity_type = dataset")
 
     assert result is not None
     # Note: execute_graphql is called twice - once for fetch_global_default_view, once for search

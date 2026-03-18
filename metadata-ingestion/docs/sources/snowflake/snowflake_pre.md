@@ -1,9 +1,12 @@
+### Overview
+
+The `snowflake` module ingests metadata from Snowflake into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
-In order to execute this source, your Snowflake user will need to have specific privileges granted to it for reading metadata
-from your warehouse.
+Requires specific privileges to read metadata from your Snowflake warehouse.
 
-A Snowflake system admin can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
+Execute the following commands as `ACCOUNTADMIN` or a user with `MANAGE GRANTS` privilege to create a DataHub-specific role:
 
 ```sql
 create or replace role datahub_role;
@@ -98,11 +101,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
 
 - `select` on `streams` is required for stream definitions to be available. This does not allow selecting the data (not required) unless the underlying dataset has select access as well.
-- `usage` on `streamlit` is required to show streamlits in a database.
-
-```sql
-grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
-```
+- `usage` on `streamlit` is required to show streamlits in a database. See the schema-level `usage` example above.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 
@@ -112,13 +111,35 @@ If you plan to enable extraction of table lineage via the `include_table_lineage
 grant imported privileges on database snowflake to role datahub_role;
 ```
 
-### Authentication
+Note that `imported privileges` grants access to all schemas and views in the shared `SNOWFLAKE` database, primarily:
+
+- `SNOWFLAKE.ACCOUNT_USAGE.*` (all views: `QUERY_HISTORY`, `ACCESS_HISTORY`, `USERS`, etc.)
+- `SNOWFLAKE.ORGANIZATION_USAGE.*` (requires separate enablement by Snowflake support at the organization level)
+
+The `SNOWFLAKE` database is a shared database owned by Snowflake. Unlike regular databases where you can grant granular `SELECT` privileges on individual tables, shared databases require granting `IMPORTED PRIVILEGES` which provides all-or-nothing access to all objects in the database.
+
+#### Which ACCOUNT_USAGE Tables Does DataHub Access?
+
+When you grant `IMPORTED PRIVILEGES`, DataHub will specifically access the following `ACCOUNT_USAGE` tables:
+
+| Table            | Purpose                                                      | Required For                                                      |
+| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage | `include_table_lineage`, `include_usage_stats`, `include_queries` |
+| `ACCESS_HISTORY` | Table/view lineage and access patterns                       | `include_table_lineage`, `include_usage_stats`                    |
+| `USERS`          | User email mapping for corp user entities                    | `include_usage_stats` (for user attribution)                      |
+| `TAG_REFERENCES` | Tag metadata extraction                                      | `extract_tags`                                                    |
+| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views           | Always (when views exist)                                         |
+| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)     | `include_table_lineage`                                           |
+
+If you cannot grant `IMPORTED PRIVILEGES` due to security policies, the related features (lineage, usage, tags) will not work, and you'll see permission errors in the ingestion logs.
+
+#### Authentication
 
 Authentication is most simply done via a Snowflake user and password.
 
 Alternatively, other authentication methods are supported via the `authentication_type` config option.
 
-#### Key Pair Authentication
+##### Key Pair Authentication
 
 To set up Key Pair authentication, follow the three steps in [this guide](https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-authentication):
 
@@ -136,7 +157,7 @@ private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key
 private_key_password: <Password for your private key>
 ```
 
-#### Okta OAuth
+##### Okta OAuth
 
 To set up Okta OAuth authentication, roughly follow the four steps in [this guide](https://docs.snowflake.com/en/user-guide/oauth-okta).
 

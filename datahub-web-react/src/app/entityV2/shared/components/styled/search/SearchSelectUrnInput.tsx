@@ -1,3 +1,5 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Skeleton } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -15,7 +17,7 @@ const Container = styled.div`
     width: 100%;
     min-height: 500px;
     height: 70vh;
-    border: 1px solid #f0f0f0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
 `;
 
@@ -48,7 +50,7 @@ const SectionHeader = styled.div`
     margin-top: 10px;
     font-size: 16px;
     font-weight: 500;
-    color: #666;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ScrollableContent = styled.div`
@@ -63,7 +65,7 @@ const SelectedItem = styled.div`
     border-radius: 4px;
     margin-bottom: 8px;
     align-items: center;
-    border: 1px solid #f0f0f0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     justify-content: space-between;
 
     &:hover {
@@ -150,7 +152,7 @@ export function SearchSelectUrnInput({
                                     <Skeleton.Input active />
                                 )}
                                 <IconWrapper>
-                                    <Icon icon="X" source="phosphor" onClick={() => removeEntity(entity)} />
+                                    <Icon icon={X} onClick={() => removeEntity(entity)} />
                                 </IconWrapper>
                             </SelectedItem>
                         ))

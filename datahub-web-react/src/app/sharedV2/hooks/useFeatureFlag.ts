@@ -6,26 +6,26 @@ export function useFeatureFlag(featureFlagKey: string) {
     const featureFlagValue = appConfig?.config?.featureFlags?.[featureFlagKey];
 
     if (appConfig.loaded) {
-        setFeatureFlagInLocalStorage(featureFlagKey, featureFlagValue);
+        setInLocalStorage(featureFlagKey, featureFlagValue);
         return featureFlagValue;
     }
 
-    return loadFeatureFlagFromLocalStorage(featureFlagKey);
+    return loadFromLocalStorage(featureFlagKey);
 }
 
-function setFeatureFlagInLocalStorage(flagKey: string, value: boolean) {
+export function setInLocalStorage(flagKey: string, value: boolean) {
     const rawValue = localStorage.getItem(flagKey);
     const storedValue = rawValue === null ? undefined : rawValue === 'true';
 
     if (rawValue === null || storedValue !== value) {
-        saveFeatureFlagToLocalStorage(flagKey, value);
+        saveToLocalStorage(flagKey, value);
     }
 }
 
-export function loadFeatureFlagFromLocalStorage(flagKey: string): boolean {
+export function loadFromLocalStorage(flagKey: string): boolean {
     return localStorage.getItem(flagKey) === 'true';
 }
 
-function saveFeatureFlagToLocalStorage(flagKey: string, value: boolean) {
+function saveToLocalStorage(flagKey: string, value: boolean) {
     localStorage.setItem(flagKey, String(value));
 }

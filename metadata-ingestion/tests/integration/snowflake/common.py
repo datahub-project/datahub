@@ -303,12 +303,23 @@ def default_query_results(  # noqa: C901
             },
         ]
     elif (
-        query == SnowflakeQuery.tables_for_database("TEST_DB")
-        or query == SnowflakeQuery.tables_for_database("DEMO_DATABASE")
-        or query == SnowflakeQuery.tables_for_database("CUSTOMER_360")
+        query
+        == SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        )
+        or query
+        == SnowflakeQuery.tables_for_database(
+            "DEMO_DATABASE", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        )
+        or query
+        == SnowflakeQuery.tables_for_database(
+            "CUSTOMER_360", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        )
     ):
         raise Exception("Information schema query returned too much data")
-    elif query == SnowflakeQuery.tables_for_schema("PUBLIC", "DEMO_DATABASE"):
+    elif query == SnowflakeQuery.tables_for_schema(
+        "PUBLIC", "DEMO_DATABASE", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+    ):
         return [
             {
                 "TABLE_SCHEMA": "PUBLIC",
@@ -323,6 +334,7 @@ def default_query_results(  # noqa: C901
                 "IS_ICEBERG": "NO",
                 "IS_DYNAMIC": "NO",
                 "IS_HYBRID": "NO",
+                "RETENTION_TIME": 1,
             },
             {
                 "TABLE_SCHEMA": "PUBLIC",
@@ -337,9 +349,12 @@ def default_query_results(  # noqa: C901
                 "IS_ICEBERG": "NO",
                 "IS_DYNAMIC": "NO",
                 "IS_HYBRID": "NO",
+                "RETENTION_TIME": 1,
             },
         ]
-    elif query == SnowflakeQuery.tables_for_schema("PUBLIC", "CUSTOMER_360"):
+    elif query == SnowflakeQuery.tables_for_schema(
+        "PUBLIC", "CUSTOMER_360", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+    ):
         return [
             {
                 "TABLE_SCHEMA": "PUBLIC",
@@ -354,6 +369,7 @@ def default_query_results(  # noqa: C901
                 "IS_ICEBERG": "NO",
                 "IS_DYNAMIC": "NO",
                 "IS_HYBRID": "NO",
+                "RETENTION_TIME": 1,
             },
             {
                 "TABLE_SCHEMA": "PUBLIC",
@@ -368,9 +384,12 @@ def default_query_results(  # noqa: C901
                 "IS_ICEBERG": "NO",
                 "IS_DYNAMIC": "NO",
                 "IS_HYBRID": "NO",
+                "RETENTION_TIME": 1,
             },
         ]
-    elif query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
+    elif query == SnowflakeQuery.tables_for_schema(
+        "TEST_SCHEMA", "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+    ):
         return [
             {
                 "TABLE_SCHEMA": "TEST_SCHEMA",

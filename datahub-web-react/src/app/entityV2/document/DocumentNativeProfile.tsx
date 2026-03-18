@@ -1,5 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
@@ -50,11 +51,12 @@ const ContentWrapper = styled.div`
 
 const ContentCard = styled.div`
     padding-top: 12px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     flex: 1;
+    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once rgba(93, 102, 139, 0.2) is mapped
     box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
     height: 100%;
     overflow: hidden;

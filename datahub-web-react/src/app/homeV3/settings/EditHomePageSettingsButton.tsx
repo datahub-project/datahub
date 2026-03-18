@@ -1,4 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Dropdown, colors } from '@components';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled from 'styled-components';
@@ -106,13 +108,7 @@ export default function EditHomePageSettingsButton() {
                         trigger={['click']}
                         dropdownRender={(menuNode) => <DropdownContainer>{menuNode}</DropdownContainer>}
                     >
-                        <StyledIcon
-                            icon="Gear"
-                            color="gray"
-                            source="phosphor"
-                            size="4xl"
-                            data-testid="edit-home-page-settings"
-                        />
+                        <StyledIcon icon={Gear} color="gray" size="4xl" data-testid="edit-home-page-settings" />
                     </Dropdown>
                 </ButtonWrapper>,
                 document.body,
