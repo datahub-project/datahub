@@ -1,4 +1,6 @@
 import { Icon, Tooltip } from '@components';
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Tabs } from 'antd';
 import React, { useContext } from 'react';
 import styled, { useTheme } from 'styled-components/macro';
@@ -294,12 +296,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                         tab={
                             <TabIconContainer>
                                 <IconWrapper>
-                                    <Icon
-                                        icon={isClosed ? 'ArrowLineLeft' : 'ArrowLineRight'}
-                                        source="phosphor"
-                                        size="lg"
-                                        color="inherit"
-                                    />
+                                    <Icon icon={isClosed ? ArrowLineLeft : ArrowLineRight} size="lg" color="inherit" />
                                 </IconWrapper>
                             </TabIconContainer>
                         }

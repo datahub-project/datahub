@@ -1,4 +1,6 @@
 import { Icon } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -99,12 +101,7 @@ export const SidebarSection = ({
                     {extra && <Extra onClick={(e) => e.stopPropagation()}>{extra}</Extra>}
                     {collapsible && (
                         <CaretIcon>
-                            <Icon
-                                icon={isExpanded ? 'CaretDown' : 'CaretRight'}
-                                source="phosphor"
-                                size="md"
-                                color="inherit"
-                            />
+                            <Icon icon={isExpanded ? CaretDown : CaretRight} size="md" color="inherit" />
                         </CaretIcon>
                     )}
                 </HeaderRight>

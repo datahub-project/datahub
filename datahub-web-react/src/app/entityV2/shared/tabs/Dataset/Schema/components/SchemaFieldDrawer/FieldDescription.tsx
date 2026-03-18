@@ -1,4 +1,6 @@
 import { Icon, Tooltip, toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -119,7 +121,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
                                 e.stopPropagation();
                                 setIsModalVisible(true);
                             }}
-                            icon="PencilSimple"
+                            icon={PencilSimple}
                         />
                     )
                 }
@@ -132,7 +134,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
                                         setIsModalVisible(true);
                                     }}
                                 >
-                                    <Icon icon="Plus" source="phosphor" size="sm" />
+                                    <Icon icon={Plus} size="sm" />
                                     <AddDescriptionText>Add Description</AddDescriptionText>
                                 </AddNewDescription>,
                             ]}

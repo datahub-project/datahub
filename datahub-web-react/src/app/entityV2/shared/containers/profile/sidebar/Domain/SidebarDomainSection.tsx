@@ -1,4 +1,6 @@
 import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -109,7 +111,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 }
                 extra={
                     <SectionActionButton
-                        icon={domain ? 'PencilSimple' : 'Plus'}
+                        icon={domain ? PencilSimple : Plus}
                         onClick={(event) => {
                             setShowModal(true);
                             event.stopPropagation();

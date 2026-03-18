@@ -1,3 +1,4 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
@@ -79,7 +80,7 @@ export const DataProductsSection = () => {
                     />
                     <SectionActionButton
                         tip="Create Data Product"
-                        icon="Plus"
+                        icon={Plus}
                         onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry, true)}
                     />
                 </SummaryHeaderButtonGroup>

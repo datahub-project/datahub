@@ -1,3 +1,4 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -101,7 +102,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                 extra={
                     !readOnly && (
                         <SectionActionButton
-                            icon="Plus"
+                            icon={Plus}
                             onClick={(event) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();

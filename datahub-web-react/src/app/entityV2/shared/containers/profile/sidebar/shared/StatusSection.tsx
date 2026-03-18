@@ -1,4 +1,6 @@
 import { Icon } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -100,12 +102,7 @@ const StatusSection = () => {
                     {isDeprecated && (
                         <div>
                             <DeprecatedHeader $collapsible onClick={() => setIsDeprecationExpanded((prev) => !prev)}>
-                                <Icon
-                                    icon={isDeprecationExpanded ? 'CaretDown' : 'CaretRight'}
-                                    source="phosphor"
-                                    size="md"
-                                    color="inherit"
-                                />
+                                <Icon icon={isDeprecationExpanded ? CaretDown : CaretRight} size="md" color="inherit" />
                                 <TimeProperty
                                     labelText={`Deprecated${
                                         !!deprecatedByEntityName && `: by ${deprecatedByEntityName}`

@@ -1,4 +1,5 @@
 import { Button, Tooltip } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useContext } from 'react';
 import { useHistory } from 'react-router-dom';
 
@@ -29,13 +30,7 @@ export const ExploreLineageAction = () => {
             showArrow={false}
             title={`Visually explore the upstreams and downstreams of ${entityName}`}
         >
-            <Button
-                variant="text"
-                color="violet"
-                size="md"
-                icon={{ icon: 'TreeStructure', source: 'phosphor' }}
-                onClick={handleClick}
-            />
+            <Button variant="text" color="violet" size="md" icon={{ icon: TreeStructure }} onClick={handleClick} />
         </Tooltip>
     );
 };

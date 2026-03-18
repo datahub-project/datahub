@@ -1,4 +1,7 @@
 import { Button, Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useContext } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -105,7 +108,7 @@ const SidebarLineageSection = () => {
                             >
                                 <DirectionHeader>
                                     <DirectionIcon>
-                                        <Icon icon="ArrowUp" source="phosphor" size="md" />
+                                        <Icon icon={ArrowUp} size="md" />
                                     </DirectionIcon>
                                     <DirectionText>UPSTREAM</DirectionText>
                                 </DirectionHeader>
@@ -124,7 +127,7 @@ const SidebarLineageSection = () => {
                             >
                                 <DirectionHeader>
                                     <DirectionIcon>
-                                        <Icon icon="ArrowDown" source="phosphor" size="md" />
+                                        <Icon icon={ArrowDown} size="md" />
                                     </DirectionIcon>
                                     <DirectionText>DOWNSTREAM</DirectionText>
                                 </DirectionHeader>
@@ -142,7 +145,7 @@ const SidebarLineageSection = () => {
                         variant="text"
                         color="violet"
                         size="md"
-                        icon={{ icon: 'TreeStructure', source: 'phosphor' }}
+                        icon={{ icon: TreeStructure }}
                         onClick={(e) => {
                             e.stopPropagation();
                             const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;

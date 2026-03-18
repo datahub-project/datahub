@@ -1,4 +1,7 @@
 import { Avatar } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -57,7 +60,7 @@ export default function NotesSection({ urn, subResource, notes, refetch, showEmp
                 extra={
                     isSchemaEditable && (
                         <SectionActionButton
-                            icon="Plus"
+                            icon={Plus}
                             onClick={(event) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();
@@ -196,8 +199,8 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
             {isSchemaEditable && (
                 <NoteEditWrapper>
                     <NoteEditIcons>
-                        <SectionActionButton icon="PencilSimple" onClick={() => setShowEditModal(true)} />
-                        <SectionActionButton icon="Trash" onClick={() => setShowDeleteModal(true)} />
+                        <SectionActionButton icon={PencilSimple} onClick={() => setShowEditModal(true)} />
+                        <SectionActionButton icon={Trash} onClick={() => setShowDeleteModal(true)} />
                     </NoteEditIcons>
                 </NoteEditWrapper>
             )}

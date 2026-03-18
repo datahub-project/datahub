@@ -1,4 +1,5 @@
 import { Icon, Pill, Tooltip } from '@components';
+import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -56,7 +57,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
             <DetailRow>
                 <Tooltip showArrow={false} title={<SyncedOrSharedTooltip type={type} />} placement="bottomLeft">
                     <SyncIcon>
-                        <Icon icon="ArrowsLeftRight" source="phosphor" size="lg" color="inherit" />
+                        <Icon icon={ArrowsLeftRight} size="lg" color="inherit" />
                     </SyncIcon>
                 </Tooltip>
 

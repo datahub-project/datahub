@@ -2,7 +2,7 @@ import { Button, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import type { IconNames } from '@components/components/Icon/types';
+import type { IconProps } from '@components/components/Icon/types';
 
 export const ActionButton = styled.div<{ privilege: boolean }>`
     color: ${(props) => (props.privilege ? props.theme.colors.textBrand : props.theme.colors.textDisabled)};
@@ -30,7 +30,7 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
 
 type Props = {
     tip?: string;
-    icon?: IconNames;
+    icon?: IconProps['icon'];
     button?: React.ReactNode;
     onClick: any;
     actionPrivilege?: boolean;
@@ -50,7 +50,7 @@ const SectionActionButton = ({ tip, icon, button, onClick, actionPrivilege = tru
                         variant="text"
                         color="violet"
                         size="md"
-                        icon={{ icon, source: 'phosphor' }}
+                        icon={{ icon }}
                         onClick={onClick}
                         disabled={!actionPrivilege}
                         data-testid={dataTestId}

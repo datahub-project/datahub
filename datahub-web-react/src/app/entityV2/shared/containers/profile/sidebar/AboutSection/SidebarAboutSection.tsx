@@ -1,3 +1,5 @@
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -72,7 +74,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                     <>
                         {!readOnly && (
                             <SectionActionButton
-                                icon={hasContent ? 'PencilSimple' : 'Plus'}
+                                icon={hasContent ? PencilSimple : Plus}
                                 dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {

@@ -1,3 +1,5 @@
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
@@ -151,7 +153,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             extra={
                                 <>
                                     <SectionActionButton
-                                        icon={values ? 'PencilSimple' : 'Plus'}
+                                        icon={values ? PencilSimple : Plus}
                                         onClick={(event) => {
                                             setSelectedProperty(property);
                                             setIsPropModalVisible(true);

@@ -1,4 +1,6 @@
 import { Button, TextArea } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -91,7 +93,7 @@ export const AboutSidebarSection = ({ aboutText, isProfileOwner, onSaveAboutMe }
             extra={
                 <>
                     <SectionActionButton
-                        icon={isAboutEditable ? 'Check' : 'PencilSimple'}
+                        icon={isAboutEditable ? Check : PencilSimple}
                         onClick={(event) => {
                             if (isProfileOwner) {
                                 if (aboutText !== about) {

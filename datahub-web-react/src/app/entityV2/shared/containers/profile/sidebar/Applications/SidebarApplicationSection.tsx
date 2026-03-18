@@ -1,4 +1,6 @@
 import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -126,7 +128,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                     !readOnly && (
                         <SectionActionButton
                             dataTestId="add-applications-button"
-                            icon={applications.length > 0 ? 'PencilSimple' : 'Plus'}
+                            icon={applications.length > 0 ? PencilSimple : Plus}
                             onClick={(event) => {
                                 setShowModal(true);
                                 event.stopPropagation();

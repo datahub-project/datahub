@@ -1,4 +1,5 @@
 import { Button, Icon } from '@components';
+import { Link } from '@phosphor-icons/react/dist/csr/Link';
 import React from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -19,7 +20,7 @@ export default function SourceRefSection() {
                 sourceUrl ? (
                     <a href={sourceUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                         <Button variant="text" color="violet">
-                            <Icon icon="Link" source="phosphor" size="md" color="inherit" />
+                            <Icon icon={Link} size="md" color="inherit" />
                             {sourceRef}
                         </Button>
                     </a>

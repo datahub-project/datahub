@@ -1,4 +1,6 @@
 import { Icon } from '@components';
+import { EnvelopeOpen } from '@phosphor-icons/react/dist/csr/EnvelopeOpen';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -330,7 +332,7 @@ export const BasicDetails = styled.div`
     }
 `;
 
-export const DraftsOutlinedIconStyle = () => <Icon icon="EnvelopeOpen" source="phosphor" size="sm" color="inherit" />;
+export const DraftsOutlinedIconStyle = () => <Icon icon={EnvelopeOpen} size="sm" color="inherit" />;
 
 export const SubscriptionContainer = styled.div`
     display: flex;
@@ -356,9 +358,7 @@ export const NameTitleContainer = styled.div`
     flex-direction: column;
 `;
 
-export const WhiteEditOutlinedIconStyle = () => (
-    <Icon icon="PencilSimple" source="phosphor" size="md" color="inherit" />
-);
+export const WhiteEditOutlinedIconStyle = () => <Icon icon={PencilSimple} size="md" color="inherit" />;
 
 export const ShowMoreButton = styled.div`
     margin-top: 8px;

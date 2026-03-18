@@ -1,4 +1,6 @@
 import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -145,7 +147,7 @@ export default function DataProductSection({ readOnly }: Props) {
                 }
                 extra={
                     <SectionActionButton
-                        icon={dataProducts.length > 0 ? 'PencilSimple' : 'Plus'}
+                        icon={dataProducts.length > 0 ? PencilSimple : Plus}
                         onClick={(event) => {
                             setIsModalVisible(true);
                             event.stopPropagation();
