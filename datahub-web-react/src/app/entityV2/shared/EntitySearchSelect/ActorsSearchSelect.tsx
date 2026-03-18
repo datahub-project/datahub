@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components';
 
 import { OptionType } from '@components/components/AutoComplete/types';
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import {
     ActorEntity,
@@ -197,8 +198,9 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 
             const displayName = entityRegistry.getDisplayName(entity.type, entity);
             const imageUrl = getActorPictureLink(entity);
+            const avatarType = entity.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
-            return <Avatar name={displayName || ''} imageUrl={imageUrl} showInPill />;
+            return <Avatar name={displayName || ''} imageUrl={imageUrl} type={avatarType} showInPill />;
         },
         [allActorEntities, entityRegistry],
     );

@@ -4,17 +4,20 @@ const platform_policy_edited = `Platform test policy ${test_id} EDITED`;
 const metadata_policy_name = `Metadata test policy ${test_id}`;
 const metadata_policy_edited = `Metadata test policy ${test_id} EDITED`;
 
-function searchForPolicy(metadataPolicyName) {
+function searchForPolicy(policyName) {
   cy.wait(1000);
-  cy.get('[data-testid="search-input"]').should("be.visible");
-  cy.get('[data-testid="search-input"]').eq(1).type(metadataPolicyName);
-  cy.get('[data-testid="search-input"]').eq(1).blur();
+  cy.get('[data-testid="search-bar-input"]').should("be.visible");
+  cy.get('[data-testid="search-bar-input"]').clear().type(policyName);
+  cy.get('[data-testid="search-bar-input"]').blur();
 }
 
-function searchAndToggleMetadataPolicyStatus(metadataPolicyName, targetStatus) {
-  searchForPolicy(metadataPolicyName);
-  cy.contains("tr", metadataPolicyName).as("metadataPolicyRow");
-  cy.contains(targetStatus).click();
+function openRowMenu(policyName) {
+  cy.contains("tr", policyName).find("button").last().click({ force: true });
+  cy.wait(300);
+}
+
+function clickMenuAction(actionText) {
+  cy.get('[data-testid^="menu-item-"]').contains(actionText).click();
 }
 
 function clickFocusAndType(Id, text) {
@@ -31,9 +34,9 @@ function clickOnButton(saveButton) {
   cy.get(`#${saveButton}`).click();
 }
 
-function changeFilterToAll(saveButton) {
-  cy.get("[data-testid='policy-filter']").click();
-  cy.get("[data-testid='all-policies-option']").click();
+function changeFilterToAll() {
+  cy.get('[data-testid="policy-filter"]').click();
+  cy.get('[data-testid="option-ALL"]').click();
   cy.wait(1000);
 }
 
@@ -57,7 +60,9 @@ function editPolicy(
   policyEdited,
   visibleDiscription,
 ) {
-  searchAndToggleMetadataPolicyStatus(policyName, "EDIT");
+  searchForPolicy(policyName);
+  openRowMenu(policyName);
+  clickMenuAction("Edit");
   cy.clickOptionWithTestId("policy-name");
   cy.focused().clear().type(editPolicy);
   cy.clickOptionWithTestId("policy-description");
@@ -71,12 +76,15 @@ function editPolicy(
 }
 
 function deletePolicy(policyEdited, deletePolicy) {
-  searchAndToggleMetadataPolicyStatus(policyEdited, "DEACTIVATE");
+  searchForPolicy(policyEdited);
+  openRowMenu(policyEdited);
+  clickMenuAction("Deactivate");
   cy.waitTextVisible("Successfully deactivated policy.");
-  cy.contains("DEACTIVATE").should("not.exist");
-  cy.contains("ACTIVATE").click();
+  openRowMenu(policyEdited);
+  clickMenuAction("Activate");
   cy.waitTextVisible("Successfully activated policy.");
-  cy.get("[data-icon='delete']").click();
+  openRowMenu(policyEdited);
+  clickMenuAction("Delete");
   cy.waitTextVisible(deletePolicy);
   cy.clickOptionWithText("Yes");
   cy.waitTextVisible("Successfully removed policy.");

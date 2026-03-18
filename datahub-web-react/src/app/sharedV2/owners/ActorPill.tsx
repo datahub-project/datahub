@@ -1,4 +1,5 @@
 import { Avatar, Icon } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -66,8 +67,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                     {!isProposed && onClose && (
                         <StyledIcon
                             onClick={onClose}
-                            icon="X"
-                            source="phosphor"
+                            icon={X}
                             size="sm"
                             color="gray"
                             data-testid={`remove-owner-${actor.urn}`}

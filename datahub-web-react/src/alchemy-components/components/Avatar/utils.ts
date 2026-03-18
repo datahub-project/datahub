@@ -8,6 +8,7 @@ export type AvatarColorScheme = 'brand' | 'info' | 'neutral';
 
 export const getNameInitials = (userName: string) => {
     if (!userName) return '';
+    if (userName.startsWith('+')) return userName;
     const names = userName.trim().split(/[\s']+/); // Split by spaces or apostrophes
     if (names.length === 1) {
         const firstName = names[0];

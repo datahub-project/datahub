@@ -1,4 +1,8 @@
 import { Avatar, Icon, Menu, Text } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
@@ -250,7 +254,7 @@ export const TagActionsColumn = React.memo(
                 type: 'item' as const,
                 key: 'edit',
                 title: 'Edit',
-                icon: 'Edit' as const,
+                icon: PencilSimple,
                 onClick: onEdit,
                 'data-testid': 'action-edit',
             },
@@ -258,7 +262,7 @@ export const TagActionsColumn = React.memo(
                 type: 'item' as const,
                 key: 'copy-urn',
                 title: 'Copy URN',
-                icon: 'ContentCopy' as const,
+                icon: Copy,
                 onClick: () => {
                     navigator.clipboard.writeText(tagUrn);
                 },
@@ -269,7 +273,7 @@ export const TagActionsColumn = React.memo(
                           type: 'item' as const,
                           key: 'delete',
                           title: 'Delete',
-                          icon: 'Delete' as const,
+                          icon: Trash,
                           danger: true,
                           onClick: onDelete,
                           'data-testid': 'action-delete',
@@ -281,7 +285,7 @@ export const TagActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Icon icon="MoreVert" size="md" data-testid={`${tagUrn}-actions`} />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid={`${tagUrn}-actions`} />
                 </Menu>
             </CardIcons>
         );

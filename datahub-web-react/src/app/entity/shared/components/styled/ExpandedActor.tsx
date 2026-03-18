@@ -1,4 +1,5 @@
 import { Avatar, Icon, Popover } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -67,7 +68,7 @@ export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
                 <Avatar name={name} imageUrl={pictureLink} type={avatarType} />
                 {nameContent}
             </Link>
-            {closable && <Icon onClick={onClose} icon="X" source="phosphor" size="sm" color="gray" />}
+            {closable && <Icon onClick={onClose} icon={X} size="sm" color="gray" />}
         </PillWrapper>
     );
 };

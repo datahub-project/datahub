@@ -1,4 +1,4 @@
-import { BookOpen } from '@phosphor-icons/react';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
 import React, { useEffect, useMemo } from 'react';

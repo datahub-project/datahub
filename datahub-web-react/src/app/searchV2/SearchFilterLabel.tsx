@@ -1,5 +1,5 @@
 import { Avatar, Tooltip } from '@components';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Tag } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';

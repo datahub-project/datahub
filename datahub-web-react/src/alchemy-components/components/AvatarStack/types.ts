@@ -17,5 +17,6 @@ export type AvatarStackProps = {
     size?: AvatarSizeOptions;
     showRemainingNumber?: boolean;
     maxToShow?: number;
+    totalCount?: number;
     title?: string;
 };

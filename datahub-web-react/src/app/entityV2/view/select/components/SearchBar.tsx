@@ -1,10 +1,12 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { SearchOutlined } from '@ant-design/icons';
 import { colors } from '@components';
-import { MagnifyingGlass } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 

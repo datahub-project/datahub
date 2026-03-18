@@ -230,6 +230,33 @@ Where possible, we should avoid pinning version dependencies. The `acryl-datahub
 
 Caveat: Some packages like Great Expectations and Airflow frequently make breaking changes. For such packages, it's ok to add a "defensive" upper bound with the current latest version, accompanied by a comment. It's critical that we revisit these upper bounds at least once a month and broaden them if possible.
 
+### Updating the Lock File
+
+After changing dependencies in `setup.py`, regenerate all generated files:
+
+```shell
+../gradlew :metadata-ingestion:updateLockFile
+```
+
+This runs the full chain: `setup.py` → `pyproject.toml` → `uv.lock` → `constraints.txt`.
+
+To validate that all generated files are up to date without modifying them:
+
+```shell
+../gradlew :metadata-ingestion:checkLockFile
+```
+
+This runs automatically in CI as part of `check`, so PRs with stale generated files will fail.
+
+You can also run the steps manually:
+
+```shell
+python scripts/generate_pyproject_deps.py   # setup.py → pyproject.toml
+python scripts/verify_pyproject_equivalence.py  # verify equivalence
+uv lock                                      # update uv.lock
+uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt
+```
+
 ## Guidelines for Ingestion Configs
 
 We use [pydantic](https://pydantic-docs.helpmanual.io/) to define the ingestion configs.
