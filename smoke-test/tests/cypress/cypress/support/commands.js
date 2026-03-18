@@ -535,8 +535,10 @@ Cypress.Commands.add("createUser", (name, password, email) => {
 });
 
 Cypress.Commands.add("createGroup", (name, description, group_id) => {
+  // The "Create Group" button only exists in V2 mode
+  cy.setIsThemeV2Enabled(true);
   cy.visit("/settings/identities/groups");
-  cy.clickOptionWithText("Create group");
+  cy.clickOptionWithText("Create Group");
   cy.waitTextVisible("Create new group");
   cy.get("#name").type(name);
   cy.get("#description").type(description);
