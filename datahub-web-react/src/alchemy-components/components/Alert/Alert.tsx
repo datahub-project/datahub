@@ -1,4 +1,8 @@
-import { CheckCircle, Info, MegaphoneSimple, WarningCircle, X } from '@phosphor-icons/react';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import { AlertActions, AlertContainer, AlertContent, AlertIconWrapper } from '@components/components/Alert/components';
