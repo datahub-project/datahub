@@ -1,4 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Star } from '@phosphor-icons/react/dist/csr/Star';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
@@ -94,8 +96,8 @@ export const colors = () => (
 
 export const withIcon = () => (
     <GridList>
-        <Badge count={100} leftIcon="AutoMode" />
-        <Badge count={100} rightIcon="Close" />
-        <Badge count={100} leftIcon="AutoMode" rightIcon="Close" />
+        <Badge count={100} leftIcon={Star} />
+        <Badge count={100} rightIcon={X} />
+        <Badge count={100} leftIcon={Star} rightIcon={X} />
     </GridList>
 );

@@ -1,4 +1,5 @@
-import { ArrowsClockwise, TreeStructure } from '@phosphor-icons/react';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React from 'react';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';

@@ -1,4 +1,5 @@
 import { Icon, colors } from '@components';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { Checkbox } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -170,7 +171,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                                     loadData?.(option);
                                 }
                             }}
-                            icon="ChevronLeft"
+                            icon={CaretLeft}
                             rotate={isOpen ? '90' : '270'}
                             size="xl"
                             color="gray"

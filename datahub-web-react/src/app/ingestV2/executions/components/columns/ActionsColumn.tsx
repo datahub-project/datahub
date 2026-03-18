@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { ArrowUUpLeft } from '@phosphor-icons/react/dist/csr/ArrowUUpLeft';
 import React from 'react';
 
 import { EXECUTION_REQUEST_STATUS_RUNNING, EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
@@ -53,12 +54,7 @@ export function ActionsColumn({ record, handleViewDetails, handleRollback, handl
             dropdownItems={items}
             extraActions={
                 record.status === EXECUTION_REQUEST_STATUS_SUCCESS && record.showRollback ? (
-                    <Icon
-                        icon="ArrowUUpLeft"
-                        source="phosphor"
-                        onClick={() => handleRollback(record.id)}
-                        tooltipText="Rollback"
-                    />
+                    <Icon icon={ArrowUUpLeft} onClick={() => handleRollback(record.id)} tooltipText="Rollback" />
                 ) : null
             }
         />

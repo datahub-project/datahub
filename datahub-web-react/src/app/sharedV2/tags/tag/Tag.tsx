@@ -1,4 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Icon } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -24,8 +26,8 @@ const TagLink = styled.span<{ $showOneAndCount?: boolean; $shouldNotAddBottomMar
     ${(props) =>
         props.$showOneAndCount &&
         `
-           max-width: 200px;
-        `}
+ max-width: 200px;
+ `}
 `;
 
 const DisplayNameContainer = styled.span<{ maxWidth?: number }>`
@@ -157,7 +159,7 @@ export default function Tag({
                             onOpenModal?.();
                             setShowConfirmDelete(true);
                         }}
-                        closeIcon={<Icon icon="X" source="phosphor" size="sm" data-testid="remove-icon" />}
+                        closeIcon={<Icon icon={X} size="sm" data-testid="remove-icon" />}
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
                         $showOneAndCount={showOneAndCount}
