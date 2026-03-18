@@ -118,6 +118,20 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
         self.entity_name: str = self.generate_entity_name(ingestion_source_key)
 
+        # Check if we're running under an embedded executor (not standalone CLI)
+        # If run_id is already an execution request URN, we're being invoked by
+        # the executor (via GraphQL createIngestionExecutionRequest mutation).
+        # In this case, skip creating a duplicate CLI source - let the executor handle it.
+        self._is_running_under_executor = ctx.run_id.startswith(
+            "urn:li:dataHubExecutionRequest:"
+        )
+
+        if self._is_running_under_executor:
+            logger.info(
+                f"Running under embedded executor (run_id={ctx.run_id}). "
+                "Skipping CLI source creation - executor will manage source entity."
+            )
+
         self.ingestion_source_urn: Urn = Urn(
             entity_type="dataHubIngestionSource",
             entity_id=["cli-" + datahub_guid(ingestion_source_key)],
@@ -128,25 +142,27 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         )
         self.start_time_ms: int = self.get_cur_time_in_ms()
 
-        # Construct the dataHubIngestionSourceInfo aspect
-        source_info_aspect = DataHubIngestionSourceInfoClass(
-            name=self.entity_name,
-            type=ctx.pipeline_config.source.type,
-            platform=make_data_platform_urn(
-                getattr(ctx.pipeline_config.source, "platform", "unknown")
-            ),
-            config=DataHubIngestionSourceConfigClass(
-                recipe=self._get_recipe_to_report(ctx),
-                version=nice_version_name(),
-                executorId=self._EXECUTOR_ID,
-            ),
-        )
+        # Only create and emit CLI source if we're running standalone (not under executor)
+        if not self._is_running_under_executor:
+            # Construct the dataHubIngestionSourceInfo aspect
+            source_info_aspect = DataHubIngestionSourceInfoClass(
+                name=self.entity_name,
+                type=ctx.pipeline_config.source.type,
+                platform=make_data_platform_urn(
+                    getattr(ctx.pipeline_config.source, "platform", "unknown")
+                ),
+                config=DataHubIngestionSourceConfigClass(
+                    recipe=self._get_recipe_to_report(ctx),
+                    version=nice_version_name(),
+                    executorId=self._EXECUTOR_ID,
+                ),
+            )
 
-        # Emit the dataHubIngestionSourceInfo aspect
-        self._emit_aspect(
-            entity_urn=self.ingestion_source_urn,
-            aspect_value=source_info_aspect,
-        )
+            # Emit the dataHubIngestionSourceInfo aspect
+            self._emit_aspect(
+                entity_urn=self.ingestion_source_urn,
+                aspect_value=source_info_aspect,
+            )
 
     @staticmethod
     def _convert_sets_to_lists(obj: Any) -> Any:
@@ -214,6 +230,15 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
 
     def on_start(self, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
+
+        # If running under embedded executor, skip creating ExecutionRequestInput
+        # The executor already created it via the GraphQL mutation
+        if self._is_running_under_executor:
+            logger.debug(
+                "Running under embedded executor - skipping ExecutionRequestInput creation"
+            )
+            return
+
         # Construct the dataHubExecutionRequestInput aspect
         execution_input_aspect = ExecutionRequestInputClass(
             task=self._INGESTION_TASK_NAME,

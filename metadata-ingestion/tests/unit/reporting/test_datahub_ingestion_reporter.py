@@ -185,3 +185,144 @@ def test_json_serializable() -> None:
     except TypeError:
         serializable = False
     assert serializable
+
+
+def test_executor_detection_with_execution_request_urn() -> None:
+    """Test that CLI source creation is skipped when run_id is an execution request URN"""
+    from unittest.mock import MagicMock, patch
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.api.sink import Sink
+
+    # Create a mock pipeline context with execution request URN as run_id
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "bigquery"},
+            "sink": {"type": "console"},
+        }
+    )
+    ctx = PipelineContext(
+        run_id="urn:li:dataHubExecutionRequest:12345",
+        pipeline_config=pipeline_config,
+    )
+
+    mock_sink = MagicMock(spec=Sink)
+
+    # Patch _emit_aspect to track if CLI source info is emitted
+    with patch.object(DatahubIngestionRunSummaryProvider, "_emit_aspect") as mock_emit:
+        provider = DatahubIngestionRunSummaryProvider(
+            sink=mock_sink, report_recipe=True, ctx=ctx
+        )
+
+        # Verify executor detection flag is set
+        assert provider._is_running_under_executor is True
+
+        # Verify _emit_aspect was NOT called (CLI source creation skipped)
+        mock_emit.assert_not_called()
+
+
+def test_cli_source_creation_with_normal_run_id() -> None:
+    """Test that CLI source is created when run_id is NOT an execution request URN"""
+    from unittest.mock import MagicMock, patch
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.api.sink import Sink
+
+    # Create a mock pipeline context with normal run_id
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "bigquery"},
+            "sink": {"type": "console"},
+        }
+    )
+    ctx = PipelineContext(
+        run_id="normal-cli-run-id-12345",  # Not an execution request URN
+        pipeline_config=pipeline_config,
+    )
+
+    mock_sink = MagicMock(spec=Sink)
+
+    # Patch _emit_aspect to track if CLI source info is emitted
+    with patch.object(DatahubIngestionRunSummaryProvider, "_emit_aspect") as mock_emit:
+        provider = DatahubIngestionRunSummaryProvider(
+            sink=mock_sink, report_recipe=True, ctx=ctx
+        )
+
+        # Verify executor detection flag is NOT set
+        assert provider._is_running_under_executor is False
+
+        # Verify _emit_aspect WAS called (CLI source created)
+        assert mock_emit.call_count == 1
+        # Verify it was called with the ingestion source URN (not execution request)
+        call_args = mock_emit.call_args
+        assert str(provider.ingestion_source_urn) in str(call_args)
+
+
+def test_on_start_skips_execution_request_input_under_executor() -> None:
+    """Test that on_start skips ExecutionRequestInput creation when under executor"""
+    from unittest.mock import MagicMock, patch
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.api.sink import Sink
+
+    # Create context with execution request URN
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "bigquery"},
+            "sink": {"type": "console"},
+        }
+    )
+    ctx = PipelineContext(
+        run_id="urn:li:dataHubExecutionRequest:12345",
+        pipeline_config=pipeline_config,
+    )
+
+    mock_sink = MagicMock(spec=Sink)
+
+    with patch.object(DatahubIngestionRunSummaryProvider, "_emit_aspect") as mock_emit:
+        provider = DatahubIngestionRunSummaryProvider(
+            sink=mock_sink, report_recipe=True, ctx=ctx
+        )
+        mock_emit.reset_mock()  # Reset after __init__ call
+
+        # Call on_start
+        provider.on_start(ctx)
+
+        # Verify _emit_aspect was NOT called (skipped ExecutionRequestInput creation)
+        mock_emit.assert_not_called()
+
+
+def test_on_start_creates_execution_request_input_for_cli() -> None:
+    """Test that on_start creates ExecutionRequestInput for standalone CLI runs"""
+    from unittest.mock import MagicMock, patch
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.api.sink import Sink
+
+    # Create context with normal run_id
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "bigquery"},
+            "sink": {"type": "console"},
+        }
+    )
+    ctx = PipelineContext(
+        run_id="normal-cli-run-id",
+        pipeline_config=pipeline_config,
+    )
+
+    mock_sink = MagicMock(spec=Sink)
+
+    with patch.object(DatahubIngestionRunSummaryProvider, "_emit_aspect") as mock_emit:
+        provider = DatahubIngestionRunSummaryProvider(
+            sink=mock_sink, report_recipe=True, ctx=ctx
+        )
+        mock_emit.reset_mock()  # Reset after __init__ call
+
+        # Call on_start
+        provider.on_start(ctx)
+
+        # Verify _emit_aspect WAS called (ExecutionRequestInput created)
+        assert mock_emit.call_count == 1
+        call_args = mock_emit.call_args
+        assert call_args[1]["try_sync"] is True
