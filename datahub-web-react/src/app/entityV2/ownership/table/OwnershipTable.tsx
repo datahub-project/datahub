@@ -1,11 +1,16 @@
 import { Table } from '@components';
 import React from 'react';
+import styled from 'styled-components';
 
 import { Column } from '@components/components/Table/types';
 
 import { ActionsColumn } from '@app/entityV2/ownership/table/ActionsColumn';
 
 import { OwnershipTypeEntity } from '@types';
+
+const NameText = styled.span`
+    font-weight: 700;
+`;
 
 type Props = {
     ownershipTypes: OwnershipTypeEntity[];
@@ -21,7 +26,7 @@ export const OwnershipTable = ({ ownershipTypes, setIsOpen, setOwnershipType, re
             key: 'name',
             width: '25%',
             sorter: (a, b) => (a?.info?.name || '').localeCompare(b?.info?.name || ''),
-            render: (record) => <b>{record?.info?.name || record?.urn}</b>,
+            render: (record) => <NameText>{record?.info?.name || record?.urn}</NameText>,
         },
         {
             title: 'Description',
