@@ -24,6 +24,11 @@ def get_gms_url() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_URL")
 
 
+def get_gms_token() -> Optional[str]:
+    """GMS Bearer token for authenticated API calls."""
+    return os.getenv("DATAHUB_GMS_TOKEN")
+
+
 def get_base_path() -> str:
     """Base path for DataHub frontend."""
     return os.getenv("DATAHUB_BASE_PATH", "")
