@@ -1,4 +1,3 @@
-import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -15,6 +14,7 @@ import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { pluralize, pluralizeIfIrregular } from '@src/app/shared/textUtil';
 import { OperationType } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 const Container = styled.div`
     display: flex;

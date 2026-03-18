@@ -1,7 +1,6 @@
 import { Tooltip, colors } from '@components';
 import { Divider, Typography, message } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import dayjs from '@utils/dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -13,6 +12,7 @@ import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
+import dayjs from '@utils/dayjs';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation, SubResourceType } from '@types';

@@ -1,5 +1,3 @@
-import dayjs from '@utils/dayjs';
-import type { Dayjs } from '@utils/dayjs';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router';
 
@@ -8,6 +6,8 @@ import LineageTimeSelector from '@app/lineage/LineageTimeSelector';
 import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { getTimeFromNow } from '@app/shared/time/timeUtils';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 type Props = {
     isHideSiblingMode: boolean;

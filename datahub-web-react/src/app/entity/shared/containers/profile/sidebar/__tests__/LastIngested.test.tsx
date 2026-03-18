@@ -1,7 +1,7 @@
 import { green, orange, red } from '@ant-design/colors';
-import dayjs from '@utils/dayjs';
 
 import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
+import dayjs from '@utils/dayjs';
 
 describe('getLastIngestedColor', () => {
     it('should return green if the last ingested date is the present moment', () => {

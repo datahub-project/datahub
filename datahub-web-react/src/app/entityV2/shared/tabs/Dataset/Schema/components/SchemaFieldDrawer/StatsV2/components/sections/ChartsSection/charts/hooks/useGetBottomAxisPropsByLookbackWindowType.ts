@@ -1,8 +1,8 @@
-import dayjs from '@utils/dayjs';
 import { useCallback } from 'react';
 
 import { AxisProps } from '@src/alchemy-components/components/BarChart/types';
 import { LookbackWindowType } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import dayjs from '@utils/dayjs';
 
 export default function useGetBottomAxisPropsByLookbackWindowType(
     windowType: LookbackWindowType | string | null,

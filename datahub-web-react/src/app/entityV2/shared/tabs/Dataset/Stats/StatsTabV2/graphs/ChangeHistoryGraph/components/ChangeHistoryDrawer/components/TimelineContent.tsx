@@ -1,4 +1,3 @@
-import dayjs from '@utils/dayjs';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -6,6 +5,7 @@ import ChangeTypePill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/g
 import useGetUserName from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/useGetUserName';
 import { Popover, Text } from '@src/alchemy-components';
 import { CorpUser, Operation } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 const ContentRow = styled.div`
     display: flex;

@@ -1,5 +1,4 @@
 import { FolderFilled } from '@ant-design/icons';
-import dayjs from '@utils/dayjs';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -52,6 +51,7 @@ import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMa
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
+import dayjs from '@utils/dayjs';
 
 import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {

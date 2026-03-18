@@ -2,7 +2,6 @@ import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import { Image } from 'antd';
-import dayjs from '@utils/dayjs';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -11,6 +10,7 @@ import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 const StyledDot = styled.div<{ color: string }>`
     border: 1px solid ${(props) => props.theme.colors.border};

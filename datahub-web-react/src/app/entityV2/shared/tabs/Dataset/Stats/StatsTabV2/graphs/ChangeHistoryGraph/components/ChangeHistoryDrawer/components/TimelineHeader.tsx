@@ -1,11 +1,11 @@
 import { Pill, Text } from '@components';
 import { Skeleton } from 'antd';
-import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { pluralize } from '@src/app/shared/textUtil';
+import dayjs from '@utils/dayjs';
 
 const HeaderContainer = styled.div`
     display: flex;

@@ -1,11 +1,11 @@
 import type { ItemType } from 'antd/lib/menu/hooks/useItems';
-import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
 import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import dayjs from '@utils/dayjs';
 
 const FilterOptionWrapper = styled.div`
     display: flex;

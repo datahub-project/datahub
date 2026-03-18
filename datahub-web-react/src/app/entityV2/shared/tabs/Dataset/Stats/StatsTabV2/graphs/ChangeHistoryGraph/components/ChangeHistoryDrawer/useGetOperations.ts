@@ -1,4 +1,3 @@
-import dayjs from '@utils/dayjs';
 import { uniq } from 'lodash';
 import { useMemo } from 'react';
 
@@ -10,6 +9,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
 import { useGetOperationsQuery } from '@src/graphql/dataset.generated';
 import { FacetFilterInput, FilterOperator } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 const TIMESTAMP_FIELD = 'lastUpdatedTimestamp';
 

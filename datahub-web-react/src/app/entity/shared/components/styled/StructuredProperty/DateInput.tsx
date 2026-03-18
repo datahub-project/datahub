@@ -1,8 +1,8 @@
-import dayjs from '@utils/dayjs';
-import type { Dayjs } from '@utils/dayjs';
 import React from 'react';
 
 import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 interface Props {
     selectedValues: any[];

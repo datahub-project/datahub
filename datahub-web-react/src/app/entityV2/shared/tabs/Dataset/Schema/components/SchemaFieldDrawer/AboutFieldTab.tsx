@@ -1,4 +1,3 @@
-import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -16,6 +15,7 @@ import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import dayjs from '@utils/dayjs';
 
 import {
     DatasetFieldProfile,

@@ -1,7 +1,6 @@
 import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
-import dayjs from '@utils/dayjs';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -11,6 +10,7 @@ import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/as
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
+import dayjs from '@utils/dayjs';
 
 import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
 

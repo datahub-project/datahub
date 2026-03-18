@@ -3,11 +3,11 @@ import { curveBasis } from '@visx/curve';
 import { Group } from '@visx/group';
 import { LinePath } from '@visx/shape';
 import { Tooltip } from 'antd';
-import dayjs from '@utils/dayjs';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { VizEdge } from '@app/lineage/types';
+import dayjs from '@utils/dayjs';
 
 const EdgeTimestamp = styled.div``;
 

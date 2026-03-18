@@ -1,4 +1,3 @@
-import dayjs from '@utils/dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,6 +7,7 @@ import { extractChangeDetails, getActorDisplayName } from '@app/entityV2/documen
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Popover, Text } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
+import dayjs from '@utils/dayjs';
 
 import { DocumentChange, DocumentChangeType } from '@types';
 

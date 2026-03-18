@@ -1,9 +1,9 @@
-import dayjs from '@utils/dayjs';
 import { useEffect, useMemo } from 'react';
 
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
 import { FilterOperator } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 interface Props {
     filterField: string;

@@ -1,9 +1,9 @@
-import dayjs from '@utils/dayjs';
-import type { Dayjs } from '@utils/dayjs';
 import { useEffect, useMemo } from 'react';
 
 import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
 import { FilterOperator } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 export type Datetime = Dayjs | null;
 

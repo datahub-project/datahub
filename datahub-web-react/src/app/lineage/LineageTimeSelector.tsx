@@ -1,13 +1,13 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
-import dayjs from '@utils/dayjs';
-import type { Dayjs } from '@utils/dayjs';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import ClickOutside from '@app/shared/ClickOutside';
 import { getTimeRangeDescription } from '@app/shared/time/timeUtils';
 import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 const RangePickerWrapper = styled.div`
     transition: color 0s;

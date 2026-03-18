@@ -1,10 +1,10 @@
 import { CellHoverWrapper, Text, Tooltip } from '@components';
-import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import isPresent from '@app/utils/isPresent';
+import dayjs from '@utils/dayjs';
 
 /**
  * l - M/D/YYYY

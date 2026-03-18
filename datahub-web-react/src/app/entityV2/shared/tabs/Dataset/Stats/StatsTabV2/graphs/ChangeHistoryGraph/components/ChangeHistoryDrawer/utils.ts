@@ -1,8 +1,8 @@
-import dayjs from '@utils/dayjs';
-import type { Dayjs } from '@utils/dayjs';
 import { uniq } from 'lodash';
 
 import { Operation } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 export const getUniqueActorsFromOperations = (operations: Omit<Operation, 'lastUpdatedTimestamp'>[]): string[] => {
     return uniq(operations.filter((operation) => operation.actor).map((operation) => operation.actor || ''));

@@ -1,8 +1,8 @@
-import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
+import dayjs from '@utils/dayjs';
 
 import { Post } from '@types';
 

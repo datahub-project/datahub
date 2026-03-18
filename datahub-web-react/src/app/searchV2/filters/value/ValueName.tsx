@@ -1,5 +1,4 @@
 import { Typography } from 'antd';
-import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
@@ -8,6 +7,7 @@ import { getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils'
 import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value/utils';
 import { UNIT_SEPARATOR } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 function getTextFieldName(field: FilterField, value: FilterValue) {
     let textFieldName = value.displayName || value.value;

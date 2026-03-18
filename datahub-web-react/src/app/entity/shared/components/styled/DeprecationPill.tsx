@@ -2,13 +2,13 @@ import { blue } from '@ant-design/colors';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Popover, Tooltip, colors } from '@components';
 import { Divider, Modal, Typography, message } from 'antd';
-import dayjs from '@utils/dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
+import dayjs from '@utils/dayjs';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation } from '@types';

@@ -1,8 +1,7 @@
-import dayjs from '@utils/dayjs';
-
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { getTimeWindowStart } from '@src/app/shared/time/timeUtils';
 import { DateInterval, TimeRange } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 export type TimeSeriesDatum = {
     time: number;

@@ -1,7 +1,6 @@
-import dayjs from '@utils/dayjs';
-
 import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
 import { UnionType } from '@app/searchV2/utils/constants';
+import dayjs from '@utils/dayjs';
 
 import { FilterOperator, SortCriterion, SortOrder } from '@types';
 

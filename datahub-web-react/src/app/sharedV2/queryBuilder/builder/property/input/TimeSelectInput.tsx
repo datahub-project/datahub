@@ -1,7 +1,7 @@
-import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
 
 type Props = {
     selected?: string[];

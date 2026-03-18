@@ -1,6 +1,5 @@
 import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
-import dayjs from '@utils/dayjs';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
@@ -11,6 +10,7 @@ import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/use
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import Loading from '@app/shared/Loading';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import dayjs from '@utils/dayjs';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 

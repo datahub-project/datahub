@@ -1,7 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import dayjs from '@utils/dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -14,6 +13,7 @@ import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { COLORS } from '@app/sharedV2/colors';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import dayjs from '@utils/dayjs';
 
 import { useDeletePostMutation } from '@graphql/post.generated';
 import { Post } from '@types';

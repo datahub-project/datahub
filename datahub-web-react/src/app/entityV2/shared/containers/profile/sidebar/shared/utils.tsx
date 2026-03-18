@@ -1,6 +1,5 @@
-import dayjs from '@utils/dayjs';
-
 import ColorTheme from '@conf/theme/colorThemes/types';
+import dayjs from '@utils/dayjs';
 
 import { CorpUser } from '@types';
 

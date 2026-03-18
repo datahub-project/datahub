@@ -1,11 +1,11 @@
 import { TickLabelProps } from '@visx/axis';
-import dayjs from '@utils/dayjs';
 
 import { DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL } from '@components/components/BarChart/constants';
 import { BarChartProps, Datum } from '@components/components/BarChart/types';
 import { abbreviateNumber } from '@components/components/dataviz/utils';
 
 import { colors } from '@src/alchemy-components/theme';
+import dayjs from '@utils/dayjs';
 
 const commonTickLabelProps: TickLabelProps<Datum> = {
     fontSize: 10,

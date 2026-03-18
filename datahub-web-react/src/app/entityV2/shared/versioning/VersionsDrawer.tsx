@@ -2,7 +2,6 @@ import { CloseOutlined } from '@ant-design/icons';
 import { Icon, Input, Table, Text, colors } from '@components';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
-import dayjs from '@utils/dayjs';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
@@ -14,6 +13,7 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 import { useSearchAcrossVersionsQuery } from '@graphql/versioning.generated';
 import { FilterOperator } from '@types';

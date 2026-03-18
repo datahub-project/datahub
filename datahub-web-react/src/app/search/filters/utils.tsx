@@ -8,7 +8,6 @@ import {
     UserOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
-import dayjs from '@utils/dayjs';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -38,6 +37,7 @@ import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fiel
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import TableIcon from '@src/images/table-icon.svg?react';
+import dayjs from '@utils/dayjs';
 
 import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {

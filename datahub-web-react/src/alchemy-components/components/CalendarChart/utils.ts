@@ -1,8 +1,5 @@
 import { scaleLinear } from '@visx/scale';
 import * as d3interpolate from '@visx/vendor/d3-interpolate';
-import dayjs from '@utils/dayjs';
-
-import colors from '@src/conf/theme/colorThemes/color';
 
 import { CALENDAR_DATE_FORMAT } from '@components/components/CalendarChart/constants';
 import { DAYS_IN_WEEK, MIN_DAYS_IN_WEEK } from '@components/components/CalendarChart/private/constants';
@@ -14,6 +11,9 @@ import {
     MonthData,
     WeekData,
 } from '@components/components/CalendarChart/types';
+
+import colors from '@src/conf/theme/colorThemes/color';
+import dayjs from '@utils/dayjs';
 
 export function prepareCalendarData<ValueType>(
     data: CalendarData<ValueType>[],
