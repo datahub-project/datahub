@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -1245,6 +1246,92 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readNewRecentAspect =
         _entityServiceImpl.getAspect(opContext, entityUrn1, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+  }
+
+  @Test
+  public void testIngestWithMaxVersionsOne_NoVersionHistory() throws AssertionError {
+    doReturn(1)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:maxVersionsOne");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserInfo first = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    CorpUserInfo second = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(first)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(second)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+
+    assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0), second);
+    assertNull(
+        _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1),
+        "No version history when maxVersionsToKeep=1");
+  }
+
+  @Test
+  public void testIngestWhenGetMaxVersionsToKeepForWriteThrows_FallbackToOne() throws Exception {
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> mockRetention = mock(RetentionService.class);
+    when(mockRetention.getMaxVersionsToKeepForWrite(any(), anyString(), anyString()))
+        .thenThrow(new RuntimeException("retention unavailable"));
+
+    _entityServiceImpl.setRetentionService(mockRetention);
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:retentionThrows");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserInfo aspect = AspectGenerationUtils.createCorpUserInfo("fallback@test.com");
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(aspect)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+
+    assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0), aspect);
+    assertNull(
+        _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1),
+        "Fallback to 1 when getMaxVersionsToKeepForWrite throws");
   }
 
   @Test

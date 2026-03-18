@@ -1,9 +1,12 @@
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Tooltip, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { colors } from '@src/alchemy-components';
@@ -16,6 +19,7 @@ interface GlossaryItemCardHeaderProps {
 
 // there may be a good constant for this but I couldn't find one --Gabe
 // feel free to replace this color at a later date
+// eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once disabled text color token is added
 const DISABLED_TEXT_COLOR = '#c5c6c9';
 
 const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`

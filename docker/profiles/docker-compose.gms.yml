@@ -65,6 +65,9 @@ x-datahub-common: &datahub-common-env
   DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
   DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
 
+x-datahub-token-authentication-env: &datahub-authentication-env
+  DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+  DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
 #################################
 # System Update
 #################################
@@ -79,7 +82,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
   environment: &datahub-system-update-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
 
     CREATE_USER: ${DATAHUB_CREATE_USER:-false}
     CREATE_USER_USERNAME: ${DATAHUB_CREATE_USER_USERNAME:-datahub}
@@ -94,6 +97,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     USE_CONFLUENT_SCHEMA_REGISTRY: false
     DATAHUB_SQL_SETUP_ENABLED: ${DATAHUB_SQL_SETUP_ENABLED:-true}
     PARTITIONS: ${DATAHUB_PARTITIONS:-3}
+    
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   labels:
@@ -128,7 +132,7 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -172,6 +176,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     SHOW_BROWSE_V2: true
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     METADATA_SERVICE_AUTH_ENABLED: ${METADATA_SERVICE_AUTH_ENABLED:-true}
+    DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
     DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED:-true}
     DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES:-1048576}
     DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES:-1572864}
@@ -232,7 +237,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
   environment: &datahub-mce-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -254,7 +259,7 @@ x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
 
 services:
   #################################
-  # System Update
+  # System Update (runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true, then SystemUpdate incl. BuildIndices)
   #################################
   system-update-quickstart:
     <<: *datahub-system-update-service
@@ -264,14 +269,15 @@ services:
       - quickstart-consumers
       - quickstart-frontend
       - quickstart-backend
+    environment:
+      <<: *datahub-system-update-env
+      DATAHUB_SQL_SETUP_ENABLED: 'true'
     depends_on:
-      mysql-setup:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
       opensearch:
         condition: service_healthy
-      mysql:
+      kafka-broker:
         condition: service_healthy
   system-update-quickstart-cdc:
     <<: *datahub-system-update-service
@@ -286,13 +292,9 @@ services:
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       DEBEZIUM_PLUGIN_NAME: pgoutput
     depends_on:
-      mysql-setup-cdc:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
-      opensearch:
-        condition: service_healthy
       mysql:
+        condition: service_healthy
+      opensearch:
         condition: service_healthy
       kafka-connect:
         condition: service_started
@@ -307,8 +309,8 @@ services:
         condition: service_healthy
       cassandra-setup:
         condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
   system-update-quickstart-postgres:
     <<: *datahub-system-update-service
     profiles:
@@ -316,10 +318,10 @@ services:
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
     depends_on:
-      postgres-setup:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-quickstart-postgres-cdc:
     <<: *datahub-system-update-service
     profiles:
@@ -334,10 +336,12 @@ services:
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       CDC_DB_TYPE: postgres
     depends_on:
-      postgres-setup-cdc:
-        condition: service_completed_successfully
-      opensearch-setup:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      kafka-connect:
+        condition: service_started
   system-update-debug: &system-update-debug
     <<: *datahub-system-update-service-dev
     profiles:
@@ -358,10 +362,10 @@ services:
       - debug-backend-aws
       - debug-aws
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
     profiles:
@@ -371,10 +375,10 @@ services:
     profiles:
       - debug-consumers-cdc
     depends_on:
-      mysql-setup-dev-cdc:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
       kafka-connect:
         condition: service_started
     environment:
@@ -393,10 +397,10 @@ services:
       <<: *datahub-system-update-dev-env
       ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      elasticsearch-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -404,10 +408,10 @@ services:
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env]
     depends_on:
-      postgres-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-debug-postgres-cdc:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -415,10 +419,12 @@ services:
     environment:
       <<: *system-update-quickstart-postgres-cdc-env
     depends_on:
-      postgres-setup-dev-cdc:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      kafka-connect:
+        condition: service_started
   system-update-debug-cassandra:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -428,8 +434,8 @@ services:
     depends_on:
       cassandra-setup:
         condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
   system-update-debug-neo4j:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -439,8 +445,8 @@ services:
     depends_on:
       neo4j:
         condition: service_healthy
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
   #################################
   # GMS
   #################################
@@ -494,6 +500,7 @@ services:
       <<: *datahub-gms-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
+      DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully

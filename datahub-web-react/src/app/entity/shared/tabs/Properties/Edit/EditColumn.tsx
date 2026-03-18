@@ -1,3 +1,4 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -121,7 +122,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
         <>
             <MoreOptionsContainer>
                 <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon icon="MoreVert" size="md" data-testid="structured-prop-entity-more-icon" />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid="structured-prop-entity-more-icon" />
                 </Dropdown>
             </MoreOptionsContainer>
             <EditStructuredPropertyModal

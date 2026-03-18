@@ -1002,7 +1002,7 @@ public class ESUtils {
     Set<String> fieldTypes =
         getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
     if (fieldTypes.size() > 1) {
-      log.warn(
+      log.debug(
           "Multiple field types for field name {}, determining best fit for set: {}",
           fieldName,
           fieldTypes);
@@ -1067,7 +1067,7 @@ public class ESUtils {
           fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
               ? "structured property"
               : "regular field";
-      log.warn(
+      log.debug(
           "Multiple field types for {} '{}' (criterion: {}, values: {}), determining best fit for set: {}",
           fieldType,
           fieldName,

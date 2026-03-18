@@ -235,10 +235,12 @@ def main():
 
     with open(args.cypress_output, 'w') as f:
         json.dump(cypress_weights, f, indent=2)
+        f.write('\n')
     print(f"Wrote Cypress weights to: {args.cypress_output}")
 
     with open(args.pytest_output, 'w') as f:
         json.dump(pytest_weights, f, indent=2)
+        f.write('\n')
     print(f"Wrote Pytest weights to: {args.pytest_output}")
 
     # Print top 5 longest tests for each type

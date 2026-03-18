@@ -830,7 +830,6 @@ class TableauSourceReport(
     num_upstream_table_lineage: int = 0
     num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
-    num_upstream_table_skipped_no_columns: int = 0
     num_upstream_table_processed_without_columns: int = 0
     num_upstream_table_failed_generate_reference: int = 0
     num_upstream_table_lineage_failed_parse_sql: int = 0
@@ -2745,19 +2744,20 @@ class TableauSiteSource:
         workbook: Optional[dict] = None,
         is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
+        is_not_allowed = self._get_datasource_project_luid(datasource) is None
+
+        if is_not_allowed:
+            ds_type = "embedded" if is_embedded_ds else "published"
+            logger.warning(
+                f"Skip ingesting {ds_type} datasource {datasource.get(c.NAME)} because of filtered project"
+            )
+            return
+
         datasource_info = workbook
         if not is_embedded_ds:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
-        if (
-            not is_embedded_ds
-            and self._get_published_datasource_project_luid(datasource) is None
-        ):
-            logger.warning(
-                f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
-            )
-            return
 
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]

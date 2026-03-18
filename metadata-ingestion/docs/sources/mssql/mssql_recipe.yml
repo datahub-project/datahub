@@ -24,6 +24,37 @@ sink:
   # sink configs
 
 #------------------------------------------------------------------------
+#Example: with query-based lineage and usage statistics
+#This requires SQL Server 2016+ and Query Store enabled.
+#See the prerequisites documentation for setup instructions.
+# ------------------------------------------------------------------------
+
+source:
+  type: mssql
+  config:
+    # Coordinates
+    host_port: localhost:1433
+    database: DemoDatabase
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Query-based lineage extraction
+    include_query_lineage: true
+    max_queries_to_extract: 1000
+    min_query_calls: 5
+    query_exclude_patterns:
+      - "%sys.%"
+      - "%tempdb.%"
+      - "%INFORMATION_SCHEMA%"
+      - "%msdb.%"
+      - "%#%"  # Temporary tables
+
+sink:
+  # sink configs
+
+#------------------------------------------------------------------------
 #Example: using ingestion with ODBC and encryption
 #This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
 #See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
