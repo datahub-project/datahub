@@ -191,6 +191,27 @@ public class ExternalEventsServiceTest {
     verify(kafkaConsumer).partitionsFor("acme_myTopic");
   }
 
+  @Test
+  public void testWorkEventWithPrefixedKafkaTopicName() throws Exception {
+    // Simulates real-world scenario: displayName=WorkEvent_v1, actual Kafka
+    // topic=2391478-acme_WorkEvent_v1
+    Map<String, String> names = new HashMap<>(topicNames);
+    names.put("WorkEvent_v1", "2391478-acme_WorkEvent_v1");
+    Set<String> allowedTopics = Set.of("PlatformEvent_v1", "WorkEvent_v1");
+    ExternalEventsService svc =
+        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, names, 10, 100);
+
+    when(kafkaConsumer.partitionsFor("2391478-acme_WorkEvent_v1"))
+        .thenReturn(Collections.emptyList());
+    when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
+
+    // API call uses displayName (WorkEvent_v1)
+    svc.poll("WorkEvent_v1", null, 10, 5, null);
+
+    // Kafka consumer should be called with actual topic name (2391478-acme_WorkEvent_v1)
+    verify(kafkaConsumer).partitionsFor("2391478-acme_WorkEvent_v1");
+  }
+
   @Test(expectedExceptions = UnsupportedTopicException.class)
   public void testUnmappedTopicThrows() throws Exception {
     Set<String> allowedTopics = Set.of("PlatformEvent_v1", "customTopic");
