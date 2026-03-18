@@ -22,6 +22,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
     get_platform_instance,
+    parse_comma_separated_list,
 )
 from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
@@ -243,6 +244,11 @@ class ConnectorRegistry:
         ):
             return JdbcSinkConnector(manifest, config, report)
 
+        # Fall back to generic connector config for explicitly mapped sink connectors
+        for generic_config in config.generic_connectors:
+            if generic_config.connector_name == manifest.name:
+                return _GenericConnector(manifest, config, report, generic_config)
+
         return None
 
     @staticmethod
@@ -293,18 +299,32 @@ class _GenericConnector(BaseConnector):
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Create basic lineage from generic configuration."""
-        from datahub.ingestion.source.kafka_connect.common import KafkaConnectLineage
-
         lineages: List[KafkaConnectLineage] = []
-        for topic in self.connector_manifest.topic_names:
-            lineages.append(
-                KafkaConnectLineage(
-                    source_platform=self.generic_config.source_platform,
-                    source_dataset=self.generic_config.source_dataset,
-                    target_dataset=topic,
-                    target_platform="kafka",
+
+        if self.generic_config.target_dataset and self.generic_config.target_platform:
+            # Explicit sink mapping: kafka topic → target dataset
+            for topic in self.connector_manifest.topic_names or [
+                self.generic_config.source_dataset
+            ]:
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_platform=self.generic_config.source_platform,
+                        source_dataset=topic,
+                        target_dataset=self.generic_config.target_dataset,
+                        target_platform=self.generic_config.target_platform,
+                    )
                 )
-            )
+        else:
+            # Source mapping: source dataset → kafka topic
+            for topic in self.connector_manifest.topic_names:
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_platform=self.generic_config.source_platform,
+                        source_dataset=self.generic_config.source_dataset,
+                        target_dataset=topic,
+                        target_platform="kafka",
+                    )
+                )
         return lineages
 
     def get_topics_from_config(self) -> List[str]:
@@ -314,10 +334,6 @@ class _GenericConnector(BaseConnector):
         # Try common topic configuration fields
         topics = config.get("topics", "")
         if topics:
-            from datahub.ingestion.source.kafka_connect.common import (
-                parse_comma_separated_list,
-            )
-
             return parse_comma_separated_list(topics)
 
         # Single topic field

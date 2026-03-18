@@ -6,7 +6,6 @@ from typing import Dict, Final, Iterable, List, Optional, Tuple
 from sqlalchemy.engine.url import URL, make_url
 
 from datahub.ingestion.source.kafka_connect.common import (
-    JDBC_PREFIX,
     KAFKA,
     BaseConnector,
     ConnectorManifest,
@@ -15,7 +14,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
     get_dataset_name,
     has_three_level_hierarchy,
-    remove_prefix,
+    normalize_jdbc_url,
     validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.config_constants import (
@@ -599,7 +598,7 @@ class JdbcSinkParser:
 
     db_connection_url: str
     target_platform: str
-    database_name: str
+    database_name: Optional[str]
     schema_name: Optional[str]
     table_name_format: str
 
@@ -664,28 +663,37 @@ class JdbcSinkParserFactory:
         Returns:
             JdbcSinkParser with parsed configuration
         """
-        # Parse JDBC URL using SQLAlchemy
-        jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
+        # Parse JDBC URL using SQLAlchemy (normalises Oracle thin format first)
+        jdbc_url = normalize_jdbc_url(connection_url)
         url_instance = make_url(jdbc_url)
-
-        # Extract database name
-        database_name = url_instance.database
-        if not database_name:
-            raise ValueError(
-                f"Missing database name in JDBC URL: {jdbc_url}. "
-                f"JDBC URLs must include a database name, e.g., 'jdbc:postgresql://host:port/database_name'"
-            )
 
         # Get target platform from SQLAlchemy URL
         target_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+
+        # Oracle service names (e.g. myservice.corp.example.com) are not database
+        # identifiers in DataHub URNs; Oracle defaults to schema.table format.
+        if target_platform == "oracle":
+            database_name: Optional[str] = None
+        else:
+            database_name = url_instance.database
+            if not database_name:
+                raise ValueError(
+                    f"Missing database name in JDBC URL: {jdbc_url}. "
+                    f"JDBC URLs must include a database name, e.g., 'jdbc:postgresql://host:port/database_name'"
+                )
 
         # Extract schema from URL query parameters or use defaults
         schema_name = self._extract_schema_from_url(
             url_instance, platform, connector_manifest.config
         )
 
-        # Build clean connection URL for property bag
-        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
+        # Omit the Oracle service name from the connection URL (not a DB identifier)
+        if database_name:
+            db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
+        else:
+            db_connection_url = (
+                f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}"
+            )
 
         # Get table name format (how topics map to tables)
         table_name_format = connector_manifest.config.get(
@@ -807,9 +815,16 @@ class JdbcSinkParserFactory:
         # Use platform-specific defaults
         if not schema and has_three_level_hierarchy(platform):
             if platform == "postgres":
-                schema = "public"  # PostgreSQL default schema
-            # MySQL doesn't use schemas (database == schema)
-            # SQL Server, Oracle use user-specific defaults
+                schema = "public"
+            elif platform == "mssql":
+                schema = "dbo"
+
+        # Oracle: connecting user = schema owner. Lowercase ALL_CAPS names to match
+        # SQLAlchemy's normalize_name convention used by the Oracle source.
+        if not schema and platform == "oracle":
+            raw = config.get("connection.user") or config.get("connection.username")
+            if raw:
+                schema = raw.lower() if raw.isupper() else raw
 
         return schema
 
@@ -855,7 +870,7 @@ class JdbcSinkConnector(BaseConnector):
                     )
                     self.platform = "unknown"
                 else:
-                    jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
+                    jdbc_url = normalize_jdbc_url(connection_url)
                     self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
                     if self.platform == "external":
                         report.warning(
@@ -1057,17 +1072,17 @@ class JdbcSinkConnector(BaseConnector):
                     transformed_topic, parser.table_name_format
                 )
 
-                # Build fully qualified dataset name using helper function
-                if parser.schema_name and has_three_level_hierarchy(
-                    parser.target_platform
-                ):
-                    # Platform supports schema hierarchy: database.schema.table
+                if parser.schema_name:
                     table_with_schema = f"{parser.schema_name}.{table_name}"
-                    target_dataset = get_dataset_name(
-                        parser.database_name, table_with_schema
-                    )
+                    if parser.database_name and has_three_level_hierarchy(
+                        parser.target_platform
+                    ):
+                        target_dataset = get_dataset_name(
+                            parser.database_name, table_with_schema
+                        )
+                    else:
+                        target_dataset = get_dataset_name(None, table_with_schema)
                 else:
-                    # Platform doesn't use schemas: database.table
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 
                 # Extract column-level lineage if enabled (uses base class method)
