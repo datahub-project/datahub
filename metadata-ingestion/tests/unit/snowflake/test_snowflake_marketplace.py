@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     InstitutionalMemoryClass,
+    StructuredPropertiesClass,
 )
 from tests.unit.snowflake.conftest_marketplace import (  # type: ignore[import-untyped]
     FakeNativeConn as _FakeNativeConn,
@@ -97,13 +98,12 @@ def mock_purchases() -> List[Dict[str, Any]]:
 
 @pytest.fixture
 def mock_usage_events() -> List[Dict[str, Any]]:
-    """Mock marketplace usage events data."""
     return [
         {
             "EVENT_TIMESTAMP": datetime(2024, 6, 1, 10, 0, 0, tzinfo=timezone.utc),
             "QUERY_ID": "query-token-001",
             "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
-            "USER_NAME": "analyst_user",
+            "CONSUMER_ACCOUNT_NAME": "PARTNER_CORP",
             "SHARE_NAME": "ACME_SHARE",
             "SHARE_OBJECTS_ACCESSED": json.dumps(
                 [
@@ -118,7 +118,7 @@ def mock_usage_events() -> List[Dict[str, Any]]:
             "EVENT_TIMESTAMP": datetime(2024, 6, 1, 14, 0, 0, tzinfo=timezone.utc),
             "QUERY_ID": "query-token-002",
             "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
-            "USER_NAME": "data_scientist",
+            "CONSUMER_ACCOUNT_NAME": "ANALYTICS_TEAM",
             "SHARE_NAME": "ACME_SHARE",
             "SHARE_OBJECTS_ACCESSED": json.dumps(
                 [
@@ -532,11 +532,8 @@ class TestMarketplaceUsageStatistics:
         mock_usage_events: List[Dict[str, Any]],
     ) -> None:
         """Test that usage statistics are created correctly."""
-        config_dict = base_config.copy()
-        config_dict["email_domain"] = "test.com"
-
         handler = create_handler(
-            config_dict, mock_listings, mock_purchases, mock_usage_events
+            base_config, mock_listings, mock_purchases, mock_usage_events
         )
         wus = list(handler.get_marketplace_workunits())
 
@@ -559,6 +556,10 @@ class TestMarketplaceUsageStatistics:
         user_counts = usage_stats.userCounts
         assert user_counts is not None
         assert len(user_counts) == 2
+        user_urns = {uc.user for uc in user_counts}
+        assert "urn:li:corpuser:partner_corp" in user_urns
+        assert "urn:li:corpuser:analytics_team" in user_urns
+        assert all(uc.userEmail is None for uc in user_counts)
 
         # Verify report metrics
         assert handler.report.marketplace_usage_events_processed == 2
@@ -570,16 +571,13 @@ class TestMarketplaceUsageStatistics:
         mock_purchases: List[Dict[str, Any]],
     ) -> None:
         """Test that usage events are correctly grouped by database."""
-        config_dict = base_config.copy()
-        config_dict["email_domain"] = "test.com"
-
         # Usage events accessing different databases
         usage_with_multiple_dbs = [
             {
                 "EVENT_TIMESTAMP": datetime(2024, 6, 1, 10, 0, 0, tzinfo=timezone.utc),
                 "QUERY_ID": "query-001",
                 "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
-                "USER_NAME": "user1",
+                "CONSUMER_ACCOUNT_NAME": "PARTNER_CORP",
                 "SHARE_NAME": "SHARE1",
                 "SHARE_OBJECTS_ACCESSED": json.dumps(
                     [
@@ -597,7 +595,7 @@ class TestMarketplaceUsageStatistics:
         ]
 
         handler = create_handler(
-            config_dict, mock_listings, mock_purchases, usage_with_multiple_dbs
+            base_config, mock_listings, mock_purchases, usage_with_multiple_dbs
         )
         wus = list(handler.get_marketplace_workunits())
 
@@ -746,7 +744,6 @@ class TestMarketplaceConfiguration:
             "end_time": custom_end.isoformat(),
             "bucket_duration": "HOUR",
         }
-        config_dict["email_domain"] = "test.com"
 
         handler = create_handler(
             config_dict, mock_listings, mock_purchases, mock_usage_events
@@ -855,6 +852,41 @@ class TestMarketplaceEdgeCases:
         assert "snowflake.marketplace.provider" in property_ids
         assert "snowflake.marketplace.category" in property_ids
         assert "snowflake.marketplace.listing_global_name" in property_ids
+        assert "snowflake.marketplace.mode" not in property_ids
+
+    def test_structured_property_assignments_use_correct_urns(
+        self,
+        base_config: Dict[str, Any],
+        mock_listings: List[Dict[str, Any]],
+        mock_purchases: List[Dict[str, Any]],
+    ) -> None:
+        """Test that data product structured property assignments emit valid URNs."""
+        config_dict = base_config.copy()
+        config_dict["marketplace"][
+            "marketplace_properties_as_structured_properties"
+        ] = True
+
+        handler = create_handler(config_dict, mock_listings, mock_purchases)
+        wus = list(handler.get_marketplace_workunits())
+
+        sp_wus = [
+            wu
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(
+                getattr(wu.metadata, "aspect", None), StructuredPropertiesClass
+            )
+        ]
+
+        assert len(sp_wus) >= 1
+
+        for wu in sp_wus:
+            sp = cast(StructuredPropertiesClass, wu.metadata.aspect)  # type: ignore[union-attr]
+            assert sp.properties is not None
+            for assignment in sp.properties:
+                urn = assignment.propertyUrn
+                assert urn.startswith("urn:li:structuredProperty:"), urn
+                assert "marketplace.mode" not in urn
 
     def test_listing_without_optional_fields(self, base_config: Dict[str, Any]) -> None:
         """Test listing with minimal fields."""

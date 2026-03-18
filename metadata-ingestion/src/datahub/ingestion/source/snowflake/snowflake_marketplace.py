@@ -707,7 +707,6 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 "snowflake.marketplace.listing_global_name": listing.listing_global_name,
                 "snowflake.marketplace.listing_name": listing.name,
                 "snowflake.marketplace.type": "internal",
-                "snowflake.marketplace.mode": self.config.marketplace.marketplace_mode,
             }
             if listing.created_on:
                 structured_properties["snowflake.marketplace.listing_created_on"] = (
@@ -820,13 +819,19 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
             # NOTE: The assets parameter in gen_data_product only adds them to DataProductProperties.
             # We also need to create bidirectional DataProductContains relationships separately.
+            structured_props: Optional[Dict[StructuredPropertyUrn, str]] = None
+            if metadata.structured_properties:
+                structured_props = {
+                    StructuredPropertyUrn(k): v
+                    for k, v in metadata.structured_properties.items()
+                }
             yield from gen_data_product(
                 data_product_key=data_product_key,
                 name=metadata.name,
                 description=metadata.description,
                 external_url=metadata.external_url,
                 custom_properties=metadata.custom_properties,
-                structured_properties=metadata.structured_properties,  # type: ignore
+                structured_properties=structured_props,
                 domain_urn=metadata.domain_urn,
                 owner_urns=metadata.owner_urns if metadata.owner_urns else None,
                 owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
@@ -1090,7 +1095,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 event = SnowflakeMarketplaceAccessEvent(
                     event_timestamp=row["EVENT_TIMESTAMP"],
                     listing_global_name=row["LISTING_GLOBAL_NAME"],
-                    user_name=row["USER_NAME"],
+                    consumer_account_name=row["CONSUMER_ACCOUNT_NAME"],
                     query_id=row["QUERY_ID"],
                     share_name=row["SHARE_NAME"],
                     share_objects_accessed=share_objects,
@@ -1117,35 +1122,24 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     )
                     database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
-                    unique_users: Set[str] = set(event.user_name for event in events)
+                    unique_accounts: Set[str] = set(
+                        event.consumer_account_name for event in events
+                    )
                     total_queries = len(set(event.query_id for event in events))
 
-                    user_counts = []
-                    user_query_counts: Dict[str, int] = defaultdict(int)
+                    account_query_counts: Dict[str, int] = defaultdict(int)
                     for event in events:
-                        user_query_counts[event.user_name] += 1
+                        account_query_counts[event.consumer_account_name] += 1
 
-                    for user_name, query_count in user_query_counts.items():
-                        user_email = None
-                        if self.config.email_domain:
-                            user_email = (
-                                f"{user_name}@{self.config.email_domain}".lower()
-                            )
-
-                        if user_email and self.config.user_email_pattern.allowed(
-                            user_email
-                        ):
-                            user_counts.append(
-                                DatasetUserUsageCountsClass(
-                                    user=make_user_urn(
-                                        self.identifiers.get_user_identifier(
-                                            user_name, user_email
-                                        )
-                                    ),
-                                    count=query_count,
-                                    userEmail=user_email,
-                                )
-                            )
+                    user_counts = [
+                        DatasetUserUsageCountsClass(
+                            user=make_user_urn(account_name.lower()),
+                            count=query_count,
+                        )
+                        for account_name, query_count in sorted(
+                            account_query_counts.items()
+                        )
+                    ]
 
                     usage_stats = DatasetUsageStatisticsClass(
                         timestampMillis=start_time_millis,
@@ -1153,8 +1147,8 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                             unit=self.config.marketplace.bucket_duration, multiple=1
                         ),
                         totalSqlQueries=total_queries,
-                        uniqueUserCount=len(unique_users),
-                        userCounts=sorted(user_counts, key=lambda x: x.user),
+                        uniqueUserCount=len(unique_accounts),
+                        userCounts=user_counts,
                     )
 
                     yield MetadataChangeProposalWrapper(

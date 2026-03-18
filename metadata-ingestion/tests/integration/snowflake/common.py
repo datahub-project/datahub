@@ -1153,7 +1153,7 @@ def default_query_results(  # noqa: C901
                 ),
                 "QUERY_ID": "query-token-001",
                 "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "USER_NAME": "ANALYST_USER",
+                "CONSUMER_ACCOUNT_NAME": "PARTNER_CORP",
                 "SHARE_NAME": "CUSTOMER_360_SHARE",
                 "SHARE_OBJECTS_ACCESSED": json.dumps(
                     [
@@ -1174,7 +1174,7 @@ def default_query_results(  # noqa: C901
                 ),
                 "QUERY_ID": "query-token-002",
                 "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "USER_NAME": "DATA_SCIENTIST",
+                "CONSUMER_ACCOUNT_NAME": "ANALYTICS_TEAM",
                 "SHARE_NAME": "CUSTOMER_360_SHARE",
                 "SHARE_OBJECTS_ACCESSED": json.dumps(
                     [
@@ -1193,37 +1193,37 @@ def default_query_results(  # noqa: C901
 
         if listing_name == "ACME_CORP.DATA_PRODUCT.CUSTOMER_360":
             return [
-                {"property": "listing_detail_category", "value": "Customer Data"},
+                {"property": "category", "value": "Customer Data"},
                 {
-                    "property": "listing_detail_description",
+                    "property": "description",
                     "value": "Comprehensive customer data for analysis",
                 },
                 {
-                    "property": "listing_detail_resources",
+                    "property": "resources",
                     "value": '{"documentation": "https://docs.acme.com/customer360"}',
                 },
                 {
-                    "property": "listing_detail_approver_contact",
+                    "property": "approver_contact",
                     "value": "approver@acme.com",
                 },
                 {
-                    "property": "listing_detail_support_contact",
+                    "property": "support_contact",
                     "value": "support@acme.com",
                 },
             ]
         elif listing_name == "WEATHER_CO.PUBLIC.WEATHER_DATA":
             return [
-                {"property": "listing_detail_category", "value": "Environmental"},
+                {"property": "category", "value": "Environmental"},
                 {
-                    "property": "listing_detail_description",
+                    "property": "description",
                     "value": "Real-time weather data from global stations",
                 },
                 {
-                    "property": "listing_detail_resources",
+                    "property": "resources",
                     "value": '{"documentation": "https://weather.co/docs"}',
                 },
                 {
-                    "property": "listing_detail_support_contact",
+                    "property": "support_contact",
                     "value": "support@weather.co",
                 },
             ]

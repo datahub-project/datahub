@@ -402,11 +402,11 @@ class SnowflakeProviderShare:
 
 @dataclass
 class SnowflakeMarketplaceAccessEvent:
-    """Represents a marketplace listing access event"""
+    """Represents a marketplace listing access event."""
 
     event_timestamp: datetime
     listing_global_name: str
-    user_name: str
+    consumer_account_name: str
     query_id: str
     share_name: str
     share_objects_accessed: List[Dict[str, Any]]

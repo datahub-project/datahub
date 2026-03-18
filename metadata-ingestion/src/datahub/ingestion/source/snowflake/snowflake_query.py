@@ -1441,13 +1441,17 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def marketplace_listing_access_history(
         start_time_millis: int, end_time_millis: int
     ) -> str:
-        """Get internal marketplace listing access history (from data exchanges)"""
+        """Get internal marketplace listing access history (from data exchanges).
+
+        CONSUMER_ACCOUNT_NAME is the consuming organization's Snowflake account name,
+        not an individual user — LISTING_ACCESS_HISTORY is a provider-side view.
+        """
         return f"""
             SELECT
                 QUERY_DATE AS "EVENT_TIMESTAMP",
                 QUERY_TOKEN AS "QUERY_ID",
                 LISTING_GLOBAL_NAME AS "LISTING_GLOBAL_NAME",
-                CONSUMER_ACCOUNT_NAME AS "USER_NAME",
+                CONSUMER_ACCOUNT_NAME AS "CONSUMER_ACCOUNT_NAME",
                 SHARE_NAME AS "SHARE_NAME",
                 SHARE_OBJECTS_ACCESSED AS "SHARE_OBJECTS_ACCESSED"
             FROM SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY
