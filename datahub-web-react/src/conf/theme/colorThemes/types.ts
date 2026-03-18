@@ -16,6 +16,7 @@ export default interface ColorTheme {
     bgSurfaceWarning: string;
     bgSurfaceWarningHover: string;
     bgHover: string;
+    bgGradientHover: string;
     text: string;
     textSecondary: string;
     textTertiary: string;

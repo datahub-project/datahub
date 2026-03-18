@@ -45,7 +45,8 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
             }
             return props.theme.styles['primary-color'];
         }};
-        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg)};
+        color: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg};
 
         border-color: ${(props) => {
             if (props.$isShowNavBarRedesign) return props.theme.styles['primary-color'];
@@ -55,7 +56,8 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
 
     &: focus {
         background-color: ${(props) => (props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent')};
-        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg)};
+        color: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg};
         border-color: ${(props) => (props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent')};
 
         ${(props) =>

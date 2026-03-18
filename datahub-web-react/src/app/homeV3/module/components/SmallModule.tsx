@@ -28,7 +28,11 @@ const ContainerWithHover = styled.div`
     justify-content: center;
 
     :hover {
-        background: linear-gradient(180deg, ${(props) => props.theme.colors.bg} 0%, ${(props) => props.theme.colors.bgSurface} 100%);
+        background: linear-gradient(
+            180deg,
+            ${(props) => props.theme.colors.bg} 0%,
+            ${(props) => props.theme.colors.bgSurface} 100%
+        );
     }
 
     :hover ${DragIcon} {

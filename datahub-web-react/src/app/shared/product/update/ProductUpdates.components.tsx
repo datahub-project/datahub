@@ -13,7 +13,11 @@ export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
     max-height: calc(100vh - 48px);
     padding: 0;
     border-radius: 12px;
-    background: linear-gradient(180deg, ${(props) => props.theme.colors.bgSurface} 0%, ${(props) => props.theme.colors.bgSurfaceBrand} 100%);
+    background: linear-gradient(
+        180deg,
+        ${(props) => props.theme.colors.bgSurface} 0%,
+        ${(props) => props.theme.colors.bgSurfaceBrand} 100%
+    );
     box-shadow: ${(props) => props.theme.colors.shadowLg};
     z-index: 1000;
     transition:

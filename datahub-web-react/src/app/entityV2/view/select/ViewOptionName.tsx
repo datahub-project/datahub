@@ -4,6 +4,7 @@ import { GlobeHemisphereEast } from '@phosphor-icons/react/dist/csr/GlobeHemisph
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
 import {

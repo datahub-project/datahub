@@ -63,7 +63,7 @@ const EntityDetailsWrapper = styled.div<{ type: EntityType }>`
 
     &:hover > ${EntityDetails} > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
         transition: 0.15s;
-        fill: rgba(216, 160, 75, 1);
+        fill: ${(props) => props.theme.colors.tagsTrueYellowIcon};
     }
 
     &:hover > ${EntityDetails} > ${EntityDetailsRightColumn} > svg {

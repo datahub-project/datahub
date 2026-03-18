@@ -344,11 +344,15 @@ describe('StructuredReport Component', () => {
         render(<StructuredReport report={mockReport} />);
 
         const errorList = screen.getByTestId('item-list-WarningDiamond');
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         expect(errorList).toHaveAttribute('data-color', '#FBF3EF'); // ERROR_COLOR
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         expect(errorList).toHaveAttribute('data-text-color', '#C4360B'); // ERROR_TEXT_COLOR
 
         const warningList = screen.getByTestId('item-list-WarningCircle');
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         expect(warningList).toHaveAttribute('data-color', '#FFFAEB'); // WARNING_COLOR
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         expect(warningList).toHaveAttribute('data-text-color', '#C77100'); // WARNING_TEXT_COLOR
     });
 

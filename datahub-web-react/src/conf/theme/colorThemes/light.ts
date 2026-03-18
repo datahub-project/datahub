@@ -19,6 +19,8 @@ const lightTheme: ColorTheme = {
     bgSurfaceWarning: colors.yellow0,
     bgSurfaceWarningHover: colors.yellow200,
     bgHover: colors.gray400,
+    bgGradientHover:
+        'linear-gradient(180deg, rgba(243, 244, 246, 0.5) -3.99%, rgba(235, 236, 240, 0.5) 53.04%, rgba(235, 236, 240, 0.5) 100%)',
     text: colors.gray800,
     textSecondary: colors.gray700,
     textTertiary: colors.gray600,

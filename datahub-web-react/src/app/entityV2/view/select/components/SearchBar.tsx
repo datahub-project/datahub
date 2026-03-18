@@ -63,7 +63,8 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $fullWidth?: boole
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.textBrand)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.textBrand};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;

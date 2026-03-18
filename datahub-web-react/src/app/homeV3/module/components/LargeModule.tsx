@@ -28,7 +28,11 @@ const ModuleHeader = styled.div`
     will-change: transform;
 
     :hover {
-        background: linear-gradient(180deg, ${(props) => props.theme.colors.bg} 0%, ${(props) => props.theme.colors.bgSurface} 100%);
+        background: linear-gradient(
+            180deg,
+            ${(props) => props.theme.colors.bg} 0%,
+            ${(props) => props.theme.colors.bgSurface} 100%
+        );
         border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 

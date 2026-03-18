@@ -47,15 +47,15 @@ vi.mock('@components', () => ({
     ),
     typography: {
         fonts: {
-            body: '#eeeeee',
+            body: 'mock-font',
         },
     },
     colors: {
         gray: {
-            600: '#4B5563',
+            600: 'mock-gray',
         },
         red: {
-            500: '#ef4444',
+            500: 'mock-red',
         },
     },
 }));

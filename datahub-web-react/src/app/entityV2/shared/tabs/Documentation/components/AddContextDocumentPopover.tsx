@@ -17,13 +17,8 @@ const NewDocumentButton = styled(Button)`
     justify-content: start;
     color: ${(props) => props.theme.colors.textSecondary};
     &:hover {
-        background: linear-gradient(
-            180deg,
-            rgba(243, 244, 246, 0.5) -3.99%,
-            rgba(235, 236, 240, 0.5) 53.04%,
-            rgba(235, 236, 240, 0.5) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+        background: ${(props) => props.theme.colors.bgGradientHover};
+        box-shadow: ${(props) => props.theme.colors.shadowFocus};
     }
     padding: 12px 8px;
 `;

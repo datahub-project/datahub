@@ -11,6 +11,7 @@ import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
 import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
+// eslint-disable-next-line rulesdir/no-hardcoded-colors
 const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
 
 const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`

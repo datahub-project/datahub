@@ -47,9 +47,7 @@ const StyledEntitySidebarContainer = styled.div<{
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : props.theme.colors.shadowSm};
+        props.$isShowNavBarRedesign ? props.theme.styles['box-shadow-navbar-redesign'] : props.theme.colors.shadowSm};
 `;
 
 export const StyledSidebar = styled.div`

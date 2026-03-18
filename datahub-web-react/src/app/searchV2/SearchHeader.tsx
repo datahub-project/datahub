@@ -21,6 +21,7 @@ import { AutoCompleteResultForEntity } from '@types';
 const getStyles = ($isShowNavBarRedesign?: boolean, bgColor?: string) => {
     return {
         input: {
+            // eslint-disable-next-line rulesdir/no-hardcoded-colors
             backgroundColor: $isShowNavBarRedesign ? bgColor || 'white' : '#343444',
         },
         searchBox: {
@@ -77,7 +78,9 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
 `;
 
 const HeaderBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    ${(props) => !props.$isShowNavBarRedesign && 'background-color: #171723;'}
+    ${(props) =>
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
+        !props.$isShowNavBarRedesign && `background-color: #171723;`}
     position: fixed;
     height: 100px;
     width: 100%;

@@ -19,6 +19,8 @@ const darkTheme: ColorTheme = {
     bgSurfaceWarning: colors.trueyellow300,
     bgSurfaceWarningHover: colors.yellow800,
     bgHover: colors.gray1000,
+    bgGradientHover:
+        'linear-gradient(180deg, rgba(55, 55, 70, 0.5) -3.99%, rgba(45, 45, 58, 0.5) 53.04%, rgba(45, 45, 58, 0.5) 100%)',
     text: colors.gray200,
     textSecondary: colors.gray300,
     textTertiary: colors.gray400,

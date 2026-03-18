@@ -123,7 +123,7 @@ export const sandbox: Story = {
     render: (props) => <Card {...props} />,
 };
 
-export const withChildren = () => {
+export const WithChildren = () => {
     const theme = useTheme();
     return (
         <Card title="Title" subTitle="Subtitle">
@@ -134,7 +134,7 @@ export const withChildren = () => {
     );
 };
 
-export const withoutSubtitle = () => {
+export const WithoutSubtitle = () => {
     const theme = useTheme();
     return (
         <Card title="Title">
@@ -163,7 +163,7 @@ export const withButton = () => (
 
 export const withPercentPill = () => <Card title="Title" subTitle="Subtitle" percent={2} />;
 
-export const withAllTheElements = () => {
+export const WithAllTheElements = () => {
     const theme = useTheme();
     return (
         <Card
