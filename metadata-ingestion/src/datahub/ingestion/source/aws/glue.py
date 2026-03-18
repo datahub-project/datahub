@@ -106,6 +106,8 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    DataTransformClass,
+    DataTransformLogicClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -118,6 +120,8 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
+    QueryLanguageClass,
+    QueryStatementClass,
     SchemaMetadataClass,
     TagAssociationClass,
     TimeStampClass,
@@ -723,18 +727,18 @@ class GlueSource(StatefulIngestionSourceBase):
             aspect=SubTypes(typeNames=[FlowContainerSubTypes.GLUE_JOB]),
         ).as_workunit()
 
-    def get_datajob_wu_for_dataflow(
-        self, flow_urn: str, job_name: str
-    ) -> MetadataWorkUnit:
+    def get_datajob_wus_for_dataflow(
+        self, flow_urn: str, job_name: str, script: Optional[str]
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate a DataJob workunit for a Glue job with no nodes.
         """
 
+        job_urn = mce_builder.make_data_job_urn_with_flow(flow_urn, job_id=job_name)
+
         region = self.source_config.aws_region
-        return MetadataChangeProposalWrapper(
-            entityUrn=mce_builder.make_data_job_urn_with_flow(
-                flow_urn, job_id=job_name
-            ),
+        yield MetadataChangeProposalWrapper(
+            entityUrn=job_urn,
             aspect=DataJobInfoClass(
                 name=f"{job_name}",
                 type="GLUE",
@@ -742,6 +746,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 customProperties={},
             ),
         ).as_workunit()
+
+        if script:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataTransformLogicClass(
+                    transforms=[
+                        DataTransformClass(
+                            queryStatement=QueryStatementClass(
+                                value=script,
+                                language=QueryLanguageClass.SQL,
+                            )
+                        )
+                    ]
+                ),
+            ).as_workunit()
 
     def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
@@ -1332,7 +1351,9 @@ class GlueSource(StatefulIngestionSourceBase):
                     self.report.num_job_without_nodes += 1
 
             if not nodes:
-                yield self.get_datajob_wu_for_dataflow(flow_urn, job["Name"])
+                yield from self.get_datajob_wus_for_dataflow(
+                    flow_urn, job["Name"], job_script
+                )
                 continue
 
             for node in nodes.values():
