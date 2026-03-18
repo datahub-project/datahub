@@ -4,9 +4,11 @@ import TabItem from '@theme/TabItem';
 
 # Data Access Roles
 
-<FeatureAvailability/>
 
-> **Note**: This feature is under active development and subject to significant change.
+
+:::info
+
+This feature is currently in Private Beta.
 
 ## Introduction
 
@@ -27,7 +29,7 @@ By integrating your external roles into DataHub, teams can reduce access request
 
 ### Self-hosted DataHub
 
-For self-hosted DataHub deployments, the Access Management feature is _disabled_ by default. To enable it,
+For self-hosted DataHub deployments, the Access Management feature is *disabled* by default. To enable it,
 simply set the `SHOW_ACCESS_MANAGEMENT` environment variable for the `datahub-gms` service container
 to `true`. For example in your `docker/datahub-gms/docker.env`, you'd configure:
 
@@ -43,9 +45,7 @@ If you're using DataHub Cloud, enabling the Access Management feature just requi
 
 Under a dataset, the new tab "Access Management" should appear if configured correctly.
 
-<p align="center">
- <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/accessmanagement.png" />
-</p>
+
 
 ## Data Model
 
@@ -72,8 +72,7 @@ You can set up Access Management through either the CLI or Python API. Here's ho
 
 ### Creating External Roles
 
-<Tabs>
-<TabItem value="cli" label="CLI">
+
 
 ```bash
 datahub put --urn "urn:li:role:reader" --aspect roleProperties -d - <<-EOF
@@ -86,8 +85,7 @@ datahub put --urn "urn:li:role:reader" --aspect roleProperties -d - <<-EOF
 EOF
 ```
 
-</TabItem>
-<TabItem value="python" label="Python">
+
 
 ```python
 import datahub.emitter.mce_builder as builder
@@ -116,13 +114,11 @@ emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 emitter.emit(mcp)
 ```
 
-</TabItem>
-</Tabs>
+
 
 ### Assigning Users to Roles (Optional)
 
-<Tabs>
-<TabItem value="cli" label="CLI">
+
 
 ```bash
 datahub put --urn "urn:li:role:reader" --aspect actors -d - <<-EOF
@@ -134,8 +130,7 @@ datahub put --urn "urn:li:role:reader" --aspect actors -d - <<-EOF
 EOF
 ```
 
-</TabItem>
-<TabItem value="python" label="Python">
+
 
 ```python
 from datahub.metadata.schema_classes import ActorsClass, ActorClass
@@ -159,13 +154,11 @@ mcp = MetadataChangeProposalWrapper(
 emitter.emit(mcp)
 ```
 
-</TabItem>
-</Tabs>
+
 
 ### Assigning Roles to Datasets
 
-<Tabs>
-<TabItem value="cli" label="CLI">
+
 
 ```bash
 datahub put --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)" --aspect access -d - <<-EOF
@@ -178,8 +171,7 @@ datahub put --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PR
 EOF
 ```
 
-</TabItem>
-<TabItem value="python" label="Python">
+
 
 ```python
 from datahub.metadata.schema_classes import AccessClass, RoleAssociationClass
@@ -206,8 +198,7 @@ mcp = MetadataChangeProposalWrapper(
 emitter.emit(mcp)
 ```
 
-</TabItem>
-</Tabs>
+
 
 ## Use Cases
 
@@ -230,3 +221,4 @@ Future enhancements planned for Access Management include:
 - Automatically extracting roles/policies from sources like BigQuery, Snowflake, etc.
 - Extending support to more entity types beyond datasets
 - Advanced access request workflows with approvals
+
