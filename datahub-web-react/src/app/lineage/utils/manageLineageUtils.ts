@@ -78,7 +78,7 @@ export function getValidEntityTypes(lineageDirection: Direction, entityType?: En
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
             case EntityType.Mlmodel:
-                return [EntityType.DataJob];
+                return [EntityType.DataJob, EntityType.DataProcessInstance];
             case EntityType.MlmodelGroup:
                 return [EntityType.DataJob];
             default:

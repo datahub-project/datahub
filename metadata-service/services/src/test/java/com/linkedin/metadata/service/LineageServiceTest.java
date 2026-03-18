@@ -230,7 +230,7 @@ public class LineageServiceTest {
     _lineageService.updateChartLineage(
         opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
-    // chartInfo with dataset1 in inputs, dataset3 and chart2 in inputEdges
+    // chartInfo with dataset1, dataset3 and chart2 all in inputEdges
     ChartInfo updatedChartInfo =
         createChartInfo(
             chartUrn1,
@@ -338,6 +338,246 @@ public class LineageServiceTest {
         .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
   }
 
+  @Test
+  @SuppressWarnings("deprecation")
+  public void testChartLineageRemovesDeprecatedFieldEntry() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+
+    // Chart has datasetUrn1 in deprecated inputs field (from ingestion)
+    ChartInfo chartInfo = new ChartInfo();
+    com.linkedin.chart.ChartDataSourceTypeArray inputs =
+        new com.linkedin.chart.ChartDataSourceTypeArray();
+    inputs.add(
+        com.linkedin.chart.ChartDataSourceType.create(
+            com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn1)));
+    chartInfo.setInputs(inputs, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    chartInfo.setInputEdges(new EdgeArray());
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.CHART_ENTITY_NAME),
+                eq(chartUrn1),
+                eq(ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(chartUrn1)
+                .setEntityName(Constants.CHART_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.CHART_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(chartInfo.data()))))));
+
+    // Remove the entry that lives in the deprecated inputs field
+    final List<Urn> upstreamUrnsToAdd = Collections.emptyList();
+    final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn1);
+    _lineageService.updateChartLineage(
+        opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    // Expected: deprecated inputs field should be empty and inputEdges should also be empty
+    ChartInfo updatedChartInfo = new ChartInfo();
+    updatedChartInfo.setInputs(
+        new com.linkedin.chart.ChartDataSourceTypeArray(),
+        com.linkedin.data.template.SetMode.IGNORE_NULL);
+    updatedChartInfo.setInputEdges(new EdgeArray());
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(chartUrn1);
+    proposal.setEntityType(Constants.CHART_ENTITY_NAME);
+    proposal.setAspectName(Constants.CHART_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedChartInfo));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void testDashboardLineageRemovesDeprecatedFieldEntries() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(dashboardUrn1)))
+        .thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+
+    // Dashboard has chartUrn1 in deprecated charts and datasetUrn1 in deprecated datasets
+    // (ingestion)
+    DashboardInfo dashboardInfo = new DashboardInfo();
+    com.linkedin.common.ChartUrnArray charts = new com.linkedin.common.ChartUrnArray();
+    charts.add(com.linkedin.common.urn.ChartUrn.createFromUrn(chartUrn1));
+    dashboardInfo.setCharts(charts);
+    dashboardInfo.setChartEdges(new EdgeArray());
+    UrnArray datasets = new UrnArray();
+    datasets.add(datasetUrn1);
+    dashboardInfo.setDatasets(datasets);
+    dashboardInfo.setDatasetEdges(new EdgeArray());
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DASHBOARD_ENTITY_NAME),
+                eq(dashboardUrn1),
+                eq(ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(dashboardUrn1)
+                .setEntityName(Constants.DASHBOARD_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DASHBOARD_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(dashboardInfo.data()))))));
+
+    // Remove entries that live in the deprecated fields
+    final List<Urn> upstreamUrnsToRemove = Arrays.asList(chartUrn1, datasetUrn1);
+    _lineageService.updateDashboardLineage(
+        opContext, dashboardUrn1, Collections.emptyList(), upstreamUrnsToRemove, actorUrn);
+
+    // Expected: deprecated charts and datasets should be empty, edges should also be empty
+    DashboardInfo updatedDashboardInfo = new DashboardInfo();
+    updatedDashboardInfo.setCharts(new com.linkedin.common.ChartUrnArray());
+    updatedDashboardInfo.setChartEdges(new EdgeArray());
+    updatedDashboardInfo.setDatasets(new UrnArray());
+    updatedDashboardInfo.setDatasetEdges(new EdgeArray());
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(dashboardUrn1);
+    proposal.setEntityType(Constants.DASHBOARD_ENTITY_NAME);
+    proposal.setAspectName(Constants.DASHBOARD_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDashboardInfo));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void testDataJobLineageRemovesDeprecatedFieldEntries() throws Exception {
+    Mockito.when(_mockClient.exists(opContext, datajobUrn1)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn1)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn2)).thenReturn(true);
+
+    // DataJob has deprecated fields populated (from ingestion): inputDatasets, inputDatajobs,
+    // outputDatasets
+    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
+    com.linkedin.common.DatasetUrnArray inputDatasets = new com.linkedin.common.DatasetUrnArray();
+    inputDatasets.add(com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn1));
+    dataJobInputOutput.setInputDatasets(
+        inputDatasets, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    dataJobInputOutput.setInputDatasetEdges(new EdgeArray());
+
+    com.linkedin.common.DataJobUrnArray inputDatajobs = new com.linkedin.common.DataJobUrnArray();
+    inputDatajobs.add(com.linkedin.common.urn.DataJobUrn.createFromUrn(datajobUrn1));
+    dataJobInputOutput.setInputDatajobs(
+        inputDatajobs, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    dataJobInputOutput.setInputDatajobEdges(new EdgeArray());
+
+    com.linkedin.common.DatasetUrnArray outputDatasets = new com.linkedin.common.DatasetUrnArray();
+    outputDatasets.add(com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn2));
+    dataJobInputOutput.setOutputDatasets(
+        outputDatasets, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    dataJobInputOutput.setOutputDatasetEdges(new EdgeArray());
+
+    // Build a separate snapshot for the downstream mock response to avoid shared DataMap mutation
+    DataJobInputOutput dataJobInputOutputForDownstream =
+        new DataJobInputOutput(dataJobInputOutput.data().copy());
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(datajobUrn1)
+                .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(dataJobInputOutput.data()))))),
+            new EntityResponse()
+                .setUrn(datajobUrn1)
+                .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(dataJobInputOutputForDownstream.data()))))));
+
+    // Remove entries that live in the deprecated fields
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext,
+        datajobUrn1,
+        Collections.emptyList(),
+        Arrays.asList(datasetUrn1, datajobUrn1),
+        actorUrn);
+    _lineageService.updateDataJobDownstreamLineage(
+        opContext,
+        datajobUrn1,
+        Collections.emptyList(),
+        Collections.singletonList(datasetUrn2),
+        actorUrn);
+
+    // Verify upstream proposal: deprecated inputDatasets and inputDatajobs should be empty
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                proposal -> {
+                  if (!proposal.getEntityUrn().equals(datajobUrn1)) return false;
+                  if (!proposal.getAspectName().equals(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME))
+                    return false;
+                  try {
+                    DataJobInputOutput aspect =
+                        GenericRecordUtils.deserializeAspect(
+                            proposal.getAspect().getValue(),
+                            proposal.getAspect().getContentType(),
+                            DataJobInputOutput.class);
+                    return aspect.hasInputDatasets()
+                        && aspect.getInputDatasets().isEmpty()
+                        && aspect.hasInputDatajobs()
+                        && aspect.getInputDatajobs().isEmpty()
+                        && aspect.getInputDatasetEdges().isEmpty()
+                        && aspect.getInputDatajobEdges().isEmpty();
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }),
+            eq(false));
+
+    // Verify downstream proposal: deprecated outputDatasets should be empty
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                proposal -> {
+                  if (!proposal.getEntityUrn().equals(datajobUrn1)) return false;
+                  if (!proposal.getAspectName().equals(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME))
+                    return false;
+                  try {
+                    DataJobInputOutput aspect =
+                        GenericRecordUtils.deserializeAspect(
+                            proposal.getAspect().getValue(),
+                            proposal.getAspect().getContentType(),
+                            DataJobInputOutput.class);
+                    return aspect.hasOutputDatasets()
+                        && aspect.getOutputDatasets().isEmpty()
+                        && aspect.getOutputDatasetEdges().isEmpty();
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }),
+            eq(false));
+  }
+
   // Adds upstreams for dashboard to dataset2 and chart2 and removes edge to dataset1 and chart1
   @Test
   public void testUpdateDashboardLineage() throws Exception {
@@ -379,8 +619,8 @@ public class LineageServiceTest {
     _lineageService.updateDashboardLineage(
         opContext, dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
-    // dashboardInfo with chartUrn3 in charts, chartUrn2 in chartEdges, datasetUrn3 in datasets,
-    // datasetUrn2 in datasetEdges
+    // dashboardInfo with chartUrn3 and chartUrn2 in chartEdges, datasetUrn3 and datasetUrn2 in
+    // datasetEdges
     DashboardInfo updatedDashboardInfo =
         createDashboardInfo(
             dashboardUrn1,
@@ -629,6 +869,9 @@ public class LineageServiceTest {
                 eq(datajobUrn2),
                 eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)),
                 eq(false)))
+        // Shared DataMap: upstream call mutates it in-place, downstream call reads the result.
+        // The downstream proposal captures the full state, so eq(proposal) also verifies upstream
+        // deduplication implicitly (any upstream duplicates would cause a mismatch).
         .thenReturn(
             new EntityResponse()
                 .setUrn(datajobUrn2)

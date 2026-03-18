@@ -265,6 +265,9 @@ public class LineageService {
     }
 
     inputEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
+    if (chartInfo.hasInputs()) {
+      chartInfo.getInputs().removeIf(input -> upstreamUrnsToRemove.contains(input.getDatasetUrn()));
+    }
 
     chartInfo.setInputEdges(inputEdges);
 
@@ -345,6 +348,7 @@ public class LineageService {
    * lineage edges from charts and chartEdges fields that are in upstreamUrnsToRemove. Then update
    * the DashboardInfo aspect.
    */
+  @SuppressWarnings("deprecation")
   private void updateUpstreamCharts(
       DashboardInfo dashboardInfo,
       List<Urn> upstreamUrnsToAdd,
@@ -367,6 +371,9 @@ public class LineageService {
     }
 
     removeChartLineageEdges(chartEdges, upstreamUrnsToRemove);
+    if (dashboardInfo.hasCharts()) {
+      dashboardInfo.getCharts().removeIf(upstreamUrnsToRemove::contains);
+    }
 
     dashboardInfo.setChartEdges(chartEdges);
   }
@@ -410,6 +417,7 @@ public class LineageService {
    * lineage edges from datasets and datasetEdges fields that are in upstreamUrnsToRemove. Then
    * update the DashboardInfo aspect.
    */
+  @SuppressWarnings("deprecation")
   private void updateUpstreamDatasets(
       DashboardInfo dashboardInfo,
       List<Urn> upstreamUrnsToAdd,
@@ -432,6 +440,9 @@ public class LineageService {
     }
 
     removeDatasetLineageEdges(datasetEdges, upstreamUrnsToRemove);
+    if (dashboardInfo.hasDatasets()) {
+      dashboardInfo.getDatasets().removeIf(upstreamUrnsToRemove::contains);
+    }
 
     dashboardInfo.setDatasetEdges(datasetEdges);
   }
@@ -586,6 +597,9 @@ public class LineageService {
     }
 
     removeDatasetEdges(inputDatasetEdges, upstreamUrnsToRemove);
+    if (dataJobInputOutput.hasInputDatasets()) {
+      dataJobInputOutput.getInputDatasets().removeIf(upstreamUrnsToRemove::contains);
+    }
 
     dataJobInputOutput.setInputDatasetEdges(inputDatasetEdges);
   }
@@ -653,6 +667,9 @@ public class LineageService {
     }
 
     removeInputDatajobEdges(dataJobEdges, upstreamUrnsToRemove);
+    if (dataJobInputOutput.hasInputDatajobs()) {
+      dataJobInputOutput.getInputDatajobs().removeIf(upstreamUrnsToRemove::contains);
+    }
 
     dataJobInputOutput.setInputDatajobEdges(dataJobEdges);
   }
@@ -766,6 +783,9 @@ public class LineageService {
     }
 
     removeDatasetEdges(outputDatasetEdges, downstreamUrnsToRemove);
+    if (dataJobInputOutput.hasOutputDatasets()) {
+      dataJobInputOutput.getOutputDatasets().removeIf(downstreamUrnsToRemove::contains);
+    }
 
     dataJobInputOutput.setOutputDatasetEdges(outputDatasetEdges);
 
