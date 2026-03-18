@@ -245,6 +245,8 @@ Make sure the `iss` (issuer) and `aud` (audience) claims match your configuratio
 
 ## Advanced Options
 
+### Customizing the User ID Claim
+
 You can customize which JWT claim contains the user ID:
 
 ```bash
@@ -252,4 +254,55 @@ You can customize which JWT claim contains the user ID:
 EXTERNAL_OAUTH_USER_ID_CLAIM=email
 ```
 
-OAuth users are automatically created as service accounts with usernames like `__oauth_{issuer_domain}_{subject}`.
+By default, OAuth users are created as service accounts with usernames like `__oauth_{issuer_domain}_{subject}`.
+
+### Mapping to Existing Corpuser Identities (On-Behalf-Of)
+
+If your API callers are the same users who log into the DataHub UI via OIDC SSO, you can map OAuth tokens to their existing corpuser identities instead of creating separate service accounts. This preserves per-user permissions, ownership, and audit trails.
+
+This uses the same identity resolution logic as the frontend OIDC SSO flow (`auth.oidc.userNameClaim` + `auth.oidc.userNameClaimRegex`), so to get matching identities, configure `EXTERNAL_OAUTH_USER_ID_CLAIM` and `EXTERNAL_OAUTH_USER_ID_CLAIM_REGEX` to match your frontend OIDC settings.
+
+```bash
+# Enable corpuser mapping
+EXTERNAL_OAUTH_MAP_TO_CORP_USER=true
+
+# Must match your frontend auth.oidc.userNameClaim (default: "email")
+EXTERNAL_OAUTH_USER_ID_CLAIM=email
+
+# Must match your frontend auth.oidc.userNameClaimRegex (default: "(.*)")
+EXTERNAL_OAUTH_USER_ID_CLAIM_REGEX=(.*)
+```
+
+**Important:**
+
+- The user must already exist in DataHub (e.g. via a prior frontend OIDC login or JIT provisioning). If the resolved corpuser doesn't exist, authentication will fail.
+- When `EXTERNAL_OAUTH_MAP_TO_CORP_USER` is `false` (the default), behavior is unchanged — service accounts are created automatically.
+
+#### Example: Azure AD / Microsoft Entra (On-Behalf-Of)
+
+If your frontend OIDC SSO is configured with defaults (`userNameClaim=email`, `userNameClaimRegex=(.*)`):
+
+```bash
+EXTERNAL_OAUTH_ENABLED=true
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://login.microsoftonline.com/<tenant-id>/v2.0
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=api://<app-id>
+EXTERNAL_OAUTH_JWKS_URI=https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys
+EXTERNAL_OAUTH_USER_ID_CLAIM=email
+EXTERNAL_OAUTH_MAP_TO_CORP_USER=true
+EXTERNAL_OAUTH_USER_ID_CLAIM_REGEX=(.*)
+```
+
+This also works with dynamic configuration via GlobalSettings:
+
+```json
+{
+  "enabled": true,
+  "name": "Entra ID",
+  "issuer": "https://login.microsoftonline.com/<tenant-id>/v2.0",
+  "audience": "api://<app-id>",
+  "jwksUri": "https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys",
+  "userIdClaim": "email",
+  "mapToCorpUser": true,
+  "userIdClaimRegex": "(.*)"
+}
+```

@@ -51,6 +51,15 @@ authentication:
 
         # JWT signing algorithm (defaults to 'RS256')
         algorithm: ${EXTERNAL_OAUTH_ALGORITHM:RS256}
+
+        # When true, map OAuth users to existing corpuser identities instead of creating
+        # __oauth_ service accounts. Use this when API callers are the same users who log
+        # in via frontend OIDC SSO. Mirrors auth.oidc.userNameClaim + userNameClaimRegex.
+        mapToCorpUser: ${EXTERNAL_OAUTH_MAP_TO_CORP_USER:false}
+
+        # Regex applied to userIdClaim value when mapToCorpUser is true.
+        # Uses the same semantics as auth.oidc.userNameClaimRegex.
+        userIdClaimRegex: ${EXTERNAL_OAUTH_USER_ID_CLAIM_REGEX:(.*)}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
       configs:
         guestUser: ${GUEST_AUTHENTICATION_USER:guest}
