@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import { Button, SearchBar, Tooltip } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
@@ -108,11 +107,7 @@ const SearchIcon = styled(SearchOutlined)`
 const ResultsWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     padding: 8px;
     position: absolute;
     max-height: 300px;
