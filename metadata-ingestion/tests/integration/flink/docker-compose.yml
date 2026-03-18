@@ -90,7 +90,7 @@ services:
       - "8082:8081"
     command: jobmanager
     volumes:
-      - iceberg-warehouse:/tmp/iceberg-warehouse
+      - /tmp/iceberg-warehouse:/tmp/iceberg-warehouse
       - ./pyflink_kafka_job.py:/opt/flink/pyflink_kafka_job.py:ro
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
@@ -109,7 +109,7 @@ services:
         condition: service_healthy
     command: taskmanager
     volumes:
-      - iceberg-warehouse:/tmp/iceberg-warehouse
+      - /tmp/iceberg-warehouse:/tmp/iceberg-warehouse
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - |
@@ -135,7 +135,7 @@ services:
         tail -f /dev/null
       "
     volumes:
-      - iceberg-warehouse:/tmp/iceberg-warehouse
+      - /tmp/iceberg-warehouse:/tmp/iceberg-warehouse
     environment:
       - |
         FLINK_PROPERTIES=
@@ -144,6 +144,3 @@ services:
 networks:
   default:
     name: flink-test
-
-volumes:
-  iceberg-warehouse:

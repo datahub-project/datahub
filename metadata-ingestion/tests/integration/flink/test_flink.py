@@ -235,6 +235,97 @@ def test_flink_datastream_chained_lineage(
     )
 
 
+def test_iceberg_flink_lineage_stitching(
+    flink_runner: Any, tmp_path: pathlib.Path
+) -> None:
+    """End-to-end lineage stitching: Iceberg and Flink connectors run independently
+    and produce matching dataset URNs for the same Iceberg table.
+
+    The DataHub Iceberg connector runs against the Hive Metastore (HMS) — not Flink.
+    The DataHub Flink connector runs against the Flink SQL Gateway.
+    Both emit urn:li:dataset:(urn:li:dataPlatform:iceberg,lake.events,TEST), so DataHub
+    stitches Flink lineage edges with Iceberg schema/metadata into one dataset entity.
+    """
+    iceberg_output = tmp_path / "iceberg_mces.json"
+    flink_output = tmp_path / "flink_stitch_mces.json"
+
+    # Run the DataHub Iceberg connector independently against HMS.
+    # warehouse path is /tmp/iceberg-warehouse, bind-mounted from the containers.
+    iceberg_pipeline = Pipeline.create(
+        {
+            "source": {
+                "type": "iceberg",
+                "config": {
+                    "catalog": {
+                        "default": {
+                            "type": "hive",
+                            "uri": "thrift://localhost:9083",
+                            "warehouse": "/tmp/iceberg-warehouse",
+                        }
+                    },
+                    "env": "TEST",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": str(iceberg_output)},
+            },
+        }
+    )
+    iceberg_pipeline.run()
+    iceberg_pipeline.raise_from_status()
+
+    iceberg_mces = json.loads(iceberg_output.read_text())
+    iceberg_dataset_urns = {
+        mce["entityUrn"] for mce in iceberg_mces if mce.get("entityType") == "dataset"
+    }
+
+    # Run the DataHub Flink connector independently against Flink REST + SQL Gateway.
+    flink_pipeline = Pipeline.create(
+        {
+            "source": {
+                "type": "flink",
+                "config": {
+                    "connection": {
+                        "rest_api_url": FLINK_REST_URL,
+                        "sql_gateway_url": SQL_GATEWAY_URL,
+                    },
+                    "include_lineage": True,
+                    "include_run_history": False,
+                    "env": "TEST",
+                    "catalog_platform_map": {
+                        "ice_catalog": {"platform": "iceberg"},
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": str(flink_output)},
+            },
+        }
+    )
+    flink_pipeline.run()
+    flink_pipeline.raise_from_status()
+
+    flink_mces = json.loads(flink_output.read_text())
+    flink_lineage_urns: set = set()
+    for mce in flink_mces:
+        if mce.get("aspectName") == "dataJobInputOutput":
+            payload = mce["aspect"]["json"]
+            flink_lineage_urns.update(payload.get("inputDatasets", []))
+            flink_lineage_urns.update(payload.get("outputDatasets", []))
+
+    # URNs that appear in both outputs can be stitched in DataHub.
+    stitchable = iceberg_dataset_urns & flink_lineage_urns
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,lake.events,TEST)" in stitchable
+    ), (
+        f"Lineage stitching broken — 'lake.events' URN not in both outputs.\n"
+        f"  Iceberg connector dataset URNs: {sorted(iceberg_dataset_urns)}\n"
+        f"  Flink lineage URNs:             {sorted(flink_lineage_urns)}"
+    )
+
+
 def test_connection_failure() -> None:
     report = test_connection_helpers.run_test_connection(
         FlinkSource,
