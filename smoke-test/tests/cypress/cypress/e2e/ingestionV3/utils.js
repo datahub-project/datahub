@@ -24,6 +24,8 @@ const clickIfTestIdPresent = (dataTestId) => {
   cy.get("body", { timeout: 2000 }).then(($body) => {
     if ($body.find(`[data-testid="${dataTestId}"]`).length) {
       cy.get(`[data-testid="${dataTestId}"]`).click();
+      // Wait for the element (and its modal) to fully close before proceeding
+      cy.get(`[data-testid="${dataTestId}"]`).should("not.exist");
     }
   });
 };
