@@ -68,10 +68,16 @@ public class TopicsConfiguration {
   @Setter
   public static class TopicConfiguration {
     private String name;
+    private String displayName;
     private Integer partitions;
     private Integer replicationFactor;
     private Map<String, String> configProperties;
     private Boolean enabled = true; // Default to true if not specified
     private Boolean pollEnabled = false; // Default to false if not specified
+
+    /** Returns the display name used as the stable API-facing topic identifier. */
+    public String getDisplayName() {
+      return displayName != null ? displayName : name;
+    }
   }
 }

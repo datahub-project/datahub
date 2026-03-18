@@ -44,7 +44,7 @@ public class ExternalEventsServiceFactory {
   private Set<String> buildPollAllowedTopics() {
     return configurationProvider.getKafka().getTopics().getTopics().values().stream()
         .filter(t -> t.getPollEnabled())
-        .map(TopicsConfiguration.TopicConfiguration::getName)
+        .map(TopicsConfiguration.TopicConfiguration::getDisplayName)
         .collect(Collectors.toSet());
   }
 
@@ -53,7 +53,7 @@ public class ExternalEventsServiceFactory {
         .filter(t -> t.getPollEnabled())
         .collect(
             Collectors.toMap(
-                TopicsConfiguration.TopicConfiguration::getName,
+                TopicsConfiguration.TopicConfiguration::getDisplayName,
                 TopicsConfiguration.TopicConfiguration::getName));
   }
 }
