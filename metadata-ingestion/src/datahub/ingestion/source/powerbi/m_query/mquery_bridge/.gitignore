@@ -1,0 +1,6 @@
+node_modules/
+dist/
+sea-prep.blob
+# Uncompressed binaries — only commit the .gz files
+binaries/mquery-parser-*
+!binaries/mquery-parser-*.gz
