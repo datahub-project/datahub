@@ -1,9 +1,11 @@
 import { Button, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { AndFilterInput, EntityType } from '@types';
@@ -106,7 +108,7 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
             <AddButton
                 variant="text"
                 isCircle
-                icon={{ icon: 'Plus', source: 'phosphor' }}
+                icon={{ icon: Plus }}
                 aria-label="Add related entity"
                 disabled={disabled}
             />
