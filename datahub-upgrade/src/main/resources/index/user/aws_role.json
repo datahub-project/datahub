@@ -9,7 +9,10 @@
                 "PREFIX*"
             ],
             "allowed_actions": [
-                "indices_all"
+                "indices_all",
+                "indices:admin/aliases/get",
+                "indices:admin/aliases",
+                "indices:monitor/stats"
             ]
         }
     ]
