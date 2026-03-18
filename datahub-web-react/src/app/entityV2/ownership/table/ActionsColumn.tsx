@@ -1,4 +1,8 @@
 import { Button, toast } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 
 import { Menu } from '@components/components/Menu';
@@ -48,21 +52,21 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
             type: 'item',
             key: 'edit',
             title: 'Edit',
-            icon: 'PencilSimple',
+            icon: PencilSimple,
             onClick: onEdit,
         },
         {
             type: 'item',
             key: 'copy',
             title: 'Copy Urn',
-            icon: 'Copy',
+            icon: Copy,
             onClick: onCopy,
         },
         {
             type: 'item',
             key: 'delete',
             title: 'Delete',
-            icon: 'Trash',
+            icon: Trash,
             onClick: onDelete,
             danger: true,
         },
@@ -72,7 +76,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         <Menu items={menuItems}>
             <Button
                 variant="text"
-                icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: '2xl', source: 'phosphor', color: 'gray' }}
+                icon={{ icon: DotsThreeVertical, weight: 'bold', size: '2xl', color: 'gray' }}
                 size="lg"
                 isCircle
                 data-testid="ownership-table-dropdown"

@@ -1,4 +1,5 @@
 import { EmptyState, Pagination, SearchBar, toast } from '@components';
+import { Users } from '@phosphor-icons/react/dist/csr/Users';
 import React, { useState } from 'react';
 
 import { OwnershipBuilderModal } from '@app/entityV2/ownership/OwnershipBuilderModal';
@@ -85,7 +86,7 @@ export const OwnershipList = ({ showOwnershipBuilder, setShowOwnershipBuilder }:
                     <EmptyState
                         title="No Ownership Types found"
                         description="Create a custom ownership type to categorize asset owners."
-                        icon="Users"
+                        icon={Users}
                         action={{
                             label: 'Create Ownership Type',
                             onClick: () => setShowOwnershipBuilder(true),
