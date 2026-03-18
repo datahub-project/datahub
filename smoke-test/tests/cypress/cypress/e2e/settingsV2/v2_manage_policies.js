@@ -4,9 +4,19 @@ const platform_policy_edited = `Platform test policy ${test_id} EDITED`;
 const metadata_policy_name = `Metadata test policy ${test_id}`;
 const metadata_policy_edited = `Metadata test policy ${test_id} EDITED`;
 
+function waitForPoliciesPageReady() {
+  cy.waitTextVisible("Manage Permissions");
+  cy.get('[data-testid="search-bar-input"]').should("be.visible");
+  cy.get("tbody tr").should("have.length.at.least", 1);
+  cy.wait(1000);
+}
+
 function searchForPolicy(policyName) {
-  cy.get('[data-testid="search-bar-input"]').should("be.visible").clear();
-  cy.get('[data-testid="search-bar-input"]').type(policyName);
+  cy.get('[data-testid="search-bar-input"]')
+    .should("be.visible")
+    .click()
+    .clear()
+    .type(policyName);
   cy.wait(500);
 }
 
@@ -28,7 +38,7 @@ function clickMenuAction(actionText) {
 
 function clickFocusAndType(Id, text) {
   cy.get(`[data-testid="${Id}"]`).should("be.visible").click();
-  cy.get(`[data-testid="${Id}"]`).clear().type(text);
+  cy.get(`[data-testid="${Id}"]`).should("be.visible").clear().type(text);
 }
 
 function updateAndSave(Id, groupName, text) {
@@ -61,22 +71,24 @@ function createPolicy(decription, policyName) {
 
 function editPolicy(
   policyName,
-  editPolicy,
+  editPolicyName,
   description,
   policyEdited,
   visibleDiscription,
 ) {
   cy.visit("/settings/permissions/policies");
-  cy.waitTextVisible("Manage Permissions");
-  cy.get('[data-testid="search-bar-input"]').should("be.visible");
-  cy.get("tbody tr").should("have.length.at.least", 1);
+  waitForPoliciesPageReady();
   searchForPolicy(policyName);
   openRowMenu(policyName);
   clickMenuAction("Edit");
-  cy.clickOptionWithTestId("policy-name");
-  cy.focused().clear().type(editPolicy);
-  cy.clickOptionWithTestId("policy-description");
-  cy.focused().clear().type(description);
+  cy.get('[data-testid="policy-name"]')
+    .should("be.visible")
+    .clear()
+    .type(editPolicyName);
+  cy.get('[data-testid="policy-description"]')
+    .should("be.visible")
+    .clear()
+    .type(description);
   clickOnButton("nextButton");
   clickOnButton("nextButton");
   clickOnButton("saveButton");
@@ -88,9 +100,7 @@ function editPolicy(
 
 function deletePolicy(policyEdited, deletePolicyTitle) {
   cy.visit("/settings/permissions/policies");
-  cy.waitTextVisible("Manage Permissions");
-  cy.get('[data-testid="search-bar-input"]').should("be.visible");
-  cy.get("tbody tr").should("have.length.at.least", 1);
+  waitForPoliciesPageReady();
   cy.get('[data-testid="policy-filter-base"]').should("be.visible").click();
   cy.get('[data-testid="option-ALL"]').should("be.visible").click();
   cy.wait(500);
@@ -99,10 +109,12 @@ function deletePolicy(policyEdited, deletePolicyTitle) {
   clickMenuAction("Deactivate");
   cy.waitTextVisible("Successfully deactivated policy.");
   cy.contains("Successfully deactivated policy.").should("not.exist");
+  cy.wait(500);
   openRowMenu(policyEdited);
   clickMenuAction("Activate");
   cy.waitTextVisible("Successfully activated policy.");
   cy.contains("Successfully activated policy.").should("not.exist");
+  cy.wait(500);
   openRowMenu(policyEdited);
   clickMenuAction("Delete");
   cy.waitTextVisible(deletePolicyTitle);
@@ -121,9 +133,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("verify create, edit, delete platform policy", () => {
-    cy.waitTextVisible("Manage Permissions");
-    cy.get('[data-testid="search-bar-input"]').should("be.visible");
-    cy.get("tbody tr").should("have.length.at.least", 1);
+    waitForPoliciesPageReady();
     cy.get('[data-testid="add-policy-button"]').should("be.visible").click();
     cy.get('[data-testid="policy-name"]').should("be.visible");
     clickFocusAndType("policy-name", platform_policy_name);
@@ -147,9 +157,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("verify create, edit, delete metadata policy", () => {
-    cy.waitTextVisible("Manage Permissions");
-    cy.get('[data-testid="search-bar-input"]').should("be.visible");
-    cy.get("tbody tr").should("have.length.at.least", 1);
+    waitForPoliciesPageReady();
     cy.get('[data-testid="add-policy-button"]').should("be.visible").click();
     cy.get('[data-testid="policy-name"]').should("be.visible");
     clickFocusAndType("policy-name", metadata_policy_name);
