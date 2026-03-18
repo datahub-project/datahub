@@ -34,7 +34,7 @@ const SectionTitle = styled.h4`
     font-size: 14px;
     font-weight: 600;
     margin: 0;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const List = styled.div`
@@ -46,7 +46,7 @@ const List = styled.div`
 const EmptyState = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.textTertiary};
     text-align: start;
     padding: 0px;
 `;

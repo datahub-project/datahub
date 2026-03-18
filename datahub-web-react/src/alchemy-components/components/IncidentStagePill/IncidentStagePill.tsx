@@ -17,9 +17,9 @@ export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string;
     const stageConfig = useMemo(
         () => ({
             [IncidentStage.Triage]: {
-                bgColor: theme.colors.tagsLavenderBg,
-                color: theme.colors.tagsLavenderText,
-                icon: <Hexagon size={16} fill={theme.colors.tagsLavenderText} />,
+                bgColor: theme.colors.bgSurfaceBrand,
+                color: theme.colors.textBrand,
+                icon: <Hexagon size={16} fill={theme.colors.iconBrand} />,
             },
             [IncidentStage.Investigation]: {
                 bgColor: theme.colors.bgSurfaceWarning,

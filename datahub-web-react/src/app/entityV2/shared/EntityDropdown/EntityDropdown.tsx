@@ -215,7 +215,7 @@ const EntityDropdown = (props: Props) => {
                             style={{
                                 width: '16px',
                                 height: '16px',
-                                color: theme.colors.textSecondary,
+                                color: theme.colors.icon,
                             }}
                         />
                     </div>
