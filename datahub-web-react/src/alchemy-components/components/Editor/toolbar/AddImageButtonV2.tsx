@@ -1,10 +1,9 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Image } from '@phosphor-icons/react/dist/csr/Image';
 import { useCommands } from '@remirror/react';
 import { Form } from 'antd';
 import { FormInstance } from 'antd/es/form/Form';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { Button } from '@components/components/Button';
 import { Dropdown } from '@components/components/Dropdown';
@@ -13,16 +12,14 @@ import { FileUploadContent } from '@components/components/Editor/toolbar/FileUpl
 import { Input } from '@components/components/Input';
 
 import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
-import { colors } from '@src/alchemy-components/theme';
 
 const UPLOAD_FILE_KEY = 'uploadFile';
 const URL_KEY = 'url';
 
 const ContentWrapper = styled.div`
     width: 300px;
-    background-color: ${colors.white};
-    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once rgba(9, 1, 61, 0.12) is mapped
-    box-shadow: 0 4px 12px 0 rgba(9, 1, 61, 0.12);
+    background-color: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     display: flex;
     flex-direction: column;
     padding: 8px;
@@ -69,6 +66,7 @@ function ImageUrlInput({ form, hideDropdown }: { form: FormInstance<any>; hideDr
 }
 
 export const AddImageButtonV2 = () => {
+    const theme = useTheme();
     const [showDropdown, setShowDropdown] = useState(false);
     const [form] = Form.useForm();
 
@@ -104,7 +102,7 @@ export const AddImageButtonV2 = () => {
             >
                 <CommandButton
                     active={false}
-                    icon={<Image size={20} color={colors.gray[1800]} />}
+                    icon={<Image size={20} color={theme.colors.text} />}
                     commandName="insertImage"
                     onClick={handleButtonClick}
                 />
