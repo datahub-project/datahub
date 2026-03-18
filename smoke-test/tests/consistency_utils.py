@@ -24,6 +24,10 @@ def _get_gms_url() -> str:
     return env_vars.get_gms_url() or "http://localhost:8080"
 
 
+def _get_gms_token() -> Optional[str]:
+    return env_vars.get_gms_token()
+
+
 def _get_total_lag(gms_url: str, endpoint: str) -> Optional[int]:
     """Fetch total lag from a GMS Kafka Operations API endpoint.
 
@@ -32,7 +36,11 @@ def _get_total_lag(gms_url: str, endpoint: str) -> Optional[int]:
     """
     url = f"{gms_url}{endpoint}?skipCache=true"
     try:
-        resp = requests.get(url, timeout=5)
+        headers: dict = {}
+        token = _get_gms_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        resp = requests.get(url, headers=headers, timeout=5)
         resp.raise_for_status()
         data = resp.json()
         if not data:
