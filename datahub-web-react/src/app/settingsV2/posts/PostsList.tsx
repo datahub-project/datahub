@@ -1,4 +1,5 @@
 import { Note } from '@phosphor-icons/react/dist/csr/Note';
+import removeMd from '@tommoor/remove-markdown';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -15,19 +16,6 @@ import { Column } from '@src/alchemy-components/components/Table/types';
 
 import { useListPostsQuery } from '@graphql/post.generated';
 import { PostContentType } from '@types';
-
-function stripMarkdown(text: string): string {
-    return text
-        .replace(/<[^>]*>/g, '') // HTML tags
-        .replace(/#{1,6}\s?/g, '') // headings
-        .replace(/(\*{1,2}|_{1,2}|~{1,2})/g, '') // bold, italic, strikethrough
-        .replace(/`{1,3}/g, '') // code
-        .replace(/^\s*[-*+]\s+/gm, '') // list markers
-        .replace(/^\s*\d+\.\s+/gm, '') // ordered list markers
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links
-        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // images
-        .trim();
-}
 
 const PostsContainer = styled.div`
     display: flex;
@@ -110,7 +98,7 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
         {
             title: 'Description',
             key: 'description',
-            render: (record) => <OverflowText text={stripMarkdown(record.description || '')} />,
+            render: (record) => <OverflowText text={removeMd(record.description || '')} />,
             width: '40%',
         },
         {
