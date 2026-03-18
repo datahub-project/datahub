@@ -1,8 +1,8 @@
-describe("schema blame", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("schema blame", () => {
   Cypress.on("uncaught:exception", (err, runnable) => false);
 
-  // TODO: (v1_ui_removing) migrate this test
-  it.skip("can activate the blame view and verify for an older version of a dataset", () => {
+  it("can activate the blame view and verify for an older version of a dataset", () => {
     cy.login();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema?semantic_version=0.0.0",

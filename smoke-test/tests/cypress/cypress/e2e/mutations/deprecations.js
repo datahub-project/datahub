@@ -1,6 +1,6 @@
-describe("dataset deprecation", () => {
-  // TODO: (v1_ui_removing) migrate this test
-  it.skip("go to dataset and check deprecation works", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("dataset deprecation", () => {
+  it("go to dataset and check deprecation works", () => {
     const urn =
       "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)";
     const datasetName = "cypress_logging_events";

@@ -67,7 +67,6 @@ const DescriptionText = styled.div`
 
 export const Preferences = () => {
     const theme = useTheme();
-    // Current User Urn
     const userContext = useUserContext();
     const appConfig = useAppConfig();
 

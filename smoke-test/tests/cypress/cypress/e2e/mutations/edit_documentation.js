@@ -4,9 +4,8 @@ const wrong_url = "https://www.linkedincom";
 const correct_url = "https://www.linkedin.com";
 
 describe("edit documentation and link to dataset", () => {
-  // TODO: (v1_ui_removing) migrate this test
   it("edit field documentation", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
     );

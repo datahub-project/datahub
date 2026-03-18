@@ -11,10 +11,11 @@ const tryToSignUp = () => {
   return { name, email };
 };
 
-describe("add_user", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("add_user", () => {
   let registeredEmail = "";
-  // TODO: (v1_ui_removing) migrate this test
-  it.skip("go to user link and invite a user", () => {
+
+  it("go to user link and invite a user", () => {
     cy.login();
 
     cy.visit("/settings/identities/users");
@@ -43,8 +44,7 @@ describe("add_user", () => {
       });
   });
 
-  // TODO: (v1_ui_removing) migrate this test
-  it.skip("Verify you can’t generate a reset password link for a non-native user", () => {
+  it("Verify you can’t generate a reset password link for a non-native user", () => {
     cy.login();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
@@ -56,8 +56,7 @@ describe("add_user", () => {
     );
   });
 
-  // TODO: (v1_ui_removing) migrate this test
-  it.skip("Generate a reset password link for a native user", () => {
+  it("Generate a reset password link for a native user", () => {
     cy.login();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
