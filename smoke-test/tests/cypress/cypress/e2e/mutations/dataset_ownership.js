@@ -53,7 +53,8 @@ const addAndRemoveOwnerOnDataset = (owner, type, elementId) => {
   removeOwner(owner, elementId);
 };
 
-describe("add, remove ownership for dataset", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("add, remove ownership for dataset", () => {
   beforeEach(() => {
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);

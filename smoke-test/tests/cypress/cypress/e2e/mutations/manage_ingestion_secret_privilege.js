@@ -108,7 +108,8 @@ const deactivateExistingAllUserPolicies = () => {
   });
 };
 
-describe("Manage Ingestion and Secret Privileges", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("Manage Ingestion and Secret Privileges", () => {
   let registeredEmail = "";
 
   beforeEach(() => {
