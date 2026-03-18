@@ -32,7 +32,7 @@ type Props = {
 
 export default function CreatePostForm({ formData, onChange }: Props) {
     return (
-        <div>
+        <form onSubmit={(e) => e.preventDefault()}>
             <FormField>
                 <Label>Content Type</Label>
                 <TabButtons
@@ -101,6 +101,6 @@ export default function CreatePostForm({ formData, onChange }: Props) {
                     </FormField>
                 </>
             )}
-        </div>
+        </form>
     );
 }
