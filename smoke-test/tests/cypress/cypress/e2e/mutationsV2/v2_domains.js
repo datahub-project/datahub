@@ -56,12 +56,10 @@ describe("add remove domain", () => {
     cy.waitTextVisible("Added assets to Domain!");
   });
 
-  // TODO:v1removing - fix this test
-  it.skip("remove entity from domain", () => {
+  it("remove entity from domain", () => {
     setDomainsFeatureFlag(false);
     cy.login();
     cy.goToDomainList();
-    waitFor();
     cy.removeDomainFromDataset(
       "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
       "customers",

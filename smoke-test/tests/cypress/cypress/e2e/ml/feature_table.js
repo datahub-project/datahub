@@ -29,8 +29,7 @@ describe("features", () => {
     cy.contains("Created");
   });
 
-  // TODO:v1removing - fix this test?
-  it.skip("can visit feature page", () => {
+  it("can visit feature page", () => {
     cy.visit("/");
     cy.login();
     cy.visit(
@@ -44,8 +43,7 @@ describe("features", () => {
     cy.contains("1 upstream, 1 downstream");
   });
 
-  // TODO:v1removing - fix this test?
-  it.skip("can visit primary key page", () => {
+  it("can visit primary key page", () => {
     cy.visit("/");
     cy.login();
     cy.visit(

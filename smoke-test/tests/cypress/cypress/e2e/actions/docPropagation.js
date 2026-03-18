@@ -1,7 +1,7 @@
 const testId = '[data-testid="docPropagationIndicator"]';
 
 describe("docPropagation", () => {
-  // TODO:v1removing - port this test?
+  // TODO: (v1_ui_removing) migrate this test
   it.skip("logs in and navigates to the schema page and checks for docPropagationIndicator", () => {
     cy.login();
     cy.visit(
