@@ -1,58 +1,27 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Pagination, message } from 'antd';
+import { EmptyState, Pagination, SearchBar, toast } from '@components';
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 
 import { OwnershipBuilderModal } from '@app/entityV2/ownership/OwnershipBuilderModal';
 import { OwnershipTable } from '@app/entityV2/ownership/table/OwnershipTable';
-import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { SearchBar } from '@app/search/SearchBar';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@types';
 
-const PaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-`;
-
-const StyledPagination = styled(Pagination)`
-    margin: 40px;
-`;
-
-const searchBarStyle = {
-    maxWidth: 220,
-    padding: 0,
-};
-
-const searchBarInputStyle = {
-    height: 32,
-    fontSize: 12,
+type OwnershipListProps = {
+    showOwnershipBuilder: boolean;
+    setShowOwnershipBuilder: (show: boolean) => void;
 };
 
 /**
  * This component renders a paginated, searchable list of Ownership Types.
  */
-export const OwnershipList = () => {
-    /**
-     * Context
-     */
-    const entityRegistry = useEntityRegistry();
-
-    /**
-     * State
-     */
+export const OwnershipList = ({ showOwnershipBuilder, setShowOwnershipBuilder }: OwnershipListProps) => {
     const [page, setPage] = useState(1);
-    const [showOwnershipBuilder, setShowOwnershipBuilder] = useState<boolean>(false);
     const [ownershipType, setOwnershipType] = useState<undefined | OwnershipTypeEntity>(undefined);
-    const [query, setQuery] = useState<undefined | string>(undefined);
+    const [query, setQuery] = useState('');
 
-    /**
-     * Queries
-     */
     const pageSize = 10;
     const start: number = (page - 1) * pageSize;
     const { data, loading, error, refetch } = useListOwnershipTypesQuery({
@@ -60,17 +29,13 @@ export const OwnershipList = () => {
             input: {
                 start,
                 count: pageSize,
-                query,
+                query: query.length > 0 ? query : undefined,
             },
         },
     });
     const totalOwnershipTypes = data?.listOwnershipTypes?.total || 0;
     const ownershipTypes =
         data?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') || [];
-
-    const onClickCreateOwnershipType = () => {
-        setShowOwnershipBuilder(true);
-    };
 
     const onCloseModal = () => {
         setShowOwnershipBuilder(false);
@@ -85,43 +50,49 @@ export const OwnershipList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading Ownership Types..." />}
-            {error &&
-                message.error({
-                    content: `Failed to load Ownership Types! An unexpected error occurred.`,
-                    duration: 3,
-                })}
-            <TabToolbar>
-                <Button type="text" onClick={onClickCreateOwnershipType} data-testid="create-owner-type-v2">
-                    <PlusOutlined /> Create Ownership Type
-                </Button>
-                <SearchBar
-                    initialQuery=""
-                    placeholderText="Search by Name..."
-                    suggestions={[]}
-                    style={searchBarStyle}
-                    inputStyle={searchBarInputStyle}
-                    onSearch={() => null}
-                    onQueryChange={(q) => setQuery(q.length > 0 ? q : undefined)}
-                    entityRegistry={entityRegistry}
-                />
-            </TabToolbar>
-            <OwnershipTable
-                ownershipTypes={ownershipTypes}
-                setIsOpen={setShowOwnershipBuilder}
-                setOwnershipType={setOwnershipType}
-                refetch={refetch}
+            {error && toast.error('Failed to load Ownership Types! An unexpected error occurred.')}
+            <SearchBar
+                placeholder="Search..."
+                value={query}
+                onChange={(value) => {
+                    setQuery(value);
+                    setPage(1);
+                }}
+                width="300px"
+                allowClear
             />
-            {totalOwnershipTypes >= pageSize && (
-                <PaginationContainer>
-                    <StyledPagination
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalOwnershipTypes}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={false}
+            {ownershipTypes.length > 0 ? (
+                <>
+                    <OwnershipTable
+                        ownershipTypes={ownershipTypes}
+                        setIsOpen={setShowOwnershipBuilder}
+                        setOwnershipType={setOwnershipType}
+                        refetch={refetch}
                     />
-                </PaginationContainer>
+                    {totalOwnershipTypes >= pageSize && (
+                        <Pagination
+                            currentPage={page}
+                            itemsPerPage={pageSize}
+                            total={totalOwnershipTypes}
+                            showLessItems
+                            onPageChange={onChangePage}
+                            showSizeChanger={false}
+                        />
+                    )}
+                </>
+            ) : (
+                !loading && (
+                    <EmptyState
+                        title="No Ownership Types found"
+                        description="Create a custom ownership type to categorize asset owners."
+                        icon="Users"
+                        action={{
+                            label: 'Create Ownership Type',
+                            onClick: () => setShowOwnershipBuilder(true),
+                        }}
+                        style={{ flex: 1, justifyContent: 'center' }}
+                    />
+                )
             )}
             <OwnershipBuilderModal
                 isOpen={showOwnershipBuilder}
