@@ -259,7 +259,10 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
             )
 
-            # Process one workspace at a time: fetch → resolve → emit
+            # Pass 1: fetch and cache all pipeline activities across all
+            # workspaces so that cross-workspace InvokePipeline edges can be
+            # resolved regardless of workspace processing order.
+            workspace_pipelines: list[tuple[FabricWorkspace, list[FabricItem]]] = []
             for workspace in self.client.list_workspaces():
                 if not self.config.workspace_pattern.allowed(workspace.name):
                     self.report.report_workspace_filtered(workspace.name)
@@ -268,11 +271,18 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 self.report.report_workspace_scanned()
                 logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
 
+                if self.config.extract_pipelines:
+                    pipeline_items = self._fetch_pipeline_activities(workspace.id)
+                else:
+                    pipeline_items = []
+                workspace_pipelines.append((workspace, pipeline_items))
+
+            # Pass 2: resolve edges and emit (cache is now fully populated)
+            for workspace, pipeline_items in workspace_pipelines:
                 try:
                     yield from self._create_workspace_container(workspace)
 
-                    if self.config.extract_pipelines:
-                        pipeline_items = self._fetch_pipeline_activities(workspace.id)
+                    if self.config.extract_pipelines and pipeline_items:
                         invoke_pipeline_lineage = self._resolve_invoke_pipeline_edges(
                             workspace.id, pipeline_items
                         )
