@@ -2,13 +2,13 @@
 
 Welcome to the DataHub Cloud! We at DataHub are on a mission to make data reliable by bringing clarity to the who, what, when, & how of your data ecosystem. We're thrilled to be on this journey with you; and cannot wait to see what we build together!
 
-Close communication is not only welcomed, but highly encouraged. For all questions, concerns, & feedback, please reach out to us directly at help@acryl.io.
+Close communication is not only welcomed, but highly encouraged. For all questions, concerns, & feedback, please reach out to us directly at [http://support.datahub.com/](http://support.datahub.com/).
 
 ## Prerequisites
 
 Before you go further, you'll need to have a DataHub instance provisioned. The DataHub integrations team will provide you the following once it has been deployed:
 
-1. The URL for your DataHub Cloud instance (https://your-domain-name.acryl.io)
+1. The URL for your DataHub Cloud instance ([https://your-domain-name.acryl.io](https://your-domain-name.acryl.io))
 2. Admin account credentials for logging into the DataHub UI
 
 Once you have these, you're ready to go.
@@ -21,11 +21,11 @@ If you wish to have a private connection to your DataHub instance, DataHub Cloud
 
 DataHub Cloud currently supports the following means to log into a DataHub instance:
 
-1. **Admin account**: When your subscriptions starts someone will share with you a invite link to create your admin account. If that has not happened please reach out at help@acryl.io through your official email ID / slack connect setup with our team and our team will share with you the invite url.
+1. **Admin account**: When your subscriptions starts someone will share with you a invite link to create your admin account. If that has not happened please reach out at [http://support.datahub.com/](http://support.datahub.com/). through your official email ID / slack connect setup with our team and our team will share with you the invite url.
 2. **OIDC**: DataHub Cloud also supports OIDC integration with the Identity Provider of your choice (Okta, Google, etc). To set this up, DataHub integrations team will require the following:
-3. _Client ID_ - A unique identifier for your application with the identity provider
-4. _Client Secret_ - A shared secret to use for exchange between you and your identity provider. To send this over securely, we recommend using [onetimesecret.com](https://onetimesecret.com/) to create a link.
-5. _Discovery URL_ - A URL where the OIDC API of your identity provider can be discovered. This should suffixed by `.well-known/openid-configuration`. Sometimes, identity providers will not explicitly include this URL in their setup guides, though this endpoint will exist as per the OIDC specification. For more info see [here](http://openid.net/specs/openid-connect-discovery-1_0.html).
+3. *Client ID* - A unique identifier for your application with the identity provider
+4. *Client Secret* - A shared secret to use for exchange between you and your identity provider. To send this over securely, we recommend using [onetimesecret.com](https://onetimesecret.com/) to create a link.
+5. *Discovery URL* - A URL where the OIDC API of your identity provider can be discovered. This should suffixed by `.well-known/openid-configuration`. Sometimes, identity providers will not explicitly include this URL in their setup guides, though this endpoint will exist as per the OIDC specification. For more info see [here](http://openid.net/specs/openid-connect-discovery-1_0.html).
 
 The callback URL to register in your Identity Provider will be
 
@@ -33,7 +33,7 @@ The callback URL to register in your Identity Provider will be
 https://your-acryl-domain.acryl.io/callback/oidc
 ```
 
-_Note that we do not yet support LDAP or SAML authentication. Please let us know if either of these integrations would be useful for your organization._
+*Note that we do not yet support LDAP or SAML authentication. Please let us know if either of these integrations would be useful for your organization.*
 
 ## Getting Started
 
