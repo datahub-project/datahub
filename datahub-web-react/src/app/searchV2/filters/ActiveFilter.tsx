@@ -1,9 +1,8 @@
 import { CloseCircleOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
 import { IconSpacer, Label } from '@app/searchV2/filters/styledComponents';
 import useGetBrowseV2LabelOverride from '@app/searchV2/filters/useGetBrowseV2LabelOverride';
@@ -13,7 +12,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const ActiveFilterWrapper = styled.div`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
     padding: 2px 8px;
     display: flex;
@@ -21,15 +20,25 @@ const ActiveFilterWrapper = styled.div`
     font-size: 14px;
     height: 24px;
     margin: 8px 8px 0 0;
+    color: ${(props) => props.theme.colors.text};
 `;
 
-const StyledButton = styled(Button)`
+const CloseButton = styled.button`
     border: none;
+    background: none;
     box-shadow: none;
     padding: 0;
     margin-left: 6px;
     height: 16px;
     width: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: ${(props) => props.theme.colors.textSecondary};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.text};
+    }
 `;
 
 interface ActiveFilterProps {
@@ -68,14 +77,12 @@ function ActiveFilter({
         <ActiveFilterWrapper data-testid={`active-filter-${label}`}>
             {icon}
             {icon && <IconSpacer />}
-            <Label ellipsis={{ tooltip: label }} style={{ maxWidth: 150 }}>
-                {label}
-            </Label>
-            <StyledButton
-                icon={<CloseCircleOutlined />}
-                onClick={removeFilter}
-                data-testid={`remove-filter-${label}`}
-            />
+            <Tooltip title={label as string}>
+                <Label style={{ maxWidth: 150 }}>{label}</Label>
+            </Tooltip>
+            <CloseButton onClick={removeFilter} data-testid={`remove-filter-${label}`}>
+                <CloseCircleOutlined />
+            </CloseButton>
         </ActiveFilterWrapper>
     );
 }

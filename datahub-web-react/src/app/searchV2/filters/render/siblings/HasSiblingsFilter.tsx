@@ -12,10 +12,9 @@ export interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilter[]) => void;
-    icon?: React.ReactNode;
 }
 
-export function HasSiblingsFilter({ icon, scenario, filter, activeFilters, onChangeFilters }: Props) {
+export function HasSiblingsFilter({ scenario, filter, activeFilters, onChangeFilters }: Props) {
     const isSelected = activeFilters?.find((f) => f.field === 'hasSiblings')?.values?.includes('true');
 
     const toggleFilter = () => {
@@ -49,7 +48,6 @@ export function HasSiblingsFilter({ icon, scenario, filter, activeFilters, onCha
             )}
             {scenario === FilterScenarioType.SEARCH_V2_PRIMARY && (
                 <BooleanSearchFilter
-                    icon={icon}
                     title="Siblings"
                     option="Has siblings"
                     initialSelected={isSelected || false}
@@ -60,7 +58,6 @@ export function HasSiblingsFilter({ icon, scenario, filter, activeFilters, onCha
             )}
             {scenario === FilterScenarioType.SEARCH_V2_SECONDARY && (
                 <BooleanMoreFilter
-                    icon={icon}
                     title="Siblings"
                     option="Has siblings"
                     initialSelected={isSelected || false}
