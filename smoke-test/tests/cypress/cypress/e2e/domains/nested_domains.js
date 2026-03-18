@@ -154,22 +154,28 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test Label");
 
     // add owners
+    const adminDisplayName = Cypress.env("ADMIN_DISPLAYNAME") || "DataHub";
     cy.clickOptionWithTestId("add-owners-button");
     cy.waitTextVisible("Find a user or group");
-    cy.get('[data-testid="users-group-search"]').type(
-      Cypress.env("ADMIN_DISPLAYNAME"),
-    );
-    cy.clickTextOptionWithClass(
-      ".rc-virtual-list-holder-inner",
-      Cypress.env("ADMIN_DISPLAYNAME"),
-    );
+    cy.get('[data-testid="users-group-search-base"]').click();
+    cy.get('[data-testid="dropdown-search-input"]')
+      .should("be.visible")
+      .type(adminDisplayName);
+    cy.get('[data-testid="users-group-search-dropdown"]')
+      .contains(adminDisplayName)
+      .closest('[data-testid^="option-"]')
+      .find("input.ant-checkbox-input")
+      .click({ force: true });
+    cy.get('[data-testid="users-group-search-dropdown"]')
+      .find(".ant-checkbox-checked")
+      .should("exist");
     cy.clickOptionWithText("Find a user or group");
-    cy.clickOptionWithId("#addOwnerButton");
+    cy.get("#addOwnerButton").should("not.be.disabled").click();
     cy.waitTextVisible("Owners Added");
-    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.waitTextVisible(adminDisplayName);
     cy.goToDomainList();
     cy.waitTextVisible("Test documentation");
-    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.waitTextVisible(adminDisplayName);
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
