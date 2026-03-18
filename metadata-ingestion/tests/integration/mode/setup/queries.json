@@ -14,7 +14,7 @@
       "name": "Customer and staff",
       "last_run_id": 1897576958,
       "data_source_id": 34499,
-      "explorations_count": 0,
+      "explorations_count": 1,
       "_links": {
         "self": {
           "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2"

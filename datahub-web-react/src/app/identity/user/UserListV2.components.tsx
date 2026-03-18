@@ -1,10 +1,14 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserListV2.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Avatar, Button, Pill, ResizablePills, Text, colors } from '@src/alchemy-components';
+import { Avatar, Button, Pill, ResizablePills, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -27,7 +31,7 @@ const UserInfo = styled.div`
 const UserDetails = styled.div`
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const GroupTags = styled.div`
@@ -56,7 +60,6 @@ export const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 330px);
     overflow: auto;
 
     /* Make table header sticky */
@@ -64,13 +67,13 @@ export const TableContainer = styled.div`
         position: sticky;
         top: 0;
         z-index: 1;
-        background: white;
+        background: ${(props) => props.theme.colors.bg};
     }
 
     /* Ensure header cells have proper background */
     .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+        background: ${(props) => props.theme.colors.bg} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -170,7 +173,7 @@ export const UserStatusCell = ({ user }: StatusCellProps) => {
     const statusText = getUserStatusText(status, user as any);
     const statusColor = getUserStatusColor(status, user as any);
 
-    return <Pill variant="outline" color={statusColor} label={statusText} />;
+    return <Pill variant="filled" color={statusColor} label={statusText} />;
 };
 
 // User groups cell component
@@ -198,7 +201,7 @@ export const UserGroupsCell = ({ user }: GroupsCellProps) => {
                 )}
                 overflowTooltipContent={() => (
                     <div>
-                        <div style={{ fontWeight: 'bold', color: '#374066' }}>Groups</div>
+                        <div style={{ fontWeight: 'bold' }}>Groups</div>
                         <div
                             style={{
                                 display: 'flex',
@@ -236,7 +239,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
                   type: 'item' as const,
                   key: 'reset',
                   title: 'Reset Password',
-                  icon: 'Key' as const,
+                  icon: Key,
                   onClick: () => onResetPassword(user),
               }
             : null,
@@ -244,7 +247,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
             type: 'item' as const,
             key: 'delete',
             title: 'Delete User',
-            icon: 'Trash' as const,
+            icon: Trash,
             onClick: onDeleteEntity,
             danger: true,
         },
@@ -254,7 +257,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
         <Menu items={menuItems}>
             <Button
                 variant="text"
-                icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                 isCircle
                 style={ActionsButtonStyle}
             />

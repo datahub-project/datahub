@@ -3,7 +3,7 @@ import json
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
 
 from requests.models import HTTPError
 from typing_extensions import TypedDict
@@ -14,8 +14,10 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName as _TableName
@@ -66,7 +68,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         platform: str,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
-        graph: Optional[DataHubGraph] = None,
+        graph: Optional["DataHubGraph"] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
     ):
@@ -330,40 +332,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
 
-    def _fallback_fetch_schemas(self, urns: List[str]) -> None:
-        """Fetch schemas individually when batch fetch fails.
-
-        Handles network, HTTP, data parsing, and DataHub-specific errors gracefully
-        by caching None for failed fetches to prevent repeated attempts.
-        """
-        if not self.graph:
-            return
-
-        for fetch_urn in urns:
-            if fetch_urn in self._schema_cache:
-                continue
-
-            try:
-                schema_metadata = self.graph.get_aspect(fetch_urn, SchemaMetadataClass)
-                self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
-
-            except (
-                TimeoutError,
-                ConnectionError,
-                OSError,
-                HTTPError,
-                json.JSONDecodeError,
-                ValueError,
-                KeyError,
-                GraphError,
-                AssertionError,
-            ) as e:
-                logger.debug(
-                    f"Error fetching schema for {fetch_urn} ({type(e).__name__}): {e}"
-                )
-                self.add_schema_metadata_from_fetch(fetch_urn, None)
-
-    def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
+    def _fetch_schema_info(
+        self, graph: "DataHubGraph", urn: str
+    ) -> Optional[SchemaInfo]:
         aspect = graph.get_aspect(urn, SchemaMetadataClass)
         if not aspect:
             return None

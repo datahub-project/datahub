@@ -78,6 +78,17 @@ class EmbeddingConfig(ConfigModel):
         description="Input type for Cohere embeddings",
     )
 
+    # Rate limiting configuration
+    rate_limit: bool = Field(
+        default=True,
+        description="Enable rate limiting for embedding API calls.",
+    )
+    documents_per_minute: int = Field(
+        default=300,
+        gt=0,
+        description="Maximum number of documents to embed per minute when rate_limit is enabled.",
+    )
+
     # Break-glass override flag
     allow_local_embedding_config: bool = Field(
         default=False,
@@ -404,6 +415,13 @@ class DocumentChunkingSourceConfig(ConfigModel):
     )
 
     # Processing options
+    max_documents: int = Field(
+        default=10000,
+        ge=-1,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached. "
+        "Set to 0 or -1 to disable the limit.",
+    )
     batch_size: int = Field(
         default=10, description="Number of documents to process in parallel"
     )

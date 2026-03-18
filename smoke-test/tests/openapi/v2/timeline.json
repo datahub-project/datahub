@@ -334,7 +334,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\[.+?\\]\\['timestamp'\\]"
+        "root\\[.+?\\]\\['timestamp'\\]",
+        "root\\[.+?\\]\\['actor'\\]"
       ],
       "json": [
         {

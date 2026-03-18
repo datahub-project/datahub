@@ -1,3 +1,5 @@
+pytest_plugins = ["tests.utilities.agent_reporter"]
+
 import json
 import logging
 import os
@@ -42,6 +44,7 @@ def build_auth_session():
 @pytest.fixture(scope="session")
 def auth_session():
     auth_session = build_auth_session()
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     yield auth_session
     auth_session.destroy()
 

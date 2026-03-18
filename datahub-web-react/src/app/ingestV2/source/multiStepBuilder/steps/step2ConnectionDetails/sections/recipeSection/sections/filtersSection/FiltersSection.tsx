@@ -1,4 +1,5 @@
 import { Button, Icon, Input, Popover, SimpleSelect, spacing } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -154,7 +155,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                 <FilterHeaderCell>
                     <FieldLabel label="Name or Pattern" />
                     <Popover content={<RegexTooltipContent />}>
-                        <Icon icon="Info" source="phosphor" color="gray" size="lg" />
+                        <Icon icon={Info} color="gray" size="lg" />
                     </Popover>
                 </FilterHeaderCell>
                 <div /> {/* Empty cell for the remove button column */}
