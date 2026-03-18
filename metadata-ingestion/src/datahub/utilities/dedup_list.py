@@ -1,11 +1,11 @@
-from typing import Any, Callable, Iterable, List, TypeVar
+from typing import Any, Callable, Iterable, List, Optional, TypeVar
 
 _T = TypeVar("_T")
 
 
 def deduplicate_list(
     iterable: Iterable[_T],
-    key: Callable[[_T], Any] = lambda x: x,
+    key: Optional[Callable[[_T], Any]] = None,
 ) -> List[_T]:
     """
     Remove duplicates from an iterable, preserving order.
@@ -14,7 +14,7 @@ def deduplicate_list(
     seen = set()
     result: List[_T] = []
     for item in iterable:
-        k = key(item)
+        k = key(item) if key is not None else item
         if k not in seen:
             seen.add(k)
             result.append(item)
