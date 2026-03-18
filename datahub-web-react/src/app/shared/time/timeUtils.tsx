@@ -1,5 +1,5 @@
-import dayjs from 'dayjs';
-import type { Dayjs, ManipulateType } from 'dayjs';
+import dayjs from '@utils/dayjs';
+import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
 

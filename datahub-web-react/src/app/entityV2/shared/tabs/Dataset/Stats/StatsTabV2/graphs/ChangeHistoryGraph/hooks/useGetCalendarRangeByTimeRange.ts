@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 
 import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
 import { TimeRange } from '@src/types.generated';

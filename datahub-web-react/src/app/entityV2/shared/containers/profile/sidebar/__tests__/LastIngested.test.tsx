@@ -1,5 +1,5 @@
 import { green, orange, red } from '@ant-design/colors';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 
 import { getLastIngestedColor } from '@app/entityV2/shared/containers/profile/sidebar/LastIngested';
 

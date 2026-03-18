@@ -122,6 +122,11 @@ module.exports = {
                         name: 'moment/moment',
                         message: 'moment was removed for bundle size. Use dayjs instead.',
                     },
+                    {
+                        name: 'dayjs',
+                        message:
+                            "Import dayjs from '@utils/dayjs' instead. The utils wrapper registers all required plugins (utc, isoWeek, timezone, etc.) — importing bare 'dayjs' silently skips plugin registration.",
+                    },
                 ],
             },
         ],
@@ -186,6 +191,11 @@ module.exports = {
         {
             files: ['src/app/searchV2/**/*.tsx', 'src/app/entityV2/**/*.tsx'],
             rules: { 'import/no-cycle': 'off' },
+        },
+        {
+            // The dayjs utils wrapper itself must import bare 'dayjs' to extend plugins.
+            files: ['src/utils/dayjs.ts'],
+            rules: { 'no-restricted-imports': 'off' },
         },
         {
             files: ['src/alchemy-components/theme/**/*.ts'],

@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 
 import { isValuePresent } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
 

@@ -1,7 +1,7 @@
 import { Tooltip, colors } from '@components';
 import { Divider, Typography, message } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

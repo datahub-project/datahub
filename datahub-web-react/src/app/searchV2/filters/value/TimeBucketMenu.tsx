@@ -1,5 +1,5 @@
 import type { ItemType } from 'antd/lib/menu/hooks/useItems';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 

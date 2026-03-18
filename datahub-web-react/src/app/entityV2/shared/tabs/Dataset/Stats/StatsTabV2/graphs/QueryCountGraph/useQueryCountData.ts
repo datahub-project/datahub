@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import { useEffect, useState } from 'react';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';

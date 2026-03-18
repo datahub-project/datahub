@@ -1,5 +1,5 @@
 import { GraphCard, LineChart } from '@components';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';

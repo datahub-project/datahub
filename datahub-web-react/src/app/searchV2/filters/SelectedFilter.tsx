@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 import styled from 'styled-components/macro';
 

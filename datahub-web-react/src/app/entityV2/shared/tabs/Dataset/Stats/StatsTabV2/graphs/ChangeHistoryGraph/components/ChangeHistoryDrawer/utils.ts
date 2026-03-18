@@ -1,5 +1,5 @@
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 import { uniq } from 'lodash';
 
 import { Operation } from '@src/types.generated';

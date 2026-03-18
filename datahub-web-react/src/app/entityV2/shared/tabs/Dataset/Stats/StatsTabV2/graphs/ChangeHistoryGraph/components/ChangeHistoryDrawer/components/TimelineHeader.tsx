@@ -1,6 +1,6 @@
 import { Pill, Text } from '@components';
 import { Skeleton } from 'antd';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 

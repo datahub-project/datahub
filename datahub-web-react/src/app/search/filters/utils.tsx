@@ -8,7 +8,7 @@ import {
     UserOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 

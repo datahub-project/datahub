@@ -1,6 +1,6 @@
 import { Form, Select, Skeleton, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import analytics, { EventType } from '@app/analytics';

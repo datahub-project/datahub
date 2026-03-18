@@ -1,6 +1,6 @@
 import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 

@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import { useEffect, useMemo } from 'react';
 
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';

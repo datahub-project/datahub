@@ -1,5 +1,5 @@
 import { CellHoverWrapper, Text, Tooltip } from '@components';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 

@@ -2,7 +2,7 @@ import { BarChart as AlchemyBarChart, LineChart as AlchemyLineChart, GraphCard, 
 import { ParentSize } from '@visx/responsive';
 import { useTooltip, useTooltipInPortal } from '@visx/tooltip';
 import { Axis, BarSeries, BarStack, Grid, Tooltip, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 

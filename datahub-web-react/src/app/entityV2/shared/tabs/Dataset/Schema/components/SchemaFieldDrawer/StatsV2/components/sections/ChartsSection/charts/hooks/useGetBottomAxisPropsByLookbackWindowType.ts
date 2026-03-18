@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import { useCallback } from 'react';
 
 import { AxisProps } from '@src/alchemy-components/components/BarChart/types';

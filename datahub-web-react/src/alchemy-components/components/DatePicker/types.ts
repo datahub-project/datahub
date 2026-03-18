@@ -1,4 +1,4 @@
-import type { Dayjs } from 'dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
 

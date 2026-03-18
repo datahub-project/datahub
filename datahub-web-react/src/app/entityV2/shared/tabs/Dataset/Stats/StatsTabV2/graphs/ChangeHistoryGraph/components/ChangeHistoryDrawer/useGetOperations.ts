@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import { uniq } from 'lodash';
 import { useMemo } from 'react';
 

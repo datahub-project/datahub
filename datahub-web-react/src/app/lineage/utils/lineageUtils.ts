@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 
 const MILLIS_PER_HOUR = 3600000;
 

@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';

@@ -1,7 +1,7 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 

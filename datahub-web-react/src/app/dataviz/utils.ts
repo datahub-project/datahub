@@ -1,5 +1,5 @@
 import { scaleOrdinal } from '@visx/scale';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 
 import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
 

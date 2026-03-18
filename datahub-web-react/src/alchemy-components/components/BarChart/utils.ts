@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 
 import { COLOR_SCHEMES } from '@components/components/BarChart/constants';
 

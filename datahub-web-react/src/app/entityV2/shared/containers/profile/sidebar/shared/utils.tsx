@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 
 import ColorTheme from '@conf/theme/colorThemes/types';
 

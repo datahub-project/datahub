@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';

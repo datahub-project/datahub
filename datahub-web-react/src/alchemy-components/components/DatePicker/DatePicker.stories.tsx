@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React, { useState } from 'react';
 
 import { DatePicker, datePickerDefault } from '@components/components/DatePicker/DatePicker';

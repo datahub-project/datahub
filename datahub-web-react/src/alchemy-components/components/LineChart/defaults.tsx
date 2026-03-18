@@ -1,6 +1,6 @@
 import { TickLabelProps } from '@visx/axis';
 import { LinearGradient } from '@visx/gradient';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import { Glyph, TooltipGlyph } from '@components/components/LineChart/components';

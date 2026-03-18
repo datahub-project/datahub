@@ -2,7 +2,7 @@ import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import { Image } from 'antd';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 import styled from 'styled-components/macro';
 

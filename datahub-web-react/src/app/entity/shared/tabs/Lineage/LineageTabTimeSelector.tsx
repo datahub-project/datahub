@@ -1,5 +1,5 @@
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router';
 

@@ -1,6 +1,6 @@
 import { ParentSize } from '@visx/responsive';
 import { Axis, BarSeries, BarStack, Grid, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import React from 'react';
 
 import { Legend } from '@app/dataviz/Legend';

@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from '@utils/dayjs';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
