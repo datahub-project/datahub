@@ -2,6 +2,7 @@ import '@app/entity/shared/tabs/Dataset/Relationship/RelationshipsTab.less';
 
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Card, Divider, Empty, Input, Modal, Pagination } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -10,7 +11,6 @@ import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { CreateERModelRelationModal } from '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal';
 import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview';
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
@@ -27,19 +27,19 @@ const StyledPagination = styled(Pagination)`
 `;
 const StyledInput = styled(Input)`
     border-radius: 70px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
+    border: 1px solid ${(props) => props.theme.colors.overlayLight};
     max-width: 416px;
     height: 40px !important;
 `;
 const ThinDivider = styled(Divider)`
     height: 1px;
     width: 520px !important;
-    background: #f0f0f0;
+    background: ${(props) => props.theme.colors.border};
     margin-left: -70px;
     margin-bottom: 0px;
 `;
 const NoERModelRelations = styled(Empty)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     padding-top: 60px;
 `;
 export const RelationshipsTab = () => {
@@ -248,7 +248,7 @@ export const RelationshipsTab = () => {
                         onChange={(e) => setFilterText(e.target.value)}
                         allowClear
                         autoFocus
-                        prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                        prefix={<Icon icon={MagnifyingGlass} />}
                     />
                     <Button
                         type="link"

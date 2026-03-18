@@ -1,5 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Input, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -33,7 +34,7 @@ export default function QueriesTabToolbar({ addQueryDisabled, onAddQuery, onChan
                 placeholder="Search in queries..."
                 onChange={onChangeSearch}
                 allowClear
-                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                prefix={<Icon icon={MagnifyingGlass} />}
                 data-testid="search-query-input"
             />
         </TabToolbar>
