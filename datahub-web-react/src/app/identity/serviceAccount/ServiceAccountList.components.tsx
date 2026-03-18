@@ -1,3 +1,9 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
@@ -15,7 +21,6 @@ export const ServiceAccountContainer = styled.div`
     display: flex;
     flex-direction: column;
     margin-top: 16px;
-    padding: 0 16px;
 `;
 
 export const TableContainer = styled.div`
@@ -23,22 +28,7 @@ export const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: auto;
-    padding: 0 16px;
-
-    /* Make table header sticky */
-    .ant-table-thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: ${(props) => props.theme.colors.bg};
-    }
-
-    /* Ensure header cells have proper background */
-    .ant-table-thead > tr > th {
-        background: ${(props) => props.theme.colors.bg} !important;
-        border-bottom: 1px solid ${(props) => props.theme.colors.border};
-    }
+    overflow: hidden;
 `;
 
 export const FiltersHeader = styled.div`
@@ -197,21 +187,21 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
             type: 'item' as const,
             key: 'create-token',
             title: 'Create Token',
-            icon: 'Key',
+            icon: Key,
             onClick: () => setIsCreatingToken(true),
         },
         {
             type: 'item' as const,
             key: 'copy-urn',
             title: 'Copy URN',
-            icon: 'Copy',
+            icon: Copy,
             onClick: handleCopyUrn,
         },
         {
             type: 'item' as const,
             key: 'delete',
             title: 'Delete',
-            icon: 'Trash',
+            icon: Trash,
             danger: true,
             onClick: () => setIsConfirmingDelete(true),
         },
@@ -222,7 +212,7 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
             <Menu items={items}>
                 <Button
                     variant="text"
-                    icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                    icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                     isCircle
                     style={ActionsButtonStyle}
                     data-testid={`service-account-menu-${serviceAccount.name}`}
@@ -375,7 +365,7 @@ export const ServiceAccountTable = ({
                 {serviceAccounts.length > 0 ? (
                     <>
                         <Table columns={columns} data={serviceAccounts} isLoading={loading} isScrollable />
-                        <div style={{ padding: '8px 20px 0 20px', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ paddingTop: '8px', display: 'flex', justifyContent: 'center' }}>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
@@ -392,7 +382,7 @@ export const ServiceAccountTable = ({
                             </Text>
                         ) : (
                             <>
-                                <Icon icon="Robot" source="phosphor" size="4xl" color="gray" />
+                                <Icon icon={Robot} size="4xl" color="gray" />
                                 <Text size="md" color="gray">
                                     No service accounts found
                                 </Text>
