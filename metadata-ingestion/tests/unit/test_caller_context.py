@@ -1,10 +1,21 @@
 import os
 import re
-from unittest.mock import patch
+import subprocess
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from datahub.utilities.caller_context import _CALLER_SIGNATURES, identify_caller
+from datahub.utilities.caller_context import (
+    _CALLER_SIGNATURES,
+    _get_ancestor_chain,
+    _get_full_command,
+    _get_parent_pid,
+    _get_process_name,
+    _match_signatures,
+    _read_parent_env_linux,
+    _read_parent_env_macos,
+    identify_caller,
+)
 
 # All signature env vars that tests need to control.
 _ALL_SIGNATURE_KEYS = set()
@@ -90,6 +101,329 @@ class TestIdentifyCaller:
         os.environ["DATAHUB_CALLER"] = "tool-b"
         second = identify_caller()
         assert first == second == "tool-a"
+
+
+class TestMatchSignatures:
+    def test_key_presence_match(self):
+        assert (
+            _match_signatures("GITHUB_ACTIONS=true\nPATH=/usr/bin") == "github-actions"
+        )
+
+    def test_key_value_no_false_positive(self):
+        """A key that exists but doesn't have the = marker pattern shouldn't match."""
+        assert _match_signatures("SOMETHING_ELSE=1") is None
+
+    def test_no_match(self):
+        assert _match_signatures("PATH=/usr/bin\nHOME=/root") is None
+
+
+class TestReadParentEnvLinux:
+    def test_reads_proc_environ(self):
+        fake_env = "KEY1=val1\0KEY2=val2\0"
+        with patch("builtins.open", mock_open(read_data=fake_env)):
+            result = _read_parent_env_linux(1234)
+        assert result == "KEY1=val1\nKEY2=val2\n"
+
+    def test_returns_none_on_permission_error(self):
+        with patch("builtins.open", side_effect=PermissionError):
+            assert _read_parent_env_linux(1234) is None
+
+    def test_returns_none_on_file_not_found(self):
+        with patch("builtins.open", side_effect=FileNotFoundError):
+            assert _read_parent_env_linux(1234) is None
+
+
+class TestReadParentEnvMacos:
+    def _mock_run(self, stdout="", returncode=0, side_effect=None):
+        mock_result = MagicMock()
+        mock_result.stdout = stdout
+        mock_result.returncode = returncode
+        if side_effect:
+            return patch("subprocess.run", side_effect=side_effect)
+        return patch("subprocess.run", return_value=mock_result)
+
+    def test_returns_stdout_on_success(self):
+        with self._mock_run(stdout="CLAUDECODE=1 /usr/bin/python"):
+            result = _read_parent_env_macos(1234)
+        assert result == "CLAUDECODE=1 /usr/bin/python"
+
+    def test_returns_none_on_nonzero_exit(self):
+        with self._mock_run(returncode=1):
+            assert _read_parent_env_macos(1234) is None
+
+    def test_returns_none_on_timeout(self):
+        with self._mock_run(side_effect=subprocess.TimeoutExpired(cmd="ps", timeout=2)):
+            assert _read_parent_env_macos(1234) is None
+
+
+class TestGetProcessName:
+    def _mock_run(self, stdout="", returncode=0, side_effect=None):
+        mock_result = MagicMock()
+        mock_result.stdout = stdout
+        mock_result.returncode = returncode
+        if side_effect:
+            return patch("subprocess.run", side_effect=side_effect)
+        return patch("subprocess.run", return_value=mock_result)
+
+    def test_extracts_basename(self):
+        with self._mock_run(stdout="/usr/bin/zsh\n"):
+            assert _get_process_name(100) == "zsh"
+
+    def test_simple_name(self):
+        with self._mock_run(stdout="python\n"):
+            assert _get_process_name(100) == "python"
+
+    def test_returns_none_on_nonzero_exit(self):
+        with self._mock_run(returncode=1):
+            assert _get_process_name(100) is None
+
+    def test_returns_none_on_timeout(self):
+        with self._mock_run(side_effect=subprocess.TimeoutExpired(cmd="ps", timeout=2)):
+            assert _get_process_name(100) is None
+
+    def test_java_becomes_gradle_when_gradle_daemon(self):
+        """Java processes running GradleDaemon should be reported as gradle."""
+        with patch("subprocess.run") as mock_run:
+            # First call: ps -o comm= returns "java"
+            # Second call: ps -o command= returns full command with GradleDaemon
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout="java\n"),
+                MagicMock(
+                    returncode=0,
+                    stdout="java -Xmx512m org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.5\n",
+                ),
+            ]
+            assert _get_process_name(100) == "gradle"
+
+    def test_java_stays_java_for_non_gradle(self):
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout="java\n"),
+                MagicMock(returncode=0, stdout="java -jar myapp.jar\n"),
+            ]
+            assert _get_process_name(100) == "java"
+
+
+class TestGetFullCommand:
+    def test_returns_stripped_stdout(self):
+        mock_result = MagicMock(returncode=0, stdout="  /usr/bin/python script.py  \n")
+        with patch("subprocess.run", return_value=mock_result):
+            assert _get_full_command(100) == "/usr/bin/python script.py"
+
+    def test_returns_none_on_failure(self):
+        mock_result = MagicMock(returncode=1)
+        with patch("subprocess.run", return_value=mock_result):
+            assert _get_full_command(100) is None
+
+    def test_returns_none_on_timeout(self):
+        with patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="ps", timeout=2),
+        ):
+            assert _get_full_command(100) is None
+
+
+class TestGetParentPid:
+    def test_returns_ppid(self):
+        mock_result = MagicMock(returncode=0, stdout="  42  \n")
+        with patch("subprocess.run", return_value=mock_result):
+            assert _get_parent_pid(100) == 42
+
+    def test_returns_none_for_init(self):
+        """PID 1 (init) should be treated as end of chain."""
+        mock_result = MagicMock(returncode=0, stdout="1\n")
+        with patch("subprocess.run", return_value=mock_result):
+            assert _get_parent_pid(100) is None
+
+    def test_returns_none_on_failure(self):
+        mock_result = MagicMock(returncode=1)
+        with patch("subprocess.run", return_value=mock_result):
+            assert _get_parent_pid(100) is None
+
+    def test_returns_none_on_bad_output(self):
+        mock_result = MagicMock(returncode=0, stdout="not-a-number\n")
+        with patch("subprocess.run", return_value=mock_result):
+            assert _get_parent_pid(100) is None
+
+
+class TestGetAncestorChain:
+    def test_walks_process_tree(self):
+        with (
+            patch(
+                "datahub.utilities.caller_context._get_process_name",
+                side_effect=["zsh", "tmux", "login"],
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_parent_pid",
+                side_effect=[200, 300, None],
+            ),
+        ):
+            chain = _get_ancestor_chain(max_depth=4)
+        assert chain == ["zsh", "tmux", "login"]
+
+    def test_stops_on_none_process_name(self):
+        with (
+            patch(
+                "datahub.utilities.caller_context._get_process_name",
+                side_effect=["zsh", None],
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_parent_pid",
+                return_value=200,
+            ),
+        ):
+            chain = _get_ancestor_chain(max_depth=4)
+        assert chain == ["zsh"]
+
+    def test_respects_max_depth(self):
+        with (
+            patch(
+                "datahub.utilities.caller_context._get_process_name",
+                return_value="zsh",
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_parent_pid",
+                return_value=200,
+            ),
+        ):
+            chain = _get_ancestor_chain(max_depth=2)
+        assert len(chain) == 2
+
+
+class TestIdentifyCallerTier3:
+    """Tier 3: parent process environment detection."""
+
+    def test_linux_parent_env_detection(self):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value="CURSOR_TRACE_ID=abc123\nPATH=/usr/bin",
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=[],
+            ),
+        ):
+            assert identify_caller() == "cursor"
+
+    def test_macos_parent_env_detection(self):
+        with (
+            patch("platform.system", return_value="Darwin"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_macos",
+                return_value="JENKINS_URL=http://ci.local CLAUDECODE=1",
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=[],
+            ),
+        ):
+            # CLAUDECODE comes first in _CALLER_SIGNATURES
+            assert identify_caller() == "claude-code"
+
+    def test_no_parent_env_falls_through_to_tier4(self):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value=None,
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=["zsh"],
+            ),
+        ):
+            assert identify_caller() == "human-terminal"
+
+
+class TestIdentifyCallerTier4:
+    """Tier 4: process tree name heuristics."""
+
+    def test_process_hint_cursor(self):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value=None,
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=["node", "cursor", "login"],
+            ),
+        ):
+            assert identify_caller() == "cursor"
+
+    def test_process_hint_claude(self):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value=None,
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=["zsh", "claude"],
+            ),
+        ):
+            assert identify_caller() == "claude-code"
+
+    def test_human_terminal_shell_parent(self):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value=None,
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=["bash", "sshd"],
+            ),
+        ):
+            assert identify_caller() == "human-terminal"
+
+    def test_fish_shell_detected(self):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value=None,
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=["fish"],
+            ),
+        ):
+            assert identify_caller() == "human-terminal"
+
+    def test_unknown_parent_returned_as_name(self):
+        """If parent isn't a shell or known hint, return the process name."""
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value=None,
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=["supervisord", "systemd"],
+            ),
+        ):
+            assert identify_caller() == "supervisord"
+
+    def test_empty_chain_returns_unknown(self):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch(
+                "datahub.utilities.caller_context._read_parent_env_linux",
+                return_value=None,
+            ),
+            patch(
+                "datahub.utilities.caller_context._get_ancestor_chain",
+                return_value=[],
+            ),
+        ):
+            assert identify_caller() == "unknown"
 
 
 class TestUserAgentIntegration:
