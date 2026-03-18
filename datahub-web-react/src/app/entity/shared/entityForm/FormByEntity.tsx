@@ -35,12 +35,11 @@ export default function FormByEntity({ formUrn }: Props) {
     const entityRegistry = useEntityRegistry();
     const sidebarSections = entityRegistry.getSidebarSections(selectedEntity?.type || entityType);
 
-    // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
+    // Removes repeated entity header (we use EntityInfo in this component)
     // SidebarEntityHeader is always the first index in sidebarSections, so remove it here
     // TODO (OBS-677): remove this logic once we get form info into V2 sidebar
     const cleanedSidebarSections = sidebarSections.slice(1);
 
-    // Conditional sections based on theme version
     const sections = cleanedSidebarSections;
 
     return (
