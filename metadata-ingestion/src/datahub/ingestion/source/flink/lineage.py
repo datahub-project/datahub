@@ -130,7 +130,8 @@ class DataStreamKafkaExtractor(LineageExtractor):
 
     Handles:
       - Source: "KafkaSource-{topic} -> ..."
-      - Sink:   "KafkaSink-{topic} -> ..."
+      - Sink (legacy):      "KafkaSink-{topic} -> ..."
+      - Sink (Flink 1.19+): "KafkaSink-{topic}: Writer" or "KafkaSink-{topic}[N]: Writer"
 
     Platform="kafka" is correct here because the connector type IS in the
     operator name (KafkaSource/KafkaSink are Flink's Kafka connector classes).
@@ -489,7 +490,11 @@ class PlatformResolver:
     def _resolve_from_table_ddl(
         self, catalog_info: CatalogInfo, ref: CatalogTableReference
     ) -> Optional[ClassifiedNode]:
-        """Resolve platform by calling SHOW CREATE TABLE (for hive/generic_in_memory catalogs)."""
+        """Resolve platform by calling SHOW CREATE TABLE.
+
+        Used for hive/generic_in_memory catalogs (Tier 2: mixed connector types per table),
+        and as a fallback when DESCRIBE CATALOG is unavailable or returns an unrecognized type.
+        """
         cache_key = f"{ref.catalog}.{ref.database}.{ref.table}"
         if cache_key not in self._table_connector_cache:
             if not self._sql_client:

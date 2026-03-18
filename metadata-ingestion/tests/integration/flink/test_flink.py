@@ -44,9 +44,12 @@ def flink_runner(docker_compose_runner, test_resources_dir):  # type: ignore
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "flink"
     ) as docker_services:
+        # wait_for_port probes container-internal ports; FLINK_REST_URL/SQL_GATEWAY_URL
+        # use the host-mapped ports (8082/8084 respectively).
         wait_for_port(docker_services, "test_flink_jobmanager", 8081, timeout=120)
         wait_for_port(docker_services, "test_flink_sql_gateway", 8083, timeout=120)
         wait_for_port(docker_services, "test-flink-hive-metastore", 9083, timeout=120)
+        wait_for_port(docker_services, "test_flink_iceberg_rest", 8181, timeout=120)
         setup_test_data()
         yield docker_services
 
@@ -241,16 +244,18 @@ def test_iceberg_flink_lineage_stitching(
     """End-to-end lineage stitching: Iceberg and Flink connectors run independently
     and produce matching dataset URNs for the same Iceberg table.
 
-    The DataHub Iceberg connector runs against the Hive Metastore (HMS) — not Flink.
-    The DataHub Flink connector runs against the Flink SQL Gateway.
+    The DataHub Iceberg connector runs against the REST catalog server (backed by MinIO) — not Flink.
+    The DataHub Flink connector runs against the Flink REST API and SQL Gateway.
     Both emit urn:li:dataset:(urn:li:dataPlatform:iceberg,lake.events,TEST), so DataHub
     stitches Flink lineage edges with Iceberg schema/metadata into one dataset entity.
     """
     iceberg_output = tmp_path / "iceberg_mces.json"
     flink_output = tmp_path / "flink_stitch_mces.json"
 
-    # Run the DataHub Iceberg connector independently against HMS.
-    # warehouse path is /tmp/iceberg-warehouse, bind-mounted from the containers.
+    # Run the DataHub Iceberg connector independently against the REST catalog.
+    # The REST catalog server (tabulario/iceberg-rest) backed by MinIO is the
+    # same "Iceberg instance" that Flink uses — connectors discover the same
+    # tables and emit identical dataset URNs, enabling lineage stitching.
     iceberg_pipeline = Pipeline.create(
         {
             "source": {
@@ -258,9 +263,13 @@ def test_iceberg_flink_lineage_stitching(
                 "config": {
                     "catalog": {
                         "default": {
-                            "type": "hive",
-                            "uri": "thrift://localhost:9083",
-                            "warehouse": "/tmp/iceberg-warehouse",
+                            "type": "rest",
+                            "uri": "http://localhost:8181",
+                            "s3.access-key-id": "admin",
+                            "s3.secret-access-key": "password",
+                            "s3.region": "us-east-1",
+                            "warehouse": "s3a://warehouse/wh/",
+                            "s3.endpoint": "http://localhost:9000",
                         }
                     },
                     "env": "TEST",
@@ -323,6 +332,159 @@ def test_iceberg_flink_lineage_stitching(
         f"Lineage stitching broken — 'lake.events' URN not in both outputs.\n"
         f"  Iceberg connector dataset URNs: {sorted(iceberg_dataset_urns)}\n"
         f"  Flink lineage URNs:             {sorted(flink_lineage_urns)}"
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_flink_run_history_and_platform_instances(
+    flink_runner: Any, tmp_path: pathlib.Path
+) -> None:
+    """Complex pipeline: run history, platform instances, job filtering, and multi-source fan-in.
+
+    Jobs under test (filtered to exactly 2 via job_name_pattern):
+
+      test_enrich_orders:
+        hive_catalog.flink_db.orders (Kafka)
+        → hive_catalog.flink_db.enriched_orders (Kafka)
+        Single-source single-sink via HiveCatalog.
+
+      test_pg_users_pipeline:
+        pg_catalog.flink_catalog.public.users (Postgres, JDBC 3-level naming)
+        UNION ALL user_events (Kafka, temporary table)
+        → enriched_user_events (Kafka, temporary table)
+        Multi-source fan-in: 2 platforms feeding 1 sink.
+
+    Verifies:
+    - job_name_pattern filters out the other 4 jobs → exactly 2 DataJobs emitted
+    - platform_instance_map prepends instance prefix to all Kafka and Postgres URNs:
+        kafka   → urn:...:dataPlatform:kafka,test-kafka.<topic>,TEST
+        postgres → urn:...:dataPlatform:postgres,test-pg.<db>.<schema>.<table>,TEST
+    - include_run_history=True emits DataProcessInstance start events for both RUNNING jobs
+    - test_pg_users_pipeline lineage has sources from two different platforms (Postgres + Kafka)
+    """
+    output_file = tmp_path / "flink_complex_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "flink-complex-test",
+            "source": {
+                "type": "flink",
+                "config": {
+                    "connection": {
+                        "rest_api_url": FLINK_REST_URL,
+                        "sql_gateway_url": SQL_GATEWAY_URL,
+                    },
+                    "include_lineage": True,
+                    "include_run_history": True,
+                    "env": "TEST",
+                    # Allow only the two jobs under test; filter out ds_kafka_hop1/2,
+                    # test_final_output, and test_iceberg_events_pipeline.
+                    "job_name_pattern": {
+                        "allow": [
+                            "test_enrich_orders",
+                            "test_pg_users_pipeline",
+                        ]
+                    },
+                    # Platform instance mapping: verifies URN construction with instances.
+                    "platform_instance_map": {
+                        "kafka": "test-kafka",
+                        "postgres": "test-pg",
+                    },
+                    # Flink 1.19 requires explicit platform for Iceberg (DESCRIBE CATALOG unavailable).
+                    "catalog_platform_map": {
+                        "ice_catalog": {"platform": "iceberg"},
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": str(output_file)},
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mces = json.loads(output_file.read_text())
+
+    # ── 1. Job filtering: exactly 2 DataJobs ──────────────────────────────────
+    datajob_urns = [
+        mce["entityUrn"]
+        for mce in mces
+        if mce.get("entityType") == "dataJob" and mce.get("aspectName") == "dataJobInfo"
+    ]
+    assert len(datajob_urns) == 2, (
+        f"Expected 2 DataJobs after job_name_pattern filter, got {len(datajob_urns)}: "
+        f"{datajob_urns}"
+    )
+    assert any("test_enrich_orders" in u for u in datajob_urns), (
+        f"test_enrich_orders DataJob missing: {datajob_urns}"
+    )
+    assert any("test_pg_users_pipeline" in u for u in datajob_urns), (
+        f"test_pg_users_pipeline DataJob missing: {datajob_urns}"
+    )
+
+    # ── 2. Platform instances: all Kafka/Postgres URNs carry the instance prefix ─
+    all_lineage_urns: set = set()
+    lineage_by_job: Dict[str, Any] = {}
+    for mce in mces:
+        if mce.get("aspectName") == "dataJobInputOutput":
+            payload = mce["aspect"]["json"]
+            all_lineage_urns.update(payload.get("inputDatasets", []))
+            all_lineage_urns.update(payload.get("outputDatasets", []))
+            # Key by job URN for per-job assertions below.
+            lineage_by_job[mce["entityUrn"]] = payload
+
+    kafka_urns = [u for u in all_lineage_urns if "dataPlatform:kafka" in u]
+    postgres_urns = [u for u in all_lineage_urns if "dataPlatform:postgres" in u]
+
+    assert kafka_urns, "No Kafka dataset URNs found in lineage output"
+    assert postgres_urns, (
+        "No Postgres dataset URNs found in lineage output — "
+        "test_pg_users_pipeline's JDBC source may not have been resolved"
+    )
+    for urn in kafka_urns:
+        assert "test-kafka." in urn, (
+            f"Kafka URN missing 'test-kafka.' instance prefix: {urn}"
+        )
+    for urn in postgres_urns:
+        assert "test-pg." in urn, (
+            f"Postgres URN missing 'test-pg.' instance prefix: {urn}"
+        )
+
+    # ── 3. Run history: at least 2 DPI start events (one per filtered RUNNING job) ─
+    dpi_start_urns = [
+        mce["entityUrn"]
+        for mce in mces
+        if mce.get("entityType") == "dataProcessInstance"
+        and mce.get("aspectName") == "dataProcessInstanceRunEvent"
+        and mce.get("aspect", {}).get("json", {}).get("status") == "STARTED"
+    ]
+    assert len(dpi_start_urns) >= 2, (
+        f"Expected >=2 DPI STARTED events (one per filtered job), got {len(dpi_start_urns)}: "
+        f"{dpi_start_urns}"
+    )
+
+    # ── 4. Multi-source fan-in: test_pg_users_pipeline has Postgres + Kafka sources ─
+    pg_pipeline_key = next(
+        (k for k in lineage_by_job if "test_pg_users_pipeline" in k), None
+    )
+    assert pg_pipeline_key, (
+        f"test_pg_users_pipeline lineage not found. Available jobs: {list(lineage_by_job)}"
+    )
+    pg_inputs = lineage_by_job[pg_pipeline_key].get("inputDatasets", [])
+    pg_input_platforms = {
+        urn.split("dataPlatform:")[1].split(",")[0]
+        for urn in pg_inputs
+        if "dataPlatform:" in urn
+    }
+    assert "kafka" in pg_input_platforms, (
+        f"test_pg_users_pipeline missing Kafka source. Input platforms: {pg_input_platforms}, "
+        f"inputs: {pg_inputs}"
+    )
+    assert "postgres" in pg_input_platforms, (
+        f"test_pg_users_pipeline missing Postgres source. Input platforms: {pg_input_platforms}, "
+        f"inputs: {pg_inputs}"
     )
 
 

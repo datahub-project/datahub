@@ -2,9 +2,9 @@ FROM flink:1.19-scala_2.12
 
 # JDBC connector + PostgreSQL driver: JDBC catalog for 3-level naming tests
 # Kafka connector: streaming source/sink for multi-hop lineage tests
-# Iceberg runtime: filesystem-based Iceberg catalog for 2-level naming tests
+# Iceberg runtime: Iceberg Flink connector (REST catalog backed by MinIO) for 2-level naming tests
 # Hive connector: HiveCatalog for persistent Kafka table definitions across sessions
-# Hadoop uber: required by Iceberg's FlinkCatalogFactory (unshaded Hadoop classes)
+# Hadoop uber: required by Flink's HiveCatalog (unshaded Hadoop classes for HMS connectivity)
 RUN wget -q -P /opt/flink/lib/ \
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc/3.2.0-1.19/flink-connector-jdbc-3.2.0-1.19.jar && \
     wget -q -P /opt/flink/lib/ \
@@ -13,6 +13,8 @@ RUN wget -q -P /opt/flink/lib/ \
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.2.0-1.19/flink-sql-connector-kafka-3.2.0-1.19.jar && \
     wget -q -P /opt/flink/lib/ \
     https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-1.19/1.7.1/iceberg-flink-runtime-1.19-1.7.1.jar && \
+    wget -q -P /opt/flink/lib/ \
+    https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-aws-bundle/1.7.1/iceberg-aws-bundle-1.7.1.jar && \
     wget -q -P /opt/flink/lib/ \
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-hive-3.1.3_2.12/1.19.1/flink-sql-connector-hive-3.1.3_2.12-1.19.1.jar && \
     wget -q -P /opt/flink/lib/ \
@@ -29,16 +31,6 @@ RUN mkdir -p /opt/hive-conf && \
       '  </property>' \
       '</configuration>' > /opt/hive-conf/hive-site.xml
 
-# PyFlink: enables DataStream API job submission for integration tests.
-# The Flink 1.19 image (Ubuntu 22.04) bundles PyFlink as zip files in /opt/flink/opt/python/.
-# Install Python3 and set PYTHONPATH — no pip install of apache-flink needed.
-# PyFlink for DataStream API job submission.
-# Uses bundled pyflink.zip from /opt/flink/opt/python/ (no pip install of apache-flink).
-# Only installs Python3 + minimal runtime deps that the bundled zips need.
-# Install apache-flink with all deps EXCEPT pemja (needs JNI headers not in JRE).
-# pemja is only needed for Python UDF execution, not for DataStream job submission.
-# Step 1: install apache-flink and apache-flink-libraries without deps
-# Step 2: install all runtime deps (from PyPI metadata) except pemja
 # PyFlink for DataStream API job submission.
 # apache-flink has a hard dep on pemja (JNI bridge) which needs real JDK headers.
 # We don't need pemja (it's for Python UDF execution, not job submission).
@@ -67,7 +59,7 @@ RUN apt-get update -y && \
     rm -rf /var/lib/apt/lists/* && \
     cp /opt/flink/opt/flink-python-*.jar /opt/flink/lib/
 
-# Iceberg Hive catalog writes metadata files as the 'flink' user.
-# Pre-create the warehouse directory with open permissions so the flink process
-# can create namespace and table directories without needing a pre-mkdir step.
-RUN mkdir -p /tmp/iceberg-warehouse && chmod 777 /tmp/iceberg-warehouse
+# S3A plugin: enables Flink's Iceberg connector to access MinIO (REST catalog backend).
+# Move from /opt/flink/opt/ to /opt/flink/plugins/ to activate the plugin classloader.
+RUN mkdir -p /opt/flink/plugins/s3-fs-hadoop && \
+    cp /opt/flink/opt/flink-s3-fs-hadoop-*.jar /opt/flink/plugins/s3-fs-hadoop/

@@ -52,6 +52,70 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio
+    container_name: test_flink_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+      MINIO_DOMAIN: minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # mc: MinIO Client — creates the 'warehouse' S3 bucket that iceberg-rest and
+  # Flink's S3A plugin use for Iceberg data file storage.
+  mc:
+    image: minio/mc
+    container_name: test_flink_mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set minio http://minio:9000 admin password &&
+      /usr/bin/mc mb --ignore-existing minio/warehouse &&
+      /usr/bin/mc anonymous set public minio/warehouse &&
+      touch /tmp/mc_done &&
+      tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/mc_done"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  iceberg-rest:
+    image: tabulario/iceberg-rest:0.5.0
+    container_name: test_flink_iceberg_rest
+    depends_on:
+      mc:
+        condition: service_healthy
+    ports:
+      - "8181:8181"
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+      CATALOG_WAREHOUSE: s3a://warehouse/wh/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -v grep | grep -q 'iceberg-rest-image-all.jar'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
   hive-metastore:
     image: apache/hive:3.1.3
     hostname: hive-metastore
@@ -86,18 +150,26 @@ services:
         condition: service_healthy
       hive-metastore:
         condition: service_healthy
+      iceberg-rest:
+        condition: service_healthy
     ports:
       - "8082:8081"
     command: jobmanager
     volumes:
-      - /tmp/iceberg-warehouse:/tmp/iceberg-warehouse
       - ./pyflink_kafka_job.py:/opt/flink/pyflink_kafka_job.py:ro
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         rest.port: 8081
+        s3.access-key-id: admin
+        s3.secret-access-key: password
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
 
   taskmanager:
     build: .
@@ -108,14 +180,19 @@ services:
       hive-metastore:
         condition: service_healthy
     command: taskmanager
-    volumes:
-      - /tmp/iceberg-warehouse:/tmp/iceberg-warehouse
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         taskmanager.numberOfTaskSlots: 8
+        s3.access-key-id: admin
+        s3.secret-access-key: password
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
 
   sql-gateway:
     build: .
@@ -127,6 +204,8 @@ services:
         condition: service_healthy
       hive-metastore:
         condition: service_healthy
+      iceberg-rest:
+        condition: service_healthy
     ports:
       - "8084:8083"
     command: >
@@ -134,12 +213,17 @@ services:
         /opt/flink/bin/sql-gateway.sh start -Dsql-gateway.endpoint.rest.address=0.0.0.0 -Dtable.catalog-store.kind=file -Dtable.catalog-store.file.path=/tmp/catalog-store &&
         tail -f /dev/null
       "
-    volumes:
-      - /tmp/iceberg-warehouse:/tmp/iceberg-warehouse
     environment:
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
+        s3.access-key-id: admin
+        s3.secret-access-key: password
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
 
 networks:
   default:

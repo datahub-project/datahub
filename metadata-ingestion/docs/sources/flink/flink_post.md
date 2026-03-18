@@ -18,7 +18,7 @@ A Flink job reads from a Postgres JDBC catalog table `pg_catalog.mydb.public.use
 
 ```
 Plan: TableSourceScan(table=[[pg_catalog, mydb, public.users]])
-  → SQL Gateway: SHOW CREATE TABLE → connector=jdbc, url=jdbc:postgresql://
+  → SQL Gateway: DESCRIBE CATALOG → type=jdbc, base-url=jdbc:postgresql://  (Flink 1.20+)
   → URN: urn:li:dataset:(urn:li:dataPlatform:postgres, mydb.public.users, PROD)
 ```
 

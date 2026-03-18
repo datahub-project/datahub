@@ -62,7 +62,7 @@ class FlinkConnectionConfig(ConfigModel):
     max_retries: int = Field(
         default=3,
         ge=0,
-        description="Maximum retry attempts for failed HTTP requests with exponential backoff.",
+        description="Maximum total attempts (initial + retries) for failed HTTP requests with exponential backoff. Default of 3 means 1 initial attempt plus up to 2 retries.",
     )
 
     verify_ssl: bool = Field(

@@ -2,8 +2,8 @@
 
 Test scenarios:
 1. Multi-hop Kafka via HiveCatalog: orders → job_1 → enriched-orders → job_2 → final-output
-2. JDBC/Postgres 3-level naming: pg_catalog.flink_catalog.public.users
-3. Iceberg 2-level naming: ice_catalog.lake.events
+2. JDBC/Postgres catalog (3-part: catalog=pg_catalog, database=flink_catalog, table=public.users)
+3. Iceberg 2-level naming (REST catalog, MinIO-backed): ice_catalog.lake.events
 
 Infrastructure:
 - Kafka topics created via docker exec
@@ -53,9 +53,8 @@ CREATE_ICEBERG_CATALOG_SQL = """\
 DROP CATALOG IF EXISTS ice_catalog;
 CREATE CATALOG ice_catalog WITH (
     'type' = 'iceberg',
-    'catalog-type' = 'hive',
-    'uri' = 'thrift://hive-metastore:9083',
-    'warehouse' = 'file:///tmp/iceberg-warehouse'
+    'catalog-type' = 'rest',
+    'uri' = 'http://iceberg-rest:8181'
 )"""
 
 CREATE_ICEBERG_DB_SQL = "CREATE DATABASE IF NOT EXISTS ice_catalog.lake"
@@ -115,6 +114,32 @@ CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.final_output (
     'properties.bootstrap.servers' = 'broker:9092',
     'scan.startup.mode' = 'earliest-offset',
     'format' = 'json'
+);
+
+CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.user_events (
+    user_id BIGINT,
+    username STRING,
+    email STRING,
+    active BOOLEAN
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'user-events',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'scan.startup.mode' = 'earliest-offset',
+    'format' = 'json'
+);
+
+CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.enriched_user_events (
+    user_id BIGINT,
+    username STRING,
+    email STRING,
+    active BOOLEAN
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'enriched-user-events',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'scan.startup.mode' = 'earliest-offset',
+    'format' = 'json'
 )"""
 
 # ── Postgres tables (reflected by JDBC catalog as public.users, public.products) ──
@@ -168,9 +193,13 @@ SELECT * FROM hive_catalog.flink_db.enriched_orders;
 """
 
 # Job 3: JDBC 3-level naming test.
-# Uses UNION ALL of JDBC scan (bounded) + Kafka (unbounded).
+# Uses UNION ALL of JDBC scan (bounded) + Kafka (unbounded) to keep job RUNNING.
 # FLIP-147 guarantees the job stays RUNNING — the Kafka branch is unbounded.
-# Plan shows TableSourceScan(table=[[pg_catalog, flink_catalog, public.users]]).
+# Both sources use HiveCatalog or JDBC catalog so SHOW CREATE TABLE works from
+# a new SQL Gateway session (temporary tables are session-scoped and invisible).
+# Plan shows:
+#   TableSourceScan(table=[[pg_catalog, flink_catalog, public.users]])   → Postgres
+#   TableSourceScan(table=[[hive_catalog, flink_db, user_events]])       → Kafka
 JOB3_SQL = """\
 CREATE CATALOG pg_catalog WITH (
     'type' = 'jdbc',
@@ -180,37 +209,18 @@ CREATE CATALOG pg_catalog WITH (
     'base-url' = 'jdbc:postgresql://postgres:5432'
 );
 
-CREATE TEMPORARY TABLE user_events (
-    user_id BIGINT,
-    username STRING,
-    email STRING,
-    active BOOLEAN
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'user-events',
-    'properties.bootstrap.servers' = 'broker:9092',
-    'scan.startup.mode' = 'earliest-offset',
-    'format' = 'json'
-);
-
-CREATE TEMPORARY TABLE enriched_user_events (
-    user_id BIGINT,
-    username STRING,
-    email STRING,
-    active BOOLEAN
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'enriched-user-events',
-    'properties.bootstrap.servers' = 'broker:9092',
-    'format' = 'json'
+CREATE CATALOG hive_catalog WITH (
+    'type' = 'hive',
+    'default-database' = 'default',
+    'hive-conf-dir' = '/opt/hive-conf'
 );
 
 SET 'pipeline.name' = 'test_pg_users_pipeline';
 
-INSERT INTO enriched_user_events
+INSERT INTO hive_catalog.flink_db.enriched_user_events
 SELECT * FROM pg_catalog.flink_catalog.`public.users`
 UNION ALL
-SELECT * FROM user_events;
+SELECT * FROM hive_catalog.flink_db.user_events;
 """
 
 # Job 4: Iceberg 2-level naming test.
@@ -220,9 +230,8 @@ SELECT * FROM user_events;
 JOB4_SQL = """\
 CREATE CATALOG ice_catalog WITH (
     'type' = 'iceberg',
-    'catalog-type' = 'hive',
-    'uri' = 'thrift://hive-metastore:9083',
-    'warehouse' = 'file:///tmp/iceberg-warehouse'
+    'catalog-type' = 'rest',
+    'uri' = 'http://iceberg-rest:8181'
 );
 
 CREATE DATABASE IF NOT EXISTS ice_catalog.lake;
@@ -382,8 +391,8 @@ def _register_catalogs() -> None:
     Catalogs are registered in the SQL Gateway for the connector's platform
     resolution (SHOW CREATE TABLE). Kafka tables are created in HiveCatalog
     so they persist across sessions (production-correct setup). Iceberg tables
-    are created in the SQL client session (runs on JobManager where the
-    Iceberg warehouse volume is mounted).
+    are also created via SQL Gateway (REST catalog backed by MinIO — no local
+    volume mount required).
     """
     _execute_sql_gateway(CREATE_JDBC_CATALOG_SQL)
     logger.info("JDBC catalog 'pg_catalog' registered")
