@@ -30,10 +30,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit, selectedSourc
         updateState(newState);
     };
 
-    const handleOwnerUrnsChange = (urns: React.SetStateAction<string[]>) => {
-        const resolvedUrns = typeof urns === 'function' ? urns(selectedOwnerUrns) : urns;
-        setSelectedOwnerUrns(resolvedUrns);
-        const newUrns = resolvedUrns.filter((urn) => !existingOwnerUrns.includes(urn));
+    const handleOwnerUrnsChange = (urns: string[]) => {
+        setSelectedOwnerUrns(urns);
+        const newUrns = urns.filter((urn) => !existingOwnerUrns.includes(urn));
         const newState: SourceBuilderState = {
             ...state,
             owners: newUrns,
