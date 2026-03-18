@@ -1,9 +1,7 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
-import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { CaretDown, CaretUp } from 'phosphor-react';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -128,18 +126,18 @@ export const Table = <T,>({
                                                     >
                                                         {/* Sort icons for ascending and descending */}
                                                         <SortIcon
-                                                            icon={CaretLeft}
+                                                            icon={CaretUp}
                                                             size="md"
-                                                            rotate="90"
+                                                            weight="bold"
                                                             isActive={
                                                                 column.key === sortColumn &&
                                                                 sortOrder === SortingState.ASCENDING
                                                             }
                                                         />
                                                         <SortIcon
-                                                            icon={CaretRight}
+                                                            icon={CaretDown}
                                                             size="md"
-                                                            rotate="90"
+                                                            weight="bold"
                                                             isActive={
                                                                 column.key === sortColumn &&
                                                                 sortOrder === SortingState.DESCENDING
@@ -165,18 +163,18 @@ export const Table = <T,>({
                                                 >
                                                     {/* Sort icons for ascending and descending */}
                                                     <SortIcon
-                                                        icon={CaretLeft}
+                                                        icon={CaretUp}
                                                         size="md"
-                                                        rotate="90"
+                                                        weight="bold"
                                                         isActive={
                                                             column.key === sortColumn &&
                                                             sortOrder === SortingState.ASCENDING
                                                         }
                                                     />
                                                     <SortIcon
-                                                        icon={CaretRight}
+                                                        icon={CaretDown}
                                                         size="md"
-                                                        rotate="90"
+                                                        weight="bold"
                                                         isActive={
                                                             column.key === sortColumn &&
                                                             sortOrder === SortingState.DESCENDING
