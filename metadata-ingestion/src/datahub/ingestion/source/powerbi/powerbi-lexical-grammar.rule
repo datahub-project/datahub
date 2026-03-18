@@ -26,6 +26,7 @@
 //    %ignore WS             // Ignore whitespace
 //    %ignore CPP_COMMENT    // Ignore single-line comments
 //    %ignore C_COMMENT      // Ignore multi-line comments
+// - Removed optional whitespace in rules, it's handled by %ignore
 
 lexical_unit:   lexical_elements?
 
@@ -165,7 +166,7 @@ identifier_part_character:    letter_character
                         |     formatting_character
 
 generalized_identifier: generalized_identifier_part
-                  |     generalized_identifier  WS_INLINE generalized_identifier_part
+                  |     generalized_identifier WS_INLINE generalized_identifier_part
 
 generalized_identifier_part:  generalized_identifier_segment
                         |     decimal_digit_character generalized_identifier_segment
@@ -289,25 +290,21 @@ logical_or_expression:  logical_and_expression
                     |   logical_and_expression "or" logical_or_expression
 
 
-logical_and_expression: WS_INLINE? NEWLINE? is_expression WS_INLINE? NEWLINE?
-                    |   WS_INLINE?
-                    |   NEWLINE?
-                    |   logical_and_expression WS_INLINE? "and" WS_INLINE? is_expression
+logical_and_expression: is_expression
+                    |   logical_and_expression "and" is_expression
 
 is_expression:  as_expression
-            |   WS_INLINE?
-            |   NEWLINE?     
             |   is_expression "is" nullable_primitive_type
 
 nullable_primitive_type:    "nullable"? primitive_type
 
-as_expression:  WS_INLINE? equality_expression
+as_expression:  equality_expression
             |   as_expression "as" nullable_primitive_type
-            |   WS_INLINE? multiplicative_expression
+            |   multiplicative_expression
 
-equality_expression:    WS_INLINE? relational_expression
-                   |    WS_INLINE? relational_expression WS_INLINE? "=" WS_INLINE? equality_expression
-                   |    relational_expression WS_INLINE? "<>" WS_INLINE? equality_expression
+equality_expression:    relational_expression
+                   |    relational_expression "=" equality_expression
+                   |    relational_expression "<>" equality_expression
 
 relational_expression:  additive_expression
                     |   subtract_expression
@@ -323,17 +320,17 @@ relational_expression:  additive_expression
 
 additive_expression:    multiplicative_expression
                     |   multiplicative_expression "+" additive_expression
-                    |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
-                    |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
+                    |   multiplicative_expression "_" additive_expression
+                    |   multiplicative_expression  "&" additive_expression
 
 
 subtract_expression:    multiplicative_expression
                     |   multiplicative_expression "-" additive_expression
-                    |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
-                    |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
+                    |   multiplicative_expression "_" additive_expression
+                    |   multiplicative_expression  "&" additive_expression
 
-multiplicative_expression:  WS_INLINE? metadata_expression
-                        |   metadata_expression WS_INLINE? "*" WS_INLINE? multiplicative_expression
+multiplicative_expression:  metadata_expression
+                        |   metadata_expression "*" multiplicative_expression
                         |   metadata_expression "/" multiplicative_expression
 
 metadata_expression:    unary_expression
@@ -371,11 +368,11 @@ inclusive_identifier_reference: "@" identifier
 
 section_access_expression:  identifier "!" identifier
 
-parenthesized_expression:   "(" WS_INLINE? expression WS_INLINE? ")"
+parenthesized_expression:   "(" expression ")"
 
 not_implemented_expression: "..."
 
-invoke_expression:  "#"? primary_expression "(" NEWLINE? argument_list? NEWLINE? ")"
+invoke_expression:  "#"? primary_expression "(" argument_list? ")"
 
 empty_string: /"([^"]|\\")*"/
 
@@ -386,23 +383,22 @@ sql_string: "\"" sql_content "\""
 
 outer_expression: "{{" expression "}}"
 
-argument_list:  WS_INLINE? expression
-            |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
-            |   WS_INLINE? sql_string
-            |   WS_INLINE? sql_string "," argument_list
+argument_list:  expression
+            |   expression "," argument_list
+            |   sql_string
+            |   sql_string "," argument_list
             |   "\"" identifier "\""
             |   "\"" identifier "\"" "," argument_list
             |   "[" identifier "]"
             |   "[" identifier "]" "," argument_list
             |   empty_string
             |   empty_string "," argument_list
-            |   WS_INLINE
-            |   WS_INLINE? ESCAPED_STRING
-            |   WS_INLINE? ESCAPED_STRING "," argument_list
-            |   WS_INLINE? record_literal
-            |   WS_INLINE? record_literal "," argument_list
-            |   WS_INLINE? null_literal
-            |   WS_INLINE? null_literal "," argument_list
+            |   ESCAPED_STRING
+            |   ESCAPED_STRING "," argument_list
+            |   record_literal
+            |   record_literal "," argument_list
+            |   null_literal
+            |   null_literal "," argument_list
 
 
 list_expression:    "{" item_list? "}"
@@ -419,7 +415,7 @@ record_expression:  "[" field_list? "]"
 field_list: field
         |   field "," field_list
 
-field:  WS_INLINE? field_name WS_INLINE? "=" WS_INLINE? expression
+field:  field_name "=" expression
 
 field_name: generalized_identifier
         |   quoted_identifier
@@ -427,9 +423,9 @@ field_name: generalized_identifier
 item_access_expression: item_selection
                     |   optional_item_selection
 
-item_selection: primary_expression whitespace? "{" item_selector "}"
+item_selection: primary_expression "{" item_selector "}"
 
-optional_item_selection:    primary_expression whitespace? "{" item_selector "}" "?"
+optional_item_selection:    primary_expression "{" item_selector "}" "?"
 
 item_selector:  expression
 
@@ -443,18 +439,18 @@ field_selection:    primary_expression field_selector
 field_selector: required_field_selector
             |   optional_field_selector
 
-required_field_selector:    "[" WS_INLINE? field_name WS_INLINE? "]"
+required_field_selector:    "[" field_name "]"
 
-optional_field_selector:    "[" WS_INLINE? field_name WS_INLINE? "]" "?"
+optional_field_selector:    "[" field_name "]" "?"
 
 implicit_target_field_selection:    field_selector
 
 projection: primary_expression required_projection
         |   primary_expression optional_projection
 
-required_projection:    "[" WS_INLINE? required_selector_list WS_INLINE? "]"
+required_projection:    "[" required_selector_list "]"
 
-optional_projection:    "[" WS_INLINE? required_selector_list WS_INLINE? "]" "?"
+optional_projection:    "[" required_selector_list "]" "?"
 
 required_selector_list: required_field_selector
                     |   required_field_selector "," required_selector_list
@@ -462,7 +458,7 @@ required_selector_list: required_field_selector
 implicit_target_projection: required_projection
                         |   optional_projection
 
-function_expression:    "(" WS_INLINE? parameter_list?  WS_INLINE? ")" WS_INLINE return_type? "=>" function_body
+function_expression:    "(" parameter_list?  ")" WS_INLINE return_type? "=>" function_body
 
 function_body:  expression
 
@@ -492,22 +488,22 @@ each_expression:    "each" WS_INLINE each_expression_body
 
 each_expression_body:   function_body
 
-let_expression: "let" whitespace variable_list WS_INLINE? NEWLINE? in_expression
+let_expression: "let" whitespace variable_list in_expression
 
-in_expression: "in" NEWLINE? WS_INLINE? NEWLINE? expression
+in_expression: "in" expression
 
 variable_list:    variable
-            |     variable NEWLINE? WS_INLINE? "," NEWLINE? WS_INLINE? variable_list
+            |     variable "," variable_list
 
-variable:   variable_name WS_INLINE? "=" WS_INLINE? expression
+variable:   variable_name "=" expression
 
 variable_name:    identifier
 
-if_expression:    "if" WS_INLINE if_condition WS_INLINE? NEWLINE? WS_INLINE? "then" WS_INLINE? NEWLINE? true_expression WS_INLINE? NEWLINE? "else" WS_INLINE false_expression
+if_expression:    "if" WS_INLINE if_condition "then" true_expression "else" WS_INLINE false_expression
 
 if_condition:     expression
 
-true_expression:  NEWLINE? WS_INLINE? expression
+true_expression:  expression
                 | multiplicative_expression
 
 false_expression: expression
@@ -544,14 +540,14 @@ primitive_type: "any"
             |   "time" 
             |   "type"
 
-record_type:      "[" WS_INLINE? open_record_marker WS_INLINE? "]"
-            |     "[" WS_INLINE? field_specification_list? WS_INLINE "]"
-            |     "[" WS_INLINE? field_specification_list WS_INLINE "," WS_INLINE? open_record_marker WS_INLINE? "]"
+record_type:      "[" open_record_marker "]"
+            |     "[" field_specification_list? WS_INLINE "]"
+            |     "[" field_specification_list WS_INLINE "," open_record_marker "]"
 
 field_specification_list:     field_specification
-                        |     field_specification WS_INLINE? "," WS_INLINE? field_specification_list
+                        |     field_specification "," field_specification_list
 
-field_specification:    "optional"? WS_INLINE? field_name WS_INLINE field_type_specification?
+field_specification:    "optional"? field_name WS_INLINE field_type_specification?
 
 field_type_specification:     "=" WS_INLINE field_type
 
@@ -559,23 +555,23 @@ field_type: type
 
 open_record_marker:     "..."
 
-list_type:  "{" WS_INLINE? item_type WS_INLINE? "}"
+list_type:  "{" item_type "}"
 
 item_type: type
 
-function_type: "function" WS_INLINE? "(" WS_INLINE? parameter_specification_list? WS_INLINE? ")" WS_INLINE? return_type
+function_type: "function" "(" parameter_specification_list? ")" return_type
 
 parameter_specification_list: required_parameter_specification_list
-                        |     required_parameter_specification_list WS_INLINE? "," WS_INLINE? optional_parameter_specification_list
+                        |     required_parameter_specification_list "," optional_parameter_specification_list
                         |     optional_parameter_specification_list
 
 required_parameter_specification_list:    required_parameter_specification
-                                    |     required_parameter_specification WS_INLINE? "," WS_INLINE? required_parameter_specification_list
+                                    |     required_parameter_specification "," required_parameter_specification_list
 
 required_parameter_specification:   parameter_specification
 
 optional_parameter_specification_list:    optional_parameter_specification
-                                    |     optional_parameter_specification WS_INLINE? "," WS_INLINE? optional_parameter_specification_list
+                                    |     optional_parameter_specification "," optional_parameter_specification_list
 
 optional_parameter_specification:   "optional" parameter_specification
 
@@ -583,7 +579,7 @@ parameter_specification:      parameter_name WS_INLINE parameter_type
 
 table_type: "table" WS_INLINE row_type
 
-row_type:   "[" WS_INLINE? field_specification_list? WS_INLINE? "]"
+row_type:   "[" field_specification_list? "]"
 
 nullable_type:    "nullable" WS_INLINE type
 
@@ -599,18 +595,18 @@ default_expression:     expression
 
 literal_attributes:     record_literal
 
-record_literal:   "[" WS_INLINE? literal_field_list? WS_INLINE? "]"
+record_literal:   "[" literal_field_list? "]"
 
 literal_field_list:     literal_field
-                  |     literal_field WS_INLINE? "," WS_INLINE? literal_field_list
+                  |     literal_field "," literal_field_list
 
-literal_field:  field_name WS_INLINE? "=" WS_INLINE? any_literal
-             |  field_name WS_INLINE? "=" WS_INLINE? invoke_expression
+literal_field:  field_name "=" any_literal
+             |  field_name "=" invoke_expression
 
-list_literal:     "{" WS_INLINE? literal_item_list? WS_INLINE? "}"
+list_literal:     "{" literal_item_list? "}"
 
 literal_item_list:      any_literal
-                  |     any_literal WS_INLINE? "," WS_INLINE? literal_item_list
+                  |     any_literal "," literal_item_list
 
 any_literal:      record_literal
             |     list_literal
