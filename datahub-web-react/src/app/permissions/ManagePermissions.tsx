@@ -1,4 +1,5 @@
 import { Button, PageTitle } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useRef } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -98,7 +99,7 @@ export const ManagePermissions = () => {
                         <Button
                             id={POLICIES_CREATE_POLICY_ID}
                             variant="filled"
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                            icon={{ icon: Plus }}
                             onClick={() => createPolicyRef.current()}
                             data-testid="add-policy-button"
                         >

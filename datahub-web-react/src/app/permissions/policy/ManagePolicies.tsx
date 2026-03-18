@@ -11,6 +11,11 @@ import {
     Tooltip,
     toast,
 } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Pause } from '@phosphor-icons/react/dist/csr/Pause';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Play } from '@phosphor-icons/react/dist/csr/Play';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -368,8 +373,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                                         disabled
                                         style={{ pointerEvents: 'none', opacity: 0.4 }}
                                         icon={{
-                                            icon: 'DotsThreeVertical',
-                                            source: 'phosphor',
+                                            icon: DotsThreeVertical,
                                             weight: 'bold',
                                             size: 'xl',
                                             color: 'gray',
@@ -386,14 +390,14 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                         type: 'item',
                         key: 'edit',
                         title: 'Edit',
-                        icon: 'PencilSimple',
+                        icon: PencilSimple,
                         onClick: () => onEditPolicy(record?.policy),
                     },
                     {
                         type: 'item',
                         key: 'toggle-active',
                         title: isActive ? 'Deactivate' : 'Activate',
-                        icon: isActive ? 'Pause' : 'Play',
+                        icon: isActive ? Pause : Play,
                         onClick: () => {
                             onToggleActiveDuplicate(record?.policy);
                             analytics.event({
@@ -407,7 +411,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                         type: 'item',
                         key: 'delete',
                         title: 'Delete',
-                        icon: 'Trash',
+                        icon: Trash,
                         danger: true,
                         onClick: () => onRemovePolicy(record?.policy),
                     },
@@ -420,8 +424,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                                 variant="text"
                                 isCircle
                                 icon={{
-                                    icon: 'DotsThreeVertical',
-                                    source: 'phosphor',
+                                    icon: DotsThreeVertical,
                                     weight: 'bold',
                                     size: 'xl',
                                     color: 'gray',

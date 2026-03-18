@@ -1,4 +1,6 @@
 import { Button, Tooltip, colors } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -170,7 +172,7 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
                                 variant="text"
                                 onClick={() => setIsHistoryDrawerOpen(true)}
                                 aria-label="View change history"
-                                icon={{ icon: 'Clock', source: 'phosphor', size: '2xl' }}
+                                icon={{ icon: Clock, size: '2xl' }}
                             />
                         </Tooltip>
                         {isInsideModal && (
@@ -179,7 +181,7 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
                                     variant="text"
                                     onClick={handleGoToDocument}
                                     data-testid="expand-go-to-document-button"
-                                    icon={{ icon: 'ArrowSquareOut', source: 'phosphor', size: '2xl' }}
+                                    icon={{ icon: ArrowSquareOut, size: '2xl' }}
                                 />
                             </Tooltip>
                         )}

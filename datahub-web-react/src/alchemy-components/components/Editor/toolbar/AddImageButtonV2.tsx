@@ -1,4 +1,5 @@
-import { Image } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { Image } from '@phosphor-icons/react/dist/csr/Image';
 import { useCommands } from '@remirror/react';
 import { Form } from 'antd';
 import { FormInstance } from 'antd/es/form/Form';
@@ -20,6 +21,7 @@ const URL_KEY = 'url';
 const ContentWrapper = styled.div`
     width: 300px;
     background-color: ${colors.white};
+    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once rgba(9, 1, 61, 0.12) is mapped
     box-shadow: 0 4px 12px 0 rgba(9, 1, 61, 0.12);
     display: flex;
     flex-direction: column;
