@@ -1,51 +1,54 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination, Typography } from 'antd';
 import * as QueryString from 'query-string';
-import { AlignType } from 'rc-table/lib/interface';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { SearchBar } from '@app/search/SearchBar';
 import CreatePostModal from '@app/settingsV2/posts/CreatePostModal';
-import { PostColumn, PostEntry, PostListMenuColumn } from '@app/settingsV2/posts/PostsListColumns';
+import { PostEntry, PostListMenuColumn } from '@app/settingsV2/posts/PostsListColumns';
 import { POST_TYPE_TO_DISPLAY_TEXT } from '@app/settingsV2/posts/constants';
 import { addToListPostCache, removeFromListPostCache } from '@app/settingsV2/posts/utils';
-import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getHomePagePostsFilters } from '@app/utils/queryUtils';
+import { Alert, EmptyState, OverflowText, Pagination, Pill, SearchBar, Table } from '@src/alchemy-components';
+import { Column } from '@src/alchemy-components/components/Table/types';
 
 import { useListPostsQuery } from '@graphql/post.generated';
+import { PostContentType } from '@types';
+
+function stripMarkdown(text: string): string {
+    return text
+        .replace(/<[^>]*>/g, '') // HTML tags
+        .replace(/#{1,6}\s?/g, '') // headings
+        .replace(/(\*{1,2}|_{1,2}|~{1,2})/g, '') // bold, italic, strikethrough
+        .replace(/`{1,3}/g, '') // code
+        .replace(/^\s*[-*+]\s+/gm, '') // list markers
+        .replace(/^\s*\d+\.\s+/gm, '') // ordered list markers
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links
+        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // images
+        .trim();
+}
 
 const PostsContainer = styled.div`
     display: flex;
     flex-direction: column;
     overflow: auto;
+    gap: 16px;
 `;
 
-export const PostsPaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    padding: 12px;
-    padding-left: 16px;
-    border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-`;
-
-const PaginationInfo = styled(Typography.Text)`
-    padding: 0px;
+const TableContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
 
-export const PostList = () => {
-    const entityRegistry = useEntityRegistry();
+type PostListProps = {
+    isCreatingPost: boolean;
+    setIsCreatingPost: (value: boolean) => void;
+};
+
+export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -53,7 +56,6 @@ export const PostList = () => {
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     const [page, setPage] = useState(1);
-    const [isCreatingPost, setIsCreatingPost] = useState(false);
     const [editData, setEditData] = useState<PostEntry | undefined>(undefined);
 
     const pageSize = DEFAULT_PAGE_SIZE;
@@ -72,7 +74,6 @@ export const PostList = () => {
     });
 
     const totalPosts = data?.listPosts?.total || 0;
-    const lastResultIndex = start + pageSize > totalPosts ? totalPosts : start + pageSize;
     const posts = data?.listPosts?.posts || [];
 
     const onChangePage = (newPage: number) => {
@@ -97,104 +98,104 @@ export const PostList = () => {
         setIsCreatingPost(false);
     };
 
-    const allColumns = [
+    const allColumns: Column<PostEntry>[] = [
         {
             title: 'Title',
-            dataIndex: '',
             key: 'title',
-            sorter: (sourceA, sourceB) => {
-                return sourceA.title.localeCompare(sourceB.title);
-            },
-            render: (record: PostEntry) => PostColumn(record.title, 200),
-            width: '20%',
+            sorter: (a, b) => a.title.localeCompare(b.title),
+            render: (record) => record.title,
+            width: '25%',
         },
         {
             title: 'Description',
-            dataIndex: '',
             key: 'description',
-            render: (record: PostEntry) => PostColumn(record.description || ''),
+            render: (record) => <OverflowText text={stripMarkdown(record.description || '')} />,
+            width: '40%',
         },
         {
             title: 'Type',
-            dataIndex: '',
             key: 'type',
-            render: (record: PostEntry) => PostColumn(POST_TYPE_TO_DISPLAY_TEXT[record.contentType]),
-            style: { minWidth: 100 },
-            width: '10%',
+            render: (record) => (
+                <Pill
+                    label={POST_TYPE_TO_DISPLAY_TEXT[record.contentType]}
+                    variant="filled"
+                    color={record.contentType === PostContentType.Link ? 'blue' : 'violet'}
+                    size="md"
+                />
+            ),
+            minWidth: '100px',
+            width: '15%',
         },
         {
             title: '',
-            dataIndex: '',
-            width: '5%',
-            align: 'right' as AlignType,
             key: 'menu',
+            width: '5%',
+            alignment: 'right',
             render: PostListMenuColumn(handleDelete, handleEdit),
         },
     ];
 
-    const tableData = posts.map((post) => {
-        return {
-            urn: post.urn,
-            title: post.content.title,
-            description: post.content.description,
-            contentType: post.content.contentType,
-            link: post.content.link,
-            imageUrl: post.content.media?.location,
-        };
-    });
+    const tableData: PostEntry[] = posts.map((post) => ({
+        urn: post.urn,
+        title: post.content.title,
+        description: post.content.description || '',
+        contentType: post.content.contentType,
+        link: post.content.link,
+        imageUrl: post.content.media?.location,
+    }));
+
+    const renderContent = () => {
+        if (loading && !data) {
+            return (
+                <Table
+                    columns={allColumns}
+                    data={[]}
+                    rowKey="urn"
+                    showHeader
+                    isLoading
+                    isScrollable
+                    style={{ tableLayout: 'fixed' }}
+                />
+            );
+        }
+        if (tableData.length > 0) {
+            return (
+                <Table
+                    columns={allColumns}
+                    data={tableData}
+                    rowKey="urn"
+                    showHeader
+                    isScrollable
+                    style={{ tableLayout: 'fixed' }}
+                />
+            );
+        }
+        return <EmptyState icon="Note" title="No Posts" description="Create a new post to get started." />;
+    };
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading posts..." />}
-            {error && <Message type="error" content="Failed to load Posts! An unexpected error occurred." />}
+            {error && <Alert variant="error" title="Failed to load Posts! An unexpected error occurred." />}
             <PostsContainer>
-                <TabToolbar>
-                    <Button data-testid="posts-create-post-v2" type="text" onClick={() => setIsCreatingPost(true)}>
-                        <PlusOutlined /> New
-                    </Button>
-                    <SearchBar
-                        initialQuery={query || ''}
-                        placeholderText="Search..."
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q && q.length > 0 ? q : undefined)}
-                        entityRegistry={entityRegistry}
-                        hideRecommendations
-                    />
-                </TabToolbar>
-                <StyledTable
-                    columns={allColumns}
-                    dataSource={tableData}
-                    rowKey="urn"
-                    pagination={false}
-                    locale={{ emptyText: <Empty description="No posts!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                <SearchBar
+                    placeholder="Search posts..."
+                    value={query || ''}
+                    onChange={(value) => {
+                        setPage(1);
+                        setQuery(value || undefined);
+                    }}
+                    width="250px"
+                    allowClear
                 />
+                <TableContainer>{renderContent()}</TableContainer>
                 {totalPosts > pageSize && (
-                    <PostsPaginationContainer>
-                        <PaginationInfo>
-                            <b>
-                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                            </b>{' '}
-                            of <b>{totalPosts}</b>
-                        </PaginationInfo>
-                        <Pagination
-                            current={page}
-                            pageSize={pageSize}
-                            total={totalPosts}
-                            showLessItems
-                            onChange={onChangePage}
-                            showSizeChanger={false}
-                        />
-                        <span />
-                    </PostsPaginationContainer>
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        total={totalPosts}
+                        onPageChange={onChangePage}
+                        showSizeChanger={false}
+                    />
                 )}
                 {isCreatingPost && (
                     <CreatePostModal

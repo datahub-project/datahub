@@ -20,13 +20,11 @@ const DEFAULT_ICONS: Record<AlertVariant, React.ReactNode> = {
 export function Alert({ variant, title, description, icon, onClose, action, className, style }: AlertProps) {
     const displayIcon = icon ?? DEFAULT_ICONS[variant];
 
-    const hasActions = !!(action || onClose);
-
     return (
-        <AlertContainer $variant={variant} $hasActions={hasActions} className={className} style={style}>
+        <AlertContainer $variant={variant} className={className} style={style}>
             <AlertIconWrapper $variant={variant}>{displayIcon}</AlertIconWrapper>
-            <AlertContent>
-                <Text weight="semiBold" size="sm">
+            <AlertContent $variant={variant}>
+                <Text weight="semiBold" size="md">
                     {title}
                 </Text>
                 {description && <Text size="sm">{description}</Text>}
