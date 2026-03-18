@@ -47,6 +47,7 @@ export interface ActorsSearchSelectProps {
     selectedActorUrns: string[];
     onUpdate: (selectedActors: ActorEntity[]) => void;
     placeholder?: string;
+    label?: string;
     defaultActors?: ActorEntity[];
     isDisabled?: boolean;
     width?: number | 'full' | 'fit-content';
@@ -62,17 +63,18 @@ export interface ActorsSearchSelectProps {
  *
  * TODO: Support resolving selected entities from selectedActorUrns on initial render.
  */
-const DEFAULT_ENTITY_TYPES = [EntityType.CorpUser, EntityType.CorpGroup];
+const DEFAULT_ACTOR_TYPES = [EntityType.CorpUser, EntityType.CorpGroup];
 
 export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     selectedActorUrns,
     onUpdate,
     placeholder = 'Search for users or groups',
+    label,
     defaultActors: placeholderActors,
     isDisabled = false,
     width = 'full',
     showSearch = true,
-    entityTypes = DEFAULT_ENTITY_TYPES,
+    entityTypes = DEFAULT_ACTOR_TYPES,
     dataTestId,
 }) => {
     const entityRegistry = useEntityRegistryV2();
@@ -227,6 +229,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             selectLabelProps={{
                 variant: 'custom',
             }}
+            label={label}
             options={selectOptions}
             isLoading={isSelectLoading}
             values={selectedActorUrns}
