@@ -344,7 +344,7 @@ decorator==5.2.1
     # via
     #   gssapi
     #   ipython
-deepdiff==8.6.1
+deepdiff==8.6.2
     # via acryl-datahub
 deepmerge==2.0
     # via acryl-datahub
