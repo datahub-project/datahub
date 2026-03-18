@@ -1,5 +1,4 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip } from '@components';
 import { Play } from '@phosphor-icons/react/dist/csr/Play';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
@@ -7,7 +6,7 @@ import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
@@ -33,7 +32,7 @@ const PreviewImage = styled(Image)`
 `;
 
 const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     ${(props) =>
         props.$shouldUnderline &&
         `
@@ -46,7 +45,7 @@ const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
 const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -76,7 +75,7 @@ const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
 const SourceTypeText = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: normal;
 `;
 
@@ -100,6 +99,7 @@ interface NameColumnProps {
 }
 
 export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
+    const theme = useTheme();
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
     const textRef = useRef<HTMLDivElement>(null);
@@ -143,7 +143,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                     <Tooltip
                         title={record.name}
                         color="white"
-                        overlayInnerStyle={{ color: colors.gray[1700] }}
+                        overlayInnerStyle={{ color: theme.colors.textSecondary }}
                         showArrow={false}
                     >
                         {textElement}
@@ -165,6 +165,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
 }
 
 export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    const theme = useTheme();
     let scheduleText: string;
 
     try {
@@ -182,7 +183,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
                 tooltip: {
                     title: scheduleText,
                     color: 'white',
-                    overlayInnerStyle: { color: colors.gray[1700] },
+                    overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },
             }}

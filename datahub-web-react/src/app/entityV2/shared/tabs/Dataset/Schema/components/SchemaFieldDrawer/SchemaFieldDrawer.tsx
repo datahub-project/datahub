@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { Code } from '@phosphor-icons/react/dist/csr/Code';
@@ -37,7 +36,7 @@ const StyledDrawer = styled(Drawer)`
     }
 
     &&& .ant-drawer-content-wrapper {
-        box-shadow: -20px 0px 44px 0px rgba(0, 0, 0, 0.1);
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
 `;
 

@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Tooltip } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
 import { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';
@@ -6,25 +5,22 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewLabel } from '@app/entityV2/view/select/styledComponents';
-import { colors } from '@src/alchemy-components';
 
 const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => {
         if (props.$isShowNavBarRedesign) {
-            return props.$selectedViewName ? colors.gray[1000] : 'transparent';
+            return props.$selectedViewName ? props.theme.colors.bgSurface : 'transparent';
         }
         return props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent';
     }};
     border-color: ${(props) => {
         if (props.$isShowNavBarRedesign) {
-            return props.$selectedViewName ? 'transparent' : colors.gray[100];
+            return props.$selectedViewName ? 'transparent' : props.theme.colors.border;
         }
         return props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent';
     }};
-    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : ANTD_GRAY[1])};
+    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg)};
     max-width: ${(props) => (props.$isShowNavBarRedesign ? '120px' : '150px')};
 
     ${(props) =>
@@ -37,7 +33,7 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
         line-height: 20px;
 
         & svg {
-            color: ${REDESIGN_COLORS.GREY_300};
+            color: ${props.theme.colors.icon};
             transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
         }
     `}
@@ -45,11 +41,11 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
     &: hover {
         background: ${(props) => {
             if (props.$isShowNavBarRedesign) {
-                return props.$selectedViewName ? colors.gray[1000] : 'transparent';
+                return props.$selectedViewName ? props.theme.colors.bgSurface : 'transparent';
             }
             return props.theme.styles['primary-color'];
         }};
-        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : ANTD_GRAY[1])};
+        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg)};
 
         border-color: ${(props) => {
             if (props.$isShowNavBarRedesign) return props.theme.styles['primary-color'];
@@ -59,16 +55,16 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
 
     &: focus {
         background-color: ${(props) => (props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent')};
-        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : ANTD_GRAY[1])};
+        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg)};
         border-color: ${(props) => (props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent')};
 
         ${(props) =>
             props.$isShowNavBarRedesign &&
             `
-            background-color: ${colors.gray[1000]};
+            background-color: ${props.theme.colors.bgSurface};
 
             & svg {
-                color: ${REDESIGN_COLORS.GREY_300};
+                color: ${props.theme.colors.icon};
             }
         `}
     }
@@ -93,7 +89,7 @@ const CloseButtonContainer = styled.div`
     position: absolute;
     top: -10px;
     right: -5px;
-    background-color: ${ANTD_GRAY[1]};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     align-items: center;
     border-radius: 100%;
@@ -107,7 +103,7 @@ const CloseIconStyle = styled(CloseIcon)`
 
 const StyledViewIcon = styled(FadersHorizontal)<{ $isShowNavBarRedesign?: boolean }>`
     font-size: ${(props) => (props.$isShowNavBarRedesign ? '20px' : '18px')} !important;
-    color: ${ANTD_GRAY[1]};
+    color: ${(props) => props.theme.colors.bg};
 `;
 
 type Props = {

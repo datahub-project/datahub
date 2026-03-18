@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
@@ -51,12 +50,6 @@ vi.mock('@components', () => ({
             <div data-testid="card-content">{children}</div>
         </div>
     ),
-    colors: {
-        red: { 0: '#FBF3EF', 1000: '#C4360B' },
-        yellow: { 0: '#FFFAEB', 1000: '#C77100' },
-        gray: { 1000: '#F1F3FD', 1500: '#F9FAFC', 1700: '#5F6685' },
-        violet: { 500: '#533FD1' },
-    },
     Icon: ({ icon, ...props }: any) => {
         const iconName = typeof icon === 'string' ? icon : icon?.displayName || icon?.name || '';
         return <span data-testid={`icon-${iconName}`} data-icon={iconName} {...props} />;

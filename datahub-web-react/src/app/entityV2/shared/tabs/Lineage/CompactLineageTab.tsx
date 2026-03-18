@@ -72,13 +72,11 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     }
 `;
 
-// eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once success color token is added
-const ADVANCED_FILTER_ACTIVE_COLOR = '#00615F';
 const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     && {
         padding: 0px 4px;
         font-size: 16px;
-        color: ${(props) => (props.$isSelected ? ADVANCED_FILTER_ACTIVE_COLOR : props.theme.colors.textTertiary)};
+        color: ${(props) => (props.$isSelected ? props.theme.colors.textSuccess : props.theme.colors.textTertiary)};
     }
 `;
 

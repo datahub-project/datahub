@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { ApiOutlined } from '@ant-design/icons';
 import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
@@ -22,7 +21,7 @@ const Header = styled.div`
 const Title = styled.div`
     font-weight: 600;
     font-size: 14px;
-    color: #434863;
+    color: ${(props) => props.theme.colors.text};
     word-break: break-word;
     display: flex;
     align-items: center;
@@ -30,7 +29,7 @@ const Title = styled.div`
 
 const Icon = styled(BookmarkSimple)`
     margin-right: 8px;
-    color: #9884d4;
+    color: ${(props) => props.theme.colors.iconBrand};
     font-size: 16px;
 `;
 
@@ -44,7 +43,7 @@ const Section = styled.div`
 const Card = styled.div`
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     overflow: hidden;
     padding: 12px 20px 20px 20px;
 `;
@@ -63,9 +62,9 @@ const ResourceLink = styled.a`
         color 0.3s ease,
         opacity 0.3s ease;
     :hover {
-        transform: scale(1.05); // Slightly scale up the link on hover
+        transform: scale(1.05);
         opacity: 1;
-        color: #9884d4;
+        color: ${(props) => props.theme.colors.textBrand};
         text-decoration: underline;
     }
 `;
@@ -77,7 +76,7 @@ const ResourceTitle = styled.div`
     opacity: 0.9;
     :hover {
         opacity: 1;
-        color: #9884d4;
+        color: ${(props) => props.theme.colors.textBrand};
         text-decoration: underline;
     }
 `;

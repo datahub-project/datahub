@@ -2,6 +2,7 @@ import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTheme } from 'styled-components';
 
 import { TableWithInfiniteScroll } from '@components/components/Table/TableWithInfiniteScroll';
 
@@ -63,6 +64,7 @@ const StructuredPropsTable = ({
     isSearchLoading,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
@@ -144,8 +146,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once brand purple token is added */}
-                            <TableIcon color="#705EE4" />
+                                <TableIcon color={theme.colors.iconBrand} />
                         </IconContainer>
                         <DataContainer>
                             <PropName

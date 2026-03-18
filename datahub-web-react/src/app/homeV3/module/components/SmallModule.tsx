@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Icon } from '@components';
 import { useDraggable } from '@dnd-kit/core';
 import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
@@ -29,7 +28,7 @@ const ContainerWithHover = styled.div`
     justify-content: center;
 
     :hover {
-        background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
+        background: linear-gradient(180deg, ${(props) => props.theme.colors.bg} 0%, ${(props) => props.theme.colors.bgSurface} 100%);
     }
 
     :hover ${DragIcon} {

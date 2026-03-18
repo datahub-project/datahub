@@ -1,5 +1,4 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Placeholder } from '@phosphor-icons/react/dist/csr/Placeholder';
@@ -90,13 +89,13 @@ const MenuActionsWrapper = styled.span`
 `;
 
 const ColumnButtonWrapper = styled.div`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
     letter-spacing: -0.06px;
     line-height: 1.5;
     cursor: pointer;
 
-    border-top: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     border-bottom-left-radius: 12px;
     border-bottom-right-radius: 12px;
 
@@ -110,13 +109,13 @@ const ColumnButtonWrapper = styled.div`
     max-height: 35px;
 
     :hover {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     // TODO: Fix
 
     svg {
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 
@@ -141,7 +140,7 @@ const PlatformIconSkeleton = styled(Skeleton.Avatar)`
 `;
 
 const Title = styled(OverflowTitle)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 500;
 `;
 

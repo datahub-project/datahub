@@ -1,8 +1,7 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
@@ -19,10 +18,10 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
 
-const getStyles = ($isShowNavBarRedesign?: boolean) => {
+const getStyles = ($isShowNavBarRedesign?: boolean, bgColor?: string) => {
     return {
         input: {
-            backgroundColor: $isShowNavBarRedesign ? 'white' : '#343444',
+            backgroundColor: $isShowNavBarRedesign ? bgColor || 'white' : '#343444',
         },
         searchBox: {
             maxWidth: $isShowNavBarRedesign ? '100%' : 620,
@@ -155,8 +154,9 @@ export const SearchHeader = ({
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const showHomepageRedesign = useShowHomePageRedesign();
     const isHomePage = useIsHomePage();
+    const theme = useTheme();
     const hideNavToggler = showHomepageRedesign && isHomePage;
-    const styles = getStyles(isShowNavBarRedesign);
+    const styles = getStyles(isShowNavBarRedesign, theme.colors.bg);
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;

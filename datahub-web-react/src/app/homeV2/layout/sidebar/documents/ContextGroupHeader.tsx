@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, Popover, Tooltip } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
@@ -14,7 +13,7 @@ const ButtonsContainer = styled.div`
 const HeaderContainer = styled.div`
     position: relative;
     padding: 0px 0px 0px 0px;
-    color: #8088a3;
+    color: ${(props) => props.theme.colors.textTertiary};
     font-family: Mulish;
     font-size: 14px;
     font-style: normal;

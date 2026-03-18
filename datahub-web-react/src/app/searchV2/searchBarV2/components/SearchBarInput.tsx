@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useEffect, useState } from 'react';
@@ -9,14 +8,14 @@ import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectBut
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
-import { Icon, SearchBar, colors, radius, transition } from '@src/alchemy-components';
+import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
 
 const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     border-width: 2px !important;
-    border-color: ${colors.gray[100]};
+    border-color: ${(props) => props.theme.colors.border};
 
     ${(props) =>
         !props.$isShowNavBarRedesign &&
@@ -31,7 +30,7 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
  }
 
  .ant-input, .ant-input-clear-icon {
- color: ${colors.white};
+     color: ${props.theme.colors.bg};
  background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
  }
  `}
@@ -56,7 +55,7 @@ export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boo
         props.$open &&
         props.$isShowNavBarRedesign &&
         `
- background: ${colors.gray[1500]};
+ background: ${props.theme.colors.bgSurface};
  box-shadow: ${BOX_SHADOW};
  `}
 `;

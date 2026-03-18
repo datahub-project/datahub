@@ -1,14 +1,13 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Cloud } from '@phosphor-icons/react/dist/csr/Cloud';
 import { Download } from '@phosphor-icons/react/dist/csr/Download';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
 
 import { GridList } from '@src/alchemy-components/.docs/mdx-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { Card, cardDefaults } from '.';
 
@@ -124,17 +123,27 @@ export const sandbox: Story = {
     render: (props) => <Card {...props} />,
 };
 
-export const withChildren = () => (
-    <Card title="Title" subTitle="Subtitle">
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
-    </Card>
-);
+export const withChildren = () => {
+    const theme = useTheme();
+    return (
+        <Card title="Title" subTitle="Subtitle">
+            <div style={{ backgroundColor: theme.colors.bgSurface, padding: '8px 32px' }}>
+                Children of the card (Swap me)
+            </div>
+        </Card>
+    );
+};
 
-export const withoutSubtitle = () => (
-    <Card title="Title">
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
-    </Card>
-);
+export const withoutSubtitle = () => {
+    const theme = useTheme();
+    return (
+        <Card title="Title">
+            <div style={{ backgroundColor: theme.colors.bgSurface, padding: '8px 32px' }}>
+                Children of the card (Swap me)
+            </div>
+        </Card>
+    );
+};
 
 export const withIcon = () => (
     <GridList>
@@ -154,15 +163,20 @@ export const withButton = () => (
 
 export const withPercentPill = () => <Card title="Title" subTitle="Subtitle" percent={2} />;
 
-export const withAllTheElements = () => (
-    <Card
-        title="Title"
-        subTitle="Subtitle"
-        percent={2}
-        icon={<Icon icon={Cloud} color="gray" />}
-        button={<Icon icon={Download} color="gray" size="2xl" />}
-        onClick={() => window.alert('Card clicked')}
-    >
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
-    </Card>
-);
+export const withAllTheElements = () => {
+    const theme = useTheme();
+    return (
+        <Card
+            title="Title"
+            subTitle="Subtitle"
+            percent={2}
+            icon={<Icon icon={Cloud} color="gray" />}
+            button={<Icon icon={Download} color="gray" size="2xl" />}
+            onClick={() => window.alert('Card clicked')}
+        >
+            <div style={{ backgroundColor: theme.colors.bgSurface, padding: '8px 32px' }}>
+                Children of the card (Swap me)
+            </div>
+        </Card>
+    );
+};

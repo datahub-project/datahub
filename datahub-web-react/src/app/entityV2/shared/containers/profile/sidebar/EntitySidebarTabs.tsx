@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Tooltip } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
@@ -175,12 +174,10 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
     text-overflow: ellipsis;
     white-space: nowrap;
     /* Override any Ant Design styling that could cause blue text */
-    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once tab selection gradient tokens are added
-    color: ${(props) => (props.$isSelected ? 'transparent !important' : '#8088a3 !important')};
+    color: ${(props) => (props.$isSelected ? 'transparent !important' : `${props.theme.colors.textTertiary} !important`)};
     ${(props) =>
         props.$isSelected &&
         `
-        // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once tab selection gradient tokens are added
         background: linear-gradient(#7565d6 20%, #5340cc 80%) !important;
         background-clip: text !important;
         -webkit-background-clip: text !important;
@@ -221,8 +218,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* For Phosphor icons */
     && svg {
-        /* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once tab selection gradient tokens are added */
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) => (props.$isSelected ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.textBrand};` : `color: ${props.theme.colors.textTertiary};`)}
         width: 20px !important;
         height: 20px !important;
         min-width: 20px !important;
@@ -239,8 +235,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        /* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once tab selection gradient tokens are added */
-        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) => (props.$isSelected ? `color: url(#menu-item-selected-gradient) ${props.theme.colors.textBrand};` : `color: ${props.theme.colors.textTertiary};`)}
         width: 20px !important;
         height: 20px !important;
 
@@ -256,8 +251,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* Ensure Phosphor icon weights are correctly applied */
     & .ph-fill {
-        /* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once tab selection gradient tokens are added */
-        fill: ${(props) => (props.$isSelected ? 'url(#menu-item-selected-gradient) #533fd1' : '#8088a3')};
+        fill: ${(props) => (props.$isSelected ? `url(#menu-item-selected-gradient) ${props.theme.colors.textBrand}` : props.theme.colors.textTertiary)};
     }
 `;
 
@@ -265,9 +259,7 @@ const GradientDefs = () => (
     <svg width="0" height="0">
         <defs>
             <linearGradient id="menu-item-selected-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once tab selection gradient tokens are added */}
                 <stop offset="20%" stopColor="#7565d6" />
-                {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once tab selection gradient tokens are added */}
                 <stop offset="80%" stopColor="#5340cc" />
             </linearGradient>
         </defs>

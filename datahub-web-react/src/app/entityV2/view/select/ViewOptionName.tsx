@@ -1,12 +1,9 @@
-import { Icon, Tooltip, colors } from '@components';
+import { Icon, Tooltip } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
 import { GlobeHemisphereEast } from '@phosphor-icons/react/dist/csr/GlobeHemisphereEast';
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
-import styled from 'styled-components';
-
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import styled, { useTheme } from 'styled-components';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
 import {
@@ -41,8 +38,8 @@ const ViewType = styled.span`
     position: absolute;
     bottom: 0px;
     right: 0px;
-    background-color: ${ANTD_GRAY[1]};
-    color: ${REDESIGN_COLORS.BLACK};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     border-radius: 8px 1px;
@@ -55,7 +52,7 @@ const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarR
             if (props.$isShowNavBarRedesign) {
                 return props.selected ? props.theme.styles['primary-color'] : 'transparent';
             }
-            return props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
+            return props.selected ? props.theme.styles['primary-color'] : props.theme.colors.border;
         }};
     border-radius: 100%;
 `;
@@ -108,7 +105,8 @@ export const ViewOptionName = ({
     selectView,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const { theme } = useCustomTheme();
+    const { theme: customTheme } = useCustomTheme();
+    const theme = useTheme();
 
     const renderViewIcon = () => {
         if (isShowNavBarRedesign) {
@@ -123,7 +121,7 @@ export const ViewOptionName = ({
                                 >
                                     <GlobalDefaultViewIcon
                                         title="Your organization's default View."
-                                        color={colors.gray[200]}
+                                        color={theme.colors.icon}
                                         size={5}
                                     />
                                 </DefaultViewIconContainer>
@@ -135,7 +133,7 @@ export const ViewOptionName = ({
                                 >
                                     <UserDefaultViewIcon
                                         title="Your default View."
-                                        color={theme?.styles['primary-color']}
+                                        color={customTheme?.styles['primary-color']}
                                         size={5}
                                     />
                                 </DefaultViewIconContainer>
@@ -166,7 +164,7 @@ export const ViewOptionName = ({
                             <DefaultViewIconContainer selected={selected}>
                                 <UserDefaultViewIcon
                                     title="Your default View."
-                                    color={REDESIGN_COLORS.TERTIARY_GREEN}
+                                    color={theme.colors.iconSuccess}
                                     size={10}
                                 />
                             </DefaultViewIconContainer>

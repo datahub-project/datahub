@@ -1,16 +1,14 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 import { getColor } from '@src/alchemy-components/theme/utils';
 
 const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
@@ -101,8 +99,8 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || '#6C47FF'};`
-                : `color: ${colors.gray[1800]};`}
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || props.theme.colors.textBrand};`
+                : `color: ${props.theme.colors.icon};`}
     }
 `;
 
@@ -112,7 +110,7 @@ const Title = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     font-size: 14px;
     line-height: 20px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     ${(props) =>
         props.$isSelected &&
@@ -134,7 +132,7 @@ const Actions = styled.div`
 
 const ActionButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -171,6 +169,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideCreate = false,
     parentUrn,
 }) => {
+    const theme = useTheme();
     const [isHovered, setIsHovered] = useState(false);
     const [forceShowActions, setForceShowActions] = useState(false);
 
@@ -205,8 +204,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     aria-label={isExpanded ? 'Collapse' : 'Expand'}
                 >
                     {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                    {!isLoading && isExpanded && <CaretDown color={colors.gray[1800]} size={16} weight="bold" />}
-                    {!isLoading && !isExpanded && <CaretRight color={colors.gray[1800]} size={16} weight="bold" />}
+                    {!isLoading && isExpanded && <CaretDown color={theme.colors.icon} size={16} weight="bold" />}
+                    {!isLoading && !isExpanded && <CaretRight color={theme.colors.icon} size={16} weight="bold" />}
                 </ExpandButton>
             );
         }

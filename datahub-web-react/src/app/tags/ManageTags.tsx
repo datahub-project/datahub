@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -35,7 +34,7 @@ const LoadingBar = styled.div`
     left: 0;
     width: 100%;
     height: 4px;
-    background-color: #1890ff;
+    background-color: ${(props) => props.theme.colors.hyperlinks};
     z-index: 1000;
     animation: loading 2s infinite ease-in-out;
 
