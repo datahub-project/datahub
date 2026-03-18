@@ -791,6 +791,15 @@ jobs:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: "docker_logs/*.log"
           retention-days: 5
+      - name: Stage Cypress screenshots for artifact upload
+        # Copy screenshots alongside the mochawesome JSONs so the post-matrix
+        # cypress_html_report job can embed them into the unified HTML report.
+        if: always() && matrix.test_strategy == 'cypress'
+        run: |
+          if [ -d smoke-test/tests/cypress/cypress/screenshots ]; then
+            cp -r smoke-test/tests/cypress/cypress/screenshots \
+              smoke-test/tests/cypress/build/mochawesome-report/screenshots
+          fi
       - name: Upload Cypress mochawesome JSON results
         # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
         # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
@@ -881,6 +890,7 @@ jobs:
     needs: [smoke_test]
     if: ${{ !cancelled() && needs.smoke_test.result != 'skipped' }}
     steps:
+      - uses: actions/checkout@v4
       - name: Download all Cypress mochawesome JSON artifacts
         uses: actions/download-artifact@v8
         with:
@@ -899,13 +909,21 @@ jobs:
           #   mochawesome-results/cypress-mochawesome-json-<N>/.jsons/mochawesome_NNN.json
           mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
           if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
-            # mochawesome-merge and marge (mochawesome-report-generator CLI) are
-            # separate npm packages; "marge" is the correct binary name, not a typo.
-            npx --yes mochawesome-merge "${JSON_FILES[@]}" --output mochawesome-results/merged.json
-            npx --yes mochawesome-report-generator mochawesome-results/merged.json \
-              --reportDir cypress-html-report \
-              --reportTitle "Cypress smoke tests" \
-              --inline
+            # Collect screenshots from all batch subdirectories into a flat dir.
+            # enhanceReport resolves paths relative to this directory.
+            mkdir -p combined-screenshots
+            find mochawesome-results -mindepth 1 -maxdepth 1 -type d | while read -r batch_dir; do
+              if [ -d "$batch_dir/screenshots" ]; then
+                cp -rn "$batch_dir/screenshots/." combined-screenshots/
+              fi
+            done
+            printf '%s\n' "${JSON_FILES[@]}" > json-file-list.txt
+            npm install --no-save \
+              mochawesome-merge \
+              mochawesome-report-generator \
+              cypress-mochawesome-reporter \
+              fs-extra
+            node .github/scripts/generate-cypress-report.js
           else
             echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
           fi
