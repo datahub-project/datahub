@@ -62,7 +62,7 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                             name={name || ''}
                             imageUrl={profileSrc || undefined}
                             type={AvatarType.user}
-                            size="xxl"
+                            size="2xl"
                         />
                     </AvatarWrapper>
                     <NameContainer>

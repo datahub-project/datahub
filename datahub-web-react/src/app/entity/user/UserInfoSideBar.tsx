@@ -143,7 +143,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
         <>
             <SideBar>
                 <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
-                    <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="xxl" />
+                    <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="2xl" />
                     <Name>{name || <EmptyValue />}</Name>
                     <UserDetails>{username || <EmptyValue />}</UserDetails>
                     {role && <TitleRole>{role}</TitleRole>}

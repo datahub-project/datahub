@@ -248,7 +248,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                 <SideBarSubSection className={canEditGroup ? '' : 'fullView'}>
                     <GroupNameHeader>
                         <Col>
-                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.group} size="xxl" />
+                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.group} size="2xl" />
                         </Col>
                         <Col>
                             <GroupTitle level={3} editable={canEditGroup ? { onChange: handleTitleUpdate } : false}>

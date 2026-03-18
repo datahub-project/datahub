@@ -1,4 +1,4 @@
-import { Avatar, Icon, Menu, Text } from '@components';
+import { Icon, Menu, Text } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
@@ -6,13 +6,10 @@ import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
-
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
 import { getTagColor } from '@app/tags/utils';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
@@ -104,32 +101,9 @@ export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
     const owners = data?.tag?.ownership?.owners || [];
     if (owners.length === 0) return <>-</>;
 
-    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
-    const ownerAvatars = owners.map((o) => ({
-        name: entityRegistry.getDisplayName(o.owner.type, o.owner),
-        imageUrl: (o.owner as any).editableProperties?.pictureLink,
-        type: mapEntityTypeToAvatarType(o.owner.type),
-        urn: o.owner.urn,
-    }));
-
     return (
         <ColumnContainer>
-            {singleOwner && (
-                <Link
-                    to={entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Avatar
-                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
-                        imageUrl={(singleOwner as any).editableProperties?.pictureLink}
-                        showInPill
-                        type={mapEntityTypeToAvatarType(singleOwner.type)}
-                    />
-                </Link>
-            )}
-            {owners.length > 1 && (
-                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
-            )}
+            <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />
         </ColumnContainer>
     );
 });

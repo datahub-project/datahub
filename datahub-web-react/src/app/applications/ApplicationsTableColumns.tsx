@@ -1,15 +1,12 @@
-import { Avatar, Icon, typography } from '@components';
+import { Icon, typography } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
-
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
 import { useEntityRegistry, useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EntityType, Ownership } from '@src/types.generated';
 
@@ -95,32 +92,9 @@ export const ApplicationOwnersColumn = React.memo(({ owners }: { owners: Ownersh
 
     if (ownerList.length === 0) return <>-</>;
 
-    const singleOwner = ownerList.length === 1 ? ownerList[0].owner : undefined;
-    const ownerAvatars = ownerList.map((o) => ({
-        name: entityRegistry.getDisplayName(o.owner.type, o.owner),
-        imageUrl: (o.owner as any).editableProperties?.pictureLink,
-        type: mapEntityTypeToAvatarType(o.owner.type),
-        urn: o.owner.urn,
-    }));
-
     return (
         <ColumnContainer>
-            {singleOwner && (
-                <Link
-                    to={entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Avatar
-                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
-                        imageUrl={(singleOwner as any).editableProperties?.pictureLink}
-                        showInPill
-                        type={mapEntityTypeToAvatarType(singleOwner.type)}
-                    />
-                </Link>
-            )}
-            {ownerList.length > 1 && (
-                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
-            )}
+            <OwnerAvatarGroup owners={ownerList} entityRegistry={entityRegistry} />
         </ColumnContainer>
     );
 });
