@@ -791,10 +791,19 @@ jobs:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: "docker_logs/*.log"
           retention-days: 5
+      - name: Stage Cypress screenshots for artifact upload
+        # Copy screenshots into the mochawesome report dir so they travel with the
+        # per-spec JSONs in a single artifact. The post-matrix job then embeds them
+        # into the unified HTML via cypress-mochawesome-reporter's enhanceReport.
+        if: always() && matrix.test_strategy == 'cypress'
+        run: |
+          if [ -d smoke-test/tests/cypress/cypress/screenshots ]; then
+            cp -r smoke-test/tests/cypress/cypress/screenshots \
+              smoke-test/tests/cypress/build/mochawesome-report/screenshots
+          fi
       - name: Upload Cypress mochawesome JSON results
-        # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
-        # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
-        # required so upload-artifact picks up that dot-prefixed directory.
+        # Per-spec JSONs land in .jsons/ (hidden subdir). include-hidden-files ensures
+        # that dot-prefixed directory is picked up. Screenshots are staged alongside.
         uses: actions/upload-artifact@v4
         if: always() && matrix.test_strategy == 'cypress'
         with:
@@ -881,28 +890,39 @@ jobs:
     needs: [smoke_test]
     if: ${{ !cancelled() && needs.smoke_test.result != 'skipped' }}
     steps:
+      - uses: actions/checkout@v4
       - name: Download all Cypress mochawesome JSON artifacts
-        uses: actions/download-artifact@v4
+        # Do NOT use merge-multiple: all batches write files with the same names
+        # (mochawesome.json, mochawesome_001.json, ...). merge-multiple would cause
+        # later batches to overwrite earlier ones in the shared directory. Without it,
+        # each artifact extracts to its own subdirectory:
+        #   mochawesome-results/cypress-mochawesome-json-<N>/.jsons/mochawesome_NNN.json
+        uses: actions/download-artifact@v8
         with:
           pattern: cypress-mochawesome-json-*
           path: mochawesome-results
-          merge-multiple: true
       - name: Generate HTML report
         run: |
-          # cypress-mochawesome-reporter writes one JSON per spec to {reportDir}/.jsons/
-          # via the Cypress after:spec hook (crash-safe). Artifacts are uploaded with
-          # include-hidden-files:true so that dot-prefixed directory is included.
-          # After merge-multiple extraction, per-spec JSONs land at:
-          #   mochawesome-results/.jsons/mochawesome_<uuid>.json
           mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
           if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
-            # mochawesome-merge and marge (mochawesome-report-generator CLI) are
-            # separate npm packages; "marge" is the correct binary name, not a typo.
-            npx --yes mochawesome-merge "${JSON_FILES[@]}" --output mochawesome-results/merged.json
-            npx --yes mochawesome-report-generator mochawesome-results/merged.json \
-              --reportDir cypress-html-report \
-              --reportTitle "Cypress smoke tests" \
-              --inline
+            # Combine screenshots from all batches into one directory.
+            # Each spec runs in exactly one batch, so there are no filename conflicts.
+            mkdir -p combined-screenshots
+            find mochawesome-results -mindepth 1 -maxdepth 1 -type d | while read -r batch_dir; do
+              if [ -d "$batch_dir/screenshots" ]; then
+                cp -rn "$batch_dir/screenshots/." combined-screenshots/
+              fi
+            done
+
+            printf '%s\n' "${JSON_FILES[@]}" > json-file-list.txt
+
+            # Install packages and run the merge+enhance+generate script.
+            npm install --no-save \
+              mochawesome-merge \
+              mochawesome-report-generator \
+              cypress-mochawesome-reporter \
+              fs-extra
+            node .github/scripts/generate-cypress-report.js
           else
             echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
           fi
