@@ -79,34 +79,32 @@ export const ManageUsersAndGroupsHeader = ({
     onCreateServiceAccount,
     onCreateGroup,
 }: ManageUsersAndGroupsHeaderProps) => {
-    const isServiceAccountsTab = activeTab === 'service-accounts';
-    const isGroupsTab = activeTab === 'groups';
-
     const renderActionButton = () => {
-        if (isServiceAccountsTab) {
-            return (
-                <Button
-                    variant="filled"
-                    disabled={!canManageServiceAccounts}
-                    onClick={onCreateServiceAccount}
-                    data-testid="create-service-account-button"
-                >
-                    Create Service Account
-                </Button>
-            );
+        switch (activeTab) {
+            case 'service-accounts':
+                return (
+                    <Button
+                        variant="filled"
+                        disabled={!canManageServiceAccounts}
+                        onClick={onCreateServiceAccount}
+                        data-testid="create-service-account-button"
+                    >
+                        Create Service Account
+                    </Button>
+                );
+            case 'groups':
+                return (
+                    <Button variant="filled" onClick={onCreateGroup} data-testid="create-group-button">
+                        Create Group
+                    </Button>
+                );
+            default:
+                return (
+                    <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
+                        Invite Users
+                    </Button>
+                );
         }
-        if (isGroupsTab) {
-            return (
-                <Button variant="filled" onClick={onCreateGroup} data-testid="create-group-button">
-                    Create Group
-                </Button>
-            );
-        }
-        return (
-            <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
-                Invite Users
-            </Button>
-        );
     };
 
     return (

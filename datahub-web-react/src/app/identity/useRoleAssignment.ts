@@ -67,40 +67,41 @@ export function useRoleAssignment({
         const roleToAssign = selectRoleOptions.find((role) => role.urn === roleAssignmentState.currentRoleUrn);
         const newRoleUrn = roleToAssign?.urn || NO_ROLE_URN;
 
+        const isRemoval = newRoleUrn === NO_ROLE_URN;
+        const successMsg = isRemoval
+            ? `Removed role from ${entityLabel} ${roleAssignmentState.actorName}!`
+            : `Assigned role ${roleToAssign?.name} to ${entityLabel} ${roleAssignmentState.actorName}!`;
+
         batchAssignRoleMutation({
             variables: {
                 input: {
-                    roleUrn: newRoleUrn === NO_ROLE_URN ? null : newRoleUrn,
+                    roleUrn: isRemoval ? null : newRoleUrn,
                     actors: [roleAssignmentState.actorUrn],
                 },
             },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success(
-                        newRoleUrn === NO_ROLE_URN
-                            ? `Removed role from ${entityLabel} ${roleAssignmentState.actorName}!`
-                            : `Assigned role ${roleToAssign?.name} to ${entityLabel} ${roleAssignmentState.actorName}!`,
-                    );
+                    toast.success(successMsg);
 
                     onSuccess?.(roleAssignmentState.actorUrn, newRoleUrn);
                     const { actorUrn } = roleAssignmentState;
                     setRoleAssignmentState(null);
 
-                    setTimeout(async () => {
+                    setTimeout(() => {
                         clearRoleListCache(client);
-                        await refetch();
-                        onPostRefetch?.(actorUrn);
+                        Promise.resolve(refetch())
+                            .then(() => onPostRefetch?.(actorUrn))
+                            .catch((err) => console.error('Failed to refetch after role assignment:', err));
                     }, 3000);
                 }
             })
             .catch((e) => {
                 onError?.(roleAssignmentState.actorUrn, roleAssignmentState.originalRoleUrn);
-                toast.error(
-                    newRoleUrn === NO_ROLE_URN
-                        ? `Failed to remove role from ${entityLabel} ${roleAssignmentState.actorName}: ${e.message || ''}`
-                        : `Failed to assign role ${roleToAssign?.name} to ${entityLabel} ${roleAssignmentState.actorName}: ${e.message || ''}`,
-                );
+                const failureMsg = isRemoval
+                    ? `Failed to remove role from ${entityLabel} ${roleAssignmentState.actorName}: ${e.message || ''}`
+                    : `Failed to assign role ${roleToAssign?.name} to ${entityLabel} ${roleAssignmentState.actorName}: ${e.message || ''}`;
+                toast.error(failureMsg);
             });
     }, [
         roleAssignmentState,

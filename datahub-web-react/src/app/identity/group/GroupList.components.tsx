@@ -70,6 +70,12 @@ export const ModalFooter = styled.div`
     gap: 8px;
 `;
 
+export const PaginationContainer = styled.div`
+    padding-top: 8px;
+    display: flex;
+    justify-content: center;
+`;
+
 const GroupInfo = styled.div`
     display: flex;
     align-items: center;

@@ -2,15 +2,15 @@ import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { message } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
+import { AdvancedButton, AdvancedContent, FormSection } from '@app/identity/group/CreateGroupModal.components';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
+import { Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/group.generated';
 import { useAddOwnerMutation } from '@graphql/mutations.generated';
@@ -20,23 +20,6 @@ type Props = {
     onClose: () => void;
     onCreate: (group: CorpGroup) => void;
 };
-
-const FormSection = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 16px;
-`;
-
-const AdvancedContent = styled.div`
-    margin-top: 12px;
-`;
-
-const AdvancedButton = styled(Button)`
-    padding-left: 0;
-    padding-right: 0;
-    color: ${(props) => props.theme.colors.textSecondary};
-`;
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const { urn: currentUserUrn } = useUserContext();

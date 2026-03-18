@@ -16,6 +16,7 @@ import {
     GroupRoleCell,
     ModalFooter,
     PageContainer,
+    PaginationContainer,
     SearchContainer,
     TableContainer,
 } from '@app/identity/group/GroupList.components';
@@ -200,14 +201,14 @@ export const GroupList = ({
                 {groups.length > 0 ? (
                     <>
                         <Table columns={columns} data={groups} isLoading={loading} isScrollable />
-                        <div style={{ paddingTop: '8px', display: 'flex', justifyContent: 'center' }}>
+                        <PaginationContainer>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
                                 total={totalGroups}
                                 onPageChange={onChangePage}
                             />
-                        </div>
+                        </PaginationContainer>
                     </>
                 ) : (
                     <EmptyState
