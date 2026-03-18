@@ -48,14 +48,17 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
+    get_dataflow_graph_response_3,
     get_delta_tables_response_1,
     get_delta_tables_response_2,
     get_jobs_response,
     get_jobs_response_empty,
     get_object_body_1,
     get_object_body_2,
+    get_object_body_3,
     get_object_response_1,
     get_object_response_2,
+    get_object_response_3,
     get_object_tagging,
     get_tables_lineage_response_1,
     get_tables_response_1,
@@ -216,6 +219,11 @@ def test_glue_ingest(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -245,6 +253,14 @@ def test_glue_ingest(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -571,6 +587,11 @@ def test_glue_ingest_include_table_lineage(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -600,6 +621,14 @@ def test_glue_ingest_include_table_lineage(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -908,6 +937,11 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -937,6 +971,14 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
