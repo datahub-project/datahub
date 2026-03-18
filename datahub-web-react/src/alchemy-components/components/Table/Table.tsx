@@ -1,5 +1,8 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -125,7 +128,7 @@ export const Table = <T,>({
                                                     >
                                                         {/* Sort icons for ascending and descending */}
                                                         <SortIcon
-                                                            icon="ChevronLeft"
+                                                            icon={CaretLeft}
                                                             size="md"
                                                             rotate="90"
                                                             isActive={
@@ -134,7 +137,7 @@ export const Table = <T,>({
                                                             }
                                                         />
                                                         <SortIcon
-                                                            icon="ChevronRight"
+                                                            icon={CaretRight}
                                                             size="md"
                                                             rotate="90"
                                                             isActive={
@@ -162,7 +165,7 @@ export const Table = <T,>({
                                                 >
                                                     {/* Sort icons for ascending and descending */}
                                                     <SortIcon
-                                                        icon="ChevronLeft"
+                                                        icon={CaretLeft}
                                                         size="md"
                                                         rotate="90"
                                                         isActive={
@@ -171,7 +174,7 @@ export const Table = <T,>({
                                                         }
                                                     />
                                                     <SortIcon
-                                                        icon="ChevronRight"
+                                                        icon={CaretRight}
                                                         size="md"
                                                         rotate="90"
                                                         isActive={

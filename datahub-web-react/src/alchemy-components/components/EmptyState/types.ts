@@ -16,8 +16,8 @@ export interface EmptyStateProps {
     title: string;
     /** Optional secondary description text */
     description?: string | React.ReactNode;
-    /** Phosphor icon name (e.g. "MagnifyingGlass", "Key", "Robot") */
-    icon?: string;
+    /** Phosphor icon component (e.g. MagnifyingGlass, Key, Robot imported from their CSR paths) */
+    icon?: React.ComponentType<any>;
     /** Override the default icon with a custom React node (e.g. an image or SVG) */
     image?: React.ReactNode;
     /** Primary action button */

@@ -1,9 +1,8 @@
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const StyledInput = styled(Input)`
     border-radius: 70px;
@@ -12,7 +11,7 @@ const StyledInput = styled(Input)`
 
 const TableHeader = styled.div`
     padding: 8px 16px;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface Props {
@@ -26,7 +25,7 @@ export default function TabHeader({ setFilterText }: Props) {
                 placeholder="Search in properties..."
                 onChange={(e) => setFilterText(e.target.value)}
                 allowClear
-                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                prefix={<Icon icon={MagnifyingGlass} />}
             />
         </TableHeader>
     );

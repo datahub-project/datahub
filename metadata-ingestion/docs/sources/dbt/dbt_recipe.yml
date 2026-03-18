@@ -8,6 +8,9 @@ source:
     sources_path: "${DBT_PROJECT_ROOT}/target/sources_file.json" # optional for freshness
     run_results_paths:
       - "${DBT_PROJECT_ROOT}/target/run_results.json" # optional for recording dbt test results after running dbt test
+      # Glob patterns are supported for both S3 and local paths, e.g.:
+      # - "s3://my-bucket/dbt/run_results/*/run_results.json"
+      # - "${DBT_PROJECT_ROOT}/run_results/*/run_results.json"
 
     # Options
     target_platform: "my_target_platform_id" # e.g. bigquery/postgres/etc.

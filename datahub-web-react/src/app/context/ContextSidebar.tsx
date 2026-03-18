@@ -1,5 +1,9 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import { Button, SearchBar, Tooltip } from '@components';
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
@@ -9,7 +13,6 @@ import { useContextDocumentsPermissions } from '@app/context/useContextDocuments
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -32,7 +35,7 @@ const SidebarContainer = styled.div<{
     max-height: 100%;
     width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
     transition: width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
@@ -41,9 +44,9 @@ const SidebarContainer = styled.div<{
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-    `}
+ margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
+ box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+ `}
 `;
 
 const HeaderControls = styled.div<{ $isCollapsed: boolean }>`
@@ -58,7 +61,7 @@ const HeaderControls = styled.div<{ $isCollapsed: boolean }>`
 const SidebarTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
     white-space: nowrap;
 `;
 
@@ -91,20 +94,21 @@ const SearchInputWrapper = styled.div`
 `;
 
 const SearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 16px;
     width: 100%;
     font-size: 20px;
     cursor: pointer;
 
     &:hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
+    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token
     box-shadow:
         0 3px 6px -4px rgb(0 0 0 / 12%),
         0 6px 16px 0 rgb(0 0 0 / 8%),
@@ -129,7 +133,7 @@ const LoadingWrapper = styled(ResultsWrapper)`
 const EmptyState = styled.div`
     padding: 16px;
     text-align: center;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
 `;
 
@@ -149,16 +153,16 @@ const TreeContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #a9adbd;
+        background: ${(props) => props.theme.colors.textTertiary};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: #81879f;
+        background: ${(props) => props.theme.colors.textTertiary};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: #a9adbd transparent;
+    scrollbar-color: ${(props) => props.theme.colors.textTertiary} transparent;
 `;
 
 type Props = {
@@ -281,7 +285,7 @@ export default function ContextSidebar({
                                     variant="filled"
                                     color="primary"
                                     isCircle
-                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                    icon={{ icon: Plus }}
                                     onClick={() => handleCreateDocument()}
                                     disabled={!canCreateDocuments || creating}
                                     data-testid="create-document-button"
@@ -294,7 +298,7 @@ export default function ContextSidebar({
                         color="gray"
                         size="lg"
                         isCircle
-                        icon={{ icon: isCollapsed ? 'ArrowLineRight' : 'ArrowLineLeft', source: 'phosphor' }}
+                        icon={{ icon: isCollapsed ? ArrowLineRight : ArrowLineLeft }}
                         isActive={!isCollapsed}
                         onClick={onToggleCollapsed}
                         data-testid="context-sidebar-collapse-button"
