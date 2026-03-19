@@ -334,7 +334,7 @@ class TestIdentifyCallerTier3:
                 return_value=["zsh"],
             ),
         ):
-            assert identify_caller() == "human-terminal"
+            assert identify_caller() == "terminal"
 
 
 class TestIdentifyCallerTier4:
@@ -380,7 +380,7 @@ class TestIdentifyCallerTier4:
                 return_value=["bash", "sshd"],
             ),
         ):
-            assert identify_caller() == "human-terminal"
+            assert identify_caller() == "terminal"
 
     def test_fish_shell_detected(self):
         with (
@@ -394,7 +394,7 @@ class TestIdentifyCallerTier4:
                 return_value=["fish"],
             ),
         ):
-            assert identify_caller() == "human-terminal"
+            assert identify_caller() == "terminal"
 
     def test_unknown_parent_returned_as_name(self):
         """If parent isn't a shell or known hint, return the process name."""

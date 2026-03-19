@@ -5,7 +5,7 @@ Provides a three-tier approach:
   2. Detection of known env-var signatures from the parent process
   3. Process-tree heuristics (works on both Linux and macOS)
 
-The result is a short label like "claude-code" or "human-terminal" —
+The result is a short label like "claude-code" or "terminal" —
 useful for attributing API calls back to their originating tool
 without requiring cooperation from the caller.
 """
@@ -190,7 +190,7 @@ def identify_caller() -> str:
       - "my-custom-tool"    (caller set DATAHUB_CALLER)
       - "github-actions"    (known env var found)
       - "claude-code"       (process tree matched)
-      - "human-terminal"    (parent is a shell)
+      - "terminal"    (parent is a shell)
       - "unknown"           (could not determine)
     """
     try:
@@ -244,7 +244,7 @@ def _identify_caller_inner() -> str:
 
         # If direct parent is a shell, likely a human at a terminal
         if chain[0] in ("bash", "zsh", "fish", "sh", "dash", "tcsh", "ksh"):
-            return "human-terminal"
+            return "terminal"
 
         return chain[0]
 
