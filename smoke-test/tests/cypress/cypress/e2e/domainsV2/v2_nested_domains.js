@@ -107,7 +107,6 @@ const clearAndDelete = () => {
 
 describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
     cy.skipIntroducePage();
     cy.goToDomainList();

@@ -6,7 +6,6 @@ const group_name = `Test group ${test_id}`;
 
 describe("create and manage group", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
