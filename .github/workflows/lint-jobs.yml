@@ -195,14 +195,14 @@ jobs:
         with:
           path: |
             ${{ env.UV_CACHE_DIR }}
-          key: ${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
       - uses: actions/cache/restore@v5
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
           path: |
             ${{ env.YARN_CACHE_FOLDER }}
-          key: ${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
 
       - name: Run Python lint
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
@@ -220,11 +220,11 @@ jobs:
         with:
           path: |
             ${{ env.UV_CACHE_DIR }}
-          key: ${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
       - uses: actions/cache/save@v5
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
           path: |
             ${{ env.YARN_CACHE_FOLDER }}
-          key: ${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
