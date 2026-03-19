@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.search;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.common.ElasticsearchSSLContextFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
@@ -8,11 +9,15 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUt
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import javax.net.ssl.SSLContext;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 /**
  * Spring factory for creating SearchClientShim instances based on DataHub configuration. This
@@ -20,6 +25,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
+@Import({ElasticsearchSSLContextFactory.class})
 public class SearchClientShimFactory {
 
   // New shim-specific configuration properties
@@ -30,6 +36,10 @@ public class SearchClientShimFactory {
   private boolean shimAutoDetectEngine;
 
   @Autowired private ConfigurationProvider configurationProvider;
+
+  @Autowired
+  @Qualifier("elasticSearchSSLContext")
+  private SSLContext elasticSearchSSLContext;
 
   /**
    * Create the SearchClientShim bean. This can be configured to either: 1. Auto-detect the search
@@ -48,11 +58,11 @@ public class SearchClientShimFactory {
             .withPort(esConfig.getPort())
             .withCredentials(esConfig.getUsername(), esConfig.getPassword())
             .withSSL(esConfig.isUseSSL())
+            .withSSLContext(elasticSearchSSLContext)
             .withPathPrefix(esConfig.getPathPrefix())
             .withAwsIamAuth(esConfig.isOpensearchUseAwsIamAuth(), esConfig.getRegion())
             .withThreadCount(esConfig.getThreadCount())
-            .withConnectionRequestTimeout(esConfig.getConnectionRequestTimeout())
-            .withSocketTimeout(esConfig.getSocketTimeout());
+            .withConnectionRequestTimeout(esConfig.getConnectionRequestTimeout());
 
     // Determine how to create the shim
     if (shimAutoDetectEngine) {
