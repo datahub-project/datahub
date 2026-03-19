@@ -31,7 +31,7 @@ export function AntdFormCompatibleCheckbox({ id, checked, onChange, helper, disa
                 onCheckboxChange={onChange}
                 justifyContent="flex-start"
                 isDisabled={disabled}
-                size="lg"
+                size="sm"
             />
             {helper && (
                 <Text size="sm" color="gray" colorLevel={600}>
