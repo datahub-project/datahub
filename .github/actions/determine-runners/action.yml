@@ -1,0 +1,106 @@
+name: Determine Runners
+description: "Centralized steps to determine which runners are available"
+# Refer: https://depot.dev/docs/github-actions/runner-types and https://docs.github.com/en/actions/reference/runners/github-hosted-runners for details of various available runners.
+
+# Prefer pinning the runner to specific OS version to avoid surprise breakages due to new OS release
+
+# 1. Running on a PR from a fork (community contribution). We use github runners, unless the "depot" label exists -- in which case, we run it on depot.author:
+#Note: Concurrency is lower when using github runners, queue times can be longer, test time is longer due to fewer parallel jobs.
+# 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
+#    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
+#    and hence short queue times and higher parallelism of smoke tests
+
+inputs:
+  is-community-pr:
+    description: "Whether this is a PR from a fork repository"
+    required: false
+    default: "true"
+  has-depot-label:
+    description: "Whether the PR has the 'depot' label (allows Community PRs to opt-in to Depot runners)"
+    required: false
+    default: "false"
+
+outputs:
+  depot-config-set:
+    description: "true if required depot vars are set"
+    value: ${{ steps.depot-config-set.outputs.value }}
+  default-runner:
+    description: "Default runner commonly used for regular jobs. Appropriately set if Depot runners are available"
+    value: ${{ steps.default-runner.outputs.value }}
+  default-gh-runner:
+    description: "The runner to use for most regular jobs to be run on  Github Hosted Runners"
+    value: ubuntu-24.04
+  default-depot-runner:
+    description: "The runner to use for most regular jobs to be run on Depot Runners. Use when you always want to run a job on Depot runners"
+    value: "depot-ubuntu-24.04"
+  small-runner:
+    description: "Appropriately set small runner based on Depot availability"
+    value: ${{ steps.small-runner.outputs.value }}
+  depot-runner-medium:
+    description: "depot-ubuntu-24.04-2 Runner. Use for medium jobs"
+    value: "depot-ubuntu-24.04-2"
+  depot-runner-large:
+    description: "depot-ubuntu-24.04-4 Runner. Use for heavy jobs"
+    value: "depot-ubuntu-24.04-4"
+  depot-label-runner:
+    description: "Set to depot-runner if depot label is added to Community PR"
+    value: ${{ steps.depot-label-small-runner.outputs.value }}
+  depot-label-small-runner:
+    description: "Set to depot-runner if depot label is added to Community PR"
+    value: ${{ steps.depot-label-small-runner.outputs.value }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check Depot Configuration is set
+      id: depot-config-set
+      shell: bash
+      run: |
+        if [[ -n "$DEPOT_PROJECT_ID" ]]; then
+          echo "value=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "value=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Set default-runner
+      id: default-runner
+      shell: bash
+      # Use depot for internal branches and push/schedule events; fall back to GitHub-hosted for fork PRs.
+      run: |
+        if [[ "${{ inputs.is-community-pr }}" == "false" && "${{ steps.depot-config-set.outputs.value }}" == "true" ]]; then
+          echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+        else
+          echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Set small-runner
+      id: small-runner
+      shell: bash
+      # depot-small for internal, ubuntu-latest for forks.
+      run: |
+        if [[ "${{ inputs.is-community-pr }}" == "false" && "${{ steps.depot-config-set.outputs.value }}" == "true" ]]; then
+          echo "value=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
+        else
+          echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Set depot-label-small-runner
+      id: depot-label-small-runner
+      shell: bash
+      # Community (fork) PRs can opt-in to Depot runners by adding the 'depot' label.
+      run: |
+        if [[ "${{ inputs.has-depot-label }}" == "true" ]]; then
+          echo "value=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
+        else
+          echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Set depot-label-runner
+      id: depot-label-runner
+      shell: bash
+      # Community (fork) PRs can opt-in to Depot runners by adding the 'depot' label.
+      run: |
+        if [[ "${{ inputs.has-depot-label }}" == "true" ]]; then
+          echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+        else
+          echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
+        fi
