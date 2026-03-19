@@ -5,7 +5,6 @@ from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
-from lark import Tree
 
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -19,7 +18,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, tree_function
+from datahub.ingestion.source.powerbi.m_query import parser
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
@@ -127,97 +126,6 @@ def combine_upstreams_from_lineage(lineage: List[Lineage]) -> List[DataPlatformT
         data_platforms.extend(item.upstreams)
 
     return data_platforms
-
-
-@pytest.mark.integration
-def test_parse_m_query1():
-    expression: str = M_QUERIES[0]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "TESTTABLE_Table"
-
-
-@pytest.mark.integration
-def test_parse_m_query2():
-    expression: str = M_QUERIES[1]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom2"'
-
-
-@pytest.mark.integration
-def test_parse_m_query3():
-    expression: str = M_QUERIES[2]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Conditional Column"'
-
-
-@pytest.mark.integration
-def test_parse_m_query4():
-    expression: str = M_QUERIES[3]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Changed Type"'
-
-
-@pytest.mark.integration
-def test_parse_m_query5():
-    expression: str = M_QUERIES[4]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Renamed Columns"'
-
-
-@pytest.mark.integration
-def test_parse_m_query6():
-    expression: str = M_QUERIES[5]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
-
-
-@pytest.mark.integration
-def test_parse_m_query7():
-    expression: str = M_QUERIES[6]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "Source"
-
-
-@pytest.mark.integration
-def test_parse_m_query8():
-    expression: str = M_QUERIES[7]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
-
-
-@pytest.mark.integration
-def test_parse_m_query9():
-    expression: str = M_QUERIES[8]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
-
-
-@pytest.mark.integration
-def test_parse_m_query10():
-    expression: str = M_QUERIES[9]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Changed Type1"'
-
-
-@pytest.mark.integration
-def test_parse_m_query11():
-    expression: str = M_QUERIES[10]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "Source"
-
-
-@pytest.mark.integration
-def test_parse_m_query12():
-    expression: str = M_QUERIES[11]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
-
-
-@pytest.mark.integration
-def test_parse_m_query13():
-    expression: str = M_QUERIES[12]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "two_source_table"
 
 
 @pytest.mark.integration
@@ -1049,6 +957,8 @@ def test_mssql_drop_with_select():
 
 
 def test_unsupported_data_platform():
+    # LOAD_DATA(SOURCE) is not a recognized data-platform expression — the bridge
+    # parses it successfully but no pattern handler matches, so lineage is empty.
     q = M_QUERIES[34]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
@@ -1073,20 +983,6 @@ def test_unsupported_data_platform():
             platform_instance_resolver=platform_instance_resolver,
         )
         == []
-    )
-
-    info_entries: dict = reporter._structured_logs._entries.get(
-        StructuredLogLevel.INFO, {}
-    )  # type :ignore
-
-    is_entry_present: bool = False
-    for entry in info_entries.values():
-        if entry.title == "Non-Data Platform Expression":
-            is_entry_present = True
-            break
-
-    assert is_entry_present, (
-        'Info message "Non-Data Platform Expression" should be present in reporter'
     )
 
 

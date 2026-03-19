@@ -247,6 +247,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_parse_attempts: int = 0
     m_query_parse_successes: int = 0
     m_query_parse_timeouts: int = 0
+    m_query_native_query_skipped: int = 0
     m_query_parse_validation_errors: int = 0
     m_query_parse_unexpected_character_errors: int = 0
     m_query_parse_unknown_errors: int = 0

@@ -24,11 +24,13 @@ _RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
 
 def resolve_to_data_access_functions(
     node_map: NodeIdMap,
+    parameters: Optional[Dict[str, str]] = None,
 ) -> List[DataAccessFunctionDetail]:
     """
     Entry point: walk the NodeIdMap and return all DataAccessFunctionDetail entries
     for recognized data-access function calls in the expression.
     """
+    parameters = parameters or {}
     let_nodes = [
         (k, v) for k, v in node_map.items() if v.get("kind") == "LetExpression"
     ]
@@ -55,6 +57,7 @@ def resolve_to_data_access_functions(
         accessor_chain=None,
         results=results,
         seen=seen,
+        parameters=parameters,
     )
     return results
 
@@ -67,6 +70,7 @@ def _walk(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
 ) -> None:
     if node is None:
         return
@@ -78,7 +82,7 @@ def _walk(
         identifier = node.get("identifier", {})
         name = identifier.get("literal", "")
         # Strip quoted identifier prefix/suffix (#"name" → name)
-        if identifier.get("isQuoted") and name.startswith('#"') and name.endswith('"'):
+        if name.startswith('#"') and name.endswith('"'):
             name = name[2:-1]
         _walk_identifier_name(
             node_map,
@@ -88,13 +92,14 @@ def _walk(
             accessor_chain,
             results,
             seen,
+            parameters,
         )
         return
 
     # -- Identifier --
     if kind == "Identifier":
         name = node.get("literal", "")
-        if node.get("isQuoted") and name.startswith('#"'):
+        if name.startswith('#"') and name.endswith('"'):
             name = name[2:-1]
         _walk_identifier_name(
             node_map,
@@ -104,6 +109,7 @@ def _walk(
             accessor_chain,
             results,
             seen,
+            parameters,
         )
         return
 
@@ -111,7 +117,16 @@ def _walk(
     if kind == "LetExpression":
         inner_let_id = node.get("id", -1)
         inner_output = node.get("expression")  # embedded node
-        _walk(node_map, inner_output, node, inner_let_id, accessor_chain, results, seen)
+        _walk(
+            node_map,
+            inner_output,
+            node,
+            inner_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+        )
         return
 
     # -- RecursivePrimaryExpression --
@@ -126,6 +141,7 @@ def _walk(
             accessor_chain,
             results,
             seen,
+            parameters,
         )
         return
 
@@ -135,6 +151,8 @@ def _walk(
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
             for elem in content.get("elements", []):
                 inner = _unwrap_csv(elem)
+                # Use a copy of seen for each list element so sibling paths
+                # sharing common ancestors don't trigger false circular refs
                 _walk(
                     node_map,
                     inner,
@@ -142,7 +160,8 @@ def _walk(
                     current_let_id,
                     accessor_chain,
                     results,
-                    seen,
+                    seen.copy(),
+                    parameters,
                 )
         return
 
@@ -158,6 +177,7 @@ def _walk(
                 accessor_chain,
                 results,
                 seen,
+                parameters,
             )
         return
 
@@ -172,6 +192,7 @@ def _walk_recursive_primary(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
 ) -> None:
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
@@ -186,6 +207,7 @@ def _walk_recursive_primary(
             accessor_chain,
             results,
             seen,
+            parameters,
         )
         return
 
@@ -202,6 +224,7 @@ def _walk_recursive_primary(
             accessor_chain,
             results,
             seen,
+            parameters,
         )
         return
 
@@ -210,7 +233,7 @@ def _walk_recursive_primary(
         content = first.get("content", {})  # RecordExpression
         kv: Dict[str, str] = {}
         if isinstance(content, dict):
-            kv = get_record_field_values(node_map, content)
+            kv = get_record_field_values(node_map, content, parameters=parameters)
 
         new_accessor = IdentifierAccessor(
             identifier=kv.get("Name", ""),
@@ -225,6 +248,7 @@ def _walk_recursive_primary(
             new_accessor,
             results,
             seen,
+            parameters,
         )
         return
 
@@ -237,6 +261,7 @@ def _walk_recursive_primary(
         accessor_chain,
         results,
         seen,
+        parameters,
     )
 
 
@@ -249,6 +274,7 @@ def _walk_invoke(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
 ) -> None:
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
@@ -261,6 +287,7 @@ def _walk_invoke(
                 data_access_function_name=callee,
                 identifier_accessor=accessor_chain,
                 node_map=node_map,
+                parameters=parameters or {},
             )
         )
         return
@@ -280,6 +307,7 @@ def _walk_invoke(
                     accessor_chain,
                     results,
                     seen,
+                    parameters,
                 )
                 return  # only first arg
 
@@ -301,6 +329,7 @@ def _walk_identifier_name(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
 ) -> None:
     """Resolve a variable name in the current let scope and continue walking."""
     if not name:
@@ -314,5 +343,12 @@ def _walk_identifier_name(
 
     resolved = resolve_identifier(node_map, current_let, name)
     _walk(
-        node_map, resolved, current_let, current_let_id, accessor_chain, results, seen
+        node_map,
+        resolved,
+        current_let,
+        current_let_id,
+        accessor_chain,
+        results,
+        seen,
+        parameters,
     )

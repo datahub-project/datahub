@@ -10,7 +10,7 @@ Child nodes are embedded directly as nested dicts, not as integer ID references.
 The nodeIdMap provides a flat index to find any node by ID.
 """
 
-from typing import Optional
+from typing import Dict, Optional
 
 NodeIdMap = dict[int, dict]
 
@@ -107,7 +107,15 @@ def resolve_identifier(
         if not isinstance(key_node, dict):
             continue
         key_literal = key_node.get("literal", "")
-        if key_literal == name:
+        # Normalize: strip #"..." quoting and compare case-insensitively
+        # (M-Query variable names are case-insensitive)
+        key_bare = key_literal
+        if key_bare.startswith('#"') and key_bare.endswith('"'):
+            key_bare = key_bare[2:-1]
+        name_bare = name
+        if name_bare.startswith('#"') and name_bare.endswith('"'):
+            name_bare = name_bare[2:-1]
+        if key_bare.lower() == name_bare.lower():
             return inner.get("value")
 
     return None
@@ -116,15 +124,17 @@ def resolve_identifier(
 def get_record_field_values(
     node_map: NodeIdMap,
     record_node: dict,
+    parameters: Optional[Dict[str, str]] = None,
 ) -> dict[str, str]:
     """
     Extract key-value pairs from a RecordExpression where values are Text literals.
     Keys: GeneralizedIdentifier literals.
     Values: Text LiteralExpression values (quotes stripped).
-    Non-string values are omitted.
+    Non-string values are omitted unless resolvable via parameters.
 
     Structure: RecordExpression.content (ArrayWrapper) → elements (Csv[]) → node (GeneralizedIdentifierPairedExpression)
     """
+    parameters = parameters or {}
     result: dict[str, str] = {}
     if record_node.get("kind") != "RecordExpression":
         return result
@@ -154,6 +164,18 @@ def get_record_field_values(
 
         key = key_node.get("literal", "")
         value = get_literal_value(value_node)
+        if (
+            value is None
+            and parameters
+            and value_node.get("kind") == "IdentifierExpression"
+        ):
+            # Resolve identifier references using parameters
+            ident = value_node.get("identifier", {})
+            ref_name = ident.get("literal", "")
+            if ref_name.startswith('#"') and ref_name.endswith('"'):
+                ref_name = ref_name[2:-1]
+            if ref_name in parameters:
+                value = parameters[ref_name]
         if value is not None:
             result[key] = value
 
