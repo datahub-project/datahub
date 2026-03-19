@@ -11,6 +11,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 > The **Backfill Assertion History** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
 > If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
+<div align="center"><iframe width="640" height="444" src="https://www.loom.com/embed/61a201aea8464f58826c965fdbfbe255" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+
 ## Introduction
 
 When you create a new [Smart Assertion](./smart-assertions.md), it needs historical data to learn what "normal" looks like before it can start making accurate predictions. Without historical context, the assertion's AI model has nothing to train on, meaning it will take days or weeks of real-time evaluations before it can reliably detect anomalies.

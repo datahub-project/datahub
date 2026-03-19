@@ -32,7 +32,7 @@ const clickOnMoreOption = () => {
 
 describe("create announcement and link post", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
     });
     cy.login();

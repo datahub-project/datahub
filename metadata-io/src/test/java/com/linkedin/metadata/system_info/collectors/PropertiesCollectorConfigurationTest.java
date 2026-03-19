@@ -124,8 +124,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Kafka topic Configs
           "kafka.topics.*.name",
+          "kafka.topics.*.displayName",
           "kafka.topics.*.partitions",
           "kafka.topics.*.enabled",
+          "kafka.topics.*.pollEnabled",
           "kafka.topics.*.replicationFactor",
           "kafka.topics.*.configProperties.max.message.bytes",
           "kafka.topics.*.configProperties.retention.ms",
@@ -686,6 +688,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.introspectionEnabled",
           "graphQL.query.maxParentDepth",
           "graphQL.query.maxVisitedUrns",
+          "graphQL.query.slowQueryThresholdMs",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",

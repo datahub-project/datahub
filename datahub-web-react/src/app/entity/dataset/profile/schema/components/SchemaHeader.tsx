@@ -6,15 +6,15 @@ import {
     TableOutlined,
 } from '@ant-design/icons';
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Input, Popover, Select, Tooltip, Typography } from 'antd';
 import { debounce } from 'lodash';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import CustomPagination from '@app/entity/dataset/profile/schema/components/CustomPagination';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import getSchemaFilterFromQueryString from '@app/entity/shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
 import { navigateToVersionedDatasetUrl } from '@app/entity/shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
@@ -115,7 +115,7 @@ const StyledQuestionCircleOutlined = styled(QuestionCircleOutlined)`
     &&& {
         margin-top: 14px;
         font-size: 16px;
-        color: ${ANTD_GRAY[6]};
+        color: ${(props) => props.theme.colors.textDisabled};
     }
 `;
 
@@ -164,6 +164,7 @@ export default function SchemaHeader({
     setFilterText,
     numRows,
 }: Props) {
+    const theme = useTheme();
     const history = useHistory();
     const location = useLocation();
     const onVersionChange = (version1, version2) => {
@@ -247,7 +248,7 @@ export default function SchemaHeader({
                             placeholder="Search in schema..."
                             onChange={debouncedSetFilterText}
                             allowClear
-                            prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                            prefix={<Icon icon={MagnifyingGlass} />}
                         />
                     )}
                 </LeftButtonsGroup>
@@ -257,7 +258,9 @@ export default function SchemaHeader({
                             type="text"
                             data-testid="schema-blame-button"
                             onClick={() => setShowSchemaAuditView(!showSchemaAuditView)}
-                            style={{ color: showSchemaAuditView ? REDESIGN_COLORS.BLUE : ANTD_GRAY[7] }}
+                            style={{
+                                color: showSchemaAuditView ? theme.colors.hyperlinks : theme.colors.textSecondary,
+                            }}
                         >
                             <AuditOutlined />
                         </SchemaAuditButton>

@@ -68,6 +68,7 @@ services:
       args:
         APP_ENV: dev
     environment:
+    - DATAHUB_SQL_SETUP_ENABLED=true
     - SKIP_ELASTICSEARCH_CHECK=false
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
@@ -77,17 +78,3 @@ services:
     - ../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-  # Pre-creates the search indices using local mapping/settings.json
-  elasticsearch-setup:
-    image: acryldata/datahub-elasticsearch-setup:head
-    build:
-      context: elasticsearch-setup
-      dockerfile: Dockerfile
-      args:
-        APP_ENV: dev
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    volumes:
-    - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
-    - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
