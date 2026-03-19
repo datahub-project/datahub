@@ -7,7 +7,6 @@ import com.linkedin.metadata.entity.EntityService;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
@@ -57,22 +56,22 @@ public class EntityExistsBatchDataLoader {
       final EntityService<?> entityService,
       final QueryContext queryContext) {
     try {
-      // Convert string URNs to Urn objects
-      final Set<Urn> urns = new HashSet<>();
-      final Map<Urn, Integer> urnToIndex = new java.util.HashMap<>();
-      for (int i = 0; i < urnStrs.size(); i++) {
-        Urn urn = Urn.createFromString(urnStrs.get(i));
-        urns.add(urn);
-        urnToIndex.put(urn, i);
+      // Convert string URNs to Urn objects (parse once, maintain order)
+      final List<Urn> parsedUrns = new ArrayList<>();
+      final Set<Urn> urnSet = new HashSet<>();
+      for (final String urnStr : urnStrs) {
+        Urn urn = Urn.createFromString(urnStr);
+        parsedUrns.add(urn);
+        urnSet.add(urn);
       }
 
       // Batch load existence status for all URNs in one call
-      final Set<Urn> existingUrns = entityService.exists(queryContext.getOperationContext(), urns);
+      final Set<Urn> existingUrns =
+          entityService.exists(queryContext.getOperationContext(), urnSet);
 
-      // Map results back to original order
+      // Map results back to original order using ordered list
       final List<Boolean> results = new ArrayList<>();
-      for (int i = 0; i < urnStrs.size(); i++) {
-        Urn urn = Urn.createFromString(urnStrs.get(i));
+      for (final Urn urn : parsedUrns) {
         results.add(existingUrns.contains(urn));
       }
 

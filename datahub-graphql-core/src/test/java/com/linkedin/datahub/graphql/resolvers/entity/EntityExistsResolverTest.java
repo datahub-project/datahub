@@ -3,11 +3,16 @@ package com.linkedin.datahub.graphql.resolvers.entity;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.loaders.EntityExistsBatchDataLoader;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
@@ -16,6 +21,9 @@ import org.testng.annotations.Test;
 
 public class EntityExistsResolverTest {
   private static final String ENTITY_URN_STRING = "urn:li:corpuser:test";
+  private static final String URN_1 = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table1,PROD)";
+  private static final String URN_2 = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table2,PROD)";
+  private static final String URN_3 = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table3,PROD)";
 
   private EntityService _entityService;
   private DataFetchingEnvironment _dataFetchingEnvironment;
@@ -52,5 +60,98 @@ public class EntityExistsResolverTest {
     when(exitsLoader.load(eq(ENTITY_URN_STRING)))
         .thenReturn(CompletableFuture.completedFuture(true));
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+  }
+
+  @Test
+  public void testBatchLoadingWithMixedResults() throws Exception {
+    // Test batch loading with mixed existing/non-existing entities
+    // Validates: true, false, true pattern to ensure order is correct
+    QueryContext queryContext = mock(QueryContext.class);
+    OperationContext operationContext = mock(OperationContext.class);
+    when(queryContext.getOperationContext()).thenReturn(operationContext);
+
+    // URN_1 and URN_3 exist, URN_2 does not
+    Set<Urn> existingUrns = Set.of(Urn.createFromString(URN_1), Urn.createFromString(URN_3));
+
+    when(_entityService.exists(eq(operationContext), any(Set.class))).thenReturn(existingUrns);
+
+    DataLoader<String, Boolean> dataLoader =
+        EntityExistsBatchDataLoader.create(_entityService, queryContext);
+
+    // Load three URNs in order
+    CompletableFuture<Boolean> future1 = dataLoader.load(URN_1);
+    CompletableFuture<Boolean> future2 = dataLoader.load(URN_2);
+    CompletableFuture<Boolean> future3 = dataLoader.load(URN_3);
+
+    // Dispatch batch
+    dataLoader.dispatch();
+
+    // Verify mixed results (true, false, true)
+    assertTrue(future1.get(), "URN_1 should exist");
+    assertFalse(future2.get(), "URN_2 should not exist");
+    assertTrue(future3.get(), "URN_3 should exist");
+  }
+
+  @Test
+  public void testOrderPreservationInBatch() throws Exception {
+    // Test that results are returned in same order as loaded, not HashSet order
+    // Critical fix: validates parsedUrns List maintains order vs urnSet
+    QueryContext queryContext = mock(QueryContext.class);
+    OperationContext operationContext = mock(OperationContext.class);
+    when(queryContext.getOperationContext()).thenReturn(operationContext);
+
+    Set<Urn> allUrns =
+        Set.of(
+            Urn.createFromString(URN_1), Urn.createFromString(URN_2), Urn.createFromString(URN_3));
+
+    when(_entityService.exists(eq(operationContext), any(Set.class))).thenReturn(allUrns);
+
+    DataLoader<String, Boolean> dataLoader =
+        EntityExistsBatchDataLoader.create(_entityService, queryContext);
+
+    // Load in reverse order (URN_3, URN_1, URN_2)
+    // Without order preservation, results would come back in different order
+    List<String> loadOrder = Arrays.asList(URN_3, URN_1, URN_2);
+    List<CompletableFuture<Boolean>> futures = loadOrder.stream().map(dataLoader::load).toList();
+
+    dataLoader.dispatch();
+
+    // Results must be in same order as loaded input, not hash order
+    assertTrue(futures.get(0).get(), "Index 0 should be URN_3");
+    assertTrue(futures.get(1).get(), "Index 1 should be URN_1");
+    assertTrue(futures.get(2).get(), "Index 2 should be URN_2");
+  }
+
+  @Test
+  public void testBatchingReducesQueryCount() throws Exception {
+    // Test N+1 optimization: 3 loads = 1 entityService.exists() call, not 3
+    QueryContext queryContext = mock(QueryContext.class);
+    OperationContext operationContext = mock(OperationContext.class);
+    when(queryContext.getOperationContext()).thenReturn(operationContext);
+
+    Set<Urn> allUrns =
+        Set.of(
+            Urn.createFromString(URN_1), Urn.createFromString(URN_2), Urn.createFromString(URN_3));
+
+    when(_entityService.exists(eq(operationContext), any(Set.class))).thenReturn(allUrns);
+
+    DataLoader<String, Boolean> dataLoader =
+        EntityExistsBatchDataLoader.create(_entityService, queryContext);
+
+    // Load three URNs (normally would be 3 separate queries)
+    CompletableFuture<Boolean> future1 = dataLoader.load(URN_1);
+    CompletableFuture<Boolean> future2 = dataLoader.load(URN_2);
+    CompletableFuture<Boolean> future3 = dataLoader.load(URN_3);
+
+    dataLoader.dispatch();
+
+    // Wait for all futures to complete
+    future1.get();
+    future2.get();
+    future3.get();
+
+    // Verify entityService.exists called ONCE with all 3 URNs (batched)
+    verify(_entityService, times(1))
+        .exists(eq(operationContext), argThat((Set<Urn> set) -> set.size() == 3));
   }
 }

@@ -214,7 +214,20 @@ public class LabelUtils {
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
-  /** Batch-read GlobalTags for all entity-level resources (1 query instead of N) */
+  /**
+   * Batch-reads GlobalTags aspect for multiple entities in a single database query.
+   *
+   * <p>N+1 Optimization: Reduces N individual entityService.getLatestAspects() calls to 1 batched
+   * call. For 100 resources, this eliminates 99 redundant database queries.
+   *
+   * <p>Error Handling: If batch read fails, gracefully falls back to returning empty GlobalTags for
+   * all resources (prevents cascading failures in tag addition operations).
+   *
+   * @param opContext the operation context
+   * @param resources the list of resources to read tags for
+   * @param entityService the entity service
+   * @return map of URN to GlobalTags (empty tags if read fails)
+   */
   private static Map<Urn, GlobalTags> batchReadGlobalTags(
       @Nonnull OperationContext opContext,
       List<ResourceRefInput> resources,
@@ -258,7 +271,21 @@ public class LabelUtils {
     return result;
   }
 
-  /** Batch-read EditableSchemaMetadata for all subresources (1 query instead of N) */
+  /**
+   * Batch-reads EditableSchemaMetadata aspect for multiple datasets in a single database query.
+   *
+   * <p>N+1 Optimization: Reduces N individual entityService.getLatestAspects() calls to 1 batched
+   * call. Critical for schema field tag operations where dataset URNs are shared across multiple
+   * fields.
+   *
+   * <p>Error Handling: If batch read fails, gracefully falls back to returning empty metadata for
+   * all resources (prevents cascading failures in schema update operations).
+   *
+   * @param opContext the operation context
+   * @param resources the list of dataset resources
+   * @param entityService the entity service
+   * @return map of dataset URN to EditableSchemaMetadata (empty if read fails)
+   */
   private static Map<Urn, EditableSchemaMetadata> batchReadEditableSchemaMetadata(
       @Nonnull OperationContext opContext,
       List<ResourceRefInput> resources,
@@ -302,7 +329,22 @@ public class LabelUtils {
     return result;
   }
 
-  /** Batch-read BusinessAttributeInfo for all business attribute entities (1 query instead of N) */
+  /**
+   * Batch-reads BusinessAttributeInfo aspect for multiple business attribute entities in a single
+   * database query.
+   *
+   * <p>N+1 Optimization: Reduces N individual entityService.getLatestAspects() calls to 1 batched
+   * call. Business attributes require separate handling due to their dedicated aspect type and
+   * different mutation semantics.
+   *
+   * <p>Error Handling: If batch read fails, gracefully falls back to returning empty info for all
+   * business attributes (prevents cascading failures in business attribute tag/term operations).
+   *
+   * @param opContext the operation context
+   * @param resources the list of business attribute resources
+   * @param entityService the entity service
+   * @return map of business attribute URN to BusinessAttributeInfo (empty if read fails)
+   */
   private static Map<Urn, BusinessAttributeInfo> batchReadBusinessAttributeInfo(
       @Nonnull OperationContext opContext,
       List<ResourceRefInput> resources,
