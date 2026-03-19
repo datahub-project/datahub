@@ -211,7 +211,8 @@ class SqlTableExtractor(LineageExtractor):
     ICEBERG_SINK = re.compile(r"Sink:\s*IcebergSink\s+([\w-]+)\.([\w-]+)\.([\w-]+)")
 
     # SQL/Table API sink (operator chaining): "tableName[N]: Writer"
-    # Produced by Kafka Sink V2. No catalog/database info available.
+    # Typically produced by Kafka Sink V2 in SQL/Table API mode; any committing
+    # SinkV2 connector produces this format. No catalog/database info available.
     SINK_WRITER = re.compile(r"\b([\w-]+)\[\d+\]:\s*Writer\b")
 
     _INDICATORS = (
@@ -382,7 +383,9 @@ class PlatformResolver:
         for catalog_name in catalogs:
             self._get_catalog_info(catalog_name)
 
-    def resolve(self, ref: CatalogTableReference) -> Optional[ClassifiedNode]:
+    def resolve(
+        self, ref: CatalogTableReference, role: NodeRole
+    ) -> Optional[ClassifiedNode]:
         """Resolve a catalog table reference to a platform-correct ClassifiedNode.
 
         Returns None if platform cannot be determined (no SQL Gateway or unknown catalog).
@@ -399,7 +402,7 @@ class PlatformResolver:
             return ClassifiedNode(
                 node_id="",
                 description="",
-                role=NodeRole.SOURCE,
+                role=role,
                 platform=detail.platform,
                 dataset_name=f"{ref.database}.{ref.table}",
                 catalog_ref=ref,
@@ -413,16 +416,17 @@ class PlatformResolver:
         if catalog_info:
             # Tier 1: catalog-level resolution for single-platform catalogs
             if catalog_info.catalog_type in _SINGLE_PLATFORM_CATALOG_TYPES:
-                return self._resolve_from_catalog(catalog_info, ref)
+                return self._resolve_from_catalog(catalog_info, ref, role)
 
             # Tier 2: per-table resolution for mixed-platform catalogs
             if catalog_info.catalog_type in _MIXED_PLATFORM_CATALOG_TYPES:
-                return self._resolve_from_table_ddl(catalog_info, ref)
+                return self._resolve_from_table_ddl(catalog_info, ref, role)
 
         # Fallback: DESCRIBE CATALOG EXTENDED unavailable (older Flink versions) or unknown catalog type.
         return self._resolve_from_table_ddl(
             catalog_info or CatalogInfo(catalog_type="unknown", properties={}),
             ref,
+            role,
         )
 
     def _get_catalog_info(self, catalog_name: str) -> Optional[CatalogInfo]:
@@ -455,7 +459,7 @@ class PlatformResolver:
             return None
 
     def _resolve_from_catalog(
-        self, catalog_info: CatalogInfo, ref: CatalogTableReference
+        self, catalog_info: CatalogInfo, ref: CatalogTableReference, role: NodeRole
     ) -> Optional[ClassifiedNode]:
         """Resolve platform from catalog-level properties (no per-table calls)."""
         cat_type = catalog_info.catalog_type
@@ -464,12 +468,12 @@ class PlatformResolver:
             platform = self._jdbc_platform(catalog_info.properties)
             if not platform:
                 return None
-            # For JDBC, the table field may include schema prefix (e.g., "public.users")
+            # JDBC dataset names are schema-qualified: schema.table (e.g., "public.users")
             dataset_name = f"{ref.database}.{ref.table}"
             return ClassifiedNode(
                 node_id="",
                 description="",
-                role=NodeRole.SOURCE,
+                role=role,
                 platform=platform,
                 dataset_name=dataset_name,
                 catalog_ref=ref,
@@ -479,7 +483,7 @@ class PlatformResolver:
             return ClassifiedNode(
                 node_id="",
                 description="",
-                role=NodeRole.SOURCE,
+                role=role,
                 platform=cat_type,
                 dataset_name=f"{ref.database}.{ref.table}",
                 catalog_ref=ref,
@@ -488,7 +492,7 @@ class PlatformResolver:
         return None
 
     def _resolve_from_table_ddl(
-        self, catalog_info: CatalogInfo, ref: CatalogTableReference
+        self, catalog_info: CatalogInfo, ref: CatalogTableReference, role: NodeRole
     ) -> Optional[ClassifiedNode]:
         """Resolve platform by calling SHOW CREATE TABLE.
 
@@ -515,7 +519,7 @@ class PlatformResolver:
         return ClassifiedNode(
             node_id="",
             description="",
-            role=NodeRole.SOURCE,
+            role=role,
             platform=platform,
             dataset_name=dataset_name,
             catalog_ref=ref,
@@ -598,10 +602,11 @@ class FlinkLineageOrchestrator:
                             ref = original.catalog_ref
                             assert ref is not None  # guaranteed by the if above
                             if not ref.catalog:
-                                # Kafka Sink V2 in SQL/Table API mode: plan description
-                                # carries only the Flink table name, no catalog path.
+                                # Committing SinkV2 (typically Kafka Sink V2) in SQL/Table
+                                # API mode: plan description carries only the Flink table
+                                # name, no catalog path.
                                 result.unclassified.append(
-                                    f"kafka-sink-v2-unresolved:{ref.table}"
+                                    f"sink-writer-unresolved:{ref.table}"
                                 )
                             else:
                                 result.unclassified.append(
@@ -627,14 +632,14 @@ class FlinkLineageOrchestrator:
         """Resolve platform for a node with catalog_ref via PlatformResolver."""
         if not self.platform_resolver or not node.catalog_ref:
             return None
-        resolved = self.platform_resolver.resolve(node.catalog_ref)
+        resolved = self.platform_resolver.resolve(node.catalog_ref, role)
         if not resolved:
             return None
-        # Preserve original node_id and description from the plan node
+        # Preserve node_id and description from the plan node (not available in resolver).
         return ClassifiedNode(
             node_id=node.node_id,
             description=node.description,
-            role=role,
+            role=resolved.role,
             platform=resolved.platform,
             dataset_name=resolved.dataset_name,
             catalog_ref=node.catalog_ref,

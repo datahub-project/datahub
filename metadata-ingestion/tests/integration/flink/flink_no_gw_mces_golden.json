@@ -1,499 +1,6 @@
 [
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000389,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "d676a7c2884a89098376541efb530f13",
-                "job_state": "RUNNING",
-                "flink_version": "1.19.3",
-                "start_time": "1773755877138",
-                "duration_ms": "9858781",
-                "state_backend": "HashMapStateBackend",
-                "checkpoint_interval_ms": "9223372036854775807",
-                "checkpoint_mode": "at_least_once",
-                "externalized_checkpoints": "false"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/d676a7c2884a89098376541efb530f13",
-            "name": "test_iceberg_events_pipeline",
-            "description": "Flink streaming job",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000389,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST),test_iceberg_events_pipeline)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000391,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST),test_iceberg_events_pipeline)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "d676a7c2884a89098376541efb530f13",
-                "operator_count": "2"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/d676a7c2884a89098376541efb530f13",
-            "name": "test_iceberg_events_pipeline",
-            "description": "Coalesced Flink job operators for test_iceberg_events_pipeline",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000391,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST),test_iceberg_events_pipeline)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "test_iceberg_events_pipeline",
-                    "urn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000392,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000392,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "ff54eb21533582ff6cbdd320f7ee398d",
-                "job_state": "RUNNING",
-                "flink_version": "1.19.3",
-                "start_time": "1773755865731",
-                "duration_ms": "9870190",
-                "state_backend": "HashMapStateBackend",
-                "checkpoint_interval_ms": "9223372036854775807",
-                "checkpoint_mode": "at_least_once",
-                "externalized_checkpoints": "false"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/ff54eb21533582ff6cbdd320f7ee398d",
-            "name": "test_enrich_orders",
-            "description": "Flink streaming job",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000392,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000393,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "ff54eb21533582ff6cbdd320f7ee398d",
-                "operator_count": "1"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/ff54eb21533582ff6cbdd320f7ee398d",
-            "name": "test_enrich_orders",
-            "description": "Coalesced Flink job operators for test_enrich_orders",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000393,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "test_enrich_orders",
-                    "urn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000393,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_final_output,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000394,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_final_output,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "037c602fd1f47f0b4e2f33c0da37383a",
-                "job_state": "RUNNING",
-                "flink_version": "1.19.3",
-                "start_time": "1773755869484",
-                "duration_ms": "9866437",
-                "state_backend": "HashMapStateBackend",
-                "checkpoint_interval_ms": "9223372036854775807",
-                "checkpoint_mode": "at_least_once",
-                "externalized_checkpoints": "false"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/037c602fd1f47f0b4e2f33c0da37383a",
-            "name": "test_final_output",
-            "description": "Flink streaming job",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000394,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_final_output,TEST),test_final_output)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000394,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_final_output,TEST),test_final_output)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "037c602fd1f47f0b4e2f33c0da37383a",
-                "operator_count": "1"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/037c602fd1f47f0b4e2f33c0da37383a",
-            "name": "test_final_output",
-            "description": "Coalesced Flink job operators for test_final_output",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(flink,test_final_output,TEST)",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000394,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_final_output,TEST),test_final_output)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "test_final_output",
-                    "urn": "urn:li:dataFlow:(flink,test_final_output,TEST)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000394,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000394,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "36d4464dffd123bfd236cc8d99659d20",
-                "job_state": "RUNNING",
-                "flink_version": "1.19.3",
-                "start_time": "1773755862883",
-                "duration_ms": "9873038",
-                "state_backend": "HashMapStateBackend",
-                "checkpoint_interval_ms": "9223372036854775807",
-                "checkpoint_mode": "at_least_once",
-                "externalized_checkpoints": "false"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/36d4464dffd123bfd236cc8d99659d20",
-            "name": "test_ds_kafka_hop2",
-            "description": "Flink streaming job",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000394,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:flink"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000395,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "flink_job_id": "36d4464dffd123bfd236cc8d99659d20",
-                "operator_count": "1"
-            },
-            "externalUrl": "http://localhost:8082/#/jobs/36d4464dffd123bfd236cc8d99659d20",
-            "name": "test_ds_kafka_hop2",
-            "description": "Coalesced Flink job operators for test_ds_kafka_hop2",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
-            "env": "TEST"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000395,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000395,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "test_ds_kafka_hop2",
-                    "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000395,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000395,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1772685000395,
-        "runId": "flink-no-gw-golden-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -503,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000395,
+        "lastObserved": 1772685000557,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -516,24 +23,24 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "flink_job_id": "e461f6ce6c6269e9f677ef251eb3d916",
+                "flink_job_id": "ebca5bff97d2dcc05e8e6d3fca4fd6e8",
                 "job_state": "RUNNING",
                 "flink_version": "1.19.3",
-                "start_time": "1773755861579",
-                "duration_ms": "9874342",
+                "start_time": "1773936547254",
+                "duration_ms": "22079",
                 "state_backend": "HashMapStateBackend",
                 "checkpoint_interval_ms": "9223372036854775807",
                 "checkpoint_mode": "at_least_once",
                 "externalized_checkpoints": "false"
             },
-            "externalUrl": "http://localhost:8082/#/jobs/e461f6ce6c6269e9f677ef251eb3d916",
+            "externalUrl": "http://localhost:8082/#/jobs/ebca5bff97d2dcc05e8e6d3fca4fd6e8",
             "name": "test_ds_kafka_hop1",
-            "description": "Flink streaming job",
+            "description": "Flink job",
             "env": "TEST"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000396,
+        "lastObserved": 1772685000557,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -549,7 +56,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000396,
+        "lastObserved": 1772685000558,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -562,10 +69,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "flink_job_id": "e461f6ce6c6269e9f677ef251eb3d916",
+                "flink_job_id": "ebca5bff97d2dcc05e8e6d3fca4fd6e8",
                 "operator_count": "1"
             },
-            "externalUrl": "http://localhost:8082/#/jobs/e461f6ce6c6269e9f677ef251eb3d916",
+            "externalUrl": "http://localhost:8082/#/jobs/ebca5bff97d2dcc05e8e6d3fca4fd6e8",
             "name": "test_ds_kafka_hop1",
             "description": "Coalesced Flink job operators for test_ds_kafka_hop1",
             "type": {
@@ -576,7 +83,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000396,
+        "lastObserved": 1772685000558,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -597,7 +104,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000396,
+        "lastObserved": 1772685000558,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -618,7 +125,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000396,
+        "lastObserved": 1772685000558,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -627,14 +134,16 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:kafka"
+            "platform": "urn:li:dataPlatform:kafka",
+            "name": "orders",
+            "origin": "TEST"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000396,
+        "lastObserved": 1772685000559,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -643,14 +152,403 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:kafka"
+            "platform": "urn:li:dataPlatform:kafka",
+            "name": "enriched-orders",
+            "origin": "TEST"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000396,
+        "lastObserved": 1772685000559,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000559,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "f46f38e66c9e9faaefb86b64cdfae87f",
+                "job_state": "RUNNING",
+                "flink_version": "1.19.3",
+                "start_time": "1773936548737",
+                "duration_ms": "20599",
+                "state_backend": "HashMapStateBackend",
+                "checkpoint_interval_ms": "9223372036854775807",
+                "checkpoint_mode": "at_least_once",
+                "externalized_checkpoints": "false"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/f46f38e66c9e9faaefb86b64cdfae87f",
+            "name": "test_ds_kafka_hop2",
+            "description": "Flink job",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000559,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000560,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "f46f38e66c9e9faaefb86b64cdfae87f",
+                "operator_count": "1"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/f46f38e66c9e9faaefb86b64cdfae87f",
+            "name": "test_ds_kafka_hop2",
+            "description": "Coalesced Flink job operators for test_ds_kafka_hop2",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000560,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000560,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST),test_ds_kafka_hop2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_ds_kafka_hop2",
+                    "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000560,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched-orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka",
+            "name": "enriched-orders",
+            "origin": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000560,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,final-output,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka",
+            "name": "final-output",
+            "origin": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000561,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_final_output,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000561,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_final_output,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "b4164bc03c96245f7e6898385477fa85",
+                "job_state": "RUNNING",
+                "flink_version": "1.19.3",
+                "start_time": "1773936555294",
+                "duration_ms": "14042",
+                "state_backend": "HashMapStateBackend",
+                "checkpoint_interval_ms": "9223372036854775807",
+                "checkpoint_mode": "at_least_once",
+                "externalized_checkpoints": "false"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/b4164bc03c96245f7e6898385477fa85",
+            "name": "test_final_output",
+            "description": "Flink job",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000561,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_final_output,TEST),test_final_output)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000563,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_final_output,TEST),test_final_output)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "b4164bc03c96245f7e6898385477fa85",
+                "operator_count": "1"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/b4164bc03c96245f7e6898385477fa85",
+            "name": "test_final_output",
+            "description": "Coalesced Flink job operators for test_final_output",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(flink,test_final_output,TEST)",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000563,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_final_output,TEST),test_final_output)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_final_output",
+                    "urn": "urn:li:dataFlow:(flink,test_final_output,TEST)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000563,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000564,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "7d1180fa2d6d633eb6fafac74188671f",
+                "job_state": "RUNNING",
+                "flink_version": "1.19.3",
+                "start_time": "1773936563158",
+                "duration_ms": "6178",
+                "state_backend": "HashMapStateBackend",
+                "checkpoint_interval_ms": "9223372036854775807",
+                "checkpoint_mode": "at_least_once",
+                "externalized_checkpoints": "false"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/7d1180fa2d6d633eb6fafac74188671f",
+            "name": "test_iceberg_events_pipeline",
+            "description": "Flink job",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000564,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST),test_iceberg_events_pipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000564,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST),test_iceberg_events_pipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "7d1180fa2d6d633eb6fafac74188671f",
+                "operator_count": "2"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/7d1180fa2d6d633eb6fafac74188671f",
+            "name": "test_iceberg_events_pipeline",
+            "description": "Coalesced Flink job operators for test_iceberg_events_pipeline",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000564,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST),test_iceberg_events_pipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_iceberg_events_pipeline",
+                    "urn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000565,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -666,7 +564,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000397,
+        "lastObserved": 1772685000565,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -679,24 +577,24 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "flink_job_id": "16ef92530898987c20cd5a6c296aa79b",
+                "flink_job_id": "97a2276ed416c207b97f1023bc856a74",
                 "job_state": "RUNNING",
                 "flink_version": "1.19.3",
-                "start_time": "1773755873172",
-                "duration_ms": "9862749",
+                "start_time": "1773936559242",
+                "duration_ms": "10095",
                 "state_backend": "HashMapStateBackend",
                 "checkpoint_interval_ms": "9223372036854775807",
                 "checkpoint_mode": "at_least_once",
                 "externalized_checkpoints": "false"
             },
-            "externalUrl": "http://localhost:8082/#/jobs/16ef92530898987c20cd5a6c296aa79b",
+            "externalUrl": "http://localhost:8082/#/jobs/97a2276ed416c207b97f1023bc856a74",
             "name": "test_pg_users_pipeline",
-            "description": "Flink streaming job",
+            "description": "Flink job",
             "env": "TEST"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000397,
+        "lastObserved": 1772685000565,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -712,7 +610,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000397,
+        "lastObserved": 1772685000565,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -725,10 +623,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "flink_job_id": "16ef92530898987c20cd5a6c296aa79b",
+                "flink_job_id": "97a2276ed416c207b97f1023bc856a74",
                 "operator_count": "3"
             },
-            "externalUrl": "http://localhost:8082/#/jobs/16ef92530898987c20cd5a6c296aa79b",
+            "externalUrl": "http://localhost:8082/#/jobs/97a2276ed416c207b97f1023bc856a74",
             "name": "test_pg_users_pipeline",
             "description": "Coalesced Flink job operators for test_pg_users_pipeline",
             "type": {
@@ -739,7 +637,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000397,
+        "lastObserved": 1772685000566,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -760,7 +658,117 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000397,
+        "lastObserved": 1772685000566,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000566,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "68238e447ef0b3914efc7aec86400acd",
+                "job_state": "RUNNING",
+                "flink_version": "1.19.3",
+                "start_time": "1773936551550",
+                "duration_ms": "17787",
+                "state_backend": "HashMapStateBackend",
+                "checkpoint_interval_ms": "9223372036854775807",
+                "checkpoint_mode": "at_least_once",
+                "externalized_checkpoints": "false"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/68238e447ef0b3914efc7aec86400acd",
+            "name": "test_enrich_orders",
+            "description": "Flink job",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000566,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000567,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "68238e447ef0b3914efc7aec86400acd",
+                "operator_count": "1"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/68238e447ef0b3914efc7aec86400acd",
+            "name": "test_enrich_orders",
+            "description": "Coalesced Flink job operators for test_enrich_orders",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000567,
+        "runId": "flink-no-gw-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_enrich_orders",
+                    "urn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000567,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -776,7 +784,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000567,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -792,7 +800,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000567,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -808,7 +816,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000567,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -824,7 +832,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000568,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -840,7 +848,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000568,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -856,7 +864,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000568,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -872,7 +880,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000568,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -888,7 +896,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000568,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -904,7 +912,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000398,
+        "lastObserved": 1772685000568,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -920,7 +928,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000399,
+        "lastObserved": 1772685000568,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -936,7 +944,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000399,
+        "lastObserved": 1772685000569,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -952,7 +960,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000399,
+        "lastObserved": 1772685000569,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -968,7 +976,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000399,
+        "lastObserved": 1772685000569,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -984,7 +992,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000399,
+        "lastObserved": 1772685000569,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1000,7 +1008,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1772685000399,
+        "lastObserved": 1772685000569,
         "runId": "flink-no-gw-golden-test",
         "lastRunId": "no-run-id-provided"
     }

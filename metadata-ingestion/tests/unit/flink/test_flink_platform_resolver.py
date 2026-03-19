@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.source.flink.config import CatalogPlatformDetail
 from datahub.ingestion.source.flink.lineage import (
     CatalogTableReference,
+    NodeRole,
     PlatformResolver,
 )
 from datahub.ingestion.source.flink.sql_gateway_client import FlinkSQLGatewayClient
@@ -27,7 +28,7 @@ class TestPlatformResolverJdbc:
 
         resolver = PlatformResolver(client)
         ref = CatalogTableReference(catalog="pg_cat", database="mydb", table="users")
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "postgres"
@@ -45,7 +46,7 @@ class TestPlatformResolverJdbc:
         ref = CatalogTableReference(
             catalog="mysql_cat", database="mydb", table="orders"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "mysql"
@@ -63,7 +64,7 @@ class TestPlatformResolverJdbc:
         ref = CatalogTableReference(
             catalog="pg_cat", database="mydb", table="public.users"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "postgres"
@@ -78,7 +79,7 @@ class TestPlatformResolverJdbc:
 
         resolver = PlatformResolver(client)
         ref = CatalogTableReference(catalog="unk_cat", database="db", table="t")
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is None
 
@@ -96,7 +97,7 @@ class TestPlatformResolverIceberg:
 
         resolver = PlatformResolver(client)
         ref = CatalogTableReference(catalog="ice_cat", database="my_ns", table="events")
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "iceberg"
@@ -116,7 +117,7 @@ class TestPlatformResolverPaimon:
 
         resolver = PlatformResolver(client)
         ref = CatalogTableReference(catalog="pm_cat", database="mydb", table="logs")
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "paimon"
@@ -140,7 +141,7 @@ class TestPlatformResolverGenericInMemory:
         ref = CatalogTableReference(
             catalog="default_catalog", database="default_database", table="orders_tbl"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "kafka"
@@ -162,7 +163,7 @@ class TestPlatformResolverGenericInMemory:
         ref = CatalogTableReference(
             catalog="default_catalog", database="default_database", table="pg_users"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "postgres"
@@ -183,7 +184,7 @@ class TestPlatformResolverGenericInMemory:
             database="default_database",
             table="pg_users",
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.dataset_name == "default_database.public.users"
@@ -200,7 +201,7 @@ class TestPlatformResolverGenericInMemory:
         ref = CatalogTableReference(
             catalog="default_catalog", database="default_database", table="csv_data"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "hdfs"
@@ -215,7 +216,7 @@ class TestPlatformResolverGenericInMemory:
         ref = CatalogTableReference(
             catalog="default_catalog", database="default_database", table="mystery"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is None
 
@@ -231,7 +232,7 @@ class TestPlatformResolverGenericInMemory:
             database="default_database",
             table="custom_tbl",
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "custom_source"
@@ -253,7 +254,7 @@ class TestPlatformResolverHive:
 
         resolver = PlatformResolver(client)
         ref = CatalogTableReference(catalog="hive_cat", database="mydb", table="events")
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "kafka"
@@ -270,7 +271,7 @@ class TestPlatformResolverHive:
         ref = CatalogTableReference(
             catalog="hive_cat", database="mydb", table="dim_users"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "hive"
@@ -291,8 +292,8 @@ class TestPlatformResolverCaching:
         ref1 = CatalogTableReference(catalog="pg_cat", database="db", table="t1")
         ref2 = CatalogTableReference(catalog="pg_cat", database="db", table="t2")
 
-        resolver.resolve(ref1)
-        resolver.resolve(ref2)
+        resolver.resolve(ref1, NodeRole.SOURCE)
+        resolver.resolve(ref2, NodeRole.SOURCE)
 
         # Catalog info fetched once despite two resolves
         client.get_catalog_info.assert_called_once_with("pg_cat")
@@ -310,8 +311,8 @@ class TestPlatformResolverCaching:
             catalog="default_catalog", database="default_database", table="t"
         )
 
-        resolver.resolve(ref)
-        resolver.resolve(ref)
+        resolver.resolve(ref, NodeRole.SOURCE)
+        resolver.resolve(ref, NodeRole.SOURCE)
 
         # Table connector fetched once despite two resolves
         client.get_table_connector.assert_called_once()
@@ -323,14 +324,14 @@ class TestPlatformResolverNoSqlGateway:
     def test_resolve_returns_none(self) -> None:
         resolver = PlatformResolver(sql_gateway_client=None)
         ref = CatalogTableReference(catalog="cat", database="db", table="t")
-        assert resolver.resolve(ref) is None
+        assert resolver.resolve(ref, NodeRole.SOURCE) is None
 
     def test_empty_catalog_returns_none(self) -> None:
         """SINK_WRITER pattern has no catalog info."""
         client = _mock_sql_client()
         resolver = PlatformResolver(client)
         ref = CatalogTableReference(catalog="", database="", table="my_sink")
-        assert resolver.resolve(ref) is None
+        assert resolver.resolve(ref, NodeRole.SOURCE) is None
 
 
 class TestPlatformResolverBuildContext:
@@ -379,7 +380,7 @@ class TestCatalogPlatformMap:
         ref = CatalogTableReference(
             catalog="ice_catalog", database="lake", table="events"
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "iceberg"
@@ -397,7 +398,7 @@ class TestCatalogPlatformMap:
             },
         )
         ref = CatalogTableReference(catalog="pm_catalog", database="mydb", table="logs")
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "paimon"
@@ -424,7 +425,7 @@ class TestCatalogPlatformMap:
             database="default_database",
             table="orders",
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "iceberg"  # config wins
@@ -452,7 +453,7 @@ class TestCatalogPlatformMap:
             database="default_database",
             table="orders",
         )
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is not None
         assert result.platform == "kafka"  # SQL Gateway result
@@ -465,6 +466,6 @@ class TestCatalogPlatformMap:
 
         resolver = PlatformResolver(client)  # no catalog_platform_map
         ref = CatalogTableReference(catalog="unknown_catalog", database="db", table="t")
-        result = resolver.resolve(ref)
+        result = resolver.resolve(ref, NodeRole.SOURCE)
 
         assert result is None

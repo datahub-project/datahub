@@ -16,6 +16,11 @@ from datahub.ingestion.source.flink.config import FlinkConnectionConfig
 
 logger = logging.getLogger(__name__)
 
+_CONFIG_URL = "/v1/config"
+_JOBS_OVERVIEW_URL = "/v1/jobs/overview"
+_JOB_DETAIL_URL = "/v1/jobs/{job_id}"
+_JOB_CHECKPOINTS_URL = "/v1/jobs/{job_id}/checkpoints/config"
+
 
 @dataclass(frozen=True)
 class FlinkPlanNode:
@@ -114,14 +119,14 @@ class FlinkRestClient:
         return response.json()
 
     def get_cluster_config(self) -> FlinkClusterConfig:
-        data = self._get("/v1/config")
+        data = self._get(_CONFIG_URL)
         return FlinkClusterConfig(
             flink_version=data.get("flink-version", "unknown"),
             timezone=data.get("timezone-name"),
         )
 
     def get_jobs_overview(self) -> List[FlinkJobSummary]:
-        data = self._get("/v1/jobs/overview")
+        data = self._get(_JOBS_OVERVIEW_URL)
         return [
             FlinkJobSummary(
                 jid=job["jid"],
@@ -136,7 +141,7 @@ class FlinkRestClient:
         ]
 
     def get_job_details(self, job_id: str) -> FlinkJobDetail:
-        data = self._get(f"/v1/jobs/{job_id}")
+        data = self._get(_JOB_DETAIL_URL.format(job_id=job_id))
         plan_nodes = [
             FlinkPlanNode(
                 id=str(node["id"]),
@@ -161,7 +166,7 @@ class FlinkRestClient:
 
     def get_checkpoint_config(self, job_id: str) -> Optional[FlinkCheckpointConfig]:
         try:
-            data = self._get(f"/v1/jobs/{job_id}/checkpoints/config")
+            data = self._get(_JOB_CHECKPOINTS_URL.format(job_id=job_id))
             ext = data.get("externalization") or {}
             return FlinkCheckpointConfig(
                 mode=data.get("mode"),
@@ -179,7 +184,7 @@ class FlinkRestClient:
             raise
 
     def test_connectivity(self) -> None:
-        self._get("/v1/config")
+        self._get(_CONFIG_URL)
 
     def close(self) -> None:
         self.session.close()

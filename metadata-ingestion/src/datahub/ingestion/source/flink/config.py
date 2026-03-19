@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Literal, Optional
+from typing import Dict, FrozenSet, List, Literal, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -7,10 +7,6 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
-)
-from datahub.ingestion.source.flink.constants import (
-    DEFAULT_INCLUDE_JOB_STATES,
-    VALID_FLINK_JOB_STATES,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -20,6 +16,24 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+VALID_FLINK_JOB_STATES: FrozenSet[str] = frozenset(
+    {
+        "INITIALIZING",
+        "CREATED",
+        "RUNNING",
+        "FAILING",
+        "FAILED",
+        "CANCELLING",
+        "CANCELED",
+        "FINISHED",
+        "RESTARTING",
+        "SUSPENDED",
+        "RECONCILING",
+    }
+)
+
+DEFAULT_INCLUDE_JOB_STATES: List[str] = ["RUNNING", "FINISHED", "FAILED", "CANCELED"]
 
 
 class FlinkConnectionConfig(ConfigModel):
@@ -68,6 +82,14 @@ class FlinkConnectionConfig(ConfigModel):
     verify_ssl: bool = Field(
         default=True,
         description="Verify SSL certificates for HTTPS connections.",
+    )
+
+    sql_gateway_operation_timeout_seconds: int = Field(
+        default=60,
+        ge=5,
+        description="Maximum time in seconds to wait for a SQL Gateway "
+        "operation (SHOW CATALOGS, DESCRIBE CATALOG, etc.) to complete. "
+        "Increase for slow catalog backends.",
     )
 
     @field_validator("rest_api_url", "sql_gateway_url", mode="before")

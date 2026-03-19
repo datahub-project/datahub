@@ -6,6 +6,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     InstanceRunResult,
 )
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.flink.client import (
     FlinkCheckpointConfig,
@@ -18,9 +19,10 @@ from datahub.metadata.urns import DataJobUrn, DatasetUrn
 from datahub.sdk._shared import DatasetUrnOrStr
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
-from datahub.sdk.dataset import Dataset
 
 logger = logging.getLogger(__name__)
+
+FLINK_PLATFORM = "flink"
 
 
 def compute_dataset_urns(
@@ -53,21 +55,17 @@ def compute_dataset_urns(
 def materialize_dataset_workunits(
     urns: List[DatasetUrnOrStr],
 ) -> List[MetadataWorkUnit]:
-    """Emit key aspects for lineage datasets so they exist in DataHub.
+    """Emit key aspects for lineage datasets."""
 
-    The new SDK DataJob does not auto-materialize inlet/outlet datasets
-    (unlike the legacy API). We emit minimal Dataset entities so the
-    UI can render lineage edges to these entities.
-    """
     workunits: List[MetadataWorkUnit] = []
     for urn_str in urns:
         dataset_urn = DatasetUrn.from_string(str(urn_str))
-        dataset = Dataset(
-            platform=str(dataset_urn.platform),
-            name=dataset_urn.name,
-            env=dataset_urn.env,
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataset_urn),
+                aspect=dataset_urn.to_key_aspect(),
+            ).as_workunit()
         )
-        workunits.extend(dataset.as_workunits())
     return workunits
 
 
@@ -94,7 +92,7 @@ class FlinkEntityBuilder:
         if job_detail.job_type:
             custom_props["job_type"] = job_detail.job_type
         if job_detail.max_parallelism is not None and job_detail.max_parallelism > 0:
-            custom_props["parallelism"] = str(job_detail.max_parallelism)
+            custom_props["max_parallelism"] = str(job_detail.max_parallelism)
         if job_detail.start_time > 0:
             custom_props["start_time"] = str(job_detail.start_time)
         if job_detail.duration > 0:
@@ -113,12 +111,14 @@ class FlinkEntityBuilder:
                 ).lower()
 
         return DataFlow(
-            platform="flink",
+            platform=FLINK_PLATFORM,
             name=job_detail.name,
             env=self.config.env,
             platform_instance=self.config.platform_instance,
             display_name=job_detail.name,
-            description=f"Flink {job_detail.job_type or 'streaming'} job",
+            description=f"Flink {job_detail.job_type.title()} job"
+            if job_detail.job_type
+            else "Flink job",
             external_url=self._job_url(job_detail.jid),
             custom_properties=custom_props,
         )
@@ -200,15 +200,18 @@ class FlinkEntityBuilder:
         outlets: List[DatasetUrnOrStr],
     ) -> Iterable[MetadataWorkUnit]:
         if job_detail.job_type == "BATCH":
-            process_type = DataProcessTypeClass.BATCH_SCHEDULED
-        else:
+            process_type: Optional[str] = DataProcessTypeClass.BATCH_SCHEDULED
+        elif job_detail.job_type == "STREAMING":
             process_type = DataProcessTypeClass.STREAMING
+        else:
+            # job_type is None on Flink < 1.20 (field added in FLINK-34914/FLIP-436).
+            process_type = None
 
         dpi = DataProcessInstance(
             id=f"{job_detail.name}_{job_detail.start_time}",
-            orchestrator="flink",
+            orchestrator=FLINK_PLATFORM,
             cluster=self.config.env,
-            type=process_type,
+            type=process_type,  # type: ignore[arg-type]  # PDL schema allows None; SDK wrapper is over-strict
             template_urn=DataJobUrn.from_string(str(datajob.urn)),
             properties={
                 "flink_job_id": job_detail.jid,
@@ -239,7 +242,7 @@ class FlinkEntityBuilder:
             for mcp in dpi.end_event_mcp(
                 end_timestamp_millis=job_detail.end_time,
                 result=state_to_result[job_detail.state],
-                result_type="flink",
+                result_type=FLINK_PLATFORM,
                 start_timestamp_millis=start_ts,
             ):
                 yield mcp.as_workunit()

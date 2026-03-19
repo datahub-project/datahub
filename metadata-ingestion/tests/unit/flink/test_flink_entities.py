@@ -231,13 +231,13 @@ class TestBuildDpiWorkunits:
         [
             ("BATCH", "BATCH_SCHEDULED"),
             ("STREAMING", "STREAMING"),
-            (None, "STREAMING"),
+            (None, None),
         ],
     )
     def test_dpi_process_type_matches_job_type(
         self, job_type: str, expected_type: str
     ) -> None:
-        """BATCH -> BATCH_SCHEDULED, STREAMING/None -> STREAMING in DPI properties."""
+        """BATCH -> BATCH_SCHEDULED, STREAMING -> STREAMING, None -> None (unknown on Flink < 1.20)."""
         wus = self._build_dpi_mcps(job_type=job_type, state="RUNNING")
         props = [
             wu
@@ -245,7 +245,7 @@ class TestBuildDpiWorkunits:
             if wu.metadata.aspectName == "dataProcessInstanceProperties"
         ]
         assert len(props) == 1
-        assert expected_type in str(props[0].metadata.aspect)
+        assert props[0].metadata.aspect.type == expected_type
 
     @pytest.mark.parametrize(
         "state,expected_result",

@@ -10,7 +10,7 @@ source:
             rest_api_url: "http://localhost:8081"
             # sql_gateway_url: "http://localhost:8083"  # Optional: for catalog metadata
         # include_lineage: true
-        # include_catalog_metadata: false
+        # include_run_history: true
         stateful_ingestion:
             enabled: true
 

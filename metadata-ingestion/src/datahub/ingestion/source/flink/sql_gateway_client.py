@@ -14,6 +14,15 @@ from datahub.ingestion.source.flink.config import FlinkConnectionConfig
 
 logger = logging.getLogger(__name__)
 
+_SESSIONS_URL = "/v1/sessions"
+_SESSION_STATEMENTS_URL = _SESSIONS_URL + "/{session_handle}/statements"
+_OPERATION_RESULT_URL = (
+    _SESSIONS_URL
+    + "/{session_handle}/operations/{operation_handle}/result/{result_token}"
+)
+_OPERATION_STATUS_URL = (
+    _SESSIONS_URL + "/{session_handle}/operations/{operation_handle}/status"
+)
 _SAFE_IDENTIFIER = re.compile(r"^[a-zA-Z0-9_.\-]+$")
 
 
@@ -40,6 +49,7 @@ class FlinkSQLGatewayClient:
 
         self.base_url = config.sql_gateway_url
         self.timeout = config.timeout_seconds
+        self.operation_timeout = config.sql_gateway_operation_timeout_seconds
         self.session = create_authenticated_session(config)
         self._session_handle: Optional[str] = None
 
@@ -69,7 +79,7 @@ class FlinkSQLGatewayClient:
     def open_session(self) -> str:
         if self._session_handle:
             return self._session_handle
-        response = self._request("POST", "/v1/sessions", json_body={"properties": {}})
+        response = self._request("POST", _SESSIONS_URL, json_body={"properties": {}})
         self._session_handle = response["sessionHandle"]
         logger.info("Opened SQL Gateway session: %s", self._session_handle)
         return self._session_handle
@@ -78,7 +88,7 @@ class FlinkSQLGatewayClient:
         if not self._session_handle:
             return
         try:
-            self._request("DELETE", f"/v1/sessions/{self._session_handle}")
+            self._request("DELETE", f"{_SESSIONS_URL}/{self._session_handle}")
             logger.info("Closed SQL Gateway session: %s", self._session_handle)
         except Exception:
             logger.warning("Failed to close SQL Gateway session", exc_info=True)
@@ -90,7 +100,7 @@ class FlinkSQLGatewayClient:
 
         response = self._request(
             "POST",
-            f"/v1/sessions/{session_handle}/statements",
+            _SESSION_STATEMENTS_URL.format(session_handle=session_handle),
             json_body={"statement": sql},
         )
         operation_handle = response["operationHandle"]
@@ -99,14 +109,22 @@ class FlinkSQLGatewayClient:
         while True:
             result_response = self._request(
                 "GET",
-                f"/v1/sessions/{session_handle}/operations/{operation_handle}/result/{result_token}",
+                _OPERATION_RESULT_URL.format(
+                    session_handle=session_handle,
+                    operation_handle=operation_handle,
+                    result_token=result_token,
+                ),
             )
 
             if result_response.get("resultType") == "NOT_READY":
                 self._wait_for_operation(session_handle, operation_handle)
                 result_response = self._request(
                     "GET",
-                    f"/v1/sessions/{session_handle}/operations/{operation_handle}/result/{result_token}",
+                    _OPERATION_RESULT_URL.format(
+                        session_handle=session_handle,
+                        operation_handle=operation_handle,
+                        result_token=result_token,
+                    ),
                 )
 
             data = result_response.get("results", {}).get("data", [])
@@ -118,14 +136,18 @@ class FlinkSQLGatewayClient:
             result_token += 1
 
     def _wait_for_operation(self, session_handle: str, operation_handle: str) -> None:
-        max_wait = 30.0
+        max_wait = float(self.operation_timeout)
         waited = 0.0
+        backoff_sec = 0.5
         while waited < max_wait:
-            time.sleep(0.5)
-            waited += 0.5
+            time.sleep(backoff_sec)
+            waited += backoff_sec
             status_response = self._request(
                 "GET",
-                f"/v1/sessions/{session_handle}/operations/{operation_handle}/status",
+                _OPERATION_STATUS_URL.format(
+                    session_handle=session_handle,
+                    operation_handle=operation_handle,
+                ),
             )
             status = status_response.get("status")
             if status == "FINISHED":
@@ -139,6 +161,7 @@ class FlinkSQLGatewayClient:
                 raise RuntimeError(
                     f"SQL Gateway operation {operation_handle} was canceled"
                 )
+            backoff_sec = min(backoff_sec * 2, 5.0)
         raise TimeoutError(
             f"SQL Gateway operation {operation_handle} did not complete within {max_wait}s"
         )
