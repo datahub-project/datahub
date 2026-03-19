@@ -432,7 +432,7 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        column=column.name.lower(),
+                        column=column.name,
                     )
                 ]
 
