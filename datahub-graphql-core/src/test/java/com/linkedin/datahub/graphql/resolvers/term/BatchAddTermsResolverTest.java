@@ -12,6 +12,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchAddTermsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -20,6 +21,9 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -38,32 +42,32 @@ public class BatchAddTermsResolverTest {
     EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
+                eq(Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                eq(Set.of(Constants.GLOSSARY_TERMS_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(null);
 
+    // Mock batch exists() calls for validation - return all requested URNs as existing
     Mockito.when(
-            mockService.getAspect(
+            mockService.exists(
                 any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
-        .thenReturn(null);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
+                eq(List.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2)));
     Mockito.when(
-            mockService.exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(
-            mockService.exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_2_URN)), eq(true)))
-        .thenReturn(true);
+            mockService.exists(
+                any(),
+                eq(
+                    List.of(
+                        UrnUtils.getUrn(TEST_GLOSSARY_TERM_1_URN),
+                        UrnUtils.getUrn(TEST_GLOSSARY_TERM_2_URN))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                UrnUtils.getUrn(TEST_GLOSSARY_TERM_1_URN),
+                UrnUtils.getUrn(TEST_GLOSSARY_TERM_2_URN)));
 
     BatchAddTermsResolver resolver = new BatchAddTermsResolver(mockService);
 
@@ -83,10 +87,13 @@ public class BatchAddTermsResolverTest {
     verifyIngestProposal(mockService, 1);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_2_URN)), eq(true));
+        .exists(
+            any(),
+            eq(
+                List.of(
+                    Urn.createFromString(TEST_GLOSSARY_TERM_1_URN),
+                    Urn.createFromString(TEST_GLOSSARY_TERM_2_URN))),
+            eq(true));
   }
 
   @Test
@@ -100,34 +107,38 @@ public class BatchAddTermsResolverTest {
                             .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_1_URN)))));
 
     EntityService<?> mockService = getMockEntityService();
-
+    Map<Urn, List<RecordTemplate>> result =
+        Map.of(
+            UrnUtils.getUrn(TEST_ENTITY_URN_1),
+            List.of(originalTerms),
+            UrnUtils.getUrn(TEST_ENTITY_URN_2),
+            List.of(originalTerms));
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
-        .thenReturn(originalTerms);
+                eq(Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                eq(Set.of(Constants.GLOSSARY_TERMS_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(result);
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.exists(
                 any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
-        .thenReturn(originalTerms);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
+                eq(List.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2)));
     Mockito.when(
-            mockService.exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(
-            mockService.exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_2_URN)), eq(true)))
-        .thenReturn(true);
+            mockService.exists(
+                any(),
+                eq(
+                    List.of(
+                        UrnUtils.getUrn(TEST_GLOSSARY_TERM_1_URN),
+                        UrnUtils.getUrn(TEST_GLOSSARY_TERM_2_URN))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                UrnUtils.getUrn(TEST_GLOSSARY_TERM_1_URN),
+                UrnUtils.getUrn(TEST_GLOSSARY_TERM_2_URN)));
 
     BatchAddTermsResolver resolver = new BatchAddTermsResolver(mockService);
 
@@ -147,10 +158,13 @@ public class BatchAddTermsResolverTest {
     verifyIngestProposal(mockService, 1);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_GLOSSARY_TERM_2_URN)), eq(true));
+        .exists(
+            any(),
+            eq(
+                List.of(
+                    Urn.createFromString(TEST_GLOSSARY_TERM_1_URN),
+                    Urn.createFromString(TEST_GLOSSARY_TERM_2_URN))),
+            eq(true));
   }
 
   @Test

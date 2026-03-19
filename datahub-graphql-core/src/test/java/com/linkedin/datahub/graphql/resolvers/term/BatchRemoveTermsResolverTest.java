@@ -12,6 +12,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchRemoveTermsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -20,6 +21,9 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -38,29 +42,35 @@ public class BatchRemoveTermsResolverTest {
     EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
+                eq(Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                eq(Set.of(Constants.GLOSSARY_TERMS_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(null);
+
     Mockito.when(
-            mockService.getAspect(
+            mockService.exists(
                 any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
-        .thenReturn(null);
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_ENTITY_URN_1),
+                        Urn.createFromString(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                Urn.createFromString(TEST_ENTITY_URN_1), Urn.createFromString(TEST_ENTITY_URN_2)));
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
-        .thenReturn(true);
+    Mockito.when(
+            mockService.exists(
+                any(),
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_TERM_1_URN),
+                        Urn.createFromString(TEST_TERM_2_URN))),
+                eq(true)))
+        .thenReturn(
+            Set.of(Urn.createFromString(TEST_TERM_1_URN), Urn.createFromString(TEST_TERM_2_URN)));
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
 
@@ -94,14 +104,6 @@ public class BatchRemoveTermsResolverTest {
                         new GlossaryTermAssociation()
                             .setUrn(GlossaryTermUrn.createFromString(TEST_TERM_2_URN)))));
 
-    Mockito.when(
-            mockService.getAspect(
-                any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
-        .thenReturn(oldTerms1);
-
     final GlossaryTerms oldTerms2 =
         new GlossaryTerms()
             .setTerms(
@@ -110,18 +112,31 @@ public class BatchRemoveTermsResolverTest {
                         new GlossaryTermAssociation()
                             .setUrn(GlossaryTermUrn.createFromString(TEST_TERM_1_URN)))));
 
+    Map<Urn, List<RecordTemplate>> result =
+        Map.of(
+            UrnUtils.getUrn(TEST_ENTITY_URN_1),
+            List.of(oldTerms1),
+            UrnUtils.getUrn(TEST_ENTITY_URN_2),
+            List.of(oldTerms2));
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
-                eq(0L)))
-        .thenReturn(oldTerms2);
+                eq(Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                eq(Set.of(Constants.GLOSSARY_TERMS_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(result);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    Mockito.when(
+            mockService.exists(
+                any(),
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_ENTITY_URN_1),
+                        Urn.createFromString(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                Urn.createFromString(TEST_ENTITY_URN_1), Urn.createFromString(TEST_ENTITY_URN_2)));
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);

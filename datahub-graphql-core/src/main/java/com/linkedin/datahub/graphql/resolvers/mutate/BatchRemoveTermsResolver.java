@@ -59,24 +59,19 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
 
   private void validateInputResources(
       @Nonnull OperationContext opContext, List<ResourceRefInput> resources, QueryContext context) {
-    for (ResourceRefInput resource : resources) {
-      validateInputResource(opContext, resource, context);
-    }
+    validateInputResource(opContext, resources, context);
   }
 
   private void validateInputResource(
-      @Nonnull OperationContext opContext, ResourceRefInput resource, QueryContext context) {
-    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTerms(context, resourceUrn, resource.getSubResource())) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      @Nonnull OperationContext opContext, List<ResourceRefInput> resources, QueryContext context) {
+    for (ResourceRefInput resource : resources) {
+      final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+      if (!LabelUtils.isAuthorizedToUpdateTerms(context, resourceUrn, resource.getSubResource())) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
-    LabelUtils.validateResource(
-        opContext,
-        resourceUrn,
-        resource.getSubResource(),
-        resource.getSubResourceType(),
-        _entityService);
+    LabelUtils.validateResources(opContext, resources, _entityService);
   }
 
   private void batchRemoveTerms(

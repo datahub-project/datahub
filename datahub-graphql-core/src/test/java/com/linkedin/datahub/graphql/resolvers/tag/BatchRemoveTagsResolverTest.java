@@ -13,6 +13,7 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchRemoveTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -27,6 +28,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -45,11 +48,12 @@ public class BatchRemoveTagsResolverTest {
     EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
-                Mockito.eq(0L)))
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.GLOBAL_TAGS_ASPECT_NAME)),
+                Mockito.eq(false)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
@@ -59,10 +63,17 @@ public class BatchRemoveTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    Mockito.when(
+            mockService.exists(
+                any(),
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_ENTITY_URN_1),
+                        Urn.createFromString(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                Urn.createFromString(TEST_ENTITY_URN_1), Urn.createFromString(TEST_ENTITY_URN_2)));
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
         .thenReturn(true);
@@ -114,20 +125,26 @@ public class BatchRemoveTagsResolverTest {
                         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_1_URN)),
                         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_2_URN)))));
 
-    Mockito.when(
-            mockService.getAspect(
-                any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(oldTags1);
-
     final GlobalTags oldTags2 =
         new GlobalTags()
             .setTags(
                 new TagAssociationArray(
                     ImmutableList.of(
                         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_1_URN)))));
+    Map<Urn, List<RecordTemplate>> result =
+        Map.of(
+            UrnUtils.getUrn(TEST_ENTITY_URN_1),
+            List.of(oldTags1),
+            UrnUtils.getUrn(TEST_ENTITY_URN_2),
+            List.of(oldTags2));
+    Mockito.when(
+            mockService.getLatestAspects(
+                any(),
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.GLOBAL_TAGS_ASPECT_NAME)),
+                Mockito.eq(false)))
+        .thenReturn(result);
 
     Mockito.when(
             mockService.getAspect(
@@ -137,10 +154,17 @@ public class BatchRemoveTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(oldTags2);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    Mockito.when(
+            mockService.exists(
+                any(),
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_ENTITY_URN_1),
+                        Urn.createFromString(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                Urn.createFromString(TEST_ENTITY_URN_1), Urn.createFromString(TEST_ENTITY_URN_2)));
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
         .thenReturn(true);

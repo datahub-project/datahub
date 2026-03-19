@@ -63,28 +63,23 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
       List<ResourceRefInput> resources,
       QueryContext context,
       Collection<Urn> tagUrns) {
-    for (ResourceRefInput resource : resources) {
-      validateInputResource(opContext, resource, context, tagUrns);
-    }
+    validateInputResource(opContext, resources, context, tagUrns);
   }
 
   private void validateInputResource(
       @Nonnull OperationContext opContext,
-      ResourceRefInput resource,
+      List<ResourceRefInput> resources,
       QueryContext context,
       Collection<Urn> tagUrns) {
-    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTags(
-        context, resourceUrn, resource.getSubResource(), tagUrns)) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    for (ResourceRefInput resource : resources) {
+      final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+      if (!LabelUtils.isAuthorizedToUpdateTags(
+          context, resourceUrn, resource.getSubResource(), tagUrns)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
-    LabelUtils.validateResource(
-        opContext,
-        resourceUrn,
-        resource.getSubResource(),
-        resource.getSubResourceType(),
-        _entityService);
+    LabelUtils.validateResources(opContext, resources, _entityService);
   }
 
   private void batchRemoveTags(

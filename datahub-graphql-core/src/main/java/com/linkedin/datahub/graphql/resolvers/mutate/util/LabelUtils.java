@@ -16,6 +16,7 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -31,9 +32,17 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.util.CollectionUtils;
 
 // TODO: Move to consuming GlossaryTermService, TagService.
 @Slf4j
@@ -122,6 +131,219 @@ public class LabelUtils {
       changes.add(buildAddTagsProposal(opContext, tagUrns, resource, actor, entityService));
     }
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
+  }
+
+  /**
+   * Optimized batch version of addTagsToResources that reduces N+1 queries. Batch-reads all aspects
+   * instead of reading per-resource.
+   */
+  public static void addTagsToResourcesOptimized(
+      @Nonnull OperationContext opContext,
+      List<Urn> tagUrns,
+      List<ResourceRefInput> resources,
+      Urn actor,
+      EntityService<?> entityService)
+      throws Exception {
+    Map<Boolean, List<ResourceRefInput>> partitioned =
+        resources.stream()
+            .collect(
+                Collectors.partitioningBy(
+                    r -> r.getSubResource() == null || r.getSubResource().isEmpty()));
+
+    List<ResourceRefInput> entityResources = partitioned.get(true);
+    List<ResourceRefInput> subResourcesList = partitioned.get(false);
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+
+    Map<Urn, GlobalTags> globalTagsByUrn =
+        batchReadGlobalTags(opContext, entityResources, entityService);
+
+    List<ResourceRefInput> businessEntityResources =
+        entityResources.stream()
+            .filter(
+                r -> {
+                  Urn urn = UrnUtils.getUrn(r.getResourceUrn());
+                  return urn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME);
+                })
+            .toList();
+
+    Map<Urn, BusinessAttributeInfo> businessAttributeTagsByUrn =
+        batchReadBusinessAttributeInfo(opContext, businessEntityResources, entityService);
+
+    for (ResourceRefInput resource : entityResources) {
+      Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+      if (resourceUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        BusinessAttributeInfo businessAttributeInfo =
+            businessAttributeTagsByUrn.getOrDefault(resourceUrn, new BusinessAttributeInfo());
+        changes.add(buildMCPForBusinessProposal(businessAttributeInfo, tagUrns, resource));
+      } else {
+        GlobalTags tags = globalTagsByUrn.getOrDefault(resourceUrn, new GlobalTags());
+        changes.add(buildMcp(tags, tagUrns, resource));
+      }
+    }
+
+    Map<Urn, EditableSchemaMetadata> schemaByUrn =
+        batchReadEditableSchemaMetadata(opContext, subResourcesList, entityService);
+
+    Map<Urn, List<ResourceRefInput>> subResourcesByDataset =
+        subResourcesList.stream()
+            .collect(
+                Collectors.groupingBy(
+                    r -> UrnUtils.getUrn(r.getResourceUrn()), Collectors.toList()));
+
+    for (Map.Entry<Urn, List<ResourceRefInput>> entry : subResourcesByDataset.entrySet()) {
+      Urn datasetUrn = entry.getKey();
+      List<ResourceRefInput> fieldsInDataset = entry.getValue();
+      EditableSchemaMetadata schema =
+          schemaByUrn.getOrDefault(datasetUrn, new EditableSchemaMetadata());
+
+      for (ResourceRefInput resource : fieldsInDataset) {
+        EditableSchemaFieldInfo fieldInfo =
+            getFieldInfoFromSchema(schema, resource.getSubResource());
+        if (fieldInfo.getGlobalTags() == null) {
+          fieldInfo.setGlobalTags(new GlobalTags());
+        }
+        addTagsIfNotExists(fieldInfo.getGlobalTags(), tagUrns);
+      }
+
+      changes.add(
+          buildMetadataChangeProposalWithUrn(
+              datasetUrn, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, schema));
+    }
+
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
+  }
+
+  /** Batch-read GlobalTags for all entity-level resources (1 query instead of N) */
+  private static Map<Urn, GlobalTags> batchReadGlobalTags(
+      @Nonnull OperationContext opContext,
+      List<ResourceRefInput> resources,
+      EntityService<?> entityService) {
+    Map<Urn, GlobalTags> result = new HashMap<>();
+    if (resources.isEmpty()) {
+      return result;
+    }
+
+    try {
+      Set<Urn> resourceUrns =
+          resources.stream()
+              .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
+              .collect(Collectors.toSet());
+
+      Map<Urn, List<RecordTemplate>> allAspects =
+          entityService.getLatestAspects(
+              opContext,
+              resourceUrns,
+              new HashSet<>(List.of(Constants.GLOBAL_TAGS_ASPECT_NAME)),
+              false);
+
+      for (Map.Entry<Urn, List<RecordTemplate>> entry : allAspects.entrySet()) {
+        if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+          RecordTemplate aspectRecord = entry.getValue().get(0);
+          if (aspectRecord instanceof GlobalTags) {
+            result.put(entry.getKey(), (GlobalTags) aspectRecord);
+          } else {
+            result.put(entry.getKey(), new GlobalTags());
+          }
+        } else {
+          result.put(entry.getKey(), new GlobalTags());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Failed to batch-read GlobalTags, falling back to empty map", e);
+      resources.stream()
+          .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
+          .forEach(urn -> result.put(urn, new GlobalTags()));
+    }
+    return result;
+  }
+
+  /** Batch-read EditableSchemaMetadata for all subresources (1 query instead of N) */
+  private static Map<Urn, EditableSchemaMetadata> batchReadEditableSchemaMetadata(
+      @Nonnull OperationContext opContext,
+      List<ResourceRefInput> resources,
+      EntityService<?> entityService) {
+    Map<Urn, EditableSchemaMetadata> result = new HashMap<>();
+    if (resources.isEmpty()) {
+      return result;
+    }
+
+    try {
+      Set<Urn> resourceUrns =
+          resources.stream()
+              .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
+              .collect(Collectors.toSet());
+
+      Map<Urn, List<RecordTemplate>> allAspects =
+          entityService.getLatestAspects(
+              opContext,
+              resourceUrns,
+              new HashSet<>(List.of(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME)),
+              false);
+
+      for (Map.Entry<Urn, List<RecordTemplate>> entry : allAspects.entrySet()) {
+        if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+          RecordTemplate aspectRecord = entry.getValue().get(0);
+          if (aspectRecord instanceof EditableSchemaMetadata) {
+            result.put(entry.getKey(), (EditableSchemaMetadata) aspectRecord);
+          } else {
+            result.put(entry.getKey(), new EditableSchemaMetadata());
+          }
+        } else {
+          result.put(entry.getKey(), new EditableSchemaMetadata());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Failed to batch-read EditableSchemaMetadata, falling back to empty map", e);
+      resources.stream()
+          .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
+          .forEach(urn -> result.put(urn, new EditableSchemaMetadata()));
+    }
+    return result;
+  }
+
+  /** Batch-read BusinessAttributeInfo for all business attribute entities (1 query instead of N) */
+  private static Map<Urn, BusinessAttributeInfo> batchReadBusinessAttributeInfo(
+      @Nonnull OperationContext opContext,
+      List<ResourceRefInput> resources,
+      EntityService<?> entityService) {
+    Map<Urn, BusinessAttributeInfo> result = new HashMap<>();
+    if (resources.isEmpty()) {
+      return result;
+    }
+
+    try {
+      Set<Urn> resourceUrns =
+          resources.stream()
+              .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
+              .collect(Collectors.toSet());
+
+      Map<Urn, List<RecordTemplate>> allAspects =
+          entityService.getLatestAspects(
+              opContext,
+              resourceUrns,
+              new HashSet<>(List.of(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME)),
+              false);
+
+      for (Map.Entry<Urn, List<RecordTemplate>> entry : allAspects.entrySet()) {
+        if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+          RecordTemplate aspectRecord = entry.getValue().get(0);
+          if (aspectRecord instanceof BusinessAttributeInfo) {
+            result.put(entry.getKey(), (BusinessAttributeInfo) aspectRecord);
+          } else {
+            result.put(entry.getKey(), new BusinessAttributeInfo());
+          }
+        } else {
+          result.put(entry.getKey(), new BusinessAttributeInfo());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Failed to batch-read BusinessAttributeInfo, falling back to empty map", e);
+      resources.stream()
+          .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
+          .forEach(urn -> result.put(urn, new BusinessAttributeInfo()));
+    }
+    return result;
   }
 
   public static void removeTermsFromResources(
@@ -824,5 +1046,97 @@ public class LabelUtils {
         UrnUtils.getUrn(resource.getResourceUrn()),
         Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
         businessAttributeInfo);
+  }
+
+  public static void validateLabels(
+      @Nonnull OperationContext opContext,
+      List<Urn> labelUrns,
+      String labelEntityType,
+      EntityService<?> entityService) {
+    for (Urn labelUrn : labelUrns) {
+      if (!labelUrn.getEntityType().equals(labelEntityType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to validate label with urn %s. Urn type does not match entity type %s..",
+                labelUrn, labelEntityType));
+      }
+    }
+    Map<String, Urn> existingUrns =
+        entityService.exists(opContext, labelUrns, true).stream()
+            .collect(Collectors.toMap(Urn::toString, Function.identity()));
+    for (Urn labelUrn : labelUrns) {
+      if (!existingUrns.containsKey(labelUrn.toString())) {
+        throw new IllegalArgumentException(
+            String.format("Failed to validate label with urn %s. Urn does not exist.", labelUrn));
+      }
+    }
+  }
+
+  private static MetadataChangeProposal buildMcp(
+      GlobalTags tags, List<Urn> tagUrns, ResourceRefInput resource) throws URISyntaxException {
+    if (!tags.hasTags()) {
+      tags.setTags(new TagAssociationArray());
+    }
+    addTagsIfNotExists(tags, tagUrns);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOBAL_TAGS_ASPECT_NAME, tags);
+  }
+
+  private static MetadataChangeProposal buildMCPForBusinessProposal(
+      BusinessAttributeInfo businessAttributeInfo, List<Urn> tagUrns, ResourceRefInput resource)
+      throws URISyntaxException {
+    if (!businessAttributeInfo.hasGlobalTags()) {
+      businessAttributeInfo.setGlobalTags(new GlobalTags());
+    }
+    addTagsIfNotExists(businessAttributeInfo.getGlobalTags(), tagUrns);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
+  }
+
+  public record UrnSubResource(Urn urn, SubResourceType subResourceType, String subresource) {}
+
+  public static void validateResources(
+      @Nonnull OperationContext opContext,
+      List<ResourceRefInput> resources,
+      EntityService<?> entityService) {
+    if (CollectionUtils.isEmpty(resources)) {
+      return;
+    }
+    List<Urn> urns = resources.stream().map(r -> UrnUtils.getUrn(r.getResourceUrn())).toList();
+    Map<String, Urn> existingUrns =
+        entityService.exists(opContext, urns, true).stream()
+            .collect(Collectors.toMap(Urn::toString, Function.identity()));
+    for (Urn urn : urns) {
+      if (!existingUrns.containsKey(urn.toString())) {
+        throw new IllegalArgumentException(
+            String.format("Failed to validate resource with urn %s. Urn does not exist.", urn));
+      }
+    }
+
+    List<UrnSubResource> subResourcesToValidate = new ArrayList<>();
+    for (int i = 0; i < resources.size(); i++) {
+      ResourceRefInput resource = resources.get(i);
+      Urn resourceUrn = urns.get(i);
+      String subResource = resource.getSubResource();
+      SubResourceType subResourceType = resource.getSubResourceType();
+      if (!StringUtils.isEmpty(subResource) || subResourceType != null) {
+        if (StringUtils.isEmpty(subResource)) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Failed to update resource with urn %s. SubResourceType (%s) provided without a subResource.",
+                  resourceUrn, subResourceType));
+        }
+        if (subResourceType == null) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Failed to updates resource with urn %s. SubResource (%s) provided without a subResourceType.",
+                  resourceUrn, subResource));
+        }
+        subResourcesToValidate.add(new UrnSubResource(resourceUrn, subResourceType, subResource));
+      }
+    }
+    validateSubresourcesExists(opContext, subResourcesToValidate, entityService);
   }
 }

@@ -68,27 +68,23 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
 
   private void validateInputResources(
       @Nonnull OperationContext opContext, List<ResourceRefInput> resources, QueryContext context) {
-    for (ResourceRefInput resource : resources) {
-      validateInputResource(opContext, resource, context);
-    }
+    validateInputResource(opContext, resources, context);
   }
 
   private void validateInputResource(
-      @Nonnull OperationContext opContext, ResourceRefInput resource, QueryContext context) {
-    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-
-    if (resource.getSubResource() != null) {
-      throw new IllegalArgumentException(
-          "Malformed input provided: owners cannot be applied to subresources.");
+      @Nonnull OperationContext opContext, List<ResourceRefInput> resources, QueryContext context) {
+    for (ResourceRefInput resource : resources) {
+      if (resource.getSubResource() != null) {
+        throw new IllegalArgumentException(
+            "Malformed input provided: owners cannot be applied to subresources.");
+      }
+    }
+    List<Urn> urns = resources.stream().map(r -> UrnUtils.getUrn(r.getResourceUrn())).toList();
+    for (Urn resourceUrn : urns) {
+      OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
     }
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
-    LabelUtils.validateResource(
-        opContext,
-        resourceUrn,
-        resource.getSubResource(),
-        resource.getSubResourceType(),
-        _entityService);
+    LabelUtils.validateResources(opContext, resources, _entityService);
   }
 
   private void batchAddOwners(

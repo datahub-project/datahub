@@ -62,23 +62,18 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
-    for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
-    }
+    validateInputResource(resources, context);
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
-    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, resourceUrn)) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+  private void validateInputResource(List<ResourceRefInput> resources, QueryContext context) {
+    for (ResourceRefInput resource : resources) {
+      final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+      if (!DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, resourceUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
-    LabelUtils.validateResource(
-        context.getOperationContext(),
-        resourceUrn,
-        resource.getSubResource(),
-        resource.getSubResourceType(),
-        _entityService);
+    LabelUtils.validateResources(context.getOperationContext(), resources, _entityService);
   }
 
   private void batchUpdateDeprecation(

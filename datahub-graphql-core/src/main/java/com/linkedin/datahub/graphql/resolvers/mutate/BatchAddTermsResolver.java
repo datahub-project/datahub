@@ -128,30 +128,24 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
   }
 
   private void validateTerms(@Nonnull OperationContext opContext, List<Urn> termUrns) {
-    for (Urn termUrn : termUrns) {
-      LabelUtils.validateLabel(
-          opContext, termUrn, Constants.GLOSSARY_TERM_ENTITY_NAME, _entityService);
-    }
+    LabelUtils.validateLabels(
+        opContext, termUrns, Constants.GLOSSARY_TERM_ENTITY_NAME, _entityService);
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
-    for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
-    }
+    validateInputResource(resources, context);
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
-    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTerms(context, resourceUrn, resource.getSubResource())) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+  private void validateInputResource(List<ResourceRefInput> resources, QueryContext context) {
+    for (ResourceRefInput resource : resources) {
+      final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+      if (!LabelUtils.isAuthorizedToUpdateTerms(context, resourceUrn, resource.getSubResource())) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
-    LabelUtils.validateResource(
-        context.getOperationContext(),
-        resourceUrn,
-        resource.getSubResource(),
-        resource.getSubResourceType(),
-        _entityService);
+
+    LabelUtils.validateResources(context.getOperationContext(), resources, _entityService);
   }
 
   private void batchAddTerms(

@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -25,6 +26,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -59,10 +62,17 @@ public class BatchSetDomainResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    Mockito.when(
+            mockService.exists(
+                any(),
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_ENTITY_URN_1),
+                        Urn.createFromString(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                Urn.createFromString(TEST_ENTITY_URN_1), Urn.createFromString(TEST_ENTITY_URN_2)));
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
         .thenReturn(true);
@@ -109,27 +119,30 @@ public class BatchSetDomainResolverTest {
 
     EntityService<?> mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Map<Urn, List<RecordTemplate>> result =
+        Map.of(
+            UrnUtils.getUrn(TEST_ENTITY_URN_1), List.of(originalDomain),
+            UrnUtils.getUrn(TEST_ENTITY_URN_2), List.of(originalDomain));
+    Mockito.when(
+            mockService.getLatestAspects(
+                any(),
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.DOMAINS_ASPECT_NAME)),
+                Mockito.eq(false)))
+        .thenReturn(result);
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.exists(
                 any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(originalDomain);
-
-    Mockito.when(
-            mockService.getAspect(
-                any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(originalDomain);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_ENTITY_URN_1),
+                        Urn.createFromString(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                Urn.createFromString(TEST_ENTITY_URN_1), Urn.createFromString(TEST_ENTITY_URN_2)));
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
         .thenReturn(true);
@@ -182,24 +195,30 @@ public class BatchSetDomainResolverTest {
     EntityService<?> mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
+    Map<Urn, List<RecordTemplate>> result =
+        Map.of(
+            UrnUtils.getUrn(TEST_ENTITY_URN_1), List.of(originalDomain),
+            UrnUtils.getUrn(TEST_ENTITY_URN_2), List.of(originalDomain));
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(originalDomain);
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.DOMAINS_ASPECT_NAME)),
+                Mockito.eq(false)))
+        .thenReturn(result);
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.exists(
                 any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                Mockito.eq(Constants.DOMAINS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(originalDomain);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
+                eq(
+                    List.of(
+                        Urn.createFromString(TEST_ENTITY_URN_1),
+                        Urn.createFromString(TEST_ENTITY_URN_2))),
+                eq(true)))
+        .thenReturn(
+            Set.of(
+                Urn.createFromString(TEST_ENTITY_URN_1), Urn.createFromString(TEST_ENTITY_URN_2)));
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 

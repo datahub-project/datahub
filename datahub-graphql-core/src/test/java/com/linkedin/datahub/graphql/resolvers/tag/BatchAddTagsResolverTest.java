@@ -23,7 +23,9 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -57,15 +59,13 @@ public class BatchAddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    // Mock batch exists() calls for validation - return all requested URNs as existing
+    Mockito.when(mockService.exists(any(), any(java.util.Collection.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              java.util.Collection<Urn> urns = invocation.getArgument(1);
+              return new java.util.HashSet<>(urns);
+            });
 
     BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
 
@@ -100,10 +100,12 @@ public class BatchAddTagsResolverTest {
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true));
+        .exists(
+            any(),
+            Mockito.eq(
+                List.of(
+                    Urn.createFromString(TEST_TAG_1_URN), Urn.createFromString(TEST_TAG_2_URN))),
+            eq(true));
   }
 
   @Test
@@ -118,12 +120,13 @@ public class BatchAddTagsResolverTest {
     EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(originalTags);
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.GLOBAL_TAGS_ASPECT_NAME)),
+                Mockito.eq(false)))
+        .thenReturn(new HashMap<>());
 
     Mockito.when(
             mockService.getAspect(
@@ -133,15 +136,13 @@ public class BatchAddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalTags);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    // Mock batch exists() calls for validation - return all requested URNs as existing
+    Mockito.when(mockService.exists(any(), any(java.util.Collection.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              java.util.Collection<Urn> urns = invocation.getArgument(1);
+              return new java.util.HashSet<>(urns);
+            });
 
     BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
 
@@ -176,10 +177,12 @@ public class BatchAddTagsResolverTest {
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true));
+        .exists(
+            any(),
+            Mockito.eq(
+                List.of(
+                    Urn.createFromString(TEST_TAG_1_URN), Urn.createFromString(TEST_TAG_2_URN))),
+            eq(true));
   }
 
   @Test

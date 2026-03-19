@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -20,9 +21,11 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 
 @Slf4j
 public class MutationUtils {
@@ -113,6 +116,61 @@ public class MutationUtils {
       editableSchemaMetadataArray.add(newFieldInfo);
       return newFieldInfo;
     }
+  }
+
+  public static boolean validateSubresourcesExists(
+      @Nonnull OperationContext opContext,
+      List<LabelUtils.UrnSubResource> subresources,
+      EntityService entityService) {
+    if (CollectionUtils.isEmpty(subresources)) {
+      return true;
+    }
+    List<LabelUtils.UrnSubResource> invaidList =
+        subresources.stream()
+            .filter(sub -> !sub.subResourceType().equals(SubResourceType.DATASET_FIELD))
+            .toList();
+    if (!CollectionUtils.isEmpty(invaidList)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to update %s. SubResourceType (%s) is not valid. Types supported: %s.",
+              invaidList.get(0).urn(),
+              invaidList.get(0).subresource(),
+              Arrays.toString(SubResourceType.values())));
+    }
+
+    Map<Urn, List<RecordTemplate>> records =
+        entityService.getLatestAspects(
+            opContext,
+            subresources.stream().map(LabelUtils.UrnSubResource::urn).collect(Collectors.toSet()),
+            Set.of(SCHEMA_METADATA_ASPECT_NAME),
+            false);
+    for (LabelUtils.UrnSubResource subresource : subresources) {
+      SubResourceType subResourceType = subresource.subResourceType();
+      if (subResourceType.equals(SubResourceType.DATASET_FIELD)) {
+        List<RecordTemplate> metadata = records.getOrDefault(subresource.urn(), null);
+
+        if (CollectionUtils.isEmpty(metadata)) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Failed to update %s & field %s. %s has no schema.",
+                  subresource.urn(), subresource.subresource(), subresource.urn()));
+        }
+        SchemaMetadata schemaMetadata = (SchemaMetadata) metadata.get(0);
+
+        Optional<SchemaField> fieldMatch =
+            schemaMetadata.getFields().stream()
+                .filter(field -> field.getFieldPath().equals(subresource.subresource()))
+                .findFirst();
+
+        if (fieldMatch.isEmpty()) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Failed to update %s & field %s. Field %s does not exist in the datasets schema.",
+                  subresource.urn(), subresource.subresource(), subresource.subresource()));
+        }
+      }
+    }
+    return true;
   }
 
   public static Boolean validateSubresourceExists(

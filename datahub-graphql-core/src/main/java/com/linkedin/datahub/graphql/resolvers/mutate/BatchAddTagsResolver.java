@@ -129,39 +129,32 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
   }
 
   private void validateTags(@Nonnull OperationContext opContext, List<Urn> tagUrns) {
-    for (Urn tagUrn : tagUrns) {
-      LabelUtils.validateLabel(opContext, tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
-    }
+    LabelUtils.validateLabels(opContext, tagUrns, Constants.TAG_ENTITY_NAME, _entityService);
   }
 
   private void validateInputResources(
       List<ResourceRefInput> resources, QueryContext context, Collection<Urn> tagUrns) {
-    for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context, tagUrns);
-    }
+    validateInputResource(resources, context, tagUrns);
   }
 
   private void validateInputResource(
-      ResourceRefInput resource, QueryContext context, Collection<Urn> tagUrns) {
-    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTags(
-        context, resourceUrn, resource.getSubResource(), tagUrns)) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      List<ResourceRefInput> resources, QueryContext context, Collection<Urn> tagUrns) {
+    for (ResourceRefInput resource : resources) {
+      final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+      if (!LabelUtils.isAuthorizedToUpdateTags(
+          context, resourceUrn, resource.getSubResource(), tagUrns)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
-    LabelUtils.validateResource(
-        context.getOperationContext(),
-        resourceUrn,
-        resource.getSubResource(),
-        resource.getSubResourceType(),
-        _entityService);
+    LabelUtils.validateResources(context.getOperationContext(), resources, _entityService);
   }
 
   private void batchAddTags(
       List<Urn> tagUrns, List<ResourceRefInput> resources, QueryContext context) {
     log.debug("Batch adding Tags. tags: {}, resources: {}", resources, tagUrns);
     try {
-      LabelUtils.addTagsToResources(
+      LabelUtils.addTagsToResourcesOptimized(
           context.getOperationContext(),
           tagUrns,
           resources,

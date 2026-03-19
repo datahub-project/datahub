@@ -61,26 +61,20 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
-    for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
-    }
+    validateInputResource(resources, context);
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
-    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+  private void validateInputResource(List<ResourceRefInput> resources, QueryContext context) {
+    for (ResourceRefInput resource : resources) {
+      final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
 
-    if (resource.getSubResource() != null) {
-      throw new IllegalArgumentException(
-          "Malformed input provided: owners cannot be removed from subresources.");
+      if (resource.getSubResource() != null) {
+        throw new IllegalArgumentException(
+            "Malformed input provided: owners cannot be removed from subresources.");
+      }
+      OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
     }
-
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
-    LabelUtils.validateResource(
-        context.getOperationContext(),
-        resourceUrn,
-        resource.getSubResource(),
-        resource.getSubResourceType(),
-        _entityService);
+    LabelUtils.validateResources(context.getOperationContext(), resources, _entityService);
   }
 
   private void batchRemoveOwners(
