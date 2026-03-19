@@ -111,8 +111,10 @@ class MQueryBridge:
             MQueryParseError: parser returned a structured error for this expression.
             MQueryBridgeError: bridge process died or returned malformed output.
         """
-        assert self._proc.stdin is not None
-        assert self._proc.stdout is not None
+        if self._proc.stdin is None or self._proc.stdout is None:
+            raise MQueryBridgeError(
+                "Bridge process was not started correctly (stdin/stdout unavailable)."
+            )
 
         req = json.dumps({"text": expression}) + "\n"
         self._proc.stdin.write(req.encode())
@@ -128,7 +130,12 @@ class MQueryBridge:
                 f"stderr: {stderr.decode(errors='replace')}"
             )
 
-        result = json.loads(line)
+        try:
+            result = json.loads(line)
+        except json.JSONDecodeError as e:
+            raise MQueryBridgeError(
+                f"M-Query bridge returned malformed JSON: {e}. Raw line: {line!r}"
+            ) from e
         if not result["ok"]:
             raise MQueryParseError(result["error"], expression=expression)
         return {int(node_id): node for node_id, node in result["nodeIdMap"]}
@@ -137,7 +144,11 @@ class MQueryBridge:
         if self._proc.poll() is None:
             if self._proc.stdin:
                 self._proc.stdin.close()
-            self._proc.wait()
+            try:
+                self._proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._proc.terminate()
+                self._proc.wait()
 
 
 _bridge_instance: Optional[MQueryBridge] = None
@@ -153,5 +164,6 @@ def get_bridge() -> MQueryBridge:
 def _clear_bridge() -> None:
     global _bridge_instance
     if _bridge_instance is not None:
+        atexit.unregister(_bridge_instance.close)
         _bridge_instance.close()
     _bridge_instance = None
