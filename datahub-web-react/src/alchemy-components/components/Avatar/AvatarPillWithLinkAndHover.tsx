@@ -11,8 +11,7 @@ import { HoverEntityTooltip } from '@app/recommendations/renderer/component/Hove
 import { CorpGroup, CorpUser, EntityType } from '@types';
 
 function resolveEntityType(user: CorpUser | CorpGroup): EntityType {
-    if (user.type) return user.type;
-    return user.__typename === 'CorpGroup' ? EntityType.CorpGroup : EntityType.CorpUser;
+    return user.type;
 }
 
 interface Props {

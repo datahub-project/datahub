@@ -9,7 +9,6 @@ import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 const VISIBLE_LINES = 2;
-const LINE_HEIGHT = 15;
 
 const ClampedText = styled.div<{ $expanded: boolean }>`
     ${(props) =>
@@ -17,6 +16,7 @@ const ClampedText = styled.div<{ $expanded: boolean }>`
         `
         display: -webkit-box;
         -webkit-line-clamp: ${VISIBLE_LINES};
+        line-clamp: ${VISIBLE_LINES};
         -webkit-box-orient: vertical;
         overflow: hidden;
     `}
@@ -44,7 +44,7 @@ export const AboutSidebarSection = ({ aboutText, isProfileOwner, onSaveAboutMe }
     useEffect(() => {
         const el = textRef.current;
         if (el) {
-            setIsClamped(el.scrollHeight > LINE_HEIGHT * VISIBLE_LINES + 2);
+            setIsClamped(el.scrollHeight > el.clientHeight);
         }
     }, [about, isAboutEditable]);
 
