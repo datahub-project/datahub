@@ -1,4 +1,5 @@
-import { Check, Minus } from '@phosphor-icons/react';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Minus } from '@phosphor-icons/react/dist/csr/Minus';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import {

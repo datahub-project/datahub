@@ -2631,7 +2631,7 @@
   {
     "auditHeader": null,
     "entityType": "incident",
-    "entityUrn": "urn:li:incident:test",
+    "entityUrn": "urn:li:incident:test-health",
     "changeType": "UPSERT",
     "aspectName": "incidentInfo",
     "aspect": {
@@ -2647,7 +2647,7 @@
     "changeType": "UPSERT",
     "aspectName": "incidentsSummary",
     "aspect": {
-      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
+      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test-health\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
       "contentType": "application/json"
     },
     "systemMetadata": null

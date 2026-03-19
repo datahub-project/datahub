@@ -1,3 +1,5 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -48,14 +50,14 @@ export default function SelectActionButtons({
         <ActionButtonsContainer>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
                 <StyledClearButton
-                    icon={{ icon: 'X', source: 'phosphor', size: 'md' }}
+                    icon={{ icon: X, size: 'md' }}
                     isCircle
                     size={fontSize}
                     onClick={onClearClickHandler}
                     data-testid="button-clear"
                 />
             )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
+            <StyledIcon icon={CaretDown} rotate={isOpen ? '180' : '0'} size="md" color="gray" />
         </ActionButtonsContainer>
     );
 }

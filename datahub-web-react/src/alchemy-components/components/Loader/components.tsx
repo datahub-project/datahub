@@ -1,4 +1,4 @@
-import { CircleNotch } from '@phosphor-icons/react';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import styled, { keyframes } from 'styled-components';
 
 import { AlignItemsOptions, JustifyContentOptions } from '@components/components/Loader/types';

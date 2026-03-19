@@ -36,7 +36,7 @@ export function EmptyState({
             {image && <IconWrapper>{image}</IconWrapper>}
             {!image && icon && (
                 <IconWrapper>
-                    <Icon icon={icon} source="phosphor" size={ICON_SIZE[size]} />
+                    <Icon icon={icon} size={ICON_SIZE[size]} />
                 </IconWrapper>
             )}
             <TextWrapper>
