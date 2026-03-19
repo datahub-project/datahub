@@ -53,6 +53,7 @@ export interface ActorsSearchSelectProps {
     width?: number | 'full' | 'fit-content';
     showSearch?: boolean;
     entityTypes?: EntityType[];
+    dataTestId?: string;
 }
 
 /**
@@ -74,6 +75,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     width = 'full',
     showSearch = true,
     entityTypes = DEFAULT_ACTOR_TYPES,
+    dataTestId,
 }) => {
     const entityRegistry = useEntityRegistryV2();
     const [selectedActorEntities, setSelectedActorEntities] = useState<ActorEntity[]>([]);
@@ -238,6 +240,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             placeholder={placeholder}
             isDisabled={isDisabled}
             width={width}
+            dataTestId={dataTestId}
             renderCustomSelectedValue={renderSelectedActorLabel}
             renderCustomOptionText={(option) => {
                 const entity = allActorEntities.find((e) => e.urn === option.value);
