@@ -16,6 +16,7 @@ export type SelectItemPopoverProps = {
     refetch?: () => void;
     onClose?: () => void;
     entityType: EntityType;
+    entityTypes?: EntityType[];
     handleSelectionChange: ({
         selectedItems,
         removedItems,
@@ -35,6 +36,7 @@ export const SelectItemPopover = ({
     refetch,
     onClose,
     entityType,
+    entityTypes,
     handleSelectionChange,
     renderOption,
     children,
@@ -53,6 +55,7 @@ export const SelectItemPopover = ({
                     refetch={refetch}
                     onClose={onClose}
                     entityType={entityType}
+                    entityTypes={entityTypes}
                     handleSelectionChange={handleSelectionChange}
                     renderOption={renderOption}
                 />

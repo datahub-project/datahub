@@ -20,6 +20,7 @@ export interface SelectItemsProps {
     refetch?: () => void;
     onClose?: () => void;
     entityType: EntityType;
+    entityTypes?: EntityType[];
     handleSelectionChange: ({
         selectedItems,
         removedItems,
@@ -36,7 +37,7 @@ const StyledSubSection = styled(Typography.Text)`
     justify-content: space-between;
     font-weight: 700;
     line-height: 15.06px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const StyledFooter = styled.div`
@@ -85,7 +86,7 @@ const StyledEmpty = styled(Empty)`
     .ant-empty-image {
         display: none;
     }
-    color: #8d95b1;
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom 12px;
 `;
 
@@ -95,6 +96,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     refetch,
     onClose,
     entityType,
+    entityTypes,
     handleSelectionChange,
     renderOption,
 }) => {
@@ -109,12 +111,14 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
         handleSearchEntities,
         entitySearchResultsLoading,
         searchData,
+        searchResultCount,
     } = useEntityOperations({
         selectedItems,
         refetch,
         entities,
         onClose,
         entityType,
+        entityTypes,
         handleSelectionChange,
     });
 
@@ -147,9 +151,9 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
                 searchText={searchText}
                 debouncedSetFilterText={handleSearchEntities}
                 matchResultCount={filteredPreviouslyAddedOptions?.length + filteredAddableOptions?.length}
-                numRows={searchData?.autoComplete?.entities?.length || 0}
+                numRows={searchResultCount}
                 entityTypeName={entityType}
-                options={{ hidePrefix: true, hideMatchCountText: true, placeholder: 'Search for tags...' }}
+                options={{ hidePrefix: true, hideMatchCountText: true, placeholder: `Search for ${entityName}...` }}
             />
             {isLoading ? (
                 <StyledLoader>
