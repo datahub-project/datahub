@@ -20,7 +20,7 @@ def dataplex_config() -> DataplexConfig:
     """Create a test configuration."""
     return DataplexConfig(
         project_ids=["test-project"],
-        entries_location="us",
+        entries_locations=["us"],
         include_lineage=True,
     )
 
@@ -67,7 +67,7 @@ def test_lineage_extraction_disabled(
     """Test that lineage extraction is skipped when disabled."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        entries_location="us",
+        entries_locations=["us"],
         include_lineage=False,  # Disabled
     )
 
@@ -81,6 +81,7 @@ def test_lineage_extraction_disabled(
         entry_id="test-entry",
         source_platform="bigquery",
         dataset_id="test-project.test-dataset.test-table",
+        location="us",
     )
     result = extractor.get_lineage_for_entry("test-project", entry_data)
     assert result is None
@@ -218,6 +219,7 @@ def test_get_lineage_for_entry_with_upstream(
         entry_id="test-entry",
         source_platform="bigquery",
         dataset_id="test-project.test-dataset.test-table",
+        location="us",
     )
 
     # Get lineage
@@ -248,11 +250,13 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
             entry_id="entry1",
             source_platform="bigquery",
             dataset_id="test-project.dataset.table1",
+            location="us",
         ),
         EntryDataTuple(
             entry_id="entry2",
             source_platform="bigquery",
             dataset_id="test-project.dataset.table2",
+            location="us",
         ),
     ]
 
@@ -385,6 +389,7 @@ def test_lineage_with_cross_platform_references(
         entry_id="test-table",
         source_platform="bigquery",
         dataset_id="my-project.analytics.test-table",
+        location="us",
     )
 
     result = lineage_extractor.get_lineage_for_entry("my-project", test_entry)
@@ -574,6 +579,7 @@ def test_pagination_automatic_handling() -> None:
         entry_id="test_table",
         source_platform="bigquery",
         dataset_id="test-project.test_dataset.test_table",
+        location="us",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -581,9 +587,12 @@ def test_pagination_automatic_handling() -> None:
     # Verify all items from all "pages" are retrieved
     assert result is not None
     assert len(result["upstream"]) == 3
-    assert result["upstream"][0] == "bigquery:project.dataset.table1"
-    assert result["upstream"][1] == "bigquery:project.dataset.table2"
-    assert result["upstream"][2] == "bigquery:project.dataset.table3"
+    # Check set membership since order is not guaranteed (uses set internally)
+    assert set(result["upstream"]) == {
+        "bigquery:project.dataset.table1",
+        "bigquery:project.dataset.table2",
+        "bigquery:project.dataset.table3",
+    }
 
 
 def test_pagination_with_large_result_set() -> None:
@@ -614,6 +623,7 @@ def test_pagination_with_large_result_set() -> None:
         entry_id="target_table",
         source_platform="bigquery",
         dataset_id="test-project.analytics.target_table",
+        location="us",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -621,9 +631,9 @@ def test_pagination_with_large_result_set() -> None:
     # Verify all 100 items are retrieved
     assert result is not None
     assert len(result["upstream"]) == 100
-    # Verify first and last items
-    assert result["upstream"][0] == "bigquery:project.dataset.upstream_table_0"
-    assert result["upstream"][99] == "bigquery:project.dataset.upstream_table_99"
+    # Verify all items are present (order not guaranteed due to set usage)
+    expected_fqns = {f"bigquery:project.dataset.upstream_table_{i}" for i in range(100)}
+    assert set(result["upstream"]) == expected_fqns
 
 
 def test_batched_lineage_processing() -> None:
@@ -690,6 +700,7 @@ def test_batched_lineage_processing() -> None:
             entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            location="us",
         )
         for i in range(5)
     ]
@@ -729,6 +740,7 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
             entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            location="us",
         )
         for i in range(3)
     ]
@@ -767,6 +779,7 @@ def test_batched_lineage_with_batching_disabled() -> None:
             entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            location="us",
         )
         for i in range(10)
     ]
@@ -815,6 +828,7 @@ def test_batched_lineage_memory_cleanup() -> None:
             entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            location="us",
         )
         for i in range(6)
     ]
@@ -885,16 +899,19 @@ class TestLineageMapKeyCollision:
                 entry_id="analytics_customers",
                 source_platform="bigquery",
                 dataset_id="test-project.analytics.customers",  # Full path
+                location="us",
             ),
             EntryDataTuple(
                 entry_id="sales_customers",
                 source_platform="bigquery",
                 dataset_id="test-project.sales.customers",  # Same table name, different dataset
+                location="us",
             ),
             EntryDataTuple(
                 entry_id="abc_users",
                 source_platform="bigquery",
                 dataset_id="test-project.abc.users",
+                location="us",
             ),
         ]
 
@@ -967,11 +984,13 @@ class TestLineageMapKeyCollision:
                 entry_id="customers_analytics",
                 source_platform="bigquery",
                 dataset_id="test-project.analytics.customers",
+                location="us",
             ),
             EntryDataTuple(
                 entry_id="customers_sales",
                 source_platform="bigquery",
                 dataset_id="test-project.sales.customers",
+                location="us",
             ),
         ]
 
@@ -1084,6 +1103,7 @@ class TestLineageMapKeyCollision:
                 entry_id="analytics_customers",
                 source_platform="bigquery",
                 dataset_id="test-project.analytics.customers",
+                location="us",
             ),
         ]
 

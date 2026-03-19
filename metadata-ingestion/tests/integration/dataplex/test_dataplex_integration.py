@@ -27,7 +27,7 @@ def dataplex_entries_recipe(mcp_output_path: str) -> Dict[str, Any]:
             "type": "dataplex",
             "config": {
                 "project_ids": ["test-project"],
-                "entries_location": "us",
+                "entries_locations": ["us"],
                 "include_lineage": False,  # Disable lineage for simpler test
                 "include_schema": True,
             },
@@ -92,9 +92,20 @@ def create_mock_entry(
         2024, 1, 13, tzinfo=datetime.timezone.utc
     )
     entry_source.description = description
+    entry_source.location = location
+    # Infer system from FQN prefix
+    if fqn.startswith("bigquery:"):
+        entry_source.system = "BIGQUERY"
+    elif fqn.startswith("gcs:"):
+        entry_source.system = "CLOUD_STORAGE"
+    elif fqn.startswith("pubsub:"):
+        entry_source.system = "CLOUD_PUBSUB"
+    elif fqn.startswith("spanner:"):
+        entry_source.system = "CLOUD_SPANNER"
+    else:
+        entry_source.system = None
     # Explicitly set optional fields to None to avoid Mock object issues
     entry_source.resource = None
-    entry_source.system = None
     entry_source.platform = None
     entry.entry_source = entry_source
 
@@ -370,7 +381,7 @@ def dataplex_lineage_recipe(
             "type": "dataplex",
             "config": {
                 "project_ids": [project_id],
-                "entries_location": "us",
+                "entries_locations": ["us"],
                 "include_lineage": True,
                 "include_schema": False,
             },
@@ -580,7 +591,7 @@ def dataplex_lineage_golden_recipe(mcp_output_path: str) -> Dict[str, Any]:
             "type": "dataplex",
             "config": {
                 "project_ids": ["test-project"],
-                "entries_location": "us",
+                "entries_locations": ["us"],
                 "include_lineage": True,
                 "include_schema": False,
             },

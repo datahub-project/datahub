@@ -123,22 +123,34 @@ class DataplexLineageExtractor:
                 entry.dataset_id,
             )
             lineage_data: dict[str, list[Any]] = {"upstream": [], "downstream": []}
-            # We only need multi-region name like US, EU, etc.
-            parent = f"projects/{project_id}/locations/{self.config.entries_location}"
 
-            # Get upstream lineage (where this entry is the target) - retries are handled inside _search_links_by_target
-            upstream_links = self._search_links_by_target(parent, fully_qualified_name)
-            for link in upstream_links:
-                if link.source and link.source.fully_qualified_name:
-                    lineage_data["upstream"].append(link.source.fully_qualified_name)
+            # Query lineage in ALL configured locations to capture cross-location relationships
+            # Use set to deduplicate FQNs that might appear in multiple locations
+            upstream_fqns: set[str] = set()
+            downstream_fqns: set[str] = set()
 
-            # Get downstream lineage (where this entry is the source) - retries are handled inside _search_links_by_source
-            downstream_links = self._search_links_by_source(
-                parent, fully_qualified_name
-            )
-            for link in downstream_links:
-                if link.target and link.target.fully_qualified_name:
-                    lineage_data["downstream"].append(link.target.fully_qualified_name)
+            for location in self.config.entries_locations:
+                parent = f"projects/{project_id}/locations/{location}"
+
+                # Get upstream lineage (where this entry is the target) - retries are handled inside _search_links_by_target
+                upstream_links = self._search_links_by_target(
+                    parent, fully_qualified_name
+                )
+                for link in upstream_links:
+                    if link.source and link.source.fully_qualified_name:
+                        upstream_fqns.add(link.source.fully_qualified_name)
+
+                # Get downstream lineage (where this entry is the source) - retries are handled inside _search_links_by_source
+                downstream_links = self._search_links_by_source(
+                    parent, fully_qualified_name
+                )
+                for link in downstream_links:
+                    if link.target and link.target.fully_qualified_name:
+                        downstream_fqns.add(link.target.fully_qualified_name)
+
+            # Convert sets back to lists
+            lineage_data["upstream"] = list(upstream_fqns)
+            lineage_data["downstream"] = list(downstream_fqns)
 
             if lineage_data["upstream"] or lineage_data["downstream"]:
                 logger.debug(

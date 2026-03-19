@@ -201,6 +201,17 @@ class DataJobSubTypes(StrEnum):
     ADF_FAIL_ACTIVITY = "Fail Activity"
 
 
+class DataplexSubTypes(StrEnum):
+    """Subtypes for datasets discovered via Google Cloud Dataplex Universal Catalog."""
+
+    DATAPLEX = "Dataplex"
+    PUBSUB = "Pub/Sub"
+    BIGQUERY = "BigQuery"
+    BIGTABLE = "Bigtable"
+    SPANNER = "Spanner"
+    METASTORE = "Metastore"
+
+
 def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
     source_enums = [
@@ -213,6 +224,7 @@ def create_source_capability_modifier_enum():
         BIAssetSubTypes,
         MLAssetSubTypes,
         DataJobSubTypes,
+        DataplexSubTypes,
     ]
 
     for enum_class in source_enums:

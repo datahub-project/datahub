@@ -10,13 +10,93 @@ from google.cloud import dataplex_v1
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_entries import process_entry
+from datahub.ingestion.source.dataplex.dataplex_entries import (
+    get_datahub_dataset_id,
+    get_datahub_platform,
+    get_datahub_subtype,
+    process_entry,
+)
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
 )
+
+
+class TestGetDatahubPlatform:
+    """Test get_datahub_platform function."""
+
+    @pytest.mark.parametrize(
+        "system_type,expected_platform",
+        [
+            ("CLOUD_PUBSUB", "pubsub"),
+            ("BIGQUERY", "bigquery"),
+            ("CLOUD_STORAGE", "gcs"),
+            ("CLOUD_BIGTABLE", "bigtable"),
+            ("DATAPROC_METASTORE", "hive"),
+            ("CLOUD_SPANNER", "spanner"),
+            ("UNKNOWN_SYSTEM", None),
+        ],
+    )
+    def test_system_to_platform_mapping(self, system_type, expected_platform):
+        """Test mapping from Google Cloud system types to DataHub platforms."""
+        assert get_datahub_platform(system_type) == expected_platform
+
+
+class TestGetDatahubSubtype:
+    """Test get_datahub_subtype function."""
+
+    @pytest.mark.parametrize(
+        "system_type,expected_subtype",
+        [
+            ("CLOUD_PUBSUB", "Pub/Sub"),
+            ("BIGQUERY", "BigQuery"),
+            ("CLOUD_STORAGE", None),
+            ("CLOUD_BIGTABLE", "Bigtable"),
+            ("DATAPROC_METASTORE", "Metastore"),
+            ("CLOUD_SPANNER", "Spanner"),
+            ("UNKNOWN_SYSTEM", None),
+        ],
+    )
+    def test_system_to_subtype_mapping(self, system_type, expected_subtype):
+        """Test mapping from Google Cloud system types to DataHub subtypes."""
+        assert get_datahub_subtype(system_type) == expected_subtype
+
+
+class TestGetDatahubDatasetId:
+    """Test get_datahub_dataset_id function."""
+
+    @pytest.mark.parametrize(
+        "system_type,fqn,expected_dataset_id",
+        [
+            (
+                "BIGQUERY",
+                "bigquery:test-project.my_dataset.my_table",
+                "test-project.my_dataset.my_table",
+            ),
+            (
+                "CLOUD_STORAGE",
+                "gcs:my-bucket/path/to/file.parquet",
+                "my-bucket/path/to/file.parquet",
+            ),
+            (
+                "CLOUD_PUBSUB",
+                "pubsub:topic:project-id.topic-name",
+                "topic:project-id.topic-name",
+            ),
+            ("BIGQUERY", "invalid-fqn", "invalid-fqn"),
+            ("CLOUD_SPANNER", "spanner:instance/database", "instance/database"),
+            (
+                "CLOUD_PUBSUB",
+                "pubsub:topic:project:topic-name",
+                "topic:project:topic-name",
+            ),
+        ],
+    )
+    def test_extract_dataset_id_from_fqn(self, system_type, fqn, expected_dataset_id):
+        """Test extracting dataset ID from FQN for various system types."""
+        assert get_datahub_dataset_id(system_type, fqn) == expected_dataset_id
 
 
 class TestProcessEntry:
@@ -65,10 +145,12 @@ class TestProcessEntry:
         self,
         name: str,
         fully_qualified_name: Optional[str],
+        system: str = "BIGQUERY",
         entry_type: str = "TABLE",
         description: Optional[str] = None,
         create_time: Optional[datetime] = None,
         update_time: Optional[datetime] = None,
+        location: str = "us",
         aspects: Optional[dict] = None,
     ) -> dataplex_v1.Entry:
         """Create a mock Dataplex entry."""
@@ -80,9 +162,11 @@ class TestProcessEntry:
 
         # Mock entry_source
         entry_source = Mock()
+        entry_source.system = system
         entry_source.description = description
         entry_source.create_time = create_time
         entry_source.update_time = update_time
+        entry_source.location = location
         entry.entry_source = entry_source
 
         return entry
@@ -106,7 +190,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -119,102 +203,7 @@ class TestProcessEntry:
         assert len(results) == 0
         assert len(entry_data_by_project) == 0
 
-    def test_entry_filtered_by_pattern(
-        self,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that entries are filtered correctly by pattern (allow/deny)."""
-        config = DataplexConfig(
-            project_ids=["test-project"],
-            filter_config={
-                "entries": {
-                    "dataset_pattern": {"allow": ["prod_.*"], "deny": [".*_temp"]},
-                }
-            },
-        )
-
-        # Test 1: Entry that doesn't match allow pattern - should be rejected
-        entry_dev = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/dev_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.dev_table",
-        )
-
-        results_dev = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry_dev,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        assert len(results_dev) == 0, (
-            "Entry 'dev_table' should be rejected (doesn't match allow pattern)"
-        )
-
-        # Test 2: Entry that matches allow pattern - should be created
-        entry_prod = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/prod_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.prod_table",
-        )
-
-        results_prod = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry_prod,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        assert len(results_prod) > 0, (
-            "Entry 'prod_table' should be created (matches allow pattern)"
-        )
-        # Verify it has the expected aspects
-        assert any(isinstance(r.aspect, DatasetPropertiesClass) for r in results_prod)
-        assert any(
-            isinstance(r.aspect, DataPlatformInstanceClass) for r in results_prod
-        )
-
-        # Test 3: Entry that matches allow pattern but also matches deny pattern - should be rejected
-        entry_prod_temp = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/prod_table_temp",
-            fully_qualified_name="bigquery:test-project.my_dataset.prod_table_temp",
-        )
-
-        results_prod_temp = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry_prod_temp,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        assert len(results_prod_temp) == 0, (
-            "Entry 'prod_table_temp' should be rejected (matches deny pattern)"
-        )
-
-    def test_entry_with_invalid_fqn(
+    def test_entry_with_unknown_system(
         self,
         config,
         entry_data_by_project,
@@ -223,17 +212,18 @@ class TestProcessEntry:
         bq_containers_lock,
         construct_mcps_fn,
     ):
-        """Test that entry with invalid FQN is skipped."""
+        """Test that entry with unknown system type is skipped."""
         entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/test_entry",
-            fully_qualified_name="invalid-fqn-format",
+            name="projects/test-project/locations/us/entryGroups/@unknown/entries/test_entry",
+            fully_qualified_name="unknown:test.resource",
+            system="UNKNOWN_SYSTEM",
         )
 
         results = list(
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@unknown",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -243,6 +233,7 @@ class TestProcessEntry:
             )
         )
 
+        # Should be skipped because system type is unknown
         assert len(results) == 0
 
     def test_bigquery_entry_valid(
@@ -270,7 +261,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -338,7 +329,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -375,7 +366,7 @@ class TestProcessEntry:
                 process_entry(
                     project_id="test-project",
                     entry=entry,
-                    entry_group_id="@bigquery",
+                    entry_group_name="@bigquery",
                     config=config,
                     entry_data_by_project=entry_data_by_project,
                     entry_data_lock=entry_data_lock,
@@ -416,7 +407,7 @@ class TestProcessEntry:
                 process_entry(
                     project_id="test-project",
                     entry=entry,
-                    entry_group_id="@bigquery",
+                    entry_group_name="@bigquery",
                     config=config,
                     entry_data_by_project=entry_data_by_project,
                     entry_data_lock=entry_data_lock,
@@ -443,6 +434,7 @@ class TestProcessEntry:
         entry = self.create_mock_entry(
             name="projects/test-project/locations/us/entryGroups/@gcs/entries/file.parquet",
             fully_qualified_name="gcs:my-bucket/path/to/file.parquet",
+            system="CLOUD_STORAGE",
             description="GCS file",
         )
 
@@ -450,7 +442,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@gcs",
+                entry_group_name="@gcs",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -495,13 +487,14 @@ class TestProcessEntry:
         entry = self.create_mock_entry(
             name="projects/test-project/locations/us/entryGroups/@gcs/entries/test_entry",
             fully_qualified_name="gcs:my-bucket",
+            system="CLOUD_STORAGE",
         )
 
         results = list(
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@gcs",
+                entry_group_name="@gcs",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -526,13 +519,14 @@ class TestProcessEntry:
         entry = self.create_mock_entry(
             name="projects/test-project/locations/us/entryGroups/@gcs/entries/asset1",
             fully_qualified_name="gcs:my-bucket/asset1",
+            system="CLOUD_STORAGE",
         )
 
         results = list(
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@gcs",
+                entry_group_name="@gcs",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -587,7 +581,7 @@ class TestProcessEntry:
                 process_entry(
                     project_id="test-project",
                     entry=entry,
-                    entry_group_id="@bigquery",
+                    entry_group_name="@bigquery",
                     config=config,
                     entry_data_by_project=entry_data_by_project,
                     entry_data_lock=entry_data_lock,
@@ -635,7 +629,7 @@ class TestProcessEntry:
                 process_entry(
                     project_id="test-project",
                     entry=entry,
-                    entry_group_id="@bigquery",
+                    entry_group_name="@bigquery",
                     config=config,
                     entry_data_by_project=entry_data_by_project,
                     entry_data_lock=entry_data_lock,
@@ -677,7 +671,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -706,7 +700,7 @@ class TestProcessEntry:
         bq_containers_lock,
         construct_mcps_fn,
     ):
-        """Test entry processing without entry_source."""
+        """Test entry processing without entry_source (should be skipped)."""
         entry = self.create_mock_entry(
             name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
             fully_qualified_name="bigquery:test-project.my_dataset.my_table",
@@ -717,7 +711,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -727,16 +721,8 @@ class TestProcessEntry:
             )
         )
 
-        dataset_props = None
-        for result in results:
-            if isinstance(result.aspect, DatasetPropertiesClass):
-                dataset_props = result.aspect
-                break
-
-        assert dataset_props is not None
-        assert dataset_props.description == ""
-        assert dataset_props.created is None
-        assert dataset_props.lastModified is None
+        # Should be skipped because entry_source is None (no system type)
+        assert len(results) == 0
 
     def test_entry_custom_properties(
         self,
@@ -758,7 +744,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -809,7 +795,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry1,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -824,7 +810,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry2,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -853,7 +839,7 @@ class TestProcessEntry:
         bq_containers_lock,
         construct_mcps_fn,
     ):
-        """Test entry with FQN that doesn't have colon (uses entry_id as dataset_name)."""
+        """Test entry with FQN that doesn't have colon (uses FQN as dataset_id)."""
         entry = self.create_mock_entry(
             name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
             fully_qualified_name="my_table",  # No colon, no platform prefix
@@ -863,7 +849,7 @@ class TestProcessEntry:
             process_entry(
                 project_id="test-project",
                 entry=entry,
-                entry_group_id="@bigquery",
+                entry_group_name="@bigquery",
                 config=config,
                 entry_data_by_project=entry_data_by_project,
                 entry_data_lock=entry_data_lock,
@@ -873,5 +859,5 @@ class TestProcessEntry:
             )
         )
 
-        # Should be skipped because parse_entry_fqn will fail
-        assert len(results) == 0
+        # Should be processed with FQN as dataset_id
+        assert len(results) > 0

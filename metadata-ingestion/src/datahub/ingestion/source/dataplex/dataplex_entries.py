@@ -9,6 +9,7 @@ from google.cloud import dataplex_v1
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.common.subtypes import DataplexSubTypes
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_containers import (
     track_bigquery_container,
@@ -16,7 +17,6 @@ from datahub.ingestion.source.dataplex.dataplex_containers import (
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntryDataTuple,
     make_audit_stamp,
-    parse_entry_fqn,
 )
 from datahub.ingestion.source.dataplex.dataplex_properties import (
     extract_entry_custom_properties,
@@ -28,17 +28,90 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    SubTypesClass,
     TimeStampClass,
 )
 from datahub.metadata.urns import DataPlatformUrn
 
 logger = logging.getLogger(__name__)
 
+# Mapping of Google Cloud system types to DataHub platforms
+# Based on entry.entry_source.system field from Dataplex Universal Catalog
+DATAPLEX_SYSTEM_TO_PLATFORM = {
+    "CLOUD_PUBSUB": "pubsub",
+    "BIGQUERY": "bigquery",
+    "CLOUD_STORAGE": "gcs",
+    "CLOUD_BIGTABLE": "bigtable",
+    "DATAPROC_METASTORE": "hive",
+    "CLOUD_SPANNER": "spanner",
+    # Add more mappings as Google Cloud adds support for more services in Dataplex
+}
+
+# Mapping of Google Cloud system types to DataHub subtypes
+# Based on entry.entry_source.system field from Dataplex Universal Catalog
+DATAPLEX_SYSTEM_TO_SUBTYPE = {
+    "CLOUD_PUBSUB": DataplexSubTypes.PUBSUB,
+    "BIGQUERY": DataplexSubTypes.BIGQUERY,
+    "CLOUD_STORAGE": None,  # GCS files don't have a specific subtype
+    "CLOUD_BIGTABLE": DataplexSubTypes.BIGTABLE,
+    "DATAPROC_METASTORE": DataplexSubTypes.METASTORE,
+    "CLOUD_SPANNER": DataplexSubTypes.SPANNER,
+    # Add more mappings as Google Cloud adds support for more services in Dataplex
+}
+
+
+def get_datahub_platform(system: str) -> str | None:
+    """Get DataHub platform name from Google Cloud system type.
+
+    Args:
+        system: Google Cloud system type (e.g., "BIGQUERY", "CLOUD_PUBSUB")
+
+    Returns:
+        DataHub platform name (e.g., "bigquery", "pubsub") or None if not mapped
+    """
+    return DATAPLEX_SYSTEM_TO_PLATFORM.get(system)
+
+
+def get_datahub_subtype(system: str) -> str | None:
+    """Get DataHub subtype from Google Cloud system type.
+
+    Args:
+        system: Google Cloud system type (e.g., "BIGQUERY", "CLOUD_PUBSUB")
+
+    Returns:
+        DataHub subtype string (e.g., "BigQuery", "Pub/Sub") or None if not mapped
+    """
+    return DATAPLEX_SYSTEM_TO_SUBTYPE.get(system)
+
+
+def get_datahub_dataset_id(system: str, fqn: str) -> str:
+    """Extract dataset ID from fully qualified name based on system type.
+
+    Args:
+        system: Google Cloud system type (e.g., "BIGQUERY", "CLOUD_PUBSUB")
+        fqn: Fully qualified name (e.g., 'bigquery:project.dataset.table')
+
+    Returns:
+        Dataset ID for the given system type
+        - For BigQuery: 'project.dataset.table'
+        - For GCS: 'bucket/path'
+        - For other systems: resource path after the colon
+    """
+    if ":" not in fqn:
+        # No colon separator, return FQN as-is
+        logger.warning(
+            f"FQN '{fqn}' does not contain colon separator, using as dataset_id"
+        )
+        return fqn
+
+    _, resource_path = fqn.split(":", 1)
+    return resource_path
+
 
 def process_entry(
     project_id: str,
     entry: dataplex_v1.Entry,
-    entry_group_id: str,
+    entry_group_name: str,
     config: DataplexConfig,
     entry_data_by_project: dict[str, set[EntryDataTuple]],
     entry_data_lock: Lock,
@@ -51,7 +124,7 @@ def process_entry(
     Args:
         project_id: GCP project ID
         entry: Entry object from Catalog API
-        entry_group_id: Entry group ID
+        entry_group_name: Entry group name
         config: Dataplex configuration object
         entry_data_by_project: Mapping of project IDs to entry data tuples
         entry_data_lock: Lock for entry_data_by_project access
@@ -64,22 +137,33 @@ def process_entry(
     """
     entry_id = entry.name.split("/")[-1]
 
-    if not entry.fully_qualified_name:
-        logger.debug(f"Entry {entry_id} has no fully_qualified_name, skipping")
-        return
-
+    # Check if entry has FQN
     fqn = entry.fully_qualified_name
-    logger.debug(f"Processing entry with FQN: {fqn}")
-
-    # Apply dataset pattern filter to entry_id
-    if not config.filter_config.entries.dataset_pattern.allowed(entry_id):
-        logger.debug(f"Entry {entry_id} filtered out by entries.dataset_pattern")
+    if not fqn:
+        logger.warning(f"Entry {entry_id} has no FQN, skipping")
         return
 
-    # Parse the FQN to determine platform and dataset_id
-    source_platform, dataset_id = parse_entry_fqn(fqn)
-    if not source_platform or not dataset_id:
-        logger.warning(f"Could not parse FQN {fqn} for entry {entry_id}, skipping")
+    logger.debug(f"Processing entry {entry_id} with FQN: {fqn}")
+
+    # Get system type from entry source
+    system = entry.entry_source.system if entry.entry_source else None
+    if not system:
+        logger.warning(f"Entry {entry_id} has no system type in entry_source, skipping")
+        return
+
+    # Determine platform and dataset_id from system type
+    source_platform = get_datahub_platform(system)
+    if not source_platform:
+        logger.warning(
+            f"Unknown system type '{system}' for entry {entry_id} with FQN {fqn}, skipping"
+        )
+        return
+
+    dataset_id = get_datahub_dataset_id(system, fqn)
+    if not dataset_id:
+        logger.warning(
+            f"Could not extract dataset_id from FQN {fqn} for entry {entry_id}, skipping"
+        )
         return
 
     # Validate that FQN has a table/file component (not just zone/asset metadata)
@@ -121,6 +205,13 @@ def process_entry(
                 )
                 return
 
+    # Get location from entry source (for lineage queries)
+    location = (
+        entry.entry_source.location
+        if entry.entry_source and entry.entry_source.location
+        else "global"  # fallback
+    )
+
     # Track entry for lineage extraction
     with entry_data_lock:
         if project_id not in entry_data_by_project:
@@ -130,6 +221,7 @@ def process_entry(
                 entry_id=entry_id,
                 source_platform=source_platform,
                 dataset_id=dataset_id,
+                location=location,
             )
         )
 
@@ -152,7 +244,9 @@ def process_entry(
     )
 
     # Extract custom properties using helper method
-    custom_properties = extract_entry_custom_properties(entry, entry_id, entry_group_id)
+    custom_properties = extract_entry_custom_properties(
+        entry, entry_id, entry_group_name
+    )
 
     # Try to extract schema from entry aspects (if enabled)
     schema_metadata = None
@@ -188,6 +282,14 @@ def process_entry(
         ),
         DataPlatformInstanceClass(platform=str(DataPlatformUrn(source_platform))),
     ]
+
+    # Add subtypes: "Dataplex" (always) + system-specific subtype (if available)
+    subtypes: list[str] = [DataplexSubTypes.DATAPLEX]
+    system_subtype = get_datahub_subtype(system)
+    if system_subtype:
+        subtypes.append(system_subtype)
+    aspects.append(SubTypesClass(typeNames=subtypes))
+    logger.debug(f"Added subtypes {subtypes} for entry {entry_id} (system: {system})")
 
     # Add schema metadata if available
     if schema_metadata:

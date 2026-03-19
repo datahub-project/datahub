@@ -135,7 +135,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self.bq_containers: dict[str, set[str]] = {}
 
         # Thread safety locks for parallel processing
-        self._report_lock = Lock()
         self._entry_data_lock = Lock()
         self._bq_containers_lock = Lock()
 
@@ -152,11 +151,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
 
-            # Test connection by attempting to list entry groups
+            # Test connection by attempting to list entry groups in each location
             catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
-            if config.project_ids:
+            if config.project_ids and config.entries_locations:
                 project_id = config.project_ids[0]
-                parent = f"projects/{project_id}/locations/{config.entries_location}"
+                # Test first location to verify basic connectivity
+                location = config.entries_locations[0]
+                parent = f"projects/{project_id}/locations/{location}"
                 entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
                 # Just iterate once to verify access
                 for _ in catalog_client.list_entry_groups(request=entry_groups_request):
@@ -294,85 +295,129 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         This method uses the Entries API to extract metadata from Universal Catalog.
         It processes entry groups and their entries, extracting aspects as custom properties.
 
-        For system entry groups (@bigquery, @pubsub), use multi-region locations (us, eu, asia).
+        Iterates through all configured locations to discover entries from different resource types.
         """
-        entries_location = self.config.entries_location
-        parent = f"projects/{project_id}/locations/{entries_location}"
-
-        try:
-            with self.report.catalog_api_timer as _:
-                entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
-                entry_groups = self.catalog_client.list_entry_groups(
-                    request=entry_groups_request
-                )
-
-            for entry_group in entry_groups:
-                entry_group_id = entry_group.name.split("/")[-1]
-                logger.debug(f"Processing entry group: {entry_group_id}")
-                with self._report_lock:
-                    self.report.report_entry_group_scanned()
-                entries_request = dataplex_v1.ListEntriesRequest(
-                    parent=entry_group.name
-                )
-                entries = self.catalog_client.list_entries(request=entries_request)
-
-                for entry in entries:
-                    entry_id = entry.name.split("/")[-1]
-                    logger.debug(f"Processing entry: {entry_id}")
-
-                    # Apply dataset_pattern filter to entries
-                    if not self.config.filter_config.entries.dataset_pattern.allowed(
-                        entry_id
-                    ):
-                        logger.debug(
-                            f"Entry {entry_id} filtered out by entries.dataset_pattern"
-                        )
-                        with self._report_lock:
-                            self.report.report_entry_scanned(entry_id, filtered=True)
-                        continue
-
-                    try:
-                        entry_details_request = dataplex_v1.GetEntryRequest(
-                            name=entry.name, view=dataplex_v1.EntryView.ALL
-                        )
-                        entry_details = self.catalog_client.get_entry(
-                            request=entry_details_request
-                        )
-
-                        with self._report_lock:
-                            self.report.report_entry_scanned(entry_id)
-                        yield from self._process_entry(
-                            project_id, entry_details, entry_group_id
-                        )
-                    except Exception as e:
-                        self.report.report_failure(
-                            title="Failed to process entry",
-                            message="Error processing entry in entry group",
-                            context=f"{entry_group_id}/{entry_id}",
-                            exc=e,
-                        )
-                        continue
-
-        except exceptions.GoogleAPICallError as e:
-            self.report.report_failure(
-                title="Failed to list entry groups",
-                message="Error listing entry groups in project",
-                context=project_id,
-                exc=e,
+        for entries_location in self.config.entries_locations:
+            logger.info(
+                f"Scanning location '{entries_location}' for project {project_id}"
             )
+            parent = f"projects/{project_id}/locations/{entries_location}"
+
+            try:
+                with self.report.catalog_api_timer as _:
+                    entry_groups_request = dataplex_v1.ListEntryGroupsRequest(
+                        parent=parent
+                    )
+                    entry_groups = self.catalog_client.list_entry_groups(
+                        request=entry_groups_request
+                    )
+
+                for entry_group in entry_groups:
+                    logger.info(f"Processing entry group: {entry_group.name}")
+                    logger.debug(f"{entry_group}")
+
+                    # Apply entry group pattern filter
+                    filtered_group = (
+                        not self.config.filter_config.entry_groups.pattern.allowed(
+                            entry_group.name
+                        )
+                    )
+                    self.report.report_entry_group_scanned(
+                        entry_group.name, filtered=filtered_group
+                    )
+                    if filtered_group:
+                        continue
+
+                    entries_request = dataplex_v1.ListEntriesRequest(
+                        parent=entry_group.name
+                    )
+                    entries = self.catalog_client.list_entries(request=entries_request)
+
+                    for entry in entries:
+                        logger.info(
+                            f"Processing entry {entry.name} in entry group {entry_group.name}"
+                        )
+                        logger.debug(f"{entry}")
+
+                        try:
+                            entry_details_request = dataplex_v1.GetEntryRequest(
+                                name=entry.name, view=dataplex_v1.EntryView.ALL
+                            )
+                            entry_details = self.catalog_client.get_entry(
+                                request=entry_details_request
+                            )
+
+                            # Check if entry has FQN (data asset) or not (governance object)
+                            if not entry_details.fully_qualified_name:
+                                # Governance object (entry group metadata, aspect type, glossary, etc.)
+                                self.report.report_entry_without_fqn(entry.name)
+                                continue
+
+                            # Entry has FQN - apply pattern filters
+                            fqn = entry_details.fully_qualified_name
+
+                            # Check both entry name pattern and FQN pattern
+                            filtered_by_pattern = (
+                                not self.config.filter_config.entries.pattern.allowed(
+                                    entry.name
+                                )
+                            )
+                            filtered_by_fqn_pattern = not self.config.filter_config.entries.fqn_pattern.allowed(
+                                fqn
+                            )
+                            self.report.report_entry_scanned(
+                                entry.name,
+                                filtered_by_pattern=filtered_by_pattern,
+                                filtered_by_fqn_pattern=filtered_by_fqn_pattern,
+                                fqn=fqn,
+                            )
+                            if filtered_by_pattern or filtered_by_fqn_pattern:
+                                continue
+
+                            yield from self._process_entry(
+                                project_id, entry_details, entry_group.name
+                            )
+
+                        except Exception as e:
+                            context_dict = {
+                                "project_id": project_id,
+                                "entry_group": entry_group.name,
+                                "entry_id": entry.name,
+                            }
+                            if "entry_details" in locals():
+                                context_dict["entry_fqn"] = (
+                                    entry_details.fully_qualified_name
+                                )
+                            self.report.report_warning(
+                                title="Failed to process entry",
+                                message="Error processing entry in entry group",
+                                context=str(context_dict),
+                                exc=e,
+                            )
+                            continue
+
+            except exceptions.GoogleAPICallError as e:
+                # Warn and continue if location is inaccessible - not all projects have resources in all locations
+                self.report.report_warning(
+                    title=f"Skipped location {entries_location}",
+                    message=f"Location not found or access unauthorized for project {project_id}",
+                    context=str(e),
+                    exc=e,
+                )
+                continue  # Continue with next location
 
     def _process_entry(
         self,
         project_id: str,
         entry: dataplex_v1.Entry,
-        entry_group_id: str,
+        entry_group_name: str,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Process a single entry from Universal Catalog.
 
         Args:
             project_id: GCP project ID
             entry: Entry object from Catalog API
-            entry_group_id: Entry group ID
+            entry_group_name: Entry group name
 
         Yields:
             MetadataChangeProposalWrapper objects for the entry
@@ -380,7 +425,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         yield from process_entry(
             project_id=project_id,
             entry=entry,
-            entry_group_id=entry_group_id,
+            entry_group_name=entry_group_name,
             config=self.config,
             entry_data_by_project=self.entry_data_by_project,
             entry_data_lock=self._entry_data_lock,

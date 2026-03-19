@@ -19,21 +19,48 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-class EntriesFilterConfig(ConfigModel):
-    """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
+class EntryGroupFilterConfig(ConfigModel):
+    """Filter configuration for Dataplex entry groups."""
 
-    dataset_pattern: AllowDenyPattern = Field(
+    pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for entry IDs to filter in ingestion.",
+        description="Regex patterns for entry group names (e.g., @bigquery, @pubsub, @storage) to include/exclude in ingestion.",
+    )
+
+
+class EntriesFilterConfig(ConfigModel):
+    """Filter configuration for Dataplex entries (data assets)."""
+
+    pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for entry names to include/exclude. "
+        "Entry names are resource identifiers like 'bigquery.googleapis.com/projects/my-project/datasets/analytics/tables/users'. "
+        "Examples: '.*\\\\.tables\\\\.orders$' to match only 'orders' tables, "
+        "'.*analytics.*' to match entries with 'analytics' in the name, "
+        "'.*\\\\.datasets\\\\.production' to match production datasets.",
+    )
+
+    fqn_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for fully qualified names (FQNs) to include/exclude. "
+        "FQNs follow the format 'system:resource.path' like 'bigquery:my-project.analytics.users' or 'pubsub:topic:my-project.events'. "
+        "Examples: 'bigquery:.*\\\\.production\\\\..*' to match production BigQuery tables, "
+        "'bigquery:my-project\\\\.analytics\\\\..*' to match analytics dataset tables, "
+        "'pubsub:topic:.*staging.*' to match Pub/Sub topics with 'staging' in the name.",
     )
 
 
 class DataplexFilterConfig(ConfigModel):
     """Filter configuration for Dataplex ingestion."""
 
+    entry_groups: EntryGroupFilterConfig = Field(
+        default_factory=EntryGroupFilterConfig,
+        description="Filters for entry group names.",
+    )
+
     entries: EntriesFilterConfig = Field(
         default_factory=EntriesFilterConfig,
-        description="Filters specific to Dataplex Entries API (Universal Catalog).",
+        description="Filters for entries (data assets with fully qualified names).",
     )
 
 
@@ -56,12 +83,15 @@ class DataplexConfig(
         "If not specified, uses project_id or attempts to detect from credentials.",
     )
 
-    entries_location: str = Field(
-        default="us",
-        description="GCP location for Universal Catalog entries extraction. "
-        "Must be a multi-region location (us, eu, asia) to access system-managed entry groups like @bigquery. "
-        "Regional locations (us-central1, etc.) only contain placeholder entries and will miss BigQuery tables. "
-        "Default: 'us' (recommended for most users).",
+    entries_locations: List[str] = Field(
+        default=["us", "eu", "asia", "global"],
+        description="List of GCP locations for Universal Catalog entries extraction. "
+        "Different resource types are registered in different locations: "
+        "- Multi-region locations (us, eu, asia): BigQuery tables, other multi-region resources "
+        "- Global location: Pub/Sub topics, other global resources "
+        "The connector will iterate through all specified locations to discover entries and query lineage. "
+        "Cross-location lineage relationships are supported (e.g., BigQuery table in 'us' -> Pub/Sub topic in 'global'). "
+        "Default: ['us', 'eu', 'asia', 'global'] (covers most common locations  ).",
     )
 
     filter_config: DataplexFilterConfig = Field(
@@ -152,14 +182,14 @@ class DataplexConfig(
     @model_validator(mode="after")
     def validate_location_configuration(self) -> "DataplexConfig":
         """Validate location configuration and warn about common mistakes."""
-        # Warn if entries_location appears to be a regional location
-        if self.entries_location:
-            if "-" in self.entries_location:
+        # Warn if any location appears to be a regional location
+        for location in self.entries_locations:
+            if "-" in location:
                 logger.warning(
-                    f"entries_location='{self.entries_location}' appears to be a regional location (contains '-'). "
-                    "System-managed entry groups like @bigquery require multi-region locations (us, eu, asia). "
-                    "You may miss BigQuery tables and other system resources. "
-                    "Recommended: Change entries_location to 'us', 'eu', or 'asia'."
+                    f"entries_locations contains '{location}' which appears to be a regional location (contains '-'). "
+                    "System-managed entry groups like @bigquery require multi-region locations (us, eu, asia) or global. "
+                    "You may miss BigQuery tables and other system resources in this location. "
+                    "Recommended: Use multi-region locations (us, eu, asia) or global."
                 )
 
         return self
