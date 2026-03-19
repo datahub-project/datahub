@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -156,7 +157,13 @@ public class LabelUtils {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
 
     Map<Urn, GlobalTags> globalTagsByUrn =
-        batchReadGlobalTags(opContext, entityResources, entityService);
+        batchReadAspect(
+            opContext,
+            entityResources,
+            Constants.GLOBAL_TAGS_ASPECT_NAME,
+            GlobalTags.class,
+            GlobalTags::new,
+            entityService);
 
     List<ResourceRefInput> businessEntityResources =
         entityResources.stream()
@@ -168,7 +175,13 @@ public class LabelUtils {
             .toList();
 
     Map<Urn, BusinessAttributeInfo> businessAttributeTagsByUrn =
-        batchReadBusinessAttributeInfo(opContext, businessEntityResources, entityService);
+        batchReadAspect(
+            opContext,
+            businessEntityResources,
+            Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+            BusinessAttributeInfo.class,
+            BusinessAttributeInfo::new,
+            entityService);
 
     for (ResourceRefInput resource : entityResources) {
       Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
@@ -183,7 +196,13 @@ public class LabelUtils {
     }
 
     Map<Urn, EditableSchemaMetadata> schemaByUrn =
-        batchReadEditableSchemaMetadata(opContext, subResourcesList, entityService);
+        batchReadAspect(
+            opContext,
+            subResourcesList,
+            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+            EditableSchemaMetadata.class,
+            EditableSchemaMetadata::new,
+            entityService);
 
     Map<Urn, List<ResourceRefInput>> subResourcesByDataset =
         subResourcesList.stream()
@@ -215,24 +234,28 @@ public class LabelUtils {
   }
 
   /**
-   * Batch-reads GlobalTags aspect for multiple entities in a single database query.
+   * Generic batch-reader for aspects across multiple entities.
    *
-   * <p>N+1 Optimization: Reduces N individual entityService.getLatestAspects() calls to 1 batched
-   * call. For 100 resources, this eliminates 99 redundant database queries.
+   * <p>Error Handling: If batch read fails, gracefully falls back to returning default values for
+   * all resources (prevents cascading failures).
    *
-   * <p>Error Handling: If batch read fails, gracefully falls back to returning empty GlobalTags for
-   * all resources (prevents cascading failures in tag addition operations).
-   *
+   * @param <T> the aspect type (must extend RecordTemplate)
    * @param opContext the operation context
-   * @param resources the list of resources to read tags for
+   * @param resources the list of resources to read aspects for
+   * @param aspectName the name of the aspect to read (e.g., Constants.GLOBAL_TAGS_ASPECT_NAME)
+   * @param aspectClass the class of the aspect for type checking
+   * @param defaultSupplier supplier that creates default instances when aspect is missing
    * @param entityService the entity service
-   * @return map of URN to GlobalTags (empty tags if read fails)
+   * @return map of URN to aspect (default values if read fails)
    */
-  private static Map<Urn, GlobalTags> batchReadGlobalTags(
+  private static <T extends RecordTemplate> Map<Urn, T> batchReadAspect(
       @Nonnull OperationContext opContext,
       List<ResourceRefInput> resources,
+      String aspectName,
+      Class<T> aspectClass,
+      Supplier<T> defaultSupplier,
       EntityService<?> entityService) {
-    Map<Urn, GlobalTags> result = new HashMap<>();
+    Map<Urn, T> result = new HashMap<>();
     if (resources.isEmpty()) {
       return result;
     }
@@ -245,145 +268,25 @@ public class LabelUtils {
 
       Map<Urn, List<RecordTemplate>> allAspects =
           entityService.getLatestAspects(
-              opContext,
-              resourceUrns,
-              new HashSet<>(List.of(Constants.GLOBAL_TAGS_ASPECT_NAME)),
-              false);
+              opContext, resourceUrns, new HashSet<>(List.of(aspectName)), false);
 
       for (Map.Entry<Urn, List<RecordTemplate>> entry : allAspects.entrySet()) {
         if (entry.getValue() != null && !entry.getValue().isEmpty()) {
           RecordTemplate aspectRecord = entry.getValue().get(0);
-          if (aspectRecord instanceof GlobalTags) {
-            result.put(entry.getKey(), (GlobalTags) aspectRecord);
+          if (aspectClass.isInstance(aspectRecord)) {
+            result.put(entry.getKey(), aspectClass.cast(aspectRecord));
           } else {
-            result.put(entry.getKey(), new GlobalTags());
+            result.put(entry.getKey(), defaultSupplier.get());
           }
         } else {
-          result.put(entry.getKey(), new GlobalTags());
+          result.put(entry.getKey(), defaultSupplier.get());
         }
       }
     } catch (Exception e) {
-      log.warn("Failed to batch-read GlobalTags, falling back to empty map", e);
+      log.error("Failed to batch-read {}, falling back to empty map", aspectName, e);
       resources.stream()
           .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
-          .forEach(urn -> result.put(urn, new GlobalTags()));
-    }
-    return result;
-  }
-
-  /**
-   * Batch-reads EditableSchemaMetadata aspect for multiple datasets in a single database query.
-   *
-   * <p>N+1 Optimization: Reduces N individual entityService.getLatestAspects() calls to 1 batched
-   * call. Critical for schema field tag operations where dataset URNs are shared across multiple
-   * fields.
-   *
-   * <p>Error Handling: If batch read fails, gracefully falls back to returning empty metadata for
-   * all resources (prevents cascading failures in schema update operations).
-   *
-   * @param opContext the operation context
-   * @param resources the list of dataset resources
-   * @param entityService the entity service
-   * @return map of dataset URN to EditableSchemaMetadata (empty if read fails)
-   */
-  private static Map<Urn, EditableSchemaMetadata> batchReadEditableSchemaMetadata(
-      @Nonnull OperationContext opContext,
-      List<ResourceRefInput> resources,
-      EntityService<?> entityService) {
-    Map<Urn, EditableSchemaMetadata> result = new HashMap<>();
-    if (resources.isEmpty()) {
-      return result;
-    }
-
-    try {
-      Set<Urn> resourceUrns =
-          resources.stream()
-              .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
-              .collect(Collectors.toSet());
-
-      Map<Urn, List<RecordTemplate>> allAspects =
-          entityService.getLatestAspects(
-              opContext,
-              resourceUrns,
-              new HashSet<>(List.of(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME)),
-              false);
-
-      for (Map.Entry<Urn, List<RecordTemplate>> entry : allAspects.entrySet()) {
-        if (entry.getValue() != null && !entry.getValue().isEmpty()) {
-          RecordTemplate aspectRecord = entry.getValue().get(0);
-          if (aspectRecord instanceof EditableSchemaMetadata) {
-            result.put(entry.getKey(), (EditableSchemaMetadata) aspectRecord);
-          } else {
-            result.put(entry.getKey(), new EditableSchemaMetadata());
-          }
-        } else {
-          result.put(entry.getKey(), new EditableSchemaMetadata());
-        }
-      }
-    } catch (Exception e) {
-      log.warn("Failed to batch-read EditableSchemaMetadata, falling back to empty map", e);
-      resources.stream()
-          .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
-          .forEach(urn -> result.put(urn, new EditableSchemaMetadata()));
-    }
-    return result;
-  }
-
-  /**
-   * Batch-reads BusinessAttributeInfo aspect for multiple business attribute entities in a single
-   * database query.
-   *
-   * <p>N+1 Optimization: Reduces N individual entityService.getLatestAspects() calls to 1 batched
-   * call. Business attributes require separate handling due to their dedicated aspect type and
-   * different mutation semantics.
-   *
-   * <p>Error Handling: If batch read fails, gracefully falls back to returning empty info for all
-   * business attributes (prevents cascading failures in business attribute tag/term operations).
-   *
-   * @param opContext the operation context
-   * @param resources the list of business attribute resources
-   * @param entityService the entity service
-   * @return map of business attribute URN to BusinessAttributeInfo (empty if read fails)
-   */
-  private static Map<Urn, BusinessAttributeInfo> batchReadBusinessAttributeInfo(
-      @Nonnull OperationContext opContext,
-      List<ResourceRefInput> resources,
-      EntityService<?> entityService) {
-    Map<Urn, BusinessAttributeInfo> result = new HashMap<>();
-    if (resources.isEmpty()) {
-      return result;
-    }
-
-    try {
-      Set<Urn> resourceUrns =
-          resources.stream()
-              .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
-              .collect(Collectors.toSet());
-
-      Map<Urn, List<RecordTemplate>> allAspects =
-          entityService.getLatestAspects(
-              opContext,
-              resourceUrns,
-              new HashSet<>(List.of(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME)),
-              false);
-
-      for (Map.Entry<Urn, List<RecordTemplate>> entry : allAspects.entrySet()) {
-        if (entry.getValue() != null && !entry.getValue().isEmpty()) {
-          RecordTemplate aspectRecord = entry.getValue().get(0);
-          if (aspectRecord instanceof BusinessAttributeInfo) {
-            result.put(entry.getKey(), (BusinessAttributeInfo) aspectRecord);
-          } else {
-            result.put(entry.getKey(), new BusinessAttributeInfo());
-          }
-        } else {
-          result.put(entry.getKey(), new BusinessAttributeInfo());
-        }
-      }
-    } catch (Exception e) {
-      log.warn("Failed to batch-read BusinessAttributeInfo, falling back to empty map", e);
-      resources.stream()
-          .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
-          .forEach(urn -> result.put(urn, new BusinessAttributeInfo()));
+          .forEach(urn -> result.put(urn, defaultSupplier.get()));
     }
     return result;
   }
