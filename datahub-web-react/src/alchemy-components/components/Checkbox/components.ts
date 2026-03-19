@@ -12,6 +12,7 @@ export const CheckboxContainer = styled.div<{ justifyContent?: 'center' | 'flex-
         justifyContent: justifyContent ?? 'center',
         alignItems: 'center',
         gap,
+        padding: '0 4px',
     }),
 );
 

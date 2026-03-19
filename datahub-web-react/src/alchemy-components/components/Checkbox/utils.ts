@@ -9,7 +9,7 @@ export function getCheckboxBorder(checked: boolean, error: boolean, disabled: bo
 }
 
 const sizeMap: Record<SizeOptions, string> = {
-    xs: '14px',
+    xs: '16px',
     sm: '16px',
     md: '18px',
     lg: '20px',
@@ -22,7 +22,7 @@ export function getCheckboxSize(size: SizeOptions) {
 }
 
 const touchTargetMap: Record<SizeOptions, string> = {
-    xs: '18px',
+    xs: '20px',
     sm: '20px',
     md: '22px',
     lg: '24px',
@@ -35,7 +35,7 @@ export function getCheckboxTouchTarget(size: SizeOptions) {
 }
 
 const iconSizeMap: Record<SizeOptions, number> = {
-    xs: 10,
+    xs: 12,
     sm: 12,
     md: 14,
     lg: 16,

@@ -6,7 +6,7 @@ const CheckboxWithHelper = styled.div`
     // compensate checkbox container size
     // see datahub-web-react/src/alchemy-components/components/Checkbox/components.ts -> CheckboxBase for details
     position: relative;
-    left: -2px;
+    left: -6px;
 
     display: flex;
     flex-direction: row;
