@@ -34,7 +34,6 @@ export const SelectBase = styled.div<SelectStyleProps>(
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',
-        backgroundColor: 'inherit',
         width: width === 'full' ? '100%' : 'max-content',
     }),
 );
