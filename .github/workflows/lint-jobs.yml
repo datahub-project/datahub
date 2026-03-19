@@ -17,15 +17,16 @@ jobs:
     name: Initial Job Setup ${{ github.workflow }}
     runs-on: ubuntu-slim
     outputs:
-      markdown: ${{ steps.filter.outputs.markdown }}
-      github-actions: ${{ steps.filter.outputs.github-actions }}
-      workflow-files: ${{ steps.filter.outputs.workflow-files }}
-      workflow-validation: ${{ steps.filter.outputs.workflow-validation }}
-      code-check-sources: ${{ steps.filter.outputs.code-check-sources }}
-      default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
-      smoke-test-python: ${{ steps.filter.outputs.smoke-test-python }}
-      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress }}
+      lint-job: ${{ steps.filter.outputs.lint-job }} # Run all lint jobs when this file is changed
+      markdown: ${{ steps.filter.outputs.markdown  || steps.filter.outputs.lint-job }}
+      github-actions: ${{ steps.filter.outputs.github-actions || steps.filter.outputs.lint-job }}
+      workflow-files: ${{ steps.filter.outputs.workflow-files || steps.filter.outputs.lint-job }}
+      workflow-validation: ${{ steps.filter.outputs.workflow-validation || steps.filter.outputs.lint-job }}
+      code-check-sources: ${{ steps.filter.outputs.code-check-sources || steps.filter.outputs.lint-job }}
+      smoke-test-python: ${{ steps.filter.outputs.smoke-test-python || steps.filter.outputs.lint-job }}
+      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress || steps.filter.outputs.lint-job }}
       small-runner: ${{ steps.runners.outputs.small-runner }}
+      default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
       - uses: acryldata/sane-checkout-action@v4
       - uses: dorny/paths-filter@v3
@@ -33,31 +34,33 @@ jobs:
         with:
           token: "" # Empty token forces raw git commands
           filters: |
-            markdown:
-              - "**/*.md"
-            github-actions:
-              - ".github/**/*.yml"
-              - ".github/**/*.yaml"
-            workflow-files:
-              - ".github/workflows/**"
-            workflow-validation:
-              - ".github/workflows/**"
-              - ".github/scripts/validate_post_workflow_list.py"
-            code-check-sources:
-              - "metadata-io/**"
-              - "datahub-web-react/**"
-              - "metadata-service/war/src/main/resources/boot/policies.json"
-              - "**/build.gradle"
-              - "**/build.gradle.kts"
-              - "**/gradle.lockfile"
-              - ".github/scripts/check_*.py"
-            smoke-test-python:
-              - smoke-test/**/*.py
-              - smoke-test/pyproject.toml
-              - smoke-test/requirements.txt
-              - smoke-test/build.gradle
-            smoke-test-cypress:
-              - smoke-test/tests/cypress/**
+            lint-job:
+               - ".github/workflows/lint-jobs.yml"
+             markdown:
+               - "**/*.md"
+             github-actions:
+               - ".github/**/*.yml"
+               - ".github/**/*.yaml"
+             workflow-files:
+               - ".github/workflows/**"
+             workflow-validation:
+               - ".github/workflows/**"
+               - ".github/scripts/validate_post_workflow_list.py"
+             code-check-sources:
+               - "metadata-io/**"
+               - "datahub-web-react/**"
+               - "metadata-service/war/src/main/resources/boot/policies.json"
+               - "**/build.gradle"
+               - "**/build.gradle.kts"
+               - "**/gradle.lockfile"
+               - ".github/scripts/check_*.py"
+             smoke-test-python:
+               - "smoke-test/**/*.py"
+               - "smoke-test/pyproject.toml"
+               - "smoke-test/requirements.txt"
+               - "smoke-test/build.gradle"
+             smoke-test-cypress:
+               - "smoke-test/tests/cypress/**"
       - uses: ./.github/actions/determine-runners
         id: runners
         with:
