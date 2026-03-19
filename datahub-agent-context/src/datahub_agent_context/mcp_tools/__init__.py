@@ -1,5 +1,6 @@
 """MCP tools for interacting with DataHub metadata."""
 
+from datahub_agent_context.mcp_tools.assertions import get_dataset_assertions
 from datahub_agent_context.mcp_tools.descriptions import update_description
 from datahub_agent_context.mcp_tools.documents import grep_documents, search_documents
 from datahub_agent_context.mcp_tools.domains import remove_domains, set_domains
@@ -11,6 +12,7 @@ from datahub_agent_context.mcp_tools.lineage import (
 )
 from datahub_agent_context.mcp_tools.owners import add_owners, remove_owners
 from datahub_agent_context.mcp_tools.queries import get_dataset_queries
+from datahub_agent_context.mcp_tools.save_document import save_document
 from datahub_agent_context.mcp_tools.search import search
 from datahub_agent_context.mcp_tools.structured_properties import (
     add_structured_properties,
@@ -29,6 +31,7 @@ __all__ = [
     "get_lineage",
     "get_lineage_paths_between",
     "get_dataset_queries",
+    "get_dataset_assertions",
     "search_documents",
     "grep_documents",
     "add_tags",
@@ -43,4 +46,5 @@ __all__ = [
     "add_structured_properties",
     "remove_structured_properties",
     "get_me",
+    "save_document",
 ]

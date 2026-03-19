@@ -147,6 +147,14 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Extracts column-level lineage from Copy activities",
+          "subtype_modifier": [
+            "Copy Activity"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -917,7 +925,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.doris.DorisSource",
+      "classname": "datahub.ingestion.source.sql.doris.doris_source.DorisSource",
       "platform_id": "doris",
       "platform_name": "Apache Doris",
       "support_status": "INCUBATING"
@@ -2508,7 +2516,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default via SQL aggregator when processing observed queries",
+          "description": "Optionally enabled via `include_query_usage` to extract from V$SQL, or via `include_usage_stats` for view/procedure lineage",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3014,6 +3022,62 @@
       "platform_name": "Qlik Sense",
       "support_status": "INCUBATING"
     },
+    "rdf": {
+      "capabilities": [
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Not applicable",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default (from skos:definition or rdfs:comment)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful_ingestion.enabled: true",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Not applicable (domains used internally for hierarchy)",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "TAGS",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Supported via platform_instance config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Not in MVP",
+          "subtype_modifier": null,
+          "supported": false
+        }
+      ],
+      "classname": "datahub.ingestion.source.rdf.ingestion.rdf_source.RDFSource",
+      "platform_id": "rdf",
+      "platform_name": "RDF",
+      "support_status": "INCUBATING"
+    },
     "redash": {
       "capabilities": [
         {
@@ -3469,6 +3533,50 @@
       "platform_id": "snowflake",
       "platform_name": "Snowflake",
       "support_status": "CERTIFIED"
+    },
+    "snowplow": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default from schema descriptions",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default for event and entity schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via warehouse_lineage.enabled configuration (requires BDP)",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snowplow.snowplow.SnowplowSource",
+      "platform_id": "snowplow",
+      "platform_name": "Snowplow",
+      "support_status": "INCUBATING"
     },
     "sql-queries": {
       "capabilities": [
@@ -3942,8 +4050,32 @@
     "vertexai": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default: Experiments are modeled as Container entities; model groups and pipeline templates create folder containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for Vertex AI Registered Models and Model Versions",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Optionally set via the `platform_instance` config field to namespace resources when ingesting from multiple Vertex AI setups",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default: training job \u2192 model, dataset \u2192 training job, and cross-platform lineage to GCS, BigQuery, S3, Snowflake, and Azure Blob Storage",
           "subtype_modifier": null,
           "supported": true
         }

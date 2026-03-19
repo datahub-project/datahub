@@ -2,17 +2,23 @@
 
 import logging
 import pathlib
+import textwrap
 from typing import Any, Dict, List, Literal, Optional
 
 import re2  # type: ignore[import-untyped]
 
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.sdk.search_client import compile_filters
 from datahub.utilities.perf_timer import PerfTimer
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import (
     clean_gql_response,
     execute_graphql,
     fetch_global_default_view,
+)
+from datahub_agent_context.mcp_tools.search_filter_parser import (
+    FILTER_DOCS,
+    parse_filter_string,
 )
 
 # Load GraphQL queries at module level
@@ -211,11 +217,7 @@ def _hybrid_search_documents(
     graph: DataHubGraph,
     keyword_query: str,
     semantic_query: str,
-    platforms: Optional[List[str]] = None,
-    domains: Optional[List[str]] = None,
-    tags: Optional[List[str]] = None,
-    glossary_terms: Optional[List[str]] = None,
-    owners: Optional[List[str]] = None,
+    filter: Optional[str] = None,
     num_results: int = 10,
     offset: int = 0,
 ) -> dict:
@@ -234,11 +236,7 @@ def _hybrid_search_documents(
     Args:
         keyword_query: Query for keyword search
         semantic_query: Query for semantic search
-        platforms: Filter by source platforms
-        domains: Filter by business domains
-        tags: Filter by tags
-        glossary_terms: Filter by glossary terms
-        owners: Filter by owners
+        filter: Optional SQL-like filter string
         num_results: Number of results per page (max: 50)
         offset: Starting position for pagination
 
@@ -259,11 +257,7 @@ def _hybrid_search_documents(
             graph=graph,
             query=keyword_query,
             search_strategy="keyword",
-            platforms=platforms,
-            domains=domains,
-            tags=tags,
-            glossary_terms=glossary_terms,
-            owners=owners,
+            filter=filter,
             num_results=fetch_count,
             offset=0,  # Always fetch from beginning for consistent merge
         )
@@ -274,11 +268,7 @@ def _hybrid_search_documents(
                 graph=graph,
                 query=semantic_query,
                 search_strategy="semantic",
-                platforms=platforms,
-                domains=domains,
-                tags=tags,
-                glossary_terms=glossary_terms,
-                owners=owners,
+                filter=filter,
                 num_results=fetch_count,
                 offset=0,
             )
@@ -330,23 +320,18 @@ def _hybrid_search_documents(
 def search_documents(
     query: str = "*",
     semantic_query: Optional[str] = None,
-    platforms: Optional[List[str]] = None,
-    domains: Optional[List[str]] = None,
-    tags: Optional[List[str]] = None,
-    glossary_terms: Optional[List[str]] = None,
-    owners: Optional[List[str]] = None,
+    filter: Optional[str] = None,
     num_results: int = 10,
     offset: int = 0,
 ) -> dict:
     """Search for documents stored in the customer's DataHub deployment.
 
     These are the organization's own documents (runbooks, FAQs, knowledge articles)
-    ingested from sources like Notion, Confluence, etc.
+    ingested from sources like Notion, Confluence, etc. - not DataHub documentation.
 
     Returns document metadata WITHOUT content to keep responses concise.
     Use get_entities() with a document URN to retrieve full content when needed.
 
-    KEYWORD SEARCH:
     HYBRID SEARCH (recommended for natural language queries):
     When both query and semantic_query are provided, runs keyword and semantic
     searches in parallel and merges results intelligently:
@@ -369,29 +354,13 @@ def search_documents(
       • /q kubernetes OR k8s → documents with either term
       • /q "production deployment" → exact phrase match
 
-
     SEMANTIC SEARCH (semantic_query parameter):
     - Uses AI embeddings to find conceptually related documents
     - Best for: natural language questions, finding related topics
     - Only use when the query expresses intent/meaning, not for keyword lookups
     - Example: "how to deploy" finds deployment guides, CI/CD docs, release runbooks
 
-    FILTERS - Narrow results by metadata:
-
-    platforms: Filter by source platform (use full URN)
-    - Examples: ["urn:li:dataPlatform:notion"], ["urn:li:dataPlatform:confluence"]
-
-    domains: Filter by business domain (use full URN)
-    - Examples: ["urn:li:domain:engineering"], ["urn:li:domain:data-platform"]
-
-    tags: Filter by tags (use full URN)
-    - Examples: ["urn:li:tag:critical"], ["urn:li:tag:deprecated"]
-
-    glossary_terms: Filter by glossary terms (use full URN)
-    - Examples: ["urn:li:glossaryTerm:pii"], ["urn:li:glossaryTerm:gdpr"]
-
-    owners: Filter by document owners (use full URN)
-    - Examples: ["urn:li:corpuser:alice"], ["urn:li:corpGroup:platform-team"]
+    {FILTER_DOCS}
 
     PAGINATION:
     - num_results: Number of results per page (max: 50)
@@ -409,26 +378,23 @@ def search_documents(
            semantic_query="how to deploy applications to production"
        )
 
-    2. Keyword-only search (when you know exact terms):
-       search_documents(query="deployment", platforms=["urn:li:dataPlatform:notion"])
+    2. Keyword-only search filtered by platform:
+       search_documents(query="deployment", filter="platform = notion")
 
     3. Discover document sources:
        search_documents(num_results=0)
        → Examine facets to see available platforms, domains
 
     4. Find engineering team's critical docs:
-       search_documents(
-           domains=["urn:li:domain:engineering"],
-           tags=["urn:li:tag:critical"]
-       )
+       search_documents(filter="domain = urn:li:domain:engineering AND tag = urn:li:tag:critical")
+
+    5. Find all runbooks from Notion or Confluence:
+       search_documents(filter="subtype = Runbook AND platform IN (notion, confluence)")
 
     Args:
         query: Search query string
-        platforms: List of platform URNs to filter by
-        domains: List of domain URNs to filter by
-        tags: List of tag URNs to filter by
-        glossary_terms: List of glossary term URNs to filter by
-        owners: List of owner URNs to filter by
+        semantic_query: Optional natural language query for semantic search
+        filter: Optional SQL-like filter string
         num_results: Number of results to return (max 50)
         offset: Starting position for pagination
 
@@ -449,11 +415,7 @@ def search_documents(
                 graph=graph,
                 keyword_query=query,
                 semantic_query=semantic_query,
-                platforms=platforms,
-                domains=domains,
-                tags=tags,
-                glossary_terms=glossary_terms,
-                owners=owners,
+                filter=filter,
                 num_results=num_results,
                 offset=offset,
             )
@@ -472,11 +434,7 @@ def search_documents(
             graph=graph,
             query=query,
             search_strategy="keyword",
-            platforms=platforms,
-            domains=domains,
-            tags=tags,
-            glossary_terms=glossary_terms,
-            owners=owners,
+            filter=filter,
             num_results=num_results,
             offset=offset,
         )
@@ -490,110 +448,27 @@ def search_documents(
     return result
 
 
+search_documents.__doc__ = (search_documents.__doc__ or "").format(
+    FILTER_DOCS=textwrap.indent(FILTER_DOCS, "    ")
+)
+
+
 def _search_documents_impl(
     graph,
     query: str = "*",
     search_strategy: Optional[Literal["semantic", "keyword"]] = None,
-    sub_types: Optional[List[str]] = None,
-    platforms: Optional[List[str]] = None,
-    domains: Optional[List[str]] = None,
-    tags: Optional[List[str]] = None,
-    glossary_terms: Optional[List[str]] = None,
-    owners: Optional[List[str]] = None,
+    filter: Optional[str] = None,
     num_results: int = 10,
     offset: int = 0,
 ) -> dict:
-    """Search for documents stored in the customer's DataHub deployment.
-
-    These are the organization's own documents (runbooks, FAQs, knowledge articles)
-    ingested from sources like Notion, Confluence, etc. - not DataHub documentation.
-
-    Returns document metadata WITHOUT content to keep responses concise.
-    Use get_entities() with a document URN to retrieve full content when needed.
-
-    SEARCH STRATEGIES:
-
-    SEMANTIC SEARCH (search_strategy="semantic"):
-    - Uses AI embeddings to find conceptually related documents
-    - Best for: natural language queries, finding related topics
-    - Example: "how to deploy" finds deployment guides, CI/CD docs, release runbooks
-
-    KEYWORD SEARCH (search_strategy="keyword" or default):
-    - Full-text search with boolean logic
-    - Use /q prefix for structured queries
-    - Examples:
-      • /q deployment guide → documents containing both terms
-      • /q kubernetes OR k8s → documents with either term
-      • /q "production deployment" → exact phrase match
-
-    FILTERS - Narrow results by metadata:
-
-    sub_types: Filter by document type
-    - Examples: ["Runbook"], ["FAQ", "Tutorial"], ["Reference"]
-
-    platforms: Filter by source platform (use full URN)
-    - Examples: ["urn:li:dataPlatform:notion"], ["urn:li:dataPlatform:confluence"]
-
-    domains: Filter by business domain (use full URN)
-    - Examples: ["urn:li:domain:engineering"], ["urn:li:domain:data-platform"]
-
-    tags: Filter by tags (use full URN)
-    - Examples: ["urn:li:tag:critical"], ["urn:li:tag:deprecated"]
-
-    glossary_terms: Filter by glossary terms (use full URN)
-    - Examples: ["urn:li:glossaryTerm:pii"], ["urn:li:glossaryTerm:gdpr"]
-
-    owners: Filter by document owners (use full URN)
-    - Examples: ["urn:li:corpuser:alice"], ["urn:li:corpGroup:platform-team"]
-
-    PAGINATION:
-    - num_results: Number of results per page (max: 50)
-    - offset: Starting position (default: 0)
-
-    FACET DISCOVERY:
-    - Set num_results=0 to get ONLY facets (no results)
-    - Useful for discovering what sub_types, platforms, domains exist
-
-    EXAMPLE WORKFLOWS:
-
-    1. Find all runbooks:
-       search_documents(sub_types=["Runbook"])
-
-    2. Find Notion docs about deployment:
-       search_documents(query="deployment", platforms=["urn:li:dataPlatform:notion"])
-
-    3. Discover document types:
-       search_documents(num_results=0)
-       → Examine facets to see available subTypes, platforms, domains
-
-    4. Find engineering team's critical docs:
-       search_documents(
-           domains=["urn:li:domain:engineering"],
-           tags=["urn:li:tag:critical"]
-       )
-    """
+    """Internal implementation for document search with keyword or semantic strategy."""
     # Cap num_results at 50
     num_results = min(num_results, 50)
 
-    # Build orFilters from the simple filter parameters
-    # Each filter type is ANDed together, values within a filter are ORed
-    and_filters: List[Dict[str, Any]] = []
-
-    if sub_types:
-        and_filters.append({"field": "subTypes", "values": sub_types})
-    if platforms:
-        and_filters.append({"field": "platform", "values": platforms})
-    if domains:
-        and_filters.append({"field": "domains", "values": domains})
-    if tags:
-        and_filters.append({"field": "tags", "values": tags})
-    if glossary_terms:
-        and_filters.append({"field": "glossaryTerms", "values": glossary_terms})
-    if owners:
-        and_filters.append({"field": "owners", "values": owners})
-
-    # Wrap in orFilters format (list of AND groups)
-    or_filters = [{"and": and_filters}] if and_filters else []
+    # Parse SQL-like filter string and compile to orFilters
+    # entity_types is discarded — the GQL queries already hardcode types: [DOCUMENT]
+    parsed_filter = parse_filter_string(filter.strip()) if filter else None
+    _, or_filters = compile_filters(parsed_filter)
 
     # Fetch and apply default view
     view_urn = fetch_global_default_view(graph)
@@ -683,7 +558,7 @@ def grep_documents(
     EXAMPLE WORKFLOWS:
 
     1. Find deployment instructions:
-       docs = search_documents(query="deployment", sub_types=["Runbook"])
+       docs = search_documents(query="deployment", filter="subtype = Runbook")
        urns = [r["entity"]["urn"] for r in docs["searchResults"]]
        grep_documents(urns, pattern="kubectl apply", context_chars=300)
 

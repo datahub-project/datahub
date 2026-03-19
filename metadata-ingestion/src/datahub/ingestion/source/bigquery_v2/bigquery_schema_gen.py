@@ -879,7 +879,9 @@ class BigQuerySchemaGenerator:
         )
         for key, group in groupby_unsorted(
             foreign_keys,
-            lambda x: f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}",
+            lambda x: (
+                f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}"
+            ),
         ):
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform="bigquery",
@@ -899,11 +901,17 @@ class BigQuerySchemaGenerator:
 
             for item in group:
                 source_field = make_schema_field_urn(
-                    parent_urn=dataset_urn, field_path=item.field_path
+                    parent_urn=dataset_urn,
+                    field_path=item.field_path.lower()
+                    if self.config.convert_column_urns_to_lowercase
+                    else item.field_path,
                 )
                 assert item.referenced_column_name
                 referenced_field = make_schema_field_urn(
-                    parent_urn=foreign_dataset, field_path=item.referenced_column_name
+                    parent_urn=foreign_dataset,
+                    field_path=item.referenced_column_name.lower()
+                    if self.config.convert_column_urns_to_lowercase
+                    else item.referenced_column_name,
                 )
 
                 source_fields.append(source_field)
@@ -957,6 +965,20 @@ class BigQuerySchemaGenerator:
             sub_types = [DatasetSubTypes.SHARDED_TABLE] + sub_types
         if table.external:
             sub_types = [DatasetSubTypes.EXTERNAL_TABLE] + sub_types
+            if table.external_source_format:
+                custom_properties["external_source_format"] = (
+                    table.external_source_format
+                )
+            if table.external_source_uris:
+                custom_properties["external_source_uris"] = ", ".join(
+                    table.external_source_uris
+                )
+            if table.external_compression:
+                custom_properties["external_compression"] = table.external_compression
+            if table.external_max_bad_records is not None:
+                custom_properties["external_max_bad_records"] = str(
+                    table.external_max_bad_records
+                )
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
@@ -1243,7 +1265,9 @@ class BigQuerySchemaGenerator:
                     for policy_tag in col.policy_tags:
                         tags.append(TagAssociationClass(make_tag_urn(policy_tag)))
                 field = SchemaField(
-                    fieldPath=col.name,
+                    fieldPath=col.name.lower()
+                    if self.config.convert_column_urns_to_lowercase
+                    else col.name,
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),

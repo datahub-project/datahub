@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Popover } from '@components';
+import { Tilde } from '@phosphor-icons/react/dist/csr/Tilde';
 import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
@@ -128,7 +129,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             <IconWrapper>
                 {icon && <CustomIcon src={icon} alt={entity?.platform?.name} />}
                 {!icon && isDataProcessInstance && entityRegistry.getIcon(EntityType.DataProcessInstance, 18)}
-                {!icon && isQuery && <Icon icon="Tilde" source="phosphor" color="gray" size="inherit" />}
+                {!icon && isQuery && <Icon icon={Tilde} color="gray" size="inherit" />}
                 {!icon && !isQuery && !isDataProcessInstance && (
                     <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />
                 )}

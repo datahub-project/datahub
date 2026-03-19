@@ -14,7 +14,7 @@ import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { Entity } from '@types';
+import { Entity, FacetMetadata } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -112,6 +112,11 @@ export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Pr
         [data],
     );
 
+    const facets = useMemo(
+        () => (data?.searchAcrossEntities?.facets as FacetMetadata[] | undefined) ?? undefined,
+        [data],
+    );
+
     const handleCheckboxChange = useCallback(
         (urn: string) => {
             if (selectedUrns.includes(urn)) {
@@ -201,6 +206,7 @@ export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Pr
                     searchQuery={searchQuery}
                     appliedFilters={appliedFilters}
                     updateFieldFilters={updateFieldFilters}
+                    facets={facets}
                 />
                 <ResultsContainer>
                     <ScrollableResultsContainer data-testid="select-filter-values-search-results">

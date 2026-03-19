@@ -65,7 +65,7 @@ export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
                             status === EXECUTION_REQUEST_STATUS_RUNNING ? (
                                 <LoadingOutlined />
                             ) : (
-                                <Icon icon={icon} source="phosphor" size="md" />
+                                <Icon icon={icon} size="md" />
                             )
                         }
                         label={text}

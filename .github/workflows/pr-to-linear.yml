@@ -115,6 +115,7 @@ jobs:
           PR_DRAFT: ${{ github.event.pull_request.draft }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          TEAM_MEMBERS: ${{ vars.DATAHUB_TEAM_MEMBERS }}
         run: |
           if [ "$PR_DRAFT" = "true" ]; then
             echo "should_skip=true" >> "$GITHUB_OUTPUT"
@@ -134,7 +135,10 @@ jobs:
 
           echo "should_skip=false" >> "$GITHUB_OUTPUT"
 
-          if gh api "orgs/datahub-project/members/$PR_AUTHOR" --silent 2>/dev/null; then
+          if [ -z "$TEAM_MEMBERS" ]; then
+            echo "⚠️  DATAHUB_TEAM_MEMBERS variable is not set — defaulting to Internal"
+            echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+          elif echo "$TEAM_MEMBERS" | jq -e --arg actor "$PR_AUTHOR" '[.[].github] | map(ascii_downcase) | contains([($actor | ascii_downcase)])' > /dev/null 2>&1; then
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
           else
             echo "contributor_type=External" >> "$GITHUB_OUTPUT"
@@ -311,7 +315,12 @@ jobs:
             echo "✅ Created Linear ticket: $ISSUE_ID ($TEAM_KEY)"
             echo "📎 $ISSUE_URL"
 
-            if ! gh pr comment "$PR_NUMBER" --body "Linear: $ISSUE_ID" 2>/dev/null; then
+            if [ "$CONTRIBUTOR_TYPE" = "External" ]; then
+              PR_COMMENT=$(printf 'Linear: %s\n\nThanks for your contribution! We have created an internal ticket to track this PR. A member of the core DataHub team will be assigned to review it within the next few business days - you will get a follow-up comment once a reviewer is assigned.' "$ISSUE_ID")
+            else
+              PR_COMMENT=$(printf 'Linear: %s' "$ISSUE_ID")
+            fi
+            if ! gh pr comment "$PR_NUMBER" --body "$PR_COMMENT" 2>/dev/null; then
               echo "⚠️  Created ticket but failed to comment on PR"
             fi
           else

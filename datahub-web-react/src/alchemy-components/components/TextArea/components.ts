@@ -1,6 +1,7 @@
+import React from 'react';
 import styled from 'styled-components';
 
-import { Icon, IconNames } from '@components/components/Icon';
+import { Icon } from '@components/components/Icon';
 import { TextAreaProps } from '@components/components/TextArea/types';
 import {
     formLabelTextStyles,
@@ -57,7 +58,7 @@ export const TextAreaContainer = styled.div(
     },
 );
 
-export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon }) => ({
+export const TextAreaField = styled.textarea<{ icon?: React.ComponentType<any> }>(({ icon }) => ({
     padding: `${spacing.sm} ${spacing.md}`,
     borderRadius: radius.md,
     border: borders.none,

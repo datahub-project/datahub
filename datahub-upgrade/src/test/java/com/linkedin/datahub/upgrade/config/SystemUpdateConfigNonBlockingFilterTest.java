@@ -3,7 +3,6 @@ package com.linkedin.datahub.upgrade.config;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
@@ -31,7 +30,8 @@ public class SystemUpdateConfigNonBlockingFilterTest {
     SystemUpdateNonBlocking result =
         config.systemUpdateNonBlocking(List.of(upgrade1, upgrade2), bootstrapMCP, appArgs);
 
-    assertEquals(result.steps().size(), 2);
+    // ScaleDownEvaluationStep (1) + 2 upgrades × 1 step each = 3
+    assertEquals(result.steps().size(), 3);
   }
 
   @Test
@@ -50,7 +50,8 @@ public class SystemUpdateConfigNonBlockingFilterTest {
     SystemUpdateNonBlocking result =
         config.systemUpdateNonBlocking(List.of(upgrade1, upgrade2), bootstrapMCP, appArgs);
 
-    assertEquals(result.steps().size(), 1);
+    // ScaleDownEvaluationStep (1) + 1 filtered upgrade = 2
+    assertEquals(result.steps().size(), 2);
   }
 
   @Test
@@ -69,7 +70,8 @@ public class SystemUpdateConfigNonBlockingFilterTest {
     SystemUpdateNonBlocking result =
         config.systemUpdateNonBlocking(List.of(upgrade1, upgrade2), bootstrapMCP, appArgs);
 
-    assertEquals(result.steps().size(), 1);
+    // ScaleDownEvaluationStep (1) + 1 filtered upgrade = 2
+    assertEquals(result.steps().size(), 2);
   }
 
   @Test
@@ -88,7 +90,8 @@ public class SystemUpdateConfigNonBlockingFilterTest {
     SystemUpdateNonBlocking result =
         config.systemUpdateNonBlocking(List.of(upgrade1, upgrade2), bootstrapMCP, appArgs);
 
-    assertTrue(result.steps().isEmpty());
+    // No matching upgrades; only ScaleDownEvaluationStep is present
+    assertEquals(result.steps().size(), 1);
   }
 
   @Test
@@ -109,7 +112,8 @@ public class SystemUpdateConfigNonBlockingFilterTest {
         config.systemUpdateNonBlocking(
             List.of(upgrade1, upgrade2, upgrade3), bootstrapMCP, appArgs);
 
-    assertEquals(result.steps().size(), 2);
+    // ScaleDownEvaluationStep (1) + Upgrade1 + Upgrade3 = 3
+    assertEquals(result.steps().size(), 3);
   }
 
   @Test
@@ -130,7 +134,8 @@ public class SystemUpdateConfigNonBlockingFilterTest {
         config.systemUpdateNonBlocking(
             List.of(upgrade1, upgrade2, upgrade3), bootstrapMCP, appArgs);
 
-    assertEquals(result.steps().size(), 2);
+    // ScaleDownEvaluationStep (1) + Upgrade1 + Upgrade2 = 3
+    assertEquals(result.steps().size(), 3);
   }
 
   private NonBlockingSystemUpgrade createMockUpgrade(String id) {
