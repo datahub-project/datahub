@@ -35,32 +35,32 @@ jobs:
           token: "" # Empty token forces raw git commands
           filters: |
             lint-job:
-               - ".github/workflows/lint-jobs.yml"
-             markdown:
-               - "**/*.md"
-             github-actions:
-               - ".github/**/*.yml"
-               - ".github/**/*.yaml"
-             workflow-files:
-               - ".github/workflows/**"
-             workflow-validation:
-               - ".github/workflows/**"
-               - ".github/scripts/validate_post_workflow_list.py"
-             code-check-sources:
-               - "metadata-io/**"
-               - "datahub-web-react/**"
-               - "metadata-service/war/src/main/resources/boot/policies.json"
-               - "**/build.gradle"
-               - "**/build.gradle.kts"
-               - "**/gradle.lockfile"
-               - ".github/scripts/check_*.py"
-             smoke-test-python:
-               - "smoke-test/**/*.py"
-               - "smoke-test/pyproject.toml"
-               - "smoke-test/requirements.txt"
-               - "smoke-test/build.gradle"
-             smoke-test-cypress:
-               - "smoke-test/tests/cypress/**"
+              - ".github/workflows/lint-jobs.yml"
+            markdown:
+              - "**/*.md"
+            github-actions:
+              - ".github/**/*.yml"
+              - ".github/**/*.yaml"
+            workflow-files:
+              - ".github/workflows/**"
+            workflow-validation:
+              - ".github/workflows/**"
+              - ".github/scripts/validate_post_workflow_list.py"
+            code-check-sources:
+              - "metadata-io/**"
+              - "datahub-web-react/**"
+              - "metadata-service/war/src/main/resources/boot/policies.json"
+              - "**/build.gradle"
+              - "**/build.gradle.kts"
+              - "**/gradle.lockfile"
+              - ".github/scripts/check_*.py"
+            smoke-test-python:
+              - "smoke-test/**/*.py"
+              - "smoke-test/pyproject.toml"
+              - "smoke-test/requirements.txt"
+              - "smoke-test/build.gradle"
+            smoke-test-cypress:
+              - "smoke-test/tests/cypress/**"
       - uses: ./.github/actions/determine-runners
         id: runners
         with:
