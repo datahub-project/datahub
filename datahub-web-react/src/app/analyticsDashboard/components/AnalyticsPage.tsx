@@ -6,18 +6,16 @@ import styled from 'styled-components';
 import { ChartGroup } from '@app/analyticsDashboard/components/ChartGroup';
 import { Highlight } from '@app/analyticsDashboard/components/Highlight';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import filterSearchQuery from '@app/search/utils/filterSearchQuery';
 import { Message } from '@app/shared/Message';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '@graphql/analytics.generated';
 import { useListDomainsQuery } from '@graphql/domain.generated';
 import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
-const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
@@ -29,12 +27,12 @@ const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolea
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        margin-right: ${props.isV2 ? '24px' : '0'};
-        margin-bottom: ${props.isV2 ? '24px' : '0'};
+        margin-right: 24px;
+        margin-bottom: 24px;
     `}
     border-radius: ${(props) => {
-        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
-        return props.isV2 ? '8px' : '0';
+        if (props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return '8px';
     }};
 `;
 
@@ -56,7 +54,7 @@ const MetadataAnalyticsPlaceholder = styled.span`
     margin: 25px;
     margin-bottom: 50px;
     font-size: 18px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const DomainSelect = styled(Select)`
@@ -69,13 +67,12 @@ const StyledSearchBar = styled(Input)`
     &&& {
         margin-left: 10px;
         border-radius: 70px;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textSecondary};
         width: 250px;
     }
 `;
 
 export const AnalyticsPage = () => {
-    const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
@@ -118,7 +115,7 @@ export const AnalyticsPage = () => {
 
     const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
-        <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             {isLoading && <Message type="loading" content="Loading…" style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (
