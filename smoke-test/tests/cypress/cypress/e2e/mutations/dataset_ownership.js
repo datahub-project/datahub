@@ -5,7 +5,7 @@ const password = "Example password";
 const group_name = `Test group ${test_id}`;
 
 const loginAndGoToDataset = () => {
-  cy.loginWithCredentials();
+  cy.login();
   cy.goToDataset(
     "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
     "SampleCypressHiveDataset",
@@ -53,15 +53,15 @@ const addAndRemoveOwnerOnDataset = (owner, type, elementId) => {
   removeOwner(owner, elementId);
 };
 
-describe("add, remove ownership for dataset", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("add, remove ownership for dataset", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(false);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
   it("create test user and test group, add user to a group", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.createUser(username, password, email);
     cy.createGroup(group_name, "Test group description", test_id);
     cy.setIsThemeV2Enabled(false);

@@ -3,14 +3,12 @@ import { hasOperationName } from "../utils";
 const readyToTypeEditor = () =>
   cy.get(".monaco-scrollable-element").first().click().focused();
 
-export const setThemeV2AndIngestionRedesignFlags = (isOn) => {
+export const setIngestionRedesignFlags = (isOn) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
         res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
         res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 = false;
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
-        res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
       });
     }

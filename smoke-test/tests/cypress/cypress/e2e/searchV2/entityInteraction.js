@@ -1,4 +1,4 @@
-import { applyGraphqlInterceptors, getThemeV2Interceptor } from "../utils";
+import { applyGraphqlInterceptors } from "../utils";
 import { SearchV2Helper } from "./helpers/searchV2Helper";
 
 const SAMPLE_ENTITY_NAME = "SampleCypressKafkaDataset";
@@ -10,7 +10,6 @@ describe("searchBarV2 - Entity Interaction", () => {
 
   const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {
     applyGraphqlInterceptors([
-      getThemeV2Interceptor(true),
       helper.getSearchBarInterceptor(true, searchBarApi),
     ]);
 
