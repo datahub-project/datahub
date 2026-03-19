@@ -228,7 +228,7 @@ import org.opensearch.search.suggest.SuggestionBuilder;
  */
 @Slf4j
 public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<?>>
-        implements ElasticSearchClientShim<ElasticsearchClient> {
+    implements ElasticSearchClientShim<ElasticsearchClient> {
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final SearchEngineType engineType;
@@ -248,7 +248,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   public Es8SearchClientShim(@Nonnull ShimConfiguration config, ObjectMapper objectMapper)
-          throws IOException {
+      throws IOException {
     this.shimConfiguration = config;
     this.engineType = config.getEngineType();
     this.client = createEs8Client(config);
@@ -263,43 +263,44 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
     // Configure HTTP client
     builder.setHttpClientConfigCallback(
-            httpAsyncClientBuilder -> {
-              // SSL configuration
-              if (config.isUseSSL()) {
-                try {
-                  SSLContext sslContext = config.getSSLContext() != null
-                          ? config.getSSLContext()          // custom certs
-                          : SSLContexts.createDefault();    // fallback to JVM default
-                  httpAsyncClientBuilder
-                          .setSSLContext(sslContext)
-                          .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
-                } catch (Exception e) {
-                  throw new RuntimeException("Failed to configure SSL", e);
-                }
-              }
+        httpAsyncClientBuilder -> {
+          // SSL configuration
+          if (config.isUseSSL()) {
+            try {
+              SSLContext sslContext =
+                  config.getSSLContext() != null
+                      ? config.getSSLContext() // custom certs
+                      : SSLContexts.createDefault(); // fallback to JVM default
+              httpAsyncClientBuilder
+                  .setSSLContext(sslContext)
+                  .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+            } catch (Exception e) {
+              throw new RuntimeException("Failed to configure SSL", e);
+            }
+          }
 
-              // Connection manager configuration
-              try {
-                httpAsyncClientBuilder.setConnectionManager(createConnectionManager(config));
-              } catch (IOReactorException e) {
-                throw new IllegalStateException(
-                        "Unable to start ElasticSearch client. Please verify connection configuration.");
-              }
+          // Connection manager configuration
+          try {
+            httpAsyncClientBuilder.setConnectionManager(createConnectionManager(config));
+          } catch (IOReactorException e) {
+            throw new IllegalStateException(
+                "Unable to start ElasticSearch client. Please verify connection configuration.");
+          }
 
-              // IO Reactor configuration
-              log.info(
-                      "Configuring Elasticsearch client with threadCount: {}", config.getThreadCount());
-              httpAsyncClientBuilder.setDefaultIOReactorConfig(
-                      IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build());
+          // IO Reactor configuration
+          log.info(
+              "Configuring Elasticsearch client with threadCount: {}", config.getThreadCount());
+          httpAsyncClientBuilder.setDefaultIOReactorConfig(
+              IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build());
 
-              // Authentication
-              configureAuthentication(httpAsyncClientBuilder, config);
+          // Authentication
+          configureAuthentication(httpAsyncClientBuilder, config);
 
-              return httpAsyncClientBuilder;
-            });
+          return httpAsyncClientBuilder;
+        });
 
     RestClientTransport restClientTransport =
-            new RestClientTransport(builder.build(), new JacksonJsonpMapper());
+        new RestClientTransport(builder.build(), new JacksonJsonpMapper());
 
     return new ElasticsearchClient(restClientTransport);
   }
@@ -315,10 +316,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     }
 
     builder.setRequestConfigCallback(
-            requestConfigBuilder ->
-                    requestConfigBuilder
-                            .setConnectionRequestTimeout(config.getConnectionRequestTimeout())
-                            .setSocketTimeout(config.getSocketTimeout()));
+        requestConfigBuilder ->
+            requestConfigBuilder
+                .setConnectionRequestTimeout(config.getConnectionRequestTimeout())
+                .setSocketTimeout(config.getSocketTimeout()));
 
     return builder;
   }
@@ -328,69 +329,70 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
    * ensures optimal performance by matching connection pool size to thread count.
    */
   private NHttpClientConnectionManager createConnectionManager(ShimConfiguration config)
-          throws IOReactorException {
-    SSLContext sslContext = config.getSSLContext() != null
-            ? config.getSSLContext()          // custom certs
-            : SSLContexts.createDefault();    // fallback to JVM default
+      throws IOReactorException {
+    SSLContext sslContext =
+        config.getSSLContext() != null
+            ? config.getSSLContext() // custom certs
+            : SSLContexts.createDefault(); // fallback to JVM default
     javax.net.ssl.HostnameVerifier hostnameVerifier =
-            new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
+        new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
     SchemeIOSessionStrategy sslStrategy =
-            new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
+        new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
     log.info(
-            "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
-            config.getThreadCount(),
-            config.getSocketTimeout());
+        "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
+        config.getThreadCount(),
+        config.getSocketTimeout());
     IOReactorConfig ioReactorConfig =
-            IOReactorConfig.custom()
-                    .setIoThreadCount(config.getThreadCount())
-                    .setSoTimeout(config.getSocketTimeout())
-                    .build();
+        IOReactorConfig.custom()
+            .setIoThreadCount(config.getThreadCount())
+            .setSoTimeout(config.getSocketTimeout())
+            .build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
     IOReactorExceptionHandler ioReactorExceptionHandler =
-            new IOReactorExceptionHandler() {
-              @Override
-              public boolean handle(java.io.IOException ex) {
-                log.error("IO Exception caught during ElasticSearch connection.", ex);
-                return true;
-              }
+        new IOReactorExceptionHandler() {
+          @Override
+          public boolean handle(java.io.IOException ex) {
+            log.error("IO Exception caught during ElasticSearch connection.", ex);
+            return true;
+          }
 
-              @Override
-              public boolean handle(RuntimeException ex) {
-                log.error("Runtime Exception caught during ElasticSearch connection.", ex);
-                return true;
-              }
-            };
+          @Override
+          public boolean handle(RuntimeException ex) {
+            log.error("Runtime Exception caught during ElasticSearch connection.", ex);
+            return true;
+          }
+        };
     ioReactor.setExceptionHandler(ioReactorExceptionHandler);
 
     PoolingNHttpClientConnectionManager connectionManager =
-            new PoolingNHttpClientConnectionManager(
-                    ioReactor,
-                    RegistryBuilder.<SchemeIOSessionStrategy>create()
-                            .register("http", NoopIOSessionStrategy.INSTANCE)
-                            .register("https", sslStrategy)
-                            .build());
+        new PoolingNHttpClientConnectionManager(
+            ioReactor,
+            RegistryBuilder.<SchemeIOSessionStrategy>create()
+                .register("http", NoopIOSessionStrategy.INSTANCE)
+                .register("https", sslStrategy)
+                .build());
 
     // Set maxConnectionsPerRoute to match threadCount (minimum 2)
     int maxConnectionsPerRoute = Math.max(2, config.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
 
     log.info(
-            "Configured connection pool: maxPerRoute={} (threadCount={})",
-            maxConnectionsPerRoute,
-            config.getThreadCount());
+        "Configured connection pool: maxPerRoute={} (threadCount={})",
+        maxConnectionsPerRoute,
+        config.getThreadCount());
 
     return connectionManager;
   }
 
   private void configureAuthentication(
-          HttpAsyncClientBuilder httpAsyncClientBuilder, ShimConfiguration config) {
+      HttpAsyncClientBuilder httpAsyncClientBuilder, ShimConfiguration config) {
     // Basic authentication
     if (config.getUsername() != null && config.getPassword() != null) {
       final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
       credentialsProvider.setCredentials(
-              AuthScope.ANY,
-              new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+          AuthScope.ANY,
+          new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
       httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
     }
 
@@ -413,79 +415,79 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public SearchResponse search(
-          @Nonnull SearchRequest searchRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull SearchRequest searchRequest, @Nonnull RequestOptions options) throws IOException {
     SearchSourceBuilder searchSourceBuilder = searchRequest.source();
     Map<String, Aggregation> aggregationMap =
-            convertAggregations(searchSourceBuilder.aggregations());
+        convertAggregations(searchSourceBuilder.aggregations());
     List<SortOptions> sortOptions = convertSorts(searchSourceBuilder.sorts());
     SlicedScroll slicedScroll = convertSlice(searchSourceBuilder.slice());
     Highlight highlight = convertHighlights(searchSourceBuilder.highlighter());
     PointInTimeReference pointInTimeReference =
-            convertPIT(searchSourceBuilder.pointInTimeBuilder());
+        convertPIT(searchSourceBuilder.pointInTimeBuilder());
     List<Rescore> rescores =
-            Optional.ofNullable(searchSourceBuilder.rescores()).stream()
-                    .flatMap(List::stream)
-                    .map(this::convertRescore)
-                    .collect(Collectors.toList());
+        Optional.ofNullable(searchSourceBuilder.rescores()).stream()
+            .flatMap(List::stream)
+            .map(this::convertRescore)
+            .collect(Collectors.toList());
     Suggester suggester = convertSuggestions(searchSourceBuilder.suggest());
     SourceConfig sourceConfig = convertFetchSource(searchSourceBuilder.fetchSource());
     Double minScore =
-            searchSourceBuilder.minScore() != null
-                    ? searchSourceBuilder.minScore().doubleValue()
-                    : null;
+        searchSourceBuilder.minScore() != null
+            ? searchSourceBuilder.minScore().doubleValue()
+            : null;
     co.elastic.clients.elasticsearch.core.SearchRequest.Builder esSearchRequest =
-            new co.elastic.clients.elasticsearch.core.SearchRequest.Builder()
-                    .index(Arrays.asList(searchRequest.indices()))
-                    .aggregations(aggregationMap)
-                    .allowPartialSearchResults(searchRequest.allowPartialSearchResults())
-                    .explain(searchSourceBuilder.explain())
-                    .from(Math.max(searchSourceBuilder.from(), 0))
-                    .timeout(
-                            searchSourceBuilder.timeout() == null
-                                    ? null
-                                    : searchSourceBuilder.timeout().getStringRep())
-                    .version(searchSourceBuilder.version())
-                    .slice(slicedScroll)
-                    .scroll(
-                            searchRequest.scroll() == null
-                                    ? null
-                                    : new Time.Builder()
-                                    .time(searchRequest.scroll().keepAlive().getStringRep())
-                                    .build())
-                    .size(Math.max(0, searchSourceBuilder.size()))
-                    .highlight(highlight)
-                    .trackTotalHits(
-                            searchSourceBuilder.trackTotalHitsUpTo() == null
-                                    ? null
-                                    : new TrackHits.Builder()
-                                    .enabled(searchSourceBuilder.trackTotalHitsUpTo() > 0)
-                                    .build())
-                    .batchedReduceSize((long) searchRequest.getBatchedReduceSize())
-                    .ccsMinimizeRoundtrips(
-                            searchRequest.isCcsMinimizeRoundtrips() && pointInTimeReference == null)
-                    .maxConcurrentShardRequests((long) searchRequest.getMaxConcurrentShardRequests())
-                    .minScore(minScore)
-                    .pit(pointInTimeReference)
-                    .postFilter(convertQuery(searchSourceBuilder.postFilter()))
-                    .preFilterShardSize(
-                            searchRequest.getPreFilterShardSize() == null
-                                    ? null
-                                    : searchRequest.getPreFilterShardSize().longValue())
-                    .preference(searchRequest.preference())
-                    .profile(searchSourceBuilder.profile())
-                    .query(convertQuery(searchSourceBuilder.query()))
-                    .requestCache(searchRequest.requestCache())
-                    .routing(searchRequest.routing())
-                    .seqNoPrimaryTerm(searchSourceBuilder.seqNoAndPrimaryTerm())
-                    .terminateAfter((long) searchSourceBuilder.terminateAfter())
-                    .trackScores(searchSourceBuilder.trackScores())
-                    .suggest(suggester)
-                    .source(sourceConfig);
+        new co.elastic.clients.elasticsearch.core.SearchRequest.Builder()
+            .index(Arrays.asList(searchRequest.indices()))
+            .aggregations(aggregationMap)
+            .allowPartialSearchResults(searchRequest.allowPartialSearchResults())
+            .explain(searchSourceBuilder.explain())
+            .from(Math.max(searchSourceBuilder.from(), 0))
+            .timeout(
+                searchSourceBuilder.timeout() == null
+                    ? null
+                    : searchSourceBuilder.timeout().getStringRep())
+            .version(searchSourceBuilder.version())
+            .slice(slicedScroll)
+            .scroll(
+                searchRequest.scroll() == null
+                    ? null
+                    : new Time.Builder()
+                        .time(searchRequest.scroll().keepAlive().getStringRep())
+                        .build())
+            .size(Math.max(0, searchSourceBuilder.size()))
+            .highlight(highlight)
+            .trackTotalHits(
+                searchSourceBuilder.trackTotalHitsUpTo() == null
+                    ? null
+                    : new TrackHits.Builder()
+                        .enabled(searchSourceBuilder.trackTotalHitsUpTo() > 0)
+                        .build())
+            .batchedReduceSize((long) searchRequest.getBatchedReduceSize())
+            .ccsMinimizeRoundtrips(
+                searchRequest.isCcsMinimizeRoundtrips() && pointInTimeReference == null)
+            .maxConcurrentShardRequests((long) searchRequest.getMaxConcurrentShardRequests())
+            .minScore(minScore)
+            .pit(pointInTimeReference)
+            .postFilter(convertQuery(searchSourceBuilder.postFilter()))
+            .preFilterShardSize(
+                searchRequest.getPreFilterShardSize() == null
+                    ? null
+                    : searchRequest.getPreFilterShardSize().longValue())
+            .preference(searchRequest.preference())
+            .profile(searchSourceBuilder.profile())
+            .query(convertQuery(searchSourceBuilder.query()))
+            .requestCache(searchRequest.requestCache())
+            .routing(searchRequest.routing())
+            .seqNoPrimaryTerm(searchSourceBuilder.seqNoAndPrimaryTerm())
+            .terminateAfter((long) searchSourceBuilder.terminateAfter())
+            .trackScores(searchSourceBuilder.trackScores())
+            .suggest(suggester)
+            .source(sourceConfig);
     if (searchSourceBuilder.searchAfter() != null && searchSourceBuilder.searchAfter().length > 0) {
       esSearchRequest.searchAfter(
-              Arrays.stream(searchSourceBuilder.searchAfter())
-                      .map(value -> value == null ? FieldValue.NULL : FieldValue.of(value))
-                      .collect(Collectors.toList()));
+          Arrays.stream(searchSourceBuilder.searchAfter())
+              .map(value -> value == null ? FieldValue.NULL : FieldValue.of(value))
+              .collect(Collectors.toList()));
     }
     if (sortOptions != null && !sortOptions.isEmpty()) {
       esSearchRequest.sort(sortOptions);
@@ -498,47 +500,47 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     }
 
     co.elastic.clients.elasticsearch.core.SearchResponse<JsonNode> esSearchResponse =
-            withTransportOptions(options).search(esSearchRequest.build(), JsonNode.class);
+        withTransportOptions(options).search(esSearchRequest.build(), JsonNode.class);
     String json = JsonpUtils.toJsonString(esSearchResponse, jacksonJsonpMapper);
     return SearchResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
+        XContentType.JSON
+            .xContent()
+            .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
   }
 
   @Nonnull
   private Map<String, Aggregation> convertAggregations(
-          @Nullable AggregatorFactories.Builder aggregations) throws JsonProcessingException {
+      @Nullable AggregatorFactories.Builder aggregations) throws JsonProcessingException {
     if (aggregations == null) {
       return Collections.emptyMap();
     }
     JsonNode mappings = objectMapper.readTree(aggregations.toString());
     return mappings.properties().stream()
-            .collect(
-                    Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry ->
-                                    Aggregation.of(
-                                            prop -> {
-                                              try {
-                                                return prop.withJson(
-                                                        jacksonJsonpMapper
-                                                                .jsonProvider()
-                                                                .createParser(
-                                                                        new StringReader(
-                                                                                objectMapper.writeValueAsString(entry.getValue()))),
-                                                        jacksonJsonpMapper);
-                                              } catch (JsonProcessingException e) {
-                                                throw new RuntimeException(e);
-                                              }
-                                            })));
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                entry ->
+                    Aggregation.of(
+                        prop -> {
+                          try {
+                            return prop.withJson(
+                                jacksonJsonpMapper
+                                    .jsonProvider()
+                                    .createParser(
+                                        new StringReader(
+                                            objectMapper.writeValueAsString(entry.getValue()))),
+                                jacksonJsonpMapper);
+                          } catch (JsonProcessingException e) {
+                            throw new RuntimeException(e);
+                          }
+                        })));
   }
 
   @Nullable
   private List<SortOptions> convertSorts(List<SortBuilder<?>> sorts) {
     return sorts == null
-            ? Collections.emptyList()
-            : sorts.stream().map(this::convertSort).collect(Collectors.toList());
+        ? Collections.emptyList()
+        : sorts.stream().map(this::convertSort).collect(Collectors.toList());
   }
 
   @Nullable
@@ -547,9 +549,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       return null;
     }
     SlicedScroll.Builder builder =
-            new SlicedScroll.Builder()
-                    .id(String.valueOf(sliceBuilder.getId()))
-                    .max(sliceBuilder.getMax());
+        new SlicedScroll.Builder()
+            .id(String.valueOf(sliceBuilder.getId()))
+            .max(sliceBuilder.getMax());
     // ElasticSearch doesn't allow slicing on _id
     if (!"_id".equals(sliceBuilder.getField())) {
       builder.field(sliceBuilder.getField());
@@ -566,36 +568,36 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     Highlight.Builder highlight = new Highlight.Builder();
     if (highlightBuilder.fields() != null && !highlightBuilder.fields().isEmpty()) {
       highlight.fields(
-              highlightBuilder.fields().stream()
-                      .collect(
-                              Collectors.toMap(
-                                      HighlightBuilder.Field::name,
-                                      field -> {
-                                        HighlightField.Builder fieldBuilder = new HighlightField.Builder();
-                                        fieldBuilder
-                                                .numberOfFragments(field.numOfFragments())
-                                                .numberOfFragments(field.numOfFragments())
-                                                .noMatchSize(field.noMatchSize())
-                                                .requireFieldMatch(field.requireFieldMatch())
-                                                .fragmentSize(field.fragmentSize())
-                                                .highlightFilter(field.highlightFilter());
-                                        if (field.preTags() != null) {
-                                          fieldBuilder.preTags(Arrays.asList(field.preTags()));
-                                        }
-                                        if (field.postTags() != null) {
-                                          fieldBuilder.postTags(Arrays.asList(field.postTags()));
-                                        }
-                                        return fieldBuilder.build();
-                                      })));
+          highlightBuilder.fields().stream()
+              .collect(
+                  Collectors.toMap(
+                      HighlightBuilder.Field::name,
+                      field -> {
+                        HighlightField.Builder fieldBuilder = new HighlightField.Builder();
+                        fieldBuilder
+                            .numberOfFragments(field.numOfFragments())
+                            .numberOfFragments(field.numOfFragments())
+                            .noMatchSize(field.noMatchSize())
+                            .requireFieldMatch(field.requireFieldMatch())
+                            .fragmentSize(field.fragmentSize())
+                            .highlightFilter(field.highlightFilter());
+                        if (field.preTags() != null) {
+                          fieldBuilder.preTags(Arrays.asList(field.preTags()));
+                        }
+                        if (field.postTags() != null) {
+                          fieldBuilder.postTags(Arrays.asList(field.postTags()));
+                        }
+                        return fieldBuilder.build();
+                      })));
     }
     highlight
-            .numberOfFragments(highlightBuilder.numOfFragments())
-            .requireFieldMatch(highlightBuilder.requireFieldMatch())
-            .fragmentSize(highlightBuilder.fragmentSize())
-            .highlightFilter(highlightBuilder.highlightFilter())
-            .encoder(
-                    HighlighterEncoder._DESERIALIZER.parse(
-                            Optional.ofNullable(highlightBuilder.encoder()).orElse("default")));
+        .numberOfFragments(highlightBuilder.numOfFragments())
+        .requireFieldMatch(highlightBuilder.requireFieldMatch())
+        .fragmentSize(highlightBuilder.fragmentSize())
+        .highlightFilter(highlightBuilder.highlightFilter())
+        .encoder(
+            HighlighterEncoder._DESERIALIZER.parse(
+                Optional.ofNullable(highlightBuilder.encoder()).orElse("default")));
     if (highlightBuilder.preTags() != null) {
       highlight.preTags(Arrays.asList(highlightBuilder.preTags()));
     }
@@ -608,8 +610,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nullable
   private PointInTimeReference convertPIT(PointInTimeBuilder pit) {
     return pit == null
-            ? null
-            : new PointInTimeReference.Builder()
+        ? null
+        : new PointInTimeReference.Builder()
             .id(pit.getId())
             .keepAlive(new Time.Builder().time(pit.getKeepAlive().getStringRep()).build())
             .build();
@@ -618,14 +620,14 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nullable
   private Suggester convertSuggestions(@Nullable SuggestBuilder suggestBuilder) {
     return suggestBuilder == null
-            ? null
-            : new Suggester.Builder()
+        ? null
+        : new Suggester.Builder()
             .text(suggestBuilder.getGlobalText())
             .suggesters(
-                    suggestBuilder.getSuggestions().entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey, entry -> convertSuggestion(entry.getValue()))))
+                suggestBuilder.getSuggestions().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey, entry -> convertSuggestion(entry.getValue()))))
             .build();
   }
 
@@ -639,10 +641,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     String[] excludes = ArrayUtils.nullToEmpty(fetchSourceContext.excludes());
     if (includes.length > 0 || excludes.length > 0) {
       sourceConfig.filter(
-              new SourceFilter.Builder()
-                      .includes(Arrays.asList(includes))
-                      .excludes(Arrays.asList(excludes))
-                      .build());
+          new SourceFilter.Builder()
+              .includes(Arrays.asList(includes))
+              .excludes(Arrays.asList(excludes))
+              .build());
     } else {
       sourceConfig.fetch(fetchSourceContext.fetchSource());
     }
@@ -652,41 +654,41 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public SearchResponse scroll(
-          @Nonnull SearchScrollRequest searchScrollRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull SearchScrollRequest searchScrollRequest, @Nonnull RequestOptions options)
+      throws IOException {
     throw new UnsupportedOperationException("Scroll is unused, not implemented for ES8 Shim.");
   }
 
   @Nonnull
   @Override
   public ClearScrollResponse clearScroll(
-          @Nonnull ClearScrollRequest clearScrollRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull ClearScrollRequest clearScrollRequest, @Nonnull RequestOptions options)
+      throws IOException {
     throw new UnsupportedOperationException("Scroll is unused, not implemented for ES8 Shim.");
   }
 
   @Nonnull
   @Override
   public CountResponse count(@Nonnull CountRequest countRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      throws IOException {
     co.elastic.clients.elasticsearch.core.CountRequest esCountRequest =
-            new co.elastic.clients.elasticsearch.core.CountRequest.Builder()
-                    .index(Arrays.asList(countRequest.indices()))
-                    .query(convertQuery(countRequest.query()))
-                    .build();
+        new co.elastic.clients.elasticsearch.core.CountRequest.Builder()
+            .index(Arrays.asList(countRequest.indices()))
+            .query(convertQuery(countRequest.query()))
+            .build();
     co.elastic.clients.elasticsearch.core.CountResponse esCountResponse =
-            client.count(esCountRequest);
+        client.count(esCountRequest);
     ShardStatistics esShardStats = esCountResponse.shards();
     ShardSearchFailure[] shardFailures = convertShardFailures(esShardStats);
 
     return new CountResponse(
-            esCountResponse.count(),
-            false,
-            new CountResponse.ShardStats(
-                    esShardStats.successful().intValue(),
-                    esShardStats.total().intValue(),
-                    Optional.ofNullable(esShardStats.skipped()).orElse(0).intValue(),
-                    shardFailures));
+        esCountResponse.count(),
+        false,
+        new CountResponse.ShardStats(
+            esShardStats.successful().intValue(),
+            esShardStats.total().intValue(),
+            Optional.ofNullable(esShardStats.skipped()).orElse(0).intValue(),
+            shardFailures));
   }
 
   private ShardSearchFailure[] convertShardFailures(ShardStatistics esShardStats) {
@@ -697,25 +699,25 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     try {
       // Try to map failures, but if we can't then at minimum log
       shardFailures =
-              esShardStats.failures().stream()
-                      .map(
-                              shardSearchFailure ->
-                                      new ShardSearchFailure(
-                                              new SearchException(
-                                                      new SearchShardTarget(
-                                                              shardSearchFailure.node(),
-                                                              new ShardId(
-                                                                      new Index(
-                                                                              Optional.ofNullable(shardSearchFailure.index())
-                                                                                      .orElse(""),
-                                                                              Optional.ofNullable(shardSearchFailure.index())
-                                                                                      .orElse("")),
-                                                                      shardSearchFailure.shard()),
-                                                              null,
-                                                              OriginalIndices.NONE),
-                                                      shardSearchFailure.reason().reason(),
-                                                      null)))
-                      .toArray(ShardSearchFailure[]::new);
+          esShardStats.failures().stream()
+              .map(
+                  shardSearchFailure ->
+                      new ShardSearchFailure(
+                          new SearchException(
+                              new SearchShardTarget(
+                                  shardSearchFailure.node(),
+                                  new ShardId(
+                                      new Index(
+                                          Optional.ofNullable(shardSearchFailure.index())
+                                              .orElse(""),
+                                          Optional.ofNullable(shardSearchFailure.index())
+                                              .orElse("")),
+                                      shardSearchFailure.shard()),
+                                  null,
+                                  OriginalIndices.NONE),
+                              shardSearchFailure.reason().reason(),
+                              null)))
+              .toArray(ShardSearchFailure[]::new);
     } catch (Exception e) {
       log.error("Search failed to execute and could not map failures: {}", esShardStats.failures());
     }
@@ -725,181 +727,181 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ExplainResponse explain(
-          @Nonnull ExplainRequest explainRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull ExplainRequest explainRequest, @Nonnull RequestOptions options) throws IOException {
     co.elastic.clients.elasticsearch.core.ExplainRequest esExplainRequest =
-            new co.elastic.clients.elasticsearch.core.ExplainRequest.Builder()
-                    .id(explainRequest.id())
-                    .query(convertQuery(explainRequest.query()))
-                    .index(explainRequest.index())
-                    .routing(explainRequest.routing())
-                    .build();
+        new co.elastic.clients.elasticsearch.core.ExplainRequest.Builder()
+            .id(explainRequest.id())
+            .query(convertQuery(explainRequest.query()))
+            .index(explainRequest.index())
+            .routing(explainRequest.routing())
+            .build();
     co.elastic.clients.elasticsearch.core.ExplainResponse<JsonNode> esExplainResponse =
-            withTransportOptions(options).explain(esExplainRequest, JsonNode.class);
+        withTransportOptions(options).explain(esExplainRequest, JsonNode.class);
     String json = JsonpUtils.toJsonString(esExplainResponse, jacksonJsonpMapper);
     return ExplainResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json),
-            esExplainResponse.matched());
+        XContentType.JSON
+            .xContent()
+            .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json),
+        esExplainResponse.matched());
   }
 
   // Document operations
   @Nonnull
   @Override
   public GetResponse getDocument(@Nonnull GetRequest getRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      throws IOException {
     co.elastic.clients.elasticsearch.core.GetRequest esGetRequest =
-            new co.elastic.clients.elasticsearch.core.GetRequest.Builder()
-                    .id(getRequest.id())
-                    .index(getRequest.index())
-                    .build();
+        new co.elastic.clients.elasticsearch.core.GetRequest.Builder()
+            .id(getRequest.id())
+            .index(getRequest.index())
+            .build();
     co.elastic.clients.elasticsearch.core.GetResponse<JsonNode> esGetResponse =
-            withTransportOptions(options).get(esGetRequest, JsonNode.class);
+        withTransportOptions(options).get(esGetRequest, JsonNode.class);
     String json = JsonpUtils.toJsonString(esGetResponse, jacksonJsonpMapper);
     return GetResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
+        XContentType.JSON
+            .xContent()
+            .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
   }
 
   @Nonnull
   @Override
   public IndexResponse indexDocument(
-          @Nonnull IndexRequest indexRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull IndexRequest indexRequest, @Nonnull RequestOptions options) throws IOException {
     co.elastic.clients.elasticsearch.core.IndexRequest<JsonNode> esIndexRequest =
-            new co.elastic.clients.elasticsearch.core.IndexRequest.Builder<JsonNode>()
-                    .index(indexRequest.index())
-                    .document(
-                            objectMapper.readTree(
-                                    XContentHelper.convertToJson(indexRequest.source(), true, XContentType.JSON)))
-                    .id(indexRequest.id())
-                    .build();
+        new co.elastic.clients.elasticsearch.core.IndexRequest.Builder<JsonNode>()
+            .index(indexRequest.index())
+            .document(
+                objectMapper.readTree(
+                    XContentHelper.convertToJson(indexRequest.source(), true, XContentType.JSON)))
+            .id(indexRequest.id())
+            .build();
     co.elastic.clients.elasticsearch.core.IndexResponse indexResponse =
-            withTransportOptions(options).index(esIndexRequest);
+        withTransportOptions(options).index(esIndexRequest);
     String json = JsonpUtils.toJsonString(indexResponse, jacksonJsonpMapper);
     return IndexResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
+        XContentType.JSON
+            .xContent()
+            .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
   }
 
   @Nonnull
   @Override
   public DeleteResponse deleteDocument(
-          @Nonnull DeleteRequest deleteRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull DeleteRequest deleteRequest, @Nonnull RequestOptions options) throws IOException {
     co.elastic.clients.elasticsearch.core.DeleteRequest esDeleteRequest =
-            new co.elastic.clients.elasticsearch.core.DeleteRequest.Builder()
-                    .id(deleteRequest.id())
-                    .routing(deleteRequest.routing())
-                    .ifPrimaryTerm(deleteRequest.ifPrimaryTerm())
-                    .index(deleteRequest.index())
-                    .ifSeqNo(deleteRequest.ifSeqNo())
-                    .version(deleteRequest.version())
-                    .build();
+        new co.elastic.clients.elasticsearch.core.DeleteRequest.Builder()
+            .id(deleteRequest.id())
+            .routing(deleteRequest.routing())
+            .ifPrimaryTerm(deleteRequest.ifPrimaryTerm())
+            .index(deleteRequest.index())
+            .ifSeqNo(deleteRequest.ifSeqNo())
+            .version(deleteRequest.version())
+            .build();
     co.elastic.clients.elasticsearch.core.DeleteResponse esDeleteResponse =
-            withTransportOptions(options).delete(esDeleteRequest);
+        withTransportOptions(options).delete(esDeleteRequest);
     String json = JsonpUtils.toJsonString(esDeleteResponse, jacksonJsonpMapper);
     return DeleteResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
+        XContentType.JSON
+            .xContent()
+            .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
   }
 
   @Nonnull
   @Override
   public BulkByScrollResponse deleteByQuery(
-          @Nonnull DeleteByQueryRequest deleteByQueryRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest, @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.DeleteByQueryRequest esDeleteByQueryRequest =
-            convertDeleteByQueryRequest(deleteByQueryRequest, true);
+        convertDeleteByQueryRequest(deleteByQueryRequest, true);
     DeleteByQueryResponse esDeleteByQueryResponse =
-            withTransportOptions(options).deleteByQuery(esDeleteByQueryRequest);
+        withTransportOptions(options).deleteByQuery(esDeleteByQueryRequest);
     BulkByScrollTask.Status status =
-            new BulkByScrollTask.Status(
-                    esDeleteByQueryResponse.sliceId(),
-                    Optional.ofNullable(esDeleteByQueryResponse.total()).orElse(0L),
-                    0L,
-                    0L,
-                    Optional.ofNullable(esDeleteByQueryResponse.deleted()).orElse(0L),
-                    Optional.ofNullable(esDeleteByQueryResponse.batches()).orElse(0L).intValue(),
-                    Optional.ofNullable(esDeleteByQueryResponse.versionConflicts()).orElse(0L),
-                    Optional.ofNullable(esDeleteByQueryResponse.noops()).orElse(0L),
-                    Optional.ofNullable(esDeleteByQueryResponse.retries()).map(Retries::bulk).orElse(0L),
-                    Optional.ofNullable(esDeleteByQueryResponse.retries()).map(Retries::search).orElse(0L),
-                    new TimeValue(
-                            Optional.ofNullable(esDeleteByQueryResponse.throttledMillis()).orElse(0L),
-                            TimeUnit.MILLISECONDS),
-                    Optional.ofNullable(esDeleteByQueryResponse.requestsPerSecond()).orElse(0f),
-                    null,
-                    new TimeValue(
-                            Optional.ofNullable(esDeleteByQueryResponse.throttledUntilMillis()).orElse(0L),
-                            TimeUnit.MILLISECONDS));
-    List<BulkItemResponse.Failure> bulkFailures =
-            esDeleteByQueryResponse.failures().stream()
-                    .map(
-                            failure ->
-                                    new BulkItemResponse.Failure(
-                                            failure.index(), failure.id(), new Exception(failure.cause().reason())))
-                    .collect(Collectors.toList());
-    return new BulkByScrollResponse(
+        new BulkByScrollTask.Status(
+            esDeleteByQueryResponse.sliceId(),
+            Optional.ofNullable(esDeleteByQueryResponse.total()).orElse(0L),
+            0L,
+            0L,
+            Optional.ofNullable(esDeleteByQueryResponse.deleted()).orElse(0L),
+            Optional.ofNullable(esDeleteByQueryResponse.batches()).orElse(0L).intValue(),
+            Optional.ofNullable(esDeleteByQueryResponse.versionConflicts()).orElse(0L),
+            Optional.ofNullable(esDeleteByQueryResponse.noops()).orElse(0L),
+            Optional.ofNullable(esDeleteByQueryResponse.retries()).map(Retries::bulk).orElse(0L),
+            Optional.ofNullable(esDeleteByQueryResponse.retries()).map(Retries::search).orElse(0L),
             new TimeValue(
-                    Optional.ofNullable(esDeleteByQueryResponse.took()).orElse(0L), TimeUnit.MILLISECONDS),
-            status,
-            bulkFailures,
-            Collections.emptyList(),
-            Optional.ofNullable(esDeleteByQueryResponse.timedOut()).orElse(false));
+                Optional.ofNullable(esDeleteByQueryResponse.throttledMillis()).orElse(0L),
+                TimeUnit.MILLISECONDS),
+            Optional.ofNullable(esDeleteByQueryResponse.requestsPerSecond()).orElse(0f),
+            null,
+            new TimeValue(
+                Optional.ofNullable(esDeleteByQueryResponse.throttledUntilMillis()).orElse(0L),
+                TimeUnit.MILLISECONDS));
+    List<BulkItemResponse.Failure> bulkFailures =
+        esDeleteByQueryResponse.failures().stream()
+            .map(
+                failure ->
+                    new BulkItemResponse.Failure(
+                        failure.index(), failure.id(), new Exception(failure.cause().reason())))
+            .collect(Collectors.toList());
+    return new BulkByScrollResponse(
+        new TimeValue(
+            Optional.ofNullable(esDeleteByQueryResponse.took()).orElse(0L), TimeUnit.MILLISECONDS),
+        status,
+        bulkFailures,
+        Collections.emptyList(),
+        Optional.ofNullable(esDeleteByQueryResponse.timedOut()).orElse(false));
   }
 
   @Nonnull
   @Override
   public CreatePitResponse createPit(
-          @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
+      throws IOException {
     OpenPointInTimeRequest esCreatePitRequest =
-            new OpenPointInTimeRequest.Builder()
-                    .index(
-                            createPitRequest.indices() == null
-                                    ? Collections.emptyList()
-                                    : Arrays.asList(createPitRequest.indices()))
-                    .keepAlive(
-                            createPitRequest.getKeepAlive() == null
-                                    ? null
-                                    : new Time.Builder()
-                                    .time(createPitRequest.getKeepAlive().getStringRep())
-                                    .build())
-                    .routing(createPitRequest.getRouting())
-                    .preference(createPitRequest.getPreference())
-                    .build();
+        new OpenPointInTimeRequest.Builder()
+            .index(
+                createPitRequest.indices() == null
+                    ? Collections.emptyList()
+                    : Arrays.asList(createPitRequest.indices()))
+            .keepAlive(
+                createPitRequest.getKeepAlive() == null
+                    ? null
+                    : new Time.Builder()
+                        .time(createPitRequest.getKeepAlive().getStringRep())
+                        .build())
+            .routing(createPitRequest.getRouting())
+            .preference(createPitRequest.getPreference())
+            .build();
 
     // We disable required non null checks because ES-Java introduced a backwards incompatible
     // client side change
     OpenPointInTimeResponse esCreatePitResponse =
-            withTransportOptions(options).openPointInTime(esCreatePitRequest);
+        withTransportOptions(options).openPointInTime(esCreatePitRequest);
     ShardStatistics esShardStats = esCreatePitResponse.shards();
     ShardSearchFailure[] searchFailures = convertShardFailures(esShardStats);
     return new CreatePitResponse(
-            esCreatePitResponse.id(),
-            System.currentTimeMillis(),
-            esShardStats.total().intValue(),
-            esShardStats.successful().intValue(),
-            Optional.ofNullable(esShardStats.skipped()).map(Number::intValue).orElse(0),
-            esShardStats.failed().intValue(),
-            searchFailures);
+        esCreatePitResponse.id(),
+        System.currentTimeMillis(),
+        esShardStats.total().intValue(),
+        esShardStats.successful().intValue(),
+        Optional.ofNullable(esShardStats.skipped()).map(Number::intValue).orElse(0),
+        esShardStats.failed().intValue(),
+        searchFailures);
   }
 
   @Nonnull
   @Override
   public DeletePitResponse deletePit(
-          @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
+      throws IOException {
     List<String> pitIds = deletePitRequest.getPitIds();
     List<DeletePitInfo> deletePitInfos = new ArrayList<>();
     for (String pitId : pitIds) {
       ClosePointInTimeRequest esDeletePitRequest =
-              new ClosePointInTimeRequest.Builder().id(pitId).build();
+          new ClosePointInTimeRequest.Builder().id(pitId).build();
 
       ClosePointInTimeResponse esDeletePitResponse =
-              withTransportOptions(options).closePointInTime(esDeletePitRequest);
+          withTransportOptions(options).closePointInTime(esDeletePitRequest);
       DeletePitInfo deletePitInfo = new DeletePitInfo(esDeletePitResponse.succeeded(), pitId);
       deletePitInfos.add(deletePitInfo);
     }
@@ -908,98 +910,98 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private co.elastic.clients.elasticsearch.core.DeleteByQueryRequest convertDeleteByQueryRequest(
-          DeleteByQueryRequest deleteByQueryRequest, boolean synchronous) throws IOException {
+      DeleteByQueryRequest deleteByQueryRequest, boolean synchronous) throws IOException {
     return new co.elastic.clients.elasticsearch.core.DeleteByQueryRequest.Builder()
-            .query(convertQuery(deleteByQueryRequest.getSearchRequest().source().query()))
-            .index(Arrays.asList(deleteByQueryRequest.indices()))
-            .timeout(new Time.Builder().time(deleteByQueryRequest.getTimeout().getStringRep()).build())
-            .refresh(deleteByQueryRequest.isRefresh())
-            .scrollSize((long) deleteByQueryRequest.getBatchSize())
-            .waitForCompletion(synchronous)
-            .build();
+        .query(convertQuery(deleteByQueryRequest.getSearchRequest().source().query()))
+        .index(Arrays.asList(deleteByQueryRequest.indices()))
+        .timeout(new Time.Builder().time(deleteByQueryRequest.getTimeout().getStringRep()).build())
+        .refresh(deleteByQueryRequest.isRefresh())
+        .scrollSize((long) deleteByQueryRequest.getBatchSize())
+        .waitForCompletion(synchronous)
+        .build();
   }
 
   // Index management operations
   @Nonnull
   @Override
   public CreateIndexResponse createIndex(
-          @Nonnull CreateIndexRequest createIndexRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull CreateIndexRequest createIndexRequest, @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
-            new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
-                    .index(createIndexRequest.index())
-                    .mappings(
-                            createIndexRequest.mappings() != null
-                                    ? convertTypeMapping(createIndexRequest.mappings())
-                                    : null)
-                    .settings(
-                            createIndexRequest.settings() != null
-                                    && !Settings.EMPTY.equals(createIndexRequest.settings())
-                                    ? convertIndexSettings(createIndexRequest.settings())
-                                    : null)
-                    .build();
+        new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
+            .index(createIndexRequest.index())
+            .mappings(
+                createIndexRequest.mappings() != null
+                    ? convertTypeMapping(createIndexRequest.mappings())
+                    : null)
+            .settings(
+                createIndexRequest.settings() != null
+                        && !Settings.EMPTY.equals(createIndexRequest.settings())
+                    ? convertIndexSettings(createIndexRequest.settings())
+                    : null)
+            .build();
     co.elastic.clients.elasticsearch.indices.CreateIndexResponse esCreateResponse =
-            withTransportOptions(options).indices().create(esCreateIndexRequest);
+        withTransportOptions(options).indices().create(esCreateIndexRequest);
     return new CreateIndexResponse(
-            esCreateResponse.acknowledged(),
-            esCreateResponse.shardsAcknowledged(),
-            esCreateResponse.index());
+        esCreateResponse.acknowledged(),
+        esCreateResponse.shardsAcknowledged(),
+        esCreateResponse.index());
   }
 
   @Nonnull
   @Override
   public GetIndexResponse getIndex(GetIndexRequest getIndexRequest, RequestOptions options)
-          throws IOException {
+      throws IOException {
     co.elastic.clients.elasticsearch.indices.GetIndexRequest esGetIndexRequest =
-            new co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder()
-                    .index(Arrays.asList(getIndexRequest.indices()))
-                    .includeDefaults(getIndexRequest.includeDefaults())
-                    .build();
+        new co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder()
+            .index(Arrays.asList(getIndexRequest.indices()))
+            .includeDefaults(getIndexRequest.includeDefaults())
+            .build();
     co.elastic.clients.elasticsearch.indices.GetIndexResponse esGetIndexResponse =
-            withTransportOptions(options).indices().get(esGetIndexRequest);
+        withTransportOptions(options).indices().get(esGetIndexRequest);
     Map<String, IndexState> result = esGetIndexResponse.result();
     Set<String> indices = result.keySet();
     return new GetIndexResponse(
-            indices.toArray(new String[0]),
-            result.entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey, entry -> convertMappings(entry.getValue().mappings()))),
-            result.entrySet().stream()
-                    .collect(
-                            Collectors.toMap(Map.Entry::getKey, entry -> convertMetadata(entry.getValue()))),
-            result.entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().settings()))),
-            result.entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().defaults()))),
-            result.entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    entry ->
-                                            Optional.ofNullable(entry.getValue().dataStream())
-                                                    .orElse(StringUtils.EMPTY))));
+        indices.toArray(new String[0]),
+        result.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> convertMappings(entry.getValue().mappings()))),
+        result.entrySet().stream()
+            .collect(
+                Collectors.toMap(Map.Entry::getKey, entry -> convertMetadata(entry.getValue()))),
+        result.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().settings()))),
+        result.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().defaults()))),
+        result.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        Optional.ofNullable(entry.getValue().dataStream())
+                            .orElse(StringUtils.EMPTY))));
   }
 
   private List<AliasMetadata> convertMetadata(IndexState state) {
     return state.aliases().entrySet().stream()
-            .map(
-                    entry ->
-                            AliasMetadata.newAliasMetadataBuilder(entry.getKey())
-                                    .filter(
-                                            Optional.ofNullable(entry.getValue().filter())
-                                                    .map(Query::toString)
-                                                    .orElse(null))
-                                    .indexRouting(entry.getValue().indexRouting())
-                                    .searchRouting(entry.getValue().searchRouting())
-                                    .writeIndex(entry.getValue().isWriteIndex())
-                                    .isHidden(entry.getValue().isHidden())
-                                    .build())
-            .collect(Collectors.toList());
+        .map(
+            entry ->
+                AliasMetadata.newAliasMetadataBuilder(entry.getKey())
+                    .filter(
+                        Optional.ofNullable(entry.getValue().filter())
+                            .map(Query::toString)
+                            .orElse(null))
+                    .indexRouting(entry.getValue().indexRouting())
+                    .searchRouting(entry.getValue().searchRouting())
+                    .writeIndex(entry.getValue().isWriteIndex())
+                    .isHidden(entry.getValue().isHidden())
+                    .build())
+        .collect(Collectors.toList());
   }
 
   @Nonnull
@@ -1020,7 +1022,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     String mappingAsString = JsonpUtils.toJsonString(mapping, jacksonJsonpMapper);
     try {
       return new MappingMetadata(
-              "_doc", objectMapper.readValue(mappingAsString, new TypeReference<>() {}));
+          "_doc", objectMapper.readValue(mappingAsString, new TypeReference<>() {}));
     } catch (Exception e) {
       log.warn("Unable to convert mapping, since this is unused continuing: " + mappingAsString);
       return MappingMetadata.EMPTY_MAPPINGS;
@@ -1030,66 +1032,66 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   private SortOptions convertSort(SortBuilder<?> sortBuilder) {
     String jsonString = sortBuilder.toString();
     return SortOptions._DESERIALIZER.deserialize(
-            jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-            jacksonJsonpMapper);
+        jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+        jacksonJsonpMapper);
   }
 
   @Nonnull
   @Override
   public ResizeResponse cloneIndex(ResizeRequest resizeRequest, RequestOptions options)
-          throws IOException {
+      throws IOException {
     CloneIndexRequest esCloneIndexRequest =
-            new CloneIndexRequest.Builder()
-                    .index(resizeRequest.getSourceIndex())
-                    .target(resizeRequest.getTargetIndex())
-                    .build();
+        new CloneIndexRequest.Builder()
+            .index(resizeRequest.getSourceIndex())
+            .target(resizeRequest.getTargetIndex())
+            .build();
     CloneIndexResponse esCloneIndexResponse =
-            withTransportOptions(options).indices().clone(esCloneIndexRequest);
+        withTransportOptions(options).indices().clone(esCloneIndexRequest);
     return new ResizeResponse(
-            esCloneIndexResponse.acknowledged(),
-            esCloneIndexResponse.shardsAcknowledged(),
-            esCloneIndexResponse.index());
+        esCloneIndexResponse.acknowledged(),
+        esCloneIndexResponse.shardsAcknowledged(),
+        esCloneIndexResponse.index());
   }
 
   @Nonnull
   @Override
   public AcknowledgedResponse deleteIndex(
-          @Nonnull DeleteIndexRequest deleteIndexRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull DeleteIndexRequest deleteIndexRequest, @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.indices.DeleteIndexRequest esDeleteIndexRequest =
-            new co.elastic.clients.elasticsearch.indices.DeleteIndexRequest.Builder()
-                    .index(Arrays.asList(deleteIndexRequest.indices()))
-                    .timeout(
-                            new Time.Builder()
-                                    .time(
-                                            Optional.ofNullable(deleteIndexRequest.timeout())
-                                                    .map(TimeValue::getStringRep)
-                                                    .orElse(null))
-                                    .build())
-                    .build();
+        new co.elastic.clients.elasticsearch.indices.DeleteIndexRequest.Builder()
+            .index(Arrays.asList(deleteIndexRequest.indices()))
+            .timeout(
+                new Time.Builder()
+                    .time(
+                        Optional.ofNullable(deleteIndexRequest.timeout())
+                            .map(TimeValue::getStringRep)
+                            .orElse(null))
+                    .build())
+            .build();
     DeleteIndexResponse esDeleteIndexResponse =
-            withTransportOptions(options).indices().delete(esDeleteIndexRequest);
+        withTransportOptions(options).indices().delete(esDeleteIndexRequest);
     return new AcknowledgedResponse(esDeleteIndexResponse.acknowledged());
   }
 
   @Override
   public boolean indexExists(
-          @Nonnull GetIndexRequest getIndexRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull GetIndexRequest getIndexRequest, @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.indices.ExistsRequest esIndexRequest =
-            new co.elastic.clients.elasticsearch.indices.ExistsRequest.Builder()
-                    .index(Arrays.asList(getIndexRequest.indices()))
-                    .build();
+        new co.elastic.clients.elasticsearch.indices.ExistsRequest.Builder()
+            .index(Arrays.asList(getIndexRequest.indices()))
+            .build();
     return withTransportOptions(options).indices().exists(esIndexRequest).value();
   }
 
   @Nonnull
   @Override
   public AcknowledgedResponse putIndexMapping(
-          @Nonnull PutMappingRequest putMappingRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull PutMappingRequest putMappingRequest, @Nonnull RequestOptions options)
+      throws IOException {
     Map<String, Object> mappings =
-            objectMapper.readValue(putMappingRequest.source().utf8ToString(), new TypeReference<>() {});
+        objectMapper.readValue(putMappingRequest.source().utf8ToString(), new TypeReference<>() {});
     if (mappings.containsKey("properties")) {
       Object props = mappings.get("properties");
       if (props instanceof Map) {
@@ -1097,133 +1099,133 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       }
     }
     Map<String, Property> propertyMap =
-            mappings.entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    entry ->
-                                            Property.of(
-                                                    prop -> {
-                                                      try {
-                                                        return prop.withJson(
-                                                                jacksonJsonpMapper
-                                                                        .jsonProvider()
-                                                                        .createParser(
-                                                                                new StringReader(
-                                                                                        objectMapper.writeValueAsString(entry.getValue()))),
-                                                                jacksonJsonpMapper);
-                                                      } catch (JsonProcessingException e) {
-                                                        throw new RuntimeException(e);
-                                                      }
-                                                    })));
+        mappings.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        Property.of(
+                            prop -> {
+                              try {
+                                return prop.withJson(
+                                    jacksonJsonpMapper
+                                        .jsonProvider()
+                                        .createParser(
+                                            new StringReader(
+                                                objectMapper.writeValueAsString(entry.getValue()))),
+                                    jacksonJsonpMapper);
+                              } catch (JsonProcessingException e) {
+                                throw new RuntimeException(e);
+                              }
+                            })));
     co.elastic.clients.elasticsearch.indices.PutMappingRequest esPutMappingRequest =
-            new co.elastic.clients.elasticsearch.indices.PutMappingRequest.Builder()
-                    .index(Arrays.asList(putMappingRequest.indices()))
-                    .properties(propertyMap)
-                    .build();
+        new co.elastic.clients.elasticsearch.indices.PutMappingRequest.Builder()
+            .index(Arrays.asList(putMappingRequest.indices()))
+            .properties(propertyMap)
+            .build();
     PutMappingResponse esPutMappingsResponse =
-            withTransportOptions(options).indices().putMapping(esPutMappingRequest);
+        withTransportOptions(options).indices().putMapping(esPutMappingRequest);
     return new AcknowledgedResponse(esPutMappingsResponse.acknowledged());
   }
 
   @Nonnull
   @Override
   public GetMappingsResponse getIndexMapping(
-          @Nonnull GetMappingsRequest getMappingsRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull GetMappingsRequest getMappingsRequest, @Nonnull RequestOptions options)
+      throws IOException {
     GetMappingRequest esGetMappingRequest =
-            new GetMappingRequest.Builder().index(Arrays.asList(getMappingsRequest.indices())).build();
+        new GetMappingRequest.Builder().index(Arrays.asList(getMappingsRequest.indices())).build();
     GetMappingResponse esGetMappingResponse =
-            withTransportOptions(options).indices().getMapping(esGetMappingRequest);
+        withTransportOptions(options).indices().getMapping(esGetMappingRequest);
     return new GetMappingsResponse(
-            esGetMappingResponse.result().entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey, entry -> convertMappings(entry.getValue().mappings()))));
+        esGetMappingResponse.result().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> convertMappings(entry.getValue().mappings()))));
   }
 
   @Nonnull
   @Override
   public GetSettingsResponse getIndexSettings(
-          @Nonnull GetSettingsRequest getSettingsRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull GetSettingsRequest getSettingsRequest, @Nonnull RequestOptions options)
+      throws IOException {
     GetIndicesSettingsRequest esGetSettingRequest =
-            new GetIndicesSettingsRequest.Builder()
-                    .index(Arrays.asList(getSettingsRequest.indices()))
-                    .name(
-                            getSettingsRequest.names() != null
-                                    ? Arrays.asList(getSettingsRequest.names())
-                                    : null)
-                    .includeDefaults(getSettingsRequest.includeDefaults())
-                    .build();
+        new GetIndicesSettingsRequest.Builder()
+            .index(Arrays.asList(getSettingsRequest.indices()))
+            .name(
+                getSettingsRequest.names() != null
+                    ? Arrays.asList(getSettingsRequest.names())
+                    : null)
+            .includeDefaults(getSettingsRequest.includeDefaults())
+            .build();
     GetIndicesSettingsResponse esSettingsResponse =
-            withTransportOptions(options).indices().getSettings(esGetSettingRequest);
+        withTransportOptions(options).indices().getSettings(esGetSettingRequest);
     return new GetSettingsResponse(
-            esSettingsResponse.result().entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().settings()))),
-            esSettingsResponse.result().entrySet().stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().defaults()))));
+        esSettingsResponse.result().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().settings()))),
+        esSettingsResponse.result().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> convertSettings(entry.getValue().defaults()))));
   }
 
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexSettings(
-          @Nonnull UpdateSettingsRequest updateSettingsRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull UpdateSettingsRequest updateSettingsRequest, @Nonnull RequestOptions options)
+      throws IOException {
     PutIndicesSettingsRequest esPutSettingsRequest =
-            new PutIndicesSettingsRequest.Builder()
-                    .index(Arrays.asList(updateSettingsRequest.indices()))
-                    .settings(
-                            updateSettingsRequest.settings() != null
-                                    && !Settings.EMPTY.equals(updateSettingsRequest.settings())
-                                    ? convertIndexSettings(updateSettingsRequest.settings())
-                                    : null)
-                    .build();
+        new PutIndicesSettingsRequest.Builder()
+            .index(Arrays.asList(updateSettingsRequest.indices()))
+            .settings(
+                updateSettingsRequest.settings() != null
+                        && !Settings.EMPTY.equals(updateSettingsRequest.settings())
+                    ? convertIndexSettings(updateSettingsRequest.settings())
+                    : null)
+            .build();
     PutIndicesSettingsResponse esUpdatedSettingsResponse =
-            withTransportOptions(options).indices().putSettings(esPutSettingsRequest);
+        withTransportOptions(options).indices().putSettings(esPutSettingsRequest);
     return new AcknowledgedResponse(esUpdatedSettingsResponse.acknowledged());
   }
 
   @Nonnull
   @Override
   public RefreshResponse refreshIndex(
-          @Nonnull RefreshRequest refreshRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull RefreshRequest refreshRequest, @Nonnull RequestOptions options) throws IOException {
     co.elastic.clients.elasticsearch.indices.RefreshRequest esRefreshRequest =
-            new co.elastic.clients.elasticsearch.indices.RefreshRequest.Builder()
-                    .index(
-                            refreshRequest.indices() != null ? Arrays.asList(refreshRequest.indices()) : null)
-                    .build();
+        new co.elastic.clients.elasticsearch.indices.RefreshRequest.Builder()
+            .index(
+                refreshRequest.indices() != null ? Arrays.asList(refreshRequest.indices()) : null)
+            .build();
     co.elastic.clients.elasticsearch.indices.RefreshResponse esRefreshResponse =
-            withTransportOptions(options).indices().refresh(esRefreshRequest);
+        withTransportOptions(options).indices().refresh(esRefreshRequest);
     return RefreshResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(
-                            X_CONTENT_REGISTRY,
-                            LoggingDeprecationHandler.INSTANCE,
-                            JsonpUtils.toJsonString(esRefreshResponse, jacksonJsonpMapper)));
+        XContentType.JSON
+            .xContent()
+            .createParser(
+                X_CONTENT_REGISTRY,
+                LoggingDeprecationHandler.INSTANCE,
+                JsonpUtils.toJsonString(esRefreshResponse, jacksonJsonpMapper)));
   }
 
   @Nonnull
   @Override
   public GetAliasesResponse getIndexAliases(
-          @Nonnull GetAliasesRequest getAliasesRequest, @Nonnull RequestOptions options)
-          throws IOException {
+      @Nonnull GetAliasesRequest getAliasesRequest, @Nonnull RequestOptions options)
+      throws IOException {
     GetAliasRequest esGetAliasRequest =
-            new GetAliasRequest.Builder()
-                    .name(
-                            getAliasesRequest.aliases() != null
-                                    ? Arrays.asList(getAliasesRequest.aliases())
-                                    : null)
-                    .index(
-                            getAliasesRequest.indices() != null
-                                    ? Arrays.asList(getAliasesRequest.indices())
-                                    : null)
-                    .build();
+        new GetAliasRequest.Builder()
+            .name(
+                getAliasesRequest.aliases() != null
+                    ? Arrays.asList(getAliasesRequest.aliases())
+                    : null)
+            .index(
+                getAliasesRequest.indices() != null
+                    ? Arrays.asList(getAliasesRequest.indices())
+                    : null)
+            .build();
     GetAliasResponse esGetAliasResponse;
     try {
       esGetAliasResponse = withTransportOptions(options).indices().getAlias(esGetAliasRequest);
@@ -1235,138 +1237,138 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       }
     }
     return GetAliasesResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(
-                            X_CONTENT_REGISTRY,
-                            LoggingDeprecationHandler.INSTANCE,
-                            JsonpUtils.toJsonString(esGetAliasResponse, jacksonJsonpMapper)));
+        XContentType.JSON
+            .xContent()
+            .createParser(
+                X_CONTENT_REGISTRY,
+                LoggingDeprecationHandler.INSTANCE,
+                JsonpUtils.toJsonString(esGetAliasResponse, jacksonJsonpMapper)));
   }
 
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexAliases(
-          IndicesAliasesRequest indicesAliasesRequest, RequestOptions options) throws IOException {
+      IndicesAliasesRequest indicesAliasesRequest, RequestOptions options) throws IOException {
     UpdateAliasesRequest esUpdateAliasesRequest =
-            new UpdateAliasesRequest.Builder()
-                    .actions(
-                            indicesAliasesRequest.getAliasActions().stream()
-                                    .map(this::convertAliasAction)
-                                    .collect(Collectors.toList()))
-                    .timeout(
-                            indicesAliasesRequest.timeout() != null
-                                    ? new Time.Builder()
-                                    .time(indicesAliasesRequest.timeout().getStringRep())
-                                    .build()
-                                    : null)
-                    .build();
+        new UpdateAliasesRequest.Builder()
+            .actions(
+                indicesAliasesRequest.getAliasActions().stream()
+                    .map(this::convertAliasAction)
+                    .collect(Collectors.toList()))
+            .timeout(
+                indicesAliasesRequest.timeout() != null
+                    ? new Time.Builder()
+                        .time(indicesAliasesRequest.timeout().getStringRep())
+                        .build()
+                    : null)
+            .build();
     UpdateAliasesResponse esUpdateAliasResponse =
-            withTransportOptions(options).indices().updateAliases(esUpdateAliasesRequest);
+        withTransportOptions(options).indices().updateAliases(esUpdateAliasesRequest);
     return new AcknowledgedResponse(esUpdateAliasResponse.acknowledged());
   }
 
   private Action convertAliasAction(IndicesAliasesRequest.AliasActions aliasAction) {
     String jsonString = Strings.toString(MediaTypeRegistry.JSON, aliasAction, true, true);
     return Action.of(
-            q ->
-                    q.withJson(
-                            jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                            jacksonJsonpMapper));
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 
   @Nonnull
   @Override
   public AnalyzeResponse analyzeIndex(AnalyzeRequest request, RequestOptions options)
-          throws IOException {
+      throws IOException {
     co.elastic.clients.elasticsearch.indices.AnalyzeRequest esAnalyzeRequest =
-            new co.elastic.clients.elasticsearch.indices.AnalyzeRequest.Builder()
-                    .analyzer(request.analyzer())
-                    .index(request.index())
-                    .field(request.field())
-                    .attributes(request.attributes() != null ? Arrays.asList(request.attributes()) : null)
-                    .text(request.text() != null ? Arrays.asList(request.text()) : null)
-                    .build();
+        new co.elastic.clients.elasticsearch.indices.AnalyzeRequest.Builder()
+            .analyzer(request.analyzer())
+            .index(request.index())
+            .field(request.field())
+            .attributes(request.attributes() != null ? Arrays.asList(request.attributes()) : null)
+            .text(request.text() != null ? Arrays.asList(request.text()) : null)
+            .build();
     co.elastic.clients.elasticsearch.indices.AnalyzeResponse esAnalyzeResponse =
-            withTransportOptions(options).indices().analyze(esAnalyzeRequest);
+        withTransportOptions(options).indices().analyze(esAnalyzeRequest);
     return AnalyzeResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(
-                            X_CONTENT_REGISTRY,
-                            LoggingDeprecationHandler.INSTANCE,
-                            JsonpUtils.toJsonString(esAnalyzeResponse, jacksonJsonpMapper)));
+        XContentType.JSON
+            .xContent()
+            .createParser(
+                X_CONTENT_REGISTRY,
+                LoggingDeprecationHandler.INSTANCE,
+                JsonpUtils.toJsonString(esAnalyzeResponse, jacksonJsonpMapper)));
   }
 
   @Nonnull
   @Override
   public ClusterGetSettingsResponse getClusterSettings(
-          ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
-          throws IOException {
+      ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
+      throws IOException {
     GetClusterSettingsRequest esGetClusterSettingsRequest =
-            new GetClusterSettingsRequest.Builder()
-                    .includeDefaults(clusterGetSettingsRequest.includeDefaults())
-                    .build();
+        new GetClusterSettingsRequest.Builder()
+            .includeDefaults(clusterGetSettingsRequest.includeDefaults())
+            .build();
     GetClusterSettingsResponse esClusterSettingsResponse =
-            withTransportOptions(options).cluster().getSettings(esGetClusterSettingsRequest);
+        withTransportOptions(options).cluster().getSettings(esGetClusterSettingsRequest);
     return new ClusterGetSettingsResponse(
-            convertClusterSettings(esClusterSettingsResponse.persistent()),
-            convertClusterSettings(esClusterSettingsResponse.transient_()),
-            convertClusterSettings(esClusterSettingsResponse.defaults()));
+        convertClusterSettings(esClusterSettingsResponse.persistent()),
+        convertClusterSettings(esClusterSettingsResponse.transient_()),
+        convertClusterSettings(esClusterSettingsResponse.defaults()));
   }
 
   private Settings convertClusterSettings(Map<String, JsonData> clusterSettings)
-          throws IOException {
+      throws IOException {
     String json = objectMapper.writeValueAsString(clusterSettings);
     return Settings.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
+        XContentType.JSON
+            .xContent()
+            .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
   }
 
   @Nonnull
   @Override
   public ClusterUpdateSettingsResponse putClusterSettings(
-          ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
-          throws IOException {
+      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
+      throws IOException {
     throw new UnsupportedOperationException(
-            "Not implemented currently due to no usages for the ES8 shim.");
+        "Not implemented currently due to no usages for the ES8 shim.");
   }
 
   @Nonnull
   @Override
   public ClusterHealthResponse clusterHealth(
-          ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
+      ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
     throw new UnsupportedOperationException(
-            "Not implemented currently due to no usages for the ES8 shim.");
+        "Not implemented currently due to no usages for the ES8 shim.");
   }
 
   @Nonnull
   @Override
   public ListTasksResponse listTasks(ListTasksRequest request, RequestOptions options)
-          throws IOException {
+      throws IOException {
     ListRequest esListRequest = new ListRequest.Builder().detailed(request.getDetailed()).build();
     ListResponse esListResponse = withTransportOptions(options).tasks().list(esListRequest);
     String json = JsonpUtils.toJsonString(esListResponse, jacksonJsonpMapper);
     return ListTasksResponse.fromXContent(
-            XContentType.JSON
-                    .xContent()
-                    .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
+        XContentType.JSON
+            .xContent()
+            .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json));
   }
 
   @Nonnull
   @Override
   public Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
-          throws IOException {
+      throws IOException {
     String taskId = request.getNodeId() + ":" + request.getTaskId();
     GetTasksRequest esGetTaskRequest =
-            new GetTasksRequest.Builder()
-                    .taskId(taskId)
-                    .waitForCompletion(request.getWaitForCompletion())
-                    .timeout(
-                            request.getTimeout() != null
-                                    ? new Time.Builder().time(request.getTimeout().getStringRep()).build()
-                                    : null)
-                    .build();
+        new GetTasksRequest.Builder()
+            .taskId(taskId)
+            .waitForCompletion(request.getWaitForCompletion())
+            .timeout(
+                request.getTimeout() != null
+                    ? new Time.Builder().time(request.getTimeout().getStringRep()).build()
+                    : null)
+            .build();
     GetTasksResponse esTaskResponse = null;
     try {
       esTaskResponse = withTransportOptions(options).tasks().get(esGetTaskRequest);
@@ -1380,13 +1382,13 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       throw ee;
     }
     return Optional.of(
-            GetTaskResponse.fromXContent(
-                    XContentType.JSON
-                            .xContent()
-                            .createParser(
-                                    X_CONTENT_REGISTRY,
-                                    LoggingDeprecationHandler.INSTANCE,
-                                    JsonpUtils.toJsonString(esTaskResponse, jacksonJsonpMapper))));
+        GetTaskResponse.fromXContent(
+            XContentType.JSON
+                .xContent()
+                .createParser(
+                    X_CONTENT_REGISTRY,
+                    LoggingDeprecationHandler.INSTANCE,
+                    JsonpUtils.toJsonString(esTaskResponse, jacksonJsonpMapper))));
   }
 
   // Metadata and introspection
@@ -1454,81 +1456,81 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Override
   public RawResponse performLowLevelRequest(Request request) throws IOException {
     org.elasticsearch.client.Request esRequest =
-            new org.elasticsearch.client.Request(request.getMethod(), request.getEndpoint());
+        new org.elasticsearch.client.Request(request.getMethod(), request.getEndpoint());
     esRequest.addParameters(request.getParameters());
     esRequest.setEntity(request.getEntity());
     org.elasticsearch.client.Response esResponse =
-            ((RestClientTransport) client._transport()).restClient().performRequest(esRequest);
+        ((RestClientTransport) client._transport()).restClient().performRequest(esRequest);
 
     return new RawResponse(
-            esResponse.getRequestLine(),
-            esResponse.getHost(),
-            esResponse.getEntity(),
-            esResponse.getStatusLine());
+        esResponse.getRequestLine(),
+        esResponse.getHost(),
+        esResponse.getEntity(),
+        esResponse.getStatusLine());
   }
 
   @Nonnull
   @Override
   public BulkByScrollResponse updateByQuery(
-          UpdateByQueryRequest updateByQueryRequest, RequestOptions options) throws IOException {
+      UpdateByQueryRequest updateByQueryRequest, RequestOptions options) throws IOException {
     co.elastic.clients.elasticsearch.core.UpdateByQueryRequest esUpdateByQueryRequest =
-            new co.elastic.clients.elasticsearch.core.UpdateByQueryRequest.Builder()
-                    .index(Arrays.asList(updateByQueryRequest.indices()))
-                    .script(convertScript(updateByQueryRequest.getScript()))
-                    .query(convertQuery(updateByQueryRequest.getSearchRequest().source().query()))
-                    .build();
+        new co.elastic.clients.elasticsearch.core.UpdateByQueryRequest.Builder()
+            .index(Arrays.asList(updateByQueryRequest.indices()))
+            .script(convertScript(updateByQueryRequest.getScript()))
+            .query(convertQuery(updateByQueryRequest.getSearchRequest().source().query()))
+            .build();
     UpdateByQueryResponse esUpdateByQueryResponse =
-            withTransportOptions(options).updateByQuery(esUpdateByQueryRequest);
+        withTransportOptions(options).updateByQuery(esUpdateByQueryRequest);
     BulkByScrollTask.Status status =
-            new BulkByScrollTask.Status(
-                    null,
-                    Optional.ofNullable(esUpdateByQueryResponse.total()).orElse(0L),
-                    Optional.ofNullable(esUpdateByQueryResponse.updated()).orElse(0L),
-                    0L,
-                    Optional.ofNullable(esUpdateByQueryResponse.deleted()).orElse(0L),
-                    Optional.ofNullable(esUpdateByQueryResponse.batches()).orElse(0L).intValue(),
-                    Optional.ofNullable(esUpdateByQueryResponse.versionConflicts()).orElse(0L),
-                    Optional.ofNullable(esUpdateByQueryResponse.noops()).orElse(0L),
-                    Optional.ofNullable(esUpdateByQueryResponse.retries()).map(Retries::bulk).orElse(0L),
-                    Optional.ofNullable(esUpdateByQueryResponse.retries()).map(Retries::search).orElse(0L),
-                    new TimeValue(
-                            Optional.ofNullable(esUpdateByQueryResponse.throttledMillis()).orElse(0L),
-                            TimeUnit.MILLISECONDS),
-                    Optional.ofNullable(esUpdateByQueryResponse.requestsPerSecond()).orElse(0f),
-                    null,
-                    new TimeValue(
-                            Optional.ofNullable(esUpdateByQueryResponse.throttledUntilMillis()).orElse(0L),
-                            TimeUnit.MILLISECONDS));
-    List<BulkItemResponse.Failure> bulkFailures =
-            esUpdateByQueryResponse.failures().stream()
-                    .map(
-                            failure ->
-                                    new BulkItemResponse.Failure(
-                                            failure.index(), failure.id(), new Exception(failure.cause().reason())))
-                    .collect(Collectors.toList());
-    return new BulkByScrollResponse(
+        new BulkByScrollTask.Status(
+            null,
+            Optional.ofNullable(esUpdateByQueryResponse.total()).orElse(0L),
+            Optional.ofNullable(esUpdateByQueryResponse.updated()).orElse(0L),
+            0L,
+            Optional.ofNullable(esUpdateByQueryResponse.deleted()).orElse(0L),
+            Optional.ofNullable(esUpdateByQueryResponse.batches()).orElse(0L).intValue(),
+            Optional.ofNullable(esUpdateByQueryResponse.versionConflicts()).orElse(0L),
+            Optional.ofNullable(esUpdateByQueryResponse.noops()).orElse(0L),
+            Optional.ofNullable(esUpdateByQueryResponse.retries()).map(Retries::bulk).orElse(0L),
+            Optional.ofNullable(esUpdateByQueryResponse.retries()).map(Retries::search).orElse(0L),
             new TimeValue(
-                    Optional.ofNullable(esUpdateByQueryResponse.took()).orElse(0L), TimeUnit.MILLISECONDS),
-            status,
-            bulkFailures,
-            Collections.emptyList(),
-            Optional.ofNullable(esUpdateByQueryResponse.timedOut()).orElse(false));
+                Optional.ofNullable(esUpdateByQueryResponse.throttledMillis()).orElse(0L),
+                TimeUnit.MILLISECONDS),
+            Optional.ofNullable(esUpdateByQueryResponse.requestsPerSecond()).orElse(0f),
+            null,
+            new TimeValue(
+                Optional.ofNullable(esUpdateByQueryResponse.throttledUntilMillis()).orElse(0L),
+                TimeUnit.MILLISECONDS));
+    List<BulkItemResponse.Failure> bulkFailures =
+        esUpdateByQueryResponse.failures().stream()
+            .map(
+                failure ->
+                    new BulkItemResponse.Failure(
+                        failure.index(), failure.id(), new Exception(failure.cause().reason())))
+            .collect(Collectors.toList());
+    return new BulkByScrollResponse(
+        new TimeValue(
+            Optional.ofNullable(esUpdateByQueryResponse.took()).orElse(0L), TimeUnit.MILLISECONDS),
+        status,
+        bulkFailures,
+        Collections.emptyList(),
+        Optional.ofNullable(esUpdateByQueryResponse.timedOut()).orElse(false));
   }
 
   private Script convertScript(org.opensearch.script.Script script) {
     Script esScript = null;
     if (script != null) {
       esScript =
-              new Script.Builder()
-                      .lang(script.getLang())
-                      .options(script.getOptions())
-                      .params(
-                              script.getParams().entrySet().stream()
-                                      .collect(
-                                              Collectors.toMap(
-                                                      Map.Entry::getKey, entry -> JsonData.of(entry.getValue()))))
-                      .source(script.getIdOrCode())
-                      .build();
+          new Script.Builder()
+              .lang(script.getLang())
+              .options(script.getOptions())
+              .params(
+                  script.getParams().entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              Map.Entry::getKey, entry -> JsonData.of(entry.getValue()))))
+              .source(script.getIdOrCode())
+              .build();
     }
     return esScript;
   }
@@ -1536,42 +1538,42 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public String submitDeleteByQueryTask(
-          DeleteByQueryRequest deleteByQueryRequest, RequestOptions options) throws IOException {
+      DeleteByQueryRequest deleteByQueryRequest, RequestOptions options) throws IOException {
     DeleteByQueryResponse deleteByQueryResponse =
-            withTransportOptions(options)
-                    .deleteByQuery(convertDeleteByQueryRequest(deleteByQueryRequest, false));
+        withTransportOptions(options)
+            .deleteByQuery(convertDeleteByQueryRequest(deleteByQueryRequest, false));
     return Optional.ofNullable(deleteByQueryResponse.task()).orElse(StringUtils.EMPTY);
   }
 
   @Nonnull
   @Override
   public String submitReindexTask(ReindexRequest reindexRequest, RequestOptions options)
-          throws IOException {
+      throws IOException {
 
     Query query = null;
     if (reindexRequest.getSearchRequest().source() != null
-            && reindexRequest.getSearchRequest().source().query() != null) {
+        && reindexRequest.getSearchRequest().source().query() != null) {
       query = convertQuery(reindexRequest.getSearchRequest().source().query());
     }
     Source sourceIndex =
-            new Source.Builder()
-                    .index(Arrays.asList(reindexRequest.getSearchRequest().indices()))
-                    .size(reindexRequest.getSearchRequest().source().size())
-                    .query(query)
-                    .build();
+        new Source.Builder()
+            .index(Arrays.asList(reindexRequest.getSearchRequest().indices()))
+            .size(reindexRequest.getSearchRequest().source().size())
+            .query(query)
+            .build();
     Destination destinationIndex =
-            new Destination.Builder().index(reindexRequest.getDestination().index()).build();
+        new Destination.Builder().index(reindexRequest.getDestination().index()).build();
     Slices slices = new Slices.Builder().value(reindexRequest.getSlices()).build();
     Time time = new Time.Builder().time(reindexRequest.getTimeout().getStringRep()).build();
     co.elastic.clients.elasticsearch.core.ReindexRequest esReindexRequest =
-            new co.elastic.clients.elasticsearch.core.ReindexRequest.Builder()
-                    .source(sourceIndex)
-                    .dest(destinationIndex)
-                    .conflicts(Conflicts.Proceed)
-                    .slices(slices)
-                    .timeout(time)
-                    .waitForCompletion(false)
-                    .build();
+        new co.elastic.clients.elasticsearch.core.ReindexRequest.Builder()
+            .source(sourceIndex)
+            .dest(destinationIndex)
+            .conflicts(Conflicts.Proceed)
+            .slices(slices)
+            .timeout(time)
+            .waitForCompletion(false)
+            .build();
     ReindexResponse esReindexResponse = withTransportOptions(options).reindex(esReindexRequest);
 
     return Optional.ofNullable(esReindexResponse.task()).orElse(StringUtils.EMPTY);
@@ -1582,43 +1584,43 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   //        with the async client
   @Override
   public void generateAsyncBulkProcessor(
-          WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
-          MetricUtils metricUtils,
-          int bulkRequestsLimit,
-          long bulkFlushPeriod,
-          long retryInterval,
-          int numRetries,
-          int threadCount) {
+      WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
+      MetricUtils metricUtils,
+      int bulkRequestsLimit,
+      long bulkFlushPeriod,
+      long retryInterval,
+      int numRetries,
+      int threadCount) {
     Supplier<BulkIngester<?>> processorSupplier =
-            () -> {
-              co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
-                      new Es8BulkListener(metricUtils);
+        () -> {
+          co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
+              new Es8BulkListener(metricUtils);
 
-              final Refresh refresh;
-              switch (writeRequestRefreshPolicy) {
-                case NONE:
-                  refresh = Refresh.False;
-                  break;
-                case IMMEDIATE:
-                  refresh = Refresh.True;
-                  break;
-                case WAIT_UNTIL:
-                  refresh = Refresh.WaitFor;
-                  break;
-                default:
-                  refresh = null;
-              }
+          final Refresh refresh;
+          switch (writeRequestRefreshPolicy) {
+            case NONE:
+              refresh = Refresh.False;
+              break;
+            case IMMEDIATE:
+              refresh = Refresh.True;
+              break;
+            case WAIT_UNTIL:
+              refresh = Refresh.WaitFor;
+              break;
+            default:
+              refresh = null;
+          }
 
-              BulkIngester.Builder<Object> builder =
-                      new BulkIngester.Builder<>()
-                              .client(client)
-                              .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
-                              .maxOperations(bulkRequestsLimit)
-                              .listener(esBulkListener);
+          BulkIngester.Builder<Object> builder =
+              new BulkIngester.Builder<>()
+                  .client(client)
+                  .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
+                  .maxOperations(bulkRequestsLimit)
+                  .listener(esBulkListener);
 
-              builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
-              return builder.build();
-            };
+          builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
+          return builder.build();
+        };
 
     initBulkProcessors(threadCount, processorSupplier);
 
@@ -1627,22 +1629,22 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Override
   public void generateBulkProcessor(
-          WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
-          MetricUtils metricUtils,
-          int bulkRequestsLimit,
-          long bulkFlushPeriod,
-          long retryInterval,
-          int numRetries,
-          int threadCount) {
+      WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
+      MetricUtils metricUtils,
+      int bulkRequestsLimit,
+      long bulkFlushPeriod,
+      long retryInterval,
+      int numRetries,
+      int threadCount) {
     // ES8 uses async processors for both sync and async operations
     generateAsyncBulkProcessor(
-            writeRequestRefreshPolicy,
-            metricUtils,
-            bulkRequestsLimit,
-            bulkFlushPeriod,
-            retryInterval,
-            numRetries,
-            threadCount);
+        writeRequestRefreshPolicy,
+        metricUtils,
+        bulkRequestsLimit,
+        bulkFlushPeriod,
+        retryInterval,
+        numRetries,
+        threadCount);
   }
 
   @Override
@@ -1654,70 +1656,70 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
       @SuppressWarnings("rawtypes")
       UpdateAction.Builder actionBuilder =
-              new UpdateAction.Builder()
-                      .detectNoop(update.detectNoop())
-                      .docAsUpsert(update.docAsUpsert())
-                      .script(script)
-                      .upsert(update.upsert());
+          new UpdateAction.Builder()
+              .detectNoop(update.detectNoop())
+              .docAsUpsert(update.docAsUpsert())
+              .script(script)
+              .upsert(update.upsert());
 
       // Only set doc if it exists (not present for script-only updates)
       if (update.doc() != null) {
         actionBuilder.doc(
-                XContentHelper.convertToMap(update.doc().source(), true, XContentType.JSON).v2());
+            XContentHelper.convertToMap(update.doc().source(), true, XContentType.JSON).v2());
       }
 
       operation =
-              new BulkOperation(
-                      new UpdateOperation.Builder<>()
-                              .id(writeRequest.id())
-                              .ifSeqNo(writeRequest.ifSeqNo())
-                              .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                              .retryOnConflict(((UpdateRequest) writeRequest).retryOnConflict())
-                              .requireAlias(writeRequest.isRequireAlias())
-                              .index(writeRequest.index())
-                              .routing(writeRequest.routing())
-                              .action(actionBuilder.build())
-                              .build());
+          new BulkOperation(
+              new UpdateOperation.Builder<>()
+                  .id(writeRequest.id())
+                  .ifSeqNo(writeRequest.ifSeqNo())
+                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                  .retryOnConflict(((UpdateRequest) writeRequest).retryOnConflict())
+                  .requireAlias(writeRequest.isRequireAlias())
+                  .index(writeRequest.index())
+                  .routing(writeRequest.routing())
+                  .action(actionBuilder.build())
+                  .build());
     } else if (writeRequest instanceof DeleteRequest) {
       DeleteRequest deleteRequest = (DeleteRequest) writeRequest;
       operation =
-              new BulkOperation(
-                      new DeleteOperation.Builder()
-                              .ifSeqNo(writeRequest.ifSeqNo())
-                              .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                              .index(writeRequest.index())
-                              .routing(writeRequest.routing())
-                              .id(deleteRequest.id())
-                              .build());
+          new BulkOperation(
+              new DeleteOperation.Builder()
+                  .ifSeqNo(writeRequest.ifSeqNo())
+                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                  .index(writeRequest.index())
+                  .routing(writeRequest.routing())
+                  .id(deleteRequest.id())
+                  .build());
     } else { // writeRequest instanceof IndexRequest
       IndexRequest indexRequest = (IndexRequest) writeRequest;
       Map<String, Object> document =
-              XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON).v2();
+          XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON).v2();
       if (indexRequest.opType() == DocWriteRequest.OpType.CREATE) {
         // Data streams only allow create (append-only); use CreateOperation
         operation =
-                new BulkOperation(
-                        new CreateOperation.Builder<>()
-                                .ifSeqNo(writeRequest.ifSeqNo())
-                                .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                                .requireAlias(writeRequest.isRequireAlias())
-                                .index(writeRequest.index())
-                                .routing(writeRequest.routing())
-                                .id(indexRequest.id())
-                                .document(document)
-                                .build());
+            new BulkOperation(
+                new CreateOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
       } else {
         operation =
-                new BulkOperation(
-                        new IndexOperation.Builder<>()
-                                .ifSeqNo(writeRequest.ifSeqNo())
-                                .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                                .requireAlias(writeRequest.isRequireAlias())
-                                .index(writeRequest.index())
-                                .routing(writeRequest.routing())
-                                .id(indexRequest.id())
-                                .document(document)
-                                .build());
+            new BulkOperation(
+                new IndexOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
       }
     }
     processor.add(operation);
@@ -1750,11 +1752,11 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       return client;
     }
     HeaderMap headerMap =
-            new HeaderMap(
-                    requestOptions.getHeaders().stream()
-                            .collect(Collectors.toMap(Header::getName, Header::getValue)));
+        new HeaderMap(
+            requestOptions.getHeaders().stream()
+                .collect(Collectors.toMap(Header::getName, Header::getValue)));
     TransportOptions transportOptions =
-            new DefaultTransportOptions(headerMap, Collections.emptyMap(), null);
+        new DefaultTransportOptions(headerMap, Collections.emptyMap(), null);
     return client.withTransportOptions(transportOptions);
   }
 
@@ -1764,45 +1766,45 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     }
     String jsonString = osQuery.toString();
     return Query.of(
-            q ->
-                    q.withJson(
-                            jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                            jacksonJsonpMapper));
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 
   private Rescore convertRescore(RescorerBuilder<?> rescorerBuilder) {
     String jsonString = rescorerBuilder.toString();
     return Rescore.of(
-            q ->
-                    q.withJson(
-                            jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                            jacksonJsonpMapper));
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 
   private FieldSuggester convertSuggestion(SuggestionBuilder<?> suggestionBuilder) {
     String jsonString = Strings.toString(MediaTypeRegistry.JSON, suggestionBuilder, true, true);
     return FieldSuggester.of(
-            q ->
-                    q.withJson(
-                            jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                            jacksonJsonpMapper));
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 
   private TypeMapping convertTypeMapping(BytesReference mappings) {
     String jsonString = mappings.utf8ToString();
     return TypeMapping.of(
-            q ->
-                    q.withJson(
-                            jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                            jacksonJsonpMapper));
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 
   private IndexSettings convertIndexSettings(Settings settings) {
     String jsonString = settings.toString();
     return IndexSettings.of(
-            q ->
-                    q.withJson(
-                            jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                            jacksonJsonpMapper));
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 }
