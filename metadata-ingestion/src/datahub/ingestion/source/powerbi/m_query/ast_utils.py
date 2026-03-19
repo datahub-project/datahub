@@ -30,9 +30,9 @@ def get_literal_value(node: dict) -> Optional[str]:
     if node.get("literalKind") != "Text":
         return None
     literal = node.get("literal", "")
-    if literal.startswith('"') and literal.endswith('"'):
-        return literal[1:-1]
-    return literal
+    if not (literal.startswith('"') and literal.endswith('"')):
+        return None
+    return literal[1:-1]
 
 
 def get_invoke_callee_name(node_map: NodeIdMap, invoke_node: dict) -> Optional[str]:
@@ -50,6 +50,8 @@ def get_invoke_callee_name(node_map: NodeIdMap, invoke_node: dict) -> Optional[s
         return None
 
     invoke_id = invoke_node.get("id")
+    if invoke_id is None:
+        return None
 
     # Find the parent RecursivePrimaryExpression that contains this InvokeExpression
     for node in node_map.values():

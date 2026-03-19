@@ -14,7 +14,7 @@ FIXTURES_DIR = (
 
 def load_fixture(name_fragment: str) -> dict[int, dict]:
     """Load a fixture by partial filename match and return node_map."""
-    matches = list(FIXTURES_DIR.glob(f"*{name_fragment}*"))
+    matches = sorted(FIXTURES_DIR.glob(f"*{name_fragment}*"))
     assert matches, f"No fixture found matching '{name_fragment}' in {FIXTURES_DIR}"
     data = json.loads(matches[0].read_text())
     assert data["ok"], f"Fixture parse failed: {data.get('error')}"
