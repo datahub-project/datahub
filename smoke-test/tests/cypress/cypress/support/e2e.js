@@ -20,6 +20,10 @@ import "./commands";
 import "@testing-library/cypress/add-commands";
 import "cypress-real-events/support";
 
+// Attaches screenshots of failed tests to the mochawesome JSON via addContext,
+// so they get embedded when the unified HTML report is generated post-matrix.
+import "cypress-mochawesome-reporter/register";
+
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
 
