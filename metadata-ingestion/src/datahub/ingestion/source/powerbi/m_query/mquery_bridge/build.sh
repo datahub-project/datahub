@@ -7,6 +7,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Validate Node.js version (20+ required for SEA support)
+NODE_VERSION=$(node -v | cut -d. -f1 | sed 's/v//')
+if [[ "$NODE_VERSION" -lt 20 ]]; then
+    echo "ERROR: Node.js 20+ required for SEA support (found v${NODE_VERSION})"
+    exit 1
+fi
+
 echo "==> Installing dependencies"
 npm ci
 
@@ -21,7 +28,10 @@ npx esbuild dist/index.js \
   --outfile=dist/bundle.js
 
 echo "==> Generating SEA blob"
-node --experimental-sea-config sea-config.json
+if ! node --experimental-sea-config sea-config.json; then
+    echo "ERROR: SEA blob generation failed"
+    exit 1
+fi
 
 # Helper: build one binary
 build_binary() {
@@ -29,6 +39,7 @@ build_binary() {
     local node_bin="$2"   # path to platform-specific node binary
     local out="binaries/mquery-parser-${platform}"
 
+    mkdir -p binaries
     echo "==> Building ${out}"
     cp "$node_bin" "$out"
     chmod +w "$out"
