@@ -11,10 +11,6 @@ export const SideBar = styled.div`
     font-weight: bold;
     position: relative;
 
-    &&& .ant-avatar.ant-avatar-icon {
-        font-size: 46px !important;
-    }
-
     .divider-infoSection {
         margin: 18px 0px 18px 0;
     }
@@ -56,7 +52,7 @@ export const EmptyValue = styled.div<{ color?: string }>`
 export const Name = styled.div`
     font-size: 12px;
     line-height: 18px;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.text};
     text-align: left;
     display: flex;
     align-items: center;
@@ -74,7 +70,7 @@ export const Name = styled.div`
 export const TitleRole = styled.div`
     font-size: 12px;
     line-height: 18px;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.text};
     text-align: left;
     white-space: wrap;
     @media only screen and (min-width: 1200px) {
@@ -86,7 +82,7 @@ export const RoleName = styled.div`
     text-align: center;
     color: ${(props) => props.theme.colors.textOnFillBrand};
     border-radius: 30px;
-    background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
+    background-color: ${(props) => props.theme.colors.bgActive};
     padding: 3px 5px;
     text-transform: uppercase;
     font-size: 7px;
@@ -110,7 +106,7 @@ export const SocialDetails = styled.div`
     gap: 0.4rem;
     font-size: 12px;
     line-height: 20px;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.text};
     text-align: left;
     span {
         text-overflow: ellipsis;
@@ -194,7 +190,7 @@ export const GroupsSeeMoreText = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: ${(props) => props.theme.colors.hyperlinks};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
 `;
 
@@ -367,7 +363,7 @@ export const ShowMoreButton = styled.div`
     text-align: left;
     :hover {
         cursor: pointer;
-        color: ${(props) => props.theme.colors.text};
+        color: ${(props) => props.theme.colors.textHover};
         text-decoration: underline;
     }
 `;
@@ -380,7 +376,7 @@ export const ShowMoreText = styled.div`
 `;
 
 export const CountStyle = styled.div`
-    background-color: ${(props) => props.theme.colors.bgHover};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 100px;
     color: ${(props) => props.theme.colors.textSecondary};
     padding: 0px 10px;

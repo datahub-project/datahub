@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-// import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
@@ -92,6 +91,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                                         key={ownershipTypeName}
                                         ownershipType={ownershipType}
                                         owners={owners}
+                                        readOnly={readOnly}
                                     />
                                 );
                             })}

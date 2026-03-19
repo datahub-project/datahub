@@ -6,6 +6,8 @@ import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
@@ -180,7 +182,9 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
         <NoteWrapper>
             <NoteContent>
                 <NoteHeader>
-                    <NoteOwner>{note.lastModified.actor && <Avatar name={parsedName} size="sm" />}</NoteOwner>
+                    <NoteOwner>
+                        {note.lastModified.actor && <Avatar name={parsedName} type={AvatarType.user} size="sm" />}
+                    </NoteOwner>
                     <NoteTime>
                         {isToday && 'Today'}
                         {isYesterday && 'Yesterday'}

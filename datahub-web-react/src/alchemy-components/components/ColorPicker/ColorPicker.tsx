@@ -1,9 +1,10 @@
-import { Input, colors } from '@components';
+import { Input } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import { CirclePicker, ColorResult } from 'react-color';
 import styled from 'styled-components';
 
-// Constants
+// User-selectable tag colors persisted to the database as hex values, not UI theme colors
+/* eslint-disable rulesdir/no-hardcoded-colors */
 const DEFAULT_COLORS = [
     '#533FD1',
     '#29C7DC',
@@ -25,6 +26,7 @@ const DEFAULT_COLORS = [
 ];
 
 const DEFAULT_COLOR = '#000000';
+/* eslint-enable rulesdir/no-hardcoded-colors */
 const HEX_REGEX = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
 
 // Styled Components
@@ -40,7 +42,7 @@ const ColorPreview = styled.div`
     height: 100px;
     border-radius: 8px 8px 0px 0px;
     margin-top: 24px;
-    border: 1px solid ${colors.gray[200]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const PickerWrapper = styled.div`
@@ -150,7 +152,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor = DEFAULT_COLOR,
                     label=""
                     value={hexInput}
                     setValue={handleHexInputChange}
-                    placeholder="#000000"
+                    placeholder={DEFAULT_COLOR}
                     error={hexError}
                     isInvalid={!!hexError}
                     onBlur={handleHexBlur}

@@ -5,8 +5,6 @@ import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { AndFilterInput, EntityType } from '@types';
 
@@ -28,7 +26,7 @@ const AddButton = styled(Button)`
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
     transition: all 0.2s ease;
 

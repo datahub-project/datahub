@@ -15,7 +15,6 @@ const formatDay = (day) => day.format("YYYY-MM-DD");
 
 describe("Change history calendar chart", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 
