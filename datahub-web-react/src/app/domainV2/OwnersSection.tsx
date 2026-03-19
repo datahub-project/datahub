@@ -32,7 +32,7 @@ const FormSection = styled.div`
 interface Props {
     defaultOwners?: (CorpGroup | CorpUser)[];
     selectedOwnerUrns: string[];
-    setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
+    setSelectedOwnerUrns: (urns: string[]) => void;
 }
 
 /**

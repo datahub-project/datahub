@@ -1,8 +1,8 @@
-import { Tooltip } from '@components';
-import { Avatar } from 'antd';
-import React from 'react';
+import React, { useMemo } from 'react';
 
-import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
+import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+
 import { userExists } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -18,24 +18,18 @@ export default function TopUsersFacepile({ users, max, checkExistence = true }: 
     const entityRegistry = useEntityRegistry();
     const displayedUsers = users.filter((user) => userExists(user));
     const usersList = checkExistence ? displayedUsers : users;
+
+    const avatars: AvatarItemProps[] = useMemo(() => {
+        return (
+            usersList?.map((user) => ({
+                name: entityRegistry.getDisplayName(EntityType.CorpUser, user),
+                imageUrl: user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined,
+                urn: user.urn,
+                type: AvatarType.user,
+            })) || []
+        );
+    }, [usersList, entityRegistry]);
+
     if (!usersList?.length) return <div>-</div>;
-    return (
-        <Avatar.Group maxCount={max}>
-            {usersList?.map((user) => {
-                const userName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
-                return (
-                    <Tooltip title={userName} showArrow={false}>
-                        <ActorAvatar
-                            size={26}
-                            name={userName}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
-                            photoUrl={
-                                user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
-                            }
-                        />
-                    </Tooltip>
-                );
-            })}
-        </Avatar.Group>
-    );
+    return <AvatarStack avatars={avatars} maxToShow={max} />;
 }
