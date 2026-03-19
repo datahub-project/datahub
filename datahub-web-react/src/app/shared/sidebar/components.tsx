@@ -1,4 +1,4 @@
-import { countries } from 'country-data-list';
+
 import { CaretRight } from 'phosphor-react';
 import React from 'react';
 
@@ -24,22 +24,4 @@ export function RotatingTriangle({
             data-testid={testId}
         />
     );
-}
-
-export function getCountryName(countryCode: string) {
-    let countryName;
-    const findCountryName = (code) => {
-        try {
-            countryName = countries[code].name;
-        } catch (error) {
-            countryName = null;
-        }
-    };
-
-    if (countryCode === '' || countryCode === undefined || countryCode == null) {
-        return null;
-    }
-
-    findCountryName(countryCode);
-    return countryName;
 }

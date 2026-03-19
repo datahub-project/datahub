@@ -1,11 +1,5 @@
 import { ApolloClient } from '@apollo/client';
-import { isEqual } from 'lodash';
-import { useEffect } from 'react';
-
-import { useDomainsContext } from '@app/domain/DomainsContext';
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import usePrevious from '@app/shared/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ListDomainsDocument, ListDomainsQuery } from '@graphql/domain.generated';
@@ -124,17 +118,6 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize, parentDo
         },
     });
 };
-
-export function useUpdateDomainEntityDataOnChange(entityData: GenericEntityProperties | null, entityType: EntityType) {
-    const { setEntityData } = useDomainsContext();
-    const previousEntityData = usePrevious(entityData);
-
-    useEffect(() => {
-        if (EntityType.Domain === entityType && !isEqual(entityData, previousEntityData)) {
-            setEntityData(entityData);
-        }
-    });
-}
 
 export function useSortedDomains<T extends Entity>(domains?: Array<T>, sortBy?: 'displayName') {
     const entityRegistry = useEntityRegistry();

@@ -4,8 +4,6 @@ export const RELEVANCE = 'relevance';
 const ENTITY_NAME_FIELD = '_entityName';
 const LAST_OPERATION_TIME_FIELD = 'lastOperationTime';
 
-export const DEFAULT_SORT_OPTION = RELEVANCE;
-
 export const SORT_OPTIONS = {
     [RELEVANCE]: { label: 'Relevance (Default)', field: RELEVANCE, sortOrder: SortOrder.Descending },
     [`${ENTITY_NAME_FIELD}_${SortOrder.Ascending}`]: {

@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+
 
 interface HoverEntityTooltipContextType {
     entityCount: number | undefined;
@@ -7,8 +7,3 @@ interface HoverEntityTooltipContextType {
 export const HoverEntityTooltipContext = React.createContext<HoverEntityTooltipContextType>({
     entityCount: undefined,
 });
-
-export const useHoverEntityTooltipContext = () => {
-    const { entityCount } = useContext(HoverEntityTooltipContext);
-    return { entityCount };
-};

@@ -37,17 +37,6 @@ export const MoreFilterOptionLabel = styled.div<{ isActive: boolean; isOpen: boo
     ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
 `;
 
-export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${(props) => props.theme.styles['primary-color']};
-    padding: 0px 6px;
-    margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
-    ${(props) => props.height !== undefined && `height: ${props.height}px;`}
-
-    &:hover {
-        background-color: white;
-    }
-`;
-
 export const Label = styled(Typography.Text)`
     max-width: 125px;
 `;
