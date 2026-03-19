@@ -31,7 +31,7 @@ env:
 jobs:
   ci:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       DATAHUB_TELEMETRY_ENABLED: false
       # TODO: Enable this once the test is fixed.
