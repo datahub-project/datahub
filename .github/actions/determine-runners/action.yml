@@ -65,9 +65,12 @@ runs:
     - name: Set default-runner
       id: default-runner
       shell: bash
+      env:
+        IS_COMMUNITY_PR: ${{ inputs.is-community-pr }}
+        DEPOT_CONFIG_SET: ${{ steps.depot-config-set.outputs.value }}
       # Use depot for internal branches and push/schedule events; fall back to GitHub-hosted for fork PRs.
       run: |
-        if [[ "${{ inputs.is-community-pr }}" == "false" && "${{ steps.depot-config-set.outputs.value }}" == "true" ]]; then
+        if [[ "$IS_COMMUNITY_PR" == "false" && "$DEPOT_CONFIG_SET" == "true" ]]; then
           echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
         else
           echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
@@ -76,9 +79,12 @@ runs:
     - name: Set small-runner
       id: small-runner
       shell: bash
+      env:
+        IS_COMMUNITY_PR: ${{ inputs.is-community-pr }}
+        DEPOT_CONFIG_SET: ${{ steps.depot-config-set.outputs.value }}
       # depot-small for internal, ubuntu-latest for forks.
       run: |
-        if [[ "${{ inputs.is-community-pr }}" == "false" && "${{ steps.depot-config-set.outputs.value }}" == "true" ]]; then
+        if [[ "$IS_COMMUNITY_PR" == "false" && "$DEPOT_CONFIG_SET" == "true" ]]; then
           echo "value=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
         else
           echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
@@ -86,10 +92,12 @@ runs:
 
     - name: Set depot-label-small-runner
       id: depot-label-small-runner
+      env:
+        HAS_DEPOT_LABEL: ${{ inputs.has-depot-label }}
       shell: bash
       # Community (fork) PRs can opt-in to Depot runners by adding the 'depot' label.
       run: |
-        if [[ "${{ inputs.has-depot-label }}" == "true" ]]; then
+        if [[ "$HAS_DEPOT_LABEL" == "true" ]]; then
           echo "value=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
         else
           echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
@@ -97,9 +105,11 @@ runs:
     - name: Set depot-label-runner
       id: depot-label-runner
       shell: bash
+      env:
+        HAS_DEPOT_LABEL: ${{ inputs.has-depot-label }}
       # Community (fork) PRs can opt-in to Depot runners by adding the 'depot' label.
       run: |
-        if [[ "${{ inputs.has-depot-label }}" == "true" ]]; then
+        if [[ "$HAS_DEPOT_LABEL" == "true" ]]; then
           echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
         else
           echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
