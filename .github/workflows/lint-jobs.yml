@@ -6,7 +6,7 @@ on:
     branches:
       - master
       - releases/**
-      - hotfix/**
+      - hotfixes/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -14,21 +14,30 @@ concurrency:
 
 jobs:
   setup:
-    name: Detect changed files
-    runs-on: ubuntu-latest
+    name: Initial Job Setup ${{ github.workflow }}
+    runs-on: ubuntu-slim
     outputs:
-      markdown: ${{ steps.filter.outputs.markdown }}
-      github-actions: ${{ steps.filter.outputs.github-actions }}
-      workflow-files: ${{ steps.filter.outputs.workflow-files }}
-      workflow-validation: ${{ steps.filter.outputs.workflow-validation }}
-      code-check-sources: ${{ steps.filter.outputs.code-check-sources }}
+      lint-job: ${{ steps.filter.outputs.lint-job }} # Run all lint jobs when this file is changed
+      markdown: ${{ steps.filter.outputs.markdown == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      github-actions: ${{ steps.filter.outputs.github-actions == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      workflow-files: ${{ steps.filter.outputs.workflow-files == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      workflow-validation: ${{ steps.filter.outputs.workflow-validation == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      small-runner: ${{ steps.runners.outputs.small-runner }}
+      default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           token: "" # Empty token forces raw git commands
           filters: |
+            lint-job:
+              - ".github/workflows/lint-jobs.yml"
             markdown:
               - "**/*.md"
             github-actions:
@@ -47,14 +56,28 @@ jobs:
               - "**/build.gradle.kts"
               - "**/gradle.lockfile"
               - ".github/scripts/check_*.py"
+            smoke-test-python:
+              - "smoke-test/**/*.py"
+              - "smoke-test/pyproject.toml"
+              - "smoke-test/requirements.txt"
+              - "smoke-test/build.gradle"
+            smoke-test-cypress:
+              - "smoke-test/tests/cypress/**"
+      - uses: ./.github/actions/determine-runners
+        id: runners
+        with:
+          is-community-pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+          has-depot-label: ${{ contains(github.event.pull_request.labels.*.name, 'depot') }}
 
   markdown-format:
     name: markdown_format_check
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.markdown == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-java@v5
         with:
           distribution: "zulu"
@@ -65,11 +88,13 @@ jobs:
 
   github-actions-format:
     name: github_actions_format_check
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.github-actions == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-java@v5
         with:
           distribution: "zulu"
@@ -80,7 +105,7 @@ jobs:
 
   validate-post-workflow-list:
     name: validate_post_workflow_list
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.workflow-validation == 'true'
     steps:
@@ -104,7 +129,7 @@ jobs:
 
   actionlint:
     name: actionlint
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.workflow-files == 'true'
     permissions:
@@ -114,17 +139,21 @@ jobs:
       issues: write
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: reviewdog/action-actionlint@v1
         with:
           reporter: github-pr-review
 
   check-event-types:
     name: check-event-types
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -133,11 +162,13 @@ jobs:
 
   check-policies:
     name: check-policies
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -146,13 +177,77 @@ jobs:
 
   check-gradle-lockfiles:
     name: check-gradle-lockfiles
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: run check
         run: python .github/scripts/check_gradle_lockfiles.py
+
+  smoke_test_lint:
+    name: Lint on smoke tests
+    runs-on: ${{ needs.setup.outputs.small-runner }}
+    needs: setup
+    if: ${{ needs.setup.outputs.smoke-test-python == 'true' || needs.setup.outputs.smoke-test-cypress == 'true' }}
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/cache/restore@v5
+        name: Restore uv cache
+        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+
+      - uses: actions/cache/restore@v5
+        name: Restore yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
+
+      - name: Run Python lint
+        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
+        run: |
+          python ./.github/scripts/check_python_package.py
+          ./gradlew :smoke-test:pythonLint
+
+      - name: Run Cypress Lint
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        run: |
+          ./gradlew :smoke-test:cypressLint
+
+      - uses: actions/cache/save@v5
+        name: Save uv cache
+        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+
+      - uses: actions/cache/save@v5
+        name: Save yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"

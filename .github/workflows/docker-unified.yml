@@ -192,42 +192,6 @@ jobs:
           echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
-  smoke_test_lint:
-    name: Lint on smoke tests
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
-    needs: setup
-    if: ${{ needs.setup.outputs.smoke_test_change == 'true' }}
-    steps:
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
-
-      - uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - name: Run lint on smoke test
-        run: |
-          python ./.github/scripts/check_python_package.py
-          ./gradlew :smoke-test:pythonLint
-          ./gradlew :smoke-test:cypressLint
-
   base_build:
     name: Build all images
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
@@ -791,6 +755,26 @@ jobs:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: "docker_logs/*.log"
           retention-days: 5
+      - name: Stage Cypress screenshots for artifact upload
+        # Copy screenshots alongside the mochawesome JSONs so the post-matrix
+        # cypress_html_report job can embed them into the unified HTML report.
+        if: always() && matrix.test_strategy == 'cypress'
+        run: |
+          if [ -d smoke-test/tests/cypress/cypress/screenshots ]; then
+            cp -r smoke-test/tests/cypress/cypress/screenshots \
+              smoke-test/tests/cypress/build/mochawesome-report/screenshots
+          fi
+      - name: Upload Cypress mochawesome JSON results
+        # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
+        # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
+        # required so upload-artifact picks up that dot-prefixed directory.
+        uses: actions/upload-artifact@v4
+        if: always() && matrix.test_strategy == 'cypress'
+        with:
+          name: cypress-mochawesome-json-${{ matrix.batch }}
+          path: smoke-test/tests/cypress/build/mochawesome-report/
+          include-hidden-files: true
+          retention-days: 1
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: failure()
@@ -863,6 +847,56 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
+
+  cypress_html_report:
+    name: Generate unified Cypress HTML report
+    runs-on: ubuntu-latest
+    needs: [smoke_test]
+    if: ${{ !cancelled() && needs.smoke_test.result != 'skipped' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all Cypress mochawesome JSON artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cypress-mochawesome-json-*
+          path: mochawesome-results
+          # Do NOT use merge-multiple: all batches write files with the same names
+          # (mochawesome.json, mochawesome_001.json, ...). merge-multiple would cause
+          # later batches to overwrite earlier ones in the same directory. Without it,
+          # each artifact extracts to its own subdirectory:
+          #   mochawesome-results/cypress-mochawesome-json-0/.jsons/mochawesome.json
+          #   mochawesome-results/cypress-mochawesome-json-1/.jsons/mochawesome.json
+          #   ...
+      - name: Generate HTML report
+        run: |
+          # Each artifact extracts to its own subdirectory, so per-spec JSONs land at:
+          #   mochawesome-results/cypress-mochawesome-json-<N>/.jsons/mochawesome_NNN.json
+          mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
+          if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
+            # Collect screenshots from all batch subdirectories into a flat dir.
+            # enhanceReport resolves paths relative to this directory.
+            mkdir -p combined-screenshots
+            find mochawesome-results -mindepth 1 -maxdepth 1 -type d | while read -r batch_dir; do
+              if [ -d "$batch_dir/screenshots" ]; then
+                cp -rn "$batch_dir/screenshots/." combined-screenshots/
+              fi
+            done
+            printf '%s\n' "${JSON_FILES[@]}" > json-file-list.txt
+            npm install --no-save \
+              mochawesome-merge \
+              mochawesome-report-generator \
+              cypress-mochawesome-reporter \
+              fs-extra
+            node .github/scripts/generate-cypress-report.js
+          else
+            echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
+          fi
+      - name: Upload unified Cypress HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-html-report
+          path: cypress-html-report/
+          retention-days: 5
 
   publish_images:
     name: Push images after tests pass
