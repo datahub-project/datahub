@@ -1,5 +1,3 @@
-// Disabling hardcoded colors rule in stories files
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { scaleLinear } from '@visx/scale';
 import * as d3interpolate from '@visx/vendor/d3-interpolate';
 import dayjs from 'dayjs';

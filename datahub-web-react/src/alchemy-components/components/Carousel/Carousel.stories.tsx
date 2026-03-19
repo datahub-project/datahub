@@ -1,3 +1,4 @@
+// Disabling hardcoded colors rule in stories files
 /* eslint-disable rulesdir/no-hardcoded-colors */
 import { Carousel } from '@components';
 import type { Meta, StoryObj } from '@storybook/react';
