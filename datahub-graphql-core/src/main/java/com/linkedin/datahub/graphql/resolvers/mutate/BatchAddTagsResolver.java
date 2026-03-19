@@ -154,7 +154,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
       List<Urn> tagUrns, List<ResourceRefInput> resources, QueryContext context) {
     log.debug("Batch adding Tags. tags: {}, resources: {}", resources, tagUrns);
     try {
-      LabelUtils.addTagsToResourcesOptimized(
+      LabelUtils.addTagsToResources(
           context.getOperationContext(),
           tagUrns,
           resources,

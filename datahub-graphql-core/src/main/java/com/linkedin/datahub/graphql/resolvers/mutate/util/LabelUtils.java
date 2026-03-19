@@ -120,25 +120,11 @@ public class LabelUtils {
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
-  public static void addTagsToResources(
-      @Nonnull OperationContext opContext,
-      List<Urn> tagUrns,
-      List<ResourceRefInput> resources,
-      Urn actor,
-      EntityService<?> entityService)
-      throws Exception {
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
-    for (ResourceRefInput resource : resources) {
-      changes.add(buildAddTagsProposal(opContext, tagUrns, resource, actor, entityService));
-    }
-    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
-  }
-
   /**
    * Optimized batch version of addTagsToResources that reduces N+1 queries. Batch-reads all aspects
    * instead of reading per-resource.
    */
-  public static void addTagsToResourcesOptimized(
+  public static void addTagsToResources(
       @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       List<ResourceRefInput> resources,
