@@ -1,3 +1,4 @@
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -42,7 +43,7 @@ export default function SamplesSection() {
                     <Button
                         variant="text"
                         onClick={() => setShowAllSamples(true)}
-                        icon={{ icon: 'ArrowForward' }}
+                        icon={{ icon: ArrowRight }}
                         iconPosition="right"
                     >
                         View {numberOfHiddenSampleValues} more

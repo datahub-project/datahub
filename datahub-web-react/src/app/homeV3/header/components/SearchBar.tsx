@@ -1,4 +1,5 @@
 import { Button, Icon } from '@components';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -44,7 +45,7 @@ export default function SearchBar() {
             />
             <ViewAllContainer>
                 <StyledButton variant="text" color="gray" size="sm" onClick={searchViewAll}>
-                    Discover <Icon icon="ArrowRight" source="phosphor" size="sm" />
+                    Discover <Icon icon={ArrowRight} size="sm" />
                 </StyledButton>
             </ViewAllContainer>
         </Container>

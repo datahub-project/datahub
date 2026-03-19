@@ -203,7 +203,7 @@ const user2 = {
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
     },

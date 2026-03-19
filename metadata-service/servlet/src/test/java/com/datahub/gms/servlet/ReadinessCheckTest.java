@@ -1,5 +1,8 @@
 package com.datahub.gms.servlet;
 
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ebean.Database;
 import io.ebean.SqlQuery;
@@ -7,6 +10,8 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.ByteArrayOutputStream;
+import java.util.Map;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.common.KafkaFuture;
@@ -19,187 +24,181 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.ByteArrayOutputStream;
-import java.util.Map;
-
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 @SpringBootTest()
 public class ReadinessCheckTest {
 
-    private AdminClient kafkaAdmin;
-    private RestHighLevelClient elasticClient;
-    private Database database;
-    private Driver neo4jDriver;
+  private AdminClient kafkaAdmin;
+  private RestHighLevelClient elasticClient;
+  private Database database;
+  private Driver neo4jDriver;
 
-    private HttpServletRequest request;
-    private HttpServletResponse response;
+  private HttpServletRequest request;
+  private HttpServletResponse response;
 
-    private ByteArrayOutputStream responseOutput;
+  private ByteArrayOutputStream responseOutput;
 
-    private ReadinessCheck readinessCheck;
+  private ReadinessCheck readinessCheck;
 
-    @BeforeMethod
-    public void setup() throws Exception {
+  @BeforeMethod
+  public void setup() throws Exception {
 
-        kafkaAdmin = mock(AdminClient.class);
-        elasticClient = mock(RestHighLevelClient.class);
-        database = mock(Database.class);
-        neo4jDriver = mock(Driver.class);
+    kafkaAdmin = mock(AdminClient.class);
+    elasticClient = mock(RestHighLevelClient.class);
+    database = mock(Database.class);
+    neo4jDriver = mock(Driver.class);
 
-        request = mock(HttpServletRequest.class);
-        response = mock(HttpServletResponse.class);
+    request = mock(HttpServletRequest.class);
+    response = mock(HttpServletResponse.class);
 
-        responseOutput = new ByteArrayOutputStream();
+    responseOutput = new ByteArrayOutputStream();
 
-        ServletOutputStream servletOutputStream =
-                new ServletOutputStream() {
-                    @Override
-                    public void write(int b) {
-                        responseOutput.write(b);
-                    }
+    ServletOutputStream servletOutputStream =
+        new ServletOutputStream() {
+          @Override
+          public void write(int b) {
+            responseOutput.write(b);
+          }
 
-                    @Override
-                    public boolean isReady() {
-                        return true;
-                    }
+          @Override
+          public boolean isReady() {
+            return true;
+          }
 
-                    @Override
-                    public void setWriteListener(WriteListener writeListener) {}
-                };
+          @Override
+          public void setWriteListener(WriteListener writeListener) {}
+        };
 
-        when(response.getOutputStream()).thenReturn(servletOutputStream);
+    when(response.getOutputStream()).thenReturn(servletOutputStream);
 
-        readinessCheck = new ReadinessCheck(kafkaAdmin, elasticClient, database, neo4jDriver);
-    }
+    readinessCheck = new ReadinessCheck(kafkaAdmin, elasticClient, database, neo4jDriver);
+  }
 
-    private void mockKafkaUp() {
+  private void mockKafkaUp() {
 
-        DescribeClusterResult result = mock(DescribeClusterResult.class);
+    DescribeClusterResult result = mock(DescribeClusterResult.class);
 
-        when(result.clusterId()).thenReturn(KafkaFuture.completedFuture("clusterId"));
+    when(result.clusterId()).thenReturn(KafkaFuture.completedFuture("clusterId"));
 
-        when(kafkaAdmin.describeCluster()).thenReturn(result);
-    }
+    when(kafkaAdmin.describeCluster()).thenReturn(result);
+  }
 
-    private void mockMysqlUp() {
+  private void mockMysqlUp() {
 
-        SqlQuery query = mock(SqlQuery.class);
+    SqlQuery query = mock(SqlQuery.class);
 
-        when(database.sqlQuery("select 1")).thenReturn(query);
+    when(database.sqlQuery("select 1")).thenReturn(query);
 
-        when(query.findOne()).thenReturn(mock(io.ebean.SqlRow.class));
-    }
+    when(query.findOne()).thenReturn(mock(io.ebean.SqlRow.class));
+  }
 
-    private void mockElasticUp() throws Exception {
+  private void mockElasticUp() throws Exception {
 
-        when(elasticClient.ping(RequestOptions.DEFAULT)).thenReturn(true);
-    }
+    when(elasticClient.ping(RequestOptions.DEFAULT)).thenReturn(true);
+  }
 
-    private void mockNeo4jUp() {
+  private void mockNeo4jUp() {
 
-        Session session = mock(Session.class);
-        Result result = mock(Result.class);
+    Session session = mock(Session.class);
+    Result result = mock(Result.class);
 
-        when(neo4jDriver.session()).thenReturn(session);
+    when(neo4jDriver.session()).thenReturn(session);
 
-        when(session.run("RETURN 1")).thenReturn(result);
-    }
+    when(session.run("RETURN 1")).thenReturn(result);
+  }
 
-    @Test
-    public void testAllServicesUp() throws Exception {
+  @Test
+  public void testAllServicesUp() throws Exception {
 
-        mockKafkaUp();
-        mockMysqlUp();
-        mockElasticUp();
-        mockNeo4jUp();
+    mockKafkaUp();
+    mockMysqlUp();
+    mockElasticUp();
+    mockNeo4jUp();
 
-        readinessCheck.doGet(request, response);
+    readinessCheck.doGet(request, response);
 
-        verify(response).setStatus(HttpServletResponse.SC_OK);
+    verify(response).setStatus(HttpServletResponse.SC_OK);
 
-        Map<String, String> result =
-                new ObjectMapper().readValue(responseOutput.toByteArray(), Map.class);
+    Map<String, String> result =
+        new ObjectMapper().readValue(responseOutput.toByteArray(), Map.class);
 
-        assertEquals(result.get("kafka"), "UP");
-        assertEquals(result.get("mysql"), "UP");
-        assertEquals(result.get("elasticsearch"), "UP");
-        assertEquals(result.get("neo4j"), "UP");
-    }
+    assertEquals(result.get("kafka"), "UP");
+    assertEquals(result.get("mysql"), "UP");
+    assertEquals(result.get("elasticsearch"), "UP");
+    assertEquals(result.get("neo4j"), "UP");
+  }
 
-    @Test
-    public void testKafkaDown() throws Exception {
+  @Test
+  public void testKafkaDown() throws Exception {
 
-        when(kafkaAdmin.describeCluster()).thenThrow(new RuntimeException("Kafka failure"));
+    when(kafkaAdmin.describeCluster()).thenThrow(new RuntimeException("Kafka failure"));
 
-        mockMysqlUp();
-        mockElasticUp();
-        mockNeo4jUp();
+    mockMysqlUp();
+    mockElasticUp();
+    mockNeo4jUp();
 
-        readinessCheck.doGet(request, response);
+    readinessCheck.doGet(request, response);
 
-        verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+    verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
 
-        Map<String, String> result =
-                new ObjectMapper().readValue(responseOutput.toByteArray(), Map.class);
+    Map<String, String> result =
+        new ObjectMapper().readValue(responseOutput.toByteArray(), Map.class);
 
-        assertEquals(result.get("kafka"), "DOWN");
-    }
+    assertEquals(result.get("kafka"), "DOWN");
+  }
 
-    @Test
-    public void testMysqlDown() throws Exception {
+  @Test
+  public void testMysqlDown() throws Exception {
 
-        mockKafkaUp();
+    mockKafkaUp();
 
-        SqlQuery query = mock(SqlQuery.class);
+    SqlQuery query = mock(SqlQuery.class);
 
-        when(database.sqlQuery("select 1")).thenReturn(query);
+    when(database.sqlQuery("select 1")).thenReturn(query);
 
-        when(query.findOne()).thenReturn(null);
+    when(query.findOne()).thenReturn(null);
 
-        mockElasticUp();
-        mockNeo4jUp();
+    mockElasticUp();
+    mockNeo4jUp();
 
-        readinessCheck.doGet(request, response);
+    readinessCheck.doGet(request, response);
 
-        verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-    }
+    verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+  }
 
-    @Test
-    public void testElasticDown() throws Exception {
+  @Test
+  public void testElasticDown() throws Exception {
 
-        mockKafkaUp();
-        mockMysqlUp();
+    mockKafkaUp();
+    mockMysqlUp();
 
-        when(elasticClient.ping(RequestOptions.DEFAULT)).thenThrow(new RuntimeException());
+    when(elasticClient.ping(RequestOptions.DEFAULT)).thenThrow(new RuntimeException());
 
-        mockNeo4jUp();
+    mockNeo4jUp();
 
-        readinessCheck.doGet(request, response);
+    readinessCheck.doGet(request, response);
 
-        verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-    }
+    verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+  }
 
-    @Test
-    public void testNeo4jDown() throws Exception {
+  @Test
+  public void testNeo4jDown() throws Exception {
 
-        mockKafkaUp();
-        mockMysqlUp();
-        mockElasticUp();
+    mockKafkaUp();
+    mockMysqlUp();
+    mockElasticUp();
 
-        when(neo4jDriver.session()).thenThrow(new RuntimeException());
+    when(neo4jDriver.session()).thenThrow(new RuntimeException());
 
-        readinessCheck.doGet(request, response);
+    readinessCheck.doGet(request, response);
 
-        verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-    }
+    verify(response).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+  }
 
-    @Test
-    public void testDestroyExecutor() {
+  @Test
+  public void testDestroyExecutor() {
 
-        readinessCheck.destroy();
+    readinessCheck.destroy();
 
-        assertTrue(true);
-    }
+    assertTrue(true);
+  }
 }

@@ -1,4 +1,5 @@
 import { Button, colors } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -58,11 +59,7 @@ export default function PageBanner({
                 <IconWrapper>{icon}</IconWrapper>
                 {content}
             </IconTextWrapper>
-            <StyledButton
-                icon={{ icon: 'X', color: exitColor, source: 'phosphor', size: '2xl' }}
-                variant="link"
-                onClick={handleClose}
-            />
+            <StyledButton icon={{ icon: X, color: exitColor, size: '2xl' }} variant="link" onClick={handleClose} />
         </BannerWrapper>
     );
 }

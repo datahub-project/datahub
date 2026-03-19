@@ -14,7 +14,8 @@ import {
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { TimerOutlined } from '@mui/icons-material';
-import { BookmarkSimple, Globe } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import React from 'react';
 
 import { FieldType, FilterField } from '@app/searchV2/filters/types';

@@ -114,7 +114,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.semanticIndexExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
-            .maximumSize(100)
+            .maximumSize(150)
             .build();
 
     // Log semantic search configuration at initialization

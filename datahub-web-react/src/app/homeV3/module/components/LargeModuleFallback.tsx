@@ -1,3 +1,5 @@
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import React from 'react';
 import { FallbackProps } from 'react-error-boundary';
 
@@ -16,9 +18,9 @@ export default function LargeModuleFallback({ moduleProps, fallbackProps }: Prop
             <EmptyContent
                 title="Oops!"
                 description="Something didn't go according to plan with this module. Try refreshing or contacting your DataHub Administrator"
-                icon="ExclamationMark"
+                icon={ExclamationMark}
                 linkText="Refresh"
-                linkIcon="ArrowsClockwise"
+                linkIcon={ArrowsClockwise}
                 onLinkClick={() => fallbackProps.resetErrorBoundary()}
             />
         </LargeModule>
