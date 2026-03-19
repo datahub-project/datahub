@@ -109,7 +109,3 @@ export interface SelectLabelVariantProps<OptionType extends SelectOption>
     extends Omit<SelectLabelDisplayProps<OptionType>, 'variant'> {
     selectedOptions: OptionType[];
 }
-
-export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-    fontSize: SelectSizeOptions;
-}

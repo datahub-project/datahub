@@ -65,19 +65,10 @@ export enum ValueTypeId {
 }
 
 /**
- * A single well-supported operator.
- */
-export type Value = {
-    id: ValueTypeId;
-    displayName: string;
-    operators: OperatorId[];
-};
-
-/**
  * A list of value types and their corresponding details,
  * including their display names and the operators that they support
  */
-export const valueTypes = [
+const valueTypes = [
     {
         id: ValueTypeId.BOOLEAN,
         displayName: 'Boolean',
@@ -187,11 +178,9 @@ export enum ValueInputType {
     /**
      * No input type
      */
-    NONE,
-}
+    }
 
 export enum SelectInputMode {
-    NONE = 'none',
     SINGLE = 'single',
     MULTIPLE = 'multiple',
 }

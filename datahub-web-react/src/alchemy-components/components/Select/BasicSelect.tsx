@@ -26,7 +26,7 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
 
 // Updated main component
-export const selectDefaults: SelectProps = {
+const selectDefaults: SelectProps = {
     options: [],
     label: '',
     size: 'md',
@@ -311,4 +311,3 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     );
 };
 
-export default BasicSelect;

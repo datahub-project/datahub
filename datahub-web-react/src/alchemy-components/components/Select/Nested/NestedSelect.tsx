@@ -53,7 +53,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     dataTestId?: string;
 }
 
-export const selectDefaults: SelectProps = {
+const selectDefaults: SelectProps = {
     options: [],
     label: '',
     size: 'md',

@@ -9,7 +9,7 @@ const StyledButton = styled(Button)`
     height: auto;
 `;
 
-export interface CommandButtonProps extends Omit<ButtonProps, 'type'> {
+interface CommandButtonProps extends Omit<ButtonProps, 'type'> {
     active?: boolean;
     children?: React.ReactNode;
     commandName?: string;

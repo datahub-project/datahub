@@ -29,7 +29,7 @@ const SummaryTitle = styled(Typography.Title)`
     }
 `;
 
-export type AssertionsSummary = {
+type AssertionsSummary = {
     totalAssertions: number;
     totalRuns: number;
     failedRuns: number;

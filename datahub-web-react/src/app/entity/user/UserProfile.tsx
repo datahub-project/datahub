@@ -15,11 +15,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetUserQuery } from '@graphql/user.generated';
 import { CorpGroup, EntityRelationship, EntityType } from '@types';
 
-export interface Props {
-    onTabChange: (selectedTab: string) => void;
-}
-
-export enum TabType {
+enum TabType {
     Assets = 'Owner Of',
     Groups = 'Groups',
 }
@@ -34,15 +30,6 @@ const Content = styled.div`
 
 const ContentColumn = styled(Col)`
     border-left: 1px solid ${(props) => props.theme.colors.border};
-`;
-
-export const EmptyValue = styled.div`
-    &:after {
-        content: 'None';
-        color: ${(props) => props.theme.colors.textTertiary};
-        font-style: italic;
-        font-weight: 100;
-    }
 `;
 
 /**

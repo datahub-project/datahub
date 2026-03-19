@@ -166,12 +166,6 @@ export const TagsSection = styled.div`
     padding: 0px 5px 5px 0;
 `;
 
-export const NoDataFound = styled.span`
-    font-size: 12px;
-    color: #262626;
-    font-weight: 100;
-`;
-
 export const Tags = styled.div`
     margin-top: 5px;
 `;

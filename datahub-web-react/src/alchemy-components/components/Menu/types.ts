@@ -2,7 +2,7 @@ import React from 'react';
 
 import { DropdownProps } from '@components/components/Dropdown/types';
 
-export interface BaseItemType {
+interface BaseItemType {
     type: string;
     key: string;
 }

@@ -45,7 +45,7 @@ export const useEntityType = () => {
     return useSearchResultContext()?.searchResult?.entity?.type;
 };
 
-export const useMatchedFields = () => {
+const useMatchedFields = () => {
     return useSearchResult()?.matchedFields ?? [];
 };
 

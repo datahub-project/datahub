@@ -9,7 +9,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
 
-export const EntityTitle = styled(Typography.Title)`
+const EntityTitle = styled(Typography.Title)`
     &&& {
         margin-bottom: 0;
         word-break: break-all;

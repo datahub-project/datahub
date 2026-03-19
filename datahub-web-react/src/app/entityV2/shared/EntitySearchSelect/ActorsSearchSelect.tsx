@@ -43,7 +43,7 @@ const TitleContainer = styled.div`
     flex-direction: column;
 `;
 
-export interface ActorsSearchSelectProps {
+interface ActorsSearchSelectProps {
     selectedActorUrns: string[];
     onUpdate: (selectedActors: ActorEntity[]) => void;
     placeholder?: string;

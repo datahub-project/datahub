@@ -28,7 +28,7 @@ export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]
     [PillVariantValues.version]: [ColorValues.white, ColorValues.gray],
 };
 
-export const pillDefaults: PillPropsDefaults = {
+const pillDefaults: PillPropsDefaults = {
     size: SizeValues.md,
     variant: PillVariantValues.filled,
     color: ColorValues.gray,

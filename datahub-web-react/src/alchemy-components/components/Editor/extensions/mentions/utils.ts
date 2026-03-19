@@ -2,7 +2,7 @@
  * Dropdown placement threshold in pixels.
  * If less than this much space is available below the cursor, the dropdown will appear above.
  */
-export const DROPDOWN_HEIGHT_THRESHOLD = 350;
+const DROPDOWN_HEIGHT_THRESHOLD = 350;
 
 /**
  * Calculates the optimal placement for the mentions dropdown based on cursor position.

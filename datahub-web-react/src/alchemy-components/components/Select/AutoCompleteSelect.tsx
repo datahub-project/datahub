@@ -35,7 +35,7 @@ const defaults: Partial<Props<any>> = {
     disabledValues: [],
 };
 
-export interface Suggestion<T> {
+interface Suggestion<T> {
     data: T;
     value: string;
 }

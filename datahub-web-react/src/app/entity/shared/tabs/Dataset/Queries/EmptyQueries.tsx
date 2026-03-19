@@ -4,7 +4,7 @@ import React from 'react';
 
 import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
 
-export type Props = {
+type Props = {
     message?: string;
     readOnly?: boolean;
     onClickAddQuery: () => void;

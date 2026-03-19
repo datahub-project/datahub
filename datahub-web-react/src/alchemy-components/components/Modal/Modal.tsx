@@ -67,7 +67,7 @@ export interface ModalButton extends ButtonProps {
     buttonDataTestId?: string;
 }
 
-export interface ModalProps {
+interface ModalProps {
     buttons?: ModalButton[];
     title: React.ReactNode;
     subtitle?: string;

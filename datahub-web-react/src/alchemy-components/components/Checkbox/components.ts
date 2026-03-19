@@ -2,12 +2,11 @@ import styled from 'styled-components';
 
 import {
     getCheckboxColor,
-    getCheckboxHoverBackgroundColor,
     getCheckboxSize,
     getCheckmarkPosition,
 } from '@components/components/Checkbox/utils';
 import { formLabelTextStyles } from '@components/components/commonStyles';
-import { borders, colors, radius, spacing, transform, zIndices } from '@components/theme';
+import { borders, colors, spacing, transform, zIndices } from '@components/theme';
 
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
@@ -89,19 +88,6 @@ export const Checkmark = styled.div<{
         backgroundColor: colors.gray[1500],
     }),
 }));
-
-export const HoverState = styled.div<{ isHovering: boolean; error: string; checked: boolean; disabled: boolean }>(
-    ({ isHovering, error, checked }) => ({
-        width: '40px',
-        height: '40px',
-        backgroundColor: !isHovering ? 'transparent' : getCheckboxHoverBackgroundColor(checked, error),
-        position: 'absolute',
-        borderRadius: radius.full,
-        top: '-5px',
-        left: '2px',
-        zIndex: zIndices.hide,
-    }),
-);
 
 export const CheckboxGroupContainer = styled.div<{ isVertical?: boolean }>(({ isVertical }) => ({
     display: 'flex',

@@ -13,10 +13,10 @@ import useSidebarEntities from '@app/search/sidebar/useSidebarEntities';
 
 import SortIcon from '@images/sort.svg?react';
 
-export const MAX_BROWSER_WIDTH = 500;
-export const MIN_BROWSWER_WIDTH = 200;
+const MAX_BROWSER_WIDTH = 500;
+const MIN_BROWSWER_WIDTH = 200;
 
-export const SidebarWrapper = styled.div<{ visible: boolean; width: number }>`
+const SidebarWrapper = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
     width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     min-width: ${(props) => (props.visible ? `${props.width}px` : '0')};

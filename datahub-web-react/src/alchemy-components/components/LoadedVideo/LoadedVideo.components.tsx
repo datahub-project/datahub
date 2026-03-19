@@ -109,19 +109,6 @@ export const IndicatorContainer = styled.div`
     text-align: center;
 `;
 
-export const IndicatorRow = styled.div`
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-`;
-
-export const IndicatorDot = styled.div<{ $isActive: boolean }>`
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background-color: ${({ $isActive }) => ($isActive ? colors.primary[500] : colors.gray[100])};
-`;
-
 export const IndicatorText = styled.p`
     margin-top: 10px;
     font-size: 12px;

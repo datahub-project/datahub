@@ -5,8 +5,6 @@ import {
     AssertionResultType,
     AssertionStdParameter,
     AssertionStdParameterType,
-    DatasetAssertionInfo,
-    StringMapEntry,
 } from '@types';
 
 /**
@@ -68,20 +66,6 @@ export const getResultIcon = (result: AssertionResultType) => {
 };
 
 /**
- * Convert an array of StringMapEntry into a map, for easy retrieval.
- */
-export const convertNativeParametersArrayToMap = (nativeParameters: Array<StringMapEntry> | undefined) => {
-    if (nativeParameters) {
-        const map = new Map();
-        nativeParameters.forEach((parameter) => {
-            map.set(parameter.key, parameter.value);
-        });
-        return map;
-    }
-    return undefined;
-};
-
-/**
  * Returns the value of an AssertionStdParameter suitable for display
  */
 const MISSING_PARAMETER_VALUE = '?';
@@ -101,14 +85,4 @@ export const getFormattedParameterValue = (parameter: AssertionStdParameter | un
                 ? parameter.value
                 : parseFloat(parameter.value as string).toLocaleString();
     }
-};
-
-/**
- * Throws if an assertion has no input fields
- */
-export const validateAssertionsHasInputFields = (info: DatasetAssertionInfo) => {
-    if (info.fields && info.fields.length === 1) {
-        return info.fields[0].path;
-    }
-    throw new Error('Failed to find field path(s) for column assertion.');
 };

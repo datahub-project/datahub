@@ -11,19 +11,19 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { SchemaField, SearchResult, StdDataType } from '@types';
 
-export const PropertyTitle = styled.div`
+const PropertyTitle = styled.div`
     font-size: 14px;
     font-weight: 700;
     margin-bottom: 4px;
 `;
 
-export const PropertyWrapper = styled.div`
+const PropertyWrapper = styled.div`
     margin-bottom: 12px;
     display: flex;
     justify-content: space-between;
 `;
 
-export const PropertiesWrapper = styled.div`
+const PropertiesWrapper = styled.div`
     padding-left: 16px;
 `;
 
@@ -31,7 +31,7 @@ export const StyledList = styled.ul`
     padding-left: 24px;
 `;
 
-export const Header = styled.div`
+const Header = styled.div`
     font-size: 16px;
     font-weight: 600;
     margin-bottom: 16px;

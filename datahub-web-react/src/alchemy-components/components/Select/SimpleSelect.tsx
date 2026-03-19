@@ -27,7 +27,7 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 import { LoadingWrapper } from '@src/app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 
-export const selectDefaults: Partial<SelectProps> = {
+const selectDefaults: Partial<SelectProps> = {
     label: '',
     size: 'md',
     showSearch: false,

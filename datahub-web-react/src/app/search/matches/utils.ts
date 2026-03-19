@@ -26,7 +26,7 @@ export const getMatchedFieldLabel = (entityType: EntityType | undefined, fieldNa
     return configs.find((config) => config.name === fieldName)?.label ?? '';
 };
 
-export const getGroupedFieldName = (
+const getGroupedFieldName = (
     entityType: EntityType | undefined,
     fieldName: string,
 ): MatchedFieldName | undefined => {

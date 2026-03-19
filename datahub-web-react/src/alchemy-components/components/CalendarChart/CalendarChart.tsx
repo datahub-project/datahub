@@ -18,7 +18,7 @@ const commonLabelProps = {
     fontSize: 10,
 };
 
-export const calendarChartDefault: Omit<CalendarChartProps<any>, 'colorAccessor' | 'startDate' | 'endDate'> = {
+const calendarChartDefault: Omit<CalendarChartProps<any>, 'colorAccessor' | 'startDate' | 'endDate'> = {
     data: [],
     leftAxisLabelProps: {
         ...commonLabelProps,

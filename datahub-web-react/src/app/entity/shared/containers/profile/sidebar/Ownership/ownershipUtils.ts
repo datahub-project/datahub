@@ -4,7 +4,7 @@ import { OwnershipType, OwnershipTypeEntity } from '@types';
  * A mapping from OwnershipType to it's display name & description. In the future,
  * we intend to make this configurable.
  */
-export const OWNERSHIP_DISPLAY_TYPES = [
+const OWNERSHIP_DISPLAY_TYPES = [
     {
         type: OwnershipType.TechnicalOwner,
         name: 'Technical Owner',

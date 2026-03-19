@@ -4,7 +4,7 @@ import React, { PropsWithChildren, createContext, useContext, useMemo } from 're
 import { DAYS_IN_WEEK, MIN_GAP_SIZE, MIN_SQUARE_SIZE } from '@components/components/CalendarChart/private/constants';
 import { DayData, MonthData } from '@components/components/CalendarChart/types';
 
-export type CalendarContextState<ValueType = any> = {
+type CalendarContextState<ValueType = any> = {
     data: MonthData<ValueType>[];
     parentWidth: number;
     parentHeight: number;
@@ -20,9 +20,9 @@ export type CalendarContextState<ValueType = any> = {
     onDayClick?: (day: DayData<ValueType>) => void;
 };
 
-export const CalendarContext = createContext<CalendarContextState | null>(null);
+const CalendarContext = createContext<CalendarContextState | null>(null);
 
-export type CalendarProviderProps<ValueType> = {
+type CalendarProviderProps<ValueType> = {
     data: MonthData<ValueType>[];
     width: number;
     height: number;

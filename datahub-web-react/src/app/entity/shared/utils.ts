@@ -143,7 +143,7 @@ export function getStructuredPropertyValue(value: PropertyValue) {
 }
 
 // Utility for formatting any casing of type to the expected casing for the API
-export function formatEntityType(type: string): string {
+function formatEntityType(type: string): string {
     if (!type) return '';
 
     switch (type.toLowerCase()) {

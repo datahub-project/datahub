@@ -155,13 +155,13 @@ export function getColorAccessor<ValueType = any>(
     };
 }
 
-export type MockCalendarValue = {
+type MockCalendarValue = {
     inserts: number;
     updates: number;
     deletes: number;
 };
 
-export function generateMockData(
+function generateMockData(
     length: number,
     startDate: string | Date = '2024-11-30',
     maxValue = 3_000,

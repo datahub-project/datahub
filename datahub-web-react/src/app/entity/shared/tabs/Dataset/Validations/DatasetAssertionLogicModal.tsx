@@ -3,13 +3,6 @@ import React from 'react';
 
 import Query from '@app/entity/shared/tabs/Dataset/Queries/Query';
 
-export type AssertionsSummary = {
-    totalAssertions: number;
-    totalRuns: number;
-    failedRuns: number;
-    succeededRuns: number;
-};
-
 type Props = {
     logic: string;
     open: boolean;

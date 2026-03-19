@@ -18,8 +18,6 @@ type Props = {
     onSave: () => void;
     editModalData: PropsData;
 };
-/** Regex Validations */
-export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function GroupEditModal({ open, onClose, onSave, editModalData }: Props) {
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();

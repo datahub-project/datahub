@@ -1,11 +1,8 @@
 import {
     ApiOutlined,
-    CheckOutlined,
     ClockCircleOutlined,
-    CloseOutlined,
     CodeOutlined,
     ConsoleSqlOutlined,
-    ExclamationCircleOutlined,
     ProjectOutlined,
     TableOutlined,
 } from '@ant-design/icons';
@@ -78,33 +75,6 @@ const StyledApiOutlined = styled(ApiOutlined)`
     }
 `;
 
-const StyledCheckOutlined = styled(CheckOutlined)`
-    && {
-        color: ${SUCCESS_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledCloseOutlined = styled(CloseOutlined)`
-    && {
-        color: ${FAILURE_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
-    && {
-        color: ${WARNING_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
 const StyledCodeOutlined = styled(CodeOutlined)`
     && {
         margin: 0px;
@@ -114,7 +84,7 @@ const StyledCodeOutlined = styled(CodeOutlined)`
     }
 `;
 
-export const ASSERTION_INFO = [
+const ASSERTION_INFO = [
     {
         name: 'Freshness',
         description: 'Define & monitor your expectations about when this dataset should be updated',
@@ -257,49 +227,13 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     return assertionGroups;
 };
 
-export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return null;
-    }
-    if (summary.passing === summary.total) {
-        return <StyledCheckOutlined />;
-    }
-    if (summary.erroring > 0) {
-        return <StyledExclamationOutlined />;
-    }
-    return <StyledCloseOutlined />;
-};
-
-export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return 'No assertions have run';
-    }
-    if (summary.passing === summary.total) {
-        return 'All assertions are passing';
-    }
-    if (summary.erroring > 0) {
-        return 'An error is preventing some assertions from running';
-    }
-    if (summary.failing === summary.total) {
-        return 'All assertions are failing';
-    }
-    return 'Some assertions are failing';
-};
-
-export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
-    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
-        ...type,
-        enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),
-    }));
-};
-
 type VolumeTypeField =
     | 'rowCountTotal'
     | 'rowCountChange'
     | 'incrementingSegmentRowCountTotal'
     | 'incrementingSegmentRowCountChange';
 
-export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
+const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
     switch (type) {
         case VolumeAssertionType.RowCountTotal:
             return 'rowCountTotal' as VolumeTypeField;

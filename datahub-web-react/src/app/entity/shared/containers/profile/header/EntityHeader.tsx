@@ -61,7 +61,7 @@ const TopButtonsWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-export function getCanEditName(
+function getCanEditName(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
     isEditableDatasetNameEnabled: boolean,

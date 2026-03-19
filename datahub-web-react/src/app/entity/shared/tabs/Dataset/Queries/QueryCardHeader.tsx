@@ -22,7 +22,7 @@ const ExpandButton = styled(Button)`
     margin-left: 8px;
 `;
 
-export type Props = {
+type Props = {
     query: string;
     focused: boolean;
     onClickExpand?: (newQuery) => void;

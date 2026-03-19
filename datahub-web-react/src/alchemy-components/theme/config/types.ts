@@ -5,8 +5,7 @@ export enum SizeValues {
     md = 'md',
     lg = 'lg',
     xl = 'xl',
-    inherit = 'inherit',
-}
+    }
 export type SizeOptions = keyof typeof SizeValues;
 export function getSizeName(size: SizeOptions): string {
     switch (size) {
@@ -51,7 +50,6 @@ export interface Color {
 
 export enum ColorValues {
     white = 'white',
-    black = 'black',
     violet = 'violet',
     green = 'green',
     red = 'red',
@@ -68,16 +66,7 @@ export type ColorShadeOptions = 'light' | 'default' | 'dark';
 
 // Typography types
 export enum FontSizeValues {
-    xs = 'xs',
-    sm = 'sm',
-    md = 'md',
-    lg = 'lg',
-    xl = 'xl',
-    '2xl' = '2xl',
-    '3xl' = '3xl',
-    '4xl' = '4xl',
-    inherit = 'inherit',
-}
+    }
 export type FontSizeOptions = keyof typeof SizeValues | keyof typeof FontSizeValues;
 export type FontWeightOptions = 'normal' | 'medium' | 'semiBold' | 'bold';
 export type FontColorOptions = MiscColorOptions | ColorOptions;

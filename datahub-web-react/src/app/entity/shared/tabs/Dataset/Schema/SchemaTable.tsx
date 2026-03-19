@@ -67,7 +67,7 @@ const TableContainer = styled.div`
     }
 `;
 
-export type Props = {
+type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;

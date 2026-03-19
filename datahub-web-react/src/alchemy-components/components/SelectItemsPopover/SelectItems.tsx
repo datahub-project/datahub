@@ -14,7 +14,7 @@ import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType } from '@src/types.generated';
 
-export interface SelectItemsProps {
+interface SelectItemsProps {
     entities: Entity[];
     selectedItems: any[];
     refetch?: () => void;

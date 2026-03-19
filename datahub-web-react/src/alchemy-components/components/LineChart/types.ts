@@ -38,8 +38,3 @@ export type LineChartProps = {
 };
 
 export type GlyphProps = VisxGlyphProps<Datum>;
-
-export type TooltipGlyphProps = {
-    x: number;
-    y: number;
-};

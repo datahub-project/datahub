@@ -1,7 +1,7 @@
 import { DocsContext, Source } from '@storybook/blocks';
 import React from 'react';
 
-export const CodeBlock = () => {
+const CodeBlock = () => {
     const context = React.useContext(DocsContext);
 
     const { primaryStory } = context as any;

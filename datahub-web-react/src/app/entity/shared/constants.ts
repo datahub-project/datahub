@@ -88,7 +88,7 @@ export const EMPTY_MESSAGES = {
     },
 };
 
-export const ELASTIC_MAX_COUNT = 10000;
+const ELASTIC_MAX_COUNT = 10000;
 
 export const getElasticCappedTotalValueText = (count: number) => {
     if (count === ELASTIC_MAX_COUNT) {

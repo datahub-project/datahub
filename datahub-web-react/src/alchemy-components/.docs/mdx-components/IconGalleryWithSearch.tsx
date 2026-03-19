@@ -8,7 +8,7 @@ interface Props {
     icons: string[];
 }
 
-export const IconGalleryWithSearch = ({ icons }: Props) => {
+const IconGalleryWithSearch = ({ icons }: Props) => {
     const [iconSet, setIconSet] = useState(icons);
     const [search, setSearch] = useState('');
     const [variant, setVariant] = useState('outline');

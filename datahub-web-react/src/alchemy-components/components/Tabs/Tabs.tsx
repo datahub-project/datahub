@@ -340,7 +340,7 @@ export interface Tab {
     closable?: boolean;
 }
 
-export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
+interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
     tabs: Tab[];
     selectedTab?: string;
     onChange?: (selectedTabKey: string) => void;

@@ -16,14 +16,12 @@ export const {
     radius,
     shadows,
     typography,
-    breakpoints,
+    
     zIndices,
     transform,
     transition,
     sizes,
     borders,
-    blur,
+    
 } = theme;
-
-export type Theme = typeof theme;
 export default theme;

@@ -9,7 +9,7 @@ import { ActionButtonsProps } from '@components/components/Select/types';
 
 import { colors, shadows } from '@src/alchemy-components/theme';
 
-export const StyledClearButton = styled(Button).attrs({
+const StyledClearButton = styled(Button).attrs({
     variant: 'text',
 })({
     color: colors.gray[1800],

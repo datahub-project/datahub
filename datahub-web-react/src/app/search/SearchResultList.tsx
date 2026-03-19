@@ -33,7 +33,7 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 16px;
 `;
 
-export const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     ${(props) =>
         props.showUpdatedStyles &&
         `    

@@ -5,13 +5,13 @@ import styled from 'styled-components';
 
 import theme from '@components/theme';
 
-export const Grid = styled.div`
+const Grid = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
 `;
 
-export const FlexGrid = styled.div`
+const FlexGrid = styled.div`
     display: flex;
     gap: 16px;
 `;
@@ -22,11 +22,11 @@ export const VerticalFlexGrid = styled.div`
     gap: 16px;
 `;
 
-export const Seperator = styled.div`
+const Seperator = styled.div`
     height: 16px;
 `;
 
-export const ColorCard = styled.div<{ color: string; size?: string }>`
+const ColorCard = styled.div<{ color: string; size?: string }>`
     display: flex;
     gap: 16px;
     align-items: center;

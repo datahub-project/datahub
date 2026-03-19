@@ -7,18 +7,18 @@ import React, { useMemo } from 'react';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 
-export type BooleanResult = {
+type BooleanResult = {
     result: boolean;
     title: React.ReactNode;
     content: React.ReactNode;
 };
 
-export type BooleanDataPoint = {
+type BooleanDataPoint = {
     time: number;
     result: BooleanResult;
 };
 
-export type TimeRange = {
+type TimeRange = {
     startMs: number;
     endMs: number;
 };

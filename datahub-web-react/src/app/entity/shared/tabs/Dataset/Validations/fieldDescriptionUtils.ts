@@ -59,7 +59,7 @@ const getAssertionStdOperator = (operator: AssertionStdOperator) => {
     return ASSERTION_OPERATOR_TO_DESCRIPTION[operator]?.toLowerCase();
 };
 
-export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
+const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     switch (metric) {
         case FieldMetricType.NullCount:
             return 'Null count';

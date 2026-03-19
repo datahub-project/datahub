@@ -1,6 +1,6 @@
 import React, { SVGAttributes } from 'react';
 
-export type TickLabelProps = SVGAttributes<SVGTextElement> & {
+type TickLabelProps = SVGAttributes<SVGTextElement> & {
     text: string;
 };
 

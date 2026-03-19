@@ -9,12 +9,6 @@ const checkboxBackgroundDefault = {
     disabled: colors.gray[1500],
 };
 
-const checkboxHoverColors = {
-    default: colors.gray[100],
-    error: colors.red[100],
-    checked: colors.violet[100],
-};
-
 export function getCheckboxColor(checked: boolean, error: string, disabled: boolean, mode: 'background' | undefined) {
     if (disabled) {
         return mode === 'background' ? checkboxBackgroundDefault.disabled : colors.gray[100];
@@ -22,12 +16,6 @@ export function getCheckboxColor(checked: boolean, error: string, disabled: bool
     if (error) return checkboxBackgroundDefault.error;
     if (checked) return checkboxBackgroundDefault.checked;
     return mode === 'background' ? checkboxBackgroundDefault.default : colors.gray[1800];
-}
-
-export function getCheckboxHoverBackgroundColor(checked: boolean, error: string) {
-    if (error) return checkboxHoverColors.error;
-    if (checked) return checkboxHoverColors.checked;
-    return checkboxHoverColors.default;
 }
 
 const sizeMap: Record<SizeOptions, string> = {

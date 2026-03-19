@@ -17,7 +17,7 @@ import { EntityRelationshipsResult, OriginType, Ownership } from '@types';
 
 const messageStyle = { marginTop: '10%' };
 
-export enum TabType {
+enum TabType {
     Assets = 'Owner Of',
     Members = 'Members',
 }

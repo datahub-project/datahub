@@ -8,7 +8,6 @@ import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { EntityTab, GenericEntityProperties } from '@app/entity/shared/types';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOCUMENTATION_ID,
     ENTITY_PROFILE_DOMAINS_ID,
@@ -21,7 +20,6 @@ import {
     ENTITY_PROFILE_TAGS_ID,
 } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AppConfig, EntityType } from '@types';
 
@@ -103,13 +101,6 @@ export function getEntityPath(
     return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${
         isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
     }${tabParamsString}`;
-}
-
-export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
-    const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const entityRegistry = useEntityRegistry();
-    return getEntityPath(entityType, urn, entityRegistry, isLineageMode, isHideSiblingMode, tabName, tabParams);
 }
 
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {

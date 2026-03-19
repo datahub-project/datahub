@@ -1,18 +1,8 @@
 import { countries } from 'country-data-list';
 import { CaretRight } from 'phosphor-react';
 import React from 'react';
-import styled from 'styled-components';
 
 import { RotatingButton } from '@app/shared/components';
-
-export const SidebarWrapper = styled.div<{ width: number }>`
-    max-height: 100%;
-    width: ${(props) => props.width}px;
-    min-width: ${(props) => props.width}px;
-    display: ${(props) => (props.width ? 'block' : 'none')};
-    display: flex;
-    flex-direction: column;
-`;
 
 export function RotatingTriangle({
     isOpen,

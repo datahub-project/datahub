@@ -73,7 +73,7 @@ export const MarkdownView = styled(MDEditor.Markdown)`
     font-weight: 400;
 `;
 
-export type Props = {
+type Props = {
     source: string;
     limit?: number;
     // eslint-disable-next-line react/no-unused-prop-types

@@ -44,7 +44,7 @@ function getCompletedFieldPromptsFromPrompt(prompt: FormPromptAssociation, relev
  * Note: we pass in an optional set of prompt IDs to choose from in order to get completed
  * field prompts for a certain set of entity prompts id we choose.
  */
-export function getCompletedFieldPromptsFromForm(
+function getCompletedFieldPromptsFromForm(
     formAssociation: FormAssociation,
     relevantFieldFormPromptIds?: Set<string>,
 ) {
@@ -69,7 +69,7 @@ export function getCompletedFieldPromptsFromForm(
  * For each prompt, get their list of completedFieldPrompts
  * Takes in an optional list of relevant prompt IDs to filter results down.
  */
-export function getCompletedFieldPromptAssociations(
+function getCompletedFieldPromptAssociations(
     entityData: GenericEntityProperties | null,
     relevantFieldFormPromptIds?: Set<string>,
 ) {
@@ -94,7 +94,7 @@ export function getCompletedFieldPromptAssociations(
  * For a given form, gets a list of the completed field prompt associations which live
  * as children to top level prompt associations for each schema field.
  */
-export function getCompletedFieldPromptAssociationsForForm(
+function getCompletedFieldPromptAssociationsForForm(
     formUrn: string,
     entityData: GenericEntityProperties | null,
     relevantFieldFormPromptIds?: Set<string>,
@@ -118,7 +118,7 @@ export function getNumPromptsCompletedForField(
  * on the form multiplied by the number of schema fields.
  * Optionally takes in a formUrn to look at one specific form or all forms
  */
-export function getNumSchemaFieldPromptsRemaining(
+function getNumSchemaFieldPromptsRemaining(
     entityData: GenericEntityProperties | null,
     fieldFormPrompts: FormPrompt[],
     numSchemaFields: number,
@@ -171,7 +171,7 @@ export function isFieldPromptComplete(fieldPrompt, promptAssociation) {
 }
 
 // For every prompt provided, check if it's in our list of completed prompts and return number prompts not completed
-export function getNumEntityPromptsRemaining(entityPrompts: FormPrompt[], entityData: GenericEntityProperties | null) {
+function getNumEntityPromptsRemaining(entityPrompts: FormPrompt[], entityData: GenericEntityProperties | null) {
     const completedPrompts = getCompletedPrompts(entityData);
     let numPromptsRemaining = 0;
 
@@ -254,12 +254,12 @@ export function getFormVerification(formUrn: string, entityData: GenericEntityPr
     return entityData?.forms?.verifications?.find((verification) => verification.form.urn === formUrn);
 }
 
-export function getVerificationForms(entityData: GenericEntityProperties | null) {
+function getVerificationForms(entityData: GenericEntityProperties | null) {
     const formAssociations = getFormAssociations(entityData);
     return formAssociations.filter((formAssociation) => formAssociation.form.info.type === FormType.Verification);
 }
 
-export function areAllFormsVerified(formAssociations: FormAssociation[], entityData: GenericEntityProperties | null) {
+function areAllFormsVerified(formAssociations: FormAssociation[], entityData: GenericEntityProperties | null) {
     return formAssociations.every((formAssociation) => !!getFormVerification(formAssociation.form.urn, entityData));
 }
 
@@ -314,11 +314,4 @@ export function getVerificationAuditStamp(entityData: GenericEntityProperties | 
         return getFormVerification(formUrn, entityData)?.lastModified || null;
     }
     return getMostRecentVerificationAuditStamp(entityData);
-}
-
-export function getBulkByQuestionPrompts(formUrn: string, entityData: GenericEntityProperties | null) {
-    const formAssociation = getFormAssociation(formUrn, entityData);
-    return (
-        formAssociation?.form?.info?.prompts?.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || []
-    );
 }

@@ -1,3 +1,3 @@
-export { Select, selectDefaults } from './Select';
+export { Select,  } from './Select';
 export { SimpleSelect } from './SimpleSelect';
-export type { SelectProps, SelectOption } from './types';
+export type {  SelectOption } from './types';

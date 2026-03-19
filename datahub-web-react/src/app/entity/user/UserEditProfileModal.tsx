@@ -24,7 +24,7 @@ type Props = {
     editModalData: PropsData;
 };
 /** Regex Validations */
-export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
+const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function UserEditProfileModal({ open, onClose, onSave, editModalData }: Props) {
     const { config } = useAppConfig();

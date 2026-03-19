@@ -1,19 +1,5 @@
 export enum SourceCapability {
-    PLATFORM_INSTANCE = 'Platform Instance',
-    DOMAINS = 'Domains',
-    DATA_PROFILING = 'Data Profiling',
-    USAGE_STATS = 'Usage Stats',
-    PARTITION_SUPPORT = 'Partition Support',
-    DESCRIPTIONS = 'Descriptions',
-    LINEAGE_COARSE = 'Table-Level Lineage',
-    LINEAGE_FINE = 'Column-level Lineage',
-    OWNERSHIP = 'Extract Ownership',
-    DELETION_DETECTION = 'Detect Deleted Entities',
-    TAGS = 'Extract Tags',
-    SCHEMA_METADATA = 'Schema Metadata',
-    CONTAINERS = 'Asset Containers',
-    CLASSIFICATION = 'Classification',
-}
+    }
 
 export interface ConnectionCapability {
     capable: boolean;

@@ -8,7 +8,6 @@ import {
 import React from 'react';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DataContractCategoryType } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
 import { AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/types';
 import {
     FAILURE_COLOR_HEX,
@@ -89,27 +88,6 @@ export const isAssertionPartOfContract = (assertion: Assertion, contract: DataCo
         return true;
     }
     return false;
-};
-
-/**
- * Retrieves the high level contract category - schema, freshness, or data quality - given an assertion
- */
-export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
-    if (
-        assertion.info?.type === AssertionType.Dataset ||
-        assertion.info?.type === AssertionType.Volume ||
-        assertion.info?.type === AssertionType.Field ||
-        assertion.info?.type === AssertionType.Sql
-    ) {
-        return DataContractCategoryType.DATA_QUALITY;
-    }
-    if (assertion.info?.type === AssertionType.Freshness) {
-        return DataContractCategoryType.FRESHNESS;
-    }
-    if (assertion.info?.type === AssertionType.DataSchema) {
-        return DataContractCategoryType.SCHEMA;
-    }
-    return DataContractCategoryType.DATA_QUALITY;
 };
 
 export const DATA_QUALITY_ASSERTION_TYPES = new Set([

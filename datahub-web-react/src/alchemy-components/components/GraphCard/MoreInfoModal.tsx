@@ -3,7 +3,7 @@ import { Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-export const StyledModal = styled(Modal)`
+const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {

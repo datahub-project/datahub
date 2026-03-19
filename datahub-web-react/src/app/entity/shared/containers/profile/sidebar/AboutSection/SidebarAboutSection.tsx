@@ -55,4 +55,3 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     );
 };
 
-export default SidebarAboutSection;

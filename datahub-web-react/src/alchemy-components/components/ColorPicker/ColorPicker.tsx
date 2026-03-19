@@ -161,4 +161,3 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor = DEFAULT_COLOR,
 };
 
 export { ColorPicker };
-export default ColorPicker;

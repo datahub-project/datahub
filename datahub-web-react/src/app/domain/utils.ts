@@ -14,7 +14,7 @@ import { Entity, EntityType } from '@types';
 /**
  * Add an entry to the list domains cache.
  */
-export const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
+const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,

@@ -1,4 +1,4 @@
-import { Button } from '@components';
+
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
 
@@ -194,58 +194,9 @@ export const StyledIcon = styled(Icon)({
     color: colors.gray[1800],
 });
 
-export const StyledClearButton = styled(Button).attrs({
-    variant: 'text',
-})({
-    color: colors.gray[1800],
-    padding: '0px',
-
-    '&:hover': {
-        border: 'none',
-        backgroundColor: colors.transparent,
-        borderColor: colors.transparent,
-        boxShadow: shadows.none,
-    },
-
-    '&:focus': {
-        border: 'none',
-        backgroundColor: colors.transparent,
-        boxShadow: `0 0 0 2px ${colors.white}, 0 0 0 4px ${colors.violet[50]}`,
-    },
-});
-
-export const ClearIcon = styled.span({
-    cursor: 'pointer',
-    marginLeft: '8px',
-});
-
-export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
-    marginLeft: 'auto',
-    border: 'solid black',
-    borderWidth: '0 1px 1px 0',
-    display: 'inline-block',
-    padding: '3px',
-    transform: isOpen ? 'rotate(-135deg)' : 'rotate(45deg)',
-}));
-
 export const StyledCheckbox = styled(Checkbox)({
     '.ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner': {
         backgroundColor: `${(props) => props.theme.styles['primary-color']}`,
         borderColor: `${(props) => props.theme.styles['primary-color']} !important`,
     },
 });
-
-export const StyledBubbleButton = styled(Button)({
-    backgroundColor: colors.gray[200],
-    border: `1px solid ${colors.gray[200]}`,
-    color: colors.black,
-    padding: '1px',
-});
-
-export const HighlightedLabel = styled.span`
-    background-color: ${colors.gray[100]};
-    padding: 4px 6px;
-    border-radius: 8px;
-    font-size: ${typography.fontSizes.sm};
-    color: ${colors.gray[500]};
-`;
