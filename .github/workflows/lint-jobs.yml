@@ -29,6 +29,8 @@ jobs:
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: dorny/paths-filter@v3
         id: filter
         with:
