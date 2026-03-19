@@ -116,6 +116,10 @@ abs-slim = [
     "wcmatch<11.0.0",
 ]
 
+airbyte = [
+    "requests",
+]
+
 athena = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -2045,6 +2049,7 @@ csv-enricher = "datahub.ingestion.source.csv_enricher:CSVEnricherSource"
 file = "datahub.ingestion.source.file:GenericFileSource"
 datahub = "datahub.ingestion.source.datahub.datahub_source:DataHubSource"
 sqlalchemy = "datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource"
+airbyte = "datahub.ingestion.source.airbyte.source:AirbyteSource"
 athena = "datahub.ingestion.source.sql.athena:AthenaSource"
 azure-ad = "datahub.ingestion.source.identity.azure_ad:AzureADSource"
 azure-data-factory = "datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource"
