@@ -142,7 +142,7 @@ def get_upstream_tables(
 
         return lineages
 
-    except BaseException as e:
+    except Exception as e:
         reporter.m_query_resolver_errors += 1
         reporter.warning(
             title="Unknown M-Query Pattern",
