@@ -100,6 +100,9 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+        id: setup-gradle
+        with:
+          gradle-version: "8.14.3"
       - name: run prettier --check
         run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
 
@@ -208,6 +211,10 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
+      - uses: gradle/actions/setup-gradle@v4
+        id: setup-gradle
+        with:
+          gradle-version: "8.14.3"
 
       - uses: actions/cache/restore@v5
         name: Restore uv cache
