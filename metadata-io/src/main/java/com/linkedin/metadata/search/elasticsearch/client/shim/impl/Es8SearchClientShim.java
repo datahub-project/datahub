@@ -31,7 +31,6 @@ import co.elastic.clients.elasticsearch.core.OpenPointInTimeResponse;
 import co.elastic.clients.elasticsearch.core.ReindexResponse;
 import co.elastic.clients.elasticsearch.core.UpdateByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
-import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
 import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateAction;
@@ -267,7 +266,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           // SSL configuration
           if (config.isUseSSL()) {
             try {
-              SSLContext sslContext = javax.net.ssl.SSLContext.getDefault();
+              SSLContext sslContext = config.getSSLContext() != null
+                      ? config.getSSLContext()          // custom certs
+                      : SSLContexts.createDefault();    // fallback to JVM default
               httpAsyncClientBuilder
                   .setSSLContext(sslContext)
                   .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
@@ -314,9 +315,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
     builder.setRequestConfigCallback(
         requestConfigBuilder ->
-            requestConfigBuilder
-                .setConnectionRequestTimeout(config.getConnectionRequestTimeout())
-                .setSocketTimeout(config.getSocketTimeout()));
+            requestConfigBuilder.setConnectionRequestTimeout(config.getConnectionRequestTimeout()));
 
     return builder;
   }
@@ -327,21 +326,17 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
    */
   private NHttpClientConnectionManager createConnectionManager(ShimConfiguration config)
       throws IOReactorException {
-    SSLContext sslContext = SSLContexts.createDefault();
+    SSLContext sslContext = config.getSSLContext() != null
+            ? config.getSSLContext()          // custom certs
+            : SSLContexts.createDefault();    // fallback to JVM default
     javax.net.ssl.HostnameVerifier hostnameVerifier =
         new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
-    log.info(
-        "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
-        config.getThreadCount(),
-        config.getSocketTimeout());
+    log.info("Creating IOReactorConfig with threadCount: {}", config.getThreadCount());
     IOReactorConfig ioReactorConfig =
-        IOReactorConfig.custom()
-            .setIoThreadCount(config.getThreadCount())
-            .setSoTimeout(config.getSocketTimeout())
-            .build();
+        IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
     IOReactorExceptionHandler ioReactorExceptionHandler =
         new IOReactorExceptionHandler() {
@@ -1566,7 +1561,6 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .conflicts(Conflicts.Proceed)
             .slices(slices)
             .timeout(time)
-            .waitForCompletion(false)
             .build();
     ReindexResponse esReindexResponse = withTransportOptions(options).reindex(esReindexRequest);
 
@@ -1687,34 +1681,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .build());
     } else { // writeRequest instanceof IndexRequest
       IndexRequest indexRequest = (IndexRequest) writeRequest;
-      Map<String, Object> document =
-          XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON).v2();
-      if (indexRequest.opType() == DocWriteRequest.OpType.CREATE) {
-        // Data streams only allow create (append-only); use CreateOperation
-        operation =
-            new BulkOperation(
-                new CreateOperation.Builder<>()
-                    .ifSeqNo(writeRequest.ifSeqNo())
-                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                    .requireAlias(writeRequest.isRequireAlias())
-                    .index(writeRequest.index())
-                    .routing(writeRequest.routing())
-                    .id(indexRequest.id())
-                    .document(document)
-                    .build());
-      } else {
-        operation =
-            new BulkOperation(
-                new IndexOperation.Builder<>()
-                    .ifSeqNo(writeRequest.ifSeqNo())
-                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                    .requireAlias(writeRequest.isRequireAlias())
-                    .index(writeRequest.index())
-                    .routing(writeRequest.routing())
-                    .id(indexRequest.id())
-                    .document(document)
-                    .build());
-      }
+      operation =
+          new BulkOperation(
+              new IndexOperation.Builder<>()
+                  .ifSeqNo(writeRequest.ifSeqNo())
+                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                  .requireAlias(writeRequest.isRequireAlias())
+                  .index(writeRequest.index())
+                  .routing(writeRequest.routing())
+                  .id(indexRequest.id())
+                  .document(
+                      XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON)
+                          .v2())
+                  .build());
     }
     processor.add(operation);
   }
