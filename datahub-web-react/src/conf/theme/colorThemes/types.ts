@@ -208,4 +208,12 @@ export default interface ColorTheme {
     tagsTrueYellowBorder: string;
     tagsTrueYellowIcon: string;
     tagsTrueYellowText: string;
+    colorPickerOrange: string;
+    colorPickerBlue: string;
+    colorPickerCobalt: string;
+    colorPickerTangerine: string;
+    colorPickerBrown: string;
+    colorPickerDarkGreen: string;
+    colorPickerOlive: string;
+    colorPickerDefault: string;
 }

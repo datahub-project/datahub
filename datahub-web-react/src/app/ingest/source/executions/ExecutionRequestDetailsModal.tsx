@@ -1,7 +1,7 @@
 import { DownloadOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import YAML from 'yamljs';
 
 import IngestedAssets from '@app/ingest/source/IngestedAssets';
@@ -94,6 +94,8 @@ const DetailsContainer = styled.div<DetailsContainerProps>`
     ${(props) =>
         props.areDetailsExpandable &&
         !props.showExpandedDetails &&
+        // TO-DO: Use closest matching color tokens or add new ones
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         `
         -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
         mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
@@ -123,6 +125,8 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
+    const theme = useTheme();
+
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
@@ -143,7 +147,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     });
 
     const ResultIcon = status && getExecutionRequestStatusIcon(status);
-    const resultColor = status && getExecutionRequestStatusDisplayColor(status);
+    const resultColor = status && getExecutionRequestStatusDisplayColor(theme, status);
     const resultText = status && (
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
             {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}

@@ -31,12 +31,23 @@ const ScrollContainer = styled.div`
     height: 300px;
     width: 300px;
     overflow-y: auto;
-    border: 1px solid #ddd;
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 8px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
+`;
+
+const UserRow = styled.div`
+    padding: 8px;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    width: 100%;
+    box-sizing: border-box;
+`;
+
+const UserRowBold = styled(UserRow)`
+    font-weight: bold;
 `;
 
 // Auto Docs
@@ -65,11 +76,7 @@ const meta = {
             defaultValue: 10,
         },
         totalItemCount: {
-            description: 'Optional total number of items available',
-            control: { type: 'number', min: 0 },
-        },
-        emptyState: {
-            description: 'Component/UI to show when no items are returned',
+            renderItem: (user: User) => <UserRow key={user.id}>{user.name}</UserRow>,
             control: false,
         },
     },
@@ -77,11 +84,7 @@ const meta = {
         pageSize: 10,
         totalItemCount: USER_DATA.length,
         fetchData: mockFetchUsers,
-        renderItem: (user: User) => (
-            <div key={user.id} style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                {user.name}
-            </div>
-        ),
+        renderItem: (user: User) => <UserRow key={user.id}>{user.name}</UserRow>,
         emptyState: <div>No users found.</div>,
     },
 } satisfies Meta<InfiniteScrollListProps<User>>;
@@ -113,29 +116,10 @@ export const emptyData: Story = {
         </ScrollContainer>
     ),
 };
-
-export const smallPageSize: Story = {
-    args: {
-        pageSize: 3,
-    },
-    render: (args) => (
-        <ScrollContainer>
-            <InfiniteScrollList {...args} />
-        </ScrollContainer>
-    ),
-};
-
 export const customRenderItem: Story = {
     render: (args) => (
         <ScrollContainer>
-            <InfiniteScrollList
-                {...args}
-                renderItem={(user) => (
-                    <div key={user.id} style={{ padding: 8, borderBottom: '1px solid #ccc', fontWeight: 'bold' }}>
-                        {user.name}
-                    </div>
-                )}
-            />
+            <InfiniteScrollList {...args} renderItem={(user) => <UserRowBold key={user.id}>{user.name}</UserRowBold>} />
         </ScrollContainer>
     ),
 };

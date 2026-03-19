@@ -2,7 +2,7 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     AssertionResultTimeline,
@@ -47,6 +47,7 @@ type Props = {
 
 export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRange }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const completedRuns =
         results?.runEvents?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
@@ -80,7 +81,7 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                         resultUrl,
                         title: (
                             <>
-                                <AssertionResultIcon>{getResultIcon(result.type)}</AssertionResultIcon>
+                                <AssertionResultIcon>{getResultIcon(result.type, theme)}</AssertionResultIcon>
                                 <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
                             </>
                         ),

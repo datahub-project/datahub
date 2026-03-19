@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -41,6 +41,7 @@ type Props = {
 
 export const UserHeaderImage = ({ photoUrl, displayName }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const theme = useTheme();
     const hasPhoto = !!photoUrl;
     const firstLetter = displayName?.[0] || '';
     return (
@@ -48,7 +49,7 @@ export const UserHeaderImage = ({ photoUrl, displayName }: Props) => {
             {(hasPhoto && (
                 <PreviewImage src={photoUrl} alt={displayName} $isShowNavBarRedesign={isShowNavBarRedesign} />
             )) || (
-                <PreviewLetter color={getAvatarColor(displayName)} $isShowNavBarRedesign={isShowNavBarRedesign}>
+                <PreviewLetter color={getAvatarColor(theme, displayName)} $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {' '}
                     {firstLetter}{' '}
                 </PreviewLetter>

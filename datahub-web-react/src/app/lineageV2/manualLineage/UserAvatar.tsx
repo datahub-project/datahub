@@ -1,7 +1,7 @@
 import { PartitionOutlined } from '@ant-design/icons';
 import { Avatar, Popover } from '@components';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
@@ -39,6 +39,7 @@ interface Props {
 
 export default function UserAvatar({ createdActor, createdOn }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const avatarPhotoUrl = createdActor?.editableProperties?.pictureLink;
     const userName = entityRegistry.getDisplayName(EntityType.CorpUser, createdActor);
 
@@ -56,7 +57,11 @@ export default function UserAvatar({ createdActor, createdOn }: Props) {
             }
         >
             <div>
-                <StyledAvatar imageUrl={avatarPhotoUrl} $backgroundColor={getAvatarColor(userName)} name={userName} />
+                <StyledAvatar
+                    imageUrl={avatarPhotoUrl}
+                    $backgroundColor={getAvatarColor(theme, userName)}
+                    name={userName}
+                />
             </div>
         </Popover>
     );

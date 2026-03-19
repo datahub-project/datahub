@@ -2,7 +2,7 @@ import { DeleteOutlined, DownOutlined, MoreOutlined, RightOutlined, StopOutlined
 import { Tooltip } from '@components';
 import { Button, Dropdown, Empty, Image, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import AssertionMenu from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionMenu';
@@ -58,6 +58,8 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
     const [assertionToBeDeleted, setAssertionToBeDeleted] = useState<string | null>(null);
 
+    const theme = useTheme();
+
     const deleteAssertion = async (urn: string) => {
         try {
             await deleteAssertionMutation({
@@ -94,9 +96,12 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
             render: (_, record: any) => {
                 const executionDate = record.lastExecTime && new Date(record.lastExecTime);
                 const localTime = executionDate && `${executionDate.toLocaleDateString()}`;
-                const resultColor = (record.lastExecResult && getResultColor(record.lastExecResult)) || 'default';
+                const resultColor =
+                    (record.lastExecResult && getResultColor(theme, record.lastExecResult)) || 'default';
                 const resultText = (record.lastExecResult && getResultText(record.lastExecResult)) || 'No Evaluations';
-                const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult)) || <StopOutlined />;
+                const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult, theme)) || (
+                    <StopOutlined />
+                );
                 const { description } = record;
                 return (
                     <ResultContainer>

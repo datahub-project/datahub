@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in test file
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
 describe('percentileToLabel', () => {

@@ -24,7 +24,6 @@ import LinkOut from '@images/link-out.svg?react';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 80;
 export const SCHEMA_FIELD_NODE_WIDTH = 240;
-const NODE_COLOR = '#4DA1BF';
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -248,15 +247,16 @@ export default function SchemaFieldNodeContents({
     const lineageUrl = useGetLineageUrl(urn, EntityType.SchemaField);
 
     const highlightColor = isSearchedEntity ? theme.colors.textWarning : theme.colors.bgSurfaceWarning;
+    const nodeColor = theme.colors.textInformation;
     const contents = (
         <NodeWrapper
             selected={selected}
             dragging={dragging}
             isGhost={isGhost}
             isSearchedEntity={isSearchedEntity}
-            color={NODE_COLOR}
+            color={nodeColor}
         >
-            <EntityTypeShadow color={NODE_COLOR} />
+            <EntityTypeShadow color={nodeColor} />
             <FakeCard />
             <FakeCard style={{ position: 'absolute' }}>
                 {hasUpstreamChildren &&

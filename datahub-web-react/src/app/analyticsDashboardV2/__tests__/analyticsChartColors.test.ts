@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 /**
  * Unit tests for Analytics Chart Color Assignment System
  *

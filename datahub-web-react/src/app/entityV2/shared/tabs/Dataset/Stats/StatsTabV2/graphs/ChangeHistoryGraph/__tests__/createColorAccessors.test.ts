@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in test file
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { DEFAULT_OPERATION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/constants';
 import {
     AggregationGroup,

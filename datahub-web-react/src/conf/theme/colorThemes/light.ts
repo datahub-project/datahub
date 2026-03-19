@@ -209,6 +209,14 @@ const lightTheme: ColorTheme = {
     tagsTrueYellowBorder: colors.trueyellow100,
     tagsTrueYellowIcon: colors.trueyellow200,
     tagsTrueYellowText: colors.trueyellow300,
+    colorPickerOrange: colors.orange500,
+    colorPickerBlue: colors.trueblue100,
+    colorPickerCobalt: colors.cobalt200,
+    colorPickerTangerine: colors.tangerine300,
+    colorPickerBrown: colors.brown300,
+    colorPickerDarkGreen: colors.darkgreen300,
+    colorPickerOlive: colors.olive300,
+    colorPickerDefault: colors.gray1200,
 };
 
 export default lightTheme;

@@ -24,7 +24,6 @@ import LinkOut from '@images/link-out.svg?react';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 80;
 export const SCHEMA_FIELD_NODE_WIDTH = 240;
-const NODE_COLOR = '#4DA1BF';
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -236,6 +235,7 @@ export default function SchemaFieldNodeContents({
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const theme = useTheme();
+    const NODE_COLOR = theme.colors.chartsInformationLow;
 
     const isExpandedDownstream = isExpanded?.[LineageDirection.Downstream];
     const isExpandedUpstream = isExpanded?.[LineageDirection.Upstream];

@@ -2,6 +2,7 @@ import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, St
 import { Location } from 'history';
 import QueryString from 'query-string';
 import React from 'react';
+import { DefaultTheme } from 'styled-components';
 
 import {
     AssertionResult,
@@ -56,20 +57,20 @@ export const getResultText = (result: AssertionResultType) => {
  * Returns the display color associated with an AssertionResultType.
  * Accepts an optional theme to use semantic tokens; falls back to hardcoded values.
  */
-export const getResultColor = (result?: AssertionResultType, theme?: { colors: Record<string, string> }) => {
-    const initColor = theme?.colors?.textInformation ?? '#2F54EB';
-    const noResultsColor = theme?.colors?.textTertiary ?? '#595959';
+export const getResultColor = (theme: DefaultTheme, result?: AssertionResultType) => {
+    const initColor = theme?.colors?.textInformation;
+    const noResultsColor = theme?.colors?.textTertiary;
 
     if (!result) {
         return noResultsColor;
     }
     switch (result) {
         case AssertionResultType.Success:
-            return theme?.colors?.iconSuccess ?? '#52C41A';
+            return theme?.colors?.iconSuccess;
         case AssertionResultType.Failure:
-            return theme?.colors?.iconError ?? '#F5222D';
+            return theme?.colors?.iconError;
         case AssertionResultType.Error:
-            return theme?.colors?.iconWarning ?? '#FAAD14';
+            return theme?.colors?.iconWarning;
         case AssertionResultType.Init:
             return initColor;
         default:
@@ -80,8 +81,8 @@ export const getResultColor = (result?: AssertionResultType, theme?: { colors: R
 /**
  * Returns the display icon associated with an AssertionResultType
  */
-export const getResultIcon = (result: AssertionResultType, color?: string) => {
-    const resultColor = color || getResultColor(result);
+export const getResultIcon = (result: AssertionResultType, theme: DefaultTheme, color?: string) => {
+    const resultColor = color || getResultColor(theme, result);
     switch (result) {
         case AssertionResultType.Success:
             return <CheckCircleOutlined style={{ color: resultColor }} />;

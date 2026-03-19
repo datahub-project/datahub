@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in test file
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';

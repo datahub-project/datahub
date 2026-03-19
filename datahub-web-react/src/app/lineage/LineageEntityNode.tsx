@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in V1 file (soon to be removed)
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Group } from '@visx/group';
 import { LinkHorizontal } from '@visx/shape';
 import React, { useContext, useEffect, useMemo, useState } from 'react';

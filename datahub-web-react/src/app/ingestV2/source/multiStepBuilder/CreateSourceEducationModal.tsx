@@ -60,7 +60,7 @@ export default function CreateSourceEducationModal() {
                 },
             ]}
             title="Connect Your Data"
-            maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.1)', backdropFilter: 'blur(2px)' }}
+            maskStyle={{ backgroundColor: theme.colors.overlayMedium, backdropFilter: 'blur(2px)' }}
             bodyStyle={{ padding: '16px' }}
         >
             <ContentContainer>

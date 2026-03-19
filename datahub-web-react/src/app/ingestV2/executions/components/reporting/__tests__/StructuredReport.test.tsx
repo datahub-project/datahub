@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in test file
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';

@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in V1 file (soon to be removed)
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Group } from '@visx/group';
 import React, { useContext, useState } from 'react';
 import styled, { useTheme } from 'styled-components/macro';

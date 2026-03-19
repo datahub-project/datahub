@@ -1,7 +1,7 @@
 import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
@@ -16,8 +16,6 @@ const TagLink = styled.span`
     display: inline-block;
     margin-bottom: 8px;
 `;
-
-const highlightMatchStyle = { background: 'var(--theme-bgHighlight, #ffe58f)', padding: '0' };
 
 interface Props {
     tag: TagAssociation;
@@ -48,6 +46,7 @@ export default function Tag({
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
+    const theme = useTheme();
 
     const showTagProfileDrawer = (urn: string) => {
         if (!readOnly) {
@@ -98,6 +97,8 @@ export default function Tag({
     };
 
     const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
+
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
 
     return (
         <>

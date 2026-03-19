@@ -2,7 +2,7 @@ import { Avatar, Tooltip } from 'antd';
 import { TooltipPlacement } from 'antd/lib/tooltip';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 
@@ -52,16 +52,17 @@ export default function CustomAvatar({
     hideTooltip = false,
 }: Props) {
     const [imageError, setImageError] = useState(false);
+    const theme = useTheme();
 
     const avatarWithInitial = name ? (
-        <AvatarStyled style={style} size={size} $backgroundColor={getAvatarColor(name)}>
+        <AvatarStyled style={style} size={size} $backgroundColor={getAvatarColor(theme, name)}>
             {name.charAt(0).toUpperCase()}
         </AvatarStyled>
     ) : (
-        <AvatarStyled src={defaultAvatar} style={style} size={size} $backgroundColor={getAvatarColor(name)} />
+        <AvatarStyled src={defaultAvatar} style={style} size={size} $backgroundColor={getAvatarColor(theme, name)} />
     );
     const avatarWithDefault = useDefaultAvatar ? (
-        <AvatarStyled src={defaultAvatar} style={style} size={size} $backgroundColor={getAvatarColor(name)} />
+        <AvatarStyled src={defaultAvatar} style={style} size={size} $backgroundColor={getAvatarColor(theme, name)} />
     ) : (
         avatarWithInitial
     );

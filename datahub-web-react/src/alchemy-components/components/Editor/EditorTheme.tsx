@@ -45,36 +45,6 @@ export const getEditorTheme = (theme: DefaultTheme): RemirrorThemeType => ({
     },
 });
 
-/** @deprecated Use getEditorTheme(theme) instead */
-export const EditorTheme: RemirrorThemeType = {
-    ...defaultRemirrorTheme,
-    fontSize: {
-        default: '14px',
-    },
-    color: {
-        border: 'none',
-        outline: 'none',
-        primary: '#00B14F',
-        table: {
-            ...defaultRemirrorTheme.color.table,
-            mark: '#BFBFBF',
-            default: {
-                controller: '#F5F5F5',
-                border: '#D9D9D9',
-            },
-            selected: {
-                controller: '#F0F0F0',
-                border: '#D9D9D9',
-                cell: '#FAFAFA',
-            },
-            preselect: {
-                controller: '#D9D9D9',
-                border: '#BFBFBF',
-            },
-        },
-    },
-};
-
 export const EditorContainer = styled.div<{
     $readOnly?: boolean;
     $hideBorder?: boolean;
@@ -146,7 +116,7 @@ export const EditorContainer = styled.div<{
 
         hr {
             margin: 2rem 0;
-            border-color: rgba(0, 0, 0, 0.06);
+            border-color: ${(props) => props.theme.colors.overlayLight};
         }
 
         .autocomplete {

@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in V1 file (soon to be removed)
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
 import React, { SVGProps, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components/macro';

@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 
@@ -34,6 +34,7 @@ type Props = {
 };
 
 export const PinnedLinkLogo = ({ link }: Props) => {
+    const theme = useTheme();
     if (!link || !link.link) return null;
 
     const hasPhoto = !!link?.media?.location;
@@ -42,7 +43,7 @@ export const PinnedLinkLogo = ({ link }: Props) => {
     return (
         <>
             {(hasPhoto && <PreviewImage src={link.media?.location || undefined} alt={link.title} />) || (
-                <PreviewLetter color={getAvatarColor(firstLetter)}> {firstLetter} </PreviewLetter>
+                <PreviewLetter color={getAvatarColor(theme, firstLetter)}> {firstLetter} </PreviewLetter>
             )}
         </>
     );

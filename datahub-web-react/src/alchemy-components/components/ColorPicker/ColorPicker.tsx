@@ -1,30 +1,10 @@
 import { Input } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import { CirclePicker, ColorResult } from 'react-color';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 // Constants
-const DEFAULT_COLORS = [
-    '#533FD1',
-    '#29C7DC',
-    '#FF6A24',
-    '#248F5B',
-    '#5F6685',
-    '#80CBC4',
-    '#09739A',
-    '#90CAF9',
-    '#7A85CD',
-    '#EEAE09',
-    '#CF6D6D',
-    '#D23939',
-    '#BF4636',
-    '#FBC02D',
-    '#5D4037',
-    '#1F7523',
-    '#41652C',
-];
 
-const DEFAULT_COLOR = '#000000';
 const HEX_REGEX = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
 
 // Styled Components
@@ -74,17 +54,41 @@ interface ColorPickerProps {
     label?: string;
 }
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor = DEFAULT_COLOR, onChange, label }) => {
-    const [color, setColor] = useState(initialColor);
-    const [hexInput, setHexInput] = useState(initialColor);
+const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor, onChange, label }) => {
+    const theme = useTheme();
+
+    const defaultColor = initialColor || theme.colors.colorPickerDefault;
+
+    const [color, setColor] = useState(defaultColor);
+    const [hexInput, setHexInput] = useState(defaultColor);
     const [hexError, setHexError] = useState('');
+
+    const DEFAULT_COLORS = [
+        theme.colors.chartsBrandHigh,
+        theme.colors.chartsBlueMedium,
+        theme.colors.colorPickerOrange,
+        theme.colors.iconSuccess,
+        theme.colors.textSecondary,
+        theme.colors.chartsSeafoamLow,
+        theme.colors.textInformation,
+        theme.colors.colorPickerBlue,
+        theme.colors.colorPickerCobalt,
+        theme.colors.iconWarning,
+        theme.colors.chartsWineMedium,
+        theme.colors.textError,
+        theme.colors.colorPickerTangerine,
+        theme.colors.tagsTrueYellowIcon,
+        theme.colors.colorPickerBrown,
+        theme.colors.colorPickerDarkGreen,
+        theme.colors.colorPickerOlive,
+    ];
 
     // Reset state when initial color changes
     useEffect(() => {
-        setColor(initialColor);
-        setHexInput(initialColor);
+        setColor(defaultColor);
+        setHexInput(defaultColor);
         setHexError('');
-    }, [initialColor]);
+    }, [defaultColor, initialColor]);
 
     // Validate and update color
     const updateColor = useCallback(
@@ -126,8 +130,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor = DEFAULT_COLOR,
 
     // Handle hex input blur
     const handleHexBlur = useCallback(() => {
-        updateColor(hexInput || initialColor);
-    }, [hexInput, initialColor, updateColor]);
+        updateColor(hexInput || initialColor || defaultColor);
+    }, [defaultColor, hexInput, initialColor, updateColor]);
 
     return (
         <ColorPickerContainer>
@@ -150,7 +154,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor = DEFAULT_COLOR,
                     label=""
                     value={hexInput}
                     setValue={handleHexInputChange}
-                    placeholder="#000000"
+                    placeholder={defaultColor}
                     error={hexError}
                     isInvalid={!!hexError}
                     onBlur={handleHexBlur}

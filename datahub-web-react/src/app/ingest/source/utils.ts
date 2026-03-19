@@ -7,6 +7,7 @@ import {
     Spinner,
     X,
 } from 'phosphor-react';
+import { DefaultTheme } from 'styled-components';
 import YAML from 'yamljs';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
@@ -117,23 +118,13 @@ export const getExecutionRequestSummaryText = (status: string) => {
     }
 };
 
-export const getExecutionRequestStatusDisplayColor = (
-    status?: string,
-    themeColors?: {
-        textInformation?: string;
-        textSuccess?: string;
-        textWarning?: string;
-        textError?: string;
-        iconBrand?: string;
-        textSecondary?: string;
-    },
-) => {
-    const info = themeColors?.textInformation ?? '#09739A';
-    const success = themeColors?.textSuccess ?? '#77B750';
-    const warning = themeColors?.textWarning ?? '#EEAE09';
-    const error = themeColors?.textError ?? '#CD0D24';
-    const brand = themeColors?.iconBrand ?? '#4C39BE';
-    const neutral = themeColors?.textSecondary ?? '#5F6685';
+export const getExecutionRequestStatusDisplayColor = (theme: DefaultTheme, status?: string) => {
+    const info = theme.colors.textInformation;
+    const success = theme.colors.textSuccess;
+    const warning = theme.colors.textWarning;
+    const error = theme.colors.textError;
+    const brand = theme.colors.iconBrand;
+    const neutral = theme.colors.textSecondary;
 
     return (
         (status === RUNNING && info) ||

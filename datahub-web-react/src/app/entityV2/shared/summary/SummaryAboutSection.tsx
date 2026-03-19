@@ -33,6 +33,8 @@ const EditorWrapper = styled.div<{ mask?: boolean; maxHeight: string }>`
     overflow-y: hidden;
     ${({ mask }) =>
         mask &&
+        // TO-DO: Use closest semantic color tokens or add new ones
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         `-webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
          mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(255,0,0,0.5) 95%, rgba(255,0,0,0) 100%);`}
 `;

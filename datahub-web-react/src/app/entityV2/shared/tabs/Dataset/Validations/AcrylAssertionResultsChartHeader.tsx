@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import { SelectValue } from 'antd/lib/select';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import PrefixedSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
 import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
@@ -35,7 +35,7 @@ const ResultTypeCount = styled.span`
 
 const ErrorEvaluationsCount = styled(Typography.Text)`
     font-weight: 600;
-    color: ${getResultColor(AssertionResultType.Error)};
+    color: ${({ theme }) => getResultColor(theme, AssertionResultType.Error)};
 `;
 
 type Props = {
@@ -46,6 +46,7 @@ type Props = {
 };
 
 export const AcrylAssertionResultsChartHeader = ({ timeRange, lookbackWindow, setLookbackWindow, results }: Props) => {
+    const theme = useTheme();
     /**
      * Start and end dates being observed in the chart.
      */
@@ -82,7 +83,7 @@ export const AcrylAssertionResultsChartHeader = ({ timeRange, lookbackWindow, se
                 <EvaluationResults>
                     <ResultTypeCount>
                         <Typography.Text
-                            style={{ color: getResultColor(AssertionResultType.Success), fontWeight: 600 }}
+                            style={{ color: getResultColor(theme, AssertionResultType.Success), fontWeight: 600 }}
                         >
                             {formatNumber(succeededCount)}
                         </Typography.Text>{' '}
@@ -90,7 +91,7 @@ export const AcrylAssertionResultsChartHeader = ({ timeRange, lookbackWindow, se
                     </ResultTypeCount>
                     <ResultTypeCount>
                         <Typography.Text
-                            style={{ color: getResultColor(AssertionResultType.Failure), fontWeight: 600 }}
+                            style={{ color: getResultColor(theme, AssertionResultType.Failure), fontWeight: 600 }}
                         >
                             {formatNumber(failedCount)}
                         </Typography.Text>{' '}

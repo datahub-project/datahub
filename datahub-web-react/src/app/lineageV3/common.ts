@@ -24,9 +24,6 @@ export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handle
 
 export const VERTICAL_HANDLE = 'vertical';
 
-export const HOVER_COLOR = '#8C7EE0';
-export const SELECT_COLOR = '#533FD1';
-
 type Urn = string;
 
 /**
@@ -410,28 +407,4 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     event.preventDefault(); // Prevents selecting node in React Flow
     event.stopPropagation(); // Prevents focusing node
     return true;
-}
-
-const DATA_STORE_COLOR = '#ffd279';
-const BI_TOOL_COLOR = '#8682a2';
-const ML_COLOR = '#206de8';
-const DEFAULT_COLOR = '#ff7979';
-
-export function getNodeColor(type?: EntityType): [string, string] {
-    if (type === EntityType.Chart || type === EntityType.Dashboard) {
-        return [BI_TOOL_COLOR, 'Field'];
-    }
-    if (type === EntityType.Dataset) {
-        return [DATA_STORE_COLOR, 'Column'];
-    }
-    if (
-        type === EntityType.Mlmodel ||
-        type === EntityType.MlmodelGroup ||
-        type === EntityType.Mlfeature ||
-        type === EntityType.MlfeatureTable ||
-        type === EntityType.MlprimaryKey
-    ) {
-        return [ML_COLOR, ''];
-    }
-    return [DEFAULT_COLOR, ''];
 }

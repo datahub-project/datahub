@@ -40,10 +40,6 @@ export const getNameFromType = (type: IncidentType) => {
     return incidentTypeToDetails.get(type)?.name || type;
 };
 
-export const SUCCESS_COLOR_HEX = '#52C41A';
-export const FAILURE_COLOR_HEX = '#F5222D';
-export const WARNING_COLOR_HEX = '#FA8C16';
-
 // apollo caching
 export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
     const incidents = [...existingIncidents];
