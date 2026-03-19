@@ -53,16 +53,17 @@ public class SearchClientShimFactory {
 
     // Build the shim configuration from DataHub configuration
     ShimConfigurationBuilder configBuilder =
-        new ShimConfigurationBuilder()
-            .withHost(esConfig.getHost())
-            .withPort(esConfig.getPort())
-            .withCredentials(esConfig.getUsername(), esConfig.getPassword())
-            .withSSL(esConfig.isUseSSL())
-            .withSSLContext(elasticSearchSSLContext)
-            .withPathPrefix(esConfig.getPathPrefix())
-            .withAwsIamAuth(esConfig.isOpensearchUseAwsIamAuth(), esConfig.getRegion())
-            .withThreadCount(esConfig.getThreadCount())
-            .withConnectionRequestTimeout(esConfig.getConnectionRequestTimeout());
+            new ShimConfigurationBuilder()
+                    .withHost(esConfig.getHost())
+                    .withPort(esConfig.getPort())
+                    .withCredentials(esConfig.getUsername(), esConfig.getPassword())
+                    .withSSL(esConfig.isUseSSL())
+                    .withSSLContext(elasticSearchSSLContext)
+                    .withPathPrefix(esConfig.getPathPrefix())
+                    .withAwsIamAuth(esConfig.isOpensearchUseAwsIamAuth(), esConfig.getRegion())
+                    .withThreadCount(esConfig.getThreadCount())
+                    .withConnectionRequestTimeout(esConfig.getConnectionRequestTimeout())
+                    .withSocketTimeout(esConfig.getSocketTimeout());
 
     // Determine how to create the shim
     if (shimAutoDetectEngine) {
@@ -82,13 +83,13 @@ public class SearchClientShimFactory {
   private SearchClientShim.SearchEngineType parseEngineType(String engineTypeStr) {
     if (engineTypeStr == null || engineTypeStr.trim().isEmpty()) {
       throw new IllegalArgumentException(
-          "Engine type must be specified when auto-detection is disabled");
+              "Engine type must be specified when auto-detection is disabled");
     }
 
     switch (engineTypeStr.toUpperCase()) {
       case "AUTO_DETECT":
         throw new IllegalArgumentException(
-            "AUTO_DETECT engine type requires shimAutoDetectEngine=true");
+                "AUTO_DETECT engine type requires shimAutoDetectEngine=true");
       case "ELASTICSEARCH_7":
       case "ES7":
         return SearchClientShim.SearchEngineType.ELASTICSEARCH_7;
@@ -103,9 +104,9 @@ public class SearchClientShimFactory {
         return SearchClientShim.SearchEngineType.OPENSEARCH_2;
       default:
         throw new IllegalArgumentException(
-            "Unsupported engine type: "
-                + engineTypeStr
-                + ". Supported types: ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2");
+                "Unsupported engine type: "
+                        + engineTypeStr
+                        + ". Supported types: ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2");
     }
   }
 }
