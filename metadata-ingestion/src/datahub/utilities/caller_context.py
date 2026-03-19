@@ -14,6 +14,7 @@ import functools
 import logging
 import os
 import platform
+import re
 import subprocess
 from typing import Dict, List, Optional
 
@@ -46,7 +47,8 @@ _CALLER_SIGNATURES: Dict[str, str] = {
 def _read_parent_env_linux(ppid: int) -> Optional[str]:
     """Read the parent process environment from /proc (Linux only)."""
     try:
-        raw = open(f"/proc/{ppid}/environ", "r").read()
+        with open(f"/proc/{ppid}/environ") as f:
+            raw = f.read()
         return raw.replace("\0", "\n")
     except (PermissionError, FileNotFoundError, OSError):
         return None
@@ -168,6 +170,14 @@ _PROCESS_NAME_HINTS = {
     "gradle": "gradle",
 }
 
+_MAX_LABEL_LEN = 64
+
+
+def _sanitize_label(value: str) -> str:
+    """Strip whitespace, cap length, and remove chars unsafe for HTTP headers."""
+    value = re.sub(r"[^\w./-]", "", value.strip())
+    return value[:_MAX_LABEL_LEN] or "unknown"
+
 
 @functools.lru_cache(maxsize=1)
 def identify_caller() -> str:
@@ -194,7 +204,7 @@ def _identify_caller_inner() -> str:
     # Tier 1: explicit declaration
     explicit = os.environ.get("DATAHUB_CALLER")
     if explicit:
-        return explicit
+        return _sanitize_label(explicit)
 
     # Tier 2: check own environment for known signatures
     # (inherited env vars from the parent are visible in our own env)
