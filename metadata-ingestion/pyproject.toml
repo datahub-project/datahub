@@ -666,6 +666,14 @@ hana = [
     "traitlets!=5.2.2,<6.0.0",
 ]
 
+hightouch = [
+    "patchy==2.8.0",
+    "requests<3.0.0",
+    "sqlglot[c]==29.0.1",
+    "sqlglotc==29.0.1",
+    "sqlparse<0.6.0",
+]
+
 hive = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -2135,6 +2143,7 @@ cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+hightouch = "datahub.ingestion.source.hightouch.hightouch:HightouchSource"
 
 [project.entry-points."datahub.ingestion.transformer.plugins"]
 pattern_cleanup_ownership = "datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership"

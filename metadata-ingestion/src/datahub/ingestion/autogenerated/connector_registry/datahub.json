@@ -1526,6 +1526,38 @@
       "platform_name": "Hex",
       "support_status": "INCUBATING"
     },
+    "hightouch": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, emitting column-level lineage from field mappings",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default, showing data flow from source -> model -> sync -> destination",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.hightouch.hightouch.HightouchSource",
+      "platform_id": "hightouch",
+      "platform_name": "Hightouch",
+      "support_status": "TESTING"
+    },
     "hive": {
       "capabilities": [
         {
