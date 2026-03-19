@@ -18,13 +18,13 @@ jobs:
     runs-on: ubuntu-slim
     outputs:
       lint-job: ${{ steps.filter.outputs.lint-job }} # Run all lint jobs when this file is changed
-      markdown: ${{ steps.filter.outputs.markdown  || steps.filter.outputs.lint-job }}
-      github-actions: ${{ steps.filter.outputs.github-actions || steps.filter.outputs.lint-job }}
-      workflow-files: ${{ steps.filter.outputs.workflow-files || steps.filter.outputs.lint-job }}
-      workflow-validation: ${{ steps.filter.outputs.workflow-validation || steps.filter.outputs.lint-job }}
-      code-check-sources: ${{ steps.filter.outputs.code-check-sources || steps.filter.outputs.lint-job }}
-      smoke-test-python: ${{ steps.filter.outputs.smoke-test-python || steps.filter.outputs.lint-job }}
-      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress || steps.filter.outputs.lint-job }}
+      markdown: ${{ steps.filter.outputs.markdown == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      github-actions: ${{ steps.filter.outputs.github-actions == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      workflow-files: ${{ steps.filter.outputs.workflow-files == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      workflow-validation: ${{ steps.filter.outputs.workflow-validation == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       small-runner: ${{ steps.runners.outputs.small-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
