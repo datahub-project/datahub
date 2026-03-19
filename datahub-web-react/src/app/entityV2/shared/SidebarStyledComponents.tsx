@@ -26,23 +26,6 @@ export const SideBar = styled.div`
     }
 `;
 
-export const SideBarSubSection = styled.div`
-    height: calc(100vh - 135px);
-    overflow: auto;
-    padding-right: 18px;
-    &.fullView {
-        height: calc(100vh - 70px);
-    }
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 1px;
-        background: ${(props) => props.theme.colors.scrollbarTrack};
-    }
-    &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.scrollbarThumb};
-    }
-`;
-
 export const EmptyValue = styled.div<{ color?: string }>`
     &:after {
         content: 'None';
@@ -97,12 +80,6 @@ export const RoleName = styled.div`
     }
 `;
 
-export const Team = styled.div`
-    font-size: 12px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textTertiary};
-`;
-
 export const SocialDetails = styled.div`
     display: flex;
     align-items: center;
@@ -119,24 +96,6 @@ export const SocialDetails = styled.div`
     .ant-space-item {
         display: flex;
         align-items: center;
-    }
-`;
-
-export const EditButton = styled.div`
-    bottom: 24px;
-    position: absolute;
-    right: 27px;
-    width: 80%;
-    left: 50%;
-    -webkit-transform: translateX(-50%);
-    -moz-transform: translateX(-50%);
-    transform: translateX(-50%);
-
-    button {
-        width: 100%;
-        font-size: 12px;
-        line-height: 20px;
-        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -177,41 +136,6 @@ export const TagsSection = styled.div`
     flex-wrap: wrap;
     margin-top: 0.5rem;
     align-self: start;
-`;
-
-export const NoDataFound = styled.span`
-    font-size: 12px;
-    color: ${(props) => props.theme.colors.text};
-    font-weight: 100;
-`;
-
-export const Tags = styled.div`
-    margin-top: 5px;
-`;
-
-export const GroupsSeeMoreText = styled.span`
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textBrand};
-    cursor: pointer;
-`;
-
-export const DisplayCount = styled.span`
-    font-family: Mulish;
-    font-style: normal;
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textTertiary};
-`;
-
-export const GroupSectionTitle = styled.span`
-    margin-right: 8px;
-`;
-
-export const GroupSectionHeader = styled.div`
-    padding-bottom: 12px;
 `;
 
 export const Content = styled.div`
@@ -335,23 +259,9 @@ export const DraftsOutlinedIconStyle = styled(DraftsOutlinedIcon)`
     font-size: 12px !important;
 `;
 
-export const SubscriptionContainer = styled(Row)`
-    display: flex;
-    gap: 0.5rem;
-`;
-
 export const OwnershipContainer = styled(Row)`
     display: flex;
     gap: 0.5rem;
-`;
-
-export const DisplayNameText = styled.span`
-    color: ${(props) => props.theme.colors.textSecondary};
-    font-family: Mulish;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
 `;
 
 export const NameTitleContainer = styled.div`

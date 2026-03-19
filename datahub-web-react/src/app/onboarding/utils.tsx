@@ -43,11 +43,7 @@ function hasStepBeenSeen(stepId: string, userUrn: string, educationSteps: StepSt
     return educationSteps.some((step) => step.id === convertedStepId);
 }
 
-export function hasSeenPrerequisiteStepIfExists(
-    step: OnboardingStep,
-    userUrn: string,
-    educationSteps: StepStateResult[],
-) {
+function hasSeenPrerequisiteStepIfExists(step: OnboardingStep, userUrn: string, educationSteps: StepStateResult[]) {
     if (step?.prerequisiteStepId) {
         if (hasStepBeenSeen(step.prerequisiteStepId, userUrn, educationSteps)) {
             return true;
