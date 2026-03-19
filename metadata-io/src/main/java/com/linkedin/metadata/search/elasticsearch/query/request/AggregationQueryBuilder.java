@@ -253,6 +253,7 @@ public class AggregationQueryBuilder {
         processMissingAggregations(entry, aggregationMetadataList);
       }
     }
+    mergeAliasedFacets(aggregationMetadataList);
     return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
   }
 
@@ -617,6 +618,41 @@ public class AggregationQueryBuilder {
     }
 
     return filtersToDisplayName;
+  }
+
+  /**
+   * Merges "env" counts with "origin" counts since both represent the same "Environment" concept
+   * using the same FabricType enum values and return the same set of results. Both facets are kept
+   * in the response with identical merged counts;
+   */
+  private void mergeAliasedFacets(@Nonnull List<AggregationMetadata> aggregationMetadataList) {
+    AggregationMetadata originFacet =
+        aggregationMetadataList.stream()
+            .filter(a -> "origin".equals(a.getName()))
+            .findFirst()
+            .orElse(null);
+    AggregationMetadata envFacet =
+        aggregationMetadataList.stream()
+            .filter(a -> "env".equals(a.getName()))
+            .findFirst()
+            .orElse(null);
+
+    if (originFacet == null || envFacet == null) {
+      return;
+    }
+
+    final Map<String, Long> mergedCounts = new HashMap<>(originFacet.getAggregations());
+    envFacet
+        .getAggregations()
+        .forEach((value, count) -> mergedCounts.merge(value, count, Long::sum));
+
+    final FilterValueArray mergedFilterValues =
+        new FilterValueArray(SearchUtil.convertToFilters(mergedCounts, Collections.emptySet()));
+    originFacet.setAggregations(new LongMap(mergedCounts));
+    originFacet.setFilterValues(mergedFilterValues);
+    envFacet.setAggregations(new LongMap(mergedCounts));
+    envFacet.setFilterValues(
+        new FilterValueArray(SearchUtil.convertToFilters(mergedCounts, Collections.emptySet())));
   }
 
   private void processMissingAggregations(
