@@ -1,0 +1,897 @@
+{
+  "ok": true,
+  "nodeIdMap": [
+    [
+      3,
+      {
+        "id": 3,
+        "attributeIndex": 1,
+        "tokenRange": {
+          "tokenIndexStart": 0,
+          "tokenIndexEnd": 0,
+          "positionStart": {
+            "codeUnit": 0,
+            "lineCodeUnit": 0,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 9,
+            "lineCodeUnit": 9,
+            "lineNumber": 0
+          }
+        },
+        "kind": "Identifier",
+        "isLeaf": true,
+        "identifierContextKind": "Value",
+        "literal": "LOAD_DATA"
+      }
+    ],
+    [
+      2,
+      {
+        "id": 2,
+        "attributeIndex": 0,
+        "tokenRange": {
+          "tokenIndexStart": 0,
+          "tokenIndexEnd": 0,
+          "positionStart": {
+            "codeUnit": 0,
+            "lineCodeUnit": 0,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 9,
+            "lineCodeUnit": 9,
+            "lineNumber": 0
+          }
+        },
+        "kind": "IdentifierExpression",
+        "isLeaf": false,
+        "identifier": {
+          "id": 3,
+          "attributeIndex": 1,
+          "tokenRange": {
+            "tokenIndexStart": 0,
+            "tokenIndexEnd": 0,
+            "positionStart": {
+              "codeUnit": 0,
+              "lineCodeUnit": 0,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 9,
+              "lineCodeUnit": 9,
+              "lineNumber": 0
+            }
+          },
+          "kind": "Identifier",
+          "isLeaf": true,
+          "identifierContextKind": "Value",
+          "literal": "LOAD_DATA"
+        }
+      }
+    ],
+    [
+      7,
+      {
+        "id": 7,
+        "attributeIndex": 0,
+        "tokenRange": {
+          "tokenIndexStart": 1,
+          "tokenIndexEnd": 1,
+          "positionStart": {
+            "codeUnit": 9,
+            "lineCodeUnit": 9,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 10,
+            "lineCodeUnit": 10,
+            "lineNumber": 0
+          }
+        },
+        "kind": "Constant",
+        "isLeaf": true,
+        "constantKind": "("
+      }
+    ],
+    [
+      12,
+      {
+        "id": 12,
+        "attributeIndex": 1,
+        "tokenRange": {
+          "tokenIndexStart": 2,
+          "tokenIndexEnd": 2,
+          "positionStart": {
+            "codeUnit": 10,
+            "lineCodeUnit": 10,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 16,
+            "lineCodeUnit": 16,
+            "lineNumber": 0
+          }
+        },
+        "kind": "Identifier",
+        "isLeaf": true,
+        "identifierContextKind": "Value",
+        "literal": "SOURCE"
+      }
+    ],
+    [
+      11,
+      {
+        "id": 11,
+        "attributeIndex": 0,
+        "tokenRange": {
+          "tokenIndexStart": 2,
+          "tokenIndexEnd": 2,
+          "positionStart": {
+            "codeUnit": 10,
+            "lineCodeUnit": 10,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 16,
+            "lineCodeUnit": 16,
+            "lineNumber": 0
+          }
+        },
+        "kind": "IdentifierExpression",
+        "isLeaf": false,
+        "identifier": {
+          "id": 12,
+          "attributeIndex": 1,
+          "tokenRange": {
+            "tokenIndexStart": 2,
+            "tokenIndexEnd": 2,
+            "positionStart": {
+              "codeUnit": 10,
+              "lineCodeUnit": 10,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 16,
+              "lineCodeUnit": 16,
+              "lineNumber": 0
+            }
+          },
+          "kind": "Identifier",
+          "isLeaf": true,
+          "identifierContextKind": "Value",
+          "literal": "SOURCE"
+        }
+      }
+    ],
+    [
+      9,
+      {
+        "id": 9,
+        "attributeIndex": 0,
+        "tokenRange": {
+          "tokenIndexStart": 2,
+          "tokenIndexEnd": 2,
+          "positionStart": {
+            "codeUnit": 10,
+            "lineCodeUnit": 10,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 16,
+            "lineCodeUnit": 16,
+            "lineNumber": 0
+          }
+        },
+        "kind": "Csv",
+        "isLeaf": false,
+        "node": {
+          "id": 11,
+          "attributeIndex": 0,
+          "tokenRange": {
+            "tokenIndexStart": 2,
+            "tokenIndexEnd": 2,
+            "positionStart": {
+              "codeUnit": 10,
+              "lineCodeUnit": 10,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 16,
+              "lineCodeUnit": 16,
+              "lineNumber": 0
+            }
+          },
+          "kind": "IdentifierExpression",
+          "isLeaf": false,
+          "identifier": {
+            "id": 12,
+            "attributeIndex": 1,
+            "tokenRange": {
+              "tokenIndexStart": 2,
+              "tokenIndexEnd": 2,
+              "positionStart": {
+                "codeUnit": 10,
+                "lineCodeUnit": 10,
+                "lineNumber": 0
+              },
+              "positionEnd": {
+                "codeUnit": 16,
+                "lineCodeUnit": 16,
+                "lineNumber": 0
+              }
+            },
+            "kind": "Identifier",
+            "isLeaf": true,
+            "identifierContextKind": "Value",
+            "literal": "SOURCE"
+          }
+        }
+      }
+    ],
+    [
+      8,
+      {
+        "id": 8,
+        "attributeIndex": 1,
+        "tokenRange": {
+          "tokenIndexStart": 2,
+          "tokenIndexEnd": 2,
+          "positionStart": {
+            "codeUnit": 10,
+            "lineCodeUnit": 10,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 16,
+            "lineCodeUnit": 16,
+            "lineNumber": 0
+          }
+        },
+        "kind": "ArrayWrapper",
+        "isLeaf": false,
+        "elements": [
+          {
+            "id": 9,
+            "attributeIndex": 0,
+            "tokenRange": {
+              "tokenIndexStart": 2,
+              "tokenIndexEnd": 2,
+              "positionStart": {
+                "codeUnit": 10,
+                "lineCodeUnit": 10,
+                "lineNumber": 0
+              },
+              "positionEnd": {
+                "codeUnit": 16,
+                "lineCodeUnit": 16,
+                "lineNumber": 0
+              }
+            },
+            "kind": "Csv",
+            "isLeaf": false,
+            "node": {
+              "id": 11,
+              "attributeIndex": 0,
+              "tokenRange": {
+                "tokenIndexStart": 2,
+                "tokenIndexEnd": 2,
+                "positionStart": {
+                  "codeUnit": 10,
+                  "lineCodeUnit": 10,
+                  "lineNumber": 0
+                },
+                "positionEnd": {
+                  "codeUnit": 16,
+                  "lineCodeUnit": 16,
+                  "lineNumber": 0
+                }
+              },
+              "kind": "IdentifierExpression",
+              "isLeaf": false,
+              "identifier": {
+                "id": 12,
+                "attributeIndex": 1,
+                "tokenRange": {
+                  "tokenIndexStart": 2,
+                  "tokenIndexEnd": 2,
+                  "positionStart": {
+                    "codeUnit": 10,
+                    "lineCodeUnit": 10,
+                    "lineNumber": 0
+                  },
+                  "positionEnd": {
+                    "codeUnit": 16,
+                    "lineCodeUnit": 16,
+                    "lineNumber": 0
+                  }
+                },
+                "kind": "Identifier",
+                "isLeaf": true,
+                "identifierContextKind": "Value",
+                "literal": "SOURCE"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    [
+      13,
+      {
+        "id": 13,
+        "attributeIndex": 2,
+        "tokenRange": {
+          "tokenIndexStart": 3,
+          "tokenIndexEnd": 3,
+          "positionStart": {
+            "codeUnit": 16,
+            "lineCodeUnit": 16,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 17,
+            "lineCodeUnit": 17,
+            "lineNumber": 0
+          }
+        },
+        "kind": "Constant",
+        "isLeaf": true,
+        "constantKind": ")"
+      }
+    ],
+    [
+      6,
+      {
+        "id": 6,
+        "attributeIndex": 0,
+        "tokenRange": {
+          "tokenIndexStart": 1,
+          "tokenIndexEnd": 3,
+          "positionStart": {
+            "codeUnit": 9,
+            "lineCodeUnit": 9,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 17,
+            "lineCodeUnit": 17,
+            "lineNumber": 0
+          }
+        },
+        "kind": "InvokeExpression",
+        "isLeaf": false,
+        "openWrapperConstant": {
+          "id": 7,
+          "attributeIndex": 0,
+          "tokenRange": {
+            "tokenIndexStart": 1,
+            "tokenIndexEnd": 1,
+            "positionStart": {
+              "codeUnit": 9,
+              "lineCodeUnit": 9,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 10,
+              "lineCodeUnit": 10,
+              "lineNumber": 0
+            }
+          },
+          "kind": "Constant",
+          "isLeaf": true,
+          "constantKind": "("
+        },
+        "content": {
+          "id": 8,
+          "attributeIndex": 1,
+          "tokenRange": {
+            "tokenIndexStart": 2,
+            "tokenIndexEnd": 2,
+            "positionStart": {
+              "codeUnit": 10,
+              "lineCodeUnit": 10,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 16,
+              "lineCodeUnit": 16,
+              "lineNumber": 0
+            }
+          },
+          "kind": "ArrayWrapper",
+          "isLeaf": false,
+          "elements": [
+            {
+              "id": 9,
+              "attributeIndex": 0,
+              "tokenRange": {
+                "tokenIndexStart": 2,
+                "tokenIndexEnd": 2,
+                "positionStart": {
+                  "codeUnit": 10,
+                  "lineCodeUnit": 10,
+                  "lineNumber": 0
+                },
+                "positionEnd": {
+                  "codeUnit": 16,
+                  "lineCodeUnit": 16,
+                  "lineNumber": 0
+                }
+              },
+              "kind": "Csv",
+              "isLeaf": false,
+              "node": {
+                "id": 11,
+                "attributeIndex": 0,
+                "tokenRange": {
+                  "tokenIndexStart": 2,
+                  "tokenIndexEnd": 2,
+                  "positionStart": {
+                    "codeUnit": 10,
+                    "lineCodeUnit": 10,
+                    "lineNumber": 0
+                  },
+                  "positionEnd": {
+                    "codeUnit": 16,
+                    "lineCodeUnit": 16,
+                    "lineNumber": 0
+                  }
+                },
+                "kind": "IdentifierExpression",
+                "isLeaf": false,
+                "identifier": {
+                  "id": 12,
+                  "attributeIndex": 1,
+                  "tokenRange": {
+                    "tokenIndexStart": 2,
+                    "tokenIndexEnd": 2,
+                    "positionStart": {
+                      "codeUnit": 10,
+                      "lineCodeUnit": 10,
+                      "lineNumber": 0
+                    },
+                    "positionEnd": {
+                      "codeUnit": 16,
+                      "lineCodeUnit": 16,
+                      "lineNumber": 0
+                    }
+                  },
+                  "kind": "Identifier",
+                  "isLeaf": true,
+                  "identifierContextKind": "Value",
+                  "literal": "SOURCE"
+                }
+              }
+            }
+          ]
+        },
+        "closeWrapperConstant": {
+          "id": 13,
+          "attributeIndex": 2,
+          "tokenRange": {
+            "tokenIndexStart": 3,
+            "tokenIndexEnd": 3,
+            "positionStart": {
+              "codeUnit": 16,
+              "lineCodeUnit": 16,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 17,
+              "lineCodeUnit": 17,
+              "lineNumber": 0
+            }
+          },
+          "kind": "Constant",
+          "isLeaf": true,
+          "constantKind": ")"
+        }
+      }
+    ],
+    [
+      5,
+      {
+        "id": 5,
+        "attributeIndex": 1,
+        "tokenRange": {
+          "tokenIndexStart": 1,
+          "tokenIndexEnd": 3,
+          "positionStart": {
+            "codeUnit": 9,
+            "lineCodeUnit": 9,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 17,
+            "lineCodeUnit": 17,
+            "lineNumber": 0
+          }
+        },
+        "kind": "ArrayWrapper",
+        "isLeaf": false,
+        "elements": [
+          {
+            "id": 6,
+            "attributeIndex": 0,
+            "tokenRange": {
+              "tokenIndexStart": 1,
+              "tokenIndexEnd": 3,
+              "positionStart": {
+                "codeUnit": 9,
+                "lineCodeUnit": 9,
+                "lineNumber": 0
+              },
+              "positionEnd": {
+                "codeUnit": 17,
+                "lineCodeUnit": 17,
+                "lineNumber": 0
+              }
+            },
+            "kind": "InvokeExpression",
+            "isLeaf": false,
+            "openWrapperConstant": {
+              "id": 7,
+              "attributeIndex": 0,
+              "tokenRange": {
+                "tokenIndexStart": 1,
+                "tokenIndexEnd": 1,
+                "positionStart": {
+                  "codeUnit": 9,
+                  "lineCodeUnit": 9,
+                  "lineNumber": 0
+                },
+                "positionEnd": {
+                  "codeUnit": 10,
+                  "lineCodeUnit": 10,
+                  "lineNumber": 0
+                }
+              },
+              "kind": "Constant",
+              "isLeaf": true,
+              "constantKind": "("
+            },
+            "content": {
+              "id": 8,
+              "attributeIndex": 1,
+              "tokenRange": {
+                "tokenIndexStart": 2,
+                "tokenIndexEnd": 2,
+                "positionStart": {
+                  "codeUnit": 10,
+                  "lineCodeUnit": 10,
+                  "lineNumber": 0
+                },
+                "positionEnd": {
+                  "codeUnit": 16,
+                  "lineCodeUnit": 16,
+                  "lineNumber": 0
+                }
+              },
+              "kind": "ArrayWrapper",
+              "isLeaf": false,
+              "elements": [
+                {
+                  "id": 9,
+                  "attributeIndex": 0,
+                  "tokenRange": {
+                    "tokenIndexStart": 2,
+                    "tokenIndexEnd": 2,
+                    "positionStart": {
+                      "codeUnit": 10,
+                      "lineCodeUnit": 10,
+                      "lineNumber": 0
+                    },
+                    "positionEnd": {
+                      "codeUnit": 16,
+                      "lineCodeUnit": 16,
+                      "lineNumber": 0
+                    }
+                  },
+                  "kind": "Csv",
+                  "isLeaf": false,
+                  "node": {
+                    "id": 11,
+                    "attributeIndex": 0,
+                    "tokenRange": {
+                      "tokenIndexStart": 2,
+                      "tokenIndexEnd": 2,
+                      "positionStart": {
+                        "codeUnit": 10,
+                        "lineCodeUnit": 10,
+                        "lineNumber": 0
+                      },
+                      "positionEnd": {
+                        "codeUnit": 16,
+                        "lineCodeUnit": 16,
+                        "lineNumber": 0
+                      }
+                    },
+                    "kind": "IdentifierExpression",
+                    "isLeaf": false,
+                    "identifier": {
+                      "id": 12,
+                      "attributeIndex": 1,
+                      "tokenRange": {
+                        "tokenIndexStart": 2,
+                        "tokenIndexEnd": 2,
+                        "positionStart": {
+                          "codeUnit": 10,
+                          "lineCodeUnit": 10,
+                          "lineNumber": 0
+                        },
+                        "positionEnd": {
+                          "codeUnit": 16,
+                          "lineCodeUnit": 16,
+                          "lineNumber": 0
+                        }
+                      },
+                      "kind": "Identifier",
+                      "isLeaf": true,
+                      "identifierContextKind": "Value",
+                      "literal": "SOURCE"
+                    }
+                  }
+                }
+              ]
+            },
+            "closeWrapperConstant": {
+              "id": 13,
+              "attributeIndex": 2,
+              "tokenRange": {
+                "tokenIndexStart": 3,
+                "tokenIndexEnd": 3,
+                "positionStart": {
+                  "codeUnit": 16,
+                  "lineCodeUnit": 16,
+                  "lineNumber": 0
+                },
+                "positionEnd": {
+                  "codeUnit": 17,
+                  "lineCodeUnit": 17,
+                  "lineNumber": 0
+                }
+              },
+              "kind": "Constant",
+              "isLeaf": true,
+              "constantKind": ")"
+            }
+          }
+        ]
+      }
+    ],
+    [
+      4,
+      {
+        "id": 4,
+        "tokenRange": {
+          "tokenIndexStart": 0,
+          "tokenIndexEnd": 3,
+          "positionStart": {
+            "codeUnit": 0,
+            "lineCodeUnit": 0,
+            "lineNumber": 0
+          },
+          "positionEnd": {
+            "codeUnit": 17,
+            "lineCodeUnit": 17,
+            "lineNumber": 0
+          }
+        },
+        "kind": "RecursivePrimaryExpression",
+        "isLeaf": false,
+        "head": {
+          "id": 2,
+          "attributeIndex": 0,
+          "tokenRange": {
+            "tokenIndexStart": 0,
+            "tokenIndexEnd": 0,
+            "positionStart": {
+              "codeUnit": 0,
+              "lineCodeUnit": 0,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 9,
+              "lineCodeUnit": 9,
+              "lineNumber": 0
+            }
+          },
+          "kind": "IdentifierExpression",
+          "isLeaf": false,
+          "identifier": {
+            "id": 3,
+            "attributeIndex": 1,
+            "tokenRange": {
+              "tokenIndexStart": 0,
+              "tokenIndexEnd": 0,
+              "positionStart": {
+                "codeUnit": 0,
+                "lineCodeUnit": 0,
+                "lineNumber": 0
+              },
+              "positionEnd": {
+                "codeUnit": 9,
+                "lineCodeUnit": 9,
+                "lineNumber": 0
+              }
+            },
+            "kind": "Identifier",
+            "isLeaf": true,
+            "identifierContextKind": "Value",
+            "literal": "LOAD_DATA"
+          }
+        },
+        "recursiveExpressions": {
+          "id": 5,
+          "attributeIndex": 1,
+          "tokenRange": {
+            "tokenIndexStart": 1,
+            "tokenIndexEnd": 3,
+            "positionStart": {
+              "codeUnit": 9,
+              "lineCodeUnit": 9,
+              "lineNumber": 0
+            },
+            "positionEnd": {
+              "codeUnit": 17,
+              "lineCodeUnit": 17,
+              "lineNumber": 0
+            }
+          },
+          "kind": "ArrayWrapper",
+          "isLeaf": false,
+          "elements": [
+            {
+              "id": 6,
+              "attributeIndex": 0,
+              "tokenRange": {
+                "tokenIndexStart": 1,
+                "tokenIndexEnd": 3,
+                "positionStart": {
+                  "codeUnit": 9,
+                  "lineCodeUnit": 9,
+                  "lineNumber": 0
+                },
+                "positionEnd": {
+                  "codeUnit": 17,
+                  "lineCodeUnit": 17,
+                  "lineNumber": 0
+                }
+              },
+              "kind": "InvokeExpression",
+              "isLeaf": false,
+              "openWrapperConstant": {
+                "id": 7,
+                "attributeIndex": 0,
+                "tokenRange": {
+                  "tokenIndexStart": 1,
+                  "tokenIndexEnd": 1,
+                  "positionStart": {
+                    "codeUnit": 9,
+                    "lineCodeUnit": 9,
+                    "lineNumber": 0
+                  },
+                  "positionEnd": {
+                    "codeUnit": 10,
+                    "lineCodeUnit": 10,
+                    "lineNumber": 0
+                  }
+                },
+                "kind": "Constant",
+                "isLeaf": true,
+                "constantKind": "("
+              },
+              "content": {
+                "id": 8,
+                "attributeIndex": 1,
+                "tokenRange": {
+                  "tokenIndexStart": 2,
+                  "tokenIndexEnd": 2,
+                  "positionStart": {
+                    "codeUnit": 10,
+                    "lineCodeUnit": 10,
+                    "lineNumber": 0
+                  },
+                  "positionEnd": {
+                    "codeUnit": 16,
+                    "lineCodeUnit": 16,
+                    "lineNumber": 0
+                  }
+                },
+                "kind": "ArrayWrapper",
+                "isLeaf": false,
+                "elements": [
+                  {
+                    "id": 9,
+                    "attributeIndex": 0,
+                    "tokenRange": {
+                      "tokenIndexStart": 2,
+                      "tokenIndexEnd": 2,
+                      "positionStart": {
+                        "codeUnit": 10,
+                        "lineCodeUnit": 10,
+                        "lineNumber": 0
+                      },
+                      "positionEnd": {
+                        "codeUnit": 16,
+                        "lineCodeUnit": 16,
+                        "lineNumber": 0
+                      }
+                    },
+                    "kind": "Csv",
+                    "isLeaf": false,
+                    "node": {
+                      "id": 11,
+                      "attributeIndex": 0,
+                      "tokenRange": {
+                        "tokenIndexStart": 2,
+                        "tokenIndexEnd": 2,
+                        "positionStart": {
+                          "codeUnit": 10,
+                          "lineCodeUnit": 10,
+                          "lineNumber": 0
+                        },
+                        "positionEnd": {
+                          "codeUnit": 16,
+                          "lineCodeUnit": 16,
+                          "lineNumber": 0
+                        }
+                      },
+                      "kind": "IdentifierExpression",
+                      "isLeaf": false,
+                      "identifier": {
+                        "id": 12,
+                        "attributeIndex": 1,
+                        "tokenRange": {
+                          "tokenIndexStart": 2,
+                          "tokenIndexEnd": 2,
+                          "positionStart": {
+                            "codeUnit": 10,
+                            "lineCodeUnit": 10,
+                            "lineNumber": 0
+                          },
+                          "positionEnd": {
+                            "codeUnit": 16,
+                            "lineCodeUnit": 16,
+                            "lineNumber": 0
+                          }
+                        },
+                        "kind": "Identifier",
+                        "isLeaf": true,
+                        "identifierContextKind": "Value",
+                        "literal": "SOURCE"
+                      }
+                    }
+                  }
+                ]
+              },
+              "closeWrapperConstant": {
+                "id": 13,
+                "attributeIndex": 2,
+                "tokenRange": {
+                  "tokenIndexStart": 3,
+                  "tokenIndexEnd": 3,
+                  "positionStart": {
+                    "codeUnit": 16,
+                    "lineCodeUnit": 16,
+                    "lineNumber": 0
+                  },
+                  "positionEnd": {
+                    "codeUnit": 17,
+                    "lineCodeUnit": 17,
+                    "lineNumber": 0
+                  }
+                },
+                "kind": "Constant",
+                "isLeaf": true,
+                "constantKind": ")"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}

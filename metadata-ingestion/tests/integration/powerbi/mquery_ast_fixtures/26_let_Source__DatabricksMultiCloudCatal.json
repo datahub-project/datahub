@@ -1,0 +1,4 @@
+{
+  "ok": false,
+  "error": "ParseError: Did you leave a dangling comma?"
+}
