@@ -5,7 +5,6 @@ import { hashString } from '@components/components/Avatar/utils';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
@@ -44,7 +43,7 @@ export interface Filters {
     searchUrns?: Set<string>;
 }
 
-export interface NodeBase {
+interface NodeBase {
     id: string;
     isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
@@ -63,7 +62,7 @@ export interface LineageEntity extends NodeBase {
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
-export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
+const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
 export function createLineageFilterNodeId(urn: Urn, direction: LineageDirection): string {
     const dir = direction === LineageDirection.Upstream ? 'u:' : 'd:';
@@ -159,14 +158,6 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return (
-        (type === EntityType.Dataset || type === EntityType.SchemaField) &&
-        getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN
-    );
-}
-
 export function isUrnQuery(urn: string): boolean {
     const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.Query;
@@ -175,11 +166,6 @@ export function isUrnQuery(urn: string): boolean {
 export function isUrnDataProcessInstance(urn: string): boolean {
     const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.DataProcessInstance;
-}
-
-export function isUrnDataJob(urn: string): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
-    return type === EntityType.DataJob;
 }
 
 export function isUrnTransformational(urn: string, rootType: EntityType): boolean {
@@ -334,16 +320,6 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
-    const { edges, adjacencyList } = context;
-    adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
-    adjacencyList[LineageDirection.Downstream]
-        .get(urn)
-        ?.forEach((downstream) => edges.delete(createEdgeId(urn, downstream)));
-    adjacencyList[LineageDirection.Upstream].delete(urn);
-    adjacencyList[LineageDirection.Downstream].delete(urn);
-}
-
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
 // with an operationRef attached if this is an edge to that operation's query node
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
@@ -408,31 +384,4 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     event.preventDefault(); // Prevents selecting node in React Flow
     event.stopPropagation(); // Prevents focusing node
     return true;
-}
-
-// Lineage entity-type category colors for graph visualization — no semantic equivalents
-/* eslint-disable rulesdir/no-hardcoded-colors */
-const DATA_STORE_COLOR = '#ffd279';
-const BI_TOOL_COLOR = '#8682a2';
-const ML_COLOR = '#206de8';
-const DEFAULT_COLOR = '#ff7979';
-/* eslint-enable rulesdir/no-hardcoded-colors */
-
-export function getNodeColor(type?: EntityType): [string, string] {
-    if (type === EntityType.Chart || type === EntityType.Dashboard) {
-        return [BI_TOOL_COLOR, 'Field'];
-    }
-    if (type === EntityType.Dataset) {
-        return [DATA_STORE_COLOR, 'Column'];
-    }
-    if (
-        type === EntityType.Mlmodel ||
-        type === EntityType.MlmodelGroup ||
-        type === EntityType.Mlfeature ||
-        type === EntityType.MlfeatureTable ||
-        type === EntityType.MlprimaryKey
-    ) {
-        return [ML_COLOR, ''];
-    }
-    return [DEFAULT_COLOR, ''];
 }

@@ -50,7 +50,7 @@ const EmptyState = styled.div`
     font-style: italic;
 `;
 
-export interface EntitySearchDropdownProps {
+interface EntitySearchDropdownProps {
     entityTypes: EntityType[];
     selectedUrns: string[];
     onSelectionChange: (urns: string[]) => void;

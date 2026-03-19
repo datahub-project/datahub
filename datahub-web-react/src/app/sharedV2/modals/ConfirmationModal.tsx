@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
-export const StyledModal = styled(Modal)`
+const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
