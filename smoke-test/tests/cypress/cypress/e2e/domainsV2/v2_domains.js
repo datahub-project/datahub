@@ -1,9 +1,4 @@
 describe("domains", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    Cypress.on("uncaught:exception", (err, runnable) => false);
-  });
-
   it("can see elements inside the domain", () => {
     cy.login();
     cy.goToDomain("urn:li:domain:testing/Entities");
