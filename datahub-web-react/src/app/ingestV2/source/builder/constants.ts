@@ -12,6 +12,7 @@ import dagsterLogo from '@images/dagsterlogo.svg';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
+import dltLogo from '@images/dltlogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
@@ -188,6 +189,8 @@ export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const DLT = 'dlt';
+export const DLT_URN = `urn:li:dataPlatform:${DLT}`;
 export const FABRIC_ONELAKE = 'fabric-onelake';
 export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 export const RDF = 'rdf';
@@ -203,6 +206,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [COCKROACHDB_URN]: cockroachdbLogo,
     [DAGSTER_URN]: dagsterLogo,
     [DBT_URN]: dbtLogo,
+    [DLT_URN]: dltLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,

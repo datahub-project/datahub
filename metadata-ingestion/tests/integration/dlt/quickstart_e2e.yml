@@ -1,0 +1,23 @@
+# End-to-end quickstart validation recipe.
+# Points at the test fixture data so no real dlt pipeline run is needed.
+# Run with: datahub ingest -c quickstart_e2e.yml
+source:
+  type: dlt
+  config:
+    pipelines_dir: "tests/integration/dlt/testdata"
+    pipeline_pattern:
+      allow:
+        - ".*"
+    include_lineage: true
+    destination_platform_map:
+      postgres:
+        database: chess
+        platform_instance: null
+        env: DEV
+    include_run_history: false
+    env: DEV
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

@@ -697,6 +697,16 @@
     displayName: DynamoDB
     type: KEY_VALUE_STORE
     logoUrl: "assets/platforms/dynamodblogo.png"
+- entityUrn: urn:li:dataPlatform:dlt
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dlt
+    displayName: dlt
+    type: OTHERS
+    logoUrl: "assets/platforms/dltlogo.svg"
 - entityUrn: urn:li:dataPlatform:fivetran
   entityType: dataPlatform
   aspectName: dataPlatformInfo

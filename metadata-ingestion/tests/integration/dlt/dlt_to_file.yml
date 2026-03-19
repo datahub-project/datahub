@@ -1,0 +1,28 @@
+# Integration test recipe: dlt connector → file sink (for golden file generation)
+# pipelines_dir is overridden in the test via environment variable DLT_PIPELINES_DIR
+source:
+  type: dlt
+  config:
+    pipelines_dir: "${DLT_PIPELINES_DIR}"
+    pipeline_pattern:
+      allow:
+        - ".*"
+    include_run_history: true
+    run_history_config:
+      start_time: "-30 days"
+      end_time: "now"
+    include_lineage: true
+    destination_platform_map:
+      postgres:
+        platform_instance: null
+        env: "DEV"
+    source_dataset_urns:
+      chess_pipeline: []
+    stateful_ingestion:
+      enabled: false
+    env: DEV
+
+sink:
+  type: file
+  config:
+    filename: "${OUTPUT_FILE}"
