@@ -38,6 +38,11 @@ class DataAccessFunctionDetail:
     )
     identifier_accessor: Optional[IdentifierAccessor]
     node_map: Dict[int, dict]  # full NodeIdMap for ast_utils navigation
+    parameters: Dict[str, str] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.parameters is None:
+            self.parameters = {}
 
 
 @dataclass

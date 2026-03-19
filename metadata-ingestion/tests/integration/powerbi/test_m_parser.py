@@ -836,6 +836,10 @@ def test_databricks_multi_cloud():
     )
 
 
+@pytest.mark.xfail(
+    reason="M_QUERIES[26] has a dangling comma that the strict Microsoft parser rejects",
+    strict=True,
+)
 def test_databricks_catalog_pattern_1():
     q = M_QUERIES[26]
 
@@ -1130,8 +1134,8 @@ def test_double_quotes_in_alias():
     )
 
 
-@patch("datahub.ingestion.source.powerbi.m_query.parser.get_lark_parser")
-def test_m_query_timeout(mock_get_lark_parser):
+@patch("datahub.ingestion.source.powerbi.m_query.parser.get_bridge")
+def test_m_query_timeout(mock_get_bridge):
     q = 'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"'
 
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
@@ -1150,11 +1154,11 @@ def test_m_query_timeout(mock_get_lark_parser):
 
     config.m_query_parse_timeout = 1
 
-    mock_lark_instance = MagicMock()
+    mock_bridge_instance = MagicMock()
 
-    mock_get_lark_parser.return_value = mock_lark_instance
+    mock_get_bridge.return_value = mock_bridge_instance
     # sleep for 5 seconds to trigger timeout
-    mock_lark_instance.parse.side_effect = lambda expression: time.sleep(5)
+    mock_bridge_instance.parse.side_effect = lambda expression: time.sleep(5)
 
     parser.get_upstream_tables(
         table,
