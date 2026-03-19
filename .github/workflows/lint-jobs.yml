@@ -76,6 +76,8 @@ jobs:
     if: needs.setup.outputs.markdown == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-java@v5
         with:
           distribution: "zulu"
@@ -91,6 +93,8 @@ jobs:
     if: needs.setup.outputs.github-actions == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-java@v5
         with:
           distribution: "zulu"
@@ -135,6 +139,8 @@ jobs:
       issues: write
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: reviewdog/action-actionlint@v1
         with:
           reporter: github-pr-review
@@ -146,6 +152,8 @@ jobs:
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -159,6 +167,8 @@ jobs:
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -172,6 +182,8 @@ jobs:
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -189,6 +201,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
 
       - uses: actions/setup-python@v6
         with:
@@ -196,6 +210,7 @@ jobs:
           cache: "pip"
 
       - uses: actions/cache/restore@v5
+        name: Restore uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
           path: |
@@ -203,6 +218,7 @@ jobs:
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
       - uses: actions/cache/restore@v5
+        name: Restore yarn cache
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
           path: |
@@ -221,6 +237,7 @@ jobs:
           ./gradlew :smoke-test:cypressLint
 
       - uses: actions/cache/save@v5
+        name: Save uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
           path: |
@@ -228,6 +245,7 @@ jobs:
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
       - uses: actions/cache/save@v5
+        name: Save yarn cache
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
           path: |
