@@ -3,9 +3,9 @@ import React, { Dispatch, SetStateAction } from 'react';
 
 import { hashString } from '@components/components/Avatar/utils';
 
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
