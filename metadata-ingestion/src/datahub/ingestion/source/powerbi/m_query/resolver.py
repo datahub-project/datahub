@@ -4,7 +4,7 @@ entries (recognized data-source function calls with their navigation chain).
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
@@ -19,7 +19,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 
 logger = logging.getLogger(__name__)
 
-_RECOGNIZED_FUNCTIONS: frozenset = frozenset(f.value for f in FunctionName)
+_RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
 
 
 def resolve_to_data_access_functions(
@@ -45,7 +45,7 @@ def resolve_to_data_access_functions(
         return []
 
     results: List[DataAccessFunctionDetail] = []
-    seen: set = set()
+    seen: Set[Tuple[int, str]] = set()
 
     _walk(
         node_map=node_map,
@@ -66,7 +66,7 @@ def _walk(
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
-    seen: set,
+    seen: Set[Tuple[int, str]],
 ) -> None:
     if node is None:
         return
@@ -76,9 +76,13 @@ def _walk(
     # -- IdentifierExpression (wraps Identifier) --
     if kind == "IdentifierExpression":
         identifier = node.get("identifier", {})
+        name = identifier.get("literal", "")
+        # Strip quoted identifier prefix/suffix (#"name" → name)
+        if identifier.get("isQuoted") and name.startswith('#"') and name.endswith('"'):
+            name = name[2:-1]
         _walk_identifier_name(
             node_map,
-            identifier.get("literal", ""),
+            name,
             current_let,
             current_let_id,
             accessor_chain,
@@ -167,7 +171,7 @@ def _walk_recursive_primary(
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
-    seen: set,
+    seen: Set[Tuple[int, str]],
 ) -> None:
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
@@ -244,7 +248,7 @@ def _walk_invoke(
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
-    seen: set,
+    seen: Set[Tuple[int, str]],
 ) -> None:
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
@@ -296,7 +300,7 @@ def _walk_identifier_name(
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
-    seen: set,
+    seen: Set[Tuple[int, str]],
 ) -> None:
     """Resolve a variable name in the current let scope and continue walking."""
     if not name:
