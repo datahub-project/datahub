@@ -116,7 +116,7 @@ def _default_global_properties() -> Dict[str, Any]:
         "python_version": platform.python_version(),
         "os": platform.system(),
         "arch": platform.machine(),
-        "caller": identify_caller(),
+        # caller is populated lazily in ping() to avoid subprocess calls at import time
     }
 
 
@@ -339,6 +339,10 @@ class Telemetry:
             return
 
         properties = properties or {}
+
+        # Lazily populate caller to avoid subprocess calls at import time
+        if "caller" not in self.global_properties:
+            self.global_properties["caller"] = identify_caller()
 
         # send event
         try:
