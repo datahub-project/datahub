@@ -104,6 +104,7 @@ export const AboutSidebarSection = ({ aboutText, isProfileOwner, onSaveAboutMe }
                             event.stopPropagation();
                         }}
                         actionPrivilege={isProfileOwner}
+                        dataTestId="edit-about-button"
                     />
                 </>
             }
