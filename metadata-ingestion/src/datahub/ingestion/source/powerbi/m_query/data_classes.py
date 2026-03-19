@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from lark import Tree
-
 from datahub.ingestion.source.powerbi.config import DataPlatformPair
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 
@@ -34,9 +32,12 @@ class IdentifierAccessor:
 
 @dataclass
 class DataAccessFunctionDetail:
-    arg_list: Tree
-    data_access_function_name: str
+    arg_list: dict  # InvokeExpression node dict from NodeIdMap
+    data_access_function_name: (
+        str  # matches FunctionName.value (e.g. "Snowflake.Databases")
+    )
     identifier_accessor: Optional[IdentifierAccessor]
+    node_map: Dict[int, dict]  # full NodeIdMap for ast_utils navigation
 
 
 @dataclass
