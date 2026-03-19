@@ -33,6 +33,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- (Ingestion) PowerBI: The `native_query_parsing: false` configuration flag now suppresses only
+  expressions that contain `Value.NativeQuery`. Previously it suppressed all M-Query lineage
+  extraction. Users who set this flag to block all lineage extraction will now see lineage produced
+  for non-NativeQuery sources (Snowflake, PostgreSQL, MSSQL, etc.). To restore the old
+  suppress-all behaviour, add a `table_pattern.deny` rule in your recipe or remove the PowerBI
+  source entirely.
+
 - #16396: Oracle connector: When connecting via `service_name` to a multitenant Oracle database, the database name used in URNs will now reflect the Pluggable Database (PDB) name instead of the Container Database (CDB) name. In Oracle Multitenant architecture, a CDB is the top-level container (e.g. `cdb`) and a PDB is an individual tenant database within it (e.g. `mypdb`); `service_name` typically routes to the PDB, so the PDB name is the correct identifier for your datasets. This affects both dataset URNs (when `add_database_name_to_urn: true`) and database/schema container URNs (always, since containers always include the database name). If your existing metadata was ingested with the old CDB-based URNs, re-ingesting will create new entities under the corrected URNs. To preserve the old URN shape and avoid re-creating entities, set `urn_db_name` explicitly in your recipe to match your previous CDB name.
 - #16628 (Ingestion) Fabric OneLake source: Workspace containers now use the `fabric` platform instead of `fabric-onelake`. This changes workspace container URNs and the `dataPlatformInstance.platform` emitted for workspace entities. Lakehouse, warehouse, schema, and dataset entities remain on `fabric-onelake`.
 - **Retention service disabled: only current version retained.** When the retention service is not enabled (not configured or unavailable), the write path now retains only the current version (version 0) and does not create version-history rows. Previously, version history was still written when retention was disabled. **Impact:** Deployments that run without retention enabled will no longer accumulate aspect version history; only the latest aspect value is stored. **Migration:** Enable and configure the retention service (e.g. ingest retention policies from `boot/retention.yaml`) if you need version history for any entity/aspect.
