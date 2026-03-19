@@ -1,4 +1,3 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -6,6 +5,7 @@ import styled from 'styled-components';
 
 import Dropdown from '@components/components/Dropdown/Dropdown';
 import { Input } from '@components/components/Input/Input';
+import { Loader } from '@components/components/Loader/Loader';
 import {
     DropdownContainer,
     LabelContainer,
@@ -187,7 +187,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
             <OptionList>
                 {searchLoading && (
                     <LoadingState>
-                        <LoadingOutlined />
+                        <Loader size="sm" />
                     </LoadingState>
                 )}
                 {!searchLoading && entityOptions.length === 0 && <EmptyState>No entities found</EmptyState>}
@@ -214,11 +214,9 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                                         <EntitySearchInputResultV2 entity={option.entity} />
                                     </EntityOptionContainer>
                                     <StyledCheckbox
-                                        onClick={(e) => {
-                                            e.stopPropagation(); // Prevent double-triggering
-                                            handleOptionClick(option);
-                                        }}
-                                        checked={selectedUrns.includes(option.value)}
+                                        onCheckboxChange={() => handleOptionClick(option)}
+                                        isChecked={selectedUrns.includes(option.value)}
+                                        size="sm"
                                     />
                                 </LabelContainer>
                             ) : (
