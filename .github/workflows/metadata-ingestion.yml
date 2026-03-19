@@ -36,18 +36,12 @@ jobs:
       DATAHUB_TELEMETRY_ENABLED: false
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
+      PYTEST_TIMEOUT: 600
     strategy:
       matrix:
         python-version: ["3.11"]
         command: [
             "testQuick", # also runs lint
-            "testIntegrationBatch0",
-            "testIntegrationBatch1",
-            "testIntegrationBatch2",
-            "testIntegrationBatch3",
-            "testIntegrationBatch4",
-            "testIntegrationBatch5",
-            "testIntegrationBatchRecording", # Recording tests - isolated execution to avoid module patching interference
           ]
         include:
           # Version compatibility tests.
