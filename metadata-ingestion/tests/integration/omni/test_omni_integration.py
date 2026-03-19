@@ -13,7 +13,6 @@ Re-generate the golden file after intentional changes:
 
 from __future__ import annotations
 
-import json
 import pathlib
 from typing import Any, Dict, List
 
@@ -21,8 +20,10 @@ import pytest
 import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.omni.omni import OmniSource
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
+from datahub.testing import mce_helpers
 from tests.integration.omni.fixtures import (
     FakeOmniClientFull,
 )
@@ -103,47 +104,47 @@ def _collect_workunits(source: OmniSource) -> List[Dict[str, Any]]:
 
 @time_machine.travel(FROZEN_TIME)
 def test_omni_ingestion_golden_file(
-      pytestconfig: pytest.Config, tmp_path: pathlib.Path
-  ) -> None:
-      output_path = tmp_path / "omni_mces.json"
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    output_path = tmp_path / "omni_mces.json"
 
-      pipeline = Pipeline.create(
-          {
-              "source": {
-                  "type": "omni",
-                  "config": {
-                      "base_url": "https://acme.omniapp.co/api",
-                      "api_key": "test-key",
-                      "include_workbook_only": True,
-                      "include_column_lineage": True,
-                      "connection_to_platform": {
-                          "conn-snow-prod": "snowflake",
-                          "conn-snow-staging": "snowflake",
-                      },
-                      "connection_to_database": {
-                          "conn-snow-prod": "ANALYTICS_PROD",
-                          "conn-snow-staging": "ANALYTICS_STAGING",
-                      },
-                      "connection_to_platform_instance": {
-                          "conn-snow-prod": "snowflake",
-                      },
-                  },
-              },
-              "sink": {"type": "file", "config": {"filename": str(output_path)}},
-          }
-      )
-      # inject fake client before running
-      pipeline.source.client = FakeOmniClientFull()
-      pipeline.run()
-      pipeline.raise_from_status()
+    pipeline = Pipeline.create(
+        {
+            "source": {
+                "type": "omni",
+                "config": {
+                    "base_url": "https://acme.omniapp.co/api",
+                    "api_key": "test-key",
+                    "include_workbook_only": True,
+                    "include_column_lineage": True,
+                    "connection_to_platform": {
+                        "conn-snow-prod": "snowflake",
+                        "conn-snow-staging": "snowflake",
+                    },
+                    "connection_to_database": {
+                        "conn-snow-prod": "ANALYTICS_PROD",
+                        "conn-snow-staging": "ANALYTICS_STAGING",
+                    },
+                    "connection_to_platform_instance": {
+                        "conn-snow-prod": "snowflake",
+                    },
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output_path)}},
+        }
+    )
+    # inject fake client before running
+    pipeline.source.client = FakeOmniClientFull()
+    pipeline.run()
+    pipeline.raise_from_status()
 
-      # ✅ Full JSON diff — every field in every aspect is compared
-      mce_helpers.check_golden_file(
-          pytestconfig,
-          output_path=output_path,
-          golden_path=GOLDEN_FILE,
-          ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
-      )
+    # Full JSON diff — every field in every aspect is compared
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=GOLDEN_FILE,
+        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+    )
 
 
 # ---------------------------------------------------------------------------

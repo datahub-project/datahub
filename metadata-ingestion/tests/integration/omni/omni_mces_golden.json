@@ -1,1484 +1,1508 @@
 [
-  {
+{
     "entityType": "dataPlatform",
     "entityUrn": "urn:li:dataPlatform:omni",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInfo",
     "aspect": {
-      "name": "omni",
-      "displayName": "Omni",
-      "type": "OTHERS",
-      "datasetNameDelimiter": ".",
-      "logoUrl": "https://avatars.githubusercontent.com/u/100505341?s=200&v=4"
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni connection entity."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
-    "aspectName": "datasetProperties",
-    "aspect": {
-      "customProperties": {
-        "entityType": "connection",
-        "connectionId": "conn-snow-prod",
-        "connectionName": "Snowflake Prod",
-        "dialect": "snowflake",
-        "database": "ANALYTICS_PROD",
-        "scope": "organization",
-        "deleted": "false"
-      },
-      "tags": []
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
-    "aspectName": "subTypes",
-    "aspect": {
-      "typeNames": [
-        "Connection"
-      ]
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni connection entity."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
-    "aspectName": "datasetProperties",
-    "aspect": {
-      "customProperties": {
-        "entityType": "connection",
-        "connectionId": "conn-snow-staging",
-        "connectionName": "Snowflake Staging",
-        "dialect": "snowflake",
-        "database": "ANALYTICS_STAGING",
-        "scope": "organization",
-        "deleted": "false"
-      },
-      "tags": []
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
-    "aspectName": "subTypes",
-    "aspect": {
-      "typeNames": [
-        "Connection"
-      ]
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "name": "omni",
+            "displayName": "Omni",
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+            "logoUrl": "https://avatars.githubusercontent.com/u/100505341?s=200&v=4"
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni model entity."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
-    "aspectName": "datasetProperties",
-    "aspect": {
-      "customProperties": {
-        "modelId": "shared-model-1",
-        "modelName": "Analytics Shared Model",
-        "modelKind": "SHARED",
-        "modelLayer": "shared",
-        "baseModelId": "",
-        "connectionId": "conn-snow-prod",
-        "createdAt": "2024-01-01T00:00:00Z",
-        "updatedAt": "2024-06-01T00:00:00Z",
-        "deletedAt": "",
-        "entityType": "model"
-      },
-      "tags": []
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
-    "aspectName": "subTypes",
-    "aspect": {
-      "typeNames": [
-        "Model"
-      ]
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-      "upstreams": []
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni topic entity."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-    "aspectName": "datasetProperties",
-    "aspect": {
-      "customProperties": {
-        "modelId": "shared-model-1",
-        "topicName": "customers",
-        "entityType": "topic",
-        "inferred": "false",
-        "modelKind": "SHARED",
-        "modelLayer": "shared"
-      },
-      "name": "Analytics Shared Model.topic.customers",
-      "tags": []
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-    "aspectName": "subTypes",
-    "aspect": {
-      "typeNames": [
-        "Topic"
-      ]
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "platform": "urn:li:dataPlatform:snowflake",
-      "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Physical source table referenced by Omni model."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "platform": "snowflake",
-        "database": "ANALYTICS_PROD",
-        "schema": "PUBLIC",
-        "table": "CUSTOMERS",
-        "connectionId": "conn-snow-prod",
-        "platformInstance": "snowflake"
-      },
-      "tags": []
+        "json": {
+            "customProperties": {
+                "entityType": "connection",
+                "connectionId": "conn-snow-prod",
+                "connectionName": "Snowflake Prod",
+                "dialect": "snowflake",
+                "database": "ANALYTICS_PROD",
+                "scope": "organization",
+                "deleted": "false"
+            },
+            "description": "Omni connection entity.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Table"
-      ]
+        "json": {
+            "typeNames": [
+                "Connection"
+            ]
+        }
     }
-  },
-  {
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "entityType": "connection",
+                "connectionId": "conn-snow-staging",
+                "connectionName": "Snowflake Staging",
+                "dialect": "snowflake",
+                "database": "ANALYTICS_STAGING",
+                "scope": "organization",
+                "deleted": "false"
+            },
+            "description": "Omni connection entity.",
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Connection"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "modelId": "shared-model-1",
+                "modelName": "Analytics Shared Model",
+                "modelKind": "SHARED",
+                "modelLayer": "shared",
+                "baseModelId": "",
+                "connectionId": "conn-snow-prod",
+                "createdAt": "2024-01-01T00:00:00Z",
+                "updatedAt": "2024-06-01T00:00:00Z",
+                "deletedAt": "",
+                "entityType": "model"
+            },
+            "description": "Omni model entity.",
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "modelId": "shared-model-1",
+                "topicName": "customers",
+                "entityType": "topic",
+                "inferred": "false",
+                "modelKind": "SHARED",
+                "modelLayer": "shared"
+            },
+            "name": "Analytics Shared Model.topic.customers",
+            "description": "Omni topic entity.",
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Topic"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowflake",
+                "database": "ANALYTICS_PROD",
+                "schema": "PUBLIC",
+                "table": "CUSTOMERS",
+                "connectionId": "conn-snow-prod",
+                "platformInstance": "snowflake"
+            },
+            "description": "Physical source table referenced by Omni model.",
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
-      "schemaName": "",
-      "platform": "urn:li:dataPlatform:omni",
-      "version": 0,
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "hash": "",
-      "platformSchema": {
-        "com.linkedin.pegasus2avro.schema.Schemaless": {}
-      },
-      "fields": [
-        {
-          "fieldPath": "customer_id",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "name",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.StringType": {}
-            }
-          },
-          "nativeDataType": "STRING",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "email",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.StringType": {}
-            }
-          },
-          "nativeDataType": "STRING",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "lifetime_value",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:omni",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "lifetime_value",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni semantic view from topic customers."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "modelId": "shared-model-1",
-        "topicName": "customers",
-        "viewName": "customers",
-        "modelKind": "SHARED",
-        "modelLayer": "shared"
-      },
-      "name": "Analytics Shared Model.customers",
-      "tags": []
+        "json": {
+            "customProperties": {
+                "modelId": "shared-model-1",
+                "topicName": "customers",
+                "viewName": "customers",
+                "modelKind": "SHARED",
+                "modelLayer": "shared"
+            },
+            "name": "Analytics Shared Model.customers",
+            "description": "Omni semantic view from topic customers.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "View"
-      ]
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": []
+        "json": {
+            "upstreams": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni topic entity."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "modelId": "shared-model-1",
-        "topicName": "orders",
-        "entityType": "topic",
-        "inferred": "false",
-        "modelKind": "SHARED",
-        "modelLayer": "shared"
-      },
-      "name": "Analytics Shared Model.topic.orders",
-      "tags": []
+        "json": {
+            "customProperties": {
+                "modelId": "shared-model-1",
+                "topicName": "orders",
+                "entityType": "topic",
+                "inferred": "false",
+                "modelKind": "SHARED",
+                "modelLayer": "shared"
+            },
+            "name": "Analytics Shared Model.topic.orders",
+            "description": "Omni topic entity.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Topic"
-      ]
+        "json": {
+            "typeNames": [
+                "Topic"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:snowflake",
-      "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Physical source table referenced by Omni model."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "platform": "snowflake",
-        "database": "ANALYTICS_PROD",
-        "schema": "PUBLIC",
-        "table": "ORDERS",
-        "connectionId": "conn-snow-prod",
-        "platformInstance": "snowflake"
-      },
-      "tags": []
+        "json": {
+            "customProperties": {
+                "platform": "snowflake",
+                "database": "ANALYTICS_PROD",
+                "schema": "PUBLIC",
+                "table": "ORDERS",
+                "connectionId": "conn-snow-prod",
+                "platformInstance": "snowflake"
+            },
+            "description": "Physical source table referenced by Omni model.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Table"
-      ]
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
-      "schemaName": "",
-      "platform": "urn:li:dataPlatform:omni",
-      "version": 0,
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "hash": "",
-      "platformSchema": {
-        "com.linkedin.pegasus2avro.schema.Schemaless": {}
-      },
-      "fields": [
-        {
-          "fieldPath": "order_id",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "customer_id",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "created_at",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.StringType": {}
-            }
-          },
-          "nativeDataType": "TIMESTAMP",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "total_revenue",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:omni",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "TIMESTAMP",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_revenue",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni semantic view from topic orders."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "modelId": "shared-model-1",
-        "topicName": "orders",
-        "viewName": "orders",
-        "modelKind": "SHARED",
-        "modelLayer": "shared"
-      },
-      "name": "Analytics Shared Model.orders",
-      "tags": []
+        "json": {
+            "customProperties": {
+                "modelId": "shared-model-1",
+                "topicName": "orders",
+                "viewName": "orders",
+                "modelKind": "SHARED",
+                "modelLayer": "shared"
+            },
+            "name": "Analytics Shared Model.orders",
+            "description": "Omni semantic view from topic orders.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "View"
-      ]
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:snowflake",
-      "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Physical source table referenced by Omni model."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "platform": "snowflake",
-        "database": "ANALYTICS_PROD",
-        "schema": "PUBLIC",
-        "table": "ORDER_ITEMS",
-        "connectionId": "conn-snow-prod",
-        "platformInstance": "snowflake"
-      },
-      "tags": []
+        "json": {
+            "customProperties": {
+                "platform": "snowflake",
+                "database": "ANALYTICS_PROD",
+                "schema": "PUBLIC",
+                "table": "ORDER_ITEMS",
+                "connectionId": "conn-snow-prod",
+                "platformInstance": "snowflake"
+            },
+            "description": "Physical source table referenced by Omni model.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Table"
-      ]
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
-      "schemaName": "",
-      "platform": "urn:li:dataPlatform:omni",
-      "version": 0,
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "hash": "",
-      "platformSchema": {
-        "com.linkedin.pegasus2avro.schema.Schemaless": {}
-      },
-      "fields": [
-        {
-          "fieldPath": "item_id",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "product_id",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
-        },
-        {
-          "fieldPath": "quantity",
-          "nullable": true,
-          "type": {
-            "type": {
-              "com.linkedin.pegasus2avro.schema.NumberType": {}
-            }
-          },
-          "nativeDataType": "NUMBER",
-          "recursive": false,
-          "isPartOfKey": false
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:omni",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "item_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "product_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "quantity",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni semantic view from topic orders."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "modelId": "shared-model-1",
-        "topicName": "orders",
-        "viewName": "order_items",
-        "modelKind": "SHARED",
-        "modelLayer": "shared"
-      },
-      "name": "Analytics Shared Model.order_items",
-      "tags": []
+        "json": {
+            "customProperties": {
+                "modelId": "shared-model-1",
+                "topicName": "orders",
+                "viewName": "order_items",
+                "modelKind": "SHARED",
+                "modelLayer": "shared"
+            },
+            "name": "Analytics Shared Model.order_items",
+            "description": "Omni semantic view from topic orders.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "View"
-      ]
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.workbook-model-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.workbook-model-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
-          "type": "TRANSFORMED"
-        },
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.workbook-model-1,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni model entity."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.workbook-model-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "modelId": "workbook-model-1",
-        "modelName": "Sales Workbook",
-        "modelKind": "WORKBOOK",
-        "modelLayer": "workbook",
-        "baseModelId": "shared-model-1",
-        "connectionId": "conn-snow-prod",
-        "createdAt": "2024-03-01T00:00:00Z",
-        "updatedAt": "2024-06-15T00:00:00Z",
-        "deletedAt": "",
-        "entityType": "model"
-      },
-      "tags": []
+        "json": {
+            "customProperties": {
+                "modelId": "workbook-model-1",
+                "modelName": "Sales Workbook",
+                "modelKind": "WORKBOOK",
+                "modelLayer": "workbook",
+                "baseModelId": "shared-model-1",
+                "connectionId": "conn-snow-prod",
+                "createdAt": "2024-03-01T00:00:00Z",
+                "updatedAt": "2024-06-15T00:00:00Z",
+                "deletedAt": "",
+                "entityType": "model"
+            },
+            "description": "Omni model entity.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.workbook-model-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Model"
-      ]
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
-    "aspectName": "editableDatasetProperties",
-    "aspect": {
-      "created": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      },
-      "description": "Omni folder entity."
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-      "customProperties": {
-        "entityType": "folder",
-        "folderId": "folder-1",
-        "folderPath": "/Finance",
-        "parentFolderPath": "",
-        "ownerId": "user-admin",
-        "ownerName": "Admin User",
-        "scope": "shared",
-        "url": "https://acme.omniapp.co/folders/folder-1"
-      },
-      "externalUrl": "https://acme.omniapp.co/folders/folder-1",
-      "tags": []
+        "json": {
+            "customProperties": {
+                "entityType": "folder",
+                "folderId": "folder-1",
+                "folderPath": "/Finance",
+                "parentFolderPath": "",
+                "ownerId": "user-admin",
+                "ownerName": "Admin User",
+                "scope": "shared",
+                "url": "https://acme.omniapp.co/folders/folder-1"
+            },
+            "externalUrl": "https://acme.omniapp.co/folders/folder-1",
+            "description": "Omni folder entity.",
+            "tags": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Folder"
-      ]
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Dashboard"
-      ]
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-          "type": "TRANSFORMED"
-        },
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-          "type": "TRANSFORMED"
-        },
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [
-        {
-          "auditStamp": {
-            "time": 0,
-            "actor": "urn:li:corpuser:unknown"
-          },
-          "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
-          "type": "TRANSFORMED"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.customer_id)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.total_revenue)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),lifetime_value)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.lifetime_value)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                }
+            ]
         }
-      ],
-      "fineGrainedLineages": [
-        {
-          "upstreamType": "FIELD_SET",
-          "upstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
-          ],
-          "downstreamType": "FIELD",
-          "downstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.total_revenue)"
-          ],
-          "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-          "confidenceScore": 1.0
-        },
-        {
-          "upstreamType": "FIELD_SET",
-          "upstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
-          ],
-          "downstreamType": "FIELD",
-          "downstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
-          ],
-          "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-          "confidenceScore": 1.0
-        },
-        {
-          "upstreamType": "FIELD_SET",
-          "upstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),lifetime_value)"
-          ],
-          "downstreamType": "FIELD",
-          "downstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.lifetime_value)"
-          ],
-          "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-          "confidenceScore": 1.0
-        },
-        {
-          "upstreamType": "FIELD_SET",
-          "upstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),customer_id)"
-          ],
-          "downstreamType": "FIELD",
-          "downstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.customer_id)"
-          ],
-          "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-          "confidenceScore": 1.0
-        }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(omni,tile-revenue)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(omni,tile-revenue)",
+    "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
-      "customProperties": {
-        "documentId": "doc-dashboard-1"
-      },
-      "externalUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-revenue",
-      "title": "Revenue by Month",
-      "description": "Omni workbook tab or dashboard tile.",
-      "lastModified": {
-        "created": {
-          "time": 0,
-          "actor": "urn:li:corpuser:unknown"
-        },
-        "lastModified": {
-          "time": 1718452800000,
-          "actor": "urn:li:corpuser:unknown"
+        "json": {
+            "customProperties": {
+                "documentId": "doc-dashboard-1"
+            },
+            "externalUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-revenue",
+            "title": "Revenue by Month",
+            "description": "Omni workbook tab or dashboard tile.",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1718452800000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-revenue",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)"
+                }
+            ]
         }
-      },
-      "chartUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-revenue",
-      "inputs": [
-        {
-          "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)"
-        },
-        {
-          "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)"
-        }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(omni,tile-revenue)",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-      "owners": [
-        {
-          "owner": "urn:li:corpuser:user-admin",
-          "type": "DATAOWNER"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user-admin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
-      ],
-      "ownerTypes": {},
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      }
     }
-  },
-  {
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(omni,tile-customers)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(omni,tile-customers)",
+    "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
-      "customProperties": {
-        "documentId": "doc-dashboard-1"
-      },
-      "externalUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-customers",
-      "title": "Top Customers",
-      "description": "Omni workbook tab or dashboard tile.",
-      "lastModified": {
-        "created": {
-          "time": 0,
-          "actor": "urn:li:corpuser:unknown"
-        },
-        "lastModified": {
-          "time": 1718452800000,
-          "actor": "urn:li:corpuser:unknown"
+        "json": {
+            "customProperties": {
+                "documentId": "doc-dashboard-1"
+            },
+            "externalUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-customers",
+            "title": "Top Customers",
+            "description": "Omni workbook tab or dashboard tile.",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1718452800000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-customers",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)"
+                }
+            ]
         }
-      },
-      "chartUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1?queryPresentationId=tile-customers",
-      "inputs": [
-        {
-          "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)"
-        },
-        {
-          "string": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)"
-        }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(omni,tile-customers)",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-      "owners": [
-        {
-          "owner": "urn:li:corpuser:user-admin",
-          "type": "DATAOWNER"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user-admin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
-      ],
-      "ownerTypes": {},
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      }
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-dashboard-1)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-dashboard-1)",
+    "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
-      "customProperties": {
-        "documentId": "doc-dashboard-1",
-        "connectionId": "conn-snow-prod",
-        "scope": "shared",
-        "folderId": "folder-1",
-        "folderName": "Finance",
-        "folderPath": "/Finance",
-        "labels": "finance,executive",
-        "omniEmbedUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1",
-        "omniEmbedIframe": "<iframe src=\"https://acme.omniapp.co/dashboards/doc-dashboard-1\"></iframe>",
-        "topicNames": "customers,orders",
-        "updatedAt": "2024-06-15T12:00:00Z"
-      },
-      "externalUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1",
-      "title": "Sales Dashboard",
-      "description": "Omni dashboard.",
-      "charts": [],
-      "chartEdges": [
-        {
-          "destinationUrn": "urn:li:chart:(omni,tile-revenue)"
-        },
-        {
-          "destinationUrn": "urn:li:chart:(omni,tile-customers)"
+        "json": {
+            "customProperties": {
+                "documentId": "doc-dashboard-1",
+                "connectionId": "conn-snow-prod",
+                "scope": "shared",
+                "folderId": "folder-1",
+                "folderName": "Finance",
+                "folderPath": "/Finance",
+                "labels": "finance,executive",
+                "omniEmbedUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1",
+                "omniEmbedIframe": "<iframe src=\"https://acme.omniapp.co/dashboards/doc-dashboard-1\"></iframe>",
+                "topicNames": "customers,orders",
+                "updatedAt": "2024-06-15T12:00:00Z"
+            },
+            "externalUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1",
+            "title": "Sales Dashboard",
+            "description": "Omni dashboard.",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(omni,tile-revenue)"
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(omni,tile-customers)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1718452800000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1"
         }
-      ],
-      "datasets": [],
-      "dashboards": [],
-      "lastModified": {
-        "created": {
-          "time": 0,
-          "actor": "urn:li:corpuser:unknown"
-        },
-        "lastModified": {
-          "time": 1718452800000,
-          "actor": "urn:li:corpuser:unknown"
-        }
-      },
-      "dashboardUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1"
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-dashboard-1)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
-      "path": []
+        "json": {
+            "path": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-dashboard-1)",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-      "owners": [
-        {
-          "owner": "urn:li:corpuser:user-admin",
-          "type": "DATAOWNER"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user-admin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
-      ],
-      "ownerTypes": {},
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "typeNames": [
-        "Dashboard"
-      ]
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "upstreams": [],
-      "fineGrainedLineages": [
-        {
-          "upstreamType": "FIELD_SET",
-          "upstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
-          ],
-          "downstreamType": "FIELD",
-          "downstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD),orders.total_revenue)"
-          ],
-          "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-          "confidenceScore": 1.0
-        },
-        {
-          "upstreamType": "FIELD_SET",
-          "upstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),order_id)"
-          ],
-          "downstreamType": "FIELD",
-          "downstreams": [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD),orders.order_id)"
-          ],
-          "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-          "confidenceScore": 1.0
+        "json": {
+            "upstreams": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD),orders.total_revenue)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),order_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD),orders.order_id)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                }
+            ]
         }
-      ]
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-workbook-1)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "platform": "urn:li:dataPlatform:omni"
+        "json": {
+            "platform": "urn:li:dataPlatform:omni"
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-workbook-1)",
+    "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
-      "customProperties": {
-        "documentId": "doc-workbook-1",
-        "connectionId": "conn-snow-prod",
-        "scope": "personal",
-        "folderId": "",
-        "folderName": "",
-        "folderPath": "",
-        "labels": "",
-        "omniEmbedUrl": "https://acme.omniapp.co/workbooks/doc-workbook-1",
-        "omniEmbedIframe": "<iframe src=\"https://acme.omniapp.co/workbooks/doc-workbook-1\"></iframe>",
-        "topicNames": "",
-        "updatedAt": "2024-06-10T08:00:00Z"
-      },
-      "externalUrl": "https://acme.omniapp.co/workbooks/doc-workbook-1",
-      "title": "Orders Analysis",
-      "description": "Omni dashboard.",
-      "charts": [],
-      "chartEdges": [],
-      "datasets": [],
-      "dashboards": [],
-      "lastModified": {
-        "created": {
-          "time": 0,
-          "actor": "urn:li:corpuser:unknown"
-        },
-        "lastModified": {
-          "time": 1718006400000,
-          "actor": "urn:li:corpuser:unknown"
+        "json": {
+            "customProperties": {
+                "documentId": "doc-workbook-1",
+                "connectionId": "conn-snow-prod",
+                "scope": "personal",
+                "folderId": "",
+                "folderName": "",
+                "folderPath": "",
+                "labels": "",
+                "omniEmbedUrl": "https://acme.omniapp.co/workbooks/doc-workbook-1",
+                "omniEmbedIframe": "<iframe src=\"https://acme.omniapp.co/workbooks/doc-workbook-1\"></iframe>",
+                "topicNames": "",
+                "updatedAt": "2024-06-10T08:00:00Z"
+            },
+            "externalUrl": "https://acme.omniapp.co/workbooks/doc-workbook-1",
+            "title": "Orders Analysis",
+            "description": "Omni dashboard.",
+            "charts": [],
+            "chartEdges": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1718006400000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "https://acme.omniapp.co/workbooks/doc-workbook-1"
         }
-      },
-      "dashboardUrl": "https://acme.omniapp.co/workbooks/doc-workbook-1"
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-workbook-1)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
-      "path": []
+        "json": {
+            "path": []
+        }
     }
-  },
-  {
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(omni,doc-workbook-1)",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-      "owners": [
-        {
-          "owner": "urn:li:corpuser:user-analyst",
-          "type": "DATAOWNER"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user-analyst",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
-      ],
-      "ownerTypes": {},
-      "lastModified": {
-        "time": 0,
-        "actor": "urn:li:corpuser:unknown"
-      }
     }
-  }
+}
 ]

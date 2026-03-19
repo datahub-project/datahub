@@ -203,10 +203,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             displayName="Omni",
             logoUrl=self.DEFAULT_LOGO_URL,
         )
-          MetadataChangeProposalWrapper(
-              entityUrn=make_data_platform_urn(self.PLATFORM),
-              aspect=platform_info,
-          ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=make_data_platform_urn(self.PLATFORM),
+            aspect=platform_info,
+        ).as_workunit()
 
     def _emit_upstream_lineage(
         self,
@@ -373,10 +373,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 dashboard.set_last_modified(dt)
             except Exception as exc:
-                logger.warning("Skipping dashboard last_modified: failed to parse %r: %s", updated_at, exc)
+                logger.warning(
+                    "Skipping dashboard last_modified: failed to parse %r: %s",
+                    updated_at,
+                    exc,
+                )
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
-            dashboard.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
+            dashboard.set_owners(
+                [(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)]
+            )
         yield from dashboard.as_workunits()
 
     def _emit_chart(
@@ -408,7 +414,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 chart.set_last_modified(dt)
             except Exception as exc:
-                logger.warning("Skipping chart last_modified: failed to parse %r: %s", updated_at, exc)
+                logger.warning(
+                    "Skipping chart last_modified: failed to parse %r: %s",
+                    updated_at,
+                    exc,
+                )
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
             chart.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
