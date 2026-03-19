@@ -214,7 +214,7 @@ export const PARSE_TABLE_NAMES_FROM_SQL: RecipeField = {
     rules: null,
 };
 
-export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
+const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     name: 'name',
     label: 'Name',
     helper: 'Looker connection name',
@@ -238,7 +238,7 @@ export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     rules: [{ required: true, message: 'Name is required' }],
 };
 
-export const PLATFORM: RecipeField = {
+const PLATFORM: RecipeField = {
     name: 'platform',
     label: 'Platform',
     helper: 'Data Platform ID in DataHub',
@@ -249,7 +249,7 @@ export const PLATFORM: RecipeField = {
     rules: [{ required: true, message: 'Platform is required' }],
 };
 
-export const DEFAULT_DB: RecipeField = {
+const DEFAULT_DB: RecipeField = {
     name: 'default_db',
     label: 'Default Database',
     helper: 'Database for assets from connection',

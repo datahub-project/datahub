@@ -243,12 +243,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup
-                        users={policy?.actors?.resolvedUsers}
-                        entityRegistry={entityRegistry}
-                        maxCount={50}
-                        size={28}
-                    />
+                    <AvatarsGroup users={policy?.actors?.resolvedUsers} entityRegistry={entityRegistry} maxCount={50} />
                     {policy?.actors?.allUsers ? <Tag>All Users</Tag> : null}
                 </div>
                 <div>
@@ -258,19 +253,13 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                         groups={policy?.actors?.resolvedGroups}
                         entityRegistry={entityRegistry}
                         maxCount={50}
-                        size={28}
                     />
                     {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Roles</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup
-                        roles={policy?.actors?.resolvedRoles}
-                        entityRegistry={entityRegistry}
-                        maxCount={50}
-                        size={28}
-                    />
+                    <AvatarsGroup roles={policy?.actors?.resolvedRoles} entityRegistry={entityRegistry} maxCount={50} />
                 </div>
             </PolicyContainer>
         </Modal>

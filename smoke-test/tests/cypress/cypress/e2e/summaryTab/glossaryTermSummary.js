@@ -7,7 +7,7 @@ const TEST_RELATED_TERM_NAME = "RelatedCypressTerm";
 
 describe("summary tab - glossary term", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     cy.goToGlossaryTerm(TEST_GLOSSARY_TERM_URN);
     utils.goToSummaryTab();
