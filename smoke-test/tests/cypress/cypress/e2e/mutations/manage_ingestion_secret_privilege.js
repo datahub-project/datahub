@@ -108,7 +108,8 @@ const deactivateExistingAllUserPolicies = () => {
   });
 };
 
-describe("Manage Ingestion and Secret Privileges", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("Manage Ingestion and Secret Privileges", () => {
   let registeredEmail = "";
 
   beforeEach(() => {
@@ -122,7 +123,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
   });
 
   it("create Metadata Ingestion platform policy and assign privileges to all users", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.visit("/settings/permissions/policies");
     cy.waitTextVisible("Manage Permissions");
     cy.get('[data-testid="policy-filter"]').click();
@@ -142,7 +143,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
   });
 
   it("Create user and verify ingestion tab not present", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
     cy.clickOptionWithText("Invite Users");

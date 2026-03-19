@@ -1,8 +1,11 @@
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Button, Col, Divider, Row, Space, Tooltip, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { useUserContext } from '@app/context/useUserContext';
 import EditGroupDescriptionModal from '@app/entity/group/EditGroupDescriptionModal';
@@ -19,10 +22,8 @@ import {
     SocialDetails,
 } from '@app/entity/shared/SidebarStyledComponents';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
 import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
@@ -47,8 +48,6 @@ type Props = {
     refetch: () => Promise<any>;
 };
 
-const AVATAR_STYLE = { margin: '3px 5px 3px 0px' };
-
 const TITLES = {
     about: 'About',
     members: 'Members ',
@@ -58,7 +57,7 @@ const TITLES = {
 const GroupNameHeader = styled(Row)`
     font-size: 20px;
     line-height: 28px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     margin: 16px 16px 8px 8px;
     display: flex;
     align-items: center;
@@ -85,7 +84,7 @@ const GroupTitle = styled(Typography.Title)`
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.textBrand};
 `;
 const AddNewDescription = styled(Button)`
     display: none;
@@ -116,17 +115,17 @@ const DescriptionContainer = styled.div`
         display: block;
     }
     & ins.diff {
-        background-color: #b7eb8f99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         text-decoration: none;
         &:hover {
-            background-color: #b7eb8faa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceSuccessHover};
         }
     }
     & del.diff {
-        background-color: #ffa39e99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceError};
         text-decoration: line-through;
-        &: hover {
-            background-color: #ffa39eaa;
+        &:hover {
+            background-color: ${(props) => props.theme.colors.bgSurfaceErrorHover};
         }
     }
 `;
@@ -249,13 +248,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                 <SideBarSubSection className={canEditGroup ? '' : 'fullView'}>
                     <GroupNameHeader>
                         <Col>
-                            <CustomAvatar
-                                useDefaultAvatar={false}
-                                size={64}
-                                photoUrl={photoUrl}
-                                name={avatarName}
-                                style={AVATAR_STYLE}
-                            />
+                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.group} size="2xl" />
                         </Col>
                         <Col>
                             <GroupTitle level={3} editable={canEditGroup ? { onChange: handleTitleUpdate } : false}>

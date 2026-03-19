@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Key } from '@phosphor-icons/react/dist/csr/Key';

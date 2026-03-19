@@ -1,7 +1,10 @@
+import { Avatar } from '@components';
 import { Tag, Tooltip } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import {
     DisplayCount,
@@ -11,7 +14,6 @@ import {
     GroupsSeeMoreText,
     TagsSection,
 } from '@app/entity/shared/SidebarStyledComponents';
-import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityRelationship, EntityType } from '@types';
@@ -50,10 +52,10 @@ export default function GroupMembersSideBarSection({ total, relationships, onSee
                         return (
                             <MemberTag key={user.urn}>
                                 <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}`}>
-                                    <CustomAvatar
-                                        name={name}
-                                        photoUrl={user.editableProperties?.pictureLink || undefined}
-                                        useDefaultAvatar={false}
+                                    <Avatar
+                                        name={name || ''}
+                                        imageUrl={user.editableProperties?.pictureLink || undefined}
+                                        type={AvatarType.user}
                                     />
                                     {name.length > 15 ? (
                                         <Tooltip title={name}>{`${name.substring(0, 15)}..`}</Tooltip>

@@ -1,8 +1,11 @@
+import { Avatar } from '@components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -10,7 +13,6 @@ import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { COLORS } from '@app/sharedV2/colors';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import dayjs from '@utils/dayjs';
@@ -181,7 +183,9 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
         <NoteWrapper>
             <NoteContent>
                 <NoteHeader>
-                    <NoteOwner>{note.lastModified.actor && <CustomAvatar size={18} name={parsedName} />}</NoteOwner>
+                    <NoteOwner>
+                        {note.lastModified.actor && <Avatar name={parsedName} type={AvatarType.user} size="sm" />}
+                    </NoteOwner>
                     <NoteTime>
                         {isToday && 'Today'}
                         {isYesterday && 'Yesterday'}
