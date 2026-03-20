@@ -318,3 +318,25 @@ def test_on_start_creates_execution_request_input_for_cli() -> None:
         assert mock_emit.call_count == 1
         call_args = mock_emit.call_args
         assert call_args[1]["try_sync"] is True
+
+
+def test_non_execution_request_urn_as_run_id_does_not_crash() -> None:
+    """A valid URN of a different entity type must not crash __init__."""
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.api.sink import Sink
+
+    pipeline_config = PipelineConfig.from_dict(
+        {"source": {"type": "bigquery"}, "sink": {"type": "console"}}
+    )
+    ctx = PipelineContext(
+        run_id="urn:li:ingestionSource:some-source-id",
+        pipeline_config=pipeline_config,
+    )
+    mock_sink = MagicMock(spec=Sink)
+    # Must not raise InvalidUrnError
+    provider = DatahubIngestionRunSummaryProvider(
+        sink=mock_sink, report_recipe=False, ctx=ctx
+    )
+    assert not provider._is_running_under_executor

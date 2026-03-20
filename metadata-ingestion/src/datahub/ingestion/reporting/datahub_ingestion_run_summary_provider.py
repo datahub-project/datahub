@@ -30,6 +30,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.utilities.logging_manager import get_log_buffer
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
@@ -119,35 +120,43 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
         self.entity_name: str = self.generate_entity_name(ingestion_source_key)
 
-        # Check if we're running under an embedded executor (not standalone CLI)
-        # If run_id is already an execution request URN, we're being invoked by
-        # the executor (via GraphQL createIngestionExecutionRequest mutation).
-        # In this case, skip creating a duplicate CLI source - let the executor handle it.
+        # If run_id is an execution request URN, the executor owns the source/request lifecycle.
         try:
             parsed = Urn.from_string(ctx.run_id)
             self._is_running_under_executor = (
                 parsed.entity_type == DataHubExecutionRequestUrn.ENTITY_TYPE
             )
+        except InvalidUrnError:
+            self._is_running_under_executor = False
         except Exception:
+            logger.warning(
+                f"Unexpected error parsing run_id={ctx.run_id!r} as URN; "
+                "assuming standalone CLI context.",
+                exc_info=True,
+            )
             self._is_running_under_executor = False
 
         if self._is_running_under_executor:
-            logger.info(
-                f"Running under embedded executor (run_id={ctx.run_id}). "
-                "Skipping CLI source creation - executor will manage source entity."
-            )
+            logger.debug(f"Executor-managed run detected (run_id={ctx.run_id}).")
 
         self.ingestion_source_urn: Urn = Urn(
             entity_type="dataHubIngestionSource",
             entity_id=["cli-" + datahub_guid(ingestion_source_key)],
         )
         logger.debug(f"Ingestion source urn = {self.ingestion_source_urn}")
-        self.execution_request_input_urn: DataHubExecutionRequestUrn = (
-            DataHubExecutionRequestUrn(ctx.run_id)
-        )
+        # Use typed URN only in the executor path (run_id already validated as such).
+        # For standalone CLI runs, run_id is a plain string; passing a foreign URN type
+        # to DataHubExecutionRequestUrn would raise InvalidUrnError.
+        if self._is_running_under_executor:
+            self.execution_request_input_urn: Urn = DataHubExecutionRequestUrn(
+                ctx.run_id
+            )
+        else:
+            self.execution_request_input_urn = Urn(
+                entity_type="dataHubExecutionRequest", entity_id=[ctx.run_id]
+            )
         self.start_time_ms: int = self.get_cur_time_in_ms()
 
-        # Only create and emit CLI source if we're running standalone (not under executor)
         if not self._is_running_under_executor:
             # Construct the dataHubIngestionSourceInfo aspect
             source_info_aspect = DataHubIngestionSourceInfoClass(
@@ -236,12 +245,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def on_start(self, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
 
-        # If running under embedded executor, skip creating ExecutionRequestInput
-        # The executor already created it via the GraphQL mutation
         if self._is_running_under_executor:
-            logger.debug(
-                "Running under embedded executor - skipping ExecutionRequestInput creation"
-            )
             return
 
         # Construct the dataHubExecutionRequestInput aspect
