@@ -30,6 +30,7 @@ module.exports = (on, config) => {
   // on GH Actions runners) and raise the V8 heap limit.
   // Note: --single-process is intentionally omitted — it is unstable in Chrome
   // and causes hangs rather than recoverable crashes.
+  // Log args to confirm flags are actually reaching the browser process in CI.
   on("before:browser:launch", (browser, launchOptions) => {
     if (browser.name === "chrome" || browser.name === "electron") {
       launchOptions.args.push("--disable-dev-shm-usage");
@@ -38,6 +39,9 @@ module.exports = (on, config) => {
       launchOptions.args.push("--disable-features=VizDisplayCompositor");
       launchOptions.args.push("--js-flags=--max-old-space-size=8192");
     }
+    console.log(
+      `[before:browser:launch] browser=${browser.name} args=${JSON.stringify(launchOptions.args)}`,
+    );
     return launchOptions;
   });
 };

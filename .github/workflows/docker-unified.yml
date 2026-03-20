@@ -720,6 +720,15 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
 
+      - name: Check /dev/shm size
+        if: matrix.test_strategy == 'cypress'
+        run: |
+          echo "=== /dev/shm ==="
+          df -h /dev/shm
+          ls -la /dev/shm || true
+          echo "=== Total RAM ==="
+          free -h
+
       - name: Smoke test
         if: |
           steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
@@ -777,6 +786,14 @@ jobs:
 
       - name: Disk Check
         run: df -h . && docker images
+
+      - name: Check OOM kills
+        if: failure() && matrix.test_strategy == 'cypress'
+        run: |
+          echo "=== dmesg OOM ==="
+          dmesg | grep -iE "killed process|out of memory|oom.killer" || echo "No OOM kills found"
+          echo "=== /dev/shm at failure ==="
+          df -h /dev/shm
 
       - name: store logs
         if: failure()
