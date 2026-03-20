@@ -278,6 +278,7 @@ export const SubscriptionContainer = styled.div`
 
 export const OwnershipContainer = styled.div`
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
 `;
 

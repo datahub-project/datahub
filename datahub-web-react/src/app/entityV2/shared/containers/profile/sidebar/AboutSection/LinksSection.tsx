@@ -1,11 +1,8 @@
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import LinkButton from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
-
-const AddLinksWrapper = styled.div``;
 
 interface Props {
     hideLinksButton?: boolean;
@@ -28,11 +25,7 @@ export default function LinksSection({ hideLinksButton, readOnly }: Props) {
                     <LinkButton link={link} />
                 </>
             ))}
-            {!readOnly && !hideLinksButton && (
-                <AddLinksWrapper>
-                    <AddLinkModal buttonProps={{ type: 'text' }} />
-                </AddLinksWrapper>
-            )}
+            {!readOnly && !hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} />}
         </>
     );
 }

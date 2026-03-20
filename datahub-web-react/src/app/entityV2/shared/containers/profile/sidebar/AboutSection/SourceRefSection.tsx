@@ -1,9 +1,14 @@
 import { Button, Icon } from '@components';
 import { Link } from '@phosphor-icons/react/dist/csr/Link';
 import React from 'react';
+import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+
+const StyledAnchor = styled.a`
+    text-decoration: none;
+`;
 
 export default function SourceRefSection() {
     const { entityData } = useEntityData();
@@ -18,12 +23,12 @@ export default function SourceRefSection() {
             title="Source"
             content={
                 sourceUrl ? (
-                    <a href={sourceUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                    <StyledAnchor href={sourceUrl} target="_blank" rel="noreferrer">
                         <Button variant="text" color="violet">
                             <Icon icon={Link} size="md" color="inherit" />
                             {sourceRef}
                         </Button>
-                    </a>
+                    </StyledAnchor>
                 ) : (
                     <span>{sourceRef}</span>
                 )

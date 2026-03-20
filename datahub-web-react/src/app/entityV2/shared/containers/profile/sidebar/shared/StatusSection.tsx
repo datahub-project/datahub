@@ -20,11 +20,11 @@ const SyncedAssetContainer = styled.div`
     flex-direction: column;
 `;
 
-const DeprecatedHeader = styled.div<{ $collapsible: boolean }>`
+const DeprecatedHeader = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
-    cursor: ${(props) => (props.$collapsible ? 'pointer' : 'default')};
+    cursor: pointer;
 `;
 
 const DeprecatedContent = styled.div`
@@ -101,7 +101,7 @@ const StatusSection = () => {
                     )}
                     {isDeprecated && (
                         <div>
-                            <DeprecatedHeader $collapsible onClick={() => setIsDeprecationExpanded((prev) => !prev)}>
+                            <DeprecatedHeader onClick={() => setIsDeprecationExpanded((prev) => !prev)}>
                                 <Icon icon={isDeprecationExpanded ? CaretDown : CaretRight} size="md" color="inherit" />
                                 <TimeProperty
                                     labelText={`Deprecated${

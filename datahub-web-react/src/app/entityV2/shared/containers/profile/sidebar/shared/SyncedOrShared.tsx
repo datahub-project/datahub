@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
-import { ContentText, LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
 import { ActionType, getRelativeTimeStatus } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -71,7 +71,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
                     <>
                         <LabelText>from</LabelText>
                         <PlatformIcon platform={platform} size={16} />
-                        <ContentText>{platformName}</ContentText>
+                        <LabelText>{platformName}</LabelText>
                     </>
                 )}
             </DetailRow>
