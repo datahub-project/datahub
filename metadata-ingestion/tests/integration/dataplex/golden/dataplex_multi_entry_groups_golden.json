@@ -12,6 +12,7 @@
                 "dataplex_entry_group": "projects/test-project/locations/us/entryGroups/@bigquery",
                 "dataplex_fully_qualified_name": "bigquery:test-project.warehouse.sales_data",
                 "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/bigquery-table",
+                "dataplex_source_resource": "projects/test-project/datasets/dummy",
                 "dataplex_source_system": "BIGQUERY"
             },
             "name": "sales_data",
@@ -29,7 +30,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705316400000,
-        "runId": "dataplex-2024_01_15-12_00_00-wdsope",
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -42,6 +43,59 @@
         "json": {
             "platform": "urn:li:dataPlatform:bigquery"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/exports/data_export.parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.warehouse.sales_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bc459eb0ae40ff6430cfef0f5834a79b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/exports/data_export.parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -59,23 +113,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705316400000,
-        "runId": "dataplex-2024_01_15-12_00_00-lw8lok",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.warehouse.sales_data,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:bc459eb0ae40ff6430cfef0f5834a79b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -95,69 +133,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/exports/data_export.parquet,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "dataplex_ingested": "true",
-                "dataplex_entry_id": "data_export",
-                "dataplex_entry_group": "projects/test-project/locations/us/entryGroups/custom-catalog",
-                "dataplex_fully_qualified_name": "gcs:my-bucket/exports/data_export.parquet",
-                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/gcs-fileset",
-                "dataplex_source_system": "CLOUD_STORAGE"
-            },
-            "name": "data_export",
-            "description": "Exported data file",
-            "created": {
-                "time": 1704326400000,
-                "actor": "urn:li:corpuser:dataplex"
-            },
-            "lastModified": {
-                "time": 1705104000000,
-                "actor": "urn:li:corpuser:dataplex"
-            },
-            "tags": []
-        }
-    },
-    "systemMetadata": {
         "lastObserved": 1705316400000,
-        "runId": "dataplex-2024_01_15-12_00_00-wdsope",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/exports/data_export.parquet,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:gcs"
-        }
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bc459eb0ae40ff6430cfef0f5834a79b",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -175,7 +152,60 @@
     },
     "systemMetadata": {
         "lastObserved": 1705316400000,
-        "runId": "dataplex-2024_01_15-12_00_00-wdsope",
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/exports/data_export.parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "data_export",
+                "dataplex_entry_group": "projects/test-project/locations/us/entryGroups/custom-catalog",
+                "dataplex_fully_qualified_name": "gcs:my-bucket/exports/data_export.parquet",
+                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/gcs-fileset",
+                "dataplex_source_resource": "projects/test-project/buckets/dummy",
+                "dataplex_source_system": "CLOUD_STORAGE"
+            },
+            "name": "data_export",
+            "description": "Exported data file",
+            "created": {
+                "time": 1704326400000,
+                "actor": "urn:li:corpuser:dataplex"
+            },
+            "lastModified": {
+                "time": 1705104000000,
+                "actor": "urn:li:corpuser:dataplex"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e4ab3752d3fc2103ccc92dfe28bf3b0a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -197,74 +227,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bc459eb0ae40ff6430cfef0f5834a79b",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:bigquery"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e4ab3752d3fc2103ccc92dfe28bf3b0a",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e4ab3752d3fc2103ccc92dfe28bf3b0a",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Project"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e4ab3752d3fc2103ccc92dfe28bf3b0a",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:bigquery"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -279,8 +243,24 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e4ab3752d3fc2103ccc92dfe28bf3b0a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -295,8 +275,24 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e4ab3752d3fc2103ccc92dfe28bf3b0a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -319,8 +315,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -328,15 +324,47 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:bc459eb0ae40ff6430cfef0f5834a79b",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "path": []
+            "removed": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.warehouse.sales_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc459eb0ae40ff6430cfef0f5834a79b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -353,40 +381,24 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.warehouse.sales_data,PROD)",
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc459eb0ae40ff6430cfef0f5834a79b",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "removed": false
+            "path": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/exports/data_export.parquet,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "dataplex-2024_01_15-12_00_00-ou6xvr",
+        "lastObserved": 1705316400000,
+        "runId": "dataplex-2024_01_15-12_00_00-l4en90",
         "lastRunId": "no-run-id-provided"
     }
 }

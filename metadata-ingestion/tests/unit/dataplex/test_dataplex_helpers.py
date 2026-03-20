@@ -17,31 +17,35 @@ class TestEntryDataTuple:
     def test_create_entry_data_tuple(self):
         """Test creating EntryDataTuple."""
         entry_data = EntryDataTuple(
-            entry_id="test-entry",
             source_platform="bigquery",
             dataset_id="test-project.test-dataset.test-table",
             location="us",
+            project_id="test-project",
+            fqn="bigquery:test-project.test-dataset.test-table",
         )
 
-        assert entry_data.entry_id == "test-entry"
         assert entry_data.source_platform == "bigquery"
         assert entry_data.dataset_id == "test-project.test-dataset.test-table"
         assert entry_data.location == "us"
+        assert entry_data.project_id == "test-project"
+        assert entry_data.fqn == "bigquery:test-project.test-dataset.test-table"
 
     def test_entry_data_tuple_hashable(self):
         """Test that EntryDataTuple is hashable (frozen)."""
         entry_data1 = EntryDataTuple(
-            entry_id="entry1",
             source_platform="bigquery",
             dataset_id="project.dataset.table",
             location="us",
+            project_id="project",
+            fqn="bigquery:project.dataset.table",
         )
 
         entry_data2 = EntryDataTuple(
-            entry_id="entry1",
             source_platform="bigquery",
             dataset_id="project.dataset.table",
             location="us",
+            project_id="project",
+            fqn="bigquery:project.dataset.table",
         )
 
         # Should be able to add to set

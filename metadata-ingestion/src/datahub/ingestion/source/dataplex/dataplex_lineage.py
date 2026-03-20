@@ -27,6 +27,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.ingestion.source.dataplex.dataplex_ids import infer_dataset_id_from_fqn
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -52,12 +53,12 @@ class LineageEdge:
     immutability and hashability.
 
     Attributes:
-        entry_id: The upstream entry ID in Dataplex format
+        dataset_id: The upstream dataset ID (DataHub identifier, e.g., "project.dataset.table")
         audit_stamp: When this lineage was observed
         lineage_type: Type of lineage (TRANSFORMED, COPY, etc.)
     """
 
-    entry_id: str
+    dataset_id: str
     audit_stamp: datetime
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED
 
@@ -118,10 +119,8 @@ class DataplexLineageExtractor:
             return None
 
         try:
-            fully_qualified_name = self._construct_fqn(
-                entry.source_platform,
-                entry.dataset_id,
-            )
+            # Use the original FQN from the Entry API (no need to reconstruct)
+            fully_qualified_name = entry.fqn
             lineage_data: dict[str, list[Any]] = {"upstream": [], "downstream": []}
 
             # Query lineage in ALL configured locations to capture cross-location relationships
@@ -154,7 +153,7 @@ class DataplexLineageExtractor:
 
             if lineage_data["upstream"] or lineage_data["downstream"]:
                 logger.debug(
-                    f"Found lineage for {entry.entry_id}: "
+                    f"Found lineage for {entry.dataset_id}: "
                     f"{len(lineage_data['upstream'])} upstream, "
                     f"{len(lineage_data['downstream'])} downstream"
                 )
@@ -167,7 +166,7 @@ class DataplexLineageExtractor:
             self.report.num_lineage_entries_failed += 1
             self.report.report_warning(
                 "Failed to get lineage for entry after retries. Continuing with other entries.",
-                context=entry.entry_id,
+                context=entry.dataset_id,
                 exc=e,
             )
             return None
@@ -286,41 +285,6 @@ class DataplexLineageExtractor:
         retrying_func = retry_decorator(self._search_links_by_source_impl)
         return retrying_func(parent, fully_qualified_name)
 
-    def _construct_fqn(
-        self,
-        platform: str,
-        dataset_id: str,
-    ) -> str:
-        """
-        Construct a fully qualified name for an entry based on platform.
-
-        The FQN format varies by platform per Google Cloud Lineage API:
-        - BigQuery: bigquery:{project}.{dataset}.{table}
-        - GCS: gcs:{bucket}/{path}
-
-        Args:
-            platform: Source platform ("bigquery" or "gcs")
-            dataset_id: Full path like "project.dataset.table" for BigQuery
-                        or "bucket/path" for GCS
-
-        Returns:
-            Fully qualified name string in the format expected by Google Lineage API
-        """
-        if platform == "bigquery":
-            # BigQuery format: bigquery:{project}.{dataset}.{table}
-            # For entries, dataset_id already contains "project.dataset.table"
-            return f"bigquery:{dataset_id}"
-        elif platform == "gcs":
-            # GCS format: gcs:{bucket}/{path}
-            # For entries, dataset_id already contains the full path
-            return f"gcs:{dataset_id}"
-        else:
-            # Fallback for unknown platforms (shouldn't happen in practice)
-            logger.warning(
-                f"Unknown platform '{platform}' for FQN construction, using generic format"
-            )
-            return f"{platform}:{dataset_id}"
-
     def build_lineage_map(
         self, project_id: str, entry_data: Iterable[EntryDataTuple]
     ) -> Dict[str, Set[LineageEdge]]:
@@ -353,11 +317,11 @@ class DataplexLineageExtractor:
             # Convert upstream FQNs to LineageEdge objects
             for upstream_fqn in lineage_data.get("upstream", []):
                 # Extract dataset ID from FQN (full path like project.dataset.table)
-                upstream_dataset_id = self._extract_entry_id_from_fqn(upstream_fqn)
+                upstream_dataset_id = infer_dataset_id_from_fqn(upstream_fqn)
 
                 if upstream_dataset_id:
                     edge = LineageEdge(
-                        entry_id=upstream_dataset_id,
+                        dataset_id=upstream_dataset_id,
                         audit_stamp=datetime.now(timezone.utc),
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
                     )
@@ -377,38 +341,6 @@ class DataplexLineageExtractor:
         )
 
         return lineage_by_full_dataset_id
-
-    def _extract_entry_id_from_fqn(self, fqn: str) -> Optional[str]:
-        """
-        Extract entry ID from a fully qualified name.
-
-        Handles platform-specific FQN formats:
-        - BigQuery: bigquery:{project}.{dataset}.{table} -> {project}.{dataset}.{table}
-        - GCS: gcs:{bucket}/{path} -> {bucket}/{path}
-        - GCS: gcs:{bucket} -> {bucket}
-
-        Args:
-            fqn: Fully qualified name in format "{platform}:{identifier}"
-
-        Returns:
-            Entry ID (everything after the platform prefix) or None if extraction fails
-        """
-        try:
-            if ":" in fqn:
-                platform, entry_part = fqn.split(":", 1)
-
-                # Validate that we have a known platform
-                if platform not in ["bigquery", "gcs", "dataplex"]:
-                    logger.warning(f"Unexpected platform '{platform}' in FQN: {fqn}")
-
-                return entry_part
-            else:
-                # No platform prefix, return as-is (shouldn't happen in practice)
-                logger.warning(f"FQN missing platform prefix: {fqn}")
-                return fqn
-        except Exception as e:
-            logger.error(f"Failed to extract entry ID from FQN '{fqn}': {e}")
-            return None
 
     def get_lineage_for_table(
         self, dataset_id: str, dataset_urn: str, platform: str
@@ -433,7 +365,7 @@ class DataplexLineageExtractor:
             # Generate URN for the upstream entry using the full dataset_id
             upstream_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=platform,
-                name=lineage_edge.entry_id,
+                name=lineage_edge.dataset_id,
                 platform_instance=None,
                 env=self.config.env,
             )

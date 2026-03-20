@@ -12,15 +12,34 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class EntryDataTuple:
-    """Immutable data structure for tracking entry metadata.
+    """Immutable data structure for tracking entry metadata for lineage extraction.
 
     Used in sets for lineage extraction, so must be hashable (frozen=True).
+
+    Attributes:
+        source_platform: DataHub platform name (e.g., "bigquery", "gcs", "spanner")
+        dataset_id: DataHub dataset identifier extracted from FQN
+                    Examples:
+                    - BigQuery: "project.dataset.table"
+                    - GCS: "bucket.path.to.file"
+                    - Spanner: "project.config.instance.database.table"
+        location: GCP location where this entry was discovered (e.g., "us", "eu", "asia")
+                  Used for lineage API queries which are location-scoped
+        project_id: GCP project ID extracted from entry.entry_source.resource
+                    Example: "my-gcp-project"
+        fqn: Original fully qualified name from Dataplex Entry API
+             Examples:
+             - BigQuery: "bigquery:project.dataset.table"
+             - GCS: "gcs:bucket.path.to.file"
+             - Spanner: "spanner:project.config.instance.database.table"
+             Used for lineage API queries without reconstruction
     """
 
-    entry_id: str
     source_platform: str
     dataset_id: str
-    location: str  # Location where this entry was discovered
+    location: str
+    project_id: str
+    fqn: str
 
 
 def make_bigquery_dataset_container_key(

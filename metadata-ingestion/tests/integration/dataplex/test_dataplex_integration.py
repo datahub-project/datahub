@@ -96,16 +96,21 @@ def create_mock_entry(
     # Infer system from FQN prefix
     if fqn.startswith("bigquery:"):
         entry_source.system = "BIGQUERY"
+        # Set resource field for project_id extraction
+        entry_source.resource = f"projects/{project_id}/datasets/dummy"
     elif fqn.startswith("gcs:"):
         entry_source.system = "CLOUD_STORAGE"
+        entry_source.resource = f"projects/{project_id}/buckets/dummy"
     elif fqn.startswith("pubsub:"):
         entry_source.system = "CLOUD_PUBSUB"
+        entry_source.resource = f"projects/{project_id}/topics/dummy"
     elif fqn.startswith("spanner:"):
         entry_source.system = "CLOUD_SPANNER"
+        entry_source.resource = f"projects/{project_id}/instances/dummy"
     else:
         entry_source.system = None
+        entry_source.resource = None
     # Explicitly set optional fields to None to avoid Mock object issues
-    entry_source.resource = None
     entry_source.platform = None
     entry.entry_source = entry_source
 

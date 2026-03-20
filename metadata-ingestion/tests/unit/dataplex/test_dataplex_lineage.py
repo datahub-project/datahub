@@ -7,6 +7,7 @@ import pytest
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.ingestion.source.dataplex.dataplex_ids import infer_dataset_id_from_fqn
 from datahub.ingestion.source.dataplex.dataplex_lineage import (
     DataplexLineageExtractor,
     LineageEdge,
@@ -78,85 +79,50 @@ def test_lineage_extraction_disabled(
     )
 
     entry_data = EntryDataTuple(
-        entry_id="test-entry",
         source_platform="bigquery",
         dataset_id="test-project.test-dataset.test-table",
         location="us",
+        project_id="test-project",
+        fqn="bigquery:test-project.test-dataset.test-table",
     )
     result = extractor.get_lineage_for_entry("test-project", entry_data)
     assert result is None
 
 
-def test_construct_fqn_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction for BigQuery tables."""
-    fqn = lineage_extractor._construct_fqn("bigquery", "my-project.my-dataset.my-table")
-    assert fqn == "bigquery:my-project.my-dataset.my-table"
+def test_infer_dataset_id_from_fqn_bigquery() -> None:
+    """Test dataset ID inference from BigQuery FQN."""
+    dataset_id = infer_dataset_id_from_fqn("bigquery:my-project.my-dataset.my-table")
+    assert dataset_id == "my-project.my-dataset.my-table"
 
 
-def test_construct_fqn_gcs(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction for GCS objects."""
-    fqn = lineage_extractor._construct_fqn("gcs", "my-bucket/path/to/file.csv")
-    assert fqn == "gcs:my-bucket/path/to/file.csv"
+def test_infer_dataset_id_from_fqn_gcs() -> None:
+    """Test dataset ID inference from GCS FQN."""
+    # GCS with path (uses dots in Entry API format)
+    dataset_id = infer_dataset_id_from_fqn("gcs:my-bucket.path.to.file")
+    assert dataset_id == "my-bucket.path.to.file"
 
 
-def test_construct_fqn_unknown_platform(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test FQN construction for unknown platforms (fallback)."""
-    fqn = lineage_extractor._construct_fqn("unknown", "my-dataset-id")
-    assert fqn == "unknown:my-dataset-id"
+def test_infer_dataset_id_from_fqn_no_prefix() -> None:
+    """Test dataset ID inference without platform prefix."""
+    dataset_id = infer_dataset_id_from_fqn("project-123.dataset.table")
+    assert dataset_id is None  # Should fail validation
 
 
-def test_extract_entry_id_from_fqn_bigquery(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction from BigQuery FQN."""
-    entry_id = lineage_extractor._extract_entry_id_from_fqn(
-        "bigquery:my-project.my-dataset.my-table"
-    )
-    assert entry_id == "my-project.my-dataset.my-table"
-
-
-def test_extract_entry_id_from_fqn_gcs(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction from GCS FQN."""
-    # GCS with path
-    entry_id = lineage_extractor._extract_entry_id_from_fqn(
-        "gcs:my-bucket/path/to/file.csv"
-    )
-    assert entry_id == "my-bucket/path/to/file.csv"
-
-    # GCS bucket only
-    entry_id = lineage_extractor._extract_entry_id_from_fqn("gcs:my-bucket")
-    assert entry_id == "my-bucket"
-
-
-def test_extract_entry_id_from_fqn_no_prefix(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction without platform prefix."""
-    entry_id = lineage_extractor._extract_entry_id_from_fqn("project-123.dataset.table")
-    assert entry_id == "project-123.dataset.table"
-
-
-def test_extract_entry_id_from_fqn_invalid(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction with invalid format."""
-    entry_id = lineage_extractor._extract_entry_id_from_fqn("")
-    assert entry_id == ""
+def test_infer_dataset_id_from_fqn_invalid() -> None:
+    """Test dataset ID inference with invalid format."""
+    dataset_id = infer_dataset_id_from_fqn("")
+    assert dataset_id is None  # Should fail validation
 
 
 def test_lineage_edge_creation() -> None:
     """Test LineageEdge data structure."""
     edge = LineageEdge(
-        entry_id="upstream-entry",
+        dataset_id="upstream-entry",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
 
-    assert edge.entry_id == "upstream-entry"
+    assert edge.dataset_id == "upstream-entry"
     assert edge.lineage_type == DatasetLineageTypeClass.TRANSFORMED
 
 
@@ -216,10 +182,11 @@ def test_get_lineage_for_entry_with_upstream(
 
     # Create EntryDataTuple for the test entry
     test_entry = EntryDataTuple(
-        entry_id="test-entry",
         source_platform="bigquery",
         dataset_id="test-project.test-dataset.test-table",
         location="us",
+        project_id="test-project",
+        fqn="bigquery:test-project.test-dataset.test-table",
     )
 
     # Get lineage
@@ -247,16 +214,18 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     # Create EntryDataTuple objects for test entries
     entry_data = [
         EntryDataTuple(
-            entry_id="entry1",
             source_platform="bigquery",
             dataset_id="test-project.dataset.table1",
             location="us",
+            project_id="test-project",
+            fqn="bigquery:test-project.dataset.table1",
         ),
         EntryDataTuple(
-            entry_id="entry2",
             source_platform="bigquery",
             dataset_id="test-project.dataset.table2",
             location="us",
+            project_id="test-project",
+            fqn="bigquery:test-project.dataset.table2",
         ),
     ]
 
@@ -289,7 +258,7 @@ def test_get_lineage_for_table_with_lineage(
     """Test getting lineage for table with lineage."""
     # Add a lineage edge to the map - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.test-dataset.upstream-entry",
+        dataset_id="test-project.test-dataset.upstream-entry",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -315,7 +284,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     """Test generating lineage workunits."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.test-dataset.upstream-entry",
+        dataset_id="test-project.test-dataset.upstream-entry",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -335,34 +304,6 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
 
     assert len(workunits) == 1
     assert workunits[0].metadata.entityUrn == dataset_urn  # type: ignore[union-attr]
-
-
-def test_fqn_round_trip_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction and parsing round-trip for BigQuery."""
-    original_dataset_id = "my-project.my-dataset.my-table"
-
-    fqn = lineage_extractor._construct_fqn("bigquery", original_dataset_id)
-
-    # Parse FQN
-    extracted_id = lineage_extractor._extract_entry_id_from_fqn(fqn)
-
-    # Verify round-trip
-    assert fqn == "bigquery:my-project.my-dataset.my-table"
-    assert extracted_id == "my-project.my-dataset.my-table"
-
-
-def test_fqn_round_trip_gcs(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction and parsing round-trip for GCS."""
-    original_dataset_id = "my-bucket/data/2024/file.csv"
-
-    fqn = lineage_extractor._construct_fqn("gcs", original_dataset_id)
-
-    # Parse FQN
-    extracted_id = lineage_extractor._extract_entry_id_from_fqn(fqn)
-
-    # Verify round-trip
-    assert fqn == "gcs:my-bucket/data/2024/file.csv"
-    assert extracted_id == "my-bucket/data/2024/file.csv"
 
 
 def test_lineage_with_cross_platform_references(
@@ -386,10 +327,11 @@ def test_lineage_with_cross_platform_references(
     lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
 
     test_entry = EntryDataTuple(
-        entry_id="test-table",
         source_platform="bigquery",
         dataset_id="my-project.analytics.test-table",
         location="us",
+        project_id="test-project",
+        fqn="bigquery:my-project.analytics.test-table",
     )
 
     result = lineage_extractor.get_lineage_for_entry("my-project", test_entry)
@@ -407,7 +349,7 @@ def test_workunit_urn_structure_validation(
     """Test that generated workunits have correct URN structure."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="my-project.my-dataset.upstream-table",
+        dataset_id="my-project.my-dataset.upstream-table",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -446,12 +388,12 @@ def test_workunit_aspect_completeness(
     """Test that workunit aspects contain all required fields."""
     # Add lineage edges - use full dataset_id as key
     edge1 = LineageEdge(
-        entry_id="my-project.my-dataset.table1",
+        dataset_id="my-project.my-dataset.table1",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
     edge2 = LineageEdge(
-        entry_id="my-project.my-dataset.table2",
+        dataset_id="my-project.my-dataset.table2",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.COPY,
     )
@@ -503,7 +445,7 @@ def test_workunit_upstream_urn_format(
     """Test that upstream URNs in workunits are correctly formatted."""
     # Add lineage edge with specific entry ID format - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.sales_dataset.customer_table",
+        dataset_id="test-project.sales_dataset.customer_table",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -576,10 +518,11 @@ def test_pagination_automatic_handling() -> None:
     )
 
     entry = EntryDataTuple(
-        entry_id="test_table",
         source_platform="bigquery",
         dataset_id="test-project.test_dataset.test_table",
         location="us",
+        project_id="test-project",
+        fqn="bigquery:test-project.test_dataset.test_table",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -620,10 +563,11 @@ def test_pagination_with_large_result_set() -> None:
     )
 
     entry = EntryDataTuple(
-        entry_id="target_table",
         source_platform="bigquery",
         dataset_id="test-project.analytics.target_table",
         location="us",
+        project_id="test-project",
+        fqn="bigquery:test-project.analytics.target_table",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -697,10 +641,11 @@ def test_batched_lineage_processing() -> None:
     # Create 5 test entries
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
             location="us",
+            project_id="test-project",
+            fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
         )
         for i in range(5)
     ]
@@ -737,10 +682,11 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
     # Create 3 test entries
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
             location="us",
+            project_id="test-project",
+            fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
         )
         for i in range(3)
     ]
@@ -776,10 +722,11 @@ def test_batched_lineage_with_batching_disabled() -> None:
     # Create 10 test entries
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
             location="us",
+            project_id="test-project",
+            fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
         )
         for i in range(10)
     ]
@@ -825,10 +772,11 @@ def test_batched_lineage_memory_cleanup() -> None:
     # Create 6 entries (will be processed in 3 batches of 2)
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
             source_platform="bigquery",
             dataset_id=f"test-project.dataset_{i}.entry_{i}",
             location="us",
+            project_id="test-project",
+            fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
         )
         for i in range(6)
     ]
@@ -896,22 +844,25 @@ class TestLineageMapKeyCollision:
         # Create entries with same table name but different datasets
         entries = [
             EntryDataTuple(
-                entry_id="analytics_customers",
                 source_platform="bigquery",
                 dataset_id="test-project.analytics.customers",  # Full path
                 location="us",
+                project_id="test-project",
+                fqn="bigquery:test-project.analytics.customers",
             ),
             EntryDataTuple(
-                entry_id="sales_customers",
                 source_platform="bigquery",
                 dataset_id="test-project.sales.customers",  # Same table name, different dataset
                 location="us",
+                project_id="test-project",
+                fqn="bigquery:test-project.sales.customers",
             ),
             EntryDataTuple(
-                entry_id="abc_users",
                 source_platform="bigquery",
                 dataset_id="test-project.abc.users",
                 location="us",
+                project_id="test-project",
+                fqn="bigquery:test-project.abc.users",
             ),
         ]
 
@@ -934,7 +885,7 @@ class TestLineageMapKeyCollision:
         analytics_edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(analytics_edges) == 1
         edge = next(iter(analytics_edges))
-        assert edge.entry_id == "test-project.abc.users"
+        assert edge.dataset_id == "test-project.abc.users"
 
     def test_same_table_name_different_datasets_no_collision(self) -> None:
         """Test that tables with same name in different datasets don't collide.
@@ -981,16 +932,18 @@ class TestLineageMapKeyCollision:
         # Two tables with same name 'customers' in different datasets
         entries = [
             EntryDataTuple(
-                entry_id="customers_analytics",
                 source_platform="bigquery",
                 dataset_id="test-project.analytics.customers",
                 location="us",
+                project_id="test-project",
+                fqn="bigquery:test-project.analytics.customers",
             ),
             EntryDataTuple(
-                entry_id="customers_sales",
                 source_platform="bigquery",
                 dataset_id="test-project.sales.customers",
                 location="us",
+                project_id="test-project",
+                fqn="bigquery:test-project.sales.customers",
             ),
         ]
 
@@ -1032,7 +985,7 @@ class TestLineageMapKeyCollision:
 
         # Manually populate lineage map with full dataset_id keys
         edge = LineageEdge(
-            entry_id="test-project.abc.users",
+            dataset_id="test-project.abc.users",
             audit_stamp=datetime.datetime.now(datetime.timezone.utc),
             lineage_type=DatasetLineageTypeClass.TRANSFORMED,
         )
@@ -1100,10 +1053,11 @@ class TestLineageMapKeyCollision:
 
         entries = [
             EntryDataTuple(
-                entry_id="analytics_customers",
                 source_platform="bigquery",
                 dataset_id="test-project.analytics.customers",
                 location="us",
+                project_id="test-project",
+                fqn="bigquery:test-project.analytics.customers",
             ),
         ]
 
@@ -1122,6 +1076,6 @@ class TestLineageMapKeyCollision:
         edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(edges) == 1
         edge = next(iter(edges))
-        assert edge.entry_id == "test-project.abc.users", (
-            f"Upstream should be 'test-project.abc.users', got '{edge.entry_id}'"
+        assert edge.dataset_id == "test-project.abc.users", (
+            f"Upstream should be 'test-project.abc.users', got '{edge.dataset_id}'"
         )

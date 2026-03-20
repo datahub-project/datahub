@@ -10,11 +10,10 @@ from google.cloud import dataplex_v1
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_entries import (
-    get_datahub_dataset_id,
+from datahub.ingestion.source.dataplex.dataplex_entries import process_entry
+from datahub.ingestion.source.dataplex.dataplex_ids import (
     get_datahub_platform,
     get_datahub_subtype,
-    process_entry,
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -62,41 +61,6 @@ class TestGetDatahubSubtype:
     def test_system_to_subtype_mapping(self, system_type, expected_subtype):
         """Test mapping from Google Cloud system types to DataHub subtypes."""
         assert get_datahub_subtype(system_type) == expected_subtype
-
-
-class TestGetDatahubDatasetId:
-    """Test get_datahub_dataset_id function."""
-
-    @pytest.mark.parametrize(
-        "system_type,fqn,expected_dataset_id",
-        [
-            (
-                "BIGQUERY",
-                "bigquery:test-project.my_dataset.my_table",
-                "test-project.my_dataset.my_table",
-            ),
-            (
-                "CLOUD_STORAGE",
-                "gcs:my-bucket/path/to/file.parquet",
-                "my-bucket/path/to/file.parquet",
-            ),
-            (
-                "CLOUD_PUBSUB",
-                "pubsub:topic:project-id.topic-name",
-                "topic:project-id.topic-name",
-            ),
-            ("BIGQUERY", "invalid-fqn", "invalid-fqn"),
-            ("CLOUD_SPANNER", "spanner:instance/database", "instance/database"),
-            (
-                "CLOUD_PUBSUB",
-                "pubsub:topic:project:topic-name",
-                "topic:project:topic-name",
-            ),
-        ],
-    )
-    def test_extract_dataset_id_from_fqn(self, system_type, fqn, expected_dataset_id):
-        """Test extracting dataset ID from FQN for various system types."""
-        assert get_datahub_dataset_id(system_type, fqn) == expected_dataset_id
 
 
 class TestProcessEntry:
@@ -160,6 +124,11 @@ class TestProcessEntry:
         entry.entry_type = entry_type
         entry.aspects = aspects or {}
 
+        # Extract project ID from name to construct resource
+        # Format: projects/{project}/locations/{location}/entryGroups/{group}/entries/{entry}
+        parts = name.split("/")
+        project = parts[1] if len(parts) > 1 else "unknown-project"
+
         # Mock entry_source
         entry_source = Mock()
         entry_source.system = system
@@ -167,6 +136,15 @@ class TestProcessEntry:
         entry_source.create_time = create_time
         entry_source.update_time = update_time
         entry_source.location = location
+        # Add resource field based on system type
+        if system == "BIGQUERY":
+            entry_source.resource = f"projects/{project}/datasets/test_dataset"
+        elif system == "CLOUD_STORAGE":
+            entry_source.resource = f"projects/{project}/buckets/test_bucket"
+        elif system == "CLOUD_PUBSUB":
+            entry_source.resource = f"projects/{project}/topics/test_topic"
+        else:
+            entry_source.resource = f"projects/{project}/resources/test_resource"
         entry.entry_source = entry_source
 
         return entry
@@ -303,7 +281,6 @@ class TestProcessEntry:
         entry_data = entry_data_by_project["test-project"]
         assert len(entry_data) == 1
         entry_tuple = next(iter(entry_data))
-        assert entry_tuple.entry_id == "my_table"
         assert entry_tuple.source_platform == "bigquery"
 
         # Check BigQuery container tracking
@@ -839,7 +816,7 @@ class TestProcessEntry:
         bq_containers_lock,
         construct_mcps_fn,
     ):
-        """Test entry with FQN that doesn't have colon (uses FQN as dataset_id)."""
+        """Test entry with FQN that doesn't have colon (invalid format, should be skipped)."""
         entry = self.create_mock_entry(
             name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
             fully_qualified_name="my_table",  # No colon, no platform prefix
@@ -859,5 +836,5 @@ class TestProcessEntry:
             )
         )
 
-        # Should be processed with FQN as dataset_id
-        assert len(results) > 0
+        # Should be skipped - FQN without platform prefix is not valid
+        assert len(results) == 0
