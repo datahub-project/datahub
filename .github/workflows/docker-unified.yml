@@ -721,6 +721,17 @@ jobs:
             echo "RETRY MODE: Running all tests (fallback)"
           fi
 
+          # Log free memory every 30 s in the background so we can correlate
+          # renderer crashes with the exact moment available RAM drops.
+          if [[ "${{ matrix.test_strategy }}" == "cypress" ]]; then
+            while true; do
+              echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $(free -h | grep Mem)"
+              sleep 30
+            done &
+            MEMORY_MONITOR_PID=$!
+            trap 'kill $MEMORY_MONITOR_PID 2>/dev/null || true' EXIT
+          fi
+
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
           ./smoke-test/smoke.sh
@@ -753,8 +764,10 @@ jobs:
       - name: Check OOM kills
         if: failure() && matrix.test_strategy == 'cypress'
         run: |
-          echo "=== dmesg OOM ==="
-          dmesg | grep -iE "killed process|out of memory|oom.killer" || echo "No OOM kills found"
+          echo "=== syslog OOM (dmesg blocked on GH Actions) ==="
+          grep -iE "killed process|out of memory|oom.killer" /var/log/syslog 2>/dev/null || echo "No OOM events in syslog"
+          echo "=== /proc/meminfo at failure ==="
+          cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable|SwapFree"
           echo "=== /dev/shm at failure ==="
           df -h /dev/shm
 
