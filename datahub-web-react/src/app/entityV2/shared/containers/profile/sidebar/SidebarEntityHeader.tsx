@@ -18,10 +18,10 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, EntityType, Post } from '@types';
 
-const TitleContainer = styled(HorizontalScroller)`
+const TitleContainer = styled(HorizontalScroller)<{ $hasPlatform: boolean }>`
     display: flex;
     gap: 8px;
-    padding: 0 20px;
+    padding: 0 ${(props) => (props.$hasPlatform ? '16px' : '20px')};
 `;
 
 const EntityDetailsContainer = styled.div`
@@ -56,7 +56,7 @@ const SidebarEntityHeader = () => {
         return <EntityTitleLoadingSection />;
     }
     return (
-        <TitleContainer scrollButtonSize={18} scrollButtonOffset={15}>
+        <TitleContainer scrollButtonSize={18} scrollButtonOffset={15} $hasPlatform={!!platform}>
             {platform && (
                 <PlatformHeaderIcons
                     platform={platform as DataPlatform}
