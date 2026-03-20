@@ -3,7 +3,7 @@ import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
 
-export const INTERVAL_TO_SECONDS = {
+const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
     [DateInterval.Minute]: 60,
     [DateInterval.Hour]: 3600,
@@ -13,7 +13,7 @@ export const INTERVAL_TO_SECONDS = {
     [DateInterval.Year]: 31536000,
 };
 
-export const INTERVAL_TO_MS = {
+const INTERVAL_TO_MS = {
     [DateInterval.Second]: 1000,
     [DateInterval.Minute]: 60000,
     [DateInterval.Hour]: 3600000,
@@ -23,7 +23,7 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
-export const INTERVAL_TO_DURATION_UNIT: { [key: string]: ManipulateType } = {
+const INTERVAL_TO_DURATION_UNIT: { [key: string]: ManipulateType } = {
     [DateInterval.Second]: 'seconds',
     [DateInterval.Minute]: 'minutes',
     [DateInterval.Hour]: 'hours',
@@ -38,9 +38,9 @@ export type TimeWindowSize = {
     count: number;
 };
 
-export type TimeWindowSizeMs = number;
+type TimeWindowSizeMs = number;
 
-export type TimeWindow = {
+type TimeWindow = {
     startTime: number;
     endTime: number;
 };
@@ -52,7 +52,7 @@ export type TimeWindow = {
  * @param interval a human-readable time interval
  * @param count the number of time intervals composing the window
  */
-export const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
+const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
     return INTERVAL_TO_SECONDS[windowSize.interval] * 1000 * windowSize.count;
 };
 
@@ -107,19 +107,6 @@ export const toLocalDateTimeString = (timeMs: number) => {
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        timeZoneName: 'short',
-    });
-};
-
-export const toUTCDateTimeString = (timeMs: number) => {
-    const date = new Date(timeMs);
-    return date.toLocaleString([], {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC',
         timeZoneName: 'short',
     });
 };

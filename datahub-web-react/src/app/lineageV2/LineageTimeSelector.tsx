@@ -34,7 +34,7 @@ const ConfirmButton = styled(Button)`
     }
 `;
 
-export type Props = {
+type Props = {
     onChange: (start: Datetime, end: Datetime) => void;
     startTimeMillis?: number;
     endTimeMillis?: number;

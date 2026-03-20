@@ -14,7 +14,7 @@ import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { Document } from '@types';
 
-export interface DocumentChild {
+interface DocumentChild {
     urn: string;
     title: string;
 }

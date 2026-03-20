@@ -53,7 +53,7 @@ const codeBlockPositioner = Positioner.create<any>({
     },
 });
 
-export const CodeBlockMenu = () => {
+const CodeBlockMenu = () => {
     const commands = useCommands();
     const value = (useAttrs(true).codeBlock()?.language as string) ?? 'markup';
 

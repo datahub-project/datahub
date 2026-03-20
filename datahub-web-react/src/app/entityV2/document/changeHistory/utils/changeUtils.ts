@@ -3,7 +3,7 @@ import { EntityType, StringMapEntry } from '@types';
 /**
  * URN for the DataHub system actor
  */
-export const DATAHUB_SYSTEM_ACTOR_URN = 'urn:li:corpuser:__datahub_system';
+const DATAHUB_SYSTEM_ACTOR_URN = 'urn:li:corpuser:__datahub_system';
 
 /**
  * Checks if an actor is the DataHub system actor.

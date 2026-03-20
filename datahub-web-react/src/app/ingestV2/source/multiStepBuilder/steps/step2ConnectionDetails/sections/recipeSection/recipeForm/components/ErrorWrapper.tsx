@@ -2,7 +2,7 @@ import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-export const Wrapper = styled.div`
+const Wrapper = styled.div`
     color: ${colors.red[500]};
     margin-top: 5px;
 `;

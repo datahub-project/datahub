@@ -61,7 +61,7 @@ const EmptyState = styled.div`
     font-size: 14px;
 `;
 
-export interface DocumentPopoverBaseProps {
+interface DocumentPopoverBaseProps {
     /** Optional header content to render above search */
     headerContent?: React.ReactNode;
     /** Callback when a document is selected from tree */
