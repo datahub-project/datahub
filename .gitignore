@@ -119,6 +119,8 @@ skills-lock.json
 .claude/*
 !.claude/commands/
 !.claude/agents/
+!.claude/skills/
+!.claude/skills/**
 !.claude/settings.json
 **/.claude/settings.local.json
 
@@ -171,3 +173,4 @@ test-models/bin/
 
 # Git Worktree management (wtp)
 .wtp.yml
+*.log
