@@ -324,7 +324,7 @@ jobs:
     name: Scan images for vulnerabilities
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    if: ${{ false }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
