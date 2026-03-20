@@ -2936,12 +2936,12 @@ requires-dist = [
     { name = "python-ldap", marker = "extra == 'docs'", specifier = ">=2.4,<4.0.0" },
     { name = "python-ldap", marker = "extra == 'integration-tests'", specifier = ">=2.4,<4.0.0" },
     { name = "python-ldap", marker = "extra == 'ldap'", specifier = ">=2.4,<4.0.0" },
-    { name = "python-liquid", marker = "extra == 'all'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'dev'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'docs'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'looker'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'lookml'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'mode'", specifier = "<2" },
+    { name = "python-liquid", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'looker'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'lookml'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'mode'", specifier = ">=2.0.0,<3.0.0" },
     { name = "pyyaml", specifier = "<7.0.0" },
     { name = "pyyaml", marker = "extra == 'dev'", specifier = "<7.0.0" },
     { name = "pyyaml", marker = "extra == 'docs'", specifier = "<7.0.0" },
@@ -10775,16 +10775,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/0c/88/8d2797decc42e1c1c
 
 [[package]]
 name = "python-liquid"
-version = "1.13.0"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "importlib-resources" },
+    { name = "babel" },
+    { name = "markupsafe" },
     { name = "python-dateutil" },
-    { name = "typing-extensions" },
+    { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/75/0fed0ca920161b058806fa52d3e2ed82cf14beb2abe1afb114358ccc1413/python_liquid-1.13.0.tar.gz", hash = "sha256:c158fbaad6dd41c49de7cff34e3611bff7211326fb3049322d27673e1d66e166", size = 127389, upload-time = "2025-02-08T14:15:46.487Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cc/46/3b2731966bf24a1cab027eae3c87c41e379750a7dd8c7041c37b9a29d168/python_liquid-2.1.0.tar.gz", hash = "sha256:a4c2abb24ac40ded8c9ba844ebbfbe78a3e41c6fe10a7bbe94144582569b73d0", size = 93152, upload-time = "2025-08-15T07:33:26.019Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/b0/a795755aad1230c8d2f15c63c703204c351abd183deeff85941866a88a92/python_liquid-1.13.0-py3-none-any.whl", hash = "sha256:843ed7b8af00c1480d1bf402553ed07bdddce130ebbf4b1fefc84bb2e076f5d4", size = 210446, upload-time = "2025-02-08T14:15:44.935Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/0d/8c0cc6895ff2ec26b963f055ff2514596e71b509cde3b9ffbbf0f7f59995/python_liquid-2.1.0-py3-none-any.whl", hash = "sha256:d3bbcddff4e1a73287b59218df3471613598271e69ac3d17d97e000f4b984e3e", size = 137984, upload-time = "2025-08-15T07:33:24.274Z" },
 ]
 
 [[package]]

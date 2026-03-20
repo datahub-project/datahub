@@ -240,11 +240,7 @@ looker_common = {
     "lkml>=1.3.4,<2.0.0",
     *sqlglot_lib,
     "GitPython>2,<4.0.0",
-    # python-liquid 2 includes a bunch of breaking changes.
-    # See https://jg-rp.github.io/liquid/migration/
-    # Eventually we should fully upgrade to v2, but that will require
-    # us to drop Python 3.8 support first.
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "deepmerge>=1.1.1,<3.0.0",
 }
 
@@ -679,7 +675,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-documents": unstructured_lib,
-    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"}
+    "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
     | cachetools_lib,
     "mongodb": {"pymongo[aws]>=4.8.0,<5.0.0", "packaging<26.0.0"},
