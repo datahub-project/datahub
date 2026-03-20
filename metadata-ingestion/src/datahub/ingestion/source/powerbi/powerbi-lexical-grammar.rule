@@ -458,7 +458,7 @@ required_selector_list: required_field_selector
 implicit_target_projection: required_projection
                         |   optional_projection
 
-function_expression:    "(" parameter_list?  ")" WS_INLINE return_type? "=>" function_body
+function_expression:    "(" parameter_list?  ")" return_type? "=>" function_body
 
 function_body:  expression
 
@@ -477,18 +477,18 @@ parameter_type: assertion
 
 return_type:    assertion
 
-assertion:  "as" WS_INLINE nullable_primitive_type
+assertion:  "as" nullable_primitive_type
 
 optional_parameter_list:    optional_parameter
                         |   optional_parameter "," optional_parameter_list
 
-optional_parameter: "optional" WS_INLINE parameter
+optional_parameter: "optional" parameter
 
-each_expression:    "each" WS_INLINE each_expression_body
+each_expression:    "each" each_expression_body
 
 each_expression_body:   function_body
 
-let_expression: "let" whitespace variable_list in_expression
+let_expression: "let" variable_list in_expression
 
 in_expression: "in" expression
 
@@ -499,7 +499,7 @@ variable:   variable_name "=" expression
 
 variable_name:    identifier
 
-if_expression:    "if" WS_INLINE if_condition "then" true_expression "else" WS_INLINE false_expression
+if_expression:    "if" if_condition "then" true_expression "else" false_expression
 
 if_condition:     expression
 
@@ -509,7 +509,7 @@ true_expression:  expression
 false_expression: expression
 
 type_expression:  primary_expression
-            |     "type" WS_INLINE primary_type
+            |     "type" primary_type
 
 type: parenthesized_expression
     | primary_type
@@ -541,15 +541,15 @@ primitive_type: "any"
             |   "type"
 
 record_type:      "[" open_record_marker "]"
-            |     "[" field_specification_list? WS_INLINE "]"
-            |     "[" field_specification_list WS_INLINE "," open_record_marker "]"
+            |     "[" field_specification_list? "]"
+            |     "[" field_specification_list "," open_record_marker "]"
 
 field_specification_list:     field_specification
                         |     field_specification "," field_specification_list
 
-field_specification:    "optional"? field_name WS_INLINE field_type_specification?
+field_specification:    "optional"? field_name field_type_specification?
 
-field_type_specification:     "=" WS_INLINE field_type
+field_type_specification:     "=" field_type
 
 field_type: type
 
@@ -575,21 +575,21 @@ optional_parameter_specification_list:    optional_parameter_specification
 
 optional_parameter_specification:   "optional" parameter_specification
 
-parameter_specification:      parameter_name WS_INLINE parameter_type
+parameter_specification:      parameter_name parameter_type
 
-table_type: "table" WS_INLINE row_type
+table_type: "table" row_type
 
 row_type:   "[" field_specification_list? "]"
 
-nullable_type:    "nullable" WS_INLINE type
+nullable_type:    "nullable" type
 
-error_raising_expression:     "error" WS_INLINE expression "_"
+error_raising_expression:     "error" expression "_"
 
-error_handling_expression:    "try" WS_INLINE protected_expression WS_INLINE otherwise_clause?
+error_handling_expression:    "try" protected_expression otherwise_clause?
 
 protected_expression:   expression
 
-otherwise_clause: "otherwise" WS_INLINE default_expression
+otherwise_clause: "otherwise" default_expression
 
 default_expression:     expression
 
