@@ -90,25 +90,11 @@ repos:
         files: ^metadata-dao-impl/kafka-producer/.*\.java$
         pass_filenames: false
 
-      - id: metadata-events-mxe-avro-spotless
-        name: metadata-events/mxe-avro Spotless Apply
-        entry: ./gradlew :metadata-events:mxe-avro:spotlessApply -x generateGitPropertiesGlobal
-        language: system
-        files: ^metadata-events/mxe-avro/.*\.java$
-        pass_filenames: false
-
       - id: metadata-events-mxe-registration-spotless
         name: metadata-events/mxe-registration Spotless Apply
         entry: ./gradlew :metadata-events:mxe-registration:spotlessApply -x generateGitPropertiesGlobal
         language: system
         files: ^metadata-events/mxe-registration/.*\.java$
-        pass_filenames: false
-
-      - id: metadata-events-mxe-schemas-spotless
-        name: metadata-events/mxe-schemas Spotless Apply
-        entry: ./gradlew :metadata-events:mxe-schemas:spotlessApply -x generateGitPropertiesGlobal
-        language: system
-        files: ^metadata-events/mxe-schemas/.*\.java$
         pass_filenames: false
 
       - id: metadata-events-mxe-utils-avro-spotless
@@ -563,3 +549,11 @@ repos:
           - yaml
         files: ^\.github/workflows/
         entry: docker.io/rhysd/actionlint:1.7.11
+
+      - id: datahub-web-react-lint
+        name: Lint datahub-web-react
+        description: Runs lint on files in datahub-web-react
+        language: system
+        pass_filenames: false
+        files: ^datahub-web-react/.*\.(ts|tsx|js)$
+        entry: ./gradlew :datahub-web-react:lintFix
