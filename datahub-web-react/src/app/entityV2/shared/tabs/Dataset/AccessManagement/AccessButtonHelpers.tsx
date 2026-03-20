@@ -53,6 +53,16 @@ export interface RoleAccessData {
 }
 
 /**
+ * Returns the button text based on whether the user has access.
+ */
+export const getAccessButtonText = (hasAccess: boolean): string => (hasAccess ? 'Granted' : 'Request');
+
+/**
+ * Returns whether the access button should be disabled.
+ */
+export const isAccessButtonDisabled = (hasAccess: boolean): boolean => hasAccess;
+
+/**
  * Handles the click event for access request buttons.
  * Only opens the URL if the user doesn't already have access.
  */
@@ -94,13 +104,3 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
         button
     );
 };
-
-/**
- * Determines the button text based on access status
- */
-export const getAccessButtonText = (hasAccess: boolean): string => (hasAccess ? 'Granted' : 'Request');
-
-/**
- * Determines if the button should be disabled
- */
-export const isAccessButtonDisabled = (hasAccess: boolean): boolean => hasAccess;
