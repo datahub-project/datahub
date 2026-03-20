@@ -55,13 +55,13 @@
         "json": {
             "typeNames": [
                 "Dataplex",
-                "BigQuery"
+                "Table"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705316400000,
-        "runId": "dataplex-2024_01_15-12_00_00-oe3e75",
+        "runId": "dataplex-2024_01_15-12_00_00-41ka0t",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -174,13 +174,13 @@
         "json": {
             "typeNames": [
                 "Dataplex",
-                "BigQuery"
+                "Table"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705316400000,
-        "runId": "dataplex-2024_01_15-12_00_00-oe3e75",
+        "runId": "dataplex-2024_01_15-12_00_00-41ka0t",
         "lastRunId": "no-run-id-provided"
     }
 },

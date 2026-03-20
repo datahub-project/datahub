@@ -205,11 +205,8 @@ class DataplexSubTypes(StrEnum):
     """Subtypes for datasets discovered via Google Cloud Dataplex Universal Catalog."""
 
     DATAPLEX = "Dataplex"
-    PUBSUB = "Pub/Sub"
-    BIGQUERY = "BigQuery"
-    BIGTABLE = "Bigtable"
-    SPANNER = "Spanner"
-    METASTORE = "Metastore"
+    TOPIC = "Topic"
+    TABLE = "Table"
 
 
 def create_source_capability_modifier_enum():

@@ -44,19 +44,18 @@ DATAPLEX_SYSTEM_TO_PLATFORM = {
     "CLOUD_BIGTABLE": "bigtable",
     "DATAPROC_METASTORE": "hive",
     "CLOUD_SPANNER": "spanner",
-    # Add more mappings as Google Cloud adds support for more services in Dataplex
+    # Add more mappings ass we add support for more services in Dataplex
 }
 
 # Mapping of Google Cloud system types to DataHub subtypes
 # Based on entry.entry_source.system field from Dataplex Universal Catalog
 DATAPLEX_SYSTEM_TO_SUBTYPE = {
-    "CLOUD_PUBSUB": DataplexSubTypes.PUBSUB,
-    "BIGQUERY": DataplexSubTypes.BIGQUERY,
-    "CLOUD_STORAGE": None,  # GCS files don't have a specific subtype
-    "CLOUD_BIGTABLE": DataplexSubTypes.BIGTABLE,
-    "DATAPROC_METASTORE": DataplexSubTypes.METASTORE,
-    "CLOUD_SPANNER": DataplexSubTypes.SPANNER,
-    # Add more mappings as Google Cloud adds support for more services in Dataplex
+    "CLOUD_PUBSUB": DataplexSubTypes.TOPIC,
+    "BIGQUERY": DataplexSubTypes.TABLE,
+    "CLOUD_BIGTABLE": DataplexSubTypes.TABLE,
+    "DATAPROC_METASTORE": DataplexSubTypes.TABLE,
+    "CLOUD_SPANNER": DataplexSubTypes.TABLE,
+    # Add more mappings as we add support for more services in Dataplex
 }
 
 

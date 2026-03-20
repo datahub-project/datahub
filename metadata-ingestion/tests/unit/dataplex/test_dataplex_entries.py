@@ -50,12 +50,12 @@ class TestGetDatahubSubtype:
     @pytest.mark.parametrize(
         "system_type,expected_subtype",
         [
-            ("CLOUD_PUBSUB", "Pub/Sub"),
-            ("BIGQUERY", "BigQuery"),
+            ("CLOUD_PUBSUB", "Topic"),
+            ("BIGQUERY", "Table"),
+            ("CLOUD_BIGTABLE", "Table"),
+            ("DATAPROC_METASTORE", "Table"),
+            ("CLOUD_SPANNER", "Table"),
             ("CLOUD_STORAGE", None),
-            ("CLOUD_BIGTABLE", "Bigtable"),
-            ("DATAPROC_METASTORE", "Metastore"),
-            ("CLOUD_SPANNER", "Spanner"),
             ("UNKNOWN_SYSTEM", None),
         ],
     )

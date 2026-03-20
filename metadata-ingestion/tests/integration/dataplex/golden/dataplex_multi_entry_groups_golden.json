@@ -53,13 +53,13 @@
         "json": {
             "typeNames": [
                 "Dataplex",
-                "BigQuery"
+                "Table"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705316400000,
-        "runId": "dataplex-2024_01_15-12_00_00-wdsope",
+        "runId": "dataplex-2024_01_15-12_00_00-lw8lok",
         "lastRunId": "no-run-id-provided"
     }
 },
