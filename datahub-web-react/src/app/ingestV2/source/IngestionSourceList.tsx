@@ -111,7 +111,7 @@ const PaginationContainer = styled.div`
     flex-shrink: 0;
 `;
 
-export enum IngestionSourceType {
+enum IngestionSourceType {
     ALL,
     UI,
     CLI,

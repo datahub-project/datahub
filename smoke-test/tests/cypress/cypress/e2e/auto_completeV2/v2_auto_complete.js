@@ -1,6 +1,6 @@
 describe("auto-complete", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
       res.body.data.appConfig.featureFlags.showSearchBarAutocompleteRedesign = false;
     });

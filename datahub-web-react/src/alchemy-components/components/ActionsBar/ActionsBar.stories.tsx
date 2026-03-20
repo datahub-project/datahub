@@ -8,8 +8,6 @@ import { ActionsBar, ActionsBarProps } from '@components/components/ActionsBar/A
 import { Button } from '@components/components/Button';
 import { Drawer } from '@components/components/Drawer/Drawer';
 import { Icon } from '@components/components/Icon';
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import colors from '@components/theme/foundations/colors';
 
 // Auto Docs
 const meta = {
@@ -39,9 +37,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const Warning = styled.div`
-    padding: 8pxs
-    background-color: ${colors.red[0]};
-    color: ${colors.red[1000]};
+    padding: 8px;
+    background-color: ${(props) => props.theme.colors.bgSurfaceError};
+    color: ${(props) => props.theme.colors.textError};
     display: flex;
     align-items: center;
     gap: 8px;
