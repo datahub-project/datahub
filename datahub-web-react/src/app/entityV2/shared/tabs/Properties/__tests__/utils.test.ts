@@ -1,6 +1,6 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 
 describe('filterSchemaRows', () => {
     const rows = [

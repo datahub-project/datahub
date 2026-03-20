@@ -24,7 +24,7 @@ const StepsContainer = styled.div`
 /**
  * Mapping from the step type to the title for the step
  */
-export enum IngestionSourceBuilderStepTitles {
+enum IngestionSourceBuilderStepTitles {
     SELECT_TEMPLATE = 'Choose Data Source',
     DEFINE_RECIPE = 'Configure Connection',
     CREATE_SCHEDULE = 'Sync Schedule',
@@ -34,7 +34,7 @@ export enum IngestionSourceBuilderStepTitles {
 /**
  * Mapping from the step type to the component implementing that step.
  */
-export const IngestionSourceBuilderStepComponent = {
+const IngestionSourceBuilderStepComponent = {
     SELECT_TEMPLATE: SelectTemplateStep,
     DEFINE_RECIPE: DefineRecipeStep,
     CREATE_SCHEDULE: CreateScheduleStep,
@@ -44,7 +44,7 @@ export const IngestionSourceBuilderStepComponent = {
 /**
  * Steps of the Ingestion Source Builder flow.
  */
-export enum IngestionSourceBuilderStep {
+enum IngestionSourceBuilderStep {
     SELECT_TEMPLATE = 'SELECT_TEMPLATE',
     DEFINE_RECIPE = 'DEFINE_RECIPE',
     CREATE_SCHEDULE = 'CREATE_SCHEDULE',
