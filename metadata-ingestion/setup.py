@@ -885,9 +885,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "confluence",
-            # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
-            # It's available as a separate extra and in the docs extra for doc generation
-            # TODO: Re-add datahub-documents here now that Python 3.9 support was dropped
+            "datahub-documents",
             "dataplex",
             "delta-lake",
             "dremio",
