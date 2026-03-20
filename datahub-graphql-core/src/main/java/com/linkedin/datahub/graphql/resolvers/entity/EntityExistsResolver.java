@@ -30,7 +30,7 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
 
     // Use DataLoader to batch multiple existence checks into a single query
     final DataLoader<String, Boolean> dataLoader =
-        environment.getDataLoaderRegistry().getDataLoader("entityExists");
+        environment.getDataLoaderRegistry().getDataLoader("ENTITY_EXISTS");
     return dataLoader.load(entityUrnString);
   }
 }

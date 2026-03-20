@@ -5,8 +5,9 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.loaders.EntityExistsBatchDataLoader;
+import com.linkedin.datahub.graphql.types.entitytype.EntityExistsType;
 import com.linkedin.metadata.entity.EntityService;
+import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
@@ -29,6 +30,7 @@ public class EntityExistsResolverTest {
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private EntityExistsResolver _resolver;
   private DataLoaderRegistry _dataRegistry;
+  private EntityExistsType entityExitsType;
 
   @BeforeMethod
   public void setupTest() {
@@ -40,6 +42,7 @@ public class EntityExistsResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(queryContext);
 
     _resolver = new EntityExistsResolver(_entityService);
+    entityExitsType = new EntityExistsType(_entityService);
   }
 
   @Test
@@ -54,7 +57,7 @@ public class EntityExistsResolverTest {
     when(_dataFetchingEnvironment.getArgument(eq("urn"))).thenReturn(ENTITY_URN_STRING);
     when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(_dataRegistry);
     DataLoader<Object, Object> exitsLoader = mock(DataLoader.class);
-    when(_dataRegistry.getDataLoader(eq("entityExists"))).thenReturn(exitsLoader);
+    when(_dataRegistry.getDataLoader(eq("ENTITY_EXISTS"))).thenReturn(exitsLoader);
     when(_entityService.exists(any(OperationContext.class), any(Collection.class)))
         .thenAnswer(args -> args.getArgument(1));
     when(exitsLoader.load(eq(ENTITY_URN_STRING)))
@@ -75,21 +78,13 @@ public class EntityExistsResolverTest {
 
     when(_entityService.exists(eq(operationContext), any(Set.class))).thenReturn(existingUrns);
 
-    DataLoader<String, Boolean> dataLoader =
-        EntityExistsBatchDataLoader.create(_entityService, queryContext);
-
-    // Load three URNs in order
-    CompletableFuture<Boolean> future1 = dataLoader.load(URN_1);
-    CompletableFuture<Boolean> future2 = dataLoader.load(URN_2);
-    CompletableFuture<Boolean> future3 = dataLoader.load(URN_3);
-
-    // Dispatch batch
-    dataLoader.dispatch();
+    List<DataFetcherResult<Boolean>> results =
+        entityExitsType.batchLoad(List.of(URN_1, URN_2, URN_3), queryContext);
 
     // Verify mixed results (true, false, true)
-    assertTrue(future1.get(), "URN_1 should exist");
-    assertFalse(future2.get(), "URN_2 should not exist");
-    assertTrue(future3.get(), "URN_3 should exist");
+    assertTrue(results.get(0).getData(), "URN_1 should exist");
+    assertFalse(results.get(1).getData(), "URN_2 should not exist");
+    assertTrue(results.get(2).getData(), "URN_3 should exist");
   }
 
   @Test
@@ -106,20 +101,14 @@ public class EntityExistsResolverTest {
 
     when(_entityService.exists(eq(operationContext), any(Set.class))).thenReturn(allUrns);
 
-    DataLoader<String, Boolean> dataLoader =
-        EntityExistsBatchDataLoader.create(_entityService, queryContext);
-
     // Load in reverse order (URN_3, URN_1, URN_2)
     // Without order preservation, results would come back in different order
     List<String> loadOrder = Arrays.asList(URN_3, URN_1, URN_2);
-    List<CompletableFuture<Boolean>> futures = loadOrder.stream().map(dataLoader::load).toList();
-
-    dataLoader.dispatch();
-
+    List<DataFetcherResult<Boolean>> results = entityExitsType.batchLoad(loadOrder, queryContext);
     // Results must be in same order as loaded input, not hash order
-    assertTrue(futures.get(0).get(), "Index 0 should be URN_3");
-    assertTrue(futures.get(1).get(), "Index 1 should be URN_1");
-    assertTrue(futures.get(2).get(), "Index 2 should be URN_2");
+    assertTrue(results.get(0).getData(), "Index 0 should be URN_3");
+    assertTrue(results.get(1).getData(), "Index 1 should be URN_1");
+    assertTrue(results.get(2).getData(), "Index 2 should be URN_2");
   }
 
   @Test
@@ -135,20 +124,9 @@ public class EntityExistsResolverTest {
 
     when(_entityService.exists(eq(operationContext), any(Set.class))).thenReturn(allUrns);
 
-    DataLoader<String, Boolean> dataLoader =
-        EntityExistsBatchDataLoader.create(_entityService, queryContext);
-
     // Load three URNs (normally would be 3 separate queries)
-    CompletableFuture<Boolean> future1 = dataLoader.load(URN_1);
-    CompletableFuture<Boolean> future2 = dataLoader.load(URN_2);
-    CompletableFuture<Boolean> future3 = dataLoader.load(URN_3);
-
-    dataLoader.dispatch();
-
-    // Wait for all futures to complete
-    future1.get();
-    future2.get();
-    future3.get();
+    List<String> loadOrder = Arrays.asList(URN_1, URN_2, URN_3);
+    List<DataFetcherResult<Boolean>> results = entityExitsType.batchLoad(loadOrder, queryContext);
 
     // Verify entityService.exists called ONCE with all 3 URNs (batched)
     verify(_entityService, times(1))

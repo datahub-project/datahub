@@ -25,7 +25,6 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
-import com.linkedin.datahub.graphql.loaders.EntityExistsBatchDataLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -299,6 +298,7 @@ import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.datatype.DataTypeType;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
+import com.linkedin.datahub.graphql.types.entitytype.EntityExistsType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.CreateERModelRelationshipResolver;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.ERModelRelationshipType;
@@ -514,7 +514,7 @@ public class GmsGraphQLEngine {
   private final PageTemplateType dataHubPageTemplateType;
   private final PageModuleType dataHubPageModuleType;
   private final DataHubFileType dataHubFileType;
-
+  private final EntityExistsType entityExistsType;
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
 
@@ -656,6 +656,7 @@ public class GmsGraphQLEngine {
     this.dataHubPageTemplateType = new PageTemplateType(entityClient);
     this.dataHubPageModuleType = new PageModuleType(entityClient);
     this.dataHubFileType = new DataHubFileType(entityClient);
+    this.entityExistsType = new EntityExistsType(entityService);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
     this.s3Util = args.s3Util;
@@ -909,7 +910,7 @@ public class GmsGraphQLEngine {
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
         .addDataLoader(
-            "entityExists", context -> EntityExistsBatchDataLoader.create(entityService, context))
+            this.entityExistsType.name(), context -> createDataLoader(entityExistsType, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
