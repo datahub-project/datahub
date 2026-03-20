@@ -1,11 +1,13 @@
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Button, Col, Dropdown, Empty, MenuProps, Pagination, Row, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
-import { CustomAvatar } from '@app/shared/avatar';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -13,11 +15,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '@graphql/group.generated';
 import { CorpUser, EntityType } from '@types';
 
-const ADD_MEMBER_STYLE = {
-    backGround: '#ffffff',
-    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.05)',
-};
-const AVATAR_STYLE = { margin: '5px 5px 5px 0' };
+const ADD_MEMBER_STYLE = {};
 
 /**
  * Styled Components
@@ -42,7 +40,7 @@ const AddMemberText = styled(Typography.Text)`
 const MemberNameSection = styled.div`
     font-size: 20px;
     line-height: 28px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     justify-content: start;
@@ -60,7 +58,7 @@ const GroupMemberWrapper = styled.div`
 
 const MemberColumn = styled(Col)`
     padding: 19px 0 19px 0;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const MemberEditIcon = styled.div`
@@ -72,7 +70,7 @@ const Name = styled.span`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     margin-left: 8px;
 `;
 
@@ -198,12 +196,10 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                                   <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
                                       <Link to={entityUrn}>
                                           <MemberNameSection>
-                                              <CustomAvatar
-                                                  useDefaultAvatar={false}
-                                                  size={28}
-                                                  photoUrl={item.editableProperties?.pictureLink || ''}
+                                              <Avatar
                                                   name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
-                                                  style={AVATAR_STYLE}
+                                                  imageUrl={item.editableProperties?.pictureLink || undefined}
+                                                  type={AvatarType.user}
                                               />
                                               <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
                                           </MemberNameSection>

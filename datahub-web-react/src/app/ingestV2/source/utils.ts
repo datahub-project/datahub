@@ -42,7 +42,7 @@ dayjs.extend(timezone);
 dayjs.extend(advancedFormat);
 dayjs.extend(localizedFormat);
 
-export const CUSTOM_SOURCE_NAME = 'custom';
+const CUSTOM_SOURCE_NAME = 'custom';
 export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
@@ -482,7 +482,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dashboard.toLowerCase(),
 ]);
 
-export type EntityTypeCount = {
+type EntityTypeCount = {
     count: number;
     displayName: string;
 };
@@ -714,9 +714,4 @@ export const getIngestionSourceMutationInput = (data: SourceBuilderState, source
               }
             : undefined,
     };
-};
-
-export const getSourceDisplayName = (sourceType: string, ingestionSources: SourceConfig[]) => {
-    const sourceConfigs = getSourceConfigs(ingestionSources, sourceType as string);
-    return sourceConfigs?.displayName;
 };

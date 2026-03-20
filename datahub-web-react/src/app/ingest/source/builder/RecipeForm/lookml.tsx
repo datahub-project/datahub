@@ -142,7 +142,7 @@ export const PARSE_TABLE_NAMES_FROM_SQL: RecipeField = {
     rules: null,
 };
 
-export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
+const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     name: 'name',
     label: 'Name',
     tooltip: (
@@ -165,7 +165,7 @@ export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     rules: [{ required: true, message: 'Name is required' }],
 };
 
-export const PLATFORM: RecipeField = {
+const PLATFORM: RecipeField = {
     name: 'platform',
     label: 'Platform',
     tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
@@ -175,7 +175,7 @@ export const PLATFORM: RecipeField = {
     rules: [{ required: true, message: 'Platform is required' }],
 };
 
-export const DEFAULT_DB: RecipeField = {
+const DEFAULT_DB: RecipeField = {
     name: 'default_db',
     label: 'Default Database',
     tooltip: 'The Database associated with assets from the Looker connection.',
