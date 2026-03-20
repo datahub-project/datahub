@@ -140,10 +140,10 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     const hasAddableEntitiesMatchingFilters = filteredAddableOptions?.length > 0;
     const hasExistingEntitiesMatchingFilters = filteredPreviouslyAddedOptions?.length > 0;
     const hasExistingEntities = previouslyAddedOptions?.length > 0;
-    const primaryEntityType = entityTypes[0];
-    const entityName = primaryEntityType
-        ? entityRegistry.getCollectionName(primaryEntityType)?.toLowerCase()
-        : 'items';
+    const entityName =
+        entityTypes.length === 1
+            ? (entityRegistry.getCollectionName(entityTypes[0])?.toLowerCase() ?? 'items')
+            : 'entities';
     const emptyMessage = `No ${entityName} found`;
     return (
         <StyledSelectContainer onClick={handleContainerClick}>
@@ -152,7 +152,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
                 debouncedSetFilterText={handleSearchEntities}
                 matchResultCount={filteredPreviouslyAddedOptions?.length + filteredAddableOptions?.length}
                 numRows={searchResultCount}
-                entityTypeName={primaryEntityType ?? ''}
+                entityTypeName={entityTypes[0] ?? ''}
                 options={{ hidePrefix: true, hideMatchCountText: true, placeholder: `Search for ${entityName}...` }}
             />
             {isLoading ? (
