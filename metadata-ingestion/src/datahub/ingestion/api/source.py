@@ -27,6 +27,8 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
     get_report_failure_sample_size,
     get_report_warning_sample_size,
+    get_sink_error_log_level,
+    get_sink_warning_log_level,
 )
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
@@ -68,6 +70,10 @@ from datahub.utilities.type_annotations import get_class_from_annotation
 logger = logging.getLogger(__name__)
 
 _MAX_CONTEXT_STRING_LENGTH = 1000
+
+# Compute log levels once at module load for better performance
+_SINK_ERROR_LOG_LEVEL = get_sink_error_log_level()
+_SINK_WARNING_LOG_LEVEL = get_sink_warning_log_level()
 
 
 class SourceCapability(Enum):
@@ -258,6 +264,12 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         """
         See docs of StructuredLogs.report_log for details of args
         """
+        # Log at configured level (this method is for silent reporting, not immediate logging)
+        log_content = f"{message} => {context}" if context else message
+        if title:
+            log_content = f"{title}: {log_content}"
+        logger.log(_SINK_WARNING_LOG_LEVEL, log_content)
+
         self._structured_logs.report_log(
             StructuredLogLevel.WARN,
             message,
@@ -302,6 +314,13 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         """
         See docs of StructuredLogs.report_log for details of args
         """
+        # Log at configured level if not already logging at ERROR level
+        if not log:
+            log_content = f"{message} => {context}" if context else message
+            if title:
+                log_content = f"{title}: {log_content}"
+            logger.log(_SINK_ERROR_LOG_LEVEL, log_content)
+
         self._structured_logs.report_log(
             StructuredLogLevel.ERROR,
             message,
