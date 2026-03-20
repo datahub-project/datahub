@@ -19,7 +19,6 @@ from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
 from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
-from datahub.metadata._urns.urn_defs import DataHubExecutionRequestUrn
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceConfigClass,
     DataHubIngestionSourceInfoClass,
@@ -29,6 +28,7 @@ from datahub.metadata.schema_classes import (
     StructuredExecutionReportClass,
     _Aspect,
 )
+from datahub.metadata.urns import DataHubExecutionRequestUrn
 from datahub.utilities.logging_manager import get_log_buffer
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
