@@ -14,7 +14,6 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.graph.EdgeDiff;
-import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -30,11 +29,9 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.Parameters;
 import com.linkedin.platform.event.v1.RelationshipChangeEvent;
 import com.linkedin.platform.event.v1.RelationshipChangeOperation;
-import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -67,6 +64,8 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       ImmutableSet.of(
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
+          Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
           Constants.OWNERSHIP_ASPECT_NAME,
           Constants.DOMAINS_ASPECT_NAME,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
@@ -78,6 +77,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
           Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
           Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
           Constants.BUSINESS_ATTRIBUTE_ASPECT,
+          Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
 
           // Entity Lifecycle Event
           Constants.DATASET_KEY_ASPECT_NAME,
@@ -106,6 +106,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
   private final List<String> entityExclusions;
+  private final List<String> fineGrainedLineageNotAllowedForPlatforms;
 
   @Autowired
   public PlatformEventGeneratorHook(
@@ -116,7 +117,9 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${entityChangeEvents.consumerGroupSuffix}") String consumerGroupSuffix,
       @Nonnull @Value("#{'${entityChangeEvents.entityExclusions}'.split(',')}")
-          List<String> entityExclusions) {
+          List<String> entityExclusions,
+      @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
+          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
     this.systemOperationContext = systemOperationContext;
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
@@ -124,6 +127,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
     this.entityExclusions = entityExclusions;
+    this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
   }
 
   @VisibleForTesting
@@ -138,6 +142,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         entityClient,
         isEnabled,
         "",
+        Collections.emptyList(),
         Collections.emptyList());
   }
 
@@ -305,10 +310,13 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
             .getAspectSpec(logEvent.getAspectName());
 
     if (aspectSpec == null) {
-      log.error(
+      log.warn(
           "Failed to find aspect spec for entity type {} for log event: {}",
           logEvent.getEntityType(),
           logEvent);
+      return Collections.emptyList();
+    } else if (logEvent.getEntityUrn() == null) {
+      log.warn("Log event does not have an entity urn: {}", logEvent);
       return Collections.emptyList();
     }
 
@@ -325,45 +333,18 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
             ? GenericRecordUtils.deserializeAspect(
                 logEvent.getAspect().getValue(), logEvent.getAspect().getContentType(), aspectSpec)
             : null;
-    Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
-    if (oldAspect != null) {
-      oldEdgeAndRelationTypes =
-          GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
-              Objects.requireNonNull(logEvent.getEntityUrn()),
-              aspectSpec,
-              oldAspect,
-              logEvent,
-              false);
-    }
-
-    final List<Edge> oldEdges =
-        oldEdgeAndRelationTypes != null
-            ? oldEdgeAndRelationTypes.getFirst()
-            : Collections.emptyList();
 
     EdgeDiff edgeDiff =
-        computeAspectEdgeDiff(logEvent.getEntityUrn(), aspectSpec, oldAspect, newAspect, logEvent);
+        computeAspectEdgeDiff(
+            logEvent.getEntityUrn(),
+            aspectSpec,
+            oldAspect,
+            newAspect,
+            logEvent,
+            fineGrainedLineageNotAllowedForPlatforms,
+            systemOperationContext.getEntityRegistry());
 
     List<RelationshipChangeEvent> relationshipChangeEvents = new ArrayList<>();
-
-    for (Edge edge : edgeDiff.getEdgesToAdd()) {
-      if (edge.getRelationshipType() != null) {
-        log.debug("Additive difference found for relationship type {}", edge.getRelationshipType());
-      }
-
-      RelationshipChangeEvent relationshipChangeEvent =
-          new RelationshipChangeEvent()
-              .setRelationshipType(edge.getRelationshipType())
-              .setOperation(RelationshipChangeOperation.ADD)
-              .setSourceUrn(edge.getSource())
-              .setDestinationUrn(edge.getDestination())
-              .setRelationshipType(edge.getRelationshipType());
-
-      if (logEvent.getCreated() != null) {
-        relationshipChangeEvent.setAuditStamp(logEvent.getCreated());
-      }
-      relationshipChangeEvents.add(relationshipChangeEvent);
-    }
 
     for (Edge edge : edgeDiff.getEdgesToRemove()) {
       if (edge.getRelationshipType() != null) {
@@ -374,6 +355,25 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
           new RelationshipChangeEvent()
               .setRelationshipType(edge.getRelationshipType())
               .setOperation(RelationshipChangeOperation.REMOVE)
+              .setSourceUrn(edge.getSource())
+              .setDestinationUrn(edge.getDestination())
+              .setRelationshipType(edge.getRelationshipType());
+
+      if (logEvent.getCreated() != null) {
+        relationshipChangeEvent.setAuditStamp(logEvent.getCreated());
+      }
+      relationshipChangeEvents.add(relationshipChangeEvent);
+    }
+
+    for (Edge edge : edgeDiff.getEdgesToAdd()) {
+      if (edge.getRelationshipType() != null) {
+        log.debug("Additive difference found for relationship type {}", edge.getRelationshipType());
+      }
+
+      RelationshipChangeEvent relationshipChangeEvent =
+          new RelationshipChangeEvent()
+              .setRelationshipType(edge.getRelationshipType())
+              .setOperation(RelationshipChangeOperation.ADD)
               .setSourceUrn(edge.getSource())
               .setDestinationUrn(edge.getDestination())
               .setRelationshipType(edge.getRelationshipType());

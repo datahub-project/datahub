@@ -96,21 +96,6 @@ public class PlatformEventGeneratorHookTest {
   private static final String TEST_DATA_JOB_URN = "urn:li:dataJob:job";
   private Urn actorUrn;
 
-  //  private EventProducer mockProducer;
-  //  private SystemEntityClient mockProcessInstanceEntityClient;
-  //  private EntityChangeEventGeneratorHook _entityChangeEventHook;
-  //  // SaaS only
-  //  private static final String TEST_ACTION_REQUEST_URN = "urn:li:actionRequest:123";
-  //  private static final String TEST_GLOSSARY_TERM_URN = "urn:li:glossaryTerm:123";
-  //  private static final String TEST_TAG_URN = "urn:li:tag:123";
-  //  private static final String TEST_GROUP_URN = "urn:li:corpGroup:123";
-  //  private static final String TEST_PARENT_NODE_URN = "urn:li:glossaryNode:123";
-  //  private static final String TEST_GLOSSARY_NODE_NAME = "Classification";
-  //  private static final String TEST_GLOSSARY_NODE_DESCRIPTION = "A classification of data";
-  //  private static final String TEST_GLOSSARY_TERM_NAME = "PII";
-  //  private static final String TEST_GLOSSARY_TERM_DESCRIPTION =
-  //      "Personally Identifiable Information";
-
   private SystemEntityClient _mockClient;
   private PlatformEventGeneratorHook _entityChangeEventHook;
 
@@ -151,7 +136,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.ADD,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString()),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -183,7 +168,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.REMOVE,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString()),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -219,7 +204,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.ADD,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
+            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -255,7 +240,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.REMOVE,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
+            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -412,6 +397,7 @@ public class PlatformEventGeneratorHookTest {
     Deprecation newDeprecation = new Deprecation();
     newDeprecation.setDeprecated(true);
     newDeprecation.setNote("Test Note");
+    newDeprecation.setDecommissionTime(EVENT_TIME);
     newDeprecation.setActor(actorUrn);
 
     event.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
@@ -430,7 +416,13 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DEPRECATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("status", "DEPRECATED"),
+            ImmutableMap.of(
+                "status",
+                "DEPRECATED",
+                "timestamp",
+                String.valueOf(EVENT_TIME),
+                "note",
+                "Test Note"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -982,7 +974,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.ADD,
             null,
-            ImmutableMap.of("description", "c1Desc"),
+            ImmutableMap.of(
+                "description", "c1Desc", "fieldPath", "c1", "parentUrn", TEST_DATASET_URN),
             actorUrn),
         false);
 
@@ -994,7 +987,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("description", "newC2Desc"),
+            ImmutableMap.of(
+                "description", "newC2Desc", "fieldPath", "c2", "parentUrn", TEST_DATASET_URN),
             actorUrn),
         false);
 
@@ -1006,7 +1000,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.REMOVE,
             null,
-            ImmutableMap.of("description", "c3Desc"),
+            ImmutableMap.of(
+                "description", "c3Desc", "fieldPath", "c3", "parentUrn", TEST_DATASET_URN),
             actorUrn),
         true);
   }
@@ -1057,7 +1052,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.ADD,
             null,
-            ImmutableMap.of("description", "c1Desc"),
+            ImmutableMap.of(
+                "description", "c1Desc", "fieldPath", "c1", "parentUrn", TEST_DATASET_URN),
             actorUrn),
         false);
 
@@ -1069,7 +1065,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("description", "newC2Desc"),
+            ImmutableMap.of(
+                "description", "newC2Desc", "fieldPath", "c2", "parentUrn", TEST_DATASET_URN),
             actorUrn),
         false);
 
@@ -1081,7 +1078,571 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.REMOVE,
             null,
-            ImmutableMap.of("description", "c3Desc"),
+            ImmutableMap.of(
+                "description", "c3Desc", "fieldPath", "c3", "parentUrn", TEST_DATASET_URN),
+            actorUrn),
+        true);
+  }
+
+  @Test
+  public void testSchemaFieldTagChanges() throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(SCHEMA_METADATA_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    SchemaField field1 = new SchemaField().setNativeDataType("string").setFieldPath("c1");
+    SchemaField field2 = new SchemaField().setNativeDataType("string").setFieldPath("c2");
+    SchemaField field3 = new SchemaField().setNativeDataType("string").setFieldPath("c3");
+
+    TagUrn tagUrn1 = new TagUrn("testTag1");
+    TagUrn tagUrn2 = new TagUrn("testTag2");
+    TagUrn tagUrn3 = new TagUrn("testTag3");
+
+    GlobalTags tags1 =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn1))));
+    GlobalTags tags2Old =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn2))));
+    GlobalTags tags2New =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn3))));
+    GlobalTags tags3 =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn1))));
+
+    SchemaFieldArray oldFields = new SchemaFieldArray();
+    SchemaFieldArray newFields = new SchemaFieldArray();
+
+    oldFields.add(field1.clone());
+    newFields.add(field1.clone().setGlobalTags(tags1));
+
+    oldFields.add(field2.clone().setGlobalTags(tags2Old));
+    newFields.add(field2.clone().setGlobalTags(tags2New));
+
+    oldFields.add(field3.clone().setGlobalTags(tags3));
+    newFields.add(field3.clone());
+
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(oldFields)));
+    event.setAspect(GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(newFields)));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c1",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.TAG,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn2.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn3.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            ChangeCategory.TAG,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c3",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        true);
+  }
+
+  @Test
+  public void testEditableSchemaFieldTagChanges() throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    EditableSchemaFieldInfo field1 = new EditableSchemaFieldInfo().setFieldPath("c1");
+    EditableSchemaFieldInfo field2 = new EditableSchemaFieldInfo().setFieldPath("c2");
+    EditableSchemaFieldInfo field3 = new EditableSchemaFieldInfo().setFieldPath("c3");
+    EditableSchemaFieldInfo field4 = new EditableSchemaFieldInfo().setFieldPath("c4");
+
+    TagUrn tagUrn1 = new TagUrn("testTag1");
+    TagUrn tagUrn2 = new TagUrn("testTag2");
+    TagUrn tagUrn3 = new TagUrn("testTag3");
+
+    GlobalTags tags1 =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn1))));
+    GlobalTags tags2Old =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn2))));
+    GlobalTags tags2New =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn3))));
+    GlobalTags tags3 =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn1))));
+    GlobalTags tags4 =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(tagUrn1))));
+
+    EditableSchemaFieldInfoArray oldFields = new EditableSchemaFieldInfoArray();
+    EditableSchemaFieldInfoArray newFields = new EditableSchemaFieldInfoArray();
+
+    oldFields.add(field1.clone());
+    newFields.add(field1.clone().setGlobalTags(tags1));
+
+    oldFields.add(field2.clone().setGlobalTags(tags2Old));
+    newFields.add(field2.clone().setGlobalTags(tags2New));
+
+    oldFields.add(field3.clone().setGlobalTags(tags3));
+    newFields.add(field3.clone());
+
+    oldFields.add(field4.clone().setGlobalTags(tags4));
+    newFields.add(field4.clone().setGlobalTags(tags4));
+
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(
+            new EditableSchemaMetadata().setEditableSchemaFieldInfo(oldFields)));
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new EditableSchemaMetadata().setEditableSchemaFieldInfo(newFields)));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c1",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.TAG,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn2.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn3.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            ChangeCategory.TAG,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "tagUrn",
+                tagUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c3",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        true);
+  }
+
+  @Test
+  public void testSchemaFieldTermChanges() throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(SCHEMA_METADATA_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    SchemaField field1 = new SchemaField().setNativeDataType("string").setFieldPath("c1");
+    SchemaField field2 = new SchemaField().setNativeDataType("string").setFieldPath("c2");
+    SchemaField field3 = new SchemaField().setNativeDataType("string").setFieldPath("c3");
+
+    GlossaryTermUrn termUrn1 = new GlossaryTermUrn("testTerm1");
+    GlossaryTermUrn termUrn2 = new GlossaryTermUrn("testTerm2");
+    GlossaryTermUrn termUrn3 = new GlossaryTermUrn("testTerm3");
+
+    GlossaryTerms terms1 =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn1))));
+    GlossaryTerms terms2Old =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn2))));
+    GlossaryTerms terms2New =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn3))));
+    GlossaryTerms terms3 =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn1))));
+
+    SchemaFieldArray oldFields = new SchemaFieldArray();
+    SchemaFieldArray newFields = new SchemaFieldArray();
+
+    oldFields.add(field1.clone());
+    newFields.add(field1.clone().setGlossaryTerms(terms1));
+
+    oldFields.add(field2.clone().setGlossaryTerms(terms2Old));
+    newFields.add(field2.clone().setGlossaryTerms(terms2New));
+
+    oldFields.add(field3.clone().setGlossaryTerms(terms3));
+    newFields.add(field3.clone());
+
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(oldFields)));
+    event.setAspect(GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(newFields)));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c1",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn2.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn3.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c3",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        true);
+  }
+
+  @Test
+  public void testEditableSchemaFieldTermChanges() throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    EditableSchemaFieldInfo field1 = new EditableSchemaFieldInfo().setFieldPath("c1");
+    EditableSchemaFieldInfo field2 = new EditableSchemaFieldInfo().setFieldPath("c2");
+    EditableSchemaFieldInfo field3 = new EditableSchemaFieldInfo().setFieldPath("c3");
+    EditableSchemaFieldInfo field4 = new EditableSchemaFieldInfo().setFieldPath("c4");
+
+    GlossaryTermUrn termUrn1 = new GlossaryTermUrn("testTerm1");
+    GlossaryTermUrn termUrn2 = new GlossaryTermUrn("testTerm2");
+    GlossaryTermUrn termUrn3 = new GlossaryTermUrn("testTerm3");
+
+    GlossaryTerms terms1 =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn1))));
+    GlossaryTerms terms2Old =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn2))));
+    GlossaryTerms terms2New =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn3))));
+    GlossaryTerms terms3 =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn1))));
+    GlossaryTerms terms4 =
+        new GlossaryTerms()
+            .setTerms(
+                new GlossaryTermAssociationArray(
+                    ImmutableList.of(new GlossaryTermAssociation().setUrn(termUrn1))));
+
+    EditableSchemaFieldInfoArray oldFields = new EditableSchemaFieldInfoArray();
+    EditableSchemaFieldInfoArray newFields = new EditableSchemaFieldInfoArray();
+
+    oldFields.add(field1.clone());
+    newFields.add(field1.clone().setGlossaryTerms(terms1));
+
+    oldFields.add(field2.clone().setGlossaryTerms(terms2Old));
+    newFields.add(field2.clone().setGlossaryTerms(terms2New));
+
+    oldFields.add(field3.clone().setGlossaryTerms(terms3));
+    newFields.add(field3.clone());
+
+    oldFields.add(field4.clone().setGlossaryTerms(terms4));
+    newFields.add(field4.clone().setGlossaryTerms(terms4));
+
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(
+            new EditableSchemaMetadata().setEditableSchemaFieldInfo(oldFields)));
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new EditableSchemaMetadata().setEditableSchemaFieldInfo(newFields)));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c1",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn2.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn3.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
+            actorUrn),
+        false);
+
+    verifyProducePlatformEvent(
+        _mockClient,
+        createChangeEvent(
+            SCHEMA_FIELD_ENTITY_NAME,
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            ChangeCategory.GLOSSARY_TERM,
+            ChangeOperation.REMOVE,
+            null,
+            ImmutableMap.of(
+                "termUrn",
+                termUrn1.toString(),
+                "context",
+                "{}",
+                "fieldPath",
+                "c3",
+                "parentUrn",
+                TEST_DATASET_URN),
             actorUrn),
         true);
   }
@@ -1215,6 +1776,46 @@ public class PlatformEventGeneratorHookTest {
   }
 
   @Test
+  public void testRelationshipEventGenerationFromAspectDeletion() throws Exception {
+    String TEST_UPSTREAM_LINEAGE_URN =
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset-upstream,PROD)";
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fine = new FineGrainedLineageArray();
+    FineGrainedLineage lineage = new FineGrainedLineage();
+    UrnArray downstreams = new UrnArray();
+    downstreams.add(Urn.createFromString(TEST_DATASET_URN));
+    lineage.setDownstreams(downstreams);
+
+    UrnArray upstreams = new UrnArray();
+    upstreams.add(Urn.createFromString(TEST_UPSTREAM_LINEAGE_URN));
+    lineage.setUpstreams(upstreams);
+    fine.add(lineage);
+    upstreamLineage.setFineGrainedLineages(fine);
+
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(upstreamLineage));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProduceRelationshipPlatformEvent(
+        _mockClient,
+        createRelationshipEvent(
+            "downstreamOf",
+            Urn.createFromString(TEST_DATASET_URN),
+            upstreams.get(0),
+            RelationshipChangeOperation.REMOVE,
+            actorUrn),
+        false);
+  }
+
+  @Test
   public void testRelationshipEventGenerationFromDataJobInputOutputAspectRelationshipRemoved()
       throws Exception {
     String TEST_UPSTREAM_LINEAGE_URN = "urn:li:datajob:(datahub,my_pipeline.daily_etl_job,PROD)\n";
@@ -1320,6 +1921,8 @@ public class PlatformEventGeneratorHookTest {
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
     registry.register(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataChangeEventGenerator());
+    registry.register(
+        STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertyChangeEventGenerator());
 
     // Entity Lifecycle change event generators
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
@@ -1384,7 +1987,7 @@ public class PlatformEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
-    // Build Dataset Entity Spec
+    // Build Container Entity Spec
     EntitySpec containerSpec = Mockito.mock(EntitySpec.class);
 
     AspectSpec mockContainerProperties = createMockAspectSpec(ContainerProperties.class);
@@ -1425,6 +2028,8 @@ public class PlatformEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME))
         .thenReturn(dataProcessInstanceSpec);
+
+    Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
@@ -1475,6 +2080,7 @@ public class PlatformEventGeneratorHookTest {
   private <T extends RecordTemplate> AspectSpec createMockAspectSpec(Class<T> clazz) {
     AspectSpec mockSpec = Mockito.mock(AspectSpec.class);
     Mockito.when(mockSpec.getDataTemplateClass()).thenReturn((Class<RecordTemplate>) clazz);
+    Mockito.when(mockSpec.getName()).thenReturn(clazz.getSimpleName());
     return mockSpec;
   }
 
