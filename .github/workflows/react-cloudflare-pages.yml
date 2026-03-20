@@ -31,7 +31,7 @@ jobs:
       cloudflare_token_available: ${{ steps.cloudflare-token-check.outputs.cloudflare_token_available }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v6
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
       - name: Check if cloudflare api token is available
@@ -52,20 +52,20 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v6
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
-        uses: cloudflare/pages-action@1
+        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
