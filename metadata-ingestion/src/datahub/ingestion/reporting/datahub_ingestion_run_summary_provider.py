@@ -19,6 +19,7 @@ from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
 from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
+from datahub.metadata._urns.urn_defs import DataHubExecutionRequestUrn
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceConfigClass,
     DataHubIngestionSourceInfoClass,
@@ -122,9 +123,13 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         # If run_id is already an execution request URN, we're being invoked by
         # the executor (via GraphQL createIngestionExecutionRequest mutation).
         # In this case, skip creating a duplicate CLI source - let the executor handle it.
-        self._is_running_under_executor = ctx.run_id.startswith(
-            "urn:li:dataHubExecutionRequest:"
-        )
+        try:
+            parsed = Urn.from_string(ctx.run_id)
+            self._is_running_under_executor = (
+                parsed.entity_type == DataHubExecutionRequestUrn.ENTITY_TYPE
+            )
+        except Exception:
+            self._is_running_under_executor = False
 
         if self._is_running_under_executor:
             logger.info(
@@ -137,8 +142,8 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             entity_id=["cli-" + datahub_guid(ingestion_source_key)],
         )
         logger.debug(f"Ingestion source urn = {self.ingestion_source_urn}")
-        self.execution_request_input_urn: Urn = Urn(
-            entity_type="dataHubExecutionRequest", entity_id=[ctx.run_id]
+        self.execution_request_input_urn: DataHubExecutionRequestUrn = (
+            DataHubExecutionRequestUrn(ctx.run_id)
         )
         self.start_time_ms: int = self.get_cur_time_in_ms()
 

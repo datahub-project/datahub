@@ -210,12 +210,7 @@ def test_executor_detection_with_execution_request_urn() -> None:
 
     # Patch _emit_aspect to track if CLI source info is emitted
     with patch.object(DatahubIngestionRunSummaryProvider, "_emit_aspect") as mock_emit:
-        provider = DatahubIngestionRunSummaryProvider(
-            sink=mock_sink, report_recipe=True, ctx=ctx
-        )
-
-        # Verify executor detection flag is set
-        assert provider._is_running_under_executor is True
+        DatahubIngestionRunSummaryProvider(sink=mock_sink, report_recipe=True, ctx=ctx)
 
         # Verify _emit_aspect was NOT called (CLI source creation skipped)
         mock_emit.assert_not_called()
@@ -247,9 +242,6 @@ def test_cli_source_creation_with_normal_run_id() -> None:
         provider = DatahubIngestionRunSummaryProvider(
             sink=mock_sink, report_recipe=True, ctx=ctx
         )
-
-        # Verify executor detection flag is NOT set
-        assert provider._is_running_under_executor is False
 
         # Verify _emit_aspect WAS called (CLI source created)
         assert mock_emit.call_count == 1
