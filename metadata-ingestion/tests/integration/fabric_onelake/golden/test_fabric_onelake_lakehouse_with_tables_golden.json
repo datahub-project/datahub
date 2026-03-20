@@ -1,13 +1,13 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
+    "entityUrn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "fabric-onelake",
+                "platform": "fabric",
                 "env": "PROD",
                 "workspace_id": "ws-123"
             },
@@ -18,57 +18,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
+    "entityUrn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:fabric-onelake"
+            "platform": "urn:li:dataPlatform:fabric"
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Fabric Workspace"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -98,6 +64,24 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Fabric Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:4cd19b5ecd3323c3e546bc983a6befb1",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -114,17 +98,33 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:4cd19b5ecd3323c3e546bc983a6befb1",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6"
+            "container": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1"
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -155,15 +155,15 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
-                    "urn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6"
+                    "id": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+                    "urn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -251,8 +251,8 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
-                    "urn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6"
+                    "id": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+                    "urn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1"
                 },
                 {
                     "id": "urn:li:container:4cd19b5ecd3323c3e546bc983a6befb1",
@@ -263,7 +263,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -344,8 +344,8 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
-                    "urn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6"
+                    "id": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+                    "urn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1"
                 },
                 {
                     "id": "urn:li:container:4cd19b5ecd3323c3e546bc983a6befb1",
@@ -360,7 +360,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -441,8 +441,8 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
-                    "urn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6"
+                    "id": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+                    "urn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1"
                 },
                 {
                     "id": "urn:li:container:4cd19b5ecd3323c3e546bc983a6befb1",
@@ -457,29 +457,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:4cd19b5ecd3323c3e546bc983a6befb1",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4e46edc78f70bc8a1db8172849eee7f6",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -506,6 +490,22 @@
     "systemMetadata": {
         "lastObserved": 1705320000000,
         "runId": "fabric-onelake-2024_01_15-12_00_00-i660l8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-p47lpj",
         "lastRunId": "no-run-id-provided"
     }
 },

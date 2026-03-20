@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { INGESTION_TAB_QUERY_PARAMS } from '@app/ingest/constants';
 import IngestionSourceTable from '@app/ingest/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingest/source/RecipeViewerModal';
@@ -25,7 +26,6 @@ import {
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
 
 import {
@@ -302,17 +302,17 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
-        owners?: PendingOwner[],
+        ownerUrns?: string[],
     ) => {
         if (focusSourceUrn) {
             // Update:
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (owners && owners.length > 0) {
+                    if (ownerUrns && ownerUrns.length > 0) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners: owners || [],
+                                    owners: createOwnerInputs(ownerUrns),
                                     resources: [{ resourceUrn: focusSourceUrn }],
                                 },
                             },
@@ -357,11 +357,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         executions: null,
                         ownership: null,
                     };
-                    if (owners && owners.length > 0) {
+                    if (ownerUrns && ownerUrns.length > 0) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners,
+                                    owners: createOwnerInputs(ownerUrns),
                                     resources: [{ resourceUrn: newSource.urn }],
                                 },
                             },

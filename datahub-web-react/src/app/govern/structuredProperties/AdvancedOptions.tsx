@@ -1,4 +1,6 @@
 import { Icon, Input, Text, Tooltip } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Collapse, Form } from 'antd';
 import React from 'react';
 
@@ -18,7 +20,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
         <StyledCollapse
             ghost
             expandIcon={({ isActive }) => (
-                <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
             )}
             expandIconPosition="end"
             defaultActiveKey={[]}
@@ -41,7 +43,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                             title="Optionally provide a dot-separated fully qualified name for this property. This name serves as an ID, and must be unique across properties"
                             showArrow={false}
                         >
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </InputLabel>

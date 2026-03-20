@@ -5,7 +5,7 @@ import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils'
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { EntityType, SchemaField } from '@types';
+import { EntityType } from '@types';
 
 export function downgradeV2FieldPath(fieldPath: string): string;
 export function downgradeV2FieldPath(fieldPath?: string | null) {
@@ -29,13 +29,6 @@ export function processDocumentationString(docString): string {
     }
     const fieldRegex = /'(\[version=2\.0\](?:\.\[key=True\])?\.\[type=[^\]]+\]\.[^']+)'/g;
     return docString.replace(fieldRegex, (_, fieldPath) => `'${downgradeV2FieldPath(fieldPath)}'`);
-}
-
-export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
-    return fields.map((field) => ({
-        ...field,
-        fieldPath: downgradeV2FieldPath(field.fieldPath) || '',
-    }));
 }
 
 export function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {

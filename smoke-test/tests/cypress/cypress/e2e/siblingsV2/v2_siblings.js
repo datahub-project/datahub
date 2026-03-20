@@ -1,8 +1,4 @@
 describe("siblings", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
-
   it("will merge metadata to non-primary sibling", () => {
     cy.login();
     cy.visit("/");

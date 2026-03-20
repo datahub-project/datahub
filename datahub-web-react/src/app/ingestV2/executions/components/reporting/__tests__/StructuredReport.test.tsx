@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
@@ -26,15 +27,18 @@ vi.mock('@app/shared/ShowMoreSection', () => ({
 
 // Mock the StructuredReportItemList component
 vi.mock('../StructuredReportItemList', () => ({
-    StructuredReportItemList: ({ items, color, textColor, icon }: any) => (
-        <div data-testid={`item-list-${icon}`} data-color={color} data-text-color={textColor}>
-            {items.map((item: any, _index: number) => (
-                <div key={`item-${item.title}-${item.message}`} data-testid="report-item">
-                    {item.title}: {item.message}
-                </div>
-            ))}
-        </div>
-    ),
+    StructuredReportItemList: ({ items, color, textColor, icon }: any) => {
+        const iconName = typeof icon === 'string' ? icon : icon?.displayName || icon?.name || icon;
+        return (
+            <div data-testid={`item-list-${iconName}`} data-color={color} data-text-color={textColor}>
+                {items.map((item: any, _index: number) => (
+                    <div key={`item-${item.title}-${item.message}`} data-testid="report-item">
+                        {item.title}: {item.message}
+                    </div>
+                ))}
+            </div>
+        );
+    },
 }));
 
 // Mock the components module
@@ -53,11 +57,10 @@ vi.mock('@components', () => ({
         gray: { 1000: '#F1F3FD', 1500: '#F9FAFC', 1700: '#5F6685' },
         violet: { 500: '#533FD1' },
     },
-    Icon: ({ icon, ...props }: any) => (
-        <span data-testid={`icon-${icon}`} data-icon={icon} {...props}>
-            {icon}
-        </span>
-    ),
+    Icon: ({ icon, ...props }: any) => {
+        const iconName = typeof icon === 'string' ? icon : icon?.displayName || icon?.name || '';
+        return <span data-testid={`icon-${iconName}`} data-icon={iconName} {...props} />;
+    },
 }));
 
 const createMockItem = (

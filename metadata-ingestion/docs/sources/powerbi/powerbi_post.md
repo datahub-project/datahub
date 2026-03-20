@@ -179,54 +179,6 @@ Take into account that the profiling implementation executes a fairly big number
 
 The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allowed and deny rules are matched against the following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. Users may limit profiling with these settings at table level, dataset level or workspace level.
 
-#### Admin Ingestion vs. Basic Ingestion
-
-PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/).
-
-The Basic API returns metadata of PowerBI resources where service principal has granted access explicitly on resources,
-whereas Admin API returns metadata of all PowerBI resources irrespective of whether service principal has granted
-or doesn't grant access explicitly on resources.
-
-The Admin Ingestion (explained below) is the recommended way to execute PowerBI ingestion as this ingestion can extract most of the metadata.
-
-##### Admin Ingestion: Service Principal As Admin in Tenant Setting and Added as Member In Workspace
-
-To grant admin access to the service principal, visit your PowerBI tenant Settings.
-
-If you have added service principal as `member` in workspace and also allowed below permissions from PowerBI tenant Settings
-
-- Allow service principal to use read-only PowerBI Admin APIs
-- Enhance admin APIs responses with detailed metadata
-- Enhance admin APIs responses with DAX and mashup expressions
-
-PowerBI Source would be able to ingest below listed metadata of that particular workspace
-
-- Lineage
-- PowerBI Dataset
-- Endorsement as tag
-- Dashboards
-- Reports
-- Dashboard Tiles
-- Report Pages
-- App
-
-If you don't want to add a service principal as a member in your workspace, then you can enable the `admin_apis_only: true` in recipe to use PowerBI Admin API only.
-
-Caveats of setting `admin_apis_only` to `true`:
-
-- Report's pages would not get ingested as page API is not available in PowerBI Admin API
-- [PowerBI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) would not get resolved to actual values while processing M-Query for table lineage
-- Dataset profiling is unavailable, as it requires access to the workspace API
-
-##### Basic Ingestion: Service Principal As Member In Workspace
-
-If you have added service principal as `member` in workspace then PowerBI Source would be able to ingest below metadata of that particular workspace
-
-- Dashboards
-- Reports
-- Dashboard's Tiles
-- Report's Pages
-
 ### Limitations
 
 - Some metadata and lineage fields are only available through admin APIs or specific tenant settings.

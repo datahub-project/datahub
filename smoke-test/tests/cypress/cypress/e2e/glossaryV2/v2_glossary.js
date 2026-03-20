@@ -33,7 +33,6 @@ const deleteGlossary = (message) => {
 
 describe("glossary", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });
   it("go to glossary page, create terms, term group", () => {

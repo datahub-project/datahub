@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
