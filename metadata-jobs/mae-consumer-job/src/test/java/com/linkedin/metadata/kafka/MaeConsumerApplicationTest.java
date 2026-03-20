@@ -5,25 +5,14 @@ import static org.testng.AssertJUnit.assertNotNull;
 
 import com.datahub.event.PlatformEventProcessor;
 import com.datahub.event.hook.BusinessAttributeUpdateHook;
-import com.datahub.event.hook.NotificationSinkHook;
 import com.datahub.event.hook.PlatformEventHook;
-import com.datahub.event.hook.change.EntityChangeEventSinkHook;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
-import com.linkedin.metadata.kafka.hook.assertion.AssertionActionsHook;
-import com.linkedin.metadata.kafka.hook.assertion.AssertionAnalyticsRunEventHook;
-import com.linkedin.metadata.kafka.hook.assertion.AssertionRunSummaryHook;
-import com.linkedin.metadata.kafka.hook.assertion.AssertionsSummaryHook;
 import com.linkedin.metadata.kafka.hook.event.PlatformEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
-import com.linkedin.metadata.kafka.hook.form.FormCompletionHook;
-import com.linkedin.metadata.kafka.hook.incident.IncidentActivityEventHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
-import com.linkedin.metadata.kafka.hook.notification.settings.DefaultNotificationSettingsHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
-import com.linkedin.metadata.kafka.hook.subscription.OwnerSubscriptionHook;
-import com.linkedin.metadata.kafka.hook.test.MetadataTestHook;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.FormService;
 import io.datahubproject.metadata.jobs.common.health.kafka.KafkaHealthIndicator;
@@ -70,16 +59,7 @@ public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests
             FormAssignmentHook.class,
             IncidentsSummaryHook.class,
             SiblingAssociationHook.class,
-            MetadataTestHook.class,
-            AssertionsSummaryHook.class,
-            IncidentsSummaryHook.class,
-            AssertionActionsHook.class,
-            OwnerSubscriptionHook.class,
-            DefaultNotificationSettingsHook.class,
-            IncidentActivityEventHook.class,
-            FormCompletionHook.class,
-            AssertionRunSummaryHook.class,
-            AssertionAnalyticsRunEventHook.class);
+            IncidentsSummaryHook.class);
 
     for (Class<?> hookClazz : expectedHooks) {
       assertTrue(
@@ -90,11 +70,7 @@ public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests
 
   @Test
   public void testPlatformHooks() {
-    List<Class<?>> expectedHooks =
-        List.of(
-            BusinessAttributeUpdateHook.class,
-            NotificationSinkHook.class,
-            EntityChangeEventSinkHook.class);
+    List<Class<?>> expectedHooks = List.of(BusinessAttributeUpdateHook.class);
 
     for (Class<?> hookClazz : expectedHooks) {
       assertTrue(
