@@ -563,3 +563,11 @@ repos:
           - yaml
         files: ^\.github/workflows/
         entry: docker.io/rhysd/actionlint:1.7.11
+
+      - id: datahub-web-react-lint
+        name: Lint datahub-web-react
+        description: Runs lint on files in datahub-web-react
+        language: system
+        pass_filenames: false
+        files: ^datahub-web-react/.*\.(ts|tsx|js)$
+        entry: ./gradlew :datahub-web-react:lintFix

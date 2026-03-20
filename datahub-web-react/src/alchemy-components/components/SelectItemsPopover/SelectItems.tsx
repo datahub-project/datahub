@@ -16,7 +16,7 @@ export interface SelectItemsProps {
     selectedItems: any[];
     refetch?: () => void;
     onClose?: () => void;
-    entityType: EntityType;
+    entityTypes: EntityType[];
     handleSelectionChange: ({
         selectedItems,
         removedItems,
@@ -86,7 +86,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     selectedItems,
     refetch,
     onClose,
-    entityType,
+    entityTypes,
     handleSelectionChange,
     renderOption,
 }) => {
@@ -101,12 +101,13 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
         handleSearchEntities,
         entitySearchResultsLoading,
         searchData,
+        searchResultCount,
     } = useEntityOperations({
         selectedItems,
         refetch,
         entities,
         onClose,
-        entityType,
+        entityTypes,
         handleSelectionChange,
     });
 
@@ -131,7 +132,10 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     const hasAddableEntitiesMatchingFilters = filteredAddableOptions?.length > 0;
     const hasExistingEntitiesMatchingFilters = filteredPreviouslyAddedOptions?.length > 0;
     const hasExistingEntities = previouslyAddedOptions?.length > 0;
-    const entityName = entityRegistry.getCollectionName(entityType)?.toLowerCase();
+    const entityName =
+        entityTypes.length === 1
+            ? (entityRegistry.getCollectionName(entityTypes[0])?.toLowerCase() ?? 'items')
+            : 'entities';
     const emptyMessage = `No ${entityName} found`;
     return (
         <StyledSelectContainer onClick={handleContainerClick}>
@@ -139,9 +143,9 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
                 searchText={searchText}
                 debouncedSetFilterText={handleSearchEntities}
                 matchResultCount={filteredPreviouslyAddedOptions?.length + filteredAddableOptions?.length}
-                numRows={searchData?.autoComplete?.entities?.length || 0}
-                entityTypeName={entityType}
-                options={{ hidePrefix: true, hideMatchCountText: true, placeholder: 'Search for tags...' }}
+                numRows={searchResultCount}
+                entityTypeName={entityTypes[0] ?? ''}
+                options={{ hidePrefix: true, hideMatchCountText: true, placeholder: `Search for ${entityName}...` }}
             />
             {isLoading ? (
                 <StyledLoader>
