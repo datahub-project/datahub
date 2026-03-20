@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { NodesLoaderWrapperProps } from '@app/homeV3/modules/hierarchyViewModule/treeView/components/itemsLoaderWrapper/types';
 
-export const ObserverContainer = styled.div`
+const ObserverContainer = styled.div`
     height: 1px;
     margin-top: 1px;
 `;

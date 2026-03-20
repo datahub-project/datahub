@@ -380,7 +380,7 @@ elasticsearch:
   entityIndex:
     v2:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
-      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:false}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:true}
     v3:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}

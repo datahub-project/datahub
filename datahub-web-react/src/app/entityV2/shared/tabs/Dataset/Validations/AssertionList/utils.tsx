@@ -9,7 +9,6 @@ import {
     ASSERTION_SOURCES,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import {
-    AssertionBuilderSiblingOptions,
     AssertionColumnGroup,
     AssertionFilterOptions,
     AssertionListFilter,
@@ -28,8 +27,6 @@ import {
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import {
     Assertion,
     AssertionInfo,
@@ -39,7 +36,6 @@ import {
     AssertionSourceType,
     AssertionType,
     AuditStamp,
-    EntityType,
     TagAssociation,
 } from '@src/types.generated';
 
@@ -107,54 +103,6 @@ const getGroupNameBySummary = (record) => {
             <Message type="secondary">{list.join(', ')}</Message>
         </TextContainer>
     );
-};
-
-/**
- * Gets sibling options that a user can author assertions with
- * This includes direct links that will open the respective siblings' assertion builder UI
- * @param entityData
- * @param urn
- * @param entityType
- * @returns {AssertionBuilderSiblingOptions[]}
- */
-export const useSiblingOptionsForAssertionBuilder = (
-    entityData: GenericEntityProperties | null,
-    urn: string,
-    entityType: EntityType,
-): AssertionBuilderSiblingOptions[] => {
-    const optionsToAuthorOn: AssertionBuilderSiblingOptions[] = [];
-    // push main entity data
-    optionsToAuthorOn.push({
-        title:
-            entityData?.platform?.properties?.displayName ??
-            entityData?.platform?.name ??
-            entityData?.dataPlatformInstance?.platform.name ??
-            entityData?.platform?.urn ??
-            urn,
-        disabled: true,
-        urn,
-        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
-        entityType,
-    });
-    // push siblings data
-    const siblings: GenericEntityProperties[] = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
-    siblings.forEach((sibling) => {
-        if (sibling.urn === urn || !sibling.urn) {
-            return;
-        }
-        optionsToAuthorOn.push({
-            urn: sibling.urn,
-            title:
-                getPlatformNameFromEntityData(sibling) ??
-                sibling?.dataPlatformInstance?.platform?.name ??
-                sibling?.platform?.urn ??
-                sibling.urn,
-            disabled: true,
-            platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,
-            entityType: sibling.type,
-        });
-    });
-    return optionsToAuthorOn;
 };
 
 // transform assertions into table data
