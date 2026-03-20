@@ -1,3 +1,4 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -12,7 +13,7 @@ import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PageWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -60,7 +61,7 @@ export default function ManageDomainsPageV2() {
                     id={DOMAINS_CREATE_DOMAIN_ID}
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="domains-new-domain-button"
-                    icon={{ icon: 'Add', source: 'material' }}
+                    icon={{ icon: Plus }}
                 >
                     Create
                 </Button>

@@ -252,6 +252,40 @@ cp target/run_results_backup.json target/run_results.json
 
 :::
 
+#### Glob patterns for run_results_paths
+
+If your dbt setup produces many `run_results.json` files (e.g. one per Airflow DAG task or retry), you can use glob patterns instead of listing every file explicitly. This works for both S3 URIs and local paths.
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: "s3://my-bucket/dbt/target/manifest.json"
+    catalog_path: "s3://my-bucket/dbt/target/catalog.json"
+    target_platform: postgres
+    run_results_paths:
+      - "s3://my-bucket/dbt/run_results/*/*/*.json"
+    aws_connection: {}
+```
+
+```yaml
+# Local paths also support glob patterns
+source:
+  type: dbt
+  config:
+    manifest_path: /dbt/target/manifest.json
+    catalog_path: /dbt/target/catalog.json
+    target_platform: postgres
+    run_results_paths:
+      - "/dbt/run_results/*/run_results.json"
+```
+
+Supported wildcard characters: `*` (any characters within a path segment), `?` (single character), `[...]` (character set). If a glob pattern matches zero files, a warning is emitted in the ingestion report. The expanded file list is also recorded in the report for debugging.
+
+:::note S3 IAM permissions for glob patterns
+When using glob patterns with S3 paths, the IAM role or user must have **`s3:ListBucket`** permission on the bucket in addition to `s3:GetObject`. Without `s3:ListBucket`, the glob expansion will fail with an `AccessDenied` error. Explicit (non-glob) S3 paths only require `s3:GetObject`.
+:::
+
 ##### View of dbt tests for a dataset
 
 ![test view](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/dbt-tests-view.png)

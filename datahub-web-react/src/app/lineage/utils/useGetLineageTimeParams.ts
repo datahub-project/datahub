@@ -2,9 +2,9 @@ import * as QueryString from 'query-string';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 
-export const START_TIME_MILLIS_URL_PARAM = 'start_time_millis';
-export const END_TIME_MILLIS_URL_PARAM = 'end_time_millis';
-export const SHOW_ALL_TIME_LINEAGE_URL_PARAM = 'show_all_time_lineage';
+const START_TIME_MILLIS_URL_PARAM = 'start_time_millis';
+const END_TIME_MILLIS_URL_PARAM = 'end_time_millis';
+const SHOW_ALL_TIME_LINEAGE_URL_PARAM = 'show_all_time_lineage';
 
 export function useGetDefaultLineageStartTimeMillis() {
     return useMemo(() => null, []);

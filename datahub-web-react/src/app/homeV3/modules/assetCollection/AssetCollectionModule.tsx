@@ -1,4 +1,5 @@
 import { InfiniteScrollList } from '@components';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -171,7 +172,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     pageSize={DEFAULT_PAGE_SIZE}
                     emptyState={
                         <EmptyContent
-                            icon="Stack"
+                            icon={Stack}
                             title="No Assets"
                             description="Edit the module and add assets to see them in this list"
                         />

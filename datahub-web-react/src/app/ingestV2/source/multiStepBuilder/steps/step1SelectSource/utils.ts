@@ -7,9 +7,9 @@ export enum PillLabel {
 }
 
 export const MISCELLANEOUS_CATEGORY_NAME = 'Miscellaneous';
-export const DATA_WAREHOUSE_CATEGORY_NAME = 'Data Warehouse';
+const DATA_WAREHOUSE_CATEGORY_NAME = 'Data Warehouse';
 export const DATA_LAKE_CATEGORY_NAME = 'Data Lake';
-export const BI_AND_ANALYTICS_CATEGORY_NAME = 'BI & Analytics';
+const BI_AND_ANALYTICS_CATEGORY_NAME = 'BI & Analytics';
 
 export const CUSTOM_SOURCE_NAME = 'custom';
 

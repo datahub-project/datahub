@@ -1,3 +1,4 @@
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
@@ -73,7 +74,7 @@ export default function HierarchyViewModule(props: ModuleProps) {
         <LargeModule {...props} onClickViewAll={showViewAll ? onClickViewAll : undefined} dataTestId="hierarchy-module">
             {assetUrns.length === 0 ? (
                 <EmptyContent
-                    icon="Stack"
+                    icon={Stack}
                     title="No Assets"
                     description="Edit the module and add assets to see them in this list"
                 />

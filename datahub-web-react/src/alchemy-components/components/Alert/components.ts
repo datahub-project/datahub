@@ -12,20 +12,18 @@ const VARIANT_THEME_MAP: Record<AlertVariant, { bg: string; text: string; icon: 
     brand: { bg: 'bgSurfaceBrand', text: 'textBrand', icon: 'iconBrand' },
 };
 
-export const AlertContainer = styled.div<{ $variant: AlertVariant; $hasActions?: boolean }>(
-    ({ $variant, $hasActions, theme }) => {
-        const tokens = VARIANT_THEME_MAP[$variant];
-        return {
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing.xsm,
-            padding: `${spacing.sm} ${$hasActions ? spacing.xxsm : spacing.md} ${spacing.sm} ${spacing.md}`,
-            borderRadius: radius.lg,
-            backgroundColor: theme.colors[tokens.bg],
-            color: theme.colors[tokens.text],
-        };
-    },
-);
+export const AlertContainer = styled.div<{ $variant: AlertVariant }>(({ $variant, theme }) => {
+    const tokens = VARIANT_THEME_MAP[$variant];
+    return {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: spacing.sm,
+        padding: `${spacing.sm} ${spacing.md} ${spacing.sm} ${spacing.md}`,
+        borderRadius: radius.lg,
+        backgroundColor: theme.colors[tokens.bg],
+        color: theme.colors[tokens.text],
+    };
+});
 
 export const AlertIconWrapper = styled.span<{ $variant: AlertVariant }>(({ $variant, theme }) => {
     const tokens = VARIANT_THEME_MAP[$variant];
@@ -33,15 +31,20 @@ export const AlertIconWrapper = styled.span<{ $variant: AlertVariant }>(({ $vari
         display: 'inline-flex',
         alignItems: 'center',
         flexShrink: 0,
+        paddingTop: '1px',
         color: theme.colors[tokens.icon],
     };
 });
 
-export const AlertContent = styled.div({
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    minWidth: 0,
+export const AlertContent = styled.div<{ $variant: AlertVariant }>(({ $variant, theme }) => {
+    const tokens = VARIANT_THEME_MAP[$variant];
+    return {
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minWidth: 0,
+        color: theme.colors[tokens.text],
+    };
 });
 
 export const AlertActions = styled.div({
