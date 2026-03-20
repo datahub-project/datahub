@@ -28,9 +28,7 @@ jobs:
       small-runner: ${{ steps.runners.outputs.small-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -75,9 +73,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.markdown == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: actions/setup-java@v5
         with:
           distribution: "zulu"
@@ -92,9 +88,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.github-actions == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: actions/setup-java@v5
         with:
           distribution: "zulu"
@@ -109,9 +103,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.workflow-validation == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -138,9 +130,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: reviewdog/action-actionlint@v1
         with:
           reporter: github-pr-review
@@ -151,9 +141,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -166,9 +154,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -181,9 +167,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -200,9 +184,7 @@ jobs:
       YARN_CACHE_FOLDER: /tmp/.yarn-cache/
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+        uses: acryldata/sane-checkout-action@v6
 
       - uses: actions/setup-python@v6
         with:
