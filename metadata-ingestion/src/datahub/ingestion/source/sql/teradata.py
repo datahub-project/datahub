@@ -883,6 +883,14 @@ ORDER by DataBaseName, TableName;
             # https://github.com/Teradata/sqlalchemy-teradata/issues/96
             sql_config.options.setdefault("poolclass", QueuePool)
 
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        identifier = f"{schema}.{entity}"
+        if self.config.convert_urns_to_lowercase:
+            return identifier.lower()
+        return identifier
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = TeradataConfig.model_validate(config_dict)
