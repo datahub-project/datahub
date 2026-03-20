@@ -1,4 +1,3 @@
-import ColorTheme from '@conf/theme/colorThemes/types';
 import dayjs from '@utils/dayjs';
 
 import { CorpUser } from '@types';
@@ -106,13 +105,15 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
     return status;
 };
 
-export function getRelativeTimeColor(time: number, themeColors: ColorTheme) {
+export type RelativeTimeStatus = 'green' | 'yellow' | 'red';
+
+export function getRelativeTimeStatus(time: number): RelativeTimeStatus {
     const relativeTime = dayjs(time);
     if (relativeTime.isAfter(dayjs().subtract(1, 'week'))) {
-        return themeColors.textSuccess;
+        return 'green';
     }
     if (relativeTime.isAfter(dayjs().subtract(1, 'month'))) {
-        return themeColors.textWarning;
+        return 'yellow';
     }
-    return themeColors.textError;
+    return 'red';
 }

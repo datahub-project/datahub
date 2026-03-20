@@ -1,16 +1,11 @@
-import { Tooltip } from '@components';
-import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
-import { Typography } from 'antd';
+import { Icon, Pill, Tooltip } from '@components';
+import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 import React from 'react';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
-import {
-    ContentText,
-    LabelText,
-    RelativeTime,
-} from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { ActionType, getRelativeTimeColor } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { ActionType, getRelativeTimeStatus } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 
@@ -27,9 +22,10 @@ const DetailsContainer = styled.div`
 `;
 
 const SyncIcon = styled.div`
-    color: ${(props) => props.theme.colors.textTertiary};
-    height: 24px;
-    width: 24px;
+    color: ${(props) => props.theme.colors.icon};
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const DetailRow = styled.div`
@@ -39,15 +35,10 @@ const DetailRow = styled.div`
     flex-wrap: wrap;
 `;
 
-const SyncedSharedText = styled(Typography.Text)`
+const SyncedSharedText = styled.span`
     color: ${(props) => props.theme.colors.text};
     font-weight: 700;
-`;
-
-const StyledTooltip = styled(Tooltip)`
-    .ant-tooltip-inner {
-        border-radius: 4px;
-    }
+    font-size: 12px;
 `;
 
 interface Props {
@@ -59,33 +50,28 @@ interface Props {
 }
 
 const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props) => {
-    const theme = useTheme();
+    const pillColor = getRelativeTimeStatus(time);
+
     return (
         <DetailsContainer>
             <DetailRow>
-                <StyledTooltip
-                    showArrow={false}
-                    title={<SyncedOrSharedTooltip type={type} />}
-                    color={theme.colors.bgTooltip}
-                    overlayInnerStyle={{ width: 300, padding: 10 }}
-                    placement="bottomLeft"
-                >
+                <Tooltip showArrow={false} title={<SyncedOrSharedTooltip type={type} />} placement="bottomLeft">
                     <SyncIcon>
-                        <SwapHorizOutlinedIcon />
+                        <Icon icon={ArrowsLeftRight} size="lg" color="inherit" />
                     </SyncIcon>
-                </StyledTooltip>
+                </Tooltip>
 
-                <SyncedSharedText>{labelText} </SyncedSharedText>
+                <SyncedSharedText>{labelText}</SyncedSharedText>
                 <Tooltip showArrow={false} title={toLocalDateString(time)}>
-                    <RelativeTime relativeTimeColor={getRelativeTimeColor(time, theme.colors)}>
-                        {toRelativeTimeString(time)}
-                    </RelativeTime>
+                    <span>
+                        <Pill label={toRelativeTimeString(time) || ''} variant="filled" color={pillColor} size="sm" />
+                    </span>
                 </Tooltip>
                 {!!platform && (
                     <>
                         <LabelText>from</LabelText>
                         <PlatformIcon platform={platform} size={16} />
-                        <ContentText color={theme.colors.textSecondary}>{platformName}</ContentText>
+                        <LabelText>{platformName}</LabelText>
                     </>
                 )}
             </DetailRow>

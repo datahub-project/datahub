@@ -3,7 +3,6 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SidebarContentsLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsLoadingSection';
 import {
     getContentsSummary,
@@ -33,7 +32,7 @@ const ViewAllButton = styled.div`
     align-items: center;
     font-weight: bold;
     padding: 0px 2px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     :hover {
         cursor: pointer;
     }
