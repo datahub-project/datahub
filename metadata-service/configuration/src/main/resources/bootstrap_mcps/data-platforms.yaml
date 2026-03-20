@@ -445,7 +445,7 @@
   aspect:
     datasetNameDelimiter: "."
     name: flink
-    displayName: Apache Flink
+    displayName: Flink
     type: OTHERS
     logoUrl: "assets/platforms/flinklogo.svg"
 - entityUrn: urn:li:dataPlatform:sagemaker

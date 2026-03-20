@@ -115,7 +115,7 @@
         "urn": "urn:li:dataPlatform:flink",
         "name": "flink",
         "displayName": "Flink",
-        "description": "Import jobs, lineage, and catalog metadata from Apache Flink.",
+        "description": "Import jobs, lineage, and run history from Flink.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/flink/",
         "recipe": "source:\n    type: flink\n    config:\n        connection:\n            rest_api_url: \"http://localhost:8081\"\n        stateful_ingestion:\n            enabled: true"
     },

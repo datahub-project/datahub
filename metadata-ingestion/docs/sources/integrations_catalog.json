@@ -604,7 +604,7 @@
   "flink": {
     "platform_type": "ETL/ELT",
     "connection_type": "Pull",
-    "title": "Apache Flink",
+    "title": "Flink",
     "description": "Real-time stream processing framework for stateful computations over bounded and unbounded data streams.",
     "img_path": "img/logos/platforms/flink.svg"
   },
