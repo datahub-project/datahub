@@ -1,4 +1,4 @@
-import { Collapse, Select } from 'antd';
+import { Collapse } from 'antd';
 import styled from 'styled-components/macro';
 
 import { Button, colors } from '@src/alchemy-components';
@@ -108,10 +108,4 @@ export const CardIcons = styled.div`
             cursor: pointer;
         }
     }
-`;
-
-export const StyledSelect = styled(Select)`
-    min-width: 200px;
-    display: flex;
-    align-items: center;
 `;

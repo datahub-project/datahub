@@ -1,4 +1,9 @@
-import { CheckCircle, CircleNotch, Info, Warning, WarningCircle, X } from '@phosphor-icons/react';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { ThemeProvider, useTheme } from 'styled-components';

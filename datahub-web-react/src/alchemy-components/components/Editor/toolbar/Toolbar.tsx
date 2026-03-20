@@ -1,14 +1,12 @@
-import {
-    Code,
-    CodeBlock,
-    ListBullets,
-    ListNumbers,
-    Table,
-    TextB,
-    TextItalic,
-    TextStrikethrough,
-    TextUnderline,
-} from '@phosphor-icons/react';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { CodeBlock } from '@phosphor-icons/react/dist/csr/CodeBlock';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { ListNumbers } from '@phosphor-icons/react/dist/csr/ListNumbers';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
+import { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
+import { TextStrikethrough } from '@phosphor-icons/react/dist/csr/TextStrikethrough';
+import { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
 import React, { useCallback } from 'react';

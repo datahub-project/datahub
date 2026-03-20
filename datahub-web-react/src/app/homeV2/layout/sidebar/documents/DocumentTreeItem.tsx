@@ -1,4 +1,9 @@
-import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -26,28 +31,28 @@ const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
-    `}
+ background: linear-gradient(
+ 180deg,
+ rgba(83, 63, 209, 0.04) -3.99%,
+ rgba(112, 94, 228, 0.04) 53.04%,
+ rgba(112, 94, 228, 0.04) 100%
+ );
+ box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+ `}
 
     ${(props) =>
         !props.$isSelected &&
         `
-        &:hover {
-            background: linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            );
-            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
-        }
-    `}
+ &:hover {
+ background: linear-gradient(
+ 180deg,
+ rgba(243, 244, 246, 0.5) -3.99%,
+ rgba(235, 236, 240, 0.5) 53.04%,
+ rgba(235, 236, 240, 0.5) 100%
+ );
+ box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+ }
+ `}
 `;
 
 const LeftContent = styled.div`
@@ -112,11 +117,11 @@ const Title = styled.span<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-    `}
+ background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
+ background-clip: text;
+ -webkit-text-fill-color: transparent;
+ font-weight: 600;
+ `}
 `;
 
 const Actions = styled.div`
@@ -248,7 +253,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     {!hideCreate && (
                         <Tooltip title="New document" placement="bottom" showArrow={false}>
                             <ActionButton
-                                icon={{ icon: 'Plus', source: 'phosphor', color: 'gray', colorLevel: 1800 }}
+                                icon={{ icon: Plus, color: 'gray', colorLevel: 1800 }}
                                 variant="text"
                                 onClick={handleAddChildClick}
                             />

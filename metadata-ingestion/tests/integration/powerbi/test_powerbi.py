@@ -1599,6 +1599,37 @@ def test_powerbi_app_ingest_info_message(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_app_redirect_url_pattern(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    common_app_ingest(
+        pytestconfig=pytestconfig,
+        requests_mock=requests_mock,
+        output_mcp_path=f"{tmp_path}/powerbi_mces.json",
+        override_config={
+            "extract_app": True,
+            "app_url_pattern": "redirect_based",
+        },
+    )
+
+    golden_file = "golden_test_app_redirect_url_ingest.json"
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_gcc_environment(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,

@@ -1,4 +1,6 @@
 import { Icon } from '@components';
+import { CaretDoubleRight } from '@phosphor-icons/react/dist/csr/CaretDoubleRight';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -83,7 +85,7 @@ export function ExpandLineageButton({
                 data-testid={`expand-one-${urn}-button`}
             >
                 <CountWrapper direction={direction}>{count}</CountWrapper>
-                <Icon icon="CaretRight" source="phosphor" size="lg" />
+                <Icon icon={CaretRight} size="lg" />
             </Button>
             {showExpandAll && (
                 <Button
@@ -92,7 +94,7 @@ export function ExpandLineageButton({
                     onMouseLeave={(e) => e.stopPropagation()}
                     data-testid={`expand-all-${urn}-button`}
                 >
-                    <Icon icon="CaretDoubleRight" source="phosphor" size="lg" />
+                    <Icon icon={CaretDoubleRight} size="lg" />
                 </Button>
             )}
         </Wrapper>

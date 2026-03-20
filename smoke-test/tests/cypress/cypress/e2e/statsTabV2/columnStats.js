@@ -10,7 +10,6 @@ const openStatsTabOfSampleEntity = () => {
 
 describe("Column stats", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 
