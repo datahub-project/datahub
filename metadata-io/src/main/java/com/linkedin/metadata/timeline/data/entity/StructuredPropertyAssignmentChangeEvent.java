@@ -2,7 +2,6 @@ package com.linkedin.metadata.timeline.data.entity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -56,7 +55,6 @@ public class StructuredPropertyAssignmentChangeEvent extends ChangeEvent {
                 throw new IllegalArgumentException(
                     "StructuredPropertyValueAssignment values cannot be null");
               }
-              ObjectNode jNode = objectMapper.createObjectNode();
               if (value.isString()) {
                 arrayNode.add(value.getString());
               } else if (value.isDouble()) {
@@ -66,7 +64,6 @@ public class StructuredPropertyAssignmentChangeEvent extends ChangeEvent {
               } else {
                 throw new RuntimeException("Unsupported structured property value type: " + value);
               }
-              // arrayNode.add(jNode);
             });
 
     ImmutableMap.Builder<String, Object> builder =
