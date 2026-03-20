@@ -14,7 +14,7 @@ import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
 import { Button } from '@src/alchemy-components';
 
-export const ControlsContainer = styled.div`
+const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;

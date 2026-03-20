@@ -96,7 +96,7 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
 
 const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
 
-export function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
+function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
     const updatedRecipe = { ...recipe };
     if (value !== undefined) {
         if (!value) {
@@ -148,44 +148,6 @@ export const DATABASE_DENY: FilterRecipeField = {
     rule: FilterRule.EXCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, databaseDenyFieldPath),
-};
-
-const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
-export const DASHBOARD_ALLOW: FilterRecipeField = {
-    name: 'dashboard_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include specific Dashboards',
-    tooltip:
-        'Only include specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included.',
-    type: FieldType.LIST,
-    rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
-    fieldPath: dashboardAllowFieldPath,
-    rules: null,
-    section: 'Dashboards',
-    filteringResource: 'Dashboard',
-    placeholder: 'my_dashboard',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
-};
-
-const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
-export const DASHBOARD_DENY: FilterRecipeField = {
-    name: 'dashboard_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude specific Dashboards',
-    tooltip:
-        'Exclude specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
-    type: FieldType.LIST,
-    rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
-    fieldPath: dashboardDenyFieldPath,
-    rules: null,
-    section: 'Dashboards',
-    filteringResource: 'Dashboard',
-    placeholder: 'my_dashboard',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),
 };
 
 const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
@@ -369,16 +331,6 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     tooltip: 'Remove stale assets from DataHub once they have been deleted in the ingestion source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
-    rules: null,
-};
-
-export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
-    name: 'upstream_lineage_in_report',
-    label: 'Include Upstream Lineage In Report.',
-    helper: 'Debug lineage information',
-    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.upstream_lineage_in_report',
     rules: null,
 };
 

@@ -40,7 +40,7 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 16px;
 `;
 
-export const ResultWrapper = styled.div<{
+const ResultWrapper = styled.div<{
     showUpdatedStyles: boolean;
     selected: boolean;
     areMatchesExpanded: boolean;
