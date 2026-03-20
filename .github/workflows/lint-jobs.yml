@@ -34,7 +34,7 @@ jobs:
         id: filter
         with:
           token: "" # Empty token forces raw git commands
-          filters: .github/path-filters/lint-job-filters.yml
+          filters: .github/path-filters/lint-jobs-filters.yml
       - uses: ./.github/actions/determine-runners
         id: runners
         with:
