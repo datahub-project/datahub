@@ -15,7 +15,7 @@ const privateKeyPasswordFieldPath = 'source.config.private_key_password';
  * @param recipe - The current recipe configuration
  * @returns Updated recipe with only relevant credentials for the selected auth type
  */
-export function setSnowflakeAuthTypeOnRecipe(recipe: any): any {
+function setSnowflakeAuthTypeOnRecipe(recipe: any): any {
     let updatedRecipe = { ...recipe };
     const authType = get(updatedRecipe, authTypeFieldPath);
 
@@ -45,7 +45,7 @@ export function setSnowflakeAuthTypeOnRecipe(recipe: any): any {
  * @param recipe - The recipe configuration to inspect
  * @returns The inferred authentication type
  */
-export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
+function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
     const hasPassword = !!get(recipe, passwordFieldPath);
     const hasPrivateKey = !!get(recipe, privateKeyFieldPath);
 
@@ -61,7 +61,7 @@ export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
  * Helper function to determine if a Snowflake field should be visible based on authentication type.
  * Used for conditional field rendering in forms. Defaults to KEY_PAIR_AUTHENTICATOR if not specified.
  */
-export function shouldShowSnowflakeField(fieldName: string, authenticationType?: string): boolean {
+function shouldShowSnowflakeField(fieldName: string, authenticationType?: string): boolean {
     const authType = authenticationType || 'KEY_PAIR_AUTHENTICATOR';
 
     // Hide password when using key pair authentication
@@ -84,7 +84,7 @@ export function shouldShowSnowflakeField(fieldName: string, authenticationType?:
  * @param authTypeLabel - The human-readable label for the auth type (e.g., 'Username & Password', 'Private Key')
  * @returns A validator rule that can be used in RecipeField.rules
  */
-export function createAuthTypeValidator(requiredAuthType: string, fieldLabel: string, authTypeLabel: string) {
+function createAuthTypeValidator(requiredAuthType: string, fieldLabel: string, authTypeLabel: string) {
     return ({ getFieldValue }) => ({
         validator(_, value) {
             const authType = getFieldValue('authentication_type') || 'KEY_PAIR_AUTHENTICATOR';

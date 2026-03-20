@@ -5,7 +5,7 @@ import React from 'react';
 import LineageVizInsideZoom from '@app/lineage/LineageVizInsideZoom';
 import { TreeProps } from '@app/lineage/types';
 
-export const defaultMargin = { top: 10, left: 280, right: 280, bottom: 10 };
+const defaultMargin = { top: 10, left: 280, right: 280, bottom: 10 };
 
 interface Props extends TreeProps {
     refetchCenterNode: () => void;

@@ -7,7 +7,7 @@ type UncombinedSeaerchResults = {
     matchedFields: Array<MatchedField>;
 };
 
-export type CombinedSearchResult = CombinedEntity & Pick<UncombinedSeaerchResults, 'matchedFields'>;
+type CombinedSearchResult = CombinedEntity & Pick<UncombinedSeaerchResults, 'matchedFields'>;
 
 export function combineSiblingsInSearchResults(
     showSeparateSiblings: boolean,
