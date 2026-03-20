@@ -9,10 +9,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.EdgeDiff;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
@@ -54,10 +54,6 @@ import org.springframework.stereotype.Component;
 @Component
 @Import({EntityRegistryFactory.class})
 public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
-
-  private static final Set<String> RELATIONSHIP_CHANGE_SUPPORTED_ASPECT_NAMES =
-      ImmutableSet.of(
-          Constants.UPSTREAM_LINEAGE_ASPECT_NAME, Constants.FINE_GRAINED_LINEAGE_ASPECT_NAME);
 
   /** The list of aspects that are supported for generating semantic change events. */
   private static final Set<String> ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES =
@@ -102,7 +98,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
   private final OperationContext systemOperationContext;
-  private final SystemEntityClient systemEntityClient;
+  private final EventProducer eventProducer;
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
   private final List<String> entityExclusions;
@@ -113,7 +109,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull OperationContext systemOperationContext,
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final EventProducer eventProducer,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${entityChangeEvents.consumerGroupSuffix}") String consumerGroupSuffix,
       @Nonnull @Value("#{'${entityChangeEvents.entityExclusions}'.split(',')}")
@@ -123,7 +119,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     this.systemOperationContext = systemOperationContext;
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
-    this.systemEntityClient = Objects.requireNonNull(entityClient);
+    this.eventProducer = Objects.requireNonNull(eventProducer);
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
     this.entityExclusions = entityExclusions;
@@ -134,12 +130,12 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   public PlatformEventGeneratorHook(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final EventProducer eventProducer,
       @Nonnull Boolean isEnabled) {
     this(
         systemOperationContext,
         entityChangeEventGeneratorRegistry,
-        entityClient,
+        eventProducer,
         isEnabled,
         "",
         Collections.emptyList(),
@@ -269,15 +265,9 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         && !entityExclusions.contains(log.getEntityType());
   }
 
-  private boolean isEligibleForRelationshipChangeEventProcessing(final MetadataChangeLog log) {
-    return RELATIONSHIP_CHANGE_SUPPORTED_ASPECT_NAMES.contains(log.getAspectName())
-        && !entityExclusions.contains(log.getEntityType());
-  }
-
   private void emitPlatformEvent(
       @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
-    systemEntityClient.producePlatformEvent(
-        systemOperationContext, event.getName(), partitioningKey, event);
+    eventProducer.producePlatformEvent(event.getName(), partitioningKey, event);
   }
 
   private PlatformEvent buildPlatformEvent(final ChangeEvent rawChangeEvent) {
