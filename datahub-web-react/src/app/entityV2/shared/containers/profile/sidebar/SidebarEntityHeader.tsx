@@ -20,7 +20,7 @@ import { DataPlatform, EntityType, Post } from '@types';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
-    gap: 5px;
+    gap: 8px;
     padding: 0 20px;
 `;
 
@@ -28,7 +28,6 @@ const EntityDetailsContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 5px;
-    margin-left: 8px;
 `;
 
 const NameWrapper = styled.div`
@@ -58,11 +57,13 @@ const SidebarEntityHeader = () => {
     }
     return (
         <TitleContainer scrollButtonSize={18} scrollButtonOffset={15}>
-            <PlatformHeaderIcons
-                platform={platform as DataPlatform}
-                platforms={platforms as DataPlatform[]}
-                size={24}
-            />
+            {platform && (
+                <PlatformHeaderIcons
+                    platform={platform as DataPlatform}
+                    platforms={platforms as DataPlatform[]}
+                    size={24}
+                />
+            )}
             <EntityDetailsContainer>
                 <NameWrapper>
                     <EntityName isNameEditable={false} />

@@ -12,14 +12,14 @@ import { Owner, OwnershipTypeEntity } from '@types';
 const OwnershipTypeContainer = styled.div`
     display: flex;
     flex-direction: column;
-    margin-right: 12px;
+    gap: 4px;
     max-width: inherit;
 `;
 
 const OwnershipTypeNameText = styled.span`
     font-family: 'Mulish', sans-serif;
     font-weight: 500;
-    font-size: 10px;
+    font-size: 12px;
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
@@ -27,9 +27,8 @@ const OwnersContainer = styled.div`
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    margin-top: 8px;
     max-width: inherit;
-    gap: 8px;
+    gap: 4px;
 `;
 
 interface Props {
