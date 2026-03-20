@@ -20,7 +20,7 @@ const SyncedAssetContainer = styled.div`
     flex-direction: column;
 `;
 
-export const StyledCollapse = styled(Collapse)`
+const StyledCollapse = styled(Collapse)`
     text-wrap: wrap;
     .ant-collapse-header {
         padding: 0px 0px !important;
