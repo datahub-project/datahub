@@ -1,4 +1,4 @@
-import { WarningOutlined } from '@ant-design/icons';
+import { Warning } from '@phosphor-icons/react';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -8,9 +8,9 @@ import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 export class HasActiveIncidentsRenderer implements FilterRenderer {
     field = 'hasActiveIncidents';
 
-    render = (props: FilterRenderProps) => <HasActiveIncidentsFilter {...props} icon={this.icon()} />;
+    render = (props: FilterRenderProps) => <HasActiveIncidentsFilter {...props} />;
 
-    icon = () => <WarningOutlined />;
+    icon = () => <Warning size={14} />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {

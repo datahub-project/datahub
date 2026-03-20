@@ -12,10 +12,9 @@ interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilter[]) => void;
-    icon?: React.ReactNode;
 }
 
-export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, icon, onChangeFilters }: Props) {
+export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, onChangeFilters }: Props) {
     const isSelected = activeFilters?.find((f) => f.field === 'hasActiveIncidents')?.values?.includes('true');
 
     const toggleFilter = () => {
@@ -48,7 +47,6 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, icon
             )}
             {scenario === FilterScenarioType.SEARCH_V2_PRIMARY && (
                 <BooleanSearchFilter
-                    icon={icon}
                     title="Incidents"
                     option="Has active incidents"
                     initialSelected={isSelected || false}
@@ -58,7 +56,6 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, icon
             )}
             {scenario === FilterScenarioType.SEARCH_V2_SECONDARY && (
                 <BooleanMoreFilter
-                    icon={icon}
                     title="Incidents"
                     option="Has active incidents"
                     initialSelected={isSelected || false}

@@ -1,25 +1,30 @@
-import { CaretDownFilled } from '@ant-design/icons';
-import { Dropdown } from 'antd';
-import React, { useEffect, useState } from 'react';
+import { CaretDown } from '@phosphor-icons/react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+
+import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import FilterOption from '@app/searchV2/filters/FilterOption';
 import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
 import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
 
-const IconNameWrapper = styled.div`
-    display: flex;
-    align-items: center;
+const DropdownWrapper = styled.div`
+    position: relative;
 `;
 
-const IconWrapper = styled.span`
-    margin-right: 8px;
-    display: flex;
-    flex-direction: column;
+const MenuContainer = styled.div`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1050;
+`;
+
+const CaretIcon = styled(CaretDown)<{ $isOpen?: boolean }>`
+    transition: transform 0.2s ease;
+    ${(props) => props.$isOpen && 'transform: rotate(180deg);'}
 `;
 
 interface Props {
-    icon?: React.ReactNode;
     title: string;
     option: string;
     count: number;
@@ -27,9 +32,10 @@ interface Props {
     onUpdate: (newValue: boolean) => void;
 }
 
-export default function BooleanSearchFilter({ icon, title, option, count, initialSelected, onUpdate }: Props) {
+export default function BooleanSearchFilter({ title, option, count, initialSelected, onUpdate }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSelected, setIsSelected] = useState<boolean>(initialSelected);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => setIsSelected(initialSelected), [initialSelected]);
 
@@ -38,43 +44,34 @@ export default function BooleanSearchFilter({ icon, title, option, count, initia
         setIsMenuOpen(false);
     }
 
-    const filterOptions = [
-        {
-            key: option,
-            // Re-use the Normal Filter object
-            label: (
-                <FilterOption
-                    filterOption={{ field: title, value: option, count }}
-                    selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
-                    setSelectedFilterOptions={() => setIsSelected(!isSelected)}
-                />
-            ),
-            style: { padding: 0 },
-            displayName: title,
-        },
-    ];
+    const handleClickOutside = useCallback(() => setIsMenuOpen(false), []);
+    const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
+    useClickOutside(handleClickOutside, clickOutsideOptions);
 
     return (
-        <Dropdown
-            trigger={['click']}
-            menu={{ items: filterOptions }}
-            open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
-            dropdownRender={(menuOption) => (
-                <BooleanSearchFilterMenu menuOption={menuOption} onUpdate={updateSelected} />
-            )}
-        >
+        <DropdownWrapper ref={wrapperRef}>
             <SearchFilterLabel
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 $isActive={isSelected}
                 data-testid={`filter-dropdown-${title.replace(/\s/g, '-')}`}
             >
-                <IconNameWrapper>
-                    {icon && <IconWrapper>{icon}</IconWrapper>}
-                    {title} {isSelected ? `(1) ` : ''}
-                </IconNameWrapper>
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
+                {title} {isSelected ? `(1) ` : ''}
+                <CaretIcon size={12} $isOpen={isMenuOpen} />
             </SearchFilterLabel>
-        </Dropdown>
+            {isMenuOpen && (
+                <MenuContainer>
+                    <BooleanSearchFilterMenu
+                        filterOption={
+                            <FilterOption
+                                filterOption={{ field: title, value: option, count }}
+                                selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
+                                setSelectedFilterOptions={() => setIsSelected(!isSelected)}
+                            />
+                        }
+                        onUpdate={updateSelected}
+                    />
+                </MenuContainer>
+            )}
+        </DropdownWrapper>
     );
 }

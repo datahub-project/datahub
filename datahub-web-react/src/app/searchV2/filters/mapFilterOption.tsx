@@ -8,7 +8,6 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 interface DisplayedFilterOption {
     key: string;
     label: React.ReactNode;
-    style: any;
     displayName?: string | null;
     nestedOptions?: FilterOptionType[];
 }
@@ -50,7 +49,6 @@ export function mapFilterOption({
                 includeCount={includeCount}
             />
         ),
-        style: { padding: 0 },
         displayName: displayName as string,
         nestedOptions,
     };

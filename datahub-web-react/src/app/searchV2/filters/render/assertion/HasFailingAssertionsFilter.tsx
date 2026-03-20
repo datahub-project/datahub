@@ -12,10 +12,9 @@ interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilter[]) => void;
-    icon?: React.ReactNode;
 }
 
-export function HasFailingAssertionsFilter({ icon, scenario, filter, activeFilters, onChangeFilters }: Props) {
+export function HasFailingAssertionsFilter({ scenario, filter, activeFilters, onChangeFilters }: Props) {
     const isSelected = activeFilters?.find((f) => f.field === 'hasFailingAssertions')?.values?.includes('true');
 
     const toggleFilter = () => {
@@ -48,7 +47,6 @@ export function HasFailingAssertionsFilter({ icon, scenario, filter, activeFilte
             )}
             {scenario === FilterScenarioType.SEARCH_V2_PRIMARY && (
                 <BooleanSearchFilter
-                    icon={icon}
                     title="Assertions"
                     option="Has failing assertions"
                     initialSelected={isSelected || false}
@@ -58,7 +56,6 @@ export function HasFailingAssertionsFilter({ icon, scenario, filter, activeFilte
             )}
             {scenario === FilterScenarioType.SEARCH_V2_SECONDARY && (
                 <BooleanMoreFilter
-                    icon={icon}
                     title="Assertions"
                     option="Has failing assertions"
                     initialSelected={isSelected || false}
