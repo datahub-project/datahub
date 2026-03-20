@@ -269,10 +269,8 @@ public class LabelUtils {
         }
       }
     } catch (Exception e) {
-      log.error("Failed to batch-read {}, falling back to empty map", aspectName, e);
-      resources.stream()
-          .map(r -> UrnUtils.getUrn(r.getResourceUrn()))
-          .forEach(urn -> result.put(urn, defaultSupplier.get()));
+      log.error("Failed to batch-read {}, throwing error", aspectName, e);
+      throw new RuntimeException(e);
     }
     return result;
   }
