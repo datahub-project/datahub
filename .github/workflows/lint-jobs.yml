@@ -208,8 +208,8 @@ jobs:
             ${{ env.YARN_CACHE_FOLDER }}
           key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
 
-  datahub-web-react-lint:
-    name: datahub-web-react-lint
+  datahub-web-react-lint-eslint:
+    name: datahub-web-react-eslint
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.datahub-web-react == 'true'
@@ -226,9 +226,9 @@ jobs:
             ${{ env.YARN_CACHE_FOLDER }}
           key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
-      - name: Run lint
+      - name: Run ESLint
         run: |
-          ./gradlew :datahub-web-react:yarnLint
+          ./gradlew :datahub-web-react:yarnLintEslint
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Save yarn cache
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
@@ -236,3 +236,47 @@ jobs:
           path: |
             ${{ env.YARN_CACHE_FOLDER }}
           key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+
+  datahub-web-react-lint-format:
+    name: datahub-web-react-format-check
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.datahub-web-react == 'true'
+    env:
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Run Prettier format check
+        run: |
+          ./gradlew :datahub-web-react:yarnLintFormat
+
+  datahub-web-react-lint-typecheck:
+    name: datahub-web-react-type-check
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.datahub-web-react == 'true'
+    env:
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Run TypeScript type check
+        run: |
+          ./gradlew :datahub-web-react:yarnLintTypecheck
