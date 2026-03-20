@@ -45,7 +45,7 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -60,6 +60,7 @@ jobs:
           ./gradlew :python-build:buildSite
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DATAHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Publish
         id: cloudflare
         uses: cloudflare/pages-action@v1

@@ -45,7 +45,7 @@ jobs:
       datahub_images: ${{ steps.collect-images.outputs.datahub_images }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v6
       - name: Compute Tag
         id: tag
         env:
@@ -154,13 +154,6 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - name: Free up disk space
-        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
-
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -178,10 +171,9 @@ jobs:
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
-
+        uses: acryldata/sane-checkout-action@v6
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Install Cypress dependencies on ARM
         if: ${{ matrix.architecture == 'arm' && matrix.test_strategy == 'cypress' }}
         run: |
@@ -598,7 +590,7 @@ jobs:
     if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v6
 
       - name: Check if smoke tests passed
         run: |

@@ -2860,6 +2860,68 @@ class TestJdbcSinkConnector:
         # MySQL doesn't use schema, so should be database.table
         assert lineages[0].target_dataset == "myapp.events"
 
+    def test_jdbc_sink_lineage_empty_runtime_topics_falls_back_to_config(
+        self,
+    ) -> None:
+        """When the runtime /topics API returns nothing, lineage is built from the
+        connector's own `topics` config rather than producing an empty result."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="debezium-jdbc-sink",
+            type="sink",
+            config={
+                "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+                "topics": "server.public.users,server.public.orders",
+            },
+            tasks=[],
+            topic_names=[],  # runtime API returned nothing
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "server.public.users" in source_datasets
+        assert "server.public.orders" in source_datasets
+
+    def test_jdbc_sink_lineage_stale_topic_filter_still_applies(self) -> None:
+        """When the runtime /topics API returns topics, stale topics not in the
+        connector config are excluded via intersection."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="postgres-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+                "topics": "users,orders",
+            },
+            tasks=[],
+            topic_names=["users", "orders", "old_stale_topic"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "users" in source_datasets
+        assert "orders" in source_datasets
+        assert "old_stale_topic" not in source_datasets
+
     def test_jdbc_sink_flow_property_bag_sanitization(self) -> None:
         """Test that sensitive credentials are removed from flow property bag."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
@@ -2906,6 +2968,58 @@ class TestJdbcSinkConnector:
         assert "connection.url" in property_bag
         assert "admin" not in property_bag["connection.url"]
         assert "secret123" not in property_bag["connection.url"]
+
+    @pytest.mark.parametrize(
+        "connection_url,expected_platform",
+        [
+            ("jdbc:postgresql://localhost:5432/mydb", "postgres"),
+            ("jdbc:mysql://localhost:3306/mydb", "mysql"),
+            ("jdbc:oracle:thin:@localhost:1521/orcl", "oracle"),
+            ("jdbc:sqlserver://localhost:1433;databaseName=mydb", "mssql"),
+        ],
+    )
+    def test_jdbc_sink_platform_auto_detection(
+        self, connection_url: str, expected_platform: str
+    ) -> None:
+        """Test that platform is auto-detected from connection.url when not explicitly provided."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+                "connection.url": connection_url,
+            },
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        assert connector.get_platform() == expected_platform
+
+    def test_jdbc_sink_platform_auto_detection_no_url(self) -> None:
+        """Test that platform falls back to 'unknown' when connection.url is absent."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={"connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector"},
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        assert connector.get_platform() == "unknown"
 
 
 class TestConfluentCloudConnectorManifest:
@@ -4113,6 +4227,56 @@ class TestPlatformDetection:
 
         platform = connector._extract_platform_from_jdbc_url("")
         assert platform == "unknown"
+
+    def test_debezium_get_platform_returns_mssql_for_sqlserver(self) -> None:
+        """Test that Debezium SQL Server connector returns 'mssql' (DataHub canonical name)."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        assert connector.get_platform() == "mssql"
+
+    def test_debezium_get_platform_other_connectors(self) -> None:
+        """Test get_platform for other Debezium connector types."""
+        test_cases = {
+            "io.debezium.connector.postgresql.PostgresConnector": "postgres",
+            "io.debezium.connector.mysql.MySqlConnector": "mysql",
+            "io.debezium.connector.oracle.OracleConnector": "oracle",
+            "io.debezium.connector.db2.Db2Connector": "db2",
+            "io.debezium.connector.mongodb.MongoDbConnector": "mongodb",
+            "io.debezium.connector.vitess.VitessConnector": "vitess",
+            "com.unknown.SomeConnector": "unknown",
+        }
+
+        for connector_class, expected_platform in test_cases.items():
+            manifest = ConnectorManifest(
+                name="test",
+                type="source",
+                config={"connector.class": connector_class},
+                tasks=[],
+                topic_names=[],
+            )
+
+            config = create_mock_kafka_connect_config()
+            report = Mock(spec=KafkaConnectSourceReport)
+            connector = DebeziumSourceConnector(manifest, config, report)
+
+            assert connector.get_platform() == expected_platform, (
+                f"Expected '{expected_platform}' for {connector_class}, "
+                f"got '{connector.get_platform()}'"
+            )
 
 
 class TestTransformPluginAdditionalCoverage:

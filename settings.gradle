@@ -31,9 +31,6 @@ include 'metadata-jobs:pe-consumer'
 include 'metadata-jobs:mae-consumer-job'
 include 'metadata-jobs:mce-consumer-job'
 include ':docker'
-include ':docker:elasticsearch-setup'
-include ':docker:mysql-setup'
-include ':docker:postgres-setup'
 include ':docker:datahub-ingestion'
 include ':docker:datahub-ingestion-base'
 include 'metadata-models'
@@ -65,6 +62,7 @@ include 'metadata-ingestion-modules:dagster-plugin'
 include 'metadata-ingestion-modules:prefect-plugin'
 include 'python-build'
 include 'smoke-test'
+include 'scripts:dev'
 include 'metadata-auth:auth-api'
 include 'metadata-service:schema-registry-api'
 include 'metadata-service:schema-registry-servlet'
@@ -84,13 +82,14 @@ include ':datahub-agent-context'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');
+    def isCi = System.getenv('CI');
 
 
 
     remote(HttpBuildCache) {
         url = 'https://cache.depot.dev'
         enabled = depotSecret != null
-        push = true
+        push = isCi // Push only on CI. Local development only pulls
         credentials {
             username = ''
             password = depotSecret

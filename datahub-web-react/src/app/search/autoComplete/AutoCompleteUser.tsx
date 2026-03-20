@@ -1,9 +1,11 @@
+import { Avatar } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { SuggestionText } from '@app/search/autoComplete/styledComponents';
 import { getAutoCompleteEntityText } from '@app/search/autoComplete/utils';
-import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityType } from '@types';
@@ -20,14 +22,11 @@ export default function AutoCompleteUser({ query, user }: Props) {
 
     return (
         <>
-            <CustomAvatar
-                size={20}
+            <Avatar
                 name={displayName}
-                photoUrl={user.editableProperties?.pictureLink || undefined}
-                useDefaultAvatar={false}
-                style={{
-                    marginRight: 0,
-                }}
+                imageUrl={user.editableProperties?.pictureLink || undefined}
+                type={AvatarType.user}
+                size="sm"
             />
             <SuggestionText>
                 <Typography.Text strong>{matchedText}</Typography.Text>

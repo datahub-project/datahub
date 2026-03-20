@@ -2,10 +2,15 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { getFileIconFromExtension } from '@components/components/FileNode/utils';
-import { Icon } from '@components/components/Icon';
+import { getColor } from '@components/theme/utils';
 
-const StyledIcon = styled(Icon)`
+import { useCustomTheme } from '@src/customThemeContext';
+
+const IconWrapper = styled.div`
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    font-size: 16px;
 `;
 
 interface Props {
@@ -14,7 +19,12 @@ interface Props {
 }
 
 export function FileIcon({ extension, className }: Props) {
-    const icon = useMemo(() => getFileIconFromExtension(extension || ''), [extension]);
+    const IconComponent = useMemo(() => getFileIconFromExtension(extension || ''), [extension]);
+    const { theme } = useCustomTheme();
 
-    return <StyledIcon icon={icon} size="lg" source="phosphor" color="primary" className={className} />;
+    return (
+        <IconWrapper className={className}>
+            <IconComponent style={{ fontSize: '16px', color: getColor('primary', undefined, theme) }} />
+        </IconWrapper>
+    );
 }

@@ -108,6 +108,7 @@ def get_default_instances(
             "client_id": "foo",
             "client_secret": "bar",
             "enable_advance_lineage_sql_construct": False,
+            "extract_column_level_lineage": False,
             **override_config,
         }
     )

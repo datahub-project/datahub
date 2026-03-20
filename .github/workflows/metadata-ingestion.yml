@@ -55,20 +55,15 @@ jobs:
             command: "testQuick"
       fail-fast: false
     steps:
-      - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+      - uses: acryldata/sane-checkout-action@v6
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
@@ -152,7 +147,7 @@ jobs:
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     steps:
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@v6
       - name: Check if Python files were modified
         id: check-changes
         run: |

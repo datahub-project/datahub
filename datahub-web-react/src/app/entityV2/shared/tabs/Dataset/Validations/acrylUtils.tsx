@@ -1,11 +1,7 @@
-import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import * as cronParser from 'cron-parser';
+import { ApiOutlined } from '@ant-design/icons';
 import cronstrue from 'cronstrue';
-import * as moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
-
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
@@ -14,7 +10,7 @@ import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
-import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
+import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {
@@ -22,33 +18,6 @@ const StyledApiOutlined = styled(ApiOutlined)`
         padding: 0px;
         margin-right: 8px;
         font-size: 18px;
-    }
-`;
-
-const StyledCheckOutlined = styled(CheckOutlined)`
-    && {
-        color: ${SUCCESS_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledCloseOutlined = styled(CloseOutlined)`
-    && {
-        color: ${FAILURE_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
-    && {
-        color: ${WARNING_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
     }
 `;
 
@@ -137,7 +106,7 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-export const getAssertionGroupTypeIcon = (type: string) => {
+const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
@@ -183,21 +152,6 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
     return summary;
 };
 
-/**
- * TODO: We will remove this mapping code once we replace the OSS legacy assertions summary with the new
- * format.
- */
-export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
-    const newSummary = getAssertionsSummary(assertions);
-    return {
-        failedRuns: newSummary.failing,
-        succeededRuns: newSummary.passing,
-        erroredRuns: newSummary.erroring,
-        totalRuns: newSummary.total,
-        totalAssertions: newSummary.totalAssertions,
-    };
-};
-
 export const getAssertionType = (assertion: Assertion): string | undefined => {
     return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
 };
@@ -238,83 +192,6 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     });
 
     return assertionGroups;
-};
-
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return null;
-    }
-    if (summary.passing === summary.total) {
-        return <StyledCheckOutlined />;
-    }
-    if (summary.erroring > 0) {
-        return <StyledExclamationOutlined />;
-    }
-    return <StyledCloseOutlined />;
-};
-
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return 'No assertions have run';
-    }
-    if (summary.passing === summary.total) {
-        return 'All assertions are passing';
-    }
-    if (summary.erroring > 0) {
-        return 'An error is preventing some assertions from running';
-    }
-    if (summary.failing === summary.total) {
-        return 'All assertions are failing';
-    }
-    return 'Some assertions are failing';
-};
-
-/**
- * Returns the next scheduled run of a cron schedule, in the local timezone of the user.
- *
- * @param schedule a cron schedule
- */
-export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
-    try {
-        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
-        const nextDate = interval.next().toDate(); // Get next date as JavaScript Date object
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const nextDateInUserTz = moment.tz(nextDate, userTimezone); // Convert to user's timezone
-        return nextDateInUserTz.valueOf();
-    } catch (e) {
-        console.log('Failed to parse cron expression', e);
-        return undefined;
-    }
-};
-
-/**
- * Returns the previously scheduled run of a cron schedule, in the local timezone of the user.
- *
- * @param schedule a cron schedule
- * @param maybeFromDateTS
- */
-export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, maybeFromDateTS?: number) => {
-    try {
-        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
-        if (typeof maybeFromDateTS !== 'undefined') {
-            interval.reset(maybeFromDateTS);
-        }
-        const prevDate = interval.prev().toDate(); // Get prev date as JavaScript Date object
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const prevDateInUserTz = moment.tz(prevDate, userTimezone); // Convert to user's timezone
-        return prevDateInUserTz.valueOf();
-    } catch (e) {
-        console.log('Failed to parse cron expression', e);
-        return undefined;
-    }
-};
-export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
-    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
-        ...type,
-        enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),
-    }));
 };
 
 export const getCronAsText = (interval: string, options: { verbose: boolean } = { verbose: false }) => {

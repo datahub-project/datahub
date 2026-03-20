@@ -1,4 +1,5 @@
-import { Check, Warning } from '@phosphor-icons/react';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { FormInstance } from 'antd/es/form/Form';
 import React from 'react';
 
