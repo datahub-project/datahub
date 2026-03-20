@@ -19,8 +19,7 @@ export interface SelectItemsProps {
     selectedItems: any[];
     refetch?: () => void;
     onClose?: () => void;
-    entityType: EntityType;
-    entityTypes?: EntityType[];
+    entityTypes: EntityType[];
     handleSelectionChange: ({
         selectedItems,
         removedItems,
@@ -95,7 +94,6 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     selectedItems,
     refetch,
     onClose,
-    entityType,
     entityTypes,
     handleSelectionChange,
     renderOption,
@@ -117,7 +115,6 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
         refetch,
         entities,
         onClose,
-        entityType,
         entityTypes,
         handleSelectionChange,
     });
@@ -143,7 +140,10 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     const hasAddableEntitiesMatchingFilters = filteredAddableOptions?.length > 0;
     const hasExistingEntitiesMatchingFilters = filteredPreviouslyAddedOptions?.length > 0;
     const hasExistingEntities = previouslyAddedOptions?.length > 0;
-    const entityName = entityRegistry.getCollectionName(entityType)?.toLowerCase();
+    const primaryEntityType = entityTypes[0];
+    const entityName = primaryEntityType
+        ? entityRegistry.getCollectionName(primaryEntityType)?.toLowerCase()
+        : 'items';
     const emptyMessage = `No ${entityName} found`;
     return (
         <StyledSelectContainer onClick={handleContainerClick}>
@@ -152,7 +152,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
                 debouncedSetFilterText={handleSearchEntities}
                 matchResultCount={filteredPreviouslyAddedOptions?.length + filteredAddableOptions?.length}
                 numRows={searchResultCount}
-                entityTypeName={entityType}
+                entityTypeName={primaryEntityType ?? ''}
                 options={{ hidePrefix: true, hideMatchCountText: true, placeholder: `Search for ${entityName}...` }}
             />
             {isLoading ? (

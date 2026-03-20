@@ -2,16 +2,12 @@ import { debounce } from 'lodash';
 import { useEffect, useState } from 'react';
 
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import {
-    useGetAutoCompleteMultipleResultsLazyQuery,
-    useGetAutoCompleteResultsLazyQuery,
-} from '@src/graphql/search.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
 
 interface UseUpdateEntityParams {
     selectedItems: any[];
-    entityType: EntityType;
-    entityTypes?: EntityType[];
+    entityTypes: EntityType[];
     refetch?: () => void;
     onClose?: () => void;
     entities: any[];
@@ -34,13 +30,11 @@ export const useEntityOperations = ({
     selectedItems,
     entities,
     searchLimit = 10,
-    entityType,
     entityTypes,
     handleSelectionChange,
 }: UseUpdateEntityParams) => {
     const [searchText, setSearchText] = useState<string>(''); // Tracks the current search input
     const entityRegistry = useEntityRegistry();
-    const useMultiType = entityTypes && entityTypes.length > 0;
 
     // State for organizing entity options
     const [previouslyAddedOptions, setPreviouslyAddedOptions] = useState<SelectOption[]>([]); // Entities already added
@@ -50,9 +44,7 @@ export const useEntityOperations = ({
     const [filteredAddableOptions, setFilteredAddableOptions] = useState<SelectOption[]>([]);
     const [filteredPreviouslyAddedOptions, setFilteredPreviouslyAddedOptions] = useState<SelectOption[]>([]);
 
-    // Lazy queries for searching entity terms via GraphQL
-    const [entitySearch, { data: searchData, loading: entitySearchResultsLoading }] =
-        useGetAutoCompleteResultsLazyQuery();
+    // Lazy query for searching entities via GraphQL
     const [multiEntitySearch, { data: multiSearchData, loading: multiEntitySearchResultsLoading }] =
         useGetAutoCompleteMultipleResultsLazyQuery();
 
@@ -64,27 +56,15 @@ export const useEntityOperations = ({
     useEffect(() => {
         if (searchText.length > 0) {
             const debouncedSearch = debounce(() => {
-                if (useMultiType) {
-                    multiEntitySearch({
-                        variables: {
-                            input: {
-                                types: entityTypes,
-                                query: searchText,
-                                limit: searchLimit,
-                            },
+                multiEntitySearch({
+                    variables: {
+                        input: {
+                            types: entityTypes,
+                            query: searchText,
+                            limit: searchLimit,
                         },
-                    });
-                } else {
-                    entitySearch({
-                        variables: {
-                            input: {
-                                type: entityType,
-                                query: searchText,
-                                limit: searchLimit,
-                            },
-                        },
-                    });
-                }
+                    },
+                });
             }, DEBOUNCE_DELAY_TO_SEARCH_ENTITY_MS);
             debouncedSearch();
 
@@ -93,7 +73,7 @@ export const useEntityOperations = ({
         }
         return undefined; // Explicitly return undefined when searchText is empty
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchText, entitySearch, multiEntitySearch]);
+    }, [searchText, multiEntitySearch]);
 
     const getOptionsFromEntities = (allEntities) => {
         return allEntities?.map((entity) => ({
@@ -143,13 +123,8 @@ export const useEntityOperations = ({
 
     // Flatten multi-type search results into a single entity array
     const getSearchResults = () => {
-        if (useMultiType) {
-            return multiSearchData?.autoCompleteForMultiple?.suggestions?.flatMap((s) => s.entities) || [];
-        }
-        return searchData?.autoComplete?.entities || [];
+        return multiSearchData?.autoCompleteForMultiple?.suggestions?.flatMap((s) => s.entities) || [];
     };
-
-    const activeSearchData = useMultiType ? multiSearchData : searchData;
 
     // Updates entity options based on search results or entity list
     useEffect(() => {
@@ -157,7 +132,7 @@ export const useEntityOperations = ({
         const allEntities = searchText ? searchResults : entities;
         assignEntitiesOptions(allEntities);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchText, searchData, multiSearchData]);
+    }, [searchText, multiSearchData]);
 
     // Updates entity options when `entities` or `selectedItems` changes
     useEffect(() => {
@@ -193,8 +168,8 @@ export const useEntityOperations = ({
         handleUpdate,
         searchText,
         handleSearchEntities,
-        entitySearchResultsLoading: useMultiType ? multiEntitySearchResultsLoading : entitySearchResultsLoading,
-        searchData: activeSearchData,
+        entitySearchResultsLoading: multiEntitySearchResultsLoading,
+        searchData: multiSearchData,
         searchResultCount: getSearchResults().length,
     };
 };
