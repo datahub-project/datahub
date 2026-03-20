@@ -52,6 +52,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - If you are using helm to deploy DataHub you should be unaffected as the helm charts don't use the default values in application.yaml but rather generate a random secret to use.
   - IMPACT: Due to the change in signing keys for local development and quickstart, PATs generated before this release will be invalidated and will need to be regenerated in those instances.
 - #15744: The `emit_mcps()` method on `DataHubRestEmitter` now returns `List[TraceData]` instead of `int`. Previously it returned the number of chunks/batches sent. Now it returns a list of `TraceData` objects (one per batch) containing trace IDs for debugging and status checking. To get the previous chunk count, use `len(result)` on the returned list. Additionally, `emit_mcp()` now returns `Optional[TraceData]` instead of `None`.
+- #16680 (Frontend) The V1 UI theme is now officially sunset. All new features and patches going forward will be on the V2 UI (`THEME_V2_ENABLED=true`). If you are a customer of DataHub Cloud, or started using DataHub after February 2025 (or kept your clone/fork's environment variables in-sync with upstream since then), then this is already your default experience and you do not need to change anything.
+  - To ensure you are experiencing the latest features of DataHub, please ensure the GMS environment variables `THEME_V2_ENABLED` and `THEME_V2_DEFAULT` are set to `true` and `THEME_V2_TOGGLEABLE` is set to `false`.
+  - If you are using helm to deploy Datahub, ensure `datahub-gms.theme_v2.enabled` and `datahub-gms.theme_v2.default` are both set to `true` in `values.yaml`.
 
 ### Known Issues
 

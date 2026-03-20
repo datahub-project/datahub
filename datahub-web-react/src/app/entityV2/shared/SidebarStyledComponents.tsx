@@ -1,12 +1,8 @@
-import DraftsOutlinedIcon from '@mui/icons-material/DraftsOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Row } from 'antd';
+import { Icon } from '@components';
+import { EnvelopeOpen } from '@phosphor-icons/react/dist/csr/EnvelopeOpen';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import React from 'react';
 import styled from 'styled-components';
-
-/**
- * Styled Components- Users and Groups Side bar component
- * Description: The following styles are used for User and Groups UI for sidebar.
- */
 
 export const SideBar = styled.div`
     padding: 0 17px;
@@ -40,6 +36,7 @@ export const SideBarSubSection = styled.div`
     }
     &::-webkit-scrollbar-thumb {
         background: ${(props) => props.theme.colors.scrollbarThumb};
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 
@@ -97,12 +94,6 @@ export const RoleName = styled.div`
     }
 `;
 
-export const Team = styled.div`
-    font-size: 12px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textTertiary};
-`;
-
 export const SocialDetails = styled.div`
     display: flex;
     align-items: center;
@@ -119,24 +110,6 @@ export const SocialDetails = styled.div`
     .ant-space-item {
         display: flex;
         align-items: center;
-    }
-`;
-
-export const EditButton = styled.div`
-    bottom: 24px;
-    position: absolute;
-    right: 27px;
-    width: 80%;
-    left: 50%;
-    -webkit-transform: translateX(-50%);
-    -moz-transform: translateX(-50%);
-    transform: translateX(-50%);
-
-    button {
-        width: 100%;
-        font-size: 12px;
-        line-height: 20px;
-        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -179,41 +152,6 @@ export const TagsSection = styled.div`
     align-self: start;
 `;
 
-export const NoDataFound = styled.span`
-    font-size: 12px;
-    color: ${(props) => props.theme.colors.text};
-    font-weight: 100;
-`;
-
-export const Tags = styled.div`
-    margin-top: 5px;
-`;
-
-export const GroupsSeeMoreText = styled.span`
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textBrand};
-    cursor: pointer;
-`;
-
-export const DisplayCount = styled.span`
-    font-family: Mulish;
-    font-style: normal;
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textTertiary};
-`;
-
-export const GroupSectionTitle = styled.span`
-    margin-right: 8px;
-`;
-
-export const GroupSectionHeader = styled.div`
-    padding-bottom: 12px;
-`;
-
 export const Content = styled.div`
     display: flex;
     flex-direction: column;
@@ -233,15 +171,15 @@ export const Content = styled.div`
 
 export const CustomAvatarContainer = styled.div`
     position: relative;
-    margin-top 20px;
-    &:hover{
-        .edit-button-container{
+    margin-top: 20px;
+    &:hover {
+        .edit-button-container {
             display: block;
         }
     }
 `;
 
-export const UserInfo = styled(Row)`
+export const UserInfo = styled.div`
     display: flex;
     gap: 1rem;
     padding: 10px 10px;
@@ -331,27 +269,17 @@ export const BasicDetails = styled.div`
     }
 `;
 
-export const DraftsOutlinedIconStyle = styled(DraftsOutlinedIcon)`
-    font-size: 12px !important;
-`;
+export const DraftsOutlinedIconStyle = () => <Icon icon={EnvelopeOpen} size="sm" color="inherit" />;
 
-export const SubscriptionContainer = styled(Row)`
+export const SubscriptionContainer = styled.div`
     display: flex;
     gap: 0.5rem;
 `;
 
-export const OwnershipContainer = styled(Row)`
+export const OwnershipContainer = styled.div`
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
-`;
-
-export const DisplayNameText = styled.span`
-    color: ${(props) => props.theme.colors.textSecondary};
-    font-family: Mulish;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
 `;
 
 export const NameTitleContainer = styled.div`
@@ -359,26 +287,13 @@ export const NameTitleContainer = styled.div`
     flex-direction: column;
 `;
 
-export const WhiteEditOutlinedIconStyle = styled(EditOutlinedIcon)`
-    color: ${(props) => props.theme.colors.textOnFillBrand};
-    height: 18px !important;
-    width: 18px !important;
-    &:hover,
-    &:focus {
-        color: ${(props) => props.theme.colors.textOnFillBrand};
-        border-color: ${(props) => props.theme.colors.textOnFillBrand};
-    }
-`;
-
-const showMoreStyles = `
-    margin-top: 8px;
-    padding: 0px;
-    color: ${(props: any) => props.theme.colors.textSecondary};
-    text-align: left;
-`;
+export const WhiteEditOutlinedIconStyle = () => <Icon icon={PencilSimple} size="md" color="inherit" />;
 
 export const ShowMoreButton = styled.div`
-    ${showMoreStyles}
+    margin-top: 8px;
+    padding: 0px;
+    color: ${(props) => props.theme.colors.textSecondary};
+    text-align: left;
     :hover {
         cursor: pointer;
         color: ${(props) => props.theme.colors.textHover};
@@ -387,7 +302,10 @@ export const ShowMoreButton = styled.div`
 `;
 
 export const ShowMoreText = styled.div`
-    ${showMoreStyles}
+    margin-top: 8px;
+    padding: 0px;
+    color: ${(props) => props.theme.colors.textSecondary};
+    text-align: left;
 `;
 
 export const CountStyle = styled.div`

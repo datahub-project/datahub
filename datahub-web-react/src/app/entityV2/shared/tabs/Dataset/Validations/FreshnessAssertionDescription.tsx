@@ -16,7 +16,7 @@ type Props = {
     monitorSchedule?: Maybe<CronSchedule>;
 };
 
-export const getCronAsLabel = (cronSchedule: CronSchedule) => {
+const getCronAsLabel = (cronSchedule: CronSchedule) => {
     const { cron, timezone } = cronSchedule;
     if (!cron) {
         return '';

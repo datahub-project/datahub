@@ -327,6 +327,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Baz Chart 2");
     cy.waitTextVisible("Dashboards");
     cy.reload();
+    cy.get("#entity-profile-tags", { timeout: 10000 }).should("be.visible");
     cy.ensureTextNotPresent("Cypress");
     cy.ensureTextNotPresent("Marketing");
 

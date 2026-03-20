@@ -121,17 +121,6 @@ export const FeatureItem = styled.div<{ $hasIcon: boolean }>`
     gap: ${(props) => (props.$hasIcon ? '10px' : '0')};
 `;
 
-export const FeatureIconWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    min-height: 20px;
-    color: ${colors.gray[500]};
-    flex-shrink: 0;
-    margin-top: 2px;
-`;
-
 export const FeatureContent = styled.div`
     display: flex;
     flex-direction: column;

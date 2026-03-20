@@ -20,7 +20,8 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
     max-height: 600px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 85%, rgba(0, 0, 0, 0) 100%);
+    background: ${(props) => props.theme.colors.bgSurface} !important;
+    border-radius: 8px !important;
     span {
         font-family: 'Roboto Mono', monospace;
     }
@@ -86,7 +87,7 @@ interface HelperProps {
 }
 
 // exported for testing only
-export function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
+function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const [showFullContentModal, setShowFullContentModal] = useState(false);
     const isEmbeddedProfile = useIsEmbeddedProfile();
 
@@ -95,6 +96,7 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
     function lineProps(lineNumber: number): React.HTMLProps<HTMLElement> {
         const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
         if (highlightedLineNumbers.has(lineNumber)) {
+            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- highlight overlay, not a semantic color
             style.backgroundColor = 'rgba(134, 169, 244, 0.41)';
         }
         return { style };
