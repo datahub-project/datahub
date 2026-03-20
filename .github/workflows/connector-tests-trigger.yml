@@ -125,16 +125,15 @@ jobs:
             exit 0
           fi
 
-          # Check if the label adder is a member of the allowed team
-          # Use app token for org team read access (GITHUB_TOKEN cannot read org teams)
-          ALLOWED=$(GH_TOKEN="$APP_TOKEN" gh api "/orgs/datahub-project/teams/allow-skipping-connector-tests/members" \
-            --jq "[.[].login] | any(. == \"${ADDER}\")" 2>/dev/null || echo "false")
+          # Check if the label adder is a member of the datahub-project org
+          MEMBER_STATUS=$(GH_TOKEN="$APP_TOKEN" gh api "/orgs/datahub-project/members/${ADDER}" \
+            --silent -i 2>&1 | head -1 | grep -o '[0-9]\{3\}' | head -1)
 
-          if [ "$ALLOWED" = "true" ]; then
-            echo "PR #${PR_NUMBER} has skip-connector-tests label added by ${ADDER} (authorized) — skipping tests"
+          if [ "$MEMBER_STATUS" = "204" ]; then
+            echo "PR #${PR_NUMBER} has skip-connector-tests label added by ${ADDER} (org member) — skipping tests"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::skip-connector-tests label added by ${ADDER} who is not in allow-skipping-connector-tests team — ignoring label, running tests"
+            echo "::warning::skip-connector-tests label added by ${ADDER} who is not a datahub-project org member — ignoring label, running tests"
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
