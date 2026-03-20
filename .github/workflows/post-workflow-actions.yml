@@ -15,15 +15,12 @@ on:
       - "build & test"
       - "Check Datahub Jars"
       - "check python dependencies"
-      - "code check"
       - "Dagster Plugin"
       - "Docker Build, Scan, Test"
       - "ingestion smoke"
       - "documentation"
-      - "github actions format"
       - "GX Plugin"
-      - "Lint actions"
-      - "markdown format"
+      - "lint"
       - "Metadata Ingestion"
       - "metadata-io"
       - "metadata model generate"
@@ -36,7 +33,6 @@ on:
       - "Frontend Preview"
       - "spark smoke test"
       - "Verify Quickstart Compose"
-      - "yaml format"
     types:
       - completed
 

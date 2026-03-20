@@ -1,8 +1,9 @@
 import { Button, Icon, Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import styled from 'styled-components';
 
-export const CentredButton = styled(Button)`
+const CentredButton = styled(Button)`
     justify-content: center;
 `;
 
@@ -25,7 +26,7 @@ export function AddItemButton({ onClick, text, className }: Props) {
             size="xs"
             className={className}
         >
-            <Icon source="phosphor" icon="Plus" size="lg" />
+            <Icon icon={Plus} size="lg" />
             <Text>{text}</Text>
         </CentredButton>
     );

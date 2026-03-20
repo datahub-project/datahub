@@ -88,7 +88,7 @@ export const EMPTY_MESSAGES = {
     },
 };
 
-export const ELASTIC_MAX_COUNT = 10000;
+const ELASTIC_MAX_COUNT = 10000;
 
 export const getElasticCappedTotalValueText = (count: number) => {
     if (count === ELASTIC_MAX_COUNT) {
@@ -110,10 +110,3 @@ export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.Glossa
 export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
-
-// only values for Domain Entity for custom configurable default tab
-export enum EntityProfileTab {
-    DOMAIN_ENTITIES_TAB = 'DOMAIN_ENTITIES_TAB',
-    DOCUMENTATION_TAB = 'DOCUMENTATION_TAB',
-    DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
-}

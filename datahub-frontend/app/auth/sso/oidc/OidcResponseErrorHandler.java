@@ -9,6 +9,7 @@ import org.pac4j.core.context.WebContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.mvc.Result;
+import play.mvc.Results;
 
 public class OidcResponseErrorHandler {
 
@@ -19,7 +20,8 @@ public class OidcResponseErrorHandler {
   private static final String ERROR_FIELD_NAME = "error";
   private static final String ERROR_DESCRIPTION_FIELD_NAME = "error_description";
 
-  public static Result handleError(final CallContext ctx) {
+  public static Result handleError(
+      final CallContext ctx, final Optional<String> accessDeniedRedirectUrl) {
     WebContext context = ctx.webContext();
     logger.warn(
         "OIDC responded with an error: '{}'. Error description: '{}'",
@@ -27,6 +29,12 @@ public class OidcResponseErrorHandler {
         getErrorDescription(context));
 
     if (getError(context).isPresent() && getError(context).get().equals("access_denied")) {
+      if (accessDeniedRedirectUrl.isPresent()) {
+        logger.info(
+            "User denied access via OIDC. Redirecting to configured access denied URL: {}",
+            accessDeniedRedirectUrl.get());
+        return Results.redirect(accessDeniedRedirectUrl.get());
+      }
       return unauthorized(
           String.format(
               "Access denied. "

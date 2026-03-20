@@ -1,16 +1,20 @@
-import { Icon, Menu, Text, colors } from '@components';
+import { Icon, Menu, Text } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
 import { getTagColor } from '@app/tags/utils';
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityRegistry, useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -18,7 +22,7 @@ import { Entity, EntityType } from '@src/types.generated';
 const TagName = styled.div`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -27,15 +31,9 @@ const TagName = styled.div`
 const TagDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: normal;
     line-height: 1.4;
-`;
-
-const OwnersContainer = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
 `;
 
 const ColumnContainer = styled.div`
@@ -90,35 +88,22 @@ export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) 
 });
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const {
-        data,
-        loading: ownerLoading,
-        refetch: refetchOwners,
-    } = useGetTagQuery({
+    const entityRegistry = useEntityRegistryV2();
+    const { data, loading: ownerLoading } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
     });
 
-    // Empty placeholder instead of "Loading..." text
     if (ownerLoading) {
         return <ColumnContainer aria-busy="true" />;
     }
 
-    const ownershipData = data?.tag?.ownership?.owners || [];
+    const owners = data?.tag?.ownership?.owners || [];
+    if (owners.length === 0) return <>-</>;
 
     return (
         <ColumnContainer>
-            <OwnersContainer>
-                {ownershipData.map((ownerItem) => (
-                    <ExpandedOwner
-                        key={ownerItem.owner?.urn}
-                        entityUrn={tagUrn}
-                        owner={ownerItem as any}
-                        hidePopOver
-                        refetch={refetchOwners}
-                    />
-                ))}
-            </OwnersContainer>
+            <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />
         </ColumnContainer>
     );
 });
@@ -196,7 +181,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                     }
                 }}
             >
-                <Text style={{ color: colors.violet[500] }}>
+                <Text color="violet">
                     {totalCount} {totalCount === 1 ? 'entity' : 'entities'}
                 </Text>
             </div>
@@ -216,7 +201,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                             }
                         }}
                     >
-                        <Text style={{ color: colors.violet[500] }}>
+                        <Text color="violet">
                             {agg.count} {entityRegistry.getCollectionName(agg.value as unknown as EntityType)}
                         </Text>
                     </div>
@@ -243,7 +228,7 @@ export const TagActionsColumn = React.memo(
                 type: 'item' as const,
                 key: 'edit',
                 title: 'Edit',
-                icon: 'Edit' as const,
+                icon: PencilSimple,
                 onClick: onEdit,
                 'data-testid': 'action-edit',
             },
@@ -251,7 +236,7 @@ export const TagActionsColumn = React.memo(
                 type: 'item' as const,
                 key: 'copy-urn',
                 title: 'Copy URN',
-                icon: 'ContentCopy' as const,
+                icon: Copy,
                 onClick: () => {
                     navigator.clipboard.writeText(tagUrn);
                 },
@@ -262,7 +247,7 @@ export const TagActionsColumn = React.memo(
                           type: 'item' as const,
                           key: 'delete',
                           title: 'Delete',
-                          icon: 'Delete' as const,
+                          icon: Trash,
                           danger: true,
                           onClick: onDelete,
                           'data-testid': 'action-delete',
@@ -274,7 +259,7 @@ export const TagActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Icon icon="MoreVert" size="md" data-testid={`${tagUrn}-actions`} />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid={`${tagUrn}-actions`} />
                 </Menu>
             </CardIcons>
         );

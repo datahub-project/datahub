@@ -16,9 +16,15 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
     permissions:
       actions: read
-      statuses: write
       deployments: read
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CONNECTOR_TESTS_APP_ID }}
+          private-key: ${{ secrets.CONNECTOR_TESTS_APP_PRIVATE_KEY }}
+
       - name: Check BOTH workflows passed for this SHA
         id: check-both
         env:
@@ -91,18 +97,78 @@ jobs:
             echo "Found PR #${PR_NUMBER}"
           fi
 
-      - name: Set pending commit status
+      - name: Check for skip label
         if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true'
+        id: check-skip
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
         run: |
-          gh api "/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_sha }}" \
-            -f state=pending \
-            -f context="connector-tests" \
-            -f description="Connector tests triggered, waiting for results..."
+          # Check if PR has the skip-connector-tests label
+          HAS_LABEL=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}" \
+            --jq '[.labels[].name] | any(. == "skip-connector-tests")' 2>/dev/null || echo "false")
+
+          if [ "$HAS_LABEL" != "true" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Find who added the label via timeline API
+          ADDER=$(gh api --paginate "/repos/${REPO}/issues/${PR_NUMBER}/timeline" \
+            --jq '[.[] | select(.event == "labeled" and .label.name == "skip-connector-tests")] | last | .actor.login // empty')
+
+          if [ -z "$ADDER" ]; then
+            echo "::warning::skip-connector-tests label found but could not determine who added it — running tests"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if the label adder is a member of the datahub-project org
+          MEMBER_STATUS=$(GH_TOKEN="$APP_TOKEN" gh api "/orgs/datahub-project/members/${ADDER}" \
+            --silent -i 2>&1 | head -1 | grep -o '[0-9]\{3\}' | head -1)
+
+          if [ "$MEMBER_STATUS" = "204" ]; then
+            echo "PR #${PR_NUMBER} has skip-connector-tests label added by ${ADDER} (org member) — skipping tests"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::skip-connector-tests label added by ${ADDER} who is not a datahub-project org member — ignoring label, running tests"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create skipped check run
+        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true' && steps.check-skip.outputs.skip == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          jq -nc \
+            --arg sha "$SHA" \
+            --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{name: "connector-tests", head_sha: $sha, status: "completed", conclusion: "skipped", completed_at: $completed_at, output: {title: "Connector tests skipped", summary: "Skipped via skip-connector-tests label on the PR."}}' \
+          | gh api "/repos/${REPO}/check-runs" --input -
+          echo "Created skipped check run"
+
+      - name: Create pending check run
+        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true' && steps.check-skip.outputs.skip != 'true'
+        id: check-run
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          CHECK_RUN_ID=$(jq -nc \
+            --arg sha "$SHA" \
+            --arg started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{name: "connector-tests", head_sha: $sha, status: "in_progress", started_at: $started_at, output: {title: "Connector tests in progress", summary: "Connector tests have been triggered and are running..."}}' \
+          | gh api "/repos/${REPO}/check-runs" --input - --jq '.id')
+          echo "check_run_id=${CHECK_RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "Created check run ${CHECK_RUN_ID}"
 
       - name: Dispatch to connector-tests
-        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true'
+        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true' && steps.check-skip.outputs.skip != 'true'
         env:
           # Fine-grained PAT scoped to acryldata/connector-tests with Contents: R/W.
           # To rotate: generate a new token and update this repo secret.
@@ -111,6 +177,7 @@ jobs:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           SOURCE_REPO: ${{ github.repository }}
           WHEEL_URL: ${{ steps.cloudflare.outputs.url }}
+          CHECK_RUN_ID: ${{ steps.check-run.outputs.check_run_id }}
         run: |
           jq -nc \
             --arg event "oss-pr-connector-tests" \
@@ -118,17 +185,20 @@ jobs:
             --arg sha "$COMMIT_SHA" \
             --arg repo "$SOURCE_REPO" \
             --arg url "$WHEEL_URL" \
-            '{event_type: $event, client_payload: {pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url}}' \
+            --arg check_run_id "$CHECK_RUN_ID" \
+            '{event_type: $event, client_payload: {pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url, check_run_id: $check_run_id}}' \
           | gh api "/repos/acryldata/connector-tests/dispatches" --input -
 
           echo "Dispatched for PR #${PR_NUMBER}"
 
-      - name: On failure — set error commit status
-        if: failure() && steps.pr-info.outputs.has_pr == 'true'
+      - name: On failure — mark check run as failed
+        if: (failure() || cancelled()) && steps.check-run.outputs.check_run_id != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CHECK_RUN_ID: ${{ steps.check-run.outputs.check_run_id }}
+          REPO: ${{ github.repository }}
         run: |
-          gh api "/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_sha }}" \
-            -f state=error \
-            -f context="connector-tests" \
-            -f description="Failed to trigger connector tests (infra issue)"
+          jq -nc \
+            --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{status: "completed", conclusion: "failure", completed_at: $completed_at, output: {title: "Failed to trigger connector tests", summary: "Infrastructure issue prevented connector tests from being dispatched."}}' \
+          | gh api "/repos/${REPO}/check-runs/${CHECK_RUN_ID}" -X PATCH --input -

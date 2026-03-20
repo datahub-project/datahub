@@ -1,12 +1,9 @@
-import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 
-const HeaderText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
+const HeaderText = styled.span`
     font-size: 14px;
     font-weight: 500;
 `;
@@ -22,16 +19,16 @@ const Wrapper = styled.div`
     margin: 12px 0;
 `;
 
-const ColoredContainer = styled.div<{ backgroundColor: string; textColor: string }>`
+const ColoredContainer = styled.div<{ $bgColor: string; $textColor: string }>`
     border-radius: 20px;
     padding: 4px 12px;
-    background-color: ${(props) => props.backgroundColor};
-    color: ${(props) => props.textColor};
+    background-color: ${(props) => props.$bgColor};
+    color: ${(props) => props.$textColor};
     font-weight: 500;
     width: max-content;
 `;
 
-const BoldText = styled(Typography.Text)`
+const BoldText = styled.span`
     font-weight: 600;
 `;
 
@@ -40,6 +37,7 @@ interface Props {
 }
 
 const SyncedOrSharedTooltip = ({ type }: Props) => {
+    const theme = useTheme();
     const action = type === ActionType.SYNC ? 'Synced' : 'Shared';
     return (
         <Container>
@@ -47,16 +45,19 @@ const SyncedOrSharedTooltip = ({ type }: Props) => {
                 This represents the time that the entity was last {type === ActionType.SYNC ? 'synchronized' : 'shared'}
             </HeaderText>
             <Wrapper>
-                <ColoredContainer backgroundColor={REDESIGN_COLORS.GREEN_LIGHT} textColor={REDESIGN_COLORS.GREEN_800}>
+                <ColoredContainer
+                    $bgColor={theme.colors.bgSurfaceSuccess}
+                    $textColor={theme.colors.textOnSurfaceSuccess}
+                >
                     {action} within the <BoldText>past week </BoldText>
                 </ColoredContainer>
                 <ColoredContainer
-                    backgroundColor={REDESIGN_COLORS.YELLOW_BACKGROUND}
-                    textColor={REDESIGN_COLORS.RED_800}
+                    $bgColor={theme.colors.bgSurfaceWarning}
+                    $textColor={theme.colors.textOnSurfaceWarning}
                 >
                     {action} within the <BoldText>past month</BoldText>
                 </ColoredContainer>
-                <ColoredContainer backgroundColor={REDESIGN_COLORS.RED_LIGHT} textColor={REDESIGN_COLORS.RED_800}>
+                <ColoredContainer $bgColor={theme.colors.bgSurfaceError} $textColor={theme.colors.textOnSurfaceError}>
                     {action} <BoldText>more than a month ago</BoldText>
                 </ColoredContainer>
             </Wrapper>
