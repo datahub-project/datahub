@@ -91,7 +91,7 @@ jobs:
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v6
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
         # Explicitly checkout head commit, as tag computation depends on it
         with:
           checkout-head-only: true
@@ -205,12 +205,12 @@ jobs:
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 17
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/uv
@@ -218,7 +218,7 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/yarn
@@ -226,7 +226,7 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.gradle/wrapper
@@ -239,18 +239,18 @@ jobs:
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
-        uses: depot/setup-action@v1
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v6
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
           cache: "pip"
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -286,27 +286,27 @@ jobs:
 
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: |
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
@@ -330,7 +330,7 @@ jobs:
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: acryldata/sane-checkout-action@v6
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
       - id: download_image
         name: Download images from depot
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
@@ -340,7 +340,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.34.2
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -355,7 +355,7 @@ jobs:
           vuln-type: "os,library"
           trivy-config: "./trivy.yaml"
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
         with:
           sarif_file: "trivy-results.sarif"
 
@@ -422,7 +422,7 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/uv
@@ -430,7 +430,7 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/yarn
@@ -439,14 +439,14 @@ jobs:
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v6
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
-        uses: depot/setup-action@v1
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -610,11 +610,11 @@ jobs:
           echo "Skipping this batch to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -728,7 +728,7 @@ jobs:
 
       - name: Upload Java SDK V2 coverage to Codecov
         if: ${{ always() && (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-integration/java/datahub-client/
@@ -748,7 +748,7 @@ jobs:
           TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
@@ -767,7 +767,7 @@ jobs:
         # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
         # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
         # required so upload-artifact picks up that dot-prefixed directory.
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.test_strategy == 'cypress'
         with:
           name: cypress-mochawesome-json-${{ matrix.batch }}
@@ -775,7 +775,7 @@ jobs:
           include-hidden-files: true
           retention-days: 1
       - name: Upload screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
@@ -827,12 +827,12 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
@@ -840,7 +840,7 @@ jobs:
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         with:
           path: |
@@ -853,9 +853,9 @@ jobs:
     needs: [smoke_test]
     if: ${{ !cancelled() && needs.smoke_test.result != 'skipped' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Download all Cypress mochawesome JSON artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: cypress-mochawesome-json-*
           path: mochawesome-results
@@ -891,7 +891,7 @@ jobs:
             echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
           fi
       - name: Upload unified Cypress HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cypress-html-report
           path: cypress-html-report/
@@ -923,10 +923,10 @@ jobs:
 
       - name: Set up Depot CLI
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' }}
-        uses: depot/setup-action@v1
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -934,7 +934,7 @@ jobs:
 
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
@@ -955,13 +955,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [setup, smoke_test, publish_images]
     steps:
-      - uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
           aws-region: us-west-2
-      - uses: isbang/sqs-action@v0.2.0
+      - uses: isbang/sqs-action@7cdb8b5d1328c6af489ef4614fbafb364bf096ea # v0.2.0
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
