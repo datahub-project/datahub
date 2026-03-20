@@ -39,3 +39,5 @@ For more advanced guides, please refer to the following:
 - [Developing on Metadata Ingestion](./developing.md)
 - [Adding a Metadata Ingestion Source](./adding-source.md)
 - [Using Transformers](./docs/transformer/intro.md)
+
+# E2E test for connector tests flow
