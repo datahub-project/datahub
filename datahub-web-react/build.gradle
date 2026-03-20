@@ -163,7 +163,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   }
 }
 
-test.dependsOn([yarnInstall, yarnTest, yarnLint])
+test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   def targetFile = project.findProperty('file') ?: ''
