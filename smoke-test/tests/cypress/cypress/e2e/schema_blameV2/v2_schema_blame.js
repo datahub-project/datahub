@@ -2,9 +2,6 @@ const urn =
   "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
 
 describe("schema blame", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
   Cypress.on("uncaught:exception", (err, runnable) => false);
 
   it("can activate the blame view and verify for the latest version of a dataset", () => {

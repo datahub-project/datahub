@@ -3,7 +3,7 @@ import { Tooltip } from '@components';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 
-export type Props = {
+type Props = {
     query: string;
     showCopyText?: boolean;
     style?: any;

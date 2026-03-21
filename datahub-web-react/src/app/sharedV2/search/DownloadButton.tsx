@@ -1,4 +1,5 @@
 import { Button, Tooltip, colors } from '@components';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -19,7 +20,7 @@ export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadin
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
                 isCircle
-                icon={{ icon: 'DownloadSimple', source: 'phosphor' }}
+                icon={{ icon: DownloadSimple }}
                 variant="text"
                 color="gray"
                 size="sm"

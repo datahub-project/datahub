@@ -11,7 +11,6 @@ import {
     DISPLAY_NAME_FILTER_NAME,
     ENTITY_TYPES_FILTER_NAME,
     IS_HIDDEN_PROPERTY_FILTER_NAME,
-    SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
     SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
     VALUE_TYPE_FIELD_NAME,
 } from '@src/app/search/utils/constants';
@@ -239,14 +238,6 @@ export const getShowInColumnsTablePropertyFilter = () => {
         values: ['true'],
     };
     return columnsTableFilter;
-};
-
-export const getShowInAssetSummaryPropertyFilter = () => {
-    const assetSummaryFilter: FacetFilterInput = {
-        field: SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
-        values: ['true'],
-    };
-    return assetSummaryFilter;
 };
 
 export const getEntityTypesPropertyFilter = (
