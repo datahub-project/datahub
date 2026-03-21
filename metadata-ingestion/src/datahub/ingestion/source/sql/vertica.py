@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.utilities import config_clean
+from sqlalchemy import text
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
@@ -185,6 +186,90 @@ class VerticaSource(SQLAlchemySource):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
+
+    def _get_column_nullable_map(
+        self,
+        inspector: VerticaInspector,
+        schema: str,
+        table: str,
+        entity_type: str = "table",
+    ) -> Dict[str, bool]:
+        """
+        Workaround for vertica-sqlalchemy-dialect hardcoding is_nullable as true.
+        Queries Vertica system tables directly to get the correct nullable value
+        for each column.
+        """
+        try:
+            with inspector.bind.connect() as conn:
+                if entity_type == "projection":
+                    query = text(
+                        """
+                        SELECT column_name, is_nullable
+                        FROM projection_columns
+                        WHERE lower(table_schema) = :schema
+                        AND lower(projection_name) = :table
+                        """
+                    )
+                elif entity_type == "view":
+                    query = text(
+                        """
+                        SELECT column_name, is_nullable
+                        FROM v_catalog.view_columns
+                        WHERE lower(table_schema) = :schema
+                        AND lower(table_name) = :table
+                        """
+                    )
+                else:
+                    query = text(
+                        """
+                        SELECT column_name, is_nullable
+                        FROM v_catalog.columns
+                        WHERE lower(table_schema) = :schema
+                        AND lower(table_name) = :table
+                        """
+                    )
+                result = conn.execute(
+                    query,
+                    {"schema": schema.lower(), "table": table.lower()},
+                )
+                return {row["column_name"]: bool(row["is_nullable"]) for row in result}
+        except Exception as ex:
+            logger.warning(
+                f"Unable to get nullable info for {schema}.{table}: {ex}. "
+                f"Defaulting to nullable=True for all columns."
+            )
+            return {}
+
+    def _patch_column_nullable(
+        self,
+        columns: List[Dict],
+        nullable_map: Dict[str, bool],
+    ) -> List[Dict]:
+        """
+        Patches the nullable field on each column dict using the
+        nullable_map fetched directly from Vertica system tables.
+        """
+        for col in columns:
+            col_name = col.get("name", "")
+            if col_name in nullable_map:
+                col["nullable"] = nullable_map[col_name]
+        return columns
+
+    def _get_columns(
+        self,
+        dataset_name: str,
+        inspector: VerticaInspector,
+        schema: str,
+        table: str,
+    ) -> List[dict]:
+        """
+        Workaround for vertica-sqlalchemy-dialect hardcoding is_nullable=true.
+        We fetch columns normally then patch the nullable field using values
+        read directly from Vertica system tables.
+        """
+        columns = super()._get_columns(dataset_name, inspector, schema, table)
+        nullable_map = self._get_column_nullable_map(inspector, schema, table, "table")
+        return self._patch_column_nullable(columns, nullable_map)
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: VerticaInspector, **kwargs: Any
@@ -354,10 +439,41 @@ class VerticaSource(SQLAlchemySource):
             entity_urn=dataset_urn,
             owner_urn=f"urn:li:corpuser:{view_owner}",
         )
-
         yield from super()._process_view(
             dataset_name, inspector, schema, view, sql_config
         )
+
+    def _get_view_definition(
+        self,
+        inspector: VerticaInspector,
+        schema: str,
+        view: str,
+    ) -> str:
+        """
+        Workaround for vertica-sqlalchemy-dialect using a case-sensitive schema
+        match in fetch_view_definitions, which causes view definitions to be
+        missing for schemas with uppercase letters in their name.
+        """
+        try:
+            with inspector.bind.connect() as conn:
+                result = conn.execute(
+                    text(
+                        """
+                        SELECT VIEW_DEFINITION
+                        FROM V_CATALOG.VIEWS
+                        WHERE lower(table_schema) = :schema
+                        AND lower(table_name) = :view
+                        """
+                    ),
+                    {"schema": schema.lower(), "view": view.lower()},
+                )
+                row = result.fetchone()
+                return str(row[0]) if row else ""
+        except Exception as ex:
+            logger.warning(
+                f"Unable to get view definition for {schema}.{view}: {ex}"
+            )
+            return ""
 
     def loop_projections(
         self,
@@ -447,7 +563,10 @@ class VerticaSource(SQLAlchemySource):
         projection: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        # Workaround for vertica-sqlalchemy-dialect hardcoding is_nullable=true.
         columns = inspector.get_projection_columns(projection, schema)
+        nullable_map = self._get_column_nullable_map(inspector, schema, projection, "projection")
+        columns = self._patch_column_nullable(columns, nullable_map)
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
