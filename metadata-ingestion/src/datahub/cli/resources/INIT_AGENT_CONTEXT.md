@@ -70,6 +70,17 @@ playwright install chromium
 `--sso` is mutually exclusive with `--token`, `--username`, and `--password`.
 If Playwright is not installed, the command prints step-by-step install instructions and exits.
 
+### Support login (DataHub Cloud)
+
+For the support team debugging customer instances, add `--support` to use the
+`/support/authenticate` login path:
+
+```bash
+datahub init --sso --support --host https://customer.acryl.io/gms
+```
+
+`--support` requires `--sso`.
+
 ## Environment variables
 
 | Variable            | CLI equivalent |

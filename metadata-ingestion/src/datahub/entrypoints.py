@@ -281,6 +281,12 @@ def _validate_init_inputs(
     help="Open browser for SSO login (requires: pip install 'acryl-datahub[sso]' && playwright install chromium)",
 )
 @click.option(
+    "--support",
+    is_flag=True,
+    default=False,
+    help="Use support login path for DataHub Cloud customer debugging (use with --sso)",
+)
+@click.option(
     "--agent-context",
     is_flag=True,
     default=False,
@@ -295,6 +301,7 @@ def init(
     token_duration: Optional[str] = None,
     force: bool = False,
     sso: bool = False,
+    support: bool = False,
     agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
@@ -330,6 +337,11 @@ def init(
             --token-duration ONE_MONTH
 
     \b
+    Support Login (DataHub Cloud — customer debugging):
+        datahub init --sso --support \\
+            --host https://customer.acryl.io/gms
+
+    \b
     Environment Variables (for automation):
         export DATAHUB_GMS_URL=http://localhost:8080
         export DATAHUB_USERNAME=alice
@@ -355,6 +367,10 @@ def init(
         )
         click.echo(text)
         return
+
+    # Validate: --support requires --sso
+    if support and not sso:
+        raise click.UsageError("--support requires --sso")
 
     # Show deprecation warning if --use-password used
     if use_password:
@@ -417,7 +433,9 @@ def init(
         from datahub.cli.sso_cli import browser_sso_login
 
         frontend_url = guess_frontend_url_from_gms_url(host_value)
-        _, token_value = browser_sso_login(frontend_url, effective_duration)
+        _, token_value = browser_sso_login(
+            frontend_url, effective_duration, support=support
+        )
         click.echo(f"✓ Generated token (expires: {effective_duration})")
     elif should_generate_token or use_password:
         # Generate token from credentials

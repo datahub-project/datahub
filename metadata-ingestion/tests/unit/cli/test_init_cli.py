@@ -635,7 +635,9 @@ class TestSSOLogin:
         assert "localhost:8080" in config_content
 
         # Verify frontend URL derivation: 8080 -> 9002
-        mock_browser_login.assert_called_once_with("http://localhost:9002", "ONE_MONTH")
+        mock_browser_login.assert_called_once_with(
+            "http://localhost:9002", "ONE_MONTH", support=False
+        )
 
     def test_sso_with_custom_duration(self, temp_config: Path, clean_env: None) -> None:
         """Test --sso respects --token-duration."""
@@ -654,7 +656,9 @@ class TestSSOLogin:
             )
 
         assert result.exit_code == 0
-        mock_browser_login.assert_called_once_with("http://localhost:9002", "ONE_MONTH")
+        mock_browser_login.assert_called_once_with(
+            "http://localhost:9002", "ONE_MONTH", support=False
+        )
 
     def test_sso_with_acryl_cloud_url(self, temp_config: Path, clean_env: None) -> None:
         """Test --sso with Acryl Cloud URL derives correct frontend URL."""
@@ -673,8 +677,46 @@ class TestSSOLogin:
         assert result.exit_code == 0
         # For acryl.io, frontend URL is the base without /gms
         mock_browser_login.assert_called_once_with(
-            "https://my-instance.acryl.io", "ONE_HOUR"
+            "https://my-instance.acryl.io", "ONE_HOUR", support=False
         )
+
+    def test_sso_support_flag(self, temp_config: Path, clean_env: None) -> None:
+        """Test --sso --support passes support=True to browser_sso_login."""
+        runner = CliRunner()
+        with patch("datahub.cli.sso_cli.browser_sso_login") as mock_browser_login:
+            mock_browser_login.return_value = ("name", "token-value")
+            result = runner.invoke(
+                init,
+                [
+                    "--sso",
+                    "--support",
+                    "--host",
+                    "https://customer.acryl.io/gms",
+                ],
+            )
+
+        assert result.exit_code == 0
+        mock_browser_login.assert_called_once_with(
+            "https://customer.acryl.io", "ONE_HOUR", support=True
+        )
+
+    def test_support_without_sso_errors(
+        self, temp_config: Path, clean_env: None
+    ) -> None:
+        """Test --support without --sso raises an error."""
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--support",
+                "--host",
+                "http://localhost:8080",
+                "--token",
+                "my-token",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--support requires --sso" in result.output
 
 
 class TestTokenDuration:

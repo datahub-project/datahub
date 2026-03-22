@@ -34,7 +34,10 @@ def _check_playwright_ready() -> None:
 
 
 def browser_sso_login(
-    frontend_url: str, token_duration: str, timeout_ms: int = 120_000
+    frontend_url: str,
+    token_duration: str,
+    timeout_ms: int = 120_000,
+    support: bool = False,
 ) -> Tuple[str, str]:
     """Open browser for SSO login, extract session, generate access token.
 
@@ -42,6 +45,8 @@ def browser_sso_login(
         frontend_url: The DataHub frontend URL (e.g. http://localhost:9002).
         token_duration: Token validity duration (e.g. ONE_HOUR).
         timeout_ms: How long to wait for SSO login to complete, in milliseconds.
+        support: If True, use /support/authenticate path for DataHub Cloud
+            support team access to customer instances.
 
     Returns:
         Tuple of (token_name, access_token).
@@ -53,7 +58,11 @@ def browser_sso_login(
 
     from playwright.sync_api import sync_playwright
 
-    click.echo("Opening browser for SSO login...")
+    auth_path = "/support/authenticate" if support else "/authenticate"
+    if support:
+        click.echo("Opening browser for support SSO login...")
+    else:
+        click.echo("Opening browser for SSO login...")
     click.echo("Complete the login in your browser.\n")
 
     with sync_playwright() as p:
@@ -61,7 +70,7 @@ def browser_sso_login(
         context = browser.new_context()
         page = context.new_page()
 
-        page.goto(f"{frontend_url}/authenticate")
+        page.goto(f"{frontend_url}{auth_path}")
 
         # Wait for the actor cookie, which signals successful SSO login.
         actor_urn = None
