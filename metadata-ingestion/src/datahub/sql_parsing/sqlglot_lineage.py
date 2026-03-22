@@ -17,6 +17,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    cast,
 )
 
 import pydantic.dataclasses
@@ -441,7 +442,7 @@ _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
 
 
 def _clickhouse_extract_dictget_tables(
-    statement: sqlglot.Expression,
+    statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
     """Extract dictionary references from ClickHouse dictGet() function calls.
@@ -499,7 +500,7 @@ def _clickhouse_extract_dictget_tables(
 
 
 def _clickhouse_extract_to_tables(
-    statement: sqlglot.Expression,
+    statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
     """Extract TO tables from ClickHouse CREATE MATERIALIZED VIEW ... TO statements.
@@ -598,7 +599,7 @@ def _clickhouse_filter_column_lineage(
 
 
 def _build_tsql_update_alias_map(
-    statement: sqlglot.Expression,
+    statement: sqlglot.exp.Expression,
 ) -> Dict[str, sqlglot.exp.Table]:
     """Build alias → table mapping for TSQL UPDATE/DELETE statements.
 
@@ -683,7 +684,7 @@ def _resolve_tsql_update_alias(
 
 
 def _table_level_lineage(
-    statement: sqlglot.Expression, dialect: sqlglot.Dialect
+    statement: sqlglot.exp.Expression, dialect: sqlglot.Dialect
 ) -> Tuple[AbstractSet[_TableName], AbstractSet[_TableName]]:
     # TSQL-specific: Build alias → table mapping for UPDATE/DELETE statements.
     # TSQL syntax "UPDATE dst FROM target_table dst" places only the alias in the
@@ -696,7 +697,7 @@ def _table_level_lineage(
         tsql_alias_map = _build_tsql_update_alias_map(statement)
 
     def _maybe_resolve_tsql_alias(
-        expr: sqlglot.Expression,
+        expr: sqlglot.exp.Expr,
     ) -> sqlglot.exp.Table:
         """Resolve TSQL UPDATE/DELETE alias if applicable."""
         table = expr.this
@@ -932,7 +933,7 @@ def _prepare_query_columns(
             # - running the full pre-type annotation optimizer
 
             # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
-            statement = sqlglot.optimizer.optimizer.optimize(
+            optimized = sqlglot.optimizer.optimizer.optimize(
                 statement,
                 dialect=dialect,
                 schema=sqlglot_db_schema,
@@ -945,6 +946,7 @@ def _prepare_query_columns(
                 db=default_schema,
                 rules=_OPTIMIZE_RULES,
             )
+            statement = cast(sqlglot.exp.Expression, optimized)
         except (sqlglot.errors.OptimizeError, ValueError) as e:
             raise SqlUnderstandingError(
                 f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
@@ -1321,7 +1323,7 @@ def _get_direct_raw_col_upstreams(
 
 
 def _is_single_column_expression(
-    expression: sqlglot.exp.Expression,
+    expression: sqlglot.exp.Expr,
 ) -> bool:
     # Check if the expression is trivial, i.e. it's just a single column.
     # Things like count(*) or coalesce(col, 0) are not single columns.
@@ -1786,13 +1788,13 @@ def _try_extract_select(
         statement = _extract_select_from_create(statement)
 
     if isinstance(statement, sqlglot.exp.Subquery):
-        statement = statement.unnest()
+        statement = cast(sqlglot.exp.Expression, statement.unnest())
 
     return statement
 
 
 def _translate_sqlglot_type(
-    sqlglot_type: sqlglot.exp.DataType.Type,
+    sqlglot_type: sqlglot.exp.DataType.Type,  # type: ignore[valid-type]
 ) -> Optional[SchemaFieldDataTypeClass]:
     TypeClass: Any
     if sqlglot_type in sqlglot.exp.DataType.TEXT_TYPES:
@@ -1994,7 +1996,7 @@ def _sqlglot_lineage_inner(
     # This only works for Unionable statements. For other types of statements,
     # we have to do it manually afterwards, but that's slightly lower accuracy
     # because of CTEs.
-    statement = sqlglot.optimizer.qualify.qualify(
+    qualified = sqlglot.optimizer.qualify.qualify(
         statement,
         dialect=dialect,
         # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
@@ -2007,6 +2009,7 @@ def _sqlglot_lineage_inner(
         # Only insert quotes where necessary.
         identify=False,
     )
+    statement = cast(sqlglot.exp.Expression, qualified)
 
     # Generate table-level lineage.
     tables, modified = _table_level_lineage(statement, dialect=dialect)

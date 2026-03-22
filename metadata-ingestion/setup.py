@@ -124,8 +124,7 @@ sqlglot_lib = {
     # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
     # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
-    "sqlglot[c]==29.0.1",
-    "sqlglotc==29.0.1",
+    "sqlglot[c]==30.0.3",
     "patchy==2.8.0",
 }
 
@@ -306,7 +305,7 @@ snowflake_common = {
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
     #
-    # Upper bound <1.7.4 was (accidentally?) removed 
+    # Upper bound <1.7.4 was (accidentally?) removed
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
@@ -657,7 +656,8 @@ plugins: Dict[str, Set[str]] = {
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    "kafka-connect": sql_common
+    | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,

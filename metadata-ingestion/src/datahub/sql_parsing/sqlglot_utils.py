@@ -3,7 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import functools
 import logging
 import re
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union, cast
 
 import sqlglot
 import sqlglot.errors
@@ -43,11 +43,10 @@ def is_dialect_instance(
 @functools.lru_cache(maxsize=SQL_PARSE_CACHE_SIZE)
 def _parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
-    statement: sqlglot.Expression = sqlglot.maybe_parse(
+) -> sqlglot.exp.Expression:
+    statement = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
-
     # Handle Block statements from sqlglot v29+
     # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
     # Block([stmt1, None, ...]) where None represents empty statements between semicolons.
@@ -77,12 +76,12 @@ def _parse_statement(
         # Return the single non-None statement
         statement = non_none_expressions[0]
 
-    return statement
+    return cast(sqlglot.exp.Expression, statement)
 
 
 def parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
+) -> sqlglot.exp.Expression:
     # Parsing is significantly more expensive than copying the expression.
     # Because the expressions are mutable, we don't want to allow the caller
     # to modify the parsed expression that sits in the cache. We keep
@@ -90,7 +89,7 @@ def parse_statement(
     return _parse_statement(sql, dialect).copy()
 
 
-def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.Expr:
     logger.debug("Parsing SQL query: %s", sql)
 
     dialect = get_dialect(platform)
@@ -114,9 +113,9 @@ def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expre
 def _expression_to_string(
     expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> str:
-    if isinstance(expression, str):
-        return expression
-    return expression.sql(dialect=get_dialect(platform))
+    if isinstance(expression, sqlglot.exp.Expr):
+        return expression.sql(dialect=get_dialect(platform))
+    return str(expression)
 
 
 PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION = re.compile(r"(%s|\$\d|\?)")
@@ -192,9 +191,11 @@ def generalize_query_fast(
         The generalized SQL query.
     """
 
-    if isinstance(expression, sqlglot.exp.Expression):
-        expression = expression.sql(dialect=get_dialect(dialect))
-    query_text = expression
+    query_text: str
+    if isinstance(expression, sqlglot.exp.Expr):
+        query_text = expression.sql(dialect=get_dialect(dialect))
+    else:
+        query_text = str(expression)
 
     REGEX_REPLACEMENTS = {
         **_BASIC_NORMALIZATION_RULES,
