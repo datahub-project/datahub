@@ -61,6 +61,7 @@ datahub init --sso --host https://your-instance.example.com/gms --token-duration
 ```
 
 **Prerequisites** (one-time setup):
+
 ```bash
 pip install 'acryl-datahub[sso]'   # or: uv pip install 'acryl-datahub[sso]'
 playwright install chromium
