@@ -2,13 +2,14 @@
 
 import logging
 import pathlib
+import textwrap
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel
 
 from datahub.errors import ItemNotFoundError
 from datahub.sdk.search_client import compile_filters
-from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
+from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import clean_gql_response, execute_graphql
 from datahub_agent_context.mcp_tools.helpers import (
@@ -18,6 +19,10 @@ from datahub_agent_context.mcp_tools.helpers import (
     inject_urls_for_urns,
     maybe_convert_to_schema_field_urn,
     truncate_descriptions,
+)
+from datahub_agent_context.mcp_tools.search_filter_parser import (
+    FILTER_DOCS,
+    parse_filter_string,
 )
 
 logger = logging.getLogger(__name__)
@@ -138,7 +143,7 @@ def get_lineage(
     urn: str,
     column: Optional[str] = None,
     query: Optional[str] = None,
-    filters: Optional[Filter | str] = None,
+    filter: Optional[str] = None,
     upstream: bool = True,
     max_hops: int = 1,
     max_results: int = 30,
@@ -149,13 +154,12 @@ def get_lineage(
     Set upstream to True for upstream lineage, False for downstream lineage.
     Set `column: null` to get lineage for entire dataset or for entity type other than dataset.
     Setting max_hops to 3 is equivalent to unlimited hops.
-    Usage and format of filters is same as that in search tool.
 
     Args:
         urn: Entity URN
         column: Optional column name for column-level lineage
         query: Optional search query to filter lineage results
-        filters: Optional filters to apply
+        filter: Optional SQL-like filter string (same syntax as search tool)
         upstream: True for upstream, False for downstream
         max_hops: Maximum number of hops (1-3+)
         max_results: Maximum number of results to return
@@ -204,6 +208,8 @@ def get_lineage(
     - Large lineage (>30 items) → Keep count=30, use facets for aggregation
     - Need complete list → Increase count only if total ≤100
 
+    {FILTER_DOCS}
+
     Example:
         from datahub_agent_context.context import DataHubContext
 
@@ -216,9 +222,9 @@ def get_lineage(
     if column == "null" or column == "":
         column = None
 
-    # Parse filters if provided as string
-    if isinstance(filters, str):
-        filters = load_filters(filters)
+    parsed_filters: Optional[Filter] = (
+        parse_filter_string(filter.strip()) if isinstance(filter, str) else None
+    )
 
     lineage_api = AssetLineageAPI()
 
@@ -228,7 +234,7 @@ def get_lineage(
         upstream=upstream,
         downstream=not upstream,
         max_hops=max_hops,
-        extra_filters=filters,
+        extra_filters=parsed_filters,
         max_results=max_results,
     )
     lineage = lineage_api.get_lineage(asset_lineage_directive, query=query)
@@ -308,6 +314,11 @@ def get_lineage(
         }
 
     return lineage
+
+
+get_lineage.__doc__ = (get_lineage.__doc__ or "").format(
+    FILTER_DOCS=textwrap.indent(FILTER_DOCS, "    ")
+)
 
 
 def _find_result_with_target_urn(

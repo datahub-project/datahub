@@ -1,3 +1,5 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { InputProps, InputRef } from 'antd';
 import React, { forwardRef } from 'react';
 
@@ -39,7 +41,7 @@ export const SearchBar = forwardRef<InputRef, SearchBarProps & Omit<InputProps, 
                 placeholder={placeholder}
                 onChange={(e) => onChange?.(e.target.value, e)}
                 value={inputValue}
-                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                prefix={<Icon icon={MagnifyingGlass} />}
                 allowClear={clearIcon ? allowClear && { clearIcon } : allowClear}
                 $width={width}
                 $height={height}

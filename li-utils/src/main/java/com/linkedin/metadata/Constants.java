@@ -181,6 +181,7 @@ public class Constants {
   public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
   public static final String FORMS_ASPECT_NAME = "forms";
   // Aspect support
+  public static final String FINE_GRAINED_LINEAGE_ASPECT_NAME = "fineGrainedLineage";
   public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_TYPE = "FIELD";
@@ -431,6 +432,8 @@ public class Constants {
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
+
+  public static final String RELATIONSHIP_PLATFORM_EVENT_NAME = "relationshipChangeEvent";
 
   /** Retention */
   public static final String DATAHUB_RETENTION_ENTITY = "dataHubRetention";

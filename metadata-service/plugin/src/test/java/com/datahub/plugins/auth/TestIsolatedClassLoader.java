@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -64,6 +65,11 @@ public class TestIsolatedClassLoader {
   @BeforeClass
   public void setSecurityManager() {
     System.setSecurityManager(new SecurityManager());
+  }
+
+  @AfterClass
+  public void clearSecurityManager() {
+    System.setSecurityManager(null);
   }
 
   @Test

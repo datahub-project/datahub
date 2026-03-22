@@ -1,10 +1,10 @@
 import { Button, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { AndFilterInput, EntityType } from '@types';
 
@@ -26,7 +26,7 @@ const AddButton = styled(Button)`
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
     transition: all 0.2s ease;
 
@@ -36,7 +36,7 @@ const AddButton = styled(Button)`
     }
 `;
 
-export interface AddRelatedEntityDropdownProps {
+interface AddRelatedEntityDropdownProps {
     entityTypes: EntityType[];
     existingUrns: Set<string>;
     documentUrn: string;
@@ -106,7 +106,7 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
             <AddButton
                 variant="text"
                 isCircle
-                icon={{ icon: 'Plus', source: 'phosphor' }}
+                icon={{ icon: Plus }}
                 aria-label="Add related entity"
                 disabled={disabled}
             />

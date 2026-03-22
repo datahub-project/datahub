@@ -244,8 +244,14 @@ smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "volume", "data_quality"],
-    # Schedule (optional - defaults to hourly)
-    schedule="0 */6 * * *",  # Every 6 hours
+    # Optional: partition data into daily/weekly time buckets
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "America/Los_Angeles",
+    },
+    # Optional: backfill historical data for smarter predictions
+    backfill_config={"backfill_start_date_ms": 1704067200000},  # 2024-01-01
     # Enable the assertion
     enabled=True
 )
@@ -363,7 +369,11 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart column metric assertion (AI-powered anomaly detection)
+# Create smart column metric assertion (AI-powered anomaly detection).
+# Note: Smart Assertions currently only support the following column metrics:
+# null_count, unique_count, empty_count, zero_count, negative_count.
+# For other metrics (e.g. min, max, mean), use a regular column metric assertion
+# with a fixed threshold (see below).
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
@@ -375,6 +385,14 @@ smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
     detection_mechanism="all_rows_query_datahub_dataset_profile",
     # Smart sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
+    # Optional: partition data into daily time buckets
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "UTC",
+    },
+    # Optional: backfill historical data for smarter predictions
+    backfill_config={"backfill_start_date_ms": 1704067200000},  # 2024-01-01
     # Tags
     tags=["automated", "column_quality", "null_checks"],
     enabled=True
@@ -382,7 +400,8 @@ smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
 
 print(f"Created smart column assertion: {smart_column_assertion.urn}")
 
-# Create regular column metric assertion (fixed threshold on aggregated metric)
+# Create regular column metric assertion (fixed threshold on aggregated metric).
+# Use this for metrics not supported by Smart Assertions (e.g. min, max, mean, median, stddev).
 column_metric_assertion = client.assertions.sync_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="price",

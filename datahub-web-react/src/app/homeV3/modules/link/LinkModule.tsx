@@ -1,4 +1,5 @@
 import { Icon, colors } from '@components';
+import { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -81,7 +82,7 @@ export default function LinkModule(props: ModuleProps) {
                 </LeftSection>
                 <RightSection>
                     <a href={linkParams?.linkUrl} target="_blank" rel="noopener noreferrer">
-                        <Icon icon="ArrowUpRight" source="phosphor" size="lg" color="gray" />
+                        <Icon icon={ArrowUpRight} size="lg" color="gray" />
                     </a>
                 </RightSection>
             </Container>

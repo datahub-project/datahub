@@ -665,3 +665,84 @@ class TestSQLAlchemyProfiler:
 
             # Verify warning was logged
             assert mock_report.warning.called
+
+    def test_empty_table_skips_column_profiling(
+        self, profiler, sqlite_engine, test_table
+    ):
+        """
+        Test that empty tables (row_count == 0) skip column profiling but return basic profile.
+
+        This optimization matches GE profiler behavior:
+        - Empty tables get a basic profile with rowCount=0
+        - Column profiling is skipped (no field profiles generated)
+        - No wasted queries on empty tables
+
+        The behavior is the same as row_count failure (None) - both return a basic profile.
+        The difference is the reason: empty table optimization vs permission error.
+        """
+        request = ProfilerRequest(
+            pretty_name="test.empty_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Create a mock sql_table with columns but mock row_count to return 0
+        metadata = sa.MetaData()
+        sql_table = sa.Table(
+            "test_table",
+            metadata,
+            sa.Column("id", sa.Integer),
+            sa.Column("value", sa.Integer),
+        )
+
+        # Define side effect that sets profile.rowCount = 0 and returns 0
+        def mock_profile_row_count(*args, **kwargs):
+            # The profile parameter is at index 3 (after self, runner, query_combiner, sql_table)
+            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+            if profile:
+                profile.rowCount = 0
+            return 0
+
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch.object(
+                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+            ),
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+
+            # Create mock adapter and mock context
+            mock_adapter = MagicMock()
+            mock_context = MagicMock()
+            mock_context.sql_table = sql_table
+            mock_adapter.setup_profiling.return_value = mock_context
+            mock_adapter.cleanup.return_value = None
+            mock_get_adapter.return_value = mock_adapter
+
+            # Attempt to profile - should return basic profile
+            result_request, result_profile = profiler._generate_profile_from_request(
+                None, request
+            )
+
+            # Verify that a basic profile is returned (not None)
+            assert result_request == request
+            assert result_profile is not None, (
+                "Expected basic profile to be returned for empty table, "
+                "not None (which would skip the entire table)"
+            )
+
+            # Verify row_count was set to 0
+            assert result_profile.rowCount == 0, (
+                f"Expected rowCount=0, got {result_profile.rowCount}"
+            )
+
+            # Verify no field profiles were generated (column profiling skipped)
+            assert (
+                result_profile.fieldProfiles is None
+                or len(result_profile.fieldProfiles) == 0
+            ), (
+                f"Expected no field profiles for empty table, got {len(result_profile.fieldProfiles) if result_profile.fieldProfiles else 0}"
+            )

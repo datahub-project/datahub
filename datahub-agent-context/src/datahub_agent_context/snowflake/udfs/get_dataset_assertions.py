@@ -38,12 +38,17 @@ try:
 
     client = DataHubClient(server=datahub_url, token=datahub_token)
 
+    def _clean(val):
+        if val is None or (isinstance(val, str) and val.strip().lower() in ('null', 'none', '')):
+            return None
+        return val
+
     with DataHubContext(client):
         return get_dataset_assertions(
             urn=urn,
-            column=column_name if column_name else None,
-            assertion_type=assertion_type if assertion_type else None,
-            status=status if status else None,
+            column=_clean(column_name),
+            assertion_type=_clean(assertion_type),
+            status=_clean(status),
             count=int(count) if count else 5,
             run_events_count=int(run_events_count) if run_events_count else 1
         )
