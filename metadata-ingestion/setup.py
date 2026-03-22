@@ -74,13 +74,13 @@ framework_common = {
     # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
+    # Required for GraphQL query adaptation (used by search CLI)
+    "graphql-core>=3.0.0,<4.0.0",
 }
 
 rest_common = {
     "requests<3.0.0",
     "requests_file<4.0.0",
-    # Required for GraphQL query adaptation and schema introspection
-    "graphql-core>=3.0.0,<4.0.0",
 }
 
 kafka_common = {
