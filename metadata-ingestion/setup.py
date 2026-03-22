@@ -1226,6 +1226,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
                 ]
             )
         ),
+        "sso": list(framework_common | {"playwright>=1.40.0"}),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
         "docs": list(
