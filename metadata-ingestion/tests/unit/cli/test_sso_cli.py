@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.cli.sso_cli import browser_sso_login
+from datahub.cli.sso_cli import _warn_about_existing_cli_tokens, browser_sso_login
 
 
 @pytest.fixture
@@ -64,8 +64,14 @@ class TestBrowserSsoLogin:
         with patch("datahub.cli.sso_cli.requests") as mock_requests:
             mock_session = MagicMock()
             mock_requests.Session.return_value = mock_session
-            mock_response = MagicMock()
-            mock_response.json.return_value = {
+
+            # First call: listAccessTokens (warning check), second: createAccessToken
+            list_response = MagicMock()
+            list_response.json.return_value = {
+                "data": {"listAccessTokens": {"total": 0, "tokens": []}}
+            }
+            create_response = MagicMock()
+            create_response.json.return_value = {
                 "data": {
                     "createAccessToken": {
                         "accessToken": "generated-sso-token-xyz",
@@ -76,7 +82,7 @@ class TestBrowserSsoLogin:
                     }
                 }
             }
-            mock_session.post.return_value = mock_response
+            mock_session.post.side_effect = [list_response, create_response]
 
             token_name, access_token = browser_sso_login(
                 "http://localhost:9002", "ONE_HOUR"
@@ -88,16 +94,16 @@ class TestBrowserSsoLogin:
         # Verify cookies were set on the session
         assert mock_session.cookies.set.call_count == 2
 
-        # Verify GraphQL call was made
-        mock_session.post.assert_called_once()
-        call_args = mock_session.post.call_args
-        assert call_args[0][0] == "http://localhost:9002/api/v2/graphql"
-        assert "createAccessToken" in call_args[1]["json"]["query"]
+        # Verify GraphQL calls were made (list + create)
+        assert mock_session.post.call_count == 2
+        create_call = mock_session.post.call_args_list[1]
+        assert create_call[0][0] == "http://localhost:9002/api/v2/graphql"
+        assert "createAccessToken" in create_call[1]["json"]["query"]
         assert (
-            call_args[1]["json"]["variables"]["input"]["actorUrn"]
+            create_call[1]["json"]["variables"]["input"]["actorUrn"]
             == "urn:li:corpuser:john.doe"
         )
-        assert call_args[1]["json"]["variables"]["input"]["duration"] == "ONE_HOUR"
+        assert create_call[1]["json"]["variables"]["input"]["duration"] == "ONE_HOUR"
 
     def test_timeout_raises_error(self, mock_playwright: dict) -> None:
         """Verify timeout if login never completes."""
@@ -150,3 +156,42 @@ class TestBrowserSsoLogin:
 
             with pytest.raises(Exception, match="Failed to generate access token"):
                 browser_sso_login("http://localhost:9002", "ONE_HOUR")
+
+
+class TestWarnAboutExistingCliTokens:
+    def test_warns_about_existing_cli_tokens(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        session = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {
+            "data": {
+                "listAccessTokens": {
+                    "total": 4,
+                    "tokens": [
+                        {"name": "cli token 2026-03-01T10:00:00"},
+                        {"name": "cli token 2026-03-02T10:00:00"},
+                        {"name": "cli token 2026-03-03T10:00:00"},
+                        {"name": "manually created token"},
+                    ],
+                }
+            }
+        }
+        session.post.return_value = response
+
+        _warn_about_existing_cli_tokens(
+            session, "https://example.com", "urn:li:corpuser:alice"
+        )
+
+        captured = capsys.readouterr()
+        assert "3 existing CLI token(s)" in captured.out
+        assert "https://example.com/settings/tokens" in captured.out
+
+    def test_warning_failure_does_not_block(self) -> None:
+        session = MagicMock()
+        session.post.side_effect = Exception("network error")
+
+        # Should not raise — failure is silently logged
+        _warn_about_existing_cli_tokens(
+            session, "https://example.com", "urn:li:corpuser:alice"
+        )

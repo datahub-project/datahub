@@ -1,9 +1,14 @@
+import logging
 import urllib.parse
 from datetime import datetime
 from typing import Tuple
 
 import click
 import requests
+
+logger = logging.getLogger(__name__)
+
+CLI_TOKEN_PREFIX = "cli token "
 
 _INSTALL_HELP = """\
 The --sso flag requires Playwright and a Chromium browser.
@@ -31,6 +36,51 @@ def _check_playwright_ready() -> None:
         raise click.UsageError(
             "Playwright is not installed.\n\n" + _INSTALL_HELP
         ) from e
+
+
+def _warn_about_existing_cli_tokens(
+    session: requests.Session,
+    frontend_url: str,
+    actor_urn: str,
+) -> None:
+    """Best-effort warning about existing CLI tokens for the current user."""
+    try:
+        response = session.post(
+            f"{frontend_url}/api/v2/graphql",
+            json={
+                "query": """query listAccessTokens($input: ListAccessTokenInput!) {
+                    listAccessTokens(input: $input) {
+                        total
+                        tokens { name }
+                    }
+                }""",
+                "variables": {
+                    "input": {
+                        "start": 0,
+                        "count": 100,
+                        "filters": [
+                            {
+                                "field": "ownerUrn",
+                                "values": [actor_urn],
+                            }
+                        ],
+                    }
+                },
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        tokens = data.get("data", {}).get("listAccessTokens", {}).get("tokens", [])
+        cli_token_count = sum(
+            1 for t in tokens if t.get("name", "").startswith(CLI_TOKEN_PREFIX)
+        )
+        if cli_token_count > 0:
+            click.echo(
+                f"⚠ You have {cli_token_count} existing CLI token(s). "
+                f"Manage them at {frontend_url}/settings/tokens"
+            )
+    except Exception:
+        logger.debug("Failed to check existing CLI tokens", exc_info=True)
 
 
 def browser_sso_login(
@@ -113,6 +163,8 @@ def browser_sso_login(
         )
 
     click.echo(f"✓ Logged in as {actor_urn}")
+
+    _warn_about_existing_cli_tokens(session, frontend_url, actor_urn)
 
     # Generate an access token via the frontend GraphQL API
     now = datetime.now()
