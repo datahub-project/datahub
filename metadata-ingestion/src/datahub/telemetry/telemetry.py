@@ -22,6 +22,7 @@ from datahub.configuration.env_vars import (
     get_telemetry_timeout,
 )
 from datahub.metadata.schema_classes import _custom_package_path
+from datahub.utilities.caller_context import identify_caller
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -115,6 +116,7 @@ def _default_global_properties() -> Dict[str, Any]:
         "python_version": platform.python_version(),
         "os": platform.system(),
         "arch": platform.machine(),
+        # caller is populated lazily in ping() to avoid subprocess calls at import time
     }
 
 
@@ -337,6 +339,10 @@ class Telemetry:
             return
 
         properties = properties or {}
+
+        # Lazily populate caller to avoid subprocess calls at import time
+        if "caller" not in self.global_properties:
+            self.global_properties["caller"] = identify_caller()
 
         # send event
         try:
