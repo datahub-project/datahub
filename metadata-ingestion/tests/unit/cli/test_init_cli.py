@@ -661,7 +661,7 @@ class TestSSOLogin:
         )
 
     def test_sso_with_acryl_cloud_url(self, temp_config: Path, clean_env: None) -> None:
-        """Test --sso with Acryl Cloud URL derives correct frontend URL."""
+        """Test --sso with DataHub Cloud URL derives correct frontend URL."""
         runner = CliRunner()
         with patch("datahub.cli.sso_cli.browser_sso_login") as mock_browser_login:
             mock_browser_login.return_value = ("name", "token-value")
