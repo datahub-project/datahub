@@ -119,6 +119,11 @@ module.exports = {
                             'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
                         allowTypeImports: true,
                     },
+                    {
+                        name: '@monaco-editor/react',
+                        importNames: ['loader'],
+                        message: "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
+                    },
                 ],
             },
         ],
