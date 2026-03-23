@@ -98,9 +98,11 @@ Jobs in `RUNNING` state emit a start event only. Completed jobs emit both start 
 
 4. **Operator-chained sinks have no catalog info.** The `tableName[N]: Writer` pattern produced by Flink's operator chaining does not include catalog or database information. Only the bare table name is available. These sinks cannot be resolved to a platform and are reported as unclassified.
 
-5. **DataStream non-Kafka connectors are not supported.** Only `KafkaSource-{topic}` and `KafkaSink-{topic}` DataStream patterns are recognized. Other DataStream connectors (Kinesis, Pulsar, RabbitMQ, custom) produce user-provided names with no platform information.
+5. **Temporary tables are invisible to SQL Gateway.** `CREATE TEMPORARY TABLE` definitions are session-scoped and not persisted in any catalog. The SQL Gateway cannot look up their definitions, so temporary tables cannot be resolved to a platform and are reported as unclassified.
 
-6. **No column-level lineage.** Only table-level (coarse) lineage is extracted from execution plans.
+6. **DataStream non-Kafka connectors are not supported.** Only `KafkaSource-{topic}` and `KafkaSink-{topic}` DataStream patterns are recognized. Other DataStream connectors (Kinesis, Pulsar, RabbitMQ, custom) produce user-provided names with no platform information.
+
+7. **No column-level lineage.** Only table-level (coarse) lineage is extracted from execution plans.
 
 ### Troubleshooting
 

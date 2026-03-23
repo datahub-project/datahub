@@ -17,6 +17,7 @@ import logging
 import subprocess
 import time
 
+import psycopg2
 import requests
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,6 @@ KAFKA_TOPICS = [
     "final-output",
     "user-events",
     "enriched-user-events",
-    "matched-events",
 ]
 
 # ── Catalogs registered via SQL Gateway (persistent FileCatalogStore) ──
@@ -63,6 +63,19 @@ CREATE_ICEBERG_TABLE_SQL = """CREATE TABLE IF NOT EXISTS ice_catalog.lake.events
     event_id BIGINT,
     event_type STRING,
     event_time TIMESTAMP(6)
+)"""
+
+CREATE_ICEBERG_RESULTS_TABLE_SQL = """CREATE TABLE IF NOT EXISTS ice_catalog.lake.results (
+    event_id BIGINT,
+    event_type STRING,
+    event_time TIMESTAMP(6)
+)"""
+
+CREATE_ICEBERG_KAFKA_EVENTS_TABLE_SQL = """CREATE TABLE IF NOT EXISTS ice_catalog.lake.kafka_events (
+    user_id BIGINT,
+    username STRING,
+    email STRING,
+    active BOOLEAN
 )"""
 
 CREATE_HIVE_CATALOG_SQL = """\
@@ -103,19 +116,6 @@ CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.enriched_orders (
     'format' = 'json'
 );
 
-CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.final_output (
-    order_id BIGINT,
-    amount DECIMAL(10,2),
-    customer_name STRING,
-    order_time TIMESTAMP(3)
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'final-output',
-    'properties.bootstrap.servers' = 'broker:9092',
-    'scan.startup.mode' = 'earliest-offset',
-    'format' = 'json'
-);
-
 CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.user_events (
     user_id BIGINT,
     username STRING,
@@ -140,7 +140,9 @@ CREATE TABLE IF NOT EXISTS hive_catalog.flink_db.enriched_user_events (
     'properties.bootstrap.servers' = 'broker:9092',
     'scan.startup.mode' = 'earliest-offset',
     'format' = 'json'
-)"""
+);
+
+"""
 
 # ── Postgres tables (reflected by JDBC catalog as public.users, public.products) ──
 
@@ -156,6 +158,12 @@ CREATE TABLE IF NOT EXISTS products (
     title VARCHAR(255),
     price DOUBLE PRECISION,
     in_stock BOOLEAN
+);
+CREATE TABLE IF NOT EXISTS results (
+    order_id BIGINT,
+    amount DECIMAL(10,2),
+    customer_name VARCHAR(255),
+    order_time TIMESTAMP
 );
 """
 
@@ -178,7 +186,12 @@ INSERT INTO hive_catalog.flink_db.enriched_orders
 SELECT * FROM hive_catalog.flink_db.orders;
 """
 
-# Job 2: enriched-orders → final-output (multi-hop second leg, via HiveCatalog)
+# Job 2: Kafka → Postgres (dominant ETL materialization pattern).
+# Reads orders from Kafka (via HiveCatalog) and writes to pg_catalog.flink_catalog.public.results.
+# Plan shows:
+#   TableSourceScan(table=[[hive_catalog, flink_db, orders]])             → Kafka (Tier 2 SHOW CREATE TABLE)
+#   Sink(table=[[pg_catalog, flink_catalog, public.results]])             → Postgres (DESCRIBE CATALOG EXTENDED)
+# Both endpoints are fully resolvable — first SQL Table API job with a non-Iceberg, non-empty output.
 JOB2_SQL = """\
 CREATE CATALOG hive_catalog WITH (
     'type' = 'hive',
@@ -186,10 +199,18 @@ CREATE CATALOG hive_catalog WITH (
     'hive-conf-dir' = '/opt/hive-conf'
 );
 
-SET 'pipeline.name' = 'test_final_output';
+CREATE CATALOG pg_catalog WITH (
+    'type' = 'jdbc',
+    'default-database' = 'flink_catalog',
+    'username' = 'flink',
+    'password' = 'flink',
+    'base-url' = 'jdbc:postgresql://postgres:5432'
+);
 
-INSERT INTO hive_catalog.flink_db.final_output
-SELECT * FROM hive_catalog.flink_db.enriched_orders;
+SET 'pipeline.name' = 'test_kafka_to_pg';
+
+INSERT INTO pg_catalog.flink_catalog.`public.results`
+SELECT * FROM hive_catalog.flink_db.orders;
 """
 
 # Job 3: JDBC 3-level naming test.
@@ -226,7 +247,13 @@ SELECT * FROM hive_catalog.flink_db.user_events;
 # Job 4: Iceberg 2-level naming test.
 # Uses Iceberg streaming read (monitor-interval polls for new snapshots).
 # Job stays RUNNING even with empty table (confirmed by Iceberg Issue #5803).
-# Plan shows TableSourceScan(table=[[ice_catalog, lake, events]]).
+# Plan shows:
+#   TableSourceScan(table=[[ice_catalog, lake, events]])     → Iceberg source
+#   Sink(table=[[ice_catalog, lake, results]])               → Iceberg sink
+# Both tables are in the REST-backed Iceberg catalog so SHOW CREATE TABLE from the
+# connector's SQL Gateway session resolves connector=iceberg for both sides, giving
+# fully resolved input AND output lineage. This is the correct way to demonstrate
+# iceberg → flink → iceberg stitching without hitting the Kafka Sink V2 limitation.
 JOB4_SQL = """\
 CREATE CATALOG ice_catalog WITH (
     'type' = 'iceberg',
@@ -242,22 +269,44 @@ CREATE TABLE IF NOT EXISTS ice_catalog.lake.events (
     event_time TIMESTAMP(6)
 );
 
-CREATE TEMPORARY TABLE matched_events (
+CREATE TABLE IF NOT EXISTS ice_catalog.lake.results (
     event_id BIGINT,
     event_type STRING,
     event_time TIMESTAMP(6)
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'matched-events',
-    'properties.bootstrap.servers' = 'broker:9092',
-    'format' = 'json'
 );
 
 SET 'pipeline.name' = 'test_iceberg_events_pipeline';
 
-INSERT INTO matched_events
+INSERT INTO ice_catalog.lake.results
 SELECT * FROM ice_catalog.lake.events
   /*+ OPTIONS('streaming'='true', 'monitor-interval'='5s') */;
+"""
+
+
+# Job 5: Kafka → Iceberg (canonical lakehouse ingestion pattern).
+# Reads user_events (Kafka, via HiveCatalog) and writes to ice_catalog.lake.kafka_events.
+# Plan shows:
+#   TableSourceScan(table=[[hive_catalog, flink_db, user_events]])  → Kafka (Tier 2 SHOW CREATE TABLE)
+#   Sink(table=[[ice_catalog, lake, kafka_events]])                 → Iceberg (catalog_platform_map)
+# Both endpoints are fully resolvable — this is the production-representative
+# kafka → flink → iceberg stitching scenario.
+JOB5_SQL = """\
+CREATE CATALOG ice_catalog WITH (
+    'type' = 'iceberg',
+    'catalog-type' = 'rest',
+    'uri' = 'http://iceberg-rest:8181'
+);
+
+CREATE CATALOG hive_catalog WITH (
+    'type' = 'hive',
+    'default-database' = 'default',
+    'hive-conf-dir' = '/opt/hive-conf'
+);
+
+SET 'pipeline.name' = 'test_kafka_to_iceberg';
+
+INSERT INTO ice_catalog.lake.kafka_events
+SELECT user_id, username, email, active FROM hive_catalog.flink_db.user_events;
 """
 
 
@@ -362,26 +411,29 @@ def _execute_sql_gateway(sql: str) -> None:
 
 
 def _setup_postgres_tables() -> None:
-    """Create test tables directly in Postgres."""
-    result = subprocess.run(
-        [
-            "docker",
-            "exec",
-            "-i",
-            POSTGRES_CONTAINER,
-            "psql",
-            "-U",
-            "flink",
-            "-d",
-            "flink_catalog",
-        ],
-        input=POSTGRES_DDL,
-        capture_output=True,
-        text=True,
-        timeout=30,
+    """Create test tables in Postgres using a direct psycopg2 connection.
+
+    psql via docker exec silently swallows DDL errors (exit code 0 even on failure).
+    psycopg2 raises real Python exceptions on any SQL error, so failures surface immediately.
+    Using localhost:5433 (the host-mapped port) mirrors the same network path used by the
+    DataHub Postgres source connector in the stitching tests.
+    """
+    conn = psycopg2.connect(
+        host="localhost",
+        port=5433,
+        dbname="flink_catalog",
+        user="flink",
+        password="flink",
     )
-    if result.returncode != 0:
-        raise RuntimeError(f"Postgres setup failed: {result.stderr}")
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            for statement in POSTGRES_DDL.split(";"):
+                stmt = statement.strip()
+                if stmt:
+                    cur.execute(stmt)
+    finally:
+        conn.close()
     logger.info("Postgres tables created")
 
 
@@ -402,6 +454,10 @@ def _register_catalogs() -> None:
     logger.info("Iceberg database 'lake' created")
     _execute_sql_gateway(CREATE_ICEBERG_TABLE_SQL)
     logger.info("Iceberg table 'lake.events' created")
+    _execute_sql_gateway(CREATE_ICEBERG_RESULTS_TABLE_SQL)
+    logger.info("Iceberg table 'lake.results' created")
+    _execute_sql_gateway(CREATE_ICEBERG_KAFKA_EVENTS_TABLE_SQL)
+    logger.info("Iceberg table 'lake.kafka_events' created")
     _execute_sql_gateway(CREATE_HIVE_CATALOG_SQL)
     logger.info("Hive catalog 'hive_catalog' registered")
     _execute_sql_gateway(HIVE_KAFKA_TABLES_SQL)
@@ -474,10 +530,12 @@ def _submit_pyflink_job(input_topic: str, output_topic: str, job_name: str) -> N
 def setup_test_data() -> None:
     """Create all test data: catalogs, tables, and streaming jobs.
 
-    Jobs cover three lineage patterns:
+    Jobs cover five lineage patterns:
     - DataStream Kafka: KafkaSource-{topic} / KafkaSink-{topic} (via PyFlink)
     - SQL/Table API with HiveCatalog: TableSourceScan(table=[[hive_catalog, ...]])
+    - SQL/Table API kafka → postgres: dominant ETL materialization (Kafka source, Postgres sink)
     - SQL/Table API with JDBC/Iceberg catalogs: 3-level and 2-level naming
+    - SQL/Table API kafka → iceberg: canonical lakehouse ingestion (Kafka source, Iceberg sink)
     """
     logger.info("Setting up Flink test data...")
     _create_kafka_topics()
@@ -488,9 +546,12 @@ def setup_test_data() -> None:
     _submit_pyflink_job("enriched-orders", "final-output", "test_ds_kafka_hop2")
     # SQL/Table API with HiveCatalog (Kafka tables visible across sessions)
     _submit_sql_job(JOB1_SQL, "test_enrich_orders")
-    _submit_sql_job(JOB2_SQL, "test_final_output")
+    # SQL/Table API kafka → postgres (first SQL job with fully-resolved non-Iceberg output)
+    _submit_sql_job(JOB2_SQL, "test_kafka_to_pg")
     # SQL/Table API with JDBC (3-level naming) and Iceberg (2-level naming)
     _submit_sql_job(JOB3_SQL, "test_pg_users_pipeline")
     _submit_sql_job(JOB4_SQL, "test_iceberg_events_pipeline")
-    _wait_for_running_jobs(expected=6)
+    # SQL/Table API kafka → iceberg (canonical lakehouse ingestion pattern)
+    _submit_sql_job(JOB5_SQL, "test_kafka_to_iceberg")
+    _wait_for_running_jobs(expected=7)
     logger.info("Test data setup complete.")
