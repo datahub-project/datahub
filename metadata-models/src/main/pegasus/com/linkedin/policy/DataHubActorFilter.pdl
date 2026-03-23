@@ -56,7 +56,7 @@ record DataHubActorFilter {
   allGroups: boolean = false
 
   /**
-   * A specific set of users to explicitly exclude from this policy (takes precedence over users/allUsers).
+   * A specific set of users to exclude from this policy (takes precedence over users/allUsers).
    */
   @Searchable = {
     "/*": {
@@ -66,7 +66,7 @@ record DataHubActorFilter {
   excludedUsers: optional array[Urn]
 
   /**
-   * A specific set of groups to explicitly exclude from this policy (takes precedence over groups/allGroups).
+   * A specific set of groups to exclude from this policy (takes precedence over groups/allGroups).
    */
   @Searchable = {
     "/*": {
@@ -76,8 +76,7 @@ record DataHubActorFilter {
   excludedGroups: optional array[Urn]
 
   /**
-   * Ownership types to explicitly exclude. Owners whose qualifying type is in this list will not match the policy,
-   * even if they match via resourceOwnersTypes. Takes precedence over resourceOwnersTypes.
+   * Set of OwnershipTypes to exclude from this policy (takes precedence over resourceOwnersTypes).
    */
   excludedResourceOwnersTypes: optional array[Urn]
 

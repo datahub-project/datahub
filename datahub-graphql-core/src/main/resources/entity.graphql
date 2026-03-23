@@ -9958,18 +9958,17 @@ type ActorFilter {
   resolvedRoles: [DataHubRole!]
 
   """
-  A set of users explicitly excluded from this policy, even if matched by users/allUsers
+  A set of users to exclude from this policy. Takes precedence over users/allUsers.
   """
   excludedUsers: [String!]
 
   """
-  A set of groups explicitly excluded from this policy, even if matched by groups/allGroups
+  A set of groups to exclude from this policy. Takes precedence over groups/allGroups.
   """
   excludedGroups: [String!]
 
   """
-  Ownership types explicitly excluded from this policy. Owners whose type is in this list will not match,
-  even if they match via resourceOwnersTypes. Takes precedence over resourceOwnersTypes.
+  Set of OwnershipTypes to exclude from this policy (if resourceOwners is set to True). Takes precedence over resourceOwnersTypes.
   """
   excludedResourceOwnersTypes: [String!]
 
@@ -10118,17 +10117,17 @@ input ActorFilterInput {
   allGroups: Boolean!
 
   """
-  A set of users explicitly excluded from this policy, even if matched by users/allUsers
+  A set of users to exclude from this policy. Takes precedence over users/allUsers.
   """
   excludedUsers: [String!]
 
   """
-  A set of groups explicitly excluded from this policy, even if matched by groups/allGroups
+  A set of groups to exclude from this policy. Takes precedence over groups/allGroups.
   """
   excludedGroups: [String!]
 
   """
-  Ownership types explicitly excluded from this policy. Takes precedence over resourceOwnersTypes.
+  Set of OwnershipTypes to exclude from this policy (if resourceOwners is set to True). Takes precedence over resourceOwnersTypes.
   """
   excludedResourceOwnersTypes: [String!]
 }
