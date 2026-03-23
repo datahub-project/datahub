@@ -55,15 +55,29 @@ class MQueryBridge:
             MQueryParseError: parser returned a structured error for this expression.
             MQueryBridgeError: V8 context error or malformed response.
         """
+        # JSPromise is available: __init__ already guaranteed py_mini_racer is installed.
+        from py_mini_racer import JSPromise
+
         try:
             # parseExpression is async, so ctx.call() returns an unresolved plain dict.
             # Use ctx.eval() instead, which returns a JSPromise; call .get() to await it.
-            promise = self._ctx.eval(f"parseExpression({json.dumps(expression)})")
-            raw = promise.get()
+            result = self._ctx.eval(f"parseExpression({json.dumps(expression)})")
+            if not isinstance(result, JSPromise):
+                raise MQueryBridgeError(
+                    f"M-Query bridge: expected JSPromise from parseExpression, got {type(result).__name__}"
+                )
+            raw = result.get()
+        except MQueryBridgeError:
+            raise
         except Exception as e:
             # Catches all py_mini_racer errors (JSEvalException, JSTimeoutException, etc.)
             # MiniRacerBaseException is not exported from the top-level namespace in mini-racer.
             raise MQueryBridgeError(f"M-Query bridge V8 error: {e}") from e
+
+        if not isinstance(raw, str):
+            raise MQueryBridgeError(
+                f"M-Query bridge returned non-string result: {type(raw).__name__}"
+            )
 
         try:
             result = json.loads(raw)

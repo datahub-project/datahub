@@ -15,6 +15,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
 
@@ -30,7 +31,14 @@ def _make_table(expression: str) -> powerbi_data_classes.Table:
     )
 
 
-def _get_instances(native_query_parsing: bool):
+def _get_instances(
+    native_query_parsing: bool,
+) -> tuple[
+    PipelineContext,
+    PowerBiDashboardSourceConfig,
+    AbstractDataPlatformInstanceResolver,
+    PowerBiDashboardSourceReport,
+]:
     config = PowerBiDashboardSourceConfig.model_validate(
         {
             "tenant_id": "fake",
