@@ -287,38 +287,24 @@ class TestDataplexConfig:
         assert config_max.lineage_retry_backoff_multiplier == 10.0
 
     def test_entries_location_default(self):
-        """Test that entries_location defaults to 'us'."""
+        """Test that entries locations defaults are set correctly."""
         config = DataplexConfig(project_ids=["test-project"])
 
-        # Should default to multi-region "us"
+        assert config.entries_locations == ["us", "eu", "asia", "global"]
         assert config.entries_location == "us"
 
-    def test_location_validation_warnings(self, caplog):
-        """Test location configuration validation warnings."""
-        import logging
+    def test_entries_locations_backward_compatibility(self):
+        """Test entries_location and entries_locations remain compatible."""
+        config_single = DataplexConfig(
+            project_ids=["test-project"],
+            entries_location="us-west2",
+        )
+        assert config_single.entries_locations == ["us-west2"]
+        assert config_single.entries_location == "us-west2"
 
-        # Test: Regional location for entries (should warn)
-        with caplog.at_level(logging.WARNING):
-            DataplexConfig(
-                project_ids=["test-project"],
-                entries_location="us-central1",  # Regional - wrong for entries
-            )
-            assert (
-                "entries_location='us-central1' appears to be a regional location"
-                in caplog.text
-            )
-            assert "@bigquery require multi-region locations" in caplog.text
-
-        caplog.clear()
-
-        # Test: Correct configuration (no warnings)
-        with caplog.at_level(logging.WARNING):
-            DataplexConfig(
-                project_ids=["test-project"],
-                entries_location="us",  # Multi-region for entries (correct)
-            )
-            # Should not have location-related warnings
-            assert (
-                "entries_location" not in caplog.text
-                or "appears to be" not in caplog.text
-            )
+        config_multi = DataplexConfig(
+            project_ids=["test-project"],
+            entries_locations=["global", "us"],
+        )
+        assert config_multi.entries_locations == ["global", "us"]
+        assert config_multi.entries_location == "global"

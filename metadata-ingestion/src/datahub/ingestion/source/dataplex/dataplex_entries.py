@@ -63,6 +63,9 @@ class DataplexEntriesReport:
         if filtered:
             self.entry_groups_filtered += 1
             self.entry_group_filtered_samples.append(entry_group_name)
+            logger.debug(
+                f"Entry group filtered out by entry_groups.pattern: {entry_group_name}"
+            )
 
     def report_entry(
         self,
@@ -77,14 +80,19 @@ class DataplexEntriesReport:
         if filtered_name:
             self.entries_filtered_by_pattern += 1
             self.entry_pattern_filtered_samples.append(entry_name)
+            logger.debug(f"Entry filtered out by entries.pattern: {entry_name}")
 
         if filtered_missing_fqn:
             self.entries_filtered_by_missing_fqn += 1
             self.entry_missing_fqn_samples.append(entry_name)
+            logger.debug(
+                f"Entry filtered out by missing fully_qualified_name: {entry_name}"
+            )
 
         if filtered_fqn:
             self.entries_filtered_by_fqn_pattern += 1
             self.entry_fqn_filtered_samples.append(entry_name)
+            logger.debug(f"Entry filtered out by entries.fqn_pattern: {entry_name}")
 
         if not filtered_name and not filtered_missing_fqn and not filtered_fqn:
             self.entries_processed += 1
@@ -165,8 +173,8 @@ class DataplexEntriesProcessor:
         """Stream entries from entry groups and Spanner workaround."""
 
         for entry_group in self.list_entry_groups(project_id, location):
-            logger.info("Listing entry group %s", entry_group.name)
-            logger.debug("Entry group payload: %s", entry_group)
+            logger.info(f"Listing entry group {entry_group.name}")
+            logger.debug(f"Entry group payload: {entry_group}")
             filtered_entry_group = not self.should_process_entry_group(entry_group.name)
             self.report.report_entry_group(
                 entry_group.name, filtered=filtered_entry_group
@@ -176,10 +184,8 @@ class DataplexEntriesProcessor:
 
             request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
             for entry in self.catalog_client.list_entries(request=request):
-                logger.info(
-                    "Listing entry %s from group %s", entry.name, entry_group.name
-                )
-                logger.debug("ListEntries payload: %s", entry)
+                logger.info(f"Listing entry {entry.name} from group {entry_group.name}")
+                logger.debug(f"ListEntries payload: {entry}")
                 try:
                     entry_request = dataplex_v1.GetEntryRequest(
                         name=entry.name,
@@ -188,9 +194,7 @@ class DataplexEntriesProcessor:
                     yield self.catalog_client.get_entry(request=entry_request)
                 except Exception as exc:
                     logger.warning(
-                        "Failed to fetch entry details for %s: %s",
-                        entry.name,
-                        exc,
+                        f"Failed to fetch entry details for {entry.name}: {exc}"
                     )
 
         yield from self.collect_spanner_entries(project_id, location)
@@ -207,22 +211,17 @@ class DataplexEntriesProcessor:
         try:
             for result in self.catalog_client.search_entries(request=request):
                 logger.info(
-                    "SearchEntries result for project=%s location=%s",
-                    project_id,
-                    location,
+                    f"SearchEntries result for project={project_id} location={location}"
                 )
-                logger.debug("SearchEntries payload: %s", result)
+                logger.debug(f"SearchEntries payload: {result}")
                 dataplex_entry = getattr(result, "dataplex_entry", None)
                 if dataplex_entry is not None:
-                    logger.info("Yielding spanner entry %s", dataplex_entry.name)
-                    logger.debug("Spanner dataplex entry payload: %s", dataplex_entry)
+                    logger.info(f"Yielding spanner entry {dataplex_entry.name}")
+                    logger.debug(f"Spanner dataplex entry payload: {dataplex_entry}")
                     yield dataplex_entry
         except Exception as exc:
             logger.warning(
-                "Spanner workaround search failed for %s/%s: %s",
-                project_id,
-                location,
-                exc,
+                f"Spanner workaround search failed for {project_id}/{location}: {exc}"
             )
 
     def should_process_entry_group(self, entry_group_name: str) -> bool:
@@ -248,9 +247,7 @@ class DataplexEntriesProcessor:
         mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(short_name)
         if mapping is None:
             logger.warning(
-                "Unsupported Dataplex entry_type=%s for entry=%s, skipping",
-                entry.entry_type,
-                entry.name,
+                f"Unsupported Dataplex entry_type={entry.entry_type} for entry={entry.name}, skipping"
             )
             return None
 

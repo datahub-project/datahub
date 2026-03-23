@@ -1,21 +1,13 @@
 """Reporting for Dataplex source."""
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict
+from typing import Dict
 
+from datahub.ingestion.source.dataplex.dataplex_entries import DataplexEntriesReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.perf_timer import PerfTimer
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.dataplex.dataplex_entries import DataplexEntriesReport
-
-
-def _default_entries_report() -> "DataplexEntriesReport":
-    from datahub.ingestion.source.dataplex.dataplex_entries import DataplexEntriesReport
-
-    return DataplexEntriesReport()
 
 
 @dataclass
@@ -35,9 +27,7 @@ class DataplexReport(StaleEntityRemovalSourceReport):
     num_lineage_entries_failed: int = 0
 
     entries_scanned: Dict[str, bool] = field(default_factory=dict)
-    entries_report: "DataplexEntriesReport" = field(
-        default_factory=_default_entries_report
-    )
+    entries_report: DataplexEntriesReport = field(default_factory=DataplexEntriesReport)
 
     lineage_api_timer: PerfTimer = field(default_factory=PerfTimer)
     catalog_api_timer: PerfTimer = field(default_factory=PerfTimer)

@@ -79,12 +79,16 @@ class DataplexConfig(
         "If not specified, uses project_id or attempts to detect from credentials.",
     )
 
-    entries_location: str = Field(
-        default="us",
-        description="GCP location for Universal Catalog entries extraction. "
-        "Must be a multi-region location (us, eu, asia) to access system-managed entry groups like @bigquery. "
-        "Regional locations (us-central1, etc.) only contain placeholder entries and will miss BigQuery tables. "
-        "Default: 'us' (recommended for most users).",
+    entries_locations: List[str] = Field(
+        default_factory=lambda: ["us", "eu", "asia", "global"],
+        description="List of GCP locations for Universal Catalog entries extraction. "
+        "Different resource types are registered in different locations. "
+        "Default: ['us', 'eu', 'asia', 'global'].",
+    )
+
+    entries_location: Optional[str] = Field(
+        default=None,
+        description="Deprecated single-location alias. Prefer entries_locations.",
     )
 
     filter_config: DataplexFilterConfig = Field(
@@ -162,6 +166,25 @@ class DataplexConfig(
 
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def entries_location_backward_compatibility(cls, values: Dict) -> Dict:
+        """Handle backward compatibility for entries_location -> entries_locations migration."""
+        entries_location = values.get("entries_location")
+        entries_locations = values.get("entries_locations")
+
+        if entries_locations is None and entries_location:
+            result = dict(values)
+            result["entries_locations"] = [entries_location]
+            return result
+
+        if entries_locations and entries_location is None:
+            result = dict(values)
+            result["entries_location"] = entries_locations[0]
+            return result
+
+        return values
+
     @model_validator(mode="after")
     def validate_project_ids(self) -> "DataplexConfig":
         """Ensure at least one project is configured."""
@@ -175,15 +198,13 @@ class DataplexConfig(
     @model_validator(mode="after")
     def validate_location_configuration(self) -> "DataplexConfig":
         """Validate location configuration and warn about common mistakes."""
-        # Warn if entries_location appears to be a regional location
-        if self.entries_location:
-            if "-" in self.entries_location:
-                logger.warning(
-                    f"entries_location='{self.entries_location}' appears to be a regional location (contains '-'). "
-                    "System-managed entry groups like @bigquery require multi-region locations (us, eu, asia). "
-                    "You may miss BigQuery tables and other system resources. "
-                    "Recommended: Change entries_location to 'us', 'eu', or 'asia'."
-                )
+        if not self.entries_locations:
+            raise ValueError(
+                "At least one entries location must be specified via entries_locations."
+            )
+
+        if self.entries_location is None:
+            self.entries_location = self.entries_locations[0]
 
         return self
 
