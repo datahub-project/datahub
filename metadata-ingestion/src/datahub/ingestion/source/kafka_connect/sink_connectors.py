@@ -426,7 +426,7 @@ class ClickHouseSinkConnector(BaseConnector):
         return {
             k: v
             for k, v in self.connector_manifest.config.items()
-            if k not in ["password"]
+            if k not in [CLICKHOUSE_PASSWORD]
         }
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
