@@ -1,145 +1,85 @@
-import { test as setup } from '@playwright/test';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import * as fs from 'fs';
-import * as path from 'path';
-
-const execAsync = promisify(exec);
-
 /**
- * Global Setup - Runs ONCE before ALL test suites
+ * Global Setup — runs ONCE before all test projects (after auth-setup).
  *
- * This setup file performs global CLI-based cleanup to ensure a clean state before tests run.
- * It removes any leftover test data from previous runs using datahub CLI.
+ * Deletes leftover test entities from previous runs so that data-seeding
+ * starts from a clean state. Uses the GMS REST API directly — no CLI required.
  *
- * This is especially important for:
- * - Playwright test entities (Playwright*, playwright*, SamplePlaywright*, fct_playwright*)
- * - Legacy Cypress test entities (Cypress*, cypress*)
- * - Test entities from failed runs
- * - Ensuring consistent test environment
+ * Entities are matched by the `pw_` prefix convention enforced by test-data.ts.
+ * Additional legacy prefixes (Cypress, fct_cypress, etc.) are also included so
+ * old test runs don't leave behind orphaned data.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { test as setup, request } from '@playwright/test';
+import { readGmsToken } from '../fixtures/auth';
+import { deleteEntities } from '../fixtures/cleanup';
+
+const ADMIN_USERNAME = 'datahub';
+
+/** Search prefixes to purge before each run. */
+const CLEANUP_PREFIXES = ['pw_', 'cypress_', 'Cypress', 'fct_cypress', 'SampleCypress'];
+
+/** Entity types to search across. */
+const ENTITY_TYPES = ['DATASET', 'TAG', 'GLOSSARY_TERM', 'DOMAIN', 'DATA_PRODUCT'];
+
 setup('global cleanup', async () => {
-  setup.setTimeout(180000); // 3 minute timeout for cleanup
-  console.log('🧹 Starting CLI-based global cleanup...');
+  setup.setTimeout(180_000);
+  console.log('\n🧹 Starting global pre-run cleanup...');
+
+  const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
+  const gmsUrl = baseUrl.replace(':9002', ':8080');
+  let gmsToken: string;
 
   try {
-    // Read GMS token for authentication
-    const tokenFile = path.join(__dirname, '../.auth/gms-token.json');
-    let token: string | undefined;
+    gmsToken = readGmsToken(ADMIN_USERNAME);
+  } catch {
+    console.warn('⚠️  GMS token not found — skipping global cleanup');
+    return;
+  }
 
-    if (fs.existsSync(tokenFile)) {
-      const tokenData = JSON.parse(fs.readFileSync(tokenFile, 'utf-8'));
-      token = tokenData.token;
-      console.log('🔑 Using existing GMS token for cleanup');
-    } else {
-      console.log('⚠️  No GMS token found, cleanup may require authentication');
-    }
+  const apiContext = await request.newContext({
+    baseURL: gmsUrl,
+    extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
+  });
 
-    // Configure datahub CLI
-    const datahubEnv = {
-      DATAHUB_GMS_URL: 'http://localhost:8080',
-      ...(token && { DATAHUB_GMS_TOKEN: token }),
-    };
+  try {
+    const urnsToDelete: string[] = [];
 
-    // Search patterns for test entities
-    const patterns = [
-      'cypress',
-      'Cypress',
-      'Test',
-      'Playwright',
-      'playwright',
-      'SamplePlaywright',
-      'fct_playwright',
-    ];
-
-    let totalDeleted = 0;
-    const urnsToDelete = new Set<string>();
-
-    // Collect all URNs to delete (only for dataset entity type to speed up)
-    for (const pattern of patterns) {
-      try {
-        const query = `${pattern}*`;
-        console.log(`🔍 Searching for entities matching: ${query}`);
-
-        // Use datahub CLI to search (with dataset as primary entity type)
-        const searchCmd = `datahub delete by-filter --query "${query}" --entity-type dataset --force --hard --dry-run`;
-
-        const { stdout, stderr } = await execAsync(searchCmd, {
-          env: { ...process.env, ...datahubEnv },
-          timeout: 30000,
+    for (const entityType of ENTITY_TYPES) {
+      for (const prefix of CLEANUP_PREFIXES) {
+        const response = await apiContext.post(`${gmsUrl}/api/v2/graphql`, {
+          data: {
+            query: `query search($input: SearchInput!) { search(input: $input) { total entities { urn } } }`,
+            variables: {
+              input: { type: entityType, query: `${prefix}*`, start: 0, count: 200 },
+            },
+          },
+          headers: { 'Content-Type': 'application/json' },
         });
 
-        const output = stdout + stderr;
+        if (!response.ok()) continue;
 
-        // Extract URNs from output
-        const urnMatches = output.match(/urn:li:[a-zA-Z]+:\([^)]+\)/g);
-        if (urnMatches) {
-          urnMatches.forEach((urn) => urnsToDelete.add(urn));
-          console.log(`   Found ${urnMatches.length} entities`);
-        }
-      } catch (error: any) {
-        const errorMsg = error.message || '';
-        if (!errorMsg.includes('No entities found') && !errorMsg.includes('0 entities')) {
-          console.warn(`   ⚠️  Search failed for pattern ${pattern}*:`, errorMsg.split('\n')[0]);
+        const json = (await response.json()) as {
+          data?: { search?: { total?: number; entities?: { urn: string }[] } };
+        };
+        const entities = json.data?.search?.entities ?? [];
+        if (entities.length > 0) {
+          console.log(`   Found ${entities.length} ${entityType} entities matching '${prefix}*'`);
+          urnsToDelete.push(...entities.map((e) => e.urn));
         }
       }
     }
 
-    // Also search for tags and glossary terms
-    for (const entityType of ['tag', 'glossaryTerm']) {
-      for (const pattern of patterns) {
-        try {
-          const query = `${pattern}*`;
-          const searchCmd = `datahub delete by-filter --query "${query}" --entity-type ${entityType} --force --hard --dry-run`;
-
-          const { stdout, stderr } = await execAsync(searchCmd, {
-            env: { ...process.env, ...datahubEnv },
-            timeout: 20000,
-          });
-
-          const output = stdout + stderr;
-          const urnMatches = output.match(/urn:li:[a-zA-Z]+:[^,\s\n\]]+/g);
-          if (urnMatches) {
-            urnMatches.forEach((urn) => urnsToDelete.add(urn.trim()));
-          }
-        } catch (error: any) {
-          // Silent fail for non-critical entity types
-        }
-      }
+    if (urnsToDelete.length === 0) {
+      console.log('✅ No leftover test entities found');
+      return;
     }
 
-    if (urnsToDelete.size > 0) {
-      console.log(`📝 Collected ${urnsToDelete.size} unique URNs to delete`);
-
-      // Write URNs to file
-      const urnsFile = path.join(__dirname, '.cleanup-urns.txt');
-      fs.writeFileSync(urnsFile, Array.from(urnsToDelete).join('\n'));
-
-      // Delete using URN file
-      console.log('🗑️  Deleting entities...');
-      const deleteCmd = `datahub delete by-filter --urn-file ${urnsFile} --force --hard`;
-
-      try {
-        await execAsync(deleteCmd, {
-          env: { ...process.env, ...datahubEnv },
-          timeout: 120000,
-        });
-
-        totalDeleted = urnsToDelete.size;
-        console.log(`✅ Successfully deleted ${totalDeleted} test entities`);
-      } catch (error: any) {
-        console.warn('⚠️  Deletion encountered errors:', error.message.split('\n')[0]);
-      }
-
-      // Cleanup temp file
-      fs.unlinkSync(urnsFile);
-    } else {
-      console.log('✅ No test entities found to clean up');
-    }
-  } catch (error: any) {
-    // Don't fail tests if cleanup fails - log warning instead
-    console.warn('⚠️  Global cleanup encountered errors:', error.message);
-    console.warn('⚠️  Continuing with tests...');
+    console.log(`🗑️  Deleting ${urnsToDelete.length} leftover entities...`);
+    await deleteEntities(apiContext, gmsUrl, urnsToDelete);
+    console.log('✅ Global cleanup complete');
+  } finally {
+    await apiContext.dispose();
   }
 });

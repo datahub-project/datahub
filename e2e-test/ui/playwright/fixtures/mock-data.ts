@@ -1,3 +1,14 @@
+/**
+ * @deprecated
+ *
+ * Static mock data should live in a feature's own data directory:
+ *   tests/{feature}/data/{feature}.json
+ *
+ * This file is kept temporarily to avoid breaking any remaining references.
+ * Remove it once all test files have been updated to load data via the
+ * `featureData` fixture provided by base-test.ts.
+ */
+
 export const mockDataset = {
   urn: 'urn:li:dataset:(urn:li:dataPlatform:hive,test.dataset,PROD)',
   name: 'test.dataset',

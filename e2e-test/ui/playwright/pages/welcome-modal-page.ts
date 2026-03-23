@@ -1,5 +1,5 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { BasePage } from './BasePage';
+import { BasePage } from './base-page';
 
 export class WelcomeModalPage extends BasePage {
   readonly modal: Locator;

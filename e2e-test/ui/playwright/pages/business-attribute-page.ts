@@ -1,6 +1,6 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { BasePage } from './BasePage';
-import { GraphQLHelper } from '../helpers/GraphQLHelper';
+import { BasePage } from './base-page';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 
 export class BusinessAttributePage extends BasePage {
   readonly createButton: Locator;

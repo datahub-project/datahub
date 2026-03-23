@@ -1,5 +1,5 @@
 import { Page, TestInfo } from '@playwright/test';
-import { GraphQLHelper } from './GraphQLHelper';
+import { GraphQLHelper } from './graphql-helper';
 
 /**
  * CleanupHelper - Manages test data cleanup with smart strategies
