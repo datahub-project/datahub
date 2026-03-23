@@ -113,6 +113,7 @@ export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
                                     showEditGroupModal(true);
                                     event.stopPropagation();
                                 }}
+                                dataTestId="edit-group-profile-button"
                             />
                         </EditProfileButtonContainer>
                     </AvatarWithTitleContainer>
