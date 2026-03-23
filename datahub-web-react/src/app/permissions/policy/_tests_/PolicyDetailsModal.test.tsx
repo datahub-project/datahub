@@ -227,6 +227,6 @@ describe('PolicyDetailsModal', () => {
         expect(screen.getByText('Effect')).toBeInTheDocument();
         const effectTag = screen.getByText(PolicyEffect.Deny);
         expect(effectTag).toBeInTheDocument();
-        expect(effectTag.closest('.ant-tag')).toHaveClass('ant-tag-orange');
+        expect(effectTag.closest('.ant-tag')).toHaveClass('ant-tag-red');
     });
 });
