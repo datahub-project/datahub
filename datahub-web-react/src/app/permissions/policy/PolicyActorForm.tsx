@@ -1,5 +1,5 @@
 import { Avatar, Text } from '@components';
-import { Form, Select, Switch, Tag, Typography } from 'antd';
+import { Form, Radio, Select, Switch, Tag, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -62,15 +62,11 @@ const StyledTag = styled(Tag)`
     align-items: center;
 `;
 
-const FilterLabelRow = styled.span`
+const SelectRow = styled.div`
     display: flex;
-    align-items: center;
     gap: 8px;
+    align-items: flex-start;
 `;
-
-const ConditionSelect = styled(Select)`
-    width: 110px;
-` as typeof Select;
 
 /**
  * Component used to construct the "actors" portion of a DataHub
@@ -247,10 +243,15 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const conditionSelect = (condition: Condition, onChange: (c: Condition) => void) => (
-        <ConditionSelect size="small" value={condition} onChange={(val) => onChange(val as Condition)}>
-            <Select.Option value="include">Include</Select.Option>
-            <Select.Option value="exclude">Exclude</Select.Option>
-        </ConditionSelect>
+        <Radio.Group
+            size="small"
+            value={condition}
+            buttonStyle="solid"
+            onChange={(e) => onChange(e.target.value as Condition)}
+        >
+            <Radio.Button value="include">Include</Radio.Button>
+            <Radio.Button value="exclude">Exclude</Radio.Button>
+        </Radio.Group>
     );
 
     const showAppliesToOwners = policyType === PolicyType.Metadata;
@@ -261,12 +262,16 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const includedGroupsUrns = actors.allGroups ? ['All'] : actors.groups || [];
     const groupsSelectUrns = groupCondition === 'include' ? includedGroupsUrns : actors.excludedGroups || [];
     const ownershipTypesSelectValue =
-        ownershipTypeCondition === 'include' ? actors.resourceOwnersTypes || [] : actors.excludedResourceOwnersTypes || [];
+        ownershipTypeCondition === 'include'
+            ? actors.resourceOwnersTypes || []
+            : actors.excludedResourceOwnersTypes || [];
 
     const usersSelectValues = actors.resolvedUsers?.filter((u) => usersSelectUrns.includes(u.urn)) || [];
     const groupsSelectValues = actors.resolvedGroups?.filter((g) => groupsSelectUrns.includes(g.urn)) || [];
-    const excludedUsersSelectValues = actors.resolvedExcludedUsers?.filter((u) => (actors.excludedUsers || []).includes(u.urn)) || [];
-    const excludedGroupsSelectValues = actors.resolvedExcludedGroups?.filter((g) => (actors.excludedGroups || []).includes(g.urn)) || [];
+    const excludedUsersSelectValues =
+        actors.resolvedExcludedUsers?.filter((u) => (actors.excludedUsers || []).includes(u.urn)) || [];
+    const excludedGroupsSelectValues =
+        actors.resolvedExcludedGroups?.filter((g) => (actors.excludedGroups || []).includes(g.urn)) || [];
 
     const onPreventMouseDown = (event) => {
         event.preventDefault();
@@ -338,12 +343,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
                             <Form.Item
-                                label={
-                                    <FilterLabelRow>
-                                        <Typography.Text strong>Ownership Types</Typography.Text>
-                                        {conditionSelect(ownershipTypeCondition, setOwnershipTypeCondition)}
-                                    </FilterLabelRow>
-                                }
+                                label={<Typography.Text strong>Ownership Types</Typography.Text>}
                                 style={{ marginBottom: 0 }}
                             >
                                 <Typography.Paragraph>
@@ -351,114 +351,118 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                         ? 'Ownership types that qualify for this policy. If empty, any ownership type matches.'
                                         : 'Ownership types excluded from this policy. Owners whose type is listed here will not match.'}
                                 </Typography.Paragraph>
-                                <Select
-                                    value={ownershipTypesSelectValue}
-                                    mode="multiple"
-                                    placeholder={
-                                        ownershipTypeCondition === 'include'
-                                            ? 'Select ownership types...'
-                                            : 'Select ownership types to exclude...'
-                                    }
-                                    onSelect={(asset: any) =>
-                                        ownershipTypeCondition === 'include'
-                                            ? onSelectOwnershipTypeActor(asset)
-                                            : onSelectExcludedOwnershipType(asset)
-                                    }
-                                    onDeselect={(asset: any) =>
-                                        ownershipTypeCondition === 'include'
-                                            ? onDeselectOwnershipTypeActor(asset)
-                                            : onDeselectExcludedOwnershipType(asset)
-                                    }
-                                    tagRender={(tagProps) => {
-                                        return (
-                                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                                {ownershipTypesMap[tagProps.value.toString()]}
-                                            </Tag>
-                                        );
-                                    }}
-                                >
-                                    {ownershipTypes.map((resOwnershipType) => {
-                                        return (
-                                            <Select.Option value={resOwnershipType.urn}>
-                                                {resOwnershipType?.info?.name}
-                                            </Select.Option>
-                                        );
-                                    })}
-                                </Select>
+                                <SelectRow>
+                                    {conditionSelect(ownershipTypeCondition, setOwnershipTypeCondition)}
+                                    <Select
+                                        style={{ flex: 1 }}
+                                        value={ownershipTypesSelectValue}
+                                        mode="multiple"
+                                        placeholder={
+                                            ownershipTypeCondition === 'include'
+                                                ? 'Select ownership types...'
+                                                : 'Select ownership types to exclude...'
+                                        }
+                                        onSelect={(asset: any) =>
+                                            ownershipTypeCondition === 'include'
+                                                ? onSelectOwnershipTypeActor(asset)
+                                                : onSelectExcludedOwnershipType(asset)
+                                        }
+                                        onDeselect={(asset: any) =>
+                                            ownershipTypeCondition === 'include'
+                                                ? onDeselectOwnershipTypeActor(asset)
+                                                : onDeselectExcludedOwnershipType(asset)
+                                        }
+                                        tagRender={(tagProps) => {
+                                            return (
+                                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                                    {ownershipTypesMap[tagProps.value.toString()]}
+                                                </Tag>
+                                            );
+                                        }}
+                                    >
+                                        {ownershipTypes.map((resOwnershipType) => {
+                                            return (
+                                                <Select.Option value={resOwnershipType.urn}>
+                                                    {resOwnershipType?.info?.name}
+                                                </Select.Option>
+                                            );
+                                        })}
+                                    </Select>
+                                </SelectRow>
                             </Form.Item>
                         </OwnershipWrapper>
                     )}
                 </Form.Item>
             )}
-            <Form.Item
-                label={
-                    <FilterLabelRow>
-                        <Typography.Text strong>Users & Service Accounts</Typography.Text>
-                        {conditionSelect(userCondition, setUserCondition)}
-                    </FilterLabelRow>
-                }
-            >
+            <Form.Item label={<Typography.Text strong>Users & Service Accounts</Typography.Text>}>
                 <Typography.Paragraph>
                     {userCondition === 'include'
                         ? 'Search for specific users or service accounts that this policy should apply to, or select `All Users` to apply it to all users.'
                         : 'Search for users or service accounts that should be excluded from this policy, even if they match other criteria.'}
                 </Typography.Paragraph>
-                <Select
-                    data-testid="users"
-                    value={usersSelectUrns}
-                    mode="multiple"
-                    filterOption={false}
-                    placeholder={userCondition === 'include' ? 'Search for users...' : 'Search for users to exclude...'}
-                    onSelect={(asset: any) =>
-                        userCondition === 'include' ? onSelectUserActor(asset) : onSelectExcludedUserActor(asset)
-                    }
-                    onDeselect={(asset: any) =>
-                        userCondition === 'include' ? onDeselectUserActor(asset) : onDeselectExcludedUserActor(asset)
-                    }
-                    onSearch={handleUserSearch}
-                    tagRender={renderUserTag}
-                >
-                    {userSearchResults?.map((result) => (
-                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                    ))}
-                    {userCondition === 'include' && <Select.Option value="All">All Users</Select.Option>}
-                </Select>
+                <SelectRow>
+                    {conditionSelect(userCondition, setUserCondition)}
+                    <Select
+                        data-testid="users"
+                        style={{ flex: 1 }}
+                        value={usersSelectUrns}
+                        mode="multiple"
+                        filterOption={false}
+                        placeholder={
+                            userCondition === 'include' ? 'Search for users...' : 'Search for users to exclude...'
+                        }
+                        onSelect={(asset: any) =>
+                            userCondition === 'include' ? onSelectUserActor(asset) : onSelectExcludedUserActor(asset)
+                        }
+                        onDeselect={(asset: any) =>
+                            userCondition === 'include'
+                                ? onDeselectUserActor(asset)
+                                : onDeselectExcludedUserActor(asset)
+                        }
+                        onSearch={handleUserSearch}
+                        tagRender={renderUserTag}
+                    >
+                        {userSearchResults?.map((result) => (
+                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                        ))}
+                        {userCondition === 'include' && <Select.Option value="All">All Users</Select.Option>}
+                    </Select>
+                </SelectRow>
             </Form.Item>
-            <Form.Item
-                label={
-                    <FilterLabelRow>
-                        <Typography.Text strong>Groups</Typography.Text>
-                        {conditionSelect(groupCondition, setGroupCondition)}
-                    </FilterLabelRow>
-                }
-            >
+            <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
                 <Typography.Paragraph>
                     {groupCondition === 'include'
                         ? 'Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.'
                         : 'Search for groups that should be excluded from this policy, even if they match other criteria.'}
                 </Typography.Paragraph>
-                <Select
-                    data-testid="groups"
-                    value={groupsSelectUrns}
-                    mode="multiple"
-                    placeholder={
-                        groupCondition === 'include' ? 'Search for groups...' : 'Search for groups to exclude...'
-                    }
-                    onSelect={(asset: any) =>
-                        groupCondition === 'include' ? onSelectGroupActor(asset) : onSelectExcludedGroupActor(asset)
-                    }
-                    onDeselect={(asset: any) =>
-                        groupCondition === 'include' ? onDeselectGroupActor(asset) : onDeselectExcludedGroupActor(asset)
-                    }
-                    onSearch={handleGroupSearch}
-                    filterOption={false}
-                    tagRender={renderGroupTag}
-                >
-                    {groupSearchResults?.map((result) => (
-                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                    ))}
-                    {groupCondition === 'include' && <Select.Option value="All">All Groups</Select.Option>}
-                </Select>
+                <SelectRow>
+                    {conditionSelect(groupCondition, setGroupCondition)}
+                    <Select
+                        data-testid="groups"
+                        style={{ flex: 1 }}
+                        value={groupsSelectUrns}
+                        mode="multiple"
+                        placeholder={
+                            groupCondition === 'include' ? 'Search for groups...' : 'Search for groups to exclude...'
+                        }
+                        onSelect={(asset: any) =>
+                            groupCondition === 'include' ? onSelectGroupActor(asset) : onSelectExcludedGroupActor(asset)
+                        }
+                        onDeselect={(asset: any) =>
+                            groupCondition === 'include'
+                                ? onDeselectGroupActor(asset)
+                                : onDeselectExcludedGroupActor(asset)
+                        }
+                        onSearch={handleGroupSearch}
+                        filterOption={false}
+                        tagRender={renderGroupTag}
+                    >
+                        {groupSearchResults?.map((result) => (
+                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                        ))}
+                        {groupCondition === 'include' && <Select.Option value="All">All Groups</Select.Option>}
+                    </Select>
+                </SelectRow>
             </Form.Item>
         </ActorForm>
     );
