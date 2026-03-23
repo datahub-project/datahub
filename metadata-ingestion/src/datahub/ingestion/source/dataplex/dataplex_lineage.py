@@ -285,6 +285,7 @@ class DataplexLineageExtractor:
         The FQN format varies by platform per Google Cloud Lineage API:
         - BigQuery: bigquery:{project}.{dataset}.{table}
         - GCS: gcs:{bucket}/{path}
+        - Cloud SQL MySQL: cloudsql_mysql:{project}.{location}.{instance}[...]
 
         Args:
             platform: Source platform ("bigquery" or "gcs")
@@ -298,6 +299,9 @@ class DataplexLineageExtractor:
             # BigQuery format: bigquery:{project}.{dataset}.{table}
             # For entries, dataset_id already contains "project.dataset.table"
             return f"bigquery:{dataset_id}"
+        elif platform == "cloudsql":
+            # Dataplex FQN prefix for Cloud SQL MySQL is cloudsql_mysql.
+            return f"cloudsql_mysql:{dataset_id}"
         elif platform == "gcs":
             # GCS format: gcs:{bucket}/{path}
             # For entries, dataset_id already contains the full path
@@ -386,7 +390,14 @@ class DataplexLineageExtractor:
                 platform, entry_part = fqn.split(":", 1)
 
                 # Validate that we have a known platform
-                if platform not in ["bigquery", "gcs", "dataplex"]:
+                if platform not in [
+                    "bigquery",
+                    "gcs",
+                    "dataplex",
+                    "spanner",
+                    "pubsub",
+                    "cloudsql_mysql",
+                ]:
                     logger.warning(f"Unexpected platform '{platform}' in FQN: {fqn}")
 
                 return entry_part
