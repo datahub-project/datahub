@@ -181,7 +181,7 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
             return iter([etl_pipeline, test_pipeline])
         return iter([])
 
-    def activities_side_effect(pipeline_id: str) -> List[Any]:
+    def activities_side_effect(workspace_id: str, pipeline_id: str) -> List[Any]:
         if pipeline_id == PIPELINE_ID_A:
             return etl_activities
         if pipeline_id == PIPELINE_ID_B:
