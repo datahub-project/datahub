@@ -14,7 +14,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-pytestmark = pytest.mark.integration_batch_1
+pytestmark = pytest.mark.integration_batch_5
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"

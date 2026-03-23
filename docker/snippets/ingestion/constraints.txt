@@ -38,3 +38,6 @@ google-cloud-aiplatform>=1.133.0
 langgraph>=1.0.10
 langgraph-checkpoint>=4.0.0
 langsmith>=0.6.3
+# ujson: parsing huge out-of-range integers leaked memory in 5.4.0–5.11.0; indent handling
+# DoS (GHSA-c8rr-9gxc-jprv) fixed in 5.12.0. Cap major until reviewed.
+ujson>=5.12.0,<6

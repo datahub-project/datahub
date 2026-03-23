@@ -11,7 +11,7 @@ from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
-pytestmark = pytest.mark.integration_batch_1
+pytestmark = pytest.mark.integration_batch_4
 FROZEN_TIME = "2021-09-23 12:00:00"
 
 data_platform = "hive-metastore"
