@@ -85,13 +85,19 @@ def _get_arg_values(
     values: List[Optional[str]] = []
     for inner in _get_invoke_elements(invoke_node):
         val = get_literal_value(inner)
-        if val is None and parameters and isinstance(inner, dict):
+        if val is None and isinstance(inner, dict):
             if inner.get("kind") == "IdentifierExpression":
                 ref_name = inner.get("identifier", {}).get("literal", "")
                 if ref_name.startswith('#"') and ref_name.endswith('"'):
                     ref_name = ref_name[2:-1]
                 if ref_name in parameters:
                     val = parameters[ref_name]
+                else:
+                    logger.debug(
+                        "Argument '%s' is an unresolved parameter reference"
+                        " — not found in dataset parameters",
+                        ref_name,
+                    )
         values.append(val)
     return values
 
@@ -809,8 +815,18 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
             node_map=data_access_func_detail.node_map,
             parameters=data_access_func_detail.parameters,
         )
-        if server is None or db_name is None:
-            return Lineage.empty()  # Return an empty list
+        if db_name is None:
+            return Lineage.empty()
+        if server is None:
+            # Server argument is an unresolved parameter reference (e.g. Sql.Database(ServerName, "db")).
+            # Fall back to empty-string server to preserve the pre-v2-parser behavior (partial lineage).
+            logger.info(
+                "Server argument not resolved from dataset parameters for table %s"
+                " — emitting partial lineage without server host."
+                " Add the server parameter to the dataset to resolve fully.",
+                self.table.full_name,
+            )
+            server = ""
 
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None:
@@ -970,9 +986,21 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         server, database = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
             node_map=node_map,
+            parameters=data_access_func_detail.parameters,
         )
-        if server is None or database is None:
-            return Lineage.empty()  # Return an empty list
+        if database is None:
+            return Lineage.empty()
+        if server is None:
+            # Server argument is an unresolved parameter reference (e.g. Sql.Database(ServerName, "db")).
+            # The parameter is not in the dataset's parameters dict, so we can't resolve the host.
+            # Fall back to empty-string server to preserve the pre-v2-parser behavior (partial lineage).
+            logger.info(
+                "Server argument not resolved from dataset parameters for table %s"
+                " — emitting partial lineage without server host."
+                " Add the server parameter to the dataset to resolve fully.",
+                self.table.full_name,
+            )
+            server = ""
 
         # Check for inline SQL query in record arguments (e.g. [Query="SELECT ..."])
         record_fields = _get_record_args(node_map, data_access_func_detail.arg_list)
