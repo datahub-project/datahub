@@ -14,7 +14,6 @@ import {
     EntityType,
     Maybe,
     Policy,
-    PolicyEffect,
     PolicyMatchCriterionInput,
     PolicyMatchFilter,
     PolicyMatchFilterInput,
@@ -71,7 +70,6 @@ export function usePolicy(
             type: policy.type,
             name: policy.name,
             state: policy.state,
-            effect: policy.effect ?? PolicyEffect.Allow,
             description: policy.description,
             privileges: policy.privileges,
             actors: {
