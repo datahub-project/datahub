@@ -1,21 +1,18 @@
-import { Card, Icon, Text, colors } from '@components';
-import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
-import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components';
 
-import { StyledIcon } from '@app/homeV3/styledComponents';
+import { Alert } from '@src/alchemy-components';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { Post } from '@types';
 
-const StyledEditor = styled(Editor)`
+const DescriptionEditor = styled(Editor)`
     border: none;
 
     &&& {
         .remirror-editor {
             padding: 0;
-            color: ${colors.violet[500]};
+            color: inherit !important;
 
             p {
                 margin-bottom: 0;
@@ -33,12 +30,6 @@ const StyledEditor = styled(Editor)`
     }
 `;
 
-const cardStyles = {
-    backgroundColor: colors.violet[0],
-    padding: '8px',
-    border: 'none',
-};
-
 interface Props {
     announcement: Post;
     onDismiss: (urn: string) => void;
@@ -46,22 +37,15 @@ interface Props {
 
 export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
     return (
-        <Card
-            icon={<Icon icon={MegaphoneSimple} color="violet" weight="fill" size="2xl" />}
-            title={
-                <Text color="violet" weight="semiBold" size="md" lineHeight="normal">
-                    {announcement.content.title}
-                </Text>
-            }
-            subTitle={
+        <Alert
+            variant="brand"
+            title={announcement.content.title}
+            description={
                 announcement.content.description ? (
-                    <StyledEditor content={announcement.content.description} readOnly />
+                    <DescriptionEditor content={announcement.content.description} readOnly />
                 ) : undefined
             }
-            button={<StyledIcon icon={X} color="violet" size="xl" onClick={() => onDismiss(announcement.urn)} />}
-            width="100%"
-            style={cardStyles}
-            isCardClickable={false}
+            onClose={() => onDismiss(announcement.urn)}
         />
     );
 };

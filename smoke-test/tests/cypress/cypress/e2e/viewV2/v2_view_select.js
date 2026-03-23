@@ -46,13 +46,12 @@ describe("view select", () => {
     cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
       .last()
       .type("CypressColumnInfoType");
-    // The Alchemy BasicSelect renders options as <label> elements in a portal
-    // (not as [role="option"] children of entity-search-input).
+    // The Alchemy BasicSelect renders options as <label> elements in a portal.
     // For multi-select, click the checkbox to toggle it, then confirm with Update.
     cy.contains("CypressColumnInfoType", { timeout: 20000 })
       .should("be.visible")
       .closest("label")
-      .find(".ant-checkbox-wrapper")
+      .find("[data-checked]")
       .click();
     cy.clickOptionWithTestId("footer-button-update");
     cy.clickOptionWithText("Save");

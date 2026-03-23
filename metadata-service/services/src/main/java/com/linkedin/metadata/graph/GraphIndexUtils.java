@@ -1,24 +1,49 @@
 package com.linkedin.metadata.graph;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.InputField;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datajob.DataJobInputOutput;
+import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.FineGrainedLineageArray;
+import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 
 @Slf4j
 public class GraphIndexUtils {
+  private static final String DOWNSTREAM_OF = "DownstreamOf";
+  private static final String FINE_GRAINED_LINEAGE_PATH = "/fineGrainedLineages/*/upstreams/*";
 
   private GraphIndexUtils() {}
 
@@ -174,5 +199,309 @@ public class GraphIndexUtils {
         oldEdge.getLifecycleOwnerStatus(),
         oldEdge.getSourceStatus(),
         oldEdge.getDestinationStatus());
+  }
+
+  // TODO: remove this method once we implement sourceOverride when creating graph edges
+  private static void updateFineGrainedEdgesAndRelationships(
+      Urn entity,
+      FineGrainedLineageArray fineGrainedLineageArray,
+      List<Edge> edgesToAdd,
+      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded,
+      final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      final EntityRegistry entityRegistry) {
+    if (fineGrainedLineageArray != null) {
+      for (FineGrainedLineage fineGrainedLineage : fineGrainedLineageArray) {
+        if (!fineGrainedLineage.hasDownstreams() || !fineGrainedLineage.hasUpstreams()) {
+          break;
+        }
+        // Fine grained lineage array is present either on datajob (datajob input/output) or dataset
+        // We set the datajob as the viaEntity in scenario 1, and the query (if present) as the
+        // viaEntity in scenario 2
+        Urn viaEntity =
+            entity.getEntityType().equals("dataJob") ? entity : fineGrainedLineage.getQuery();
+        // for every downstream, create an edge with each of the upstreams
+        for (Urn downstream : fineGrainedLineage.getDownstreams()) {
+          for (Urn upstream : fineGrainedLineage.getUpstreams()) {
+            // TODO: add edges uniformly across aspects
+
+            // restrict the creation of schemafield nodes and their relationships
+            // especially for platforms like hdfs
+            if (isFineGrainedLineageNotAllowedForPlatforms(
+                downstream, upstream, fineGrainedLineageNotAllowedForPlatforms, entityRegistry)) {
+              log.debug(
+                  "Skipping fine grained lineage for downstream {} and upstream {}",
+                  downstream,
+                  upstream);
+              continue;
+            }
+
+            edgesToAdd.add(
+                new Edge(
+                    downstream,
+                    upstream,
+                    DOWNSTREAM_OF,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    entity,
+                    viaEntity));
+            Set<String> relationshipTypes =
+                urnToRelationshipTypesBeingAdded.getOrDefault(downstream, new HashSet<>());
+            relationshipTypes.add(DOWNSTREAM_OF);
+            urnToRelationshipTypesBeingAdded.put(downstream, relationshipTypes);
+          }
+        }
+      }
+    }
+  }
+
+  // TODO: remove this method once we implement sourceOverride and update inputFields aspect
+  private static void updateInputFieldEdgesAndRelationships(
+      @Nonnull final Urn urn,
+      @Nonnull final InputFields inputFields,
+      @Nonnull final List<Edge> edgesToAdd,
+      @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded) {
+    if (inputFields.hasFields()) {
+      for (final InputField field : inputFields.getFields()) {
+        if (field.hasSchemaFieldUrn()
+            && field.hasSchemaField()
+            && field.getSchemaField().hasFieldPath()) {
+          final Urn sourceFieldUrn =
+              SchemaFieldUtils.generateSchemaFieldUrn(urn, field.getSchemaField().getFieldPath());
+          // TODO: add edges uniformly across aspects
+          edgesToAdd.add(
+              new Edge(
+                  sourceFieldUrn,
+                  field.getSchemaFieldUrn(),
+                  DOWNSTREAM_OF,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null));
+          final Set<String> relationshipTypes =
+              urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
+          relationshipTypes.add(DOWNSTREAM_OF);
+          urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);
+        }
+      }
+    }
+  }
+
+  private static void removeFineGrainedLineageForNotAllowedPlatforms(
+      Map<RelationshipFieldSpec, List<Object>> extractedFields,
+      AspectSpec aspectSpec,
+      List<String> fineGrainedLineageNotAllowedForPlatforms,
+      EntityRegistry entityRegistry) {
+    if (!aspectSpec.getName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      return;
+    }
+    RelationshipFieldSpec fineGrainedLineageFieldSpec =
+        aspectSpec.getRelationshipFieldSpecMap().get(FINE_GRAINED_LINEAGE_PATH);
+    List<Object> fineGrainedLineageUrnsList = extractedFields.get(fineGrainedLineageFieldSpec);
+    if (fineGrainedLineageUrnsList != null) {
+      fineGrainedLineageUrnsList.removeIf(
+          fineGrainedLineageUrn -> {
+            if (fineGrainedLineageUrn instanceof Urn) {
+              Urn upstreamSchemaFieldUrn = (Urn) fineGrainedLineageUrn;
+              return isFineGrainedLineageNotAllowedForPlatforms(
+                  null,
+                  upstreamSchemaFieldUrn,
+                  fineGrainedLineageNotAllowedForPlatforms,
+                  entityRegistry);
+            }
+            return false;
+          });
+    }
+  }
+
+  private static boolean isFineGrainedLineageNotAllowedForPlatforms(
+      Urn downstream,
+      Urn upstream,
+      List<String> fineGrainedLineageNotAllowedForPlatforms,
+      EntityRegistry entityRegistry) {
+    return !CollectionUtils.isEmpty(fineGrainedLineageNotAllowedForPlatforms)
+        && ((Objects.nonNull(downstream)
+                && downstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+                && fineGrainedLineageNotAllowedForPlatforms.contains(
+                    getDatasetPlatformName(entityRegistry, downstream.getIdAsUrn())))
+            || (Objects.nonNull(upstream)
+                && upstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+                && fineGrainedLineageNotAllowedForPlatforms.contains(
+                    getDatasetPlatformName(entityRegistry, upstream.getIdAsUrn()))));
+  }
+
+  private static String getDatasetPlatformName(EntityRegistry entityRegistry, Urn datasetUrn) {
+    DatasetKey dsKey =
+        (DatasetKey)
+            EntityKeyUtils.convertUrnToEntityKey(
+                datasetUrn,
+                entityRegistry.getEntitySpec(datasetUrn.getEntityType()).getKeyAspectSpec());
+    DataPlatformKey dpKey =
+        (DataPlatformKey)
+            EntityKeyUtils.convertUrnToEntityKey(
+                dsKey.getPlatform(),
+                entityRegistry
+                    .getEntitySpec(dsKey.getPlatform().getEntityType())
+                    .getKeyAspectSpec());
+
+    return dpKey.getPlatformName();
+  }
+
+  public static Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate aspect,
+      @Nonnull final MetadataChangeLog event,
+      final boolean isNewAspectVersion,
+      final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      final EntityRegistry entityRegistry) {
+    final List<Edge> edges = new ArrayList<>();
+    final HashMap<Urn, Set<String>> urnToRelationshipTypes = new HashMap<>();
+
+    // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage and
+    // inputFields
+    // since @Relationship only links between the parent entity urn and something else.
+    if (aspectSpec.getName() == null) {
+      return Pair.of(edges, urnToRelationshipTypes);
+    }
+
+    if (aspectSpec.getName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
+      updateFineGrainedEdgesAndRelationships(
+          urn,
+          upstreamLineage.getFineGrainedLineages(),
+          edges,
+          urnToRelationshipTypes,
+          fineGrainedLineageNotAllowedForPlatforms,
+          entityRegistry);
+    } else if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
+      final InputFields inputFields = new InputFields(aspect.data());
+      updateInputFieldEdgesAndRelationships(urn, inputFields, edges, urnToRelationshipTypes);
+    } else if (aspectSpec.getName().equals(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
+      DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(aspect.data());
+      updateFineGrainedEdgesAndRelationships(
+          urn,
+          dataJobInputOutput.getFineGrainedLineages(),
+          edges,
+          urnToRelationshipTypes,
+          fineGrainedLineageNotAllowedForPlatforms,
+          entityRegistry);
+    }
+
+    Map<RelationshipFieldSpec, List<Object>> extractedFields =
+        FieldExtractor.extractFields(aspect, aspectSpec.getRelationshipFieldSpecs(), true);
+
+    // restrict the creation of schema field nodes and their relationships especially for
+    // platforms like hdfs
+    removeFineGrainedLineageForNotAllowedPlatforms(
+        extractedFields, aspectSpec, fineGrainedLineageNotAllowedForPlatforms, entityRegistry);
+
+    for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
+      Set<String> relationshipTypes = urnToRelationshipTypes.getOrDefault(urn, new HashSet<>());
+      relationshipTypes.add(entry.getKey().getRelationshipName());
+      urnToRelationshipTypes.put(urn, relationshipTypes);
+      final List<Edge> newEdges = extractGraphEdges(entry, aspect, urn, event, isNewAspectVersion);
+      edges.addAll(newEdges);
+    }
+    return Pair.of(edges, urnToRelationshipTypes);
+  }
+
+  /**
+   * Computes the differences between old and new aspects in terms of graph edges.
+   *
+   * @param urn The entity URN
+   * @param aspectSpec The aspect specification
+   * @param oldAspect The previous aspect value (can be null)
+   * @param newAspect The new aspect value
+   * @param event The metadata change log event
+   * @return A triple containing lists of edges to add, remove, and update
+   */
+  public static EdgeDiff computeAspectEdgeDiff(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final RecordTemplate oldAspect,
+      @Nullable final RecordTemplate newAspect,
+      @Nonnull final MetadataChangeLog event,
+      final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      final EntityRegistry entityRegistry) {
+    final Set<Edge> oldEdgeSet =
+        getAspectEdges(
+            oldAspect,
+            false,
+            urn,
+            aspectSpec,
+            event,
+            fineGrainedLineageNotAllowedForPlatforms,
+            entityRegistry);
+
+    final Set<Edge> newEdgeSet =
+        getAspectEdges(
+            newAspect,
+            true,
+            urn,
+            aspectSpec,
+            event,
+            fineGrainedLineageNotAllowedForPlatforms,
+            entityRegistry);
+
+    // Edges to add
+    final List<Edge> additiveDifference =
+        newEdgeSet.stream().filter(edge -> !oldEdgeSet.contains(edge)).collect(Collectors.toList());
+
+    // Edges to remove
+    final List<Edge> subtractiveDifference =
+        oldEdgeSet.stream().filter(edge -> !newEdgeSet.contains(edge)).collect(Collectors.toList());
+
+    // Edges to update
+    final List<Edge> mergedEdges = getMergedEdges(oldEdgeSet, newEdgeSet);
+
+    return new EdgeDiff(additiveDifference, subtractiveDifference, mergedEdges);
+  }
+
+  private static Set<Edge> getAspectEdges(
+      @Nullable final RecordTemplate aspect,
+      final boolean isNewAspectVersion,
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final MetadataChangeLog event,
+      final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      final EntityRegistry entityRegistry) {
+    if (aspect == null) {
+      return Collections.emptySet();
+    }
+
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
+        GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
+            urn,
+            aspectSpec,
+            aspect,
+            event,
+            isNewAspectVersion,
+            fineGrainedLineageNotAllowedForPlatforms,
+            entityRegistry);
+
+    return new HashSet<>(edgeAndRelationTypes.getFirst());
+  }
+
+  private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
+    final Map<Integer, Edge> oldEdgesMap =
+        oldEdgeSet.stream()
+            .map(edge -> Pair.of(edge.hashCode(), edge))
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+
+    final List<Edge> mergedEdges = new ArrayList<>();
+    if (!oldEdgesMap.isEmpty()) {
+      for (Edge newEdge : newEdgeSet) {
+        if (oldEdgesMap.containsKey(newEdge.hashCode())) {
+          final Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
+          final Edge mergedEdge = GraphIndexUtils.mergeEdges(oldEdge, newEdge);
+          mergedEdges.add(mergedEdge);
+        }
+      }
+    }
+    return mergedEdges;
   }
 }

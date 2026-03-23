@@ -13,17 +13,17 @@ export const PageContainer = styled.div`
     overflow: hidden;
 `;
 
-export const PageHeaderContainer = styled.div`
+const PageHeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
-export const HeaderLeft = styled.div`
+const HeaderLeft = styled.div`
     display: flex;
     flex-direction: column;
 `;
 
-export const HeaderRight = styled.div`
+const HeaderRight = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
