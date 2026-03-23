@@ -1,3 +1,9 @@
+query getEntityDisplayNames($urns: [String!]!) {
+    entities(urns: $urns) {
+        ...entityDisplayNameFields
+    }
+}
+
 query getTimeline($input: GetTimelineInput!) {
     getTimeline(input: $input) {
         changeTransactions {

@@ -10,6 +10,7 @@ import ChangeTransactionView, {
     ChangeTransactionEntry,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
 import { getCategoryOptions } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
+import { useResolveEntityNames } from '@app/entityV2/shared/tabs/Dataset/Schema/history/useResolveEntityNames';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
 import { ChangeCategoryType, ChangeTransaction, DataPlatform, EntityType, SemanticVersionStruct } from '@types';
@@ -107,6 +108,15 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
 
     const { entityPlatform, siblingPlatform } = useGetSiblingPlatforms();
 
+    const allTransactions = useMemo(
+        () => [
+            ...(entityTimelineData?.getTimeline?.changeTransactions ?? []),
+            ...(siblingTimelineData?.getTimeline?.changeTransactions ?? []),
+        ],
+        [entityTimelineData, siblingTimelineData],
+    );
+    const nameMap = useResolveEntityNames(allTransactions);
+
     const allEntries: ChangeTransactionEntry[] = useMemo(
         () =>
             [
@@ -115,13 +125,22 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
                         transaction,
                         hideSemanticVersions ? [] : versionList,
                         entityPlatform ?? undefined,
+                        nameMap,
                     ),
                 ) || []),
                 ...(siblingTimelineData?.getTimeline?.changeTransactions?.map((transaction) =>
-                    makeTransactionEntry(transaction, [], siblingPlatform ?? undefined),
+                    makeTransactionEntry(transaction, [], siblingPlatform ?? undefined, nameMap),
                 ) || []),
             ].sort((a, b) => a.transaction.timestampMillis - b.transaction.timestampMillis),
-        [entityTimelineData, siblingTimelineData, versionList, hideSemanticVersions, entityPlatform, siblingPlatform],
+        [
+            entityTimelineData,
+            siblingTimelineData,
+            versionList,
+            hideSemanticVersions,
+            entityPlatform,
+            siblingPlatform,
+            nameMap,
+        ],
     );
 
     const filteredEntries = useMemo(() => {
@@ -187,10 +206,12 @@ function makeTransactionEntry(
     transaction: ChangeTransaction,
     versionList: SemanticVersionStruct[],
     platform?: DataPlatform,
+    nameMap?: Map<string, string>,
 ): ChangeTransactionEntry {
     return {
         transaction,
         platform,
+        nameMap,
         semanticVersion:
             versionList.find((v) => v.semanticVersionTimestamp === transaction.timestampMillis)?.semanticVersion ??
             undefined,

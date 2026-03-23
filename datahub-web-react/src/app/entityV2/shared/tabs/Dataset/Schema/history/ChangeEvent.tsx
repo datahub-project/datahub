@@ -49,11 +49,12 @@ const ToggleLink = styled.span`
 
 interface ChangeTransactionProps {
     changeEvent: ChangeEvent;
+    nameMap?: Map<string, string>;
 }
 
-const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent }) => {
+const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent, nameMap }) => {
     const [expanded, setExpanded] = useState(false);
-    const fullString = getChangeEventString(changeEvent);
+    const fullString = getChangeEventString(changeEvent, nameMap);
     const needsTruncation = (fullString?.length ?? 0) > MAX_DISPLAY_CHARS;
     const displayString = needsTruncation && !expanded ? `${fullString?.slice(0, MAX_DISPLAY_CHARS)}...` : fullString;
 

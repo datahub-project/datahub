@@ -93,6 +93,7 @@ export interface ChangeTransactionEntry {
     transaction: ChangeTransaction;
     semanticVersion?: string;
     platform?: DataPlatform;
+    nameMap?: Map<string, string>;
 }
 
 function extractActorName(actorUrn?: string | null): string | null {
@@ -101,7 +102,12 @@ function extractActorName(actorUrn?: string | null): string | null {
     return parts[parts.length - 1] || null;
 }
 
-export default function ChangeTransactionView({ transaction, platform, semanticVersion }: ChangeTransactionEntry) {
+export default function ChangeTransactionView({
+    transaction,
+    platform,
+    semanticVersion,
+    nameMap,
+}: ChangeTransactionEntry) {
     const actorName = extractActorName(transaction.actor);
 
     return (
@@ -123,7 +129,11 @@ export default function ChangeTransactionView({ transaction, platform, semanticV
                         {actorName && <ActorText>by {actorName}</ActorText>}
                     </ChangeTransactionTitle>
                 </TransactionDateHeader>
-                <div>{transaction?.changes?.map((change) => <ChangeEventComponent changeEvent={change} />)}</div>
+                <div>
+                    {transaction?.changes?.map((change) => (
+                        <ChangeEventComponent changeEvent={change} nameMap={nameMap} />
+                    ))}
+                </div>
             </ChangeTransactionMainContent>
         </ChangeTransactionContainer>
     );

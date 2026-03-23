@@ -1,5 +1,6 @@
 import {
     CATEGORY_APPLICATION,
+    CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DOMAIN,
     CATEGORY_STRUCTURED_PROPERTY,
     ChangeCategoryType,
@@ -43,8 +44,9 @@ function getParameter(
     return parameter?.value || defaultValue;
 }
 
-function extractNameFromUrn(urn: string): string {
-    // Extract the last segment from URNs like "urn:li:tag:PII" or "urn:li:glossaryTerm:customer_id"
+function extractNameFromUrn(urn: string, nameMap?: Map<string, string>): string {
+    // Use resolved display name if available, otherwise fall back to last URN segment
+    if (nameMap?.has(urn)) return nameMap.get(urn)!;
     const parts = urn.split(':');
     return parts[parts.length - 1] || urn;
 }
@@ -94,7 +96,7 @@ export function stripEntityUrns(text: string | undefined | null): string {
         .trim();
 }
 
-export function getChangeEventString(changeEvent: ChangeEvent) {
+export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<string, string>) {
     let displayString = changeEvent.description;
     // Cast to string — the backend emits categories (DOMAIN, STRUCTURED_PROPERTY, APPLICATION)
     // not yet present in the generated ChangeCategoryType enum.
@@ -124,7 +126,7 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         }
     } else if (category === ChangeCategoryType.Tag) {
         const tagUrn = getParameter(changeEvent.parameters, PARAM_TAG_URN, '');
-        const tagName = tagUrn ? extractNameFromUrn(tagUrn) : 'Unknown';
+        const tagName = tagUrn ? extractNameFromUrn(tagUrn, nameMap) : 'Unknown';
         const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
 
         if (changeEvent.operation === ChangeOperationType.Add) {
@@ -138,7 +140,7 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         }
     } else if (category === ChangeCategoryType.GlossaryTerm) {
         const termUrn = getParameter(changeEvent.parameters, PARAM_TERM_URN, '');
-        const termName = termUrn ? extractNameFromUrn(termUrn) : 'Unknown';
+        const termName = termUrn ? extractNameFromUrn(termUrn, nameMap) : 'Unknown';
         const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
         const relationshipType = getParameter(changeEvent.parameters, PARAM_RELATIONSHIP_TYPE);
 
@@ -162,7 +164,7 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         }
     } else if (category === ChangeCategoryType.Ownership) {
         const ownerUrn = getParameter(changeEvent.parameters, PARAM_OWNER_URN, '');
-        const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn) : 'Unknown';
+        const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn, nameMap) : 'Unknown';
         const rawOwnerType = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE);
         const ownerTypeUrn = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE_URN);
         let ownerTypeSuffix = '';
@@ -179,7 +181,7 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         }
     } else if (category === CATEGORY_DOMAIN) {
         const domainUrn = getParameter(changeEvent.parameters, PARAM_DOMAIN_URN, '');
-        const domainName = domainUrn ? extractNameFromUrn(domainUrn) : 'Unknown';
+        const domainName = domainUrn ? extractNameFromUrn(domainUrn, nameMap) : 'Unknown';
 
         if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = `Added to domain "${domainName}".`;
@@ -188,7 +190,7 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         }
     } else if (category === CATEGORY_STRUCTURED_PROPERTY) {
         const propertyUrn = getParameter(changeEvent.parameters, PARAM_PROPERTY_URN, '');
-        const propertyName = propertyUrn ? extractNameFromUrn(propertyUrn) : 'Unknown';
+        const propertyName = propertyUrn ? extractNameFromUrn(propertyUrn, nameMap) : 'Unknown';
         const propertyValues = getParameter(changeEvent.parameters, PARAM_PROPERTY_VALUES);
         const valuesSuffix = propertyValues ? ` to ${formatPropertyValues(propertyValues)}` : '';
 
@@ -201,12 +203,21 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         }
     } else if (category === CATEGORY_APPLICATION) {
         const appUrn = changeEvent.modifier || '';
-        const appName = appUrn ? extractNameFromUrn(appUrn) : 'Unknown';
+        const appName = appUrn ? extractNameFromUrn(appUrn, nameMap) : 'Unknown';
 
         if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = `Added to application "${appName}".`;
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = `Removed from application "${appName}".`;
+        }
+    } else if (category === CATEGORY_ASSET_MEMBERSHIP) {
+        const assetUrn = changeEvent.modifier || '';
+        const assetName = assetUrn ? extractNameFromUrn(assetUrn, nameMap) : 'Unknown';
+
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = `Added asset "${assetName}".`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = `Removed asset "${assetName}".`;
         }
     }
 
