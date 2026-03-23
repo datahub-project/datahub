@@ -4,5 +4,3 @@
 gradlew text eol=lf
 metadata-utils/src/test/resources/filterQuery/* text eol=lf
 
-# Git LFS configuration for PowerBI M-Query bridge binaries
-metadata-ingestion/src/datahub/ingestion/source/powerbi/m_query/mquery_bridge/binaries/*.gz filter=lfs diff=lfs merge=lfs -text
