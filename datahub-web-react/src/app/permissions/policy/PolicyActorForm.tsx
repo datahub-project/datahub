@@ -164,7 +164,12 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onDeselectExcludedUserActor = (user: string) => {
-        setActors({ ...actors, excludedUsers: actors.excludedUsers?.filter((u) => u !== user) });
+        const updatedExcludedUsers = actors.excludedUsers?.filter((u) => u !== user);
+        setActors({
+            ...actors,
+            excludedUsers: updatedExcludedUsers,
+            resolvedExcludedUsers: actors.resolvedExcludedUsers?.filter((u) => u.urn !== user),
+        });
     };
 
     // Group handlers — include list
@@ -208,7 +213,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onDeselectExcludedGroupActor = (group: string) => {
-        setActors({ ...actors, excludedGroups: actors.excludedGroups?.filter((g) => g !== group) });
+        setActors({
+            ...actors,
+            excludedGroups: actors.excludedGroups?.filter((g) => g !== group),
+            resolvedExcludedGroups: actors.resolvedExcludedGroups?.filter((g) => g.urn !== group),
+        });
     };
 
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {

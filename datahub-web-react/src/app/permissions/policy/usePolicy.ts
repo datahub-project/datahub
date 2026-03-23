@@ -51,17 +51,19 @@ export function usePolicy(
 
     const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
         return {
-            criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
-                return {
-                    field: criterion.field,
-                    values: criterion.values.map((criterionValue) =>
-                        criterion.field === 'TAG' && state !== 'TOGGLE'
-                            ? (criterionValue as any)
-                            : criterionValue.value,
-                    ),
-                    condition: criterion.condition,
-                };
-            }),
+            criteria: filter.criteria
+                ?.filter((criterion) => criterion.values.length > 0)
+                .map((criterion): PolicyMatchCriterionInput => {
+                    return {
+                        field: criterion.field,
+                        values: criterion.values.map((criterionValue) =>
+                            criterion.field === 'TAG' && state !== 'TOGGLE'
+                                ? (criterionValue as any)
+                                : criterionValue.value,
+                        ),
+                        condition: criterion.condition,
+                    };
+                }),
         };
     };
 

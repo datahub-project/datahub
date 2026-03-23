@@ -469,11 +469,9 @@ public class PolicyEngine {
       final ResolvedEntitySpec resolvedActorSpec,
       final DataHubActorFilter actorFilter,
       final PolicyEvaluationContext context) {
-    // Can immediately return false if the actor filter does not have any roles
     if (!actorFilter.hasRoles()) {
       return false;
     }
-    // If the actor has a matching "Role" in the actor filter, return true immediately.
     Set<Urn> actorRoles = resolveRoles(opContext, resolvedActorSpec, context);
     return Objects.requireNonNull(actorFilter.getRoles()).stream().anyMatch(actorRoles::contains);
   }
