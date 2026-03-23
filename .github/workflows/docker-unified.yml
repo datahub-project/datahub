@@ -74,6 +74,7 @@ jobs:
       backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name != 'pull_request' }}
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
+      connector_source_only: ${{ steps.ci-optimize.outputs.connector-source-only == 'true' }}
       backend_only: ${{ steps.ci-optimize.outputs.backend-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
@@ -404,6 +405,11 @@ jobs:
             includes="$python_matrix,$cypress_matrix"
           elif [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
             includes="$cypress_matrix"
+          elif [[ "${{ needs.setup.outputs.connector_source_only }}" == 'true' ]]; then
+            # Connector-only changes (source implementations, their tests, docs) don't affect
+            # smoke tests. Smoke tests exercise the platform via CLI/SDK/APIs, not individual
+            # connectors. Skip to save ~140 min of compute.
+            includes=""
           elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
             includes="$python_matrix"
           fi
