@@ -37,7 +37,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
-    DataplexEntriesReport,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
@@ -149,11 +148,10 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_extractor = None
 
         self._entry_data_lock = Lock()
-        self.entries_report = DataplexEntriesReport()
         self.entries_processor = DataplexEntriesProcessor(
             config=self.config,
             catalog_client=self.catalog_client,
-            report=self.entries_report,
+            report=self.report.entries_report,
             entry_data_by_project=self.entry_data_by_project,
             entry_data_lock=self._entry_data_lock,
         )

@@ -7,11 +7,17 @@ from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
     DataplexFilterConfig,
     EntriesFilterConfig,
+    EntryGroupFilterConfig,
 )
 
 
 class TestDataplexFilterConfig:
     """Test filter configuration classes."""
+
+    def test_entry_group_filter_config_defaults(self):
+        """Test that EntryGroupFilterConfig has correct defaults."""
+        config = EntryGroupFilterConfig()
+        assert config.pattern.allowed("projects/p/locations/us/entryGroups/@bigquery")
 
     def test_entries_filter_config_defaults(self):
         """Test that EntriesFilterConfig has correct defaults."""
@@ -34,6 +40,12 @@ class TestDataplexFilterConfig:
     def test_dataplex_filter_config_defaults(self):
         """Test that DataplexFilterConfig has correct defaults."""
         config = DataplexFilterConfig()
+
+        # Entry groups sub-config should exist with defaults
+        assert config.entry_groups is not None
+        assert config.entry_groups.pattern.allowed(
+            "projects/p/locations/us/entryGroups/@bigquery"
+        )
 
         # Entries sub-config should exist with defaults
         assert config.entries is not None

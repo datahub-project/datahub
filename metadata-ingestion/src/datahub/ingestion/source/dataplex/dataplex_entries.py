@@ -1,7 +1,6 @@
 """Entry processing utilities for Dataplex source (Universal Catalog/Entries API)."""
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from threading import Lock
@@ -9,17 +8,8 @@ from typing import TYPE_CHECKING, Iterable, Optional
 
 from google.cloud import dataplex_v1
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_containers import (
-    track_bigquery_container,
-)
-from datahub.ingestion.source.dataplex.dataplex_helpers import (
-    EntryDataTuple,
-    make_audit_stamp,
-    parse_entry_fqn,
-)
+from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
     build_parent_container_urn,
@@ -33,13 +23,6 @@ from datahub.ingestion.source.dataplex.dataplex_properties import (
 from datahub.ingestion.source.dataplex.dataplex_schema import (
     extract_schema_from_entry_aspects,
 )
-from datahub.metadata.schema_classes import (
-    ContainerClass,
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-    TimeStampClass,
-)
-from datahub.metadata.urns import DataPlatformUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.utilities.lossy_collections import LossyList
@@ -66,6 +49,8 @@ class DataplexEntriesReport:
     entries_seen: int = 0
     entries_filtered_by_pattern: int = 0
     entry_pattern_filtered_samples: LossyList[str] = field(default_factory=LossyList)
+    entries_filtered_by_missing_fqn: int = 0
+    entry_missing_fqn_samples: LossyList[str] = field(default_factory=LossyList)
     entries_filtered_by_fqn_pattern: int = 0
     entry_fqn_filtered_samples: LossyList[str] = field(default_factory=LossyList)
 
@@ -82,6 +67,7 @@ class DataplexEntriesReport:
     def report_entry(
         self,
         entry_name: str,
+        filtered_missing_fqn: bool,
         filtered_fqn: bool,
         filtered_name: bool,
     ) -> None:
@@ -92,11 +78,15 @@ class DataplexEntriesReport:
             self.entries_filtered_by_pattern += 1
             self.entry_pattern_filtered_samples.append(entry_name)
 
+        if filtered_missing_fqn:
+            self.entries_filtered_by_missing_fqn += 1
+            self.entry_missing_fqn_samples.append(entry_name)
+
         if filtered_fqn:
             self.entries_filtered_by_fqn_pattern += 1
             self.entry_fqn_filtered_samples.append(entry_name)
 
-        if not filtered_name and not filtered_fqn:
+        if not filtered_name and not filtered_missing_fqn and not filtered_fqn:
             self.entries_processed += 1
             self.entries_processed_samples.append(entry_name)
 
@@ -131,15 +121,26 @@ class DataplexEntriesProcessor:
         """Process all eligible entry groups and entries for one location."""
         for entry in self.collect_entries(project_id, location):
             entry_name = entry.name
-            fqn = entry.fully_qualified_name or ""
+            filtered_missing_fqn = not bool(entry.fully_qualified_name)
+            if filtered_missing_fqn:
+                self.report.report_entry(
+                    entry_name=entry_name,
+                    filtered_missing_fqn=True,
+                    filtered_fqn=False,
+                    filtered_name=False,
+                )
+                continue
+            assert entry.fully_qualified_name
+            fqn = entry.fully_qualified_name
             filtered_name = not self._entry_name_allowed(entry_name)
             filtered_fqn = not self._entry_fqn_allowed(fqn)
             self.report.report_entry(
                 entry_name=entry_name,
+                filtered_missing_fqn=False,
                 filtered_fqn=filtered_fqn,
                 filtered_name=filtered_name,
             )
-            if filtered_name or filtered_fqn:
+            if filtered_name or filtered_missing_fqn or filtered_fqn:
                 continue
 
             entity = self.build_entity_for_entry(entry)
@@ -164,6 +165,8 @@ class DataplexEntriesProcessor:
         """Stream entries from entry groups and Spanner workaround."""
 
         for entry_group in self.list_entry_groups(project_id, location):
+            logger.info("Listing entry group %s", entry_group.name)
+            logger.debug("Entry group payload: %s", entry_group)
             filtered_entry_group = not self.should_process_entry_group(entry_group.name)
             self.report.report_entry_group(
                 entry_group.name, filtered=filtered_entry_group
@@ -173,6 +176,10 @@ class DataplexEntriesProcessor:
 
             request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
             for entry in self.catalog_client.list_entries(request=request):
+                logger.info(
+                    "Listing entry %s from group %s", entry.name, entry_group.name
+                )
+                logger.debug("ListEntries payload: %s", entry)
                 try:
                     entry_request = dataplex_v1.GetEntryRequest(
                         name=entry.name,
@@ -199,8 +206,16 @@ class DataplexEntriesProcessor:
         )
         try:
             for result in self.catalog_client.search_entries(request=request):
+                logger.info(
+                    "SearchEntries result for project=%s location=%s",
+                    project_id,
+                    location,
+                )
+                logger.debug("SearchEntries payload: %s", result)
                 dataplex_entry = getattr(result, "dataplex_entry", None)
                 if dataplex_entry is not None:
+                    logger.info("Yielding spanner entry %s", dataplex_entry.name)
+                    logger.debug("Spanner dataplex entry payload: %s", dataplex_entry)
                     yield dataplex_entry
         except Exception as exc:
             logger.warning(
@@ -212,19 +227,16 @@ class DataplexEntriesProcessor:
 
     def should_process_entry_group(self, entry_group_name: str) -> bool:
         """Evaluate ``filter_config.entry_groups.pattern``."""
-        entry_groups_filter = getattr(self.config.filter_config, "entry_groups", None)
-        if entry_groups_filter is None:
-            return True
-        entry_group_pattern = getattr(entry_groups_filter, "pattern", None)
-        if entry_group_pattern is None:
-            return True
-        return entry_group_pattern.allowed(entry_group_name)
+        entry_groups_filter = self.config.filter_config.entry_groups
+        return entry_groups_filter.pattern.allowed(entry_group_name)
 
     def should_process_entry(self, entry: dataplex_v1.Entry) -> bool:
         """Apply entry-level ``pattern`` and ``fqn_pattern`` filters."""
+        if not entry.fully_qualified_name:
+            return False
         entry_name = entry.name
         return self._entry_name_allowed(entry_name) and self._entry_fqn_allowed(
-            entry.fully_qualified_name or ""
+            entry.fully_qualified_name
         )
 
     def build_entity_for_entry(self, entry: dataplex_v1.Entry) -> Optional["Entity"]:
@@ -332,17 +344,11 @@ class DataplexEntriesProcessor:
 
     def _entry_name_allowed(self, entry_name: str) -> bool:
         entries_filter = self.config.filter_config.entries
-        name_pattern = getattr(entries_filter, "pattern", None)
-        if name_pattern is not None:
-            return name_pattern.allowed(entry_name)
-        return entries_filter.dataset_pattern.allowed(entry_name)
+        return entries_filter.pattern.allowed(entry_name)
 
     def _entry_fqn_allowed(self, fully_qualified_name: str) -> bool:
         entries_filter = self.config.filter_config.entries
-        fqn_pattern = getattr(entries_filter, "fqn_pattern", None)
-        if fqn_pattern is None:
-            return True
-        return fqn_pattern.allowed(fully_qualified_name)
+        return entries_filter.fqn_pattern.allowed(fully_qualified_name)
 
     def _extract_entry_group_id(self, entry_name: str) -> str:
         parts = entry_name.split("/")
@@ -408,187 +414,3 @@ class DataplexEntriesProcessor:
                     dataset_id=dataset_name,
                 )
             )
-
-
-def process_entry(
-    project_id: str,
-    entry: dataplex_v1.Entry,
-    entry_group_id: str,
-    config: DataplexConfig,
-    entry_data_by_project: dict[str, set[EntryDataTuple]],
-    entry_data_lock: Lock,
-    bq_containers: dict[str, set[str]],
-    bq_containers_lock: Lock,
-    construct_mcps_fn: Callable[[str, list], Iterable[MetadataChangeProposalWrapper]],
-) -> Iterable[MetadataChangeProposalWrapper]:
-    """Process a single entry from Universal Catalog.
-
-    Args:
-        project_id: GCP project ID
-        entry: Entry object from Catalog API
-        entry_group_id: Entry group ID
-        config: Dataplex configuration object
-        entry_data_by_project: Mapping of project IDs to entry data tuples
-        entry_data_lock: Lock for entry_data_by_project access
-        bq_containers: BigQuery containers cache
-        bq_containers_lock: Lock for bq_containers access
-        construct_mcps_fn: Function to construct MCPs from dataset URN and aspects
-
-    Yields:
-        MetadataChangeProposalWrapper objects for the entry
-    """
-    entry_id = entry.name.split("/")[-1]
-
-    if not entry.fully_qualified_name:
-        logger.debug(f"Entry {entry_id} has no fully_qualified_name, skipping")
-        return
-
-    fqn = entry.fully_qualified_name
-    logger.debug(f"Processing entry with FQN: {fqn}")
-
-    # Apply dataset pattern filter to entry_id
-    if not config.filter_config.entries.dataset_pattern.allowed(entry_id):
-        logger.debug(f"Entry {entry_id} filtered out by entries.dataset_pattern")
-        return
-
-    # Parse the FQN to determine platform and dataset_id
-    source_platform, dataset_id = parse_entry_fqn(fqn)
-    if not source_platform or not dataset_id:
-        logger.warning(f"Could not parse FQN {fqn} for entry {entry_id}, skipping")
-        return
-
-    # Validate that FQN has a table/file component (not just zone/asset metadata)
-    if ":" in fqn:
-        _, resource_path = fqn.split(":", 1)
-
-        # For BigQuery: should be project.dataset.table (3 parts minimum)
-        if source_platform == "bigquery":
-            parts = resource_path.split(".")
-            if len(parts) < 3:
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - missing table name (only {len(parts)} parts)"
-                )
-                return
-            # Check if the table name looks like a zone or asset (common pattern suffixes)
-            table_name = parts[-1]
-            if any(
-                suffix in table_name.lower()
-                for suffix in ["_zone", "_asset", "zone1", "asset1"]
-            ):
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - table name '{table_name}' appears to be zone/asset metadata"
-                )
-                return
-
-        # For GCS: should be bucket/path (2 parts minimum)
-        elif source_platform == "gcs":
-            parts = resource_path.split("/")
-            if len(parts) < 2:
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - missing file path (only {len(parts)} parts)"
-                )
-                return
-            # Check if the file/object name looks like an asset
-            object_name = parts[-1]
-            if any(suffix in object_name.lower() for suffix in ["_asset", "asset1"]):
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - object name '{object_name}' appears to be asset metadata"
-                )
-                return
-
-    # Track entry for lineage extraction
-    with entry_data_lock:
-        if project_id not in entry_data_by_project:
-            entry_data_by_project[project_id] = set()
-        entry_data_by_project[project_id].add(
-            EntryDataTuple(
-                entry_id=entry_id,
-                source_platform=source_platform,
-                dataset_id=dataset_id,
-            )
-        )
-
-    # Generate dataset URN using the full resource path from FQN
-    # For BigQuery: bigquery:project.dataset.table -> use full path
-    if ":" in fqn:
-        _, resource_path = fqn.split(":", 1)
-        dataset_name = resource_path
-    else:
-        dataset_name = entry_id
-
-    dataset_urn = make_dataset_urn_with_platform_instance(
-        platform=source_platform,
-        name=dataset_name,
-        platform_instance=None,
-        env=config.env,
-    )
-    logger.debug(
-        f"Created dataset URN for entry {entry_id} (FQN: {fqn}): {dataset_urn}"
-    )
-
-    # Extract custom properties using helper method
-    custom_properties = extract_entry_custom_properties(entry, entry_id, entry_group_id)
-
-    # Try to extract schema from entry aspects (if enabled)
-    schema_metadata = None
-    if config.include_schema:
-        schema_metadata = extract_schema_from_entry_aspects(
-            entry, entry_id, source_platform
-        )
-
-    # Build aspects list - extract timestamps and description safely
-    created_time = (
-        make_audit_stamp(entry.entry_source.create_time)
-        if entry.entry_source and entry.entry_source.create_time
-        else None
-    )
-    modified_time = (
-        make_audit_stamp(entry.entry_source.update_time)
-        if entry.entry_source and entry.entry_source.update_time
-        else None
-    )
-    description = (
-        entry.entry_source.description
-        if entry.entry_source and entry.entry_source.description
-        else ""
-    )
-
-    aspects = [
-        DatasetPropertiesClass(
-            name=entry_id,
-            description=description,
-            customProperties=custom_properties,
-            created=TimeStampClass(**created_time) if created_time else None,
-            lastModified=TimeStampClass(**modified_time) if modified_time else None,
-        ),
-        DataPlatformInstanceClass(platform=str(DataPlatformUrn(source_platform))),
-    ]
-
-    # Add schema metadata if available
-    if schema_metadata:
-        aspects.append(schema_metadata)
-        logger.debug(
-            f"Added schema metadata for entry {entry_id} with {len(schema_metadata.fields)} fields"
-        )
-
-    # Link to source platform container (only for BigQuery)
-    if source_platform == "bigquery":
-        # Extract project_id and dataset from the full FQN
-        # dataset_id format: project.dataset.table
-        parts = dataset_id.split(".")
-        if len(parts) >= 3:
-            bq_project_id = parts[0]
-            bq_dataset_id = parts[1]
-            with bq_containers_lock:
-                container_urn = track_bigquery_container(
-                    bq_project_id, bq_dataset_id, bq_containers, config
-                )
-            if container_urn:
-                aspects.append(ContainerClass(container=container_urn))
-        else:
-            logger.warning(
-                f"Could not extract BigQuery project and dataset from dataset_id '{dataset_id}' for entry {entry_id}"
-            )
-
-    # Construct MCPs
-    yield from construct_mcps_fn(dataset_urn, aspects)

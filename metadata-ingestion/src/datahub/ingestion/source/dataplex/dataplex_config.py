@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -22,15 +22,38 @@ logger = logging.getLogger(__name__)
 class EntriesFilterConfig(ConfigModel):
     """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
 
-    dataset_pattern: AllowDenyPattern = Field(
+    pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for entry IDs to filter in ingestion.",
+        validation_alias=AliasChoices("pattern", "dataset_pattern"),
+        description="Regex patterns for Dataplex entry names to filter in ingestion.",
+    )
+    fqn_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Dataplex fully-qualified names to filter in ingestion.",
+    )
+
+    @property
+    def dataset_pattern(self) -> AllowDenyPattern:
+        """Backward-compatible alias for the old entries dataset pattern field."""
+        return self.pattern
+
+
+class EntryGroupFilterConfig(ConfigModel):
+    """Filter configuration for Dataplex entry groups."""
+
+    pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for entry group resource names to include/exclude.",
     )
 
 
 class DataplexFilterConfig(ConfigModel):
     """Filter configuration for Dataplex ingestion."""
 
+    entry_groups: EntryGroupFilterConfig = Field(
+        default_factory=EntryGroupFilterConfig,
+        description="Filters for Dataplex entry group names.",
+    )
     entries: EntriesFilterConfig = Field(
         default_factory=EntriesFilterConfig,
         description="Filters specific to Dataplex Entries API (Universal Catalog).",
