@@ -1,4 +1,4 @@
-import { EditOutlined, ReadOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { EditOutlined, ReadOutlined, SafetyCertificateOutlined, SettingOutlined } from '@ant-design/icons';
 import React from 'react';
 
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
@@ -8,17 +8,17 @@ export const getRoleNameFromUrn = (roleUrn: string) => {
 };
 
 export const mapRoleIcon = (roleName) => {
-    let icon = <UserOutlined />;
     if (roleName === 'Admin') {
-        icon = <SettingOutlined />;
+        return <SettingOutlined />;
     }
     if (roleName === 'Editor') {
-        icon = <EditOutlined />;
+        return <EditOutlined />;
     }
     if (roleName === 'Reader') {
-        icon = <ReadOutlined />;
+        return <ReadOutlined />;
     }
-    return icon;
+    // Custom roles get a certificate/badge icon to distinguish them from the "No Role" person icon.
+    return <SafetyCertificateOutlined />;
 };
 
 export const shouldShowGlossary = (canManageGlossary: boolean, hideGlossary: boolean) => {
