@@ -436,30 +436,45 @@ class ClickHouseSinkConnector(BaseConnector):
         }
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
-        lineages: List[KafkaConnectLineage] = list()
-        parser = self.get_parser(self.connector_manifest)
+        try:
+            lineages: List[KafkaConnectLineage] = list()
+            parser = self.get_parser(self.connector_manifest)
 
-        for topic, table in parser.topics_to_tables.items():
-            target_dataset: str = f"{parser.database}.{table}"
+            for topic, table in parser.topics_to_tables.items():
+                target_dataset: str = f"{parser.database}.{table}"
 
-            fine_grained = self._extract_fine_grained_lineage(
-                source_dataset=topic,
-                source_platform=KAFKA,
-                target_dataset=target_dataset,
-                target_platform="clickhouse",
-            )
-
-            lineages.append(
-                KafkaConnectLineage(
+                fine_grained = self._extract_fine_grained_lineage(
                     source_dataset=topic,
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform="clickhouse",
-                    fine_grained_lineages=fine_grained,
                 )
+
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_dataset=topic,
+                        source_platform=KAFKA,
+                        target_dataset=target_dataset,
+                        target_platform="clickhouse",
+                        fine_grained_lineages=fine_grained,
+                    )
+                )
+
+            return lineages
+        except ValueError as e:
+            self.report.warning(
+                f"Configuration error in ClickHouse sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+        except Exception as e:
+            self.report.warning(
+                f"Unexpected error resolving lineage for ClickHouse sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
             )
 
-        return lineages
+        return []
 
     def get_platform(self) -> str:
         return "clickhouse"
