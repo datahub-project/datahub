@@ -361,7 +361,7 @@ iceberg_common = {
     # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
     #   expected by the connector
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow]>=0.9.0,<=0.11.1",
-    "sortedcontainers",
+    "sortedcontainers>=2.4.0,<3.0.0",
     *cachetools_lib,
 }
 

@@ -713,7 +713,7 @@ hive-metastore = [
 iceberg = [
     "cachetools<6.0.0",
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow]>=0.9.0,<=0.11.1",
-    "sortedcontainers",
+    "sortedcontainers>=2.4.0,<3.0.0",
 ]
 
 iceberg-catalog = [
@@ -1494,7 +1494,7 @@ all = [
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow]>=0.9.0,<=0.11.1",
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
-    "sortedcontainers",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "pyodbc>=4.0,<5.0",
@@ -1654,7 +1654,7 @@ dev = [
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "sortedcontainers",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL<26.0.0",
     "pyspark~=3.5.6,<4.0.0",
@@ -1847,7 +1847,7 @@ docs = [
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "sortedcontainers",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL<26.0.0",
     "pyspark~=3.5.6,<4.0.0",
@@ -1992,7 +1992,7 @@ integration-tests = [
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodbc>=4.0,<5.0",
-    "sortedcontainers",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "pyOpenSSL<26.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
