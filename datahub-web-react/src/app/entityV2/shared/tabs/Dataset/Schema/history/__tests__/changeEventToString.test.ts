@@ -55,6 +55,37 @@ describe('getChangeEventString', () => {
             const result = getChangeEventString(changeEvent);
             expect(result).toBe('Removed column test.field.path.');
         });
+
+        it('should handle modifying a column (description or type change)', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.TechnicalSchema,
+                operation: ChangeOperationType.Modify,
+                parameters: [{ key: 'fieldPath', value: 'user.email' }],
+                description: "The description for 'user.email' has been changed.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Modified column user.email.');
+        });
+
+        it('should strip v2 field path for modified columns', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.TechnicalSchema,
+                operation: ChangeOperationType.Modify,
+                parameters: [
+                    {
+                        key: 'fieldPath',
+                        value: '[version=2.0].[type=struct].[type=string].address.city',
+                    },
+                ],
+                description: "The description for 'address.city' has been changed.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Modified column address.city.');
+        });
     });
 
     describe('Documentation Changes', () => {
@@ -106,6 +137,34 @@ describe('getChangeEventString', () => {
 
             const result = getChangeEventString(changeEvent);
             expect(result).toBe('Set field documentation for addresses.zip to New field description');
+        });
+
+        it('should show column name for SchemaMetadata field description changes (no description param)', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Documentation,
+                modifier: '[version=2.0].[type=struct].[type=string].address.street',
+                description:
+                    "The description 'Street address' for the field 'address.street' of 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)' has been added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toContain('address.street');
+            expect(result).toMatch(/^\[address\.street\]/);
+        });
+
+        it('should show simple column name for SchemaMetadata field description changes', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Documentation,
+                modifier: 'user_email',
+                description: "The description 'User email address' for the field 'user_email' has been added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe(
+                "[user_email] The description 'User email address' for the field 'user_email' has been added.",
+            );
         });
     });
 

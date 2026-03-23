@@ -108,14 +108,14 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
             displayString = `Added column ${downgradeV2FieldPath(fieldPath || '')}.`;
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = `Removed column ${downgradeV2FieldPath(fieldPath || '')}.`;
+        } else if (changeEvent.operation === ChangeOperationType.Modify) {
+            displayString = `Modified column ${downgradeV2FieldPath(fieldPath || '')}.`;
         }
     } else if (category === ChangeCategoryType.Documentation) {
         const hasDescriptionParam = (changeEvent.parameters || []).some((p) => p.key === PARAM_DESCRIPTION);
 
-        // Only override when a description parameter is present (EditableDatasetProperties events).
-        // DomainProperties and GlossaryTermInfo events don't emit this parameter — fall through
-        // to the backend description which already contains a human-readable message.
         if (hasDescriptionParam) {
+            // EditableDatasetProperties / EditableSchemaMetadata events include a description parameter.
             const description = getParameter(changeEvent.parameters, PARAM_DESCRIPTION, '');
             if (!changeEvent.modifier) {
                 displayString = description === '' ? EMPTY_ASSET_DOC : SET_ASSET_DOC(description);
@@ -123,6 +123,12 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
                 const fieldPath = changeEvent.modifier;
                 displayString = description === '' ? EMPTY_FIELD_DOC(fieldPath) : SET_FIELD_DOC(fieldPath, description);
             }
+        } else if (changeEvent.modifier) {
+            // SchemaMetadata-sourced field description changes: modifier holds the field path
+            // but no description parameter. Prefix the column name to the backend description
+            // so the user can see which column was affected.
+            const fieldPath = downgradeV2FieldPath(changeEvent.modifier);
+            displayString = `[${fieldPath}] ${changeEvent.description || ''}`;
         }
     } else if (category === ChangeCategoryType.Tag) {
         const tagUrn = getParameter(changeEvent.parameters, PARAM_TAG_URN, '');
