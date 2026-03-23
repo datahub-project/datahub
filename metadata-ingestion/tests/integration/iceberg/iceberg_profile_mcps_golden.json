@@ -303,6 +303,7 @@
             },
             "rowCount": 5,
             "columnCount": 6,
+            "sizeInBytes": 7451,
             "fieldProfiles": [
                 {
                     "fieldPath": "vendor_id",
@@ -344,8 +345,7 @@
                     "nullCount": 0,
                     "nullProportion": 0.0
                 }
-            ],
-            "sizeInBytes": 9159
+            ]
         }
     },
     "systemMetadata": {
