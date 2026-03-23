@@ -105,9 +105,7 @@ services:
     profiles:
       - debug-frontend
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
+      system-update-debug:
         condition: service_completed_successfully
   frontend-debug-postgres:
     <<: *datahub-frontend-service-dev

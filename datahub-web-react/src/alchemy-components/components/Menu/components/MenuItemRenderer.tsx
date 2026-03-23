@@ -1,4 +1,5 @@
 import { Icon, Text, Tooltip } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -85,7 +86,6 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
                 <IconWrapper>
                     <Icon
                         icon={item.icon}
-                        source="phosphor"
                         color={itemColors.iconColor}
                         colorLevel={itemColors.iconColorLevel}
                         size="2xl"
@@ -106,7 +106,7 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
 
             <SpaceFiller />
 
-            {item.children && <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={1800} size="lg" />}
+            {item.children && <Icon icon={CaretRight} color="gray" colorLevel={1800} size="lg" />}
         </Wrapper>
     );
 

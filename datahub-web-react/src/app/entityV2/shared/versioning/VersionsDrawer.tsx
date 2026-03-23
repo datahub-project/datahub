@@ -1,5 +1,8 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { CloseOutlined } from '@ant-design/icons';
 import { Icon, Input, Table, Text, colors } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
 import moment from 'moment';
@@ -186,7 +189,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     trigger={['click']}
                     overlayStyle={{ borderRadius: '100px' }}
                 >
-                    <MenuIcon icon="MoreVert" variant="outline" size="2xl" color="gray" />
+                    <MenuIcon icon={DotsThreeVertical} size="2xl" color="gray" />
                 </StyledDropdown>
             ),
         };
@@ -211,7 +214,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                 <Input
                     label=""
                     placeholder="Search versions by name..."
-                    icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
+                    icon={{ icon: MagnifyingGlass }}
                     value={searchInput}
                     setValue={setSearchInput}
                 />
