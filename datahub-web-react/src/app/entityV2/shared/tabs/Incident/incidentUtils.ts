@@ -1,7 +1,7 @@
 import { getExistingIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
 
 import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
-import { Incident, IncidentState, IncidentType } from '@types';
+import { IncidentType } from '@types';
 
 export const PAGE_SIZE = 100;
 
@@ -16,36 +16,13 @@ export const INCIDENT_DISPLAY_TYPES = [
     },
 ];
 
-export const INCIDENT_DISPLAY_STATES = [
-    {
-        type: undefined,
-        name: 'All',
-    },
-    {
-        type: IncidentState.Active,
-        name: 'Active',
-    },
-    {
-        type: IncidentState.Resolved,
-        name: 'Resolved',
-    },
-];
-
 const incidentTypeToDetails = new Map();
 INCIDENT_DISPLAY_TYPES.forEach((incidentDetails) => {
     incidentTypeToDetails.set(incidentDetails.type, incidentDetails);
 });
 
-export const getNameFromType = (type: IncidentType) => {
-    return incidentTypeToDetails.get(type)?.name || type;
-};
-
-export const SUCCESS_COLOR_HEX = '#52C41A';
-export const FAILURE_COLOR_HEX = '#F5222D';
-export const WARNING_COLOR_HEX = '#FA8C16';
-
 // apollo caching
-export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
+const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
     const incidents = [...existingIncidents];
     let didUpdate = false;
     const updatedIncidents = incidents.map((incident) => {
@@ -64,7 +41,7 @@ export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
 /**
  * Add an entry to the ListIncident cache.
  */
-export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
+const updateListIncidentsCache = (client, urn, incident, pageSize) => {
     // Read the data from our cache for this query.
     const currData: any = client.readQuery({
         query: GetEntityIncidentsDocument,
@@ -113,30 +90,6 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
             },
         },
     });
-};
-
-/**
- * Returns a status summary for the incidents
- */
-export const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
-    const summary = {
-        resolvedIncident: 0,
-        activeIncident: 0,
-        totalIncident: 0,
-    };
-    incidents.forEach((assertion) => {
-        if (incidents.length) {
-            const resultType = assertion.incidentStatus?.state;
-            if (IncidentState.Active === resultType) {
-                summary.activeIncident++;
-            }
-            if (IncidentState.Resolved === resultType) {
-                summary.resolvedIncident++;
-            }
-            summary.totalIncident++;
-        }
-    });
-    return summary;
 };
 
 /**

@@ -1,4 +1,5 @@
 import { Tooltip } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Form, FormInstance } from 'antd';
 import React, { useEffect, useRef } from 'react';
 
@@ -105,7 +106,7 @@ const AllowedValuesDrawer = ({
                                                         showArrow={false}
                                                     >
                                                         <Icon
-                                                            icon="Delete"
+                                                            icon={Trash}
                                                             onClick={() => remove(field.name)}
                                                             color="gray"
                                                             size="xl"

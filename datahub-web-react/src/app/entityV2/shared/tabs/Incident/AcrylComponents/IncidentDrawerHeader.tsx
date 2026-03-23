@@ -1,3 +1,6 @@
+import { Link } from '@phosphor-icons/react/dist/csr/Link';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import {
@@ -58,7 +61,7 @@ export const IncidentDrawerHeader = ({
                         <StructuredPopover title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
                             <span>
                                 <Button
-                                    icon={{ icon: 'PencilSimpleLine', color: 'gray', source: 'phosphor' }}
+                                    icon={{ icon: PencilSimpleLine, color: 'gray' }}
                                     variant="text"
                                     onClick={() => setIsEditActive(!isEditActive)}
                                     disabled={!canEditIncidents}
@@ -69,7 +72,7 @@ export const IncidentDrawerHeader = ({
                         </StructuredPopover>
                         <StructuredPopover title="Copy Link">
                             <Button
-                                icon={{ icon: 'Link', color: 'gray', source: 'phosphor' }}
+                                icon={{ icon: Link, color: 'gray' }}
                                 variant="text"
                                 onClick={handleIncidentLinkCopy}
                                 size="xl"
@@ -78,7 +81,7 @@ export const IncidentDrawerHeader = ({
                     </>
                 )}
                 <Button
-                    icon={{ icon: 'X', color: 'gray', source: 'phosphor' }}
+                    icon={{ icon: X, color: 'gray' }}
                     variant="text"
                     onClick={() => onClose?.()}
                     data-testid="incident-drawer-close-button"

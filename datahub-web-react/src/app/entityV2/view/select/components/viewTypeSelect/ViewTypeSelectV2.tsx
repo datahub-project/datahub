@@ -1,4 +1,7 @@
 import { Icon, Tooltip, borders, colors } from '@components';
+import { GlobeHemisphereWest } from '@phosphor-icons/react/dist/csr/GlobeHemisphereWest';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -52,8 +55,7 @@ export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSele
             <Tooltip placement="bottom" showArrow title="All">
                 <IconWrapper onClick={() => onTypeSelect('all')} $active={selectedOption === 'all'}>
                     <Icon
-                        icon="SquaresFour"
-                        source="phosphor"
+                        icon={SquaresFour}
                         size="lg"
                         {...(selectedOption === 'all' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
                     />
@@ -63,8 +65,7 @@ export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSele
             <Tooltip placement="bottom" showArrow title="Private">
                 <IconWrapper onClick={() => onTypeSelect('private')} $active={selectedOption === 'private'}>
                     <Icon
-                        icon="Lock"
-                        source="phosphor"
+                        icon={Lock}
                         size="lg"
                         {...(selectedOption === 'private' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
                     />
@@ -74,8 +75,7 @@ export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSele
             <Tooltip placement="bottom" showArrow title="Public">
                 <IconWrapper onClick={() => onTypeSelect('public')} $active={selectedOption === 'public'}>
                     <Icon
-                        icon="GlobeHemisphereWest"
-                        source="phosphor"
+                        icon={GlobeHemisphereWest}
                         weight="fill"
                         size="lg"
                         {...(selectedOption === 'public' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}

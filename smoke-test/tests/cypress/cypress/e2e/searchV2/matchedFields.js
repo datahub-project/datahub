@@ -1,7 +1,6 @@
-import { applyGraphqlInterceptors, getThemeV2Interceptor } from "../utils";
+import { applyGraphqlInterceptors } from "../utils";
 import { SearchV2Helper } from "./helpers/searchV2Helper";
 
-const SAMPLE_ENTITY_NAME = "SampleCypressKafkaDataset";
 const SAMPLE_ENTITY_URN =
   "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 
@@ -10,7 +9,6 @@ describe("searchBarV2 - Matched Fields", () => {
 
   const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {
     applyGraphqlInterceptors([
-      getThemeV2Interceptor(true),
       helper.getSearchBarInterceptor(true, searchBarApi),
     ]);
 

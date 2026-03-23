@@ -29,9 +29,6 @@ function expandGroupIfNeeded(group) {
 }
 
 describe("incidents", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
   const newIncidentNameWithTimeStamp = `${NEW_INCIDENT_VALUES.NAME}-${Date.now()}`;
   const editedIncidentNameWithTimeStamp = `${newIncidentNameWithTimeStamp}-edited`;
 

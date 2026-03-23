@@ -19,7 +19,6 @@ microFrontends:
       `,
     }).as("mfeConfig");
 
-    cy.setIsThemeV2Enabled(true);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
     cy.visitWithLogin("/");
