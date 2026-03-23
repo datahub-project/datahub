@@ -73,6 +73,7 @@ from datahub.ingestion.source.aws.tag_entities import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
@@ -666,9 +667,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return nodes
 
-    def get_dataflow_wu(
+    def get_dataflow_wus(
         self, flow_urn: str, job: Dict[str, Any], job_script: Optional[str]
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate a DataFlow workunit for a Glue job.
 
@@ -715,8 +716,12 @@ class GlueSource(StatefulIngestionSourceBase):
                 ],
             )
         )
+        yield MetadataWorkUnit(id=job["Name"], mce=mce)
 
-        return MetadataWorkUnit(id=job["Name"], mce=mce)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=SubTypes(typeNames=[FlowContainerSubTypes.GLUE_JOB]),
+        ).as_workunit()
 
     def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
@@ -1294,7 +1299,7 @@ class GlueSource(StatefulIngestionSourceBase):
             else:
                 self.report.num_job_script_location_missing += 1
 
-            yield self.get_dataflow_wu(flow_urn, job, job_script)
+            yield from self.get_dataflow_wus(flow_urn, job, job_script)
 
             dag: Optional[Dict[str, Any]] = None
             if job_script:
