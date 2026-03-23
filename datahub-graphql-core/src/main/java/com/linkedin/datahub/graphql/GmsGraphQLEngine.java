@@ -208,8 +208,11 @@ import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendations
 import com.linkedin.datahub.graphql.resolvers.role.AcceptRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.CreateInviteTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.role.CreateRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.DeleteRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.GetInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
+import com.linkedin.datahub.graphql.resolvers.role.UpdateRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AggregateAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
@@ -1382,6 +1385,9 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
               .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+              .dataFetcher("createRole", new CreateRoleResolver(this.entityClient))
+              .dataFetcher("updateRole", new UpdateRoleResolver(this.entityClient))
+              .dataFetcher("deleteRole", new DeleteRoleResolver(this.entityClient))
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(

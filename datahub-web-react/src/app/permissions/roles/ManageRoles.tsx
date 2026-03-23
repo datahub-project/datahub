@@ -13,10 +13,11 @@ import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
 import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
+import UpsertRoleModal from '@app/permissions/roles/UpsertRoleModal';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
+import { useBatchAssignRoleMutation, useDeleteRoleMutation } from '@graphql/mutations.generated';
 import { useListRolesQuery } from '@graphql/role.generated';
 import { CorpUser, DataHubPolicy, DataHubRole, EntityType } from '@types';
 
@@ -51,6 +52,14 @@ const PageContainer = styled.div`
 const ActionsContainer = styled.div`
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+`;
+
+const PageHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 `;
 
 const PillsContainer = styled.div`
@@ -78,6 +87,9 @@ export const ManageRoles = () => {
     const [isBatchAddRolesModalVisible, setIsBatchAddRolesModalVisible] = useState(false);
     const [focusRole, setFocusRole] = useState<DataHubRole>();
     const [showViewRoleModal, setShowViewRoleModal] = useState(false);
+    const [showUpsertRoleModal, setShowUpsertRoleModal] = useState(false);
+    const [editingRole, setEditingRole] = useState<DataHubRole | undefined>(undefined);
+    const [roleToDelete, setRoleToDelete] = useState<DataHubRole | undefined>(undefined);
     const [selectedUserUrns, setSelectedUserUrns] = useState<string[]>([]);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
@@ -111,11 +123,29 @@ export const ManageRoles = () => {
     const resetRoleState = () => {
         setIsBatchAddRolesModalVisible(false);
         setShowViewRoleModal(false);
+        setShowUpsertRoleModal(false);
         setFocusRole(undefined);
+        setEditingRole(undefined);
         setSelectedUserUrns([]);
     };
 
+    const [deleteRoleMutation] = useDeleteRoleMutation();
     const [batchAssignRoleMutation, { client }] = useBatchAssignRoleMutation();
+
+    const deleteRole = (role: DataHubRole) => {
+        deleteRoleMutation({ variables: { urn: role.urn } })
+            .then(({ errors }) => {
+                if (!errors) {
+                    showToastMessage(ToastType.SUCCESS, 'Role deleted.', 2);
+                    setTimeout(() => rolesRefetch(), 2000);
+                }
+            })
+            .catch((e) => {
+                showToastMessage(ToastType.ERROR, `Failed to delete role: ${e.message || ''}`, 3);
+            })
+            .finally(() => setRoleToDelete(undefined));
+    };
+
     // eslint-disable-next-line
     const batchAssignRole = (actorUrns: Array<string>) => {
         if (!focusRole || !focusRole.urn) {
@@ -248,10 +278,34 @@ export const ManageRoles = () => {
         {
             title: '',
             key: 'actions',
-            width: '10%',
+            width: '15%',
             alignment: 'right' as const,
             render: (record: any) => (
                 <ActionsContainer>
+                    {record?.editable && (
+                        <>
+                            <Button
+                                variant="text"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRole(record.role);
+                                    setShowUpsertRoleModal(true);
+                                }}
+                            >
+                                Edit
+                            </Button>
+                            <Button
+                                variant="text"
+                                color="red"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRoleToDelete(record.role);
+                                }}
+                            >
+                                Delete
+                            </Button>
+                        </>
+                    )}
                     <Button
                         variant="text"
                         onClick={(e) => {
@@ -273,6 +327,7 @@ export const ManageRoles = () => {
         type: role?.type,
         description: role?.description,
         name: role?.name,
+        editable: role?.editable,
         users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
         totalUsers: role?.users?.total || 0,
         policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
@@ -282,16 +337,27 @@ export const ManageRoles = () => {
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
             {rolesError && showToastMessage(ToastType.ERROR, 'Failed to load roles! An unexpected error occurred.', 3)}
-            <SearchBar
-                placeholder="Search roles..."
-                value={query || ''}
-                onChange={(value) => {
-                    setPage(1);
-                    setQuery(value);
-                }}
-                width="300px"
-                allowClear
-            />
+            <PageHeader>
+                <SearchBar
+                    placeholder="Search roles..."
+                    value={query || ''}
+                    onChange={(value) => {
+                        setPage(1);
+                        setQuery(value);
+                    }}
+                    width="300px"
+                    allowClear
+                />
+                <Button
+                    variant="filled"
+                    onClick={() => {
+                        setEditingRole(undefined);
+                        setShowUpsertRoleModal(true);
+                    }}
+                >
+                    Create Role
+                </Button>
+            </PageHeader>
             {isBatchAddRolesModalVisible && (
                 <Modal
                     title={`Assign ${focusRole?.name} Role to Users`}
@@ -336,6 +402,35 @@ export const ManageRoles = () => {
                 <Pagination currentPage={page} itemsPerPage={pageSize} total={totalRoles} onPageChange={onChangePage} />
             </PaginationContainer>
             <RoleDetailsModal role={focusRole as DataHubRole} open={showViewRoleModal} onClose={resetRoleState} />
+            <UpsertRoleModal
+                open={showUpsertRoleModal}
+                role={editingRole}
+                onClose={resetRoleState}
+                onSave={() => {
+                    setTimeout(() => rolesRefetch(), 2000);
+                    resetRoleState();
+                }}
+            />
+            {roleToDelete && (
+                <Modal
+                    title={`Delete ${roleToDelete.name}`}
+                    onCancel={() => setRoleToDelete(undefined)}
+                    buttons={[
+                        { text: 'Cancel', variant: 'text', onClick: () => setRoleToDelete(undefined) },
+                        {
+                            text: 'Delete',
+                            variant: 'filled',
+                            color: 'red',
+                            onClick: () => deleteRole(roleToDelete),
+                        },
+                    ]}
+                >
+                    <Text>
+                        Are you sure you want to delete the <strong>{roleToDelete.name}</strong> role? Users assigned
+                        this role will lose any privileges granted by policies associated with it.
+                    </Text>
+                </Modal>
+            )}
         </PageContainer>
     );
 };

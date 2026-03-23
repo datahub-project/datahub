@@ -843,6 +843,21 @@ type Mutation {
   createInviteToken(input: CreateInviteTokenInput!): InviteToken
 
   """
+  Create a custom role
+  """
+  createRole(input: CreateRoleInput!): String!
+
+  """
+  Update a custom role's name and description
+  """
+  updateRole(input: UpdateRoleInput!): Boolean
+
+  """
+  Delete a custom role
+  """
+  deleteRole(urn: String!): Boolean
+
+  """
   Create a post
   """
   createPost(input: CreatePostInput!): Boolean
@@ -12371,10 +12386,50 @@ type DataHubRole implements Entity {
   description: String!
 
   """
+  Whether the role can be edited or deleted. Built-in roles (Admin, Editor, Reader) have this set to false.
+  """
+  editable: Boolean!
+
+  """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
   aspects(input: AspectParams): [RawAspect!]
+}
+
+"""
+Input for creating a custom role
+"""
+input CreateRoleInput {
+  """
+  The name of the role
+  """
+  name: String!
+
+  """
+  An optional description of the role
+  """
+  description: String
+}
+
+"""
+Input for updating a custom role
+"""
+input UpdateRoleInput {
+  """
+  The URN of the role to update
+  """
+  urn: String!
+
+  """
+  The updated name of the role
+  """
+  name: String!
+
+  """
+  The updated description of the role
+  """
+  description: String
 }
 
 """

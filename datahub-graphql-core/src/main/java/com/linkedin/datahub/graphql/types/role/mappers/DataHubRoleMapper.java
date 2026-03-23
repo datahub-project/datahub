@@ -40,5 +40,6 @@ public class DataHubRoleMapper implements ModelMapper<EntityResponse, DataHubRol
     DataHubRoleInfo roleInfo = new DataHubRoleInfo(dataMap);
     role.setName(roleInfo.getName());
     role.setDescription(roleInfo.getDescription());
+    role.setEditable(roleInfo.isEditable());
   }
 }

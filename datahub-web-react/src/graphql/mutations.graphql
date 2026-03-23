@@ -159,3 +159,15 @@ mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
 mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {
     updateDisplayProperties(urn: $urn, input: $input)
 }
+
+mutation createRole($input: CreateRoleInput!) {
+    createRole(input: $input)
+}
+
+mutation updateRole($input: UpdateRoleInput!) {
+    updateRole(input: $input)
+}
+
+mutation deleteRole($urn: String!) {
+    deleteRole(urn: $urn)
+}

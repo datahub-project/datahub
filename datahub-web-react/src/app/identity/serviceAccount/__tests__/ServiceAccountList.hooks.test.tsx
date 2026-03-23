@@ -71,6 +71,7 @@ const mockRoles: DataHubRole[] = [
         type: EntityType.DatahubRole,
         name: 'Admin',
         description: 'Admin role',
+        editable: false,
     },
     {
         __typename: 'DataHubRole',
@@ -78,6 +79,7 @@ const mockRoles: DataHubRole[] = [
         type: EntityType.DatahubRole,
         name: 'Editor',
         description: 'Editor role',
+        editable: false,
     },
 ];
 

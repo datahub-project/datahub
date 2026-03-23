@@ -8,6 +8,7 @@ query listRoles($input: ListRolesInput!) {
             type
             name
             description
+            editable
             users: relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING, start: 0, count: 20 }) {
                 start
                 count
