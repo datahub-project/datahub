@@ -75,7 +75,7 @@ FROM
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
+  t.table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -135,7 +135,7 @@ FROM
   and t.TABLE_NAME = tos_labels.TABLE_NAME
   and tos_labels.OPTION_NAME = "labels"
 WHERE
-  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
+  t.table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
@@ -192,7 +192,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type = '{BigqueryTableType.SNAPSHOT}'
+  t.table_type = '{BigqueryTableType.SNAPSHOT}'
 order by
   table_schema ASC,
   table_name ASC
