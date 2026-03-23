@@ -353,7 +353,7 @@ class ClickHouseSinkConnector(BaseConnector):
 
         # Parse user-provided topic-to-table map (format: "topic1=table1,topic2=table2")
         provided_topics_to_tables: Dict[str, str] = {}
-        if connector_manifest.config.get("topic2TableMap"):
+        if connector_manifest.config.get(CLICKHOUSE_TOPIC2TABLE_MAP):
             try:
                 mappings = parse_comma_separated_list(
                     connector_manifest.config[CLICKHOUSE_TOPIC2TABLE_MAP]
