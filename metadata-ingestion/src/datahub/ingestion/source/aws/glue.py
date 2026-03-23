@@ -160,16 +160,19 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
     "SQLSERVER": "mssql",
 }
 
+JDBC_PREFIX = "jdbc:"
+
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
     """Strip credentials and query parameters from a JDBC URL for safe logging."""
-    prefix = "jdbc:"
-    inner = jdbc_url[len(prefix) :] if jdbc_url.startswith(prefix) else jdbc_url
+    inner = (
+        jdbc_url[len(JDBC_PREFIX) :] if jdbc_url.startswith(JDBC_PREFIX) else jdbc_url
+    )
     parsed = urlparse(inner)
     safe_netloc = parsed.hostname or ""
     if parsed.port:
         safe_netloc = f"{safe_netloc}:{parsed.port}"
-    return f"{prefix}{parsed.scheme}://{safe_netloc}{parsed.path}"
+    return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
 
 
 class GlueSourceConfig(
@@ -592,9 +595,9 @@ class GlueSource(StatefulIngestionSourceBase):
         Strips the "jdbc:" prefix then uses urlparse to extract the protocol
         (mapped to a DataHub platform name) and the database from the path.
         """
-        if not jdbc_url.startswith("jdbc:"):
+        if not jdbc_url.startswith(JDBC_PREFIX):
             raise ValueError(f"Not a valid JDBC URL: {_sanitize_jdbc_url(jdbc_url)}")
-        url = urlparse(jdbc_url[5:])  # strip "jdbc:" prefix
+        url = urlparse(jdbc_url[len(JDBC_PREFIX) :])
         protocol = url.scheme.lower()
         platform = JDBC_PLATFORM_MAP.get(protocol, protocol)
         database = url.path.lstrip("/").split("?")[0]
