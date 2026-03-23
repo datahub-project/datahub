@@ -14,11 +14,14 @@ echo "==> Compiling TypeScript"
 npx tsc
 
 echo "==> Bundling and minifying with esbuild"
+# Use --platform=browser (IIFE output) so the bundle runs in py_mini_racer's
+# V8 context, which has no Node.js built-ins (no exports, require, process).
 npx esbuild dist/index.js \
   --bundle \
   --minify \
-  --platform=node \
-  --target=node16 \
+  --platform=browser \
+  --target=es2020 \
+  --format=iife \
   --outfile=bundle.js
 
 echo "==> Compressing bundle"

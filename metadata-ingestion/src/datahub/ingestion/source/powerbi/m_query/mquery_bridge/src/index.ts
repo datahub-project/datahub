@@ -1,8 +1,8 @@
 import { TaskUtils, DefaultSettings, ResultKind } from "@microsoft/powerquery-parser";
 
-declare const global: Record<string, unknown>;
-
-global.parseExpression = async function (text: unknown): Promise<string> {
+// Use globalThis so the function is accessible in V8 (py_mini_racer),
+// which has neither Node.js `global` nor browser `window`.
+(globalThis as Record<string, unknown>).parseExpression = async function (text: unknown): Promise<string> {
     if (typeof text !== "string") {
         return JSON.stringify({ ok: false, error: "parseExpression: 'text' must be a string" });
     }
