@@ -23,44 +23,18 @@ jobs:
       workflow-files: ${{ steps.filter.outputs.workflow-files == 'true' || steps.filter.outputs.lint-job == 'true' }}
       workflow-validation: ${{ steps.filter.outputs.workflow-validation == 'true' || steps.filter.outputs.lint-job == 'true' }}
       code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      datahub-web-react: ${{ steps.filter.outputs.datahub-web-react == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       small-runner: ${{ steps.runners.outputs.small-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: dorny/paths-filter@v3
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
         id: filter
         with:
           token: "" # Empty token forces raw git commands
-          filters: |
-            lint-job:
-              - ".github/workflows/lint-jobs.yml"
-            markdown:
-              - "**/*.md"
-            github-actions:
-              - ".github/**/*.yml"
-              - ".github/**/*.yaml"
-            workflow-files:
-              - ".github/workflows/**"
-            workflow-validation:
-              - ".github/workflows/**"
-              - ".github/scripts/validate_post_workflow_list.py"
-            code-check-sources:
-              - "metadata-io/**"
-              - "datahub-web-react/**"
-              - "metadata-service/war/src/main/resources/boot/policies.json"
-              - "**/build.gradle"
-              - "**/build.gradle.kts"
-              - "**/gradle.lockfile"
-              - ".github/scripts/check_*.py"
-            smoke-test-python:
-              - "smoke-test/**/*.py"
-              - "smoke-test/pyproject.toml"
-              - "smoke-test/requirements.txt"
-              - "smoke-test/build.gradle"
-            smoke-test-cypress:
-              - "smoke-test/tests/cypress/**"
+          filters: .github/path-filters/lint-jobs-filters.yml
       - uses: ./.github/actions/determine-runners
         id: runners
         with:
@@ -73,12 +47,12 @@ jobs:
     needs: setup
     if: needs.setup.outputs.markdown == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: actions/setup-java@v5
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: run prettier --check
         run: ./gradlew :datahub-web-react:mdPrettierCheck
 
@@ -88,12 +62,12 @@ jobs:
     needs: setup
     if: needs.setup.outputs.github-actions == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: actions/setup-java@v5
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: run prettier --check
         run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
 
@@ -103,12 +77,12 @@ jobs:
     needs: setup
     if: needs.setup.outputs.workflow-validation == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: actions/setup-python@v6
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
       - name: Install pyyaml
@@ -130,8 +104,8 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: reviewdog/action-actionlint@v1
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: reviewdog/action-actionlint@0d952c597ef8459f634d7145b0b044a9699e5e43 # v1
         with:
           reporter: github-pr-review
 
@@ -141,8 +115,8 @@ jobs:
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: actions/setup-python@v6
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: run check
@@ -154,8 +128,8 @@ jobs:
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: actions/setup-python@v6
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: run check
@@ -167,14 +141,14 @@ jobs:
     needs: setup
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
-      - uses: acryldata/sane-checkout-action@v6
-      - uses: actions/setup-python@v6
+      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: run check
         run: python .github/scripts/check_gradle_lockfiles.py
 
-  smoke_test_lint:
+  smoke-test-lint:
     name: Lint on smoke tests
     runs-on: ${{ needs.setup.outputs.small-runner }}
     needs: setup
@@ -184,14 +158,14 @@ jobs:
       YARN_CACHE_FOLDER: /tmp/.yarn-cache/
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v6
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
           cache: "pip"
-      - uses: gradle/actions/setup-gradle@v4
-      - uses: actions/cache/restore@v5
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
@@ -199,7 +173,7 @@ jobs:
             ${{ env.UV_CACHE_DIR }}
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
-      - uses: actions/cache/restore@v5
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
@@ -218,7 +192,7 @@ jobs:
         run: |
           ./gradlew :smoke-test:cypressLint
 
-      - uses: actions/cache/save@v5
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Save uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
@@ -226,10 +200,39 @@ jobs:
             ${{ env.UV_CACHE_DIR }}
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
-      - uses: actions/cache/save@v5
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Save yarn cache
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
           path: |
             ${{ env.YARN_CACHE_FOLDER }}
           key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
+
+  datahub-web-react-lint:
+    name: datahub-web-react-lint
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.datahub-web-react == 'true'
+    env:
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Run lint
+        run: |
+          ./gradlew :datahub-web-react:yarnLint
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Save yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
