@@ -788,12 +788,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
             AND access_history.objects_modified is not null
             AND ARRAY_SIZE(access_history.objects_modified) > 0
-            -- Skip rows where all modified objects have null objectIds (internal ops).
-            AND EXISTS (
-                SELECT 1
-                FROM TABLE(FLATTEN(INPUT => access_history.objects_modified)) f
-                WHERE f.value:objectId IS NOT NULL
-            )
+            AND ARRAY_SIZE(FILTER(access_history.objects_modified, x -> x:objectId IS NOT NULL)) > 0
         ORDER BY query_start_time DESC
         ;"""
 
