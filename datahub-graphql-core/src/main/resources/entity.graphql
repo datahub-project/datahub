@@ -9968,6 +9968,12 @@ type ActorFilter {
   excludedGroups: [String!]
 
   """
+  Ownership types explicitly excluded from this policy. Owners whose type is in this list will not match,
+  even if they match via resourceOwnersTypes. Takes precedence over resourceOwnersTypes.
+  """
+  excludedResourceOwnersTypes: [String!]
+
+  """
   The list of excluded users on the Policy, resolved.
   """
   resolvedExcludedUsers: [CorpUser!]
@@ -10120,6 +10126,11 @@ input ActorFilterInput {
   A set of groups explicitly excluded from this policy, even if matched by groups/allGroups
   """
   excludedGroups: [String!]
+
+  """
+  Ownership types explicitly excluded from this policy. Takes precedence over resourceOwnersTypes.
+  """
+  excludedResourceOwnersTypes: [String!]
 }
 
 """

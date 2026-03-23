@@ -5846,6 +5846,14 @@
                           }
                         }
                       }, {
+                        "name" : "excludedResourceOwnersTypes",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "Ownership types to explicitly exclude. Owners whose qualifying type is in this list will not match the policy, even if they match via resourceOwnersTypes. Takes precedence over resourceOwnersTypes.",
+                        "optional" : true
+                      }, {
                         "name" : "roles",
                         "type" : {
                           "type" : "array",

@@ -82,6 +82,12 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
       result.setExcludedGroups(
           actorFilter.getExcludedGroups().stream().map(Urn::toString).collect(Collectors.toList()));
     }
+    if (actorFilter.hasExcludedResourceOwnersTypes()) {
+      result.setExcludedResourceOwnersTypes(
+          actorFilter.getExcludedResourceOwnersTypes().stream()
+              .map(Urn::toString)
+              .collect(Collectors.toList()));
+    }
     return result;
   }
 

@@ -19,6 +19,8 @@ type Props = {
     setActors: (actors: ActorFilter) => void;
 };
 
+type Condition = 'include' | 'exclude';
+
 const SearchResultContainer = styled.div`
     display: flex;
     justify-content: space-between;
@@ -60,37 +62,15 @@ const StyledTag = styled(Tag)`
     align-items: center;
 `;
 
-const ExclusionToggle = styled.button`
-    background: none;
-    border: none;
-    padding: 0;
-    margin-top: 10px;
+const FilterLabelRow = styled.span`
     display: flex;
     align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    color: ${(props) => props.theme.styles?.['primary-color'] || '#1890ff'};
-    font-size: 12px;
-
-    &:hover {
-        opacity: 0.75;
-    }
+    gap: 8px;
 `;
 
-const ExclusionPanel = styled.div`
-    margin-top: 10px;
-    padding: 12px 14px;
-    background: ${(props) => props.theme.styles?.['background-color-secondary'] || '#fafafa'};
-    border: 1px solid ${(props) => props.theme.styles?.['border-color-base'] || '#e8e8e8'};
-    border-radius: 6px;
-`;
-
-const ExclusionLabel = styled(Typography.Text)`
-    display: block;
-    font-size: 12px;
-    margin-bottom: 8px;
-    color: ${(props) => props.theme.styles?.['text-color-secondary'] || '#666'};
-`;
+const ConditionSelect = styled(Select)`
+    width: 110px;
+` as typeof Select;
 
 /**
  * Component used to construct the "actors" portion of a DataHub
@@ -99,9 +79,15 @@ const ExclusionLabel = styled(Typography.Text)`
 export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    // Start expanded if the policy already has exclusions (e.g. editing an existing policy)
-    const [showUserExclusions, setShowUserExclusions] = useState(() => !!actors.excludedUsers?.length);
-    const [showGroupExclusions, setShowGroupExclusions] = useState(() => !!actors.excludedGroups?.length);
+    const [userCondition, setUserCondition] = useState<Condition>(() =>
+        actors.excludedUsers?.length ? 'exclude' : 'include',
+    );
+    const [groupCondition, setGroupCondition] = useState<Condition>(() =>
+        actors.excludedGroups?.length ? 'exclude' : 'include',
+    );
+    const [ownershipTypeCondition, setOwnershipTypeCondition] = useState<Condition>(() =>
+        actors.excludedResourceOwnersTypes?.length ? 'exclude' : 'include',
+    );
 
     const [userSearch, { data: userSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsForMultipleLazyQuery();
@@ -119,6 +105,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
+    // Ownership type handlers — include list
     const onSelectOwnershipTypeActor = (newType: string) => {
         const newResourceOwnersTypes: Maybe<string[]> = [...(actors.resourceOwnersTypes || []), newType];
         setActors({ ...actors, resourceOwnersTypes: newResourceOwnersTypes });
@@ -132,9 +119,20 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
+    // Ownership type handlers — exclude list
+    const onSelectExcludedOwnershipType = (type: string) => {
+        setActors({ ...actors, excludedResourceOwnersTypes: [...(actors.excludedResourceOwnersTypes || []), type] });
+    };
+
+    const onDeselectExcludedOwnershipType = (type: string) => {
+        const updated = actors.excludedResourceOwnersTypes?.filter((t) => t !== type);
+        setActors({ ...actors, excludedResourceOwnersTypes: updated?.length ? updated : null });
+    };
+
     const userSearchResults = userSearchData?.searchAcrossEntities?.searchResults;
     const groupSearchResults = groupSearchData?.searchAcrossEntities?.searchResults;
 
+    // User handlers — include list
     const onSelectUserActor = (newUser: string) => {
         if (newUser === 'All') {
             setActors({ ...actors, allUsers: true });
@@ -156,6 +154,24 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
+    // User handlers — exclude list
+    const onSelectExcludedUserActor = (user: string) => {
+        const selectedUserEntity = userSearchResults?.find((result) => result.entity.urn === user)?.entity as CorpUser;
+        const newResolvedExcludedUsers = selectedUserEntity
+            ? [...(actors.resolvedExcludedUsers || []), selectedUserEntity]
+            : actors.resolvedExcludedUsers;
+        setActors({
+            ...actors,
+            excludedUsers: [...(actors.excludedUsers || []), user],
+            resolvedExcludedUsers: newResolvedExcludedUsers,
+        });
+    };
+
+    const onDeselectExcludedUserActor = (user: string) => {
+        setActors({ ...actors, excludedUsers: actors.excludedUsers?.filter((u) => u !== user) });
+    };
+
+    // Group handlers — include list
     const onSelectGroupActor = (newGroup: string) => {
         if (newGroup === 'All') {
             setActors({ ...actors, allGroups: true });
@@ -181,22 +197,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
-    const onSelectExcludedUserActor = (user: string) => {
-        const selectedUserEntity = userSearchResults?.find((result) => result.entity.urn === user)?.entity as CorpUser;
-        const newResolvedExcludedUsers = selectedUserEntity
-            ? [...(actors.resolvedExcludedUsers || []), selectedUserEntity]
-            : actors.resolvedExcludedUsers;
-        setActors({
-            ...actors,
-            excludedUsers: [...(actors.excludedUsers || []), user],
-            resolvedExcludedUsers: newResolvedExcludedUsers,
-        });
-    };
-
-    const onDeselectExcludedUserActor = (user: string) => {
-        setActors({ ...actors, excludedUsers: actors.excludedUsers?.filter((u) => u !== user) });
-    };
-
+    // Group handlers — exclude list
     const onSelectExcludedGroupActor = (group: string) => {
         const selectedGroupEntity = groupSearchResults?.find((result) => result.entity.urn === group)
             ?.entity as CorpGroup;
@@ -245,23 +246,79 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         );
     };
 
+    const conditionSelect = (condition: Condition, onChange: (c: Condition) => void) => (
+        <ConditionSelect size="small" value={condition} onChange={(val) => onChange(val as Condition)}>
+            <Select.Option value="include">Include</Select.Option>
+            <Select.Option value="exclude">Exclude</Select.Option>
+        </ConditionSelect>
+    );
+
     const showAppliesToOwners = policyType === PolicyType.Metadata;
 
-    const usersSelectUrns = actors.allUsers ? ['All'] : actors.users || [];
-    const groupsSelectUrns = actors.allGroups ? ['All'] : actors.groups || [];
-    const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
+    // Derived select values
+    const includedUsersUrns = actors.allUsers ? ['All'] : actors.users || [];
+    const usersSelectUrns = userCondition === 'include' ? includedUsersUrns : actors.excludedUsers || [];
+    const includedGroupsUrns = actors.allGroups ? ['All'] : actors.groups || [];
+    const groupsSelectUrns = groupCondition === 'include' ? includedGroupsUrns : actors.excludedGroups || [];
+    const ownershipTypesSelectValue =
+        ownershipTypeCondition === 'include' ? actors.resourceOwnersTypes || [] : actors.excludedResourceOwnersTypes || [];
+
     const usersSelectValues = actors.resolvedUsers?.filter((u) => usersSelectUrns.includes(u.urn)) || [];
     const groupsSelectValues = actors.resolvedGroups?.filter((g) => groupsSelectUrns.includes(g.urn)) || [];
-    const excludedUsersSelectUrns = actors.excludedUsers || [];
-    const excludedGroupsSelectUrns = actors.excludedGroups || [];
-    const excludedUsersSelectValues =
-        actors.resolvedExcludedUsers?.filter((u) => excludedUsersSelectUrns.includes(u.urn)) || [];
-    const excludedGroupsSelectValues =
-        actors.resolvedExcludedGroups?.filter((g) => excludedGroupsSelectUrns.includes(g.urn)) || [];
+    const excludedUsersSelectValues = actors.resolvedExcludedUsers?.filter((u) => (actors.excludedUsers || []).includes(u.urn)) || [];
+    const excludedGroupsSelectValues = actors.resolvedExcludedGroups?.filter((g) => (actors.excludedGroups || []).includes(g.urn)) || [];
 
     const onPreventMouseDown = (event) => {
         event.preventDefault();
         event.stopPropagation();
+    };
+
+    const renderUserTag = (tagProps) => {
+        const { closable, onClose, value } = tagProps;
+        const handleClose = (event) => {
+            onPreventMouseDown(event);
+            onClose();
+        };
+        if (value === 'All') {
+            return (
+                <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
+                    All Users
+                </StyledTag>
+            );
+        }
+        const selectedItem: CorpUser | undefined =
+            userCondition === 'include'
+                ? usersSelectValues?.find((u) => u?.urn === value)
+                : excludedUsersSelectValues?.find((u) => u?.urn === value);
+        return (
+            <ActorWrapper onMouseDown={onPreventMouseDown}>
+                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
+            </ActorWrapper>
+        );
+    };
+
+    const renderGroupTag = (tagProps) => {
+        const { closable, onClose, value } = tagProps;
+        const handleClose = (event) => {
+            onPreventMouseDown(event);
+            onClose();
+        };
+        if (value === 'All') {
+            return (
+                <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
+                    All Groups
+                </StyledTag>
+            );
+        }
+        const selectedItem: CorpGroup | undefined =
+            groupCondition === 'include'
+                ? groupsSelectValues?.find((g) => g?.urn === value)
+                : excludedGroupsSelectValues?.find((g) => g?.urn === value);
+        return (
+            <ActorWrapper onMouseDown={onPreventMouseDown}>
+                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
+            </ActorWrapper>
+        );
     };
 
     return (
@@ -280,215 +337,128 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
-                            <Typography.Paragraph>
-                                List of types of ownership which will be used to match owners. If empty, the policies
-                                will applied to any type of ownership.
-                            </Typography.Paragraph>
-                            <Select
-                                value={ownershipTypesSelectValue}
-                                mode="multiple"
-                                placeholder="Ownership types"
-                                onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
-                                onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
-                                tagRender={(tagProps) => {
-                                    return (
-                                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                            {ownershipTypesMap[tagProps.value.toString()]}
-                                        </Tag>
-                                    );
-                                }}
+                            <Form.Item
+                                label={
+                                    <FilterLabelRow>
+                                        <Typography.Text strong>Ownership Types</Typography.Text>
+                                        {conditionSelect(ownershipTypeCondition, setOwnershipTypeCondition)}
+                                    </FilterLabelRow>
+                                }
+                                style={{ marginBottom: 0 }}
                             >
-                                {ownershipTypes.map((resOwnershipType) => {
-                                    return (
-                                        <Select.Option value={resOwnershipType.urn}>
-                                            {resOwnershipType?.info?.name}
-                                        </Select.Option>
-                                    );
-                                })}
-                            </Select>
+                                <Typography.Paragraph>
+                                    {ownershipTypeCondition === 'include'
+                                        ? 'Ownership types that qualify for this policy. If empty, any ownership type matches.'
+                                        : 'Ownership types excluded from this policy. Owners whose type is listed here will not match.'}
+                                </Typography.Paragraph>
+                                <Select
+                                    value={ownershipTypesSelectValue}
+                                    mode="multiple"
+                                    placeholder={
+                                        ownershipTypeCondition === 'include'
+                                            ? 'Select ownership types...'
+                                            : 'Select ownership types to exclude...'
+                                    }
+                                    onSelect={(asset: any) =>
+                                        ownershipTypeCondition === 'include'
+                                            ? onSelectOwnershipTypeActor(asset)
+                                            : onSelectExcludedOwnershipType(asset)
+                                    }
+                                    onDeselect={(asset: any) =>
+                                        ownershipTypeCondition === 'include'
+                                            ? onDeselectOwnershipTypeActor(asset)
+                                            : onDeselectExcludedOwnershipType(asset)
+                                    }
+                                    tagRender={(tagProps) => {
+                                        return (
+                                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                                {ownershipTypesMap[tagProps.value.toString()]}
+                                            </Tag>
+                                        );
+                                    }}
+                                >
+                                    {ownershipTypes.map((resOwnershipType) => {
+                                        return (
+                                            <Select.Option value={resOwnershipType.urn}>
+                                                {resOwnershipType?.info?.name}
+                                            </Select.Option>
+                                        );
+                                    })}
+                                </Select>
+                            </Form.Item>
                         </OwnershipWrapper>
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>Users & Service Accounts</Typography.Text>}>
+            <Form.Item
+                label={
+                    <FilterLabelRow>
+                        <Typography.Text strong>Users & Service Accounts</Typography.Text>
+                        {conditionSelect(userCondition, setUserCondition)}
+                    </FilterLabelRow>
+                }
+            >
                 <Typography.Paragraph>
-                    Search for specific users or service accounts that this policy should apply to, or select `All
-                    Users` to apply it to all users.
+                    {userCondition === 'include'
+                        ? 'Search for specific users or service accounts that this policy should apply to, or select `All Users` to apply it to all users.'
+                        : 'Search for users or service accounts that should be excluded from this policy, even if they match other criteria.'}
                 </Typography.Paragraph>
                 <Select
                     data-testid="users"
                     value={usersSelectUrns}
                     mode="multiple"
                     filterOption={false}
-                    placeholder="Search for users..."
-                    onSelect={(asset: any) => onSelectUserActor(asset)}
-                    onDeselect={(asset: any) => onDeselectUserActor(asset)}
+                    placeholder={userCondition === 'include' ? 'Search for users...' : 'Search for users to exclude...'}
+                    onSelect={(asset: any) =>
+                        userCondition === 'include' ? onSelectUserActor(asset) : onSelectExcludedUserActor(asset)
+                    }
+                    onDeselect={(asset: any) =>
+                        userCondition === 'include' ? onDeselectUserActor(asset) : onDeselectExcludedUserActor(asset)
+                    }
                     onSearch={handleUserSearch}
-                    tagRender={(tagProps) => {
-                        const { closable, onClose, value } = tagProps;
-                        const handleClose = (event) => {
-                            onPreventMouseDown(event);
-                            onClose();
-                        };
-                        if (value === 'All') {
-                            return (
-                                <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                                    All Users
-                                </StyledTag>
-                            );
-                        }
-                        const selectedItem: CorpUser | undefined = usersSelectValues?.find((u) => u?.urn === value);
-                        return (
-                            <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
-                            </ActorWrapper>
-                        );
-                    }}
+                    tagRender={renderUserTag}
                 >
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">All Users</Select.Option>
+                    {userCondition === 'include' && <Select.Option value="All">All Users</Select.Option>}
                 </Select>
-                <ExclusionToggle
-                    type="button"
-                    onClick={() => setShowUserExclusions((prev) => !prev)}
-                    aria-expanded={showUserExclusions}
-                >
-                    {showUserExclusions ? '▲' : '▼'} Exceptions
-                </ExclusionToggle>
-                {showUserExclusions && (
-                    <ExclusionPanel>
-                        <ExclusionLabel>
-                            These users will be excluded from this policy even if they match the rules above.
-                        </ExclusionLabel>
-                        <Select
-                            data-testid="excluded-users"
-                            value={excludedUsersSelectUrns}
-                            mode="multiple"
-                            filterOption={false}
-                            placeholder="Search for users to exclude..."
-                            onSelect={(asset: any) => onSelectExcludedUserActor(asset)}
-                            onDeselect={(asset: any) => onDeselectExcludedUserActor(asset)}
-                            onSearch={handleUserSearch}
-                            style={{ width: '100%' }}
-                            tagRender={(tagProps) => {
-                                const { onClose, value } = tagProps;
-                                const handleClose = (event) => {
-                                    onPreventMouseDown(event);
-                                    onClose();
-                                };
-                                const selectedItem: CorpUser | undefined = excludedUsersSelectValues?.find(
-                                    (u) => u?.urn === value,
-                                );
-                                return (
-                                    <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                        <ActorPill
-                                            actor={selectedItem}
-                                            isProposed={false}
-                                            hideLink
-                                            onClose={handleClose}
-                                        />
-                                    </ActorWrapper>
-                                );
-                            }}
-                        >
-                            {userSearchResults?.map((result) => (
-                                <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                            ))}
-                        </Select>
-                    </ExclusionPanel>
-                )}
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
+            <Form.Item
+                label={
+                    <FilterLabelRow>
+                        <Typography.Text strong>Groups</Typography.Text>
+                        {conditionSelect(groupCondition, setGroupCondition)}
+                    </FilterLabelRow>
+                }
+            >
                 <Typography.Paragraph>
-                    Search for specific groups that this policy should apply to, or select `All Groups` to apply it to
-                    all groups.
+                    {groupCondition === 'include'
+                        ? 'Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.'
+                        : 'Search for groups that should be excluded from this policy, even if they match other criteria.'}
                 </Typography.Paragraph>
                 <Select
                     data-testid="groups"
                     value={groupsSelectUrns}
                     mode="multiple"
-                    placeholder="Search for groups..."
-                    onSelect={(asset: any) => onSelectGroupActor(asset)}
-                    onDeselect={(asset: any) => onDeselectGroupActor(asset)}
+                    placeholder={
+                        groupCondition === 'include' ? 'Search for groups...' : 'Search for groups to exclude...'
+                    }
+                    onSelect={(asset: any) =>
+                        groupCondition === 'include' ? onSelectGroupActor(asset) : onSelectExcludedGroupActor(asset)
+                    }
+                    onDeselect={(asset: any) =>
+                        groupCondition === 'include' ? onDeselectGroupActor(asset) : onDeselectExcludedGroupActor(asset)
+                    }
                     onSearch={handleGroupSearch}
                     filterOption={false}
-                    tagRender={(tagProps) => {
-                        const { closable, onClose, value } = tagProps;
-                        const handleClose = (event) => {
-                            onPreventMouseDown(event);
-                            onClose();
-                        };
-                        if (value === 'All') {
-                            return (
-                                <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                                    All Groups
-                                </StyledTag>
-                            );
-                        }
-                        const selectedItem: CorpGroup | undefined = groupsSelectValues?.find((g) => g?.urn === value);
-                        return (
-                            <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
-                            </ActorWrapper>
-                        );
-                    }}
+                    tagRender={renderGroupTag}
                 >
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">All Groups</Select.Option>
+                    {groupCondition === 'include' && <Select.Option value="All">All Groups</Select.Option>}
                 </Select>
-                <ExclusionToggle
-                    type="button"
-                    onClick={() => setShowGroupExclusions((prev) => !prev)}
-                    aria-expanded={showGroupExclusions}
-                >
-                    {showGroupExclusions ? '▲' : '▼'} Exceptions
-                </ExclusionToggle>
-                {showGroupExclusions && (
-                    <ExclusionPanel>
-                        <ExclusionLabel>
-                            These groups will be excluded from this policy even if they match the rules above.
-                        </ExclusionLabel>
-                        <Select
-                            data-testid="excluded-groups"
-                            value={excludedGroupsSelectUrns}
-                            mode="multiple"
-                            placeholder="Search for groups to exclude..."
-                            onSelect={(asset: any) => onSelectExcludedGroupActor(asset)}
-                            onDeselect={(asset: any) => onDeselectExcludedGroupActor(asset)}
-                            onSearch={handleGroupSearch}
-                            filterOption={false}
-                            style={{ width: '100%' }}
-                            tagRender={(tagProps) => {
-                                const { onClose, value } = tagProps;
-                                const handleClose = (event) => {
-                                    onPreventMouseDown(event);
-                                    onClose();
-                                };
-                                const selectedItem: CorpGroup | undefined = excludedGroupsSelectValues?.find(
-                                    (g) => g?.urn === value,
-                                );
-                                return (
-                                    <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                        <ActorPill
-                                            actor={selectedItem}
-                                            isProposed={false}
-                                            hideLink
-                                            onClose={handleClose}
-                                        />
-                                    </ActorWrapper>
-                                );
-                            }}
-                        >
-                            {groupSearchResults?.map((result) => (
-                                <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                            ))}
-                        </Select>
-                    </ExclusionPanel>
-                )}
             </Form.Item>
         </ActorForm>
     );

@@ -81,6 +81,7 @@ export function usePolicy(
                 resourceOwnersTypes: policy.actors.resourceOwnersTypes,
                 excludedUsers: policy.actors.excludedUsers,
                 excludedGroups: policy.actors.excludedGroups,
+                excludedResourceOwnersTypes: policy.actors.excludedResourceOwnersTypes,
             },
         };
         if (policy.resources !== null && policy.resources !== undefined) {

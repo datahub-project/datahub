@@ -76,6 +76,12 @@ record DataHubActorFilter {
   excludedGroups: optional array[Urn]
 
   /**
+   * Ownership types to explicitly exclude. Owners whose qualifying type is in this list will not match the policy,
+   * even if they match via resourceOwnersTypes. Takes precedence over resourceOwnersTypes.
+   */
+  excludedResourceOwnersTypes: optional array[Urn]
+
+  /**
    * A specific set of roles to apply the policy to (disjunctive).
    */
   @Relationship = {

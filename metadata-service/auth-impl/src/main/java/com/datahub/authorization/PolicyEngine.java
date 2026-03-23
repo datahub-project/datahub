@@ -395,14 +395,24 @@ public class PolicyEngine {
       final DataHubActorFilter actorFilter,
       final Optional<ResolvedEntitySpec> requestResource,
       final PolicyEvaluationContext context) {
-    // If the policy does not apply to owners, or there is no resource to own, return false
-    // immediately.
     if (!actorFilter.isResourceOwners() || requestResource.isEmpty()) {
       return false;
     }
-    List<Urn> ownershipTypes = actorFilter.getResourceOwnersTypes();
-    return isActorOwner(
-        opContext, resolvedActorSpec, requestResource.get(), ownershipTypes, context);
+    if (!isActorOwner(
+        opContext,
+        resolvedActorSpec,
+        requestResource.get(),
+        actorFilter.getResourceOwnersTypes(),
+        context)) {
+      return false;
+    }
+    List<Urn> excludedTypes = actorFilter.getExcludedResourceOwnersTypes();
+    if (excludedTypes != null && !excludedTypes.isEmpty()) {
+      // Exclusion wins: if the actor matches via an excluded ownership type, deny the owner match.
+      return !isActorOwner(
+          opContext, resolvedActorSpec, requestResource.get(), excludedTypes, context);
+    }
+    return true;
   }
 
   private Set<String> getOwnersForType(

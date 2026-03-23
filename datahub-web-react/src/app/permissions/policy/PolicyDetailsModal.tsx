@@ -11,6 +11,7 @@ import {
     getFieldValues,
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -70,6 +71,10 @@ const Privileges = styled.div`
  */
 export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { data: ownershipData } = useOwnershipTypes();
+    const ownershipTypesMap = Object.fromEntries(
+        (ownershipData?.listOwnershipTypes?.ownershipTypes || []).map((t) => [t.urn, t.info?.name]),
+    );
 
     const isActive = policy?.state === PolicyState.Active;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
@@ -239,6 +244,16 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Typography.Title level={5}>Applies to Owners</Typography.Title>
                     <ThinDivider />
                     {resourceOwnersField(policy?.actors)}
+                    {policy?.actors?.excludedResourceOwnersTypes?.length ? (
+                        <div style={{ marginTop: 8 }}>
+                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                Excluded ownership types:{' '}
+                            </Typography.Text>
+                            {policy.actors.excludedResourceOwnersTypes.map((urn) => (
+                                <Tag key={urn}>{ownershipTypesMap[urn] || urn}</Tag>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>

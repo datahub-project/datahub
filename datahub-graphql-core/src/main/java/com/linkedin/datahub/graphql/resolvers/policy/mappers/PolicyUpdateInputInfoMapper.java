@@ -84,6 +84,13 @@ public class PolicyUpdateInputInfoMapper
                   .map(this::createUrn)
                   .collect(Collectors.toList())));
     }
+    if (actorInput.getExcludedResourceOwnersTypes() != null) {
+      result.setExcludedResourceOwnersTypes(
+          new UrnArray(
+              actorInput.getExcludedResourceOwnersTypes().stream()
+                  .map(this::createUrn)
+                  .collect(Collectors.toList())));
+    }
     return result;
   }
 

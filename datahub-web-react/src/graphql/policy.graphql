@@ -85,6 +85,7 @@ query listPolicies($input: ListPoliciesInput!, $skipSiblingsSearch: Boolean = fa
                 }
                 excludedUsers
                 excludedGroups
+                excludedResourceOwnersTypes
                 resolvedExcludedUsers {
                     username
                     urn
