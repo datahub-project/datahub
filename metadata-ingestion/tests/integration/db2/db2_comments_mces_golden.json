@@ -456,7 +456,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:db2,TESTDB.COMMENTS.MYTABLE,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.COMMENTS.MYVIEW%2CPROD%29"
+                    "query": "urn:li:query:view_91dc2ce7794f3ec318f1acc92689324c3e0e5bfc2400cc2f924e7e4db0f0ac8b"
                 }
             ],
             "fineGrainedLineages": [
@@ -471,7 +471,7 @@
                     ],
                     "transformOperation": "COPY: \"MYTABLE\".\"ID\" AS \"ID\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.COMMENTS.MYVIEW%2CPROD%29"
+                    "query": "urn:li:query:view_91dc2ce7794f3ec318f1acc92689324c3e0e5bfc2400cc2f924e7e4db0f0ac8b"
                 }
             ]
         }
@@ -509,7 +509,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.COMMENTS.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_91dc2ce7794f3ec318f1acc92689324c3e0e5bfc2400cc2f924e7e4db0f0ac8b",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -538,7 +538,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.COMMENTS.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_91dc2ce7794f3ec318f1acc92689324c3e0e5bfc2400cc2f924e7e4db0f0ac8b",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -567,7 +567,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.COMMENTS.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_91dc2ce7794f3ec318f1acc92689324c3e0e5bfc2400cc2f924e7e4db0f0ac8b",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -583,7 +583,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.COMMENTS.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_91dc2ce7794f3ec318f1acc92689324c3e0e5bfc2400cc2f924e7e4db0f0ac8b",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

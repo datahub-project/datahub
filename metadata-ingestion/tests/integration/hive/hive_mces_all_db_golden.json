@@ -2337,7 +2337,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa"
                 }
             ],
             "fineGrainedLineages": [
@@ -2352,7 +2352,7 @@
                     ],
                     "transformOperation": "COPY: `array_struct_test`.`property_id` AS `property_id`",
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2365,7 +2365,7 @@
                     ],
                     "transformOperation": "COPY: `array_struct_test`.`service` AS `service`",
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa"
                 }
             ]
         }
@@ -2378,7 +2378,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2407,7 +2407,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2442,7 +2442,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2475,7 +2475,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
+                    "query": "urn:li:query:view_51b5974e9b52e6e0f1bfab134cd2aa1f3e7faa98243ec7e2dd338f0fdd04c599"
                 }
             ],
             "fineGrainedLineages": [
@@ -2490,7 +2490,7 @@
                     ],
                     "transformOperation": "COPY: `array_struct_test_view`.`property_id` AS `property_id`",
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
+                    "query": "urn:li:query:view_51b5974e9b52e6e0f1bfab134cd2aa1f3e7faa98243ec7e2dd338f0fdd04c599"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2503,7 +2503,7 @@
                     ],
                     "transformOperation": "COPY: `array_struct_test_view`.`service` AS `service`",
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
+                    "query": "urn:li:query:view_51b5974e9b52e6e0f1bfab134cd2aa1f3e7faa98243ec7e2dd338f0fdd04c599"
                 }
             ]
         }
@@ -2516,7 +2516,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
+    "entityUrn": "urn:li:query:view_51b5974e9b52e6e0f1bfab134cd2aa1f3e7faa98243ec7e2dd338f0fdd04c599",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2545,7 +2545,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
+    "entityUrn": "urn:li:query:view_51b5974e9b52e6e0f1bfab134cd2aa1f3e7faa98243ec7e2dd338f0fdd04c599",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2586,7 +2586,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
+    "entityUrn": "urn:li:query:view_51b5974e9b52e6e0f1bfab134cd2aa1f3e7faa98243ec7e2dd338f0fdd04c599",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2602,7 +2602,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2618,7 +2618,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
+    "entityUrn": "urn:li:query:view_51b5974e9b52e6e0f1bfab134cd2aa1f3e7faa98243ec7e2dd338f0fdd04c599",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
