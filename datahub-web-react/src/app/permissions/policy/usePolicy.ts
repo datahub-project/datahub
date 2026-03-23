@@ -17,6 +17,7 @@ import {
     PolicyMatchCriterionInput,
     PolicyMatchFilter,
     PolicyMatchFilterInput,
+    PolicyMode,
     PolicyState,
     PolicyType,
     PolicyUpdateInput,
@@ -71,6 +72,7 @@ export function usePolicy(
             type: policy.type,
             name: policy.name,
             state: policy.state,
+            mode: policy.mode ?? PolicyMode.Allow,
             description: policy.description,
             privileges: policy.privileges,
             actors: {

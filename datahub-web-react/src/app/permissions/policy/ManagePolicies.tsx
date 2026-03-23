@@ -459,6 +459,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
         resourceOwners: policy?.actors?.resourceOwners,
         description: policy?.description,
         editable: policy?.editable,
+        mode: policy?.mode,
         name: policy?.name,
         privileges: policy?.privileges,
         policy,
