@@ -349,7 +349,7 @@ class ClickHouseSinkConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> ClickHouseParser:
-        database: str = connector_manifest.config.get("database", "default")
+        database: str = connector_manifest.config.get(CLICKHOUSE_DATABASE, "default")
 
         # Parse user-provided topic-to-table map (format: "topic1=table1,topic2=table2")
         provided_topics_to_tables: Dict[str, str] = {}
