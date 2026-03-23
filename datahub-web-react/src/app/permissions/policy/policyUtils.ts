@@ -168,9 +168,12 @@ export const setFieldCondition = (
     condition: PolicyMatchCondition,
 ): PolicyMatchFilter => {
     const existing = filter.criteria?.find((c) => c.field === resourceFieldType);
-    if (!existing) return filter;
     const restCriteria = filter.criteria?.filter((c) => c.field !== resourceFieldType) || [];
-    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, existing.values, condition)] };
+    // Preserve existing values (or empty) so that values added later inherit this condition.
+    return {
+        ...filter,
+        criteria: [...restCriteria, createCriterion(resourceFieldType, existing?.values ?? [], condition)],
+    };
 };
 
 export const addOrUpdatePoliciesInList = (existingPolicies, newPolicies) => {

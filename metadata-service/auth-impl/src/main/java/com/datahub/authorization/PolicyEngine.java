@@ -318,23 +318,18 @@ public class PolicyEngine {
       final Optional<ResolvedEntitySpec> resourceSpec,
       final PolicyEvaluationContext context) {
 
-    // 1. If the actor is a matching "User" in the actor filter, return true immediately.
     if (isUserMatch(resolvedActorSpec, actorFilter)) {
       return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
     }
 
-    // 2. If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (isGroupMatch(resolvedActorSpec, actorFilter, context)) {
       return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
     }
 
-    // 3. If the actor is the owner, either directly or indirectly via a group, return true
-    // immediately.
     if (isOwnerMatch(opContext, resolvedActorSpec, actorFilter, resourceSpec, context)) {
       return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
     }
 
-    // 4. If the actor is in a matching "Role" in the actor filter, return true immediately.
     if (isRoleMatch(opContext, resolvedActorSpec, actorFilter, context)) {
       return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
     }
@@ -364,7 +359,6 @@ public class PolicyEngine {
 
   private boolean isUserMatch(
       final ResolvedEntitySpec resolvedActorSpec, final DataHubActorFilter actorFilter) {
-    // If the actor is a matching "User" in the actor filter, return true immediately.
     return actorFilter.isAllUsers()
         || (actorFilter.hasUsers()
             && Objects.requireNonNull(actorFilter.getUsers()).stream()
@@ -376,7 +370,6 @@ public class PolicyEngine {
       final ResolvedEntitySpec resolvedActorSpec,
       final DataHubActorFilter actorFilter,
       final PolicyEvaluationContext context) {
-    // If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (actorFilter.isAllGroups() || actorFilter.hasGroups()) {
       final Set<String> groups = resolveGroups(resolvedActorSpec, context);
       return (actorFilter.isAllGroups() && !groups.isEmpty())
@@ -385,7 +378,6 @@ public class PolicyEngine {
                   .map(Urn::toString)
                   .anyMatch(groups::contains));
     }
-    // If there are no groups on the policy, return false for the group match.
     return false;
   }
 
