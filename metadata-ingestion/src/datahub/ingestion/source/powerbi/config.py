@@ -541,7 +541,7 @@ class PowerBiDashboardSourceConfig(
     )
     # Enable/Disable grouping PBI dataset tables into Datahub container (PBI Dataset)
     extract_datasets_to_containers: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="PBI tables will be grouped under a Datahub Container, the container reflect a PBI Dataset",
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
