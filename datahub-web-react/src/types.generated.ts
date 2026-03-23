@@ -12077,6 +12077,8 @@ export type PlatformPrivileges = {
   manageOwnershipTypes: Scalars['Boolean'];
   /** Whether the user should be able to manage policies */
   managePolicies: Scalars['Boolean'];
+  /** Whether the user should be able to manage roles */
+  manageRoles: Scalars['Boolean'];
   /** Whether the user is able to manage UI-based secrets */
   manageSecrets: Scalars['Boolean'];
   /** Whether the user can create, update, and delete service accounts. */

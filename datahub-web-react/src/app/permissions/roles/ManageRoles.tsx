@@ -1,4 +1,6 @@
+import { DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
 import { Avatar, Button, Modal, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@components';
+import { Dropdown } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -73,6 +75,20 @@ const EmptyContainer = styled.div`
     justify-content: center;
     align-items: center;
     padding: 40px;
+`;
+
+const MenuIcon = styled(MoreOutlined)`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    height: 32px;
+    width: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    &:hover {
+        background-color: ${({ theme }) => theme.colors.gray[100]};
+    }
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -280,44 +296,50 @@ export const ManageRoles = () => {
             key: 'actions',
             width: '15%',
             alignment: 'right' as const,
-            render: (record: any) => (
-                <ActionsContainer>
-                    {record?.editable && (
-                        <>
-                            <Button
-                                variant="text"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingRole(record.role);
-                                    setShowUpsertRoleModal(true);
-                                }}
-                            >
-                                Edit
-                            </Button>
-                            <Button
-                                variant="text"
-                                color="red"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setRoleToDelete(record.role);
-                                }}
-                            >
-                                Delete
-                            </Button>
-                        </>
-                    )}
-                    <Button
-                        variant="text"
-                        onClick={(e) => {
-                            e.stopPropagation();
+            render: (record: any) => {
+                const menuItems = [
+                    {
+                        key: 'assign',
+                        label: 'Assign Users',
+                        onClick: () => {
                             setIsBatchAddRolesModalVisible(true);
                             setFocusRole(record.role);
-                        }}
-                    >
-                        Assign Users
-                    </Button>
-                </ActionsContainer>
-            ),
+                        },
+                    },
+                    ...(record?.editable
+                        ? [
+                              {
+                                  key: 'edit',
+                                  label: (
+                                      <span>
+                                          <EditOutlined /> &nbsp; Edit
+                                      </span>
+                                  ),
+                                  onClick: () => {
+                                      setEditingRole(record.role);
+                                      setShowUpsertRoleModal(true);
+                                  },
+                              },
+                              {
+                                  key: 'delete',
+                                  label: (
+                                      <span style={{ color: 'red' }}>
+                                          <DeleteOutlined /> &nbsp; Delete
+                                      </span>
+                                  ),
+                                  onClick: () => setRoleToDelete(record.role),
+                              },
+                          ]
+                        : []),
+                ];
+                return (
+                    <ActionsContainer>
+                        <Dropdown trigger={['click']} menu={{ items: menuItems }}>
+                            <MenuIcon onClick={(e) => e.stopPropagation()} />
+                        </Dropdown>
+                    </ActionsContainer>
+                );
+            },
         },
     ];
 
