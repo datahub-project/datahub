@@ -85,6 +85,42 @@ query listPolicies($input: ListPoliciesInput!, $skipSiblingsSearch: Boolean = fa
                 }
                 excludedUsers
                 excludedGroups
+                resolvedExcludedUsers {
+                    username
+                    urn
+                    type
+                    properties {
+                        active
+                        displayName
+                        title
+                        firstName
+                        lastName
+                        fullName
+                        email
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                        teams
+                        title
+                        skills
+                    }
+                }
+                resolvedExcludedGroups {
+                    name
+                    urn
+                    type
+                    properties {
+                        displayName
+                        description
+                        email
+                    }
+                    editableProperties {
+                        description
+                        slack
+                        email
+                    }
+                }
             }
             editable
         }

@@ -1,7 +1,7 @@
 import { Avatar, Text } from '@components';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -60,6 +60,38 @@ const StyledTag = styled(Tag)`
     align-items: center;
 `;
 
+const ExclusionToggle = styled.button`
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: ${(props) => props.theme.styles?.['primary-color'] || '#1890ff'};
+    font-size: 12px;
+
+    &:hover {
+        opacity: 0.75;
+    }
+`;
+
+const ExclusionPanel = styled.div`
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: ${(props) => props.theme.styles?.['background-color-secondary'] || '#fafafa'};
+    border: 1px solid ${(props) => props.theme.styles?.['border-color-base'] || '#e8e8e8'};
+    border-radius: 6px;
+`;
+
+const ExclusionLabel = styled(Typography.Text)`
+    display: block;
+    font-size: 12px;
+    margin-bottom: 8px;
+    color: ${(props) => props.theme.styles?.['text-color-secondary'] || '#666'};
+`;
+
 /**
  * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
@@ -67,7 +99,10 @@ const StyledTag = styled(Tag)`
 export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    // Search for actors while building policy.
+    // Start expanded if the policy already has exclusions (e.g. editing an existing policy)
+    const [showUserExclusions, setShowUserExclusions] = useState(() => !!actors.excludedUsers?.length);
+    const [showGroupExclusions, setShowGroupExclusions] = useState(() => !!actors.excludedGroups?.length);
+
     const [userSearch, { data: userSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const { data: ownershipData } = useOwnershipTypes();
@@ -75,7 +110,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         ownershipData?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
     const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
-    // Toggle the "Owners" switch
+
     const onToggleAppliesToOwners = (value: boolean) => {
         setActors({
             ...actors,
@@ -86,10 +121,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     const onSelectOwnershipTypeActor = (newType: string) => {
         const newResourceOwnersTypes: Maybe<string[]> = [...(actors.resourceOwnersTypes || []), newType];
-        setActors({
-            ...actors,
-            resourceOwnersTypes: newResourceOwnersTypes,
-        });
+        setActors({ ...actors, resourceOwnersTypes: newResourceOwnersTypes });
     };
 
     const onDeselectOwnershipTypeActor = (type: string) => {
@@ -100,89 +132,52 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
-    // User and group dropdown search results!
     const userSearchResults = userSearchData?.searchAcrossEntities?.searchResults;
     const groupSearchResults = groupSearchData?.searchAcrossEntities?.searchResults;
 
-    // When a user search result is selected, add the urn to the ActorFilter
     const onSelectUserActor = (newUser: string) => {
         if (newUser === 'All') {
-            setActors({
-                ...actors,
-                allUsers: true,
-            });
+            setActors({ ...actors, allUsers: true });
         } else {
-            const newUserActors = [...(actors.users || []), newUser];
-
-            // Find the selected user entity from search results and add it to resolved users
             const selectedUserEntity = userSearchResults?.find((result) => result.entity.urn === newUser)
                 ?.entity as CorpUser;
             const newResolvedUsers = selectedUserEntity
                 ? [...(actors.resolvedUsers || []), selectedUserEntity]
                 : actors.resolvedUsers;
-
-            setActors({
-                ...actors,
-                users: newUserActors,
-                resolvedUsers: newResolvedUsers,
-            });
+            setActors({ ...actors, users: [...(actors.users || []), newUser], resolvedUsers: newResolvedUsers });
         }
     };
 
-    // When a user search result is deselected, remove the urn from the ActorFilter
     const onDeselectUserActor = (user: string) => {
         if (user === 'All') {
-            setActors({
-                ...actors,
-                allUsers: false,
-            });
+            setActors({ ...actors, allUsers: false });
         } else {
-            const newUserActors = actors.users?.filter((u) => u !== user);
-            setActors({
-                ...actors,
-                users: newUserActors,
-            });
+            setActors({ ...actors, users: actors.users?.filter((u) => u !== user) });
         }
     };
 
-    // When a group search result is selected, add the urn to the ActorFilter
     const onSelectGroupActor = (newGroup: string) => {
         if (newGroup === 'All') {
-            setActors({
-                ...actors,
-                allGroups: true,
-            });
+            setActors({ ...actors, allGroups: true });
         } else {
-            const newGroupActors = [...(actors.groups || []), newGroup];
-
-            // Find the selected group entity from search results and add it to resolved groups
             const selectedGroupEntity = groupSearchResults?.find((result) => result.entity.urn === newGroup)
                 ?.entity as CorpGroup;
             const newResolvedGroups = selectedGroupEntity
                 ? [...(actors.resolvedGroups || []), selectedGroupEntity]
                 : actors.resolvedGroups;
-
             setActors({
                 ...actors,
-                groups: newGroupActors,
+                groups: [...(actors.groups || []), newGroup],
                 resolvedGroups: newResolvedGroups,
             });
         }
     };
 
-    // When a group search result is deselected, remove the urn from the ActorFilter
     const onDeselectGroupActor = (group: string) => {
         if (group === 'All') {
-            setActors({
-                ...actors,
-                allGroups: false,
-            });
+            setActors({ ...actors, allGroups: false });
         } else {
-            const newGroupActors = actors.groups?.filter((g) => g !== group);
-            setActors({
-                ...actors,
-                groups: newGroupActors,
-            });
+            setActors({ ...actors, groups: actors.groups?.filter((g) => g !== group) });
         }
     };
 
@@ -199,10 +194,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onDeselectExcludedUserActor = (user: string) => {
-        setActors({
-            ...actors,
-            excludedUsers: actors.excludedUsers?.filter((u) => u !== user),
-        });
+        setActors({ ...actors, excludedUsers: actors.excludedUsers?.filter((u) => u !== user) });
     };
 
     const onSelectExcludedGroupActor = (group: string) => {
@@ -219,37 +211,18 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onDeselectExcludedGroupActor = (group: string) => {
-        setActors({
-            ...actors,
-            excludedGroups: actors.excludedGroups?.filter((g) => g !== group),
-        });
+        setActors({ ...actors, excludedGroups: actors.excludedGroups?.filter((g) => g !== group) });
     };
 
-    // Invokes the search API as the user types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         searchQuery({
-            variables: {
-                input: {
-                    types: [type],
-                    query: text,
-                    start: 0,
-                    count: 10,
-                },
-            },
+            variables: { input: { types: [type], query: text, start: 0, count: 10 } },
         });
     };
 
-    // Invokes the user search API as the user types
-    const handleUserSearch = (text: string) => {
-        return handleSearch(EntityType.CorpUser, text, userSearch);
-    };
+    const handleUserSearch = (text: string) => handleSearch(EntityType.CorpUser, text, userSearch);
+    const handleGroupSearch = (text: string) => handleSearch(EntityType.CorpGroup, text, groupSearch);
 
-    // Invokes the group search API as the user types
-    const handleGroupSearch = (text: string) => {
-        return handleSearch(EntityType.CorpGroup, text, groupSearch);
-    };
-
-    // Renders a search result in the select dropdown.
     const renderSearchResult = (result: SearchResult) => {
         const avatarUrl =
             result.entity.type === EntityType.CorpUser
@@ -272,10 +245,8 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         );
     };
 
-    // Whether to show "owners" switch.
     const showAppliesToOwners = policyType === PolicyType.Metadata;
 
-    // Select dropdown values.
     const usersSelectUrns = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectUrns = actors.allGroups ? ['All'] : actors.groups || [];
     const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
@@ -355,12 +326,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onSearch={handleUserSearch}
                     tagRender={(tagProps) => {
                         const { closable, onClose, value } = tagProps;
-
                         const handleClose = (event) => {
                             onPreventMouseDown(event);
                             onClose();
                         };
-
                         if (value === 'All') {
                             return (
                                 <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
@@ -368,7 +337,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                 </StyledTag>
                             );
                         }
-
                         const selectedItem: CorpUser | undefined = usersSelectValues?.find((u) => u?.urn === value);
                         return (
                             <ActorWrapper onMouseDown={onPreventMouseDown}>
@@ -382,6 +350,55 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     ))}
                     <Select.Option value="All">All Users</Select.Option>
                 </Select>
+                <ExclusionToggle
+                    type="button"
+                    onClick={() => setShowUserExclusions((prev) => !prev)}
+                    aria-expanded={showUserExclusions}
+                >
+                    {showUserExclusions ? '▲' : '▼'} Exceptions
+                </ExclusionToggle>
+                {showUserExclusions && (
+                    <ExclusionPanel>
+                        <ExclusionLabel>
+                            These users will be excluded from this policy even if they match the rules above.
+                        </ExclusionLabel>
+                        <Select
+                            data-testid="excluded-users"
+                            value={excludedUsersSelectUrns}
+                            mode="multiple"
+                            filterOption={false}
+                            placeholder="Search for users to exclude..."
+                            onSelect={(asset: any) => onSelectExcludedUserActor(asset)}
+                            onDeselect={(asset: any) => onDeselectExcludedUserActor(asset)}
+                            onSearch={handleUserSearch}
+                            style={{ width: '100%' }}
+                            tagRender={(tagProps) => {
+                                const { onClose, value } = tagProps;
+                                const handleClose = (event) => {
+                                    onPreventMouseDown(event);
+                                    onClose();
+                                };
+                                const selectedItem: CorpUser | undefined = excludedUsersSelectValues?.find(
+                                    (u) => u?.urn === value,
+                                );
+                                return (
+                                    <ActorWrapper onMouseDown={onPreventMouseDown}>
+                                        <ActorPill
+                                            actor={selectedItem}
+                                            isProposed={false}
+                                            hideLink
+                                            onClose={handleClose}
+                                        />
+                                    </ActorWrapper>
+                                );
+                            }}
+                        >
+                            {userSearchResults?.map((result) => (
+                                <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                            ))}
+                        </Select>
+                    </ExclusionPanel>
+                )}
             </Form.Item>
             <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
                 <Typography.Paragraph>
@@ -399,12 +416,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     filterOption={false}
                     tagRender={(tagProps) => {
                         const { closable, onClose, value } = tagProps;
-
                         const handleClose = (event) => {
                             onPreventMouseDown(event);
                             onClose();
                         };
-
                         if (value === 'All') {
                             return (
                                 <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
@@ -412,7 +427,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                 </StyledTag>
                             );
                         }
-
                         const selectedItem: CorpGroup | undefined = groupsSelectValues?.find((g) => g?.urn === value);
                         return (
                             <ActorWrapper onMouseDown={onPreventMouseDown}>
@@ -426,76 +440,55 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     ))}
                     <Select.Option value="All">All Groups</Select.Option>
                 </Select>
-            </Form.Item>
-            <Form.Item label={<Typography.Text strong>Excluded Users & Service Accounts</Typography.Text>}>
-                <Typography.Paragraph>
-                    Search for specific users or service accounts to explicitly exclude from this policy. Exclusions
-                    take precedence over the included users above.
-                </Typography.Paragraph>
-                <Select
-                    data-testid="excluded-users"
-                    value={excludedUsersSelectUrns}
-                    mode="multiple"
-                    filterOption={false}
-                    placeholder="Search for users to exclude..."
-                    onSelect={(asset: any) => onSelectExcludedUserActor(asset)}
-                    onDeselect={(asset: any) => onDeselectExcludedUserActor(asset)}
-                    onSearch={handleUserSearch}
-                    tagRender={(tagProps) => {
-                        const { onClose, value } = tagProps;
-                        const handleClose = (event) => {
-                            onPreventMouseDown(event);
-                            onClose();
-                        };
-                        const selectedItem: CorpUser | undefined = excludedUsersSelectValues?.find(
-                            (u) => u?.urn === value,
-                        );
-                        return (
-                            <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
-                            </ActorWrapper>
-                        );
-                    }}
+                <ExclusionToggle
+                    type="button"
+                    onClick={() => setShowGroupExclusions((prev) => !prev)}
+                    aria-expanded={showGroupExclusions}
                 >
-                    {userSearchResults?.map((result) => (
-                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                    ))}
-                </Select>
-            </Form.Item>
-            <Form.Item label={<Typography.Text strong>Excluded Groups</Typography.Text>}>
-                <Typography.Paragraph>
-                    Search for specific groups to explicitly exclude from this policy. Exclusions take precedence over
-                    the included groups above.
-                </Typography.Paragraph>
-                <Select
-                    data-testid="excluded-groups"
-                    value={excludedGroupsSelectUrns}
-                    mode="multiple"
-                    placeholder="Search for groups to exclude..."
-                    onSelect={(asset: any) => onSelectExcludedGroupActor(asset)}
-                    onDeselect={(asset: any) => onDeselectExcludedGroupActor(asset)}
-                    onSearch={handleGroupSearch}
-                    filterOption={false}
-                    tagRender={(tagProps) => {
-                        const { onClose, value } = tagProps;
-                        const handleClose = (event) => {
-                            onPreventMouseDown(event);
-                            onClose();
-                        };
-                        const selectedItem: CorpGroup | undefined = excludedGroupsSelectValues?.find(
-                            (g) => g?.urn === value,
-                        );
-                        return (
-                            <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
-                            </ActorWrapper>
-                        );
-                    }}
-                >
-                    {groupSearchResults?.map((result) => (
-                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                    ))}
-                </Select>
+                    {showGroupExclusions ? '▲' : '▼'} Exceptions
+                </ExclusionToggle>
+                {showGroupExclusions && (
+                    <ExclusionPanel>
+                        <ExclusionLabel>
+                            These groups will be excluded from this policy even if they match the rules above.
+                        </ExclusionLabel>
+                        <Select
+                            data-testid="excluded-groups"
+                            value={excludedGroupsSelectUrns}
+                            mode="multiple"
+                            placeholder="Search for groups to exclude..."
+                            onSelect={(asset: any) => onSelectExcludedGroupActor(asset)}
+                            onDeselect={(asset: any) => onDeselectExcludedGroupActor(asset)}
+                            onSearch={handleGroupSearch}
+                            filterOption={false}
+                            style={{ width: '100%' }}
+                            tagRender={(tagProps) => {
+                                const { onClose, value } = tagProps;
+                                const handleClose = (event) => {
+                                    onPreventMouseDown(event);
+                                    onClose();
+                                };
+                                const selectedItem: CorpGroup | undefined = excludedGroupsSelectValues?.find(
+                                    (g) => g?.urn === value,
+                                );
+                                return (
+                                    <ActorWrapper onMouseDown={onPreventMouseDown}>
+                                        <ActorPill
+                                            actor={selectedItem}
+                                            isProposed={false}
+                                            hideLink
+                                            onClose={handleClose}
+                                        />
+                                    </ActorWrapper>
+                                );
+                            }}
+                        >
+                            {groupSearchResults?.map((result) => (
+                                <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                            ))}
+                        </Select>
+                    </ExclusionPanel>
+                )}
             </Form.Item>
         </ActorForm>
     );

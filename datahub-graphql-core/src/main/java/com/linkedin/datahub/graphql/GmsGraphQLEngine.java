@@ -3313,6 +3313,22 @@ public class GmsGraphQLEngine {
                         (env) -> {
                           final ActorFilter filter = env.getSource();
                           return filter.getResourceOwnersTypes();
+                        }))
+                .dataFetcher(
+                    "resolvedExcludedUsers",
+                    new LoadableTypeBatchResolver<>(
+                        corpUserType,
+                        (env) -> {
+                          final ActorFilter filter = env.getSource();
+                          return filter.getExcludedUsers();
+                        }))
+                .dataFetcher(
+                    "resolvedExcludedGroups",
+                    new LoadableTypeBatchResolver<>(
+                        corpGroupType,
+                        (env) -> {
+                          final ActorFilter filter = env.getSource();
+                          return filter.getExcludedGroups();
                         })));
   }
 

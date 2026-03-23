@@ -9966,6 +9966,16 @@ type ActorFilter {
   A set of groups explicitly excluded from this policy, even if matched by groups/allGroups
   """
   excludedGroups: [String!]
+
+  """
+  The list of excluded users on the Policy, resolved.
+  """
+  resolvedExcludedUsers: [CorpUser!]
+
+  """
+  The list of excluded groups on the Policy, resolved.
+  """
+  resolvedExcludedGroups: [CorpGroup!]
 }
 
 """
