@@ -60,6 +60,41 @@ def test_supported_entry_type_mapping_keys() -> None:
     }
 
 
+def test_mapping_regex_groups_match_schema_key_fields() -> None:
+    """Protect regex<->SchemaKey coupling in mapping definitions.
+
+    Dataplex parsing relies on a strict contract: regex named groups map directly
+    to SchemaKey constructor fields. If someone renames a key field or a regex
+    group without updating the other side, parsing can silently degrade. This
+    test fails fast for every mapping entry when that contract drifts.
+    """
+    for entry_type_short_name, mapping in DATAPLEX_ENTRY_TYPE_MAPPINGS.items():
+        fqn_group_names = set(mapping.fqn_regex.groupindex.keys())
+        schema_field_names = set(mapping.schema_key_class.model_fields.keys())
+        assert fqn_group_names.issubset(schema_field_names), (
+            f"{entry_type_short_name}: fqn_regex groups {fqn_group_names} "
+            f"must be subset of {mapping.schema_key_class.__name__} fields "
+            f"{schema_field_names}"
+        )
+
+        if mapping.parent_entry_regex is None:
+            continue
+
+        assert mapping.parent_schema_key_class is not None, (
+            f"{entry_type_short_name}: parent_entry_regex exists but "
+            "parent_schema_key_class is missing"
+        )
+        parent_group_names = set(mapping.parent_entry_regex.groupindex.keys())
+        parent_schema_field_names = set(
+            mapping.parent_schema_key_class.model_fields.keys()
+        )
+        assert parent_group_names.issubset(parent_schema_field_names), (
+            f"{entry_type_short_name}: parent_entry_regex groups {parent_group_names} "
+            f"must be subset of {mapping.parent_schema_key_class.__name__} fields "
+            f"{parent_schema_field_names}"
+        )
+
+
 @pytest.mark.parametrize(
     "entry_type_short_name,fqn,expected",
     [
@@ -221,7 +256,10 @@ def test_build_dataset_urn_from_fqn() -> None:
     )
     assert bq_urn is not None
     assert "urn:li:dataPlatform:bigquery" in bq_urn
-    assert "harshal-playground-306419.fivetran_smoke_test.destination_schema_metadata" in bq_urn
+    assert (
+        "harshal-playground-306419.fivetran_smoke_test.destination_schema_metadata"
+        in bq_urn
+    )
 
     pubsub_urn = build_dataset_urn_from_fqn(
         "pubsub-topic",
@@ -257,4 +295,3 @@ def test_build_parent_container_urn() -> None:
     )
     assert parent_container_urn is not None
     assert parent_container_urn.startswith("urn:li:container:")
-

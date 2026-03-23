@@ -5,6 +5,25 @@ This module centralizes all Dataplex identity concerns:
 - FQN parsing from ``fully_qualified_name``
 - Parent extraction from ``parent_entry``
 - Static Dataplex entry-type -> DataHub entity mapping
+
+Primary reference for FQN structures:
+https://docs.cloud.google.com/dataplex/docs/fully-qualified-names
+
+Important observed deviations from public docs (based on real Dataplex entries):
+- Cloud Spanner FQNs use an ``instanceConfigId`` token like ``regional-us-west2``.
+  In this module we normalize that token into ``location=us-west2`` for key fields,
+  because ``parent_entry`` also exposes ``locations/{location}``.
+- Cloud SQL MySQL uses ``cloudsql-mysql-database`` entry types in practice, while
+  docs may refer to the logical level as schema.
+
+Regex/SchemaKey contract:
+- Named capture groups in ``fqn_regex`` and ``parent_entry_regex`` are expected to
+  match field names on the target SchemaKey classes.
+- Example: ``(?P<project_id>...)`` maps to ``DataplexProjectId.project_id``.
+- This contract is enforced by
+  ``test_mapping_regex_groups_match_schema_key_fields`` in
+  ``test_dataplex_ids.py`` so new entry type mappings fail fast if regex groups
+  and key fields drift.
 """
 
 from __future__ import annotations
@@ -81,7 +100,8 @@ class DataplexPubSubTopic(DataplexPubSubProject):
 
 @dataclass(frozen=True)
 class DataplexEntryTypeMapping:
-    datahub_platform: str
+    # Keep platform values strict because they feed URN generation.
+    datahub_platform: Literal["bigquery", "cloudsql", "spanner", "pubsub"]
     datahub_entity_type: Literal["Dataset", "Container"]
     datahub_subtype: str
     fqn_regex: Pattern[str]
@@ -94,7 +114,8 @@ ENTRY_TYPE_SHORT_NAME_REGEX = re.compile(
     r"^projects/[^/]+/locations/[^/]+/entryTypes/(?P<entry_type_short_name>[^/]+)$"
 )
 
-# FQN regexes (authoritative format: https://cloud.google.com/dataplex/docs/fully-qualified-names)
+# FQN regexes (authoritative format:
+# https://docs.cloud.google.com/dataplex/docs/fully-qualified-names)
 BIGQUERY_DATASET_FQN_REGEX = re.compile(
     r"^bigquery:(?P<project_id>[^.]+)\.(?P<dataset_id>[^.]+)$"
 )
@@ -104,12 +125,17 @@ BIGQUERY_TABLE_FQN_REGEX = re.compile(
 MYSQL_INSTANCE_FQN_REGEX = re.compile(
     r"^cloudsql_mysql:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<instance_id>[^.]+)$"
 )
+# Cloud SQL docs often use "schema" terminology; in observed Dataplex entries this
+# level is emitted as "database" and entry type short-name "cloudsql-mysql-database".
 MYSQL_DATABASE_FQN_REGEX = re.compile(
     r"^cloudsql_mysql:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<instance_id>[^.]+)\.(?P<database_id>[^.]+)$"
 )
 MYSQL_TABLE_FQN_REGEX = re.compile(
     r"^cloudsql_mysql:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<instance_id>[^.]+)\.(?P<database_id>[^.]+)\.(?P<table_id>[^.]+)$"
 )
+# Spanner docs define instanceConfigId as the second token.
+# In observed Dataplex payloads, this appears as "regional-{location}".
+# We normalize this to "location" in extracted identity fields.
 SPANNER_INSTANCE_FQN_REGEX = re.compile(
     r"^spanner:(?P<project_id>[^.]+)\.regional-(?P<location>[^.]+)\.(?P<instance_id>[^.]+)$"
 )
@@ -147,6 +173,7 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_entity_type="Container",
         datahub_subtype=DatasetContainerSubTypes.BIGQUERY_DATASET,
         fqn_regex=BIGQUERY_DATASET_FQN_REGEX,
+        # Top-level in Dataplex entry hierarchy: no parent_entry on payload.
         parent_entry_regex=None,
         schema_key_class=DataplexBigQueryDataset,
         parent_schema_key_class=None,
@@ -165,6 +192,7 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_entity_type="Container",
         datahub_subtype=DatasetContainerSubTypes.INSTANCE,
         fqn_regex=MYSQL_INSTANCE_FQN_REGEX,
+        # Top-level in Dataplex entry hierarchy: no parent_entry on payload.
         parent_entry_regex=None,
         schema_key_class=DataplexCloudSqlMySqlInstance,
         parent_schema_key_class=None,
@@ -192,6 +220,7 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_entity_type="Container",
         datahub_subtype=DatasetContainerSubTypes.INSTANCE,
         fqn_regex=SPANNER_INSTANCE_FQN_REGEX,
+        # Top-level in Dataplex entry hierarchy: no parent_entry on payload.
         parent_entry_regex=None,
         schema_key_class=DataplexCloudSpannerInstance,
         parent_schema_key_class=None,
@@ -233,14 +262,25 @@ def extract_entry_type_short_name(entry_type: str) -> Optional[str]:
     return match.group("entry_type_short_name")
 
 
-def get_entry_type_mapping(entry_type_or_short_name: str) -> Optional[DataplexEntryTypeMapping]:
+def _normalize_entry_type_short_name(entry_type_or_short_name: str) -> str:
     short_name = extract_entry_type_short_name(entry_type_or_short_name)
-    if short_name is None:
-        short_name = entry_type_or_short_name
-    return DATAPLEX_ENTRY_TYPE_MAPPINGS.get(short_name)
+    if short_name is not None:
+        return short_name
+    return entry_type_or_short_name
+
+
+def _get_mapping(entry_type_or_short_name: str) -> Optional[DataplexEntryTypeMapping]:
+    return DATAPLEX_ENTRY_TYPE_MAPPINGS.get(
+        _normalize_entry_type_short_name(entry_type_or_short_name)
+    )
 
 
 def _parse_with_regex(regex: Pattern[str], value: str) -> Optional[dict[str, str]]:
+    """Parse value with named-group regex.
+
+    Note: regex named groups are expected to match fields on SchemaKey classes.
+    For example ``(?P<project_id>...)`` maps to ``DataplexProjectId.project_id``.
+    """
     match = regex.match(value)
     if not match:
         return None
@@ -254,7 +294,7 @@ def _parse_with_regex(regex: Pattern[str], value: str) -> Optional[dict[str, str
 def parse_fully_qualified_name(
     entry_type_or_short_name: str, fully_qualified_name: str
 ) -> Optional[dict[str, str]]:
-    mapping = get_entry_type_mapping(entry_type_or_short_name)
+    mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None:
         return None
     return _parse_with_regex(mapping.fqn_regex, fully_qualified_name)
@@ -263,7 +303,7 @@ def parse_fully_qualified_name(
 def parse_parent_entry(
     entry_type_or_short_name: str, parent_entry: str
 ) -> Optional[dict[str, str]]:
-    mapping = get_entry_type_mapping(entry_type_or_short_name)
+    mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None or mapping.parent_entry_regex is None:
         return None
     return _parse_with_regex(mapping.parent_entry_regex, parent_entry)
@@ -284,7 +324,7 @@ def _instantiate_key(
 def build_schema_key_from_fqn(
     entry_type_or_short_name: str, fully_qualified_name: str
 ) -> Optional[DataplexProjectId]:
-    mapping = get_entry_type_mapping(entry_type_or_short_name)
+    mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None:
         return None
 
@@ -301,7 +341,7 @@ def build_schema_key_from_fqn(
 def build_parent_schema_key(
     entry_type_or_short_name: str, parent_entry: str
 ) -> Optional[DataplexProjectId]:
-    mapping = get_entry_type_mapping(entry_type_or_short_name)
+    mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None or mapping.parent_schema_key_class is None:
         return None
 
@@ -318,10 +358,22 @@ def build_parent_schema_key(
 def build_dataset_urn_from_fqn(
     entry_type_or_short_name: str, fully_qualified_name: str, env: str
 ) -> Optional[str]:
-    mapping = get_entry_type_mapping(entry_type_or_short_name)
+    mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None or mapping.datahub_entity_type != "Dataset":
         return None
 
+    # Validate FQN with the entry-type-specific regex contract first.
+    # This is where fqn_regex is used for URN building: we reject malformed FQNs
+    # before extracting the canonical dataset identifier.
+    if (
+        parse_fully_qualified_name(entry_type_or_short_name, fully_qualified_name)
+        is None
+    ):
+        return None
+
+    # Keep dataset-name extraction as "everything after the first ':'" to
+    # preserve provider-specific suffixes exactly (for example, Pub/Sub keeps
+    # "topic:project.topic"), instead of reconstructing from parsed fields.
     if ":" not in fully_qualified_name:
         return None
     _, dataset_name = fully_qualified_name.split(":", 1)
@@ -337,11 +389,13 @@ def build_dataset_urn_from_fqn(
 def build_container_urn_from_fqn(
     entry_type_or_short_name: str, fully_qualified_name: str
 ) -> Optional[str]:
-    mapping = get_entry_type_mapping(entry_type_or_short_name)
+    mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None or mapping.datahub_entity_type != "Container":
         return None
 
-    schema_key = build_schema_key_from_fqn(entry_type_or_short_name, fully_qualified_name)
+    schema_key = build_schema_key_from_fqn(
+        entry_type_or_short_name, fully_qualified_name
+    )
     if schema_key is None:
         return None
     return schema_key.as_urn()
@@ -357,4 +411,3 @@ def build_parent_container_urn(
     if parent_schema_key is None:
         return None
     return parent_schema_key.as_urn()
-
