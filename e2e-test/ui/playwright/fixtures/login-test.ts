@@ -27,7 +27,7 @@
 
 import * as path from 'path';
 import { test as base } from '@playwright/test';
-import { FileLogger, type StructuredLogger } from './logging';
+import { FileLogger, type StructuredLogger } from '../utils/logger';
 import { PageApiMocker, type ApiMocker } from './api-mock';
 
 type LoginTestFixtures = {

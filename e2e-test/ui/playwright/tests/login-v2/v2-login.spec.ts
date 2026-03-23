@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { loginTest as test } from '@fixtures/base-test';
 import { LoginPage } from '../../pages/login-page';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
 
@@ -6,20 +6,23 @@ import { GraphQLHelper } from '../../helpers/graphql-helper';
  * Login V2 tests - These tests verify login with Theme V2
  * Therefore, they MUST NOT use the shared authentication state
  */
-const test = base.extend<{
-  loginPage: LoginPage;
-  graphqlHelper: GraphQLHelper;
-}>({
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
-  },
-  graphqlHelper: async ({ page }, use) => {
-    await use(new GraphQLHelper(page));
-  },
-});
+// const test = base.extend<{
+//   loginPage: LoginPage;
+//   graphqlHelper: GraphQLHelper;
+// }>({
+//   loginPage: async ({ page }, use) => {
+//     await use(new LoginPage(page));
+//   },
+//   graphqlHelper: async ({ page }, use) => {
+//     await use(new GraphQLHelper(page));
+//   },
+// });
 
 // Explicitly disable shared auth state for login tests
-test.use({ storageState: { cookies: [], origins: [] } });
+users = [user1, user2, user3];
+
+users.array.forEach(user => {
+  test.use({ user: user });
 
 test.describe('Login with Theme V2', () => {
   test.beforeEach(async ({ page, graphqlHelper }) => {
@@ -34,11 +37,13 @@ test.describe('Login with Theme V2', () => {
     });
   });
 
-  test('logs in successfully with Theme V2 enabled', async ({ page, loginPage }) => {
+  test('logs in successfully with Theme V2 enabled', async ({ page, loginPage, user }) => {
     await page.goto('/');
 
-    await loginPage.login('datahub', 'datahub');
+    await loginPage.login(user.username, user.password);
 
     await expect(page.getByRole('button', { name: 'Discover' })).toBeVisible();
   });
+});
+
 });

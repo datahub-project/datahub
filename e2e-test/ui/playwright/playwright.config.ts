@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const authFile = '.auth/user.json';
 
-export default defineConfig({
+export default defineConfig<LoginOptions>({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

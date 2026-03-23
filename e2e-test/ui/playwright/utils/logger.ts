@@ -39,7 +39,8 @@ interface LogEntry {
   [key: string]: unknown;
 }
 
-export class FileLogger implements StructuredLogger {
+export class
+  implements StructuredLogger {
   private readonly stream: fs.WriteStream;
   private readonly meta: Pick<LogEntry, 'suite' | 'test' | 'worker' | 'retry'>;
 

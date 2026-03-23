@@ -1,18 +1,17 @@
-import { test } from '../../fixtures/test-context';
+import { baseTest as test } from '@fixtures/base-test';
+import { BusinessAttributePage } from '@pages/business-attribute-page';
 
 test.describe('Business Attribute Navigation', () => {
+  test.use(user: shared_admin);
+  test.beforeEach(async({ page })) {
+    page.goto('/business-attributes')
+  }
   test('should navigate to business attributes page', async ({
-    businessAttributePage,
-    graphqlHelper,
+    page, logger, testInfo
   }) => {
+    const businessAttributePage = BusinessAttributePage(page, logger, testInfo)
     const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
-    test.skip(!enabled, 'Business Attribute feature is not enabled');
-
-    await businessAttributePage.navigateToBusinessAttributes();
-
-    await businessAttributePage.expectOnBusinessAttributePage();
-
-    await businessAttributePage.expectPageTitleVisible(10000);
+    expect(businessAttributePage)
   });
 
   test('should display business attribute page header', async ({

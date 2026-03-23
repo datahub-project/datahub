@@ -35,120 +35,135 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { test as base } from '@playwright/test';
 
-import { authStatePath, readGmsToken } from './auth';
-import { resolvedUsers, type UserCredentials } from './users';
-import { FileLogger, type StructuredLogger } from './logging';
-import { PageApiMocker, type ApiMocker } from './api-mock';
-import { RestFeatureDataLoader, type FeatureDataLoader } from './test-data';
-import { ApiScopedCleanup, type ScopedCleanup } from './cleanup';
+import { test as base, mergeTests } from '@playwright/test';
+import { loggerFixture } from './logger.fixture';
+import { loginFixture } from './login.fixture';
 
-// ── Fixture type declarations ─────────────────────────────────────────────────
+// import { authStatePath, readGmsToken } from './auth';
+// import { resolvedUsers, type UserCredentials } from './users';
+// import { FileLogger, type StructuredLogger } from '../utils/logger';
+// import { PageApiMocker, type ApiMocker } from './api-mock';
+// import { RestFeatureDataLoader, type FeatureDataLoader } from './test-data';
+// import { ApiScopedCleanup, type ScopedCleanup } from './cleanup';
 
-type BaseFixtures = {
-  /** GMS personal access token for the active user. Use in API helpers. */
-  gmsToken: string;
-  /** Structured logger writing JSON lines to logs/test-run.log. */
-  logger: StructuredLogger;
-  /** DataHub-aware API mocking and route interception. */
-  apiMock: ApiMocker;
-  /** Injects feature-scoped test data from {featureDir}/data/{feature}.json. */
-  featureData: FeatureDataLoader;
-  /** Per-test URN tracker; call flush() in test.afterAll() for suite cleanup. */
-  cleanup: ScopedCleanup;
-};
+// // ── Fixture type declarations ─────────────────────────────────────────────────
 
-type BaseOptions = {
-  /**
-   * The user whose storageState is loaded for this test.
-   * Override per suite: `test.use({ user: resolvedUsers.reader })`.
-   * Defaults to the admin user defined in users.ts.
-   */
-  user: UserCredentials;
-};
+// type BaseFixtures = {
+//   /** GMS personal access token for the active user. Use in API helpers. */
+//   gmsToken: string;
+//   /** Structured logger writing JSON lines to logs/test-run.log. */
+//   logger: StructuredLogger;
+//   /** DataHub-aware API mocking and route interception. */
+//   apiMock: ApiMocker;
+//   /** Injects feature-scoped test data from {featureDir}/data/{feature}.json. */
+//   featureData: FeatureDataLoader;
+//   /** Per-test URN tracker; call flush() in test.afterAll() for suite cleanup. */
+//   cleanup: ScopedCleanup;
+// };
 
-// ── Fixture implementations ───────────────────────────────────────────────────
+// type BaseOptions = {
+//   /**
+//    * The user whose storageState is loaded for this test.
+//    * Override per suite: `test.use({ user: resolvedUsers.reader })`.
+//    * Defaults to the admin user defined in users.ts.
+//    */
+//   user: UserCredentials;
+// };
 
-export const test = base.extend<BaseFixtures, BaseOptions>({
-  // ── Option: injectable user ─────────────────────────────────────────────────
-  user: [resolvedUsers.admin, { option: true, scope: 'worker' }],
+// // ── Fixture implementations ───────────────────────────────────────────────────
 
-  // ── Capability 1: authenticated state ───────────────────────────────────────
-  // Override the built-in `context` so that `page` (which depends on it)
-  // automatically carries the correct session. storageState files are written
-  // by tests/auth.setup.ts; a missing file means auth setup has not been run.
-  context: async ({ user, browser }, use) => {
-    const stateFile = authStatePath(user.username);
-    if (!fs.existsSync(stateFile)) {
-      throw new Error(
-        `Auth state missing for user '${user.username}' (expected: ${stateFile}).\n` +
-          `Run auth setup first: npx playwright test --project=auth-setup`,
-      );
-    }
-    const ctx = await browser.newContext({
-      storageState: stateFile,
-      baseURL: process.env.BASE_URL ?? 'http://localhost:9002',
-    });
-    await use(ctx);
-    await ctx.close();
-  },
+// export const test = base.extend<BaseFixtures, BaseOptions>({
+//   // ── Option: injectable user ─────────────────────────────────────────────────
+//   user: [resolvedUsers.admin, { option: true, scope: 'worker' }],
 
-  // GMS token — read from disk once per test (file read is fast).
-  gmsToken: async ({ user }, use) => {
-    await use(readGmsToken(user.username));
-  },
+//   // ── Capability 1: authenticated state ───────────────────────────────────────
+//   // Override the built-in `context` so that `page` (which depends on it)
+//   // automatically carries the correct session. storageState files are written
+//   // by tests/auth.setup.ts; a missing file means auth setup has not been run.
+//   context: async ({ user, browser }, use) => {
+//     const stateFile = authStatePath(user.username);
+//     if (!fs.existsSync(stateFile)) {
+//       throw new Error(
+//         `Auth state missing for user '${user.username}' (expected: ${stateFile}).\n` +
+//           `Run auth setup first: npx playwright test --project=auth-setup`,
+//       );
+//     }
+//     const ctx = await browser.newContext({
+//       storageState: stateFile,
+//       baseURL: process.env.BASE_URL ?? 'http://localhost:9002',
+//     });
+//     await use(ctx);
+//     await ctx.close();
+//   },
 
-  // ── Capability 2: structured logging ────────────────────────────────────────
-  logger: async ({}, use, testInfo) => {
-    const logsDir = path.join(process.cwd(), 'logs');
-    const fileLogger = new FileLogger(testInfo, logsDir);
-    fileLogger.info('test started');
-    await use(fileLogger);
-    fileLogger.info('test finished', { status: testInfo.status });
-    fileLogger.close();
-  },
+//   // GMS token — read from disk once per test (file read is fast).
+//   gmsToken: async ({ user }, use) => {
+//     await use(readGmsToken(user.username));
+//   },
 
-  // ── Capability 3: API mocking ────────────────────────────────────────────────
-  apiMock: async ({ page }, use) => {
-    await use(new PageApiMocker(page));
-  },
+//   // ── Capability 2: structured logging ────────────────────────────────────────
+//   logger: async ({}, use, testInfo) => {
+//     const logsDir = path.join(process.cwd(), 'logs');
+//     const fileLogger = new FileLogger(testInfo, logsDir);
+//     fileLogger.info('test started');
+//     await use(fileLogger);
+//     fileLogger.info('test finished', { status: testInfo.status });
+//     fileLogger.close();
+//   },
 
-  // ── Capability 4: test data loading ─────────────────────────────────────────
-  featureData: async ({ playwright, gmsToken }, use) => {
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
-    const gmsUrl = baseUrl.replace(':9002', ':8080');
-    const request = await playwright.request.newContext({ baseURL: gmsUrl });
-    try {
-      await use(new RestFeatureDataLoader(request, gmsToken, gmsUrl));
-    } finally {
-      await request.dispose();
-    }
-  },
+//   // ── Capability 3: API mocking ────────────────────────────────────────────────
+//   apiMock: async ({ page }, use) => {
+//     await use(new PageApiMocker(page));
+//   },
 
-  // ── Cleanup: per-test URN tracker ────────────────────────────────────────────
-  // Backed by a standalone APIRequestContext authenticated with the GMS token
-  // so it works independently of any browser session.
-  cleanup: async ({ playwright, gmsToken }, use, testInfo) => {
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
-    const gmsUrl = baseUrl.replace(':9002', ':8080');
-    const request = await playwright.request.newContext({
-      baseURL: gmsUrl,
-      extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
-    });
-    const scopedCleanup = new ApiScopedCleanup(request, gmsUrl);
-    await use(scopedCleanup);
-    // Auto-flush on teardown, honouring the failure-preservation policy.
-    await scopedCleanup.flush(testInfo.status);
-    await request.dispose();
-  },
-});
+//   // ── Capability 4: test data loading ─────────────────────────────────────────
+//   featureData: async ({ playwright, gmsToken }, use) => {
+//     const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
+//     const gmsUrl = baseUrl.replace(':9002', ':8080');
+//     const request = await playwright.request.newContext({ baseURL: gmsUrl });
+//     try {
+//       await use(new RestFeatureDataLoader(request, gmsToken, gmsUrl));
+//     } finally {
+//       await request.dispose();
+//     }
+//   },
 
-export { expect } from '@playwright/test';
-export type { UserCredentials } from './users';
-export type { StructuredLogger } from './logging';
-export type { ApiMocker } from './api-mock';
-export type { FeatureDataLoader } from './test-data';
-export type { ScopedCleanup } from './cleanup';
+//   // ── Cleanup: per-test URN tracker ────────────────────────────────────────────
+//   // Backed by a standalone APIRequestContext authenticated with the GMS token
+//   // so it works independently of any browser session.
+//   cleanup: async ({ playwright, gmsToken }, use, testInfo) => {
+//     const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
+//     const gmsUrl = baseUrl.replace(':9002', ':8080');
+//     const request = await playwright.request.newContext({
+//       baseURL: gmsUrl,
+//       extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
+//     });
+//     const scopedCleanup = new ApiScopedCleanup(request, gmsUrl);
+//     await use(scopedCleanup);
+//     // Auto-flush on teardown, honouring the failure-preservation policy.
+//     await scopedCleanup.flush(testInfo.status);
+//     await request.dispose();
+//   },
+// });
+
+// export { expect } from '@playwright/test';
+// export type { UserCredentials } from './users';
+// export type { StructuredLogger } from '../utils/logger';
+// export type { ApiMocker } from './api-mock';
+// export type { FeatureDataLoader } from './test-data';
+// export type { ScopedCleanup } from './cleanup';
+
+
+
+export const baseTest = mergeTests(loggerFixture, cleanup..., loginFixture)
+
+export const tempLoginTest = mergetest(loggerFixture, cleanup,)
+export const loginTest = tempLoginTest.extend <> {
+  user: [admin, { option: true }],
+  loginPage: async ({ logger, page }, use, testInfo) {
+
+    use(LoginPage(page, logger, testInfo));
+  }
+}
+
