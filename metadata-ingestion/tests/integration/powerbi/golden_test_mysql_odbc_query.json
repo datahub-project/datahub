@@ -91,6 +91,22 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d8f89506202cbe9f1b8daed2bc8d449a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,employeereport.employees_employees,PROD)",
     "changeType": "UPSERT",
@@ -100,6 +116,28 @@
             "materialized": false,
             "viewLogic": "let\n    Source = Odbc.Query(\"driver={MySQL ODBC 9.2 Unicode Driver};server=18.222.189.189;database=employees;dsn=testdb01\", \"SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees\")\nin\n    Source",
             "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d8f89506202cbe9f1b8daed2bc8d449a",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "powerbi",
+                "env": "PROD",
+                "dataset": "c9a09070-946a-4c4d-bfaa-50dda154a345"
+            },
+            "name": "DataflowsStagingLakehouse",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -215,6 +253,54 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d8f89506202cbe9f1b8daed2bc8d449a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d8f89506202cbe9f1b8daed2bc8d449a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a057163b16539a46857e9d3e604c9cb4",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,employeereport.employees_employees,PROD)",
     "changeType": "UPSERT",
@@ -228,6 +314,247 @@
             "name": "employees employees",
             "description": "Test report description",
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a057163b16539a46857e9d3e604c9cb4",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "powerbi",
+                "env": "PROD",
+                "dataset": "f19bf041-c170-43c2-879c-ac2c6e8157f6"
+            },
+            "name": "DataflowsStagingWarehouse",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d8f89506202cbe9f1b8daed2bc8d449a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a057163b16539a46857e9d3e604c9cb4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a057163b16539a46857e9d3e604c9cb4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d8f89506202cbe9f1b8daed2bc8d449a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "powerbi",
+                "env": "PROD",
+                "dataset": "5e033fd1-385c-4f0c-8a61-58910cc25194"
+            },
+            "name": "EmployeeReport",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a057163b16539a46857e9d3e604c9cb4",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a057163b16539a46857e9d3e604c9cb4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -293,7 +620,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+            "container": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d"
         }
     },
     "systemMetadata": {
@@ -340,7 +667,8 @@
                     "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
                 },
                 {
-                    "id": "EmployeeReport"
+                    "id": "EmployeeReport",
+                    "urn": "urn:li:container:9fa93b5729b55ec87d9d92e0edc3107d"
                 }
             ]
         }
