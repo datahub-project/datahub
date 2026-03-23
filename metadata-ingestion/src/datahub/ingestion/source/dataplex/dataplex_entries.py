@@ -2,8 +2,9 @@
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from threading import Lock
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable, Optional
 
 from google.cloud import dataplex_v1
 
@@ -32,7 +33,142 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn
 
+if TYPE_CHECKING:
+    from datahub.sdk.entity import Entity
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DataplexEntriesReport:
+    """Phase 2 design for entry-processing observability metrics.
+
+    Tracks high-level counters and lossy samples for filtered and processed
+    entry groups / entries. This report is intentionally scoped to the entries
+    processing loop and can later be folded into DataplexReport.
+    """
+
+    sample_limit: int = 20
+
+    entry_groups_seen: int = 0
+    entry_groups_filtered: int = 0
+    entry_group_filtered_samples: list[str] = field(default_factory=list)
+
+    entries_seen: int = 0
+    entries_filtered_by_pattern: int = 0
+    entry_pattern_filtered_samples: list[str] = field(default_factory=list)
+    entries_filtered_by_fqn_pattern: int = 0
+    entry_fqn_filtered_samples: list[str] = field(default_factory=list)
+
+    entries_processed: int = 0
+    entries_processed_samples: list[str] = field(default_factory=list)
+
+    def _append_sample(self, samples: list[str], value: str) -> None:
+        if len(samples) < self.sample_limit:
+            samples.append(value)
+
+    def report_entry_group_seen(self) -> None:
+        self.entry_groups_seen += 1
+
+    def report_entry_group_filtered(self, entry_group_name: str) -> None:
+        self.entry_groups_filtered += 1
+        self._append_sample(self.entry_group_filtered_samples, entry_group_name)
+
+    def report_entry_seen(self) -> None:
+        self.entries_seen += 1
+
+    def report_entry_filtered_by_pattern(self, entry_name: str) -> None:
+        self.entries_filtered_by_pattern += 1
+        self._append_sample(self.entry_pattern_filtered_samples, entry_name)
+
+    def report_entry_filtered_by_fqn_pattern(self, entry_fqn: str) -> None:
+        self.entries_filtered_by_fqn_pattern += 1
+        self._append_sample(self.entry_fqn_filtered_samples, entry_fqn)
+
+    def report_entry_processed(self, entry_name: str) -> None:
+        self.entries_processed += 1
+        self._append_sample(self.entries_processed_samples, entry_name)
+
+
+class DataplexEntriesProcessor:
+    """Phase 2 design surface for class-based Dataplex entry processing.
+
+    This class is intentionally signatures-only in Phase 2. Phase 3 will move
+    the full processing loop here and switch DataplexSource to use it.
+    """
+
+    def __init__(
+        self,
+        config: DataplexConfig,
+        catalog_client: dataplex_v1.CatalogServiceClient,
+        report: DataplexEntriesReport,
+        entry_data_by_project: dict[str, set[EntryDataTuple]],
+        entry_data_lock: Lock,
+        bq_containers: dict[str, set[str]],
+        bq_containers_lock: Lock,
+        construct_mcps_fn: Callable[
+            [str, list], Iterable[MetadataChangeProposalWrapper]
+        ],
+    ) -> None:
+        self.config = config
+        self.catalog_client = catalog_client
+        self.report = report
+        self.entry_data_by_project = entry_data_by_project
+        self.entry_data_lock = entry_data_lock
+        self.bq_containers = bq_containers
+        self.bq_containers_lock = bq_containers_lock
+        self.construct_mcps_fn = construct_mcps_fn
+
+    def process_project(self, project_id: str) -> Iterable["Entity"]:
+        """Iterate all configured locations for project-level entry processing."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def process_location(self, project_id: str, location: str) -> Iterable["Entity"]:
+        """Process all eligible entry groups and entries for one location."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def list_entry_groups(
+        self, project_id: str, location: str
+    ) -> Iterable[dataplex_v1.EntryGroup]:
+        """List entry groups for a ``(project_id, location)`` pair."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def collect_entries(
+        self,
+        project_id: str,
+        location: str,
+        entry_group: dataplex_v1.EntryGroup,
+    ) -> list[dataplex_v1.Entry]:
+        """Collect and deduplicate entries from list_entries + Spanner workaround."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def collect_spanner_entries(
+        self, project_id: str, location: str
+    ) -> list[dataplex_v1.Entry]:
+        """Collect Spanner entries via search_entries workaround."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def deduplicate_entries_by_name(
+        self, entries: Iterable[dataplex_v1.Entry]
+    ) -> list[dataplex_v1.Entry]:
+        """Deduplicate entries by unique entry ``name``."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def should_process_entry_group(self, entry_group_name: str) -> bool:
+        """Evaluate ``filter_config.entry_groups.pattern``."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def should_process_entry(self, entry: dataplex_v1.Entry) -> bool:
+        """Apply entry-level ``pattern`` and ``fqn_pattern`` filters."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def build_entity_for_entry(self, entry: dataplex_v1.Entry) -> Optional["Entity"]:
+        """Map Dataplex entry to DataHub SDK v2 Dataset/Container entity."""
+        raise NotImplementedError("Phase 2 signatures only")
+
+    def build_entry_container_urn(self, entry: dataplex_v1.Entry) -> Optional[str]:
+        """Build container-relationship URN for entry parent."""
+        raise NotImplementedError("Phase 2 signatures only")
 
 
 def process_entry(
