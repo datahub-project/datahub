@@ -10220,14 +10220,7 @@ mkdirp@^0.5.1:
   dependencies:
     minimist "^1.2.5"
 
-moment-timezone@^0.5.35:
-  version "0.5.35"
-  resolved "https://registry.npmjs.org/moment-timezone/-/moment-timezone-0.5.35.tgz"
-  integrity sha512-cY/pBOEXepQvlgli06ttCTKcIf8cD1nmNwOKQQAdHBqYApQSpAqotBMX0RJZNgMp6i0PlZuf1mFtnlyEkwyvFw==
-  dependencies:
-    moment ">= 2.9.0"
-
-"moment@>= 2.9.0", moment@^2.24.0, moment@^2.29.2, moment@^2.29.4:
+moment@^2.24.0, moment@^2.29.2:
   version "2.29.4"
   resolved "https://registry.npmjs.org/moment/-/moment-2.29.4.tgz"
   integrity sha512-5LC9SOxjSc2HF6vO2CyuTDNivEdoz2IvyJJGj6X8DJ0eFyfszE0QiEd+iXmBvUP3WHxSjFH/vIsA0EN00cgr8w==
