@@ -327,6 +327,40 @@ public class DailyReportTest {
             input, expectedOutput, result));
   }
 
+  @DataProvider(name = "extractPlatformNameTestCases")
+  public Object[][] extractPlatformNameTestCases() {
+    return new Object[][] {
+      // Valid URNs should return just the platform name
+      {"urn:li:dataPlatform:snowflake", "snowflake"},
+      {"urn:li:dataPlatform:bigquery", "bigquery"},
+      {"urn:li:dataPlatform:mysql", "mysql"},
+      {"urn:li:dataPlatform:custom-platform", "custom-platform"},
+      // Malformed URNs should fall back to the raw value
+      {"not-a-urn", "not-a-urn"},
+      {"urn:li:dataset:foo", "urn:li:dataset:foo"},
+      {"", ""},
+      // Null should return null
+      {null, null},
+    };
+  }
+
+  @Test(dataProvider = "extractPlatformNameTestCases")
+  public void testExtractPlatformName(String input, String expected) throws Exception {
+    DailyReport dailyReport = createDailyReportForTesting();
+
+    java.lang.reflect.Method method =
+        DailyReport.class.getDeclaredMethod("extractPlatformName", String.class);
+    method.setAccessible(true);
+
+    String result = (String) method.invoke(dailyReport, input);
+    assertEquals(
+        result,
+        expected,
+        String.format(
+            "extractPlatformName(\"%s\") should return \"%s\" but got \"%s\"",
+            input, expected, result));
+  }
+
   @Test
   public void testAnonymizeToBucketBoundaries() throws Exception {
     DailyReport dailyReport = createDailyReportForTesting();

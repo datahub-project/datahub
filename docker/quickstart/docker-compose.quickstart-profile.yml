@@ -52,6 +52,7 @@ services:
         required: true
     environment:
       ALTERNATE_MCP_VALIDATION: 'true'
+      CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING: 'true'
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
       DATAHUB_SERVER_TYPE: quickstart
@@ -75,7 +76,8 @@ services:
       ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
       ENTITY_SERVICE_ENABLE_RETENTION: 'true'
       ENTITY_VERSIONING_ENABLED: 'true'
-      ES_BULK_REFRESH_POLICY: WAIT_UNTIL
+      ES_BULK_REFRESH_POLICY: NONE
+      EXTRACT_JAR_ENABLED: 'true'
       GRAPH_SERVICE_DIFF_MODE_ENABLED: 'true'
       GRAPH_SERVICE_IMPL: elasticsearch
       JAVA_OPTS: -Xms1g -Xmx1g
@@ -280,33 +282,6 @@ services:
       source: mysqldata
       target: /var/lib/mysql
       volume: {}
-  mysql-setup:
-    profiles:
-    - quickstart
-    - quickstart-backend
-    - quickstart-frontend
-    - quickstart-storage
-    - quickstart-consumers
-    depends_on:
-      mysql:
-        condition: service_healthy
-        required: true
-    environment:
-      CDC_MCL_PROCESSING_ENABLED: 'false'
-      CDC_PASSWORD: datahub_cdc
-      CDC_USER: datahub_cdc
-      DATAHUB_DB_NAME: datahub
-      MYSQL_HOST: mysql
-      MYSQL_PASSWORD: datahub
-      MYSQL_PORT: '3306'
-      MYSQL_ROOT_PASSWORD: datahub
-      MYSQL_USERNAME: datahub
-    hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION}
-    labels:
-      datahub_setup_job: 'true'
-    networks:
-      default: null
   opensearch:
     profiles:
     - quickstart
@@ -359,38 +334,6 @@ services:
       source: osdata
       target: /usr/share/opensearch/data
       volume: {}
-  opensearch-setup:
-    profiles:
-    - quickstart
-    - quickstart-datahub-actions
-    - quickstart-backend
-    - quickstart-frontend
-    - quickstart-storage
-    - quickstart-cassandra
-    - quickstart-postgres
-    - quickstart-postgres-cdc
-    - quickstart-consumers
-    - quickstart-consumers-cdc
-    command:
-    - /bin/sh
-    - -c
-    - /create-indices.sh
-    depends_on:
-      opensearch:
-        condition: service_healthy
-        required: true
-    environment:
-      ELASTICSEARCH_HOST: search
-      ELASTICSEARCH_PORT: '9200'
-      ELASTICSEARCH_PROTOCOL: http
-      ELASTICSEARCH_USE_SSL: 'false'
-      USE_AWS_ELASTICSEARCH: 'true'
-    hostname: opensearch-setup
-    image: acryldata/datahub-elasticsearch-setup:${DATAHUB_VERSION}
-    labels:
-      datahub_setup_job: 'true'
-    networks:
-      default: null
   system-update-quickstart:
     profiles:
     - quickstart
@@ -402,17 +345,14 @@ services:
     - -u
     - SystemUpdate
     depends_on:
+      kafka-broker:
+        condition: service_healthy
+        required: true
       mysql:
         condition: service_healthy
         required: true
-      mysql-setup:
-        condition: service_completed_successfully
-        required: true
       opensearch:
         condition: service_healthy
-        required: true
-      opensearch-setup:
-        condition: service_completed_successfully
         required: true
     environment:
       BACKFILL_BROWSE_PATHS_V2: 'true'

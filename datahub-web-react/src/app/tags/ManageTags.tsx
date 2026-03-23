@@ -1,4 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -33,7 +35,7 @@ const LoadingBar = styled.div`
     left: 0;
     width: 100%;
     height: 4px;
-    background-color: #1890ff;
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     z-index: 1000;
     animation: loading 2s infinite ease-in-out;
 
@@ -131,7 +133,7 @@ const ManageTags = () => {
                     mouseLeaveDelay={0.1}
                 >
                     <span>
-                        <Button size="md" color="violet" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
+                        <Button size="md" color="violet" icon={{ icon: Plus }} disabled>
                             Create Tag
                         </Button>
                     </span>
@@ -144,7 +146,7 @@ const ManageTags = () => {
                 onClick={() => setShowCreateTagModal(true)}
                 size="md"
                 color="violet"
-                icon={{ icon: 'Plus', source: 'phosphor' }}
+                icon={{ icon: Plus }}
                 data-testid="add-tag-button"
             >
                 Create Tag

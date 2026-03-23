@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import { ClockCounterClockwise } from '@phosphor-icons/react';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import React, { useState } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
