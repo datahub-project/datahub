@@ -58,6 +58,10 @@ def get_upstream_tables(
 
     expression = table.expression
 
+    if not expression.strip():
+        logger.debug("Empty M-Query expression in table %s — skipping", table.full_name)
+        return []
+
     if TRACE_POWERBI_MQUERY_PARSER:
         logger.debug(
             "Processing %s m-query expression for lineage extraction. Expression = %s",
@@ -90,12 +94,26 @@ def get_upstream_tables(
         return []
     except MQueryParseError as e:
         reporter.m_query_parse_unknown_errors += 1
-        reporter.warning(
-            title="Unable to parse M-Query expression",
-            message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
-            context=f"table-full-name={table.full_name}, expression={expression}",
-            exc=e,
-        )
+        # Expressions without a `let` keyword are almost certainly not M-Query
+        # (e.g. DAX computed-table expressions like SUMMARIZE(...)). The old
+        # Lark parser happened to parse these and then logged INFO "Non-Data
+        # Platform Expression". Preserve that behaviour: only warn when the
+        # expression looks like it was intended to be M-Query.
+        if "let" not in expression.lower():
+            logger.info(
+                "Non-M-Query expression in table %s — skipping lineage extraction "
+                "(expression does not contain 'let'). Expression: %s. Error: %s",
+                table.full_name,
+                expression,
+                e,
+            )
+        else:
+            reporter.warning(
+                title="Unable to parse M-Query expression",
+                message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
+                context=f"table-full-name={table.full_name}, expression={expression}",
+                exc=e,
+            )
         return []
     except MQueryBridgeError as e:
         reporter.m_query_parse_unknown_errors += 1
