@@ -601,6 +601,11 @@ class GlueSource(StatefulIngestionSourceBase):
         protocol = url.scheme.lower()
         platform = JDBC_PLATFORM_MAP.get(protocol, protocol)
         database = url.path.lstrip("/").split("?")[0]
+        if not database:
+            props = dict(
+                part.split("=", 1) for part in url.netloc.split(";")[1:] if "=" in part
+            )
+            database = props.get("databaseName", "")
         return platform, database
 
     def _extract_urns_from_query(

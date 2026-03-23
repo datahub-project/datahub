@@ -991,6 +991,7 @@ def _make_jdbc_node(
         ("jdbc:redshift://myhost:5439/mydb", "redshift", "mydb"),
         ("jdbc:oracle://myhost:1521/mydb", "oracle", "mydb"),
         ("jdbc:sqlserver://myhost:1433/mydb", "mssql", "mydb"),
+        ("jdbc:sqlserver://myhost:1433;databaseName=mydb", "mssql", "mydb"),
         ("jdbc:postgresql://myhost:5432/mydb?sslmode=require", "postgres", "mydb"),
     ],
 )
