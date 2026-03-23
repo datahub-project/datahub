@@ -57,6 +57,14 @@ CREATE CATALOG ice_catalog WITH (
     'uri' = 'http://iceberg-rest:8181'
 )"""
 
+# Iceberg table DDL has no WITH clause because the catalog type is already declared in
+# CREATE_ICEBERG_CATALOG_SQL above. When Flink issues CREATE TABLE inside an Iceberg catalog,
+# it delegates the DDL to the Iceberg REST Catalog server (a separate container in the test
+# compose stack, backed by MinIO for data file storage). The REST catalog owns the table
+# metadata — schema, partition spec, and eventually snapshot pointers — so no connector
+# properties are needed in the DDL itself. This differs from HiveCatalog Kafka tables, where
+# the WITH clause carries Flink-specific connector properties (topic, bootstrap servers, format)
+# because Kafka is a runtime connector binding, not a managed table format.
 CREATE_ICEBERG_DB_SQL = "CREATE DATABASE IF NOT EXISTS ice_catalog.lake"
 
 CREATE_ICEBERG_TABLE_SQL = """CREATE TABLE IF NOT EXISTS ice_catalog.lake.events (
