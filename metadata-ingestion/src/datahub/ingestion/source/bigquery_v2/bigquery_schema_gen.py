@@ -697,6 +697,7 @@ class BigQuerySchemaGenerator:
                     dataset_name,
                     self.config.is_profiling_enabled(),
                     self.report,
+                    location=bigquery_dataset.location,
                 )
             )
 
@@ -716,6 +717,7 @@ class BigQuerySchemaGenerator:
                     dataset_name,
                     self.config.is_profiling_enabled(),
                     self.report,
+                    location=bigquery_dataset.location,
                 )
             )
 
@@ -1373,6 +1375,7 @@ class BigQuerySchemaGenerator:
                         items_to_get,
                         with_partitions=with_partitions,
                         report=self.report,
+                        location=dataset.location,
                     )
                     items_to_get.clear()
 
@@ -1383,6 +1386,7 @@ class BigQuerySchemaGenerator:
                     items_to_get,
                     with_partitions=with_partitions,
                     report=self.report,
+                    location=dataset.location,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = (
