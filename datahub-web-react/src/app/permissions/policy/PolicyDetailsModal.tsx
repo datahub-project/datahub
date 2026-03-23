@@ -256,6 +256,18 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     />
                     {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
                 </div>
+                {policy?.actors?.excludedUsers?.length || policy?.actors?.excludedGroups?.length ? (
+                    <div>
+                        <Typography.Title level={5}>Excluded Users & Groups</Typography.Title>
+                        <ThinDivider />
+                        <AvatarsGroup
+                            users={policy?.actors?.resolvedExcludedUsers}
+                            groups={policy?.actors?.resolvedExcludedGroups}
+                            entityRegistry={entityRegistry}
+                            maxCount={50}
+                        />
+                    </div>
+                ) : null}
                 <div>
                     <Typography.Title level={5}>Applies to Roles</Typography.Title>
                     <ThinDivider />

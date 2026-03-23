@@ -320,22 +320,46 @@ public class PolicyEngine {
 
     // 1. If the actor is a matching "User" in the actor filter, return true immediately.
     if (isUserMatch(resolvedActorSpec, actorFilter)) {
-      return true;
+      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
     }
 
     // 2. If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (isGroupMatch(resolvedActorSpec, actorFilter, context)) {
-      return true;
+      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
     }
 
     // 3. If the actor is the owner, either directly or indirectly via a group, return true
     // immediately.
     if (isOwnerMatch(opContext, resolvedActorSpec, actorFilter, resourceSpec, context)) {
-      return true;
+      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
     }
 
     // 4. If the actor is in a matching "Role" in the actor filter, return true immediately.
-    return isRoleMatch(opContext, resolvedActorSpec, actorFilter, context);
+    if (isRoleMatch(opContext, resolvedActorSpec, actorFilter, context)) {
+      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
+    }
+
+    return false;
+  }
+
+  private boolean isExcludedMatch(
+      final ResolvedEntitySpec resolvedActorSpec,
+      final DataHubActorFilter actorFilter,
+      final PolicyEvaluationContext context) {
+    final String actorUrn = resolvedActorSpec.getSpec().getEntity();
+    if (actorFilter.hasExcludedUsers()
+        && Objects.requireNonNull(actorFilter.getExcludedUsers()).stream()
+            .map(Urn::toString)
+            .anyMatch(actorUrn::equals)) {
+      return true;
+    }
+    if (actorFilter.hasExcludedGroups()) {
+      final Set<String> actorGroups = resolveGroups(resolvedActorSpec, context);
+      return Objects.requireNonNull(actorFilter.getExcludedGroups()).stream()
+          .map(Urn::toString)
+          .anyMatch(actorGroups::contains);
+    }
+    return false;
   }
 
   private boolean isUserMatch(

@@ -14,6 +14,7 @@ import {
     EntityType,
     Maybe,
     Policy,
+    PolicyEffect,
     PolicyMatchCriterionInput,
     PolicyMatchFilter,
     PolicyMatchFilterInput,
@@ -50,7 +51,6 @@ export function usePolicy(
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
     const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
-        console.log({ state });
         return {
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
                 return {
@@ -71,6 +71,7 @@ export function usePolicy(
             type: policy.type,
             name: policy.name,
             state: policy.state,
+            effect: policy.effect ?? PolicyEffect.Allow,
             description: policy.description,
             privileges: policy.privileges,
             actors: {
@@ -80,6 +81,8 @@ export function usePolicy(
                 allGroups: policy.actors.allGroups,
                 resourceOwners: policy.actors.resourceOwners,
                 resourceOwnersTypes: policy.actors.resourceOwnersTypes,
+                excludedUsers: policy.actors.excludedUsers,
+                excludedGroups: policy.actors.excludedGroups,
             },
         };
         if (policy.resources !== null && policy.resources !== undefined) {

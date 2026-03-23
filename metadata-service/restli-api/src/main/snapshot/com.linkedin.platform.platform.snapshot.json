@@ -5820,6 +5820,32 @@
                           "fieldType" : "BOOLEAN"
                         }
                       }, {
+                        "name" : "excludedUsers",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "A specific set of users to explicitly exclude from this policy (takes precedence over users/allUsers).",
+                        "optional" : true,
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
+                          }
+                        }
+                      }, {
+                        "name" : "excludedGroups",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "A specific set of groups to explicitly exclude from this policy (takes precedence over groups/allGroups).",
+                        "optional" : true,
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
+                          }
+                        }
+                      }, {
                         "name" : "roles",
                         "type" : {
                           "type" : "array",

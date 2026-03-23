@@ -9956,6 +9956,16 @@ type ActorFilter {
   The list of roles on the Policy, resolved.
   """
   resolvedRoles: [DataHubRole!]
+
+  """
+  A set of users explicitly excluded from this policy, even if matched by users/allUsers
+  """
+  excludedUsers: [String!]
+
+  """
+  A set of groups explicitly excluded from this policy, even if matched by groups/allGroups
+  """
+  excludedGroups: [String!]
 }
 
 """
@@ -10090,6 +10100,16 @@ input ActorFilterInput {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+
+  """
+  A set of users explicitly excluded from this policy, even if matched by users/allUsers
+  """
+  excludedUsers: [String!]
+
+  """
+  A set of groups explicitly excluded from this policy, even if matched by groups/allGroups
+  """
+  excludedGroups: [String!]
 }
 
 """
