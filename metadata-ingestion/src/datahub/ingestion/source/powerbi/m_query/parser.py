@@ -98,13 +98,13 @@ def get_upstream_tables(
         )
         return []
     except MQueryParseError as e:
-        reporter.m_query_parse_unknown_errors += 1
         # Expressions without a `let` keyword are almost certainly not M-Query
         # (e.g. DAX computed-table expressions like SUMMARIZE(...)). The old
         # Lark parser happened to parse these and then logged INFO "Non-Data
         # Platform Expression". Preserve that behaviour: only warn when the
         # expression looks like it was intended to be M-Query.
         if "let" not in expression.lower():
+            reporter.m_query_non_mquery_expressions += 1
             logger.info(
                 "Non-M-Query expression in table %s — skipping lineage extraction "
                 "(expression does not contain 'let'). Expression: %s. Error: %s",
@@ -113,6 +113,7 @@ def get_upstream_tables(
                 e,
             )
         else:
+            reporter.m_query_parse_unknown_errors += 1
             reporter.warning(
                 title="Unable to parse M-Query expression",
                 message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
@@ -136,6 +137,15 @@ def get_upstream_tables(
         data_access_func_details = mquery_resolver.resolve_to_data_access_functions(
             node_map, parameters=parameters
         )
+
+        if not data_access_func_details:
+            logger.debug(
+                "No recognized data-access function found in expression for table %s."
+                " Expression may use an unsupported source (e.g. Web.Contents,"
+                " Excel.Workbook). To add support, reproduce with: %r",
+                table.full_name,
+                expression,
+            )
 
         lineages: List[Lineage] = []
         for f_detail in data_access_func_details:
@@ -162,6 +172,17 @@ def get_upstream_tables(
             reporter.m_query_resolver_successes += 1
         else:
             reporter.m_query_resolver_no_lineage += 1
+            if data_access_func_details:
+                # Function(s) were recognized but all handlers returned empty —
+                # the per-handler debug logs above explain why. Log the expression
+                # here so it can be copy-pasted into a local test for investigation.
+                logger.debug(
+                    "Recognized function(s) %s but no lineage extracted for table %s."
+                    " To reproduce locally: %r",
+                    [f.data_access_function_name for f in data_access_func_details],
+                    table.full_name,
+                    expression,
+                )
 
         return lineages
 

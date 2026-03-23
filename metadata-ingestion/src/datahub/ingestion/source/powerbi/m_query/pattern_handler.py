@@ -298,6 +298,10 @@ class AbstractLineage(ABC):
 
         warehouse = args[0] if args else None
         if warehouse is None:
+            logger.debug(
+                "No warehouse/host argument resolved from %s — skipping lineage",
+                args,
+            )
             return None
 
         catalog = record_fields.get("Catalog")
@@ -320,6 +324,13 @@ class AbstractLineage(ABC):
                 catalog=None,
             )
 
+        logger.debug(
+            "Insufficient arguments to build table reference"
+            " (warehouse=%s, args=%s, record_fields=%s) — skipping lineage",
+            warehouse,
+            args,
+            record_fields,
+        )
         return None
 
     @staticmethod
@@ -597,10 +608,22 @@ class AmazonRedshiftLineage(AbstractLineage):
             parameters=data_access_func_detail.parameters,
         )
         if db_name is None or server is None:
-            return Lineage.empty()  # Return an empty list
+            logger.debug(
+                "Server or database argument not resolved for Redshift table %s"
+                " (server=%s, db=%s) — skipping lineage",
+                self.table.full_name,
+                server,
+                db_name,
+            )
+            return Lineage.empty()
 
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None or accessor.next is None:
+            logger.debug(
+                "Incomplete accessor chain for Redshift table %s"
+                " — expected two navigation steps (schema then table)",
+                self.table.full_name,
+            )
             return Lineage.empty()
 
         schema_name: str = accessor.items["Name"]
@@ -816,6 +839,11 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
             parameters=data_access_func_detail.parameters,
         )
         if db_name is None:
+            logger.debug(
+                "No database argument resolved for %s (%s) — skipping lineage",
+                self.get_platform_pair().powerbi_data_platform_name,
+                self.table.full_name,
+            )
             return Lineage.empty()
         if server is None:
             # Server argument is an unresolved parameter reference (e.g. Sql.Database(ServerName, "db")).
@@ -830,6 +858,13 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
 
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None:
+            logger.debug(
+                "No accessor chain for %s (%s) — expression may reference the source"
+                " directly without a table navigation step (e.g. missing"
+                " Source{[Schema=...,Item=...]}[Data])",
+                self.get_platform_pair().powerbi_data_platform_name,
+                self.table.full_name,
+            )
             return Lineage.empty()
 
         schema_name: str = accessor.items["Schema"]
@@ -876,10 +911,22 @@ class MySQLLineage(AbstractLineage):
             parameters=data_access_func_detail.parameters,
         )
         if server is None or db_name is None:
-            return Lineage.empty()  # Return an empty list
+            logger.debug(
+                "Server or database argument not resolved for MySQL table %s"
+                " (server=%s, db=%s) — skipping lineage",
+                self.table.full_name,
+                server,
+                db_name,
+            )
+            return Lineage.empty()
 
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None:
+            logger.debug(
+                "No accessor chain for MySQL table %s"
+                " — expected Source{[Schema=...,Item=...]} navigation step",
+                self.table.full_name,
+            )
             return Lineage.empty()
 
         schema_name: str = accessor.items["Schema"]
@@ -989,6 +1036,10 @@ class MSSqlLineage(TwoStepDataAccessPattern):
             parameters=data_access_func_detail.parameters,
         )
         if database is None:
+            logger.debug(
+                "No database argument resolved for MSSql table %s — skipping lineage",
+                self.table.full_name,
+            )
             return Lineage.empty()
         if server is None:
             # Server argument is an unresolved parameter reference (e.g. Sql.Database(ServerName, "db")).

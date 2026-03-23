@@ -44,6 +44,10 @@ def resolve_to_data_access_functions(
     # LetExpression.expression is embedded -- not an ID
     output_node = root_let.get("expression")
     if output_node is None:
+        logger.debug(
+            "LetExpression (id=%d) has no output expression — cannot resolve lineage",
+            root_let_id,
+        )
         return []
 
     results: List[DataAccessFunctionDetail] = []
