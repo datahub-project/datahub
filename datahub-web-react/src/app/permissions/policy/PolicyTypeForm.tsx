@@ -2,13 +2,13 @@ import { Form, Input, Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { PolicyMode, PolicyType } from '@types';
+import { PolicyEffect, PolicyType } from '@types';
 
 type Props = {
     policyType: string;
     setPolicyType: (type: PolicyType) => void;
-    policyMode: PolicyMode;
-    setPolicyMode: (mode: PolicyMode) => void;
+    policyEffect: PolicyEffect;
+    setPolicyEffect: (effect: PolicyEffect) => void;
     policyName: string;
     setPolicyName: (name: string) => void;
     policyDescription: string;
@@ -30,8 +30,8 @@ const TypeDescriptionParagraph = styled(Typography.Paragraph)`
 export default function PolicyTypeForm({
     policyType,
     setPolicyType,
-    policyMode,
-    setPolicyMode,
+    policyEffect,
+    setPolicyEffect,
     policyName,
     setPolicyName,
     policyDescription,
@@ -76,17 +76,17 @@ export default function PolicyTypeForm({
                     Dashboards, & more.
                 </TypeDescriptionParagraph>
             </Form.Item>
-            <Form.Item name="policyMode" label={<Typography.Text strong>Mode</Typography.Text>}>
+            <Form.Item name="policyEffect" label={<Typography.Text strong>Effect</Typography.Text>}>
                 <Typography.Paragraph>Whether this policy grants or denies access.</Typography.Paragraph>
                 <Select
-                    data-testid="policy-mode"
-                    value={policyMode}
-                    onSelect={(value) => setPolicyMode(value as PolicyMode)}
+                    data-testid="policy-effect"
+                    value={policyEffect}
+                    onSelect={(value) => setPolicyEffect(value as PolicyEffect)}
                 >
-                    <Select.Option data-testid="allow" value={PolicyMode.Allow}>
+                    <Select.Option data-testid="allow" value={PolicyEffect.Allow}>
                         Allow
                     </Select.Option>
-                    <Select.Option data-testid="deny" value={PolicyMode.Deny}>
+                    <Select.Option data-testid="deny" value={PolicyEffect.Deny}>
                         Deny
                     </Select.Option>
                 </Select>

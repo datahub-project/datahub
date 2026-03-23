@@ -169,7 +169,7 @@ public class PolicyEngine {
     PolicyEvaluationContext context = new PolicyEvaluationContext();
     for (DataHubPolicyInfo policy : policies) {
       // Only consider ALLOW policies for granted privileges (deny policies don't grant access)
-      if (PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode())) {
+      if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
         continue;
       }
       PolicyEvaluationResult result =

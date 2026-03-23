@@ -2,8 +2,8 @@ package com.datahub.authorization;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
-import static com.linkedin.metadata.authorization.PoliciesConfig.ALLOW_POLICY_MODE;
-import static com.linkedin.metadata.authorization.PoliciesConfig.DENY_POLICY_MODE;
+import static com.linkedin.metadata.authorization.PoliciesConfig.ALLOW_POLICY_EFFECT;
+import static com.linkedin.metadata.authorization.PoliciesConfig.DENY_POLICY_EFFECT;
 import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -1093,7 +1093,7 @@ public class DataHubAuthorizerTest {
       DataHubActorFilter actorFilter)
       throws Exception {
     return createDataHubPolicyInfoFor(
-        active, privileges, domain, container, actorFilter, ALLOW_POLICY_MODE);
+        active, privileges, domain, container, actorFilter, ALLOW_POLICY_EFFECT);
   }
 
   private DataHubPolicyInfo createDataHubPolicyInfoFor(
@@ -1107,7 +1107,7 @@ public class DataHubAuthorizerTest {
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
     dataHubPolicyInfo.setState(active ? ACTIVE_POLICY_STATE : INACTIVE_POLICY_STATE);
-    dataHubPolicyInfo.setMode(mode);
+    dataHubPolicyInfo.setEffect(mode);
     dataHubPolicyInfo.setPrivileges(new StringArray(privileges));
     dataHubPolicyInfo.setDisplayName("My Test Display");
     dataHubPolicyInfo.setDescription("My test display!");
@@ -1246,11 +1246,11 @@ public class DataHubAuthorizerTest {
     final DataHubActorFilter actorFilter = new DataHubActorFilter();
     actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
     final DataHubPolicyInfo allowPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_EFFECT);
 
     // Create a DENY policy for the same user and privilege
     final DataHubPolicyInfo denyPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
 
     // Add both policies to the authorizer
     _dataHubAuthorizer.policyCache.put(
@@ -1279,7 +1279,7 @@ public class DataHubAuthorizerTest {
     final DataHubActorFilter actorFilter = new DataHubActorFilter();
     actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
     final DataHubPolicyInfo allowPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
 
@@ -1305,9 +1305,9 @@ public class DataHubAuthorizerTest {
     actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
 
     final DataHubPolicyInfo allowPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_EFFECT);
     final DataHubPolicyInfo denyPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
 
     // Test with DENY policy first
     _dataHubAuthorizer.policyCache.put(
@@ -1349,9 +1349,9 @@ public class DataHubAuthorizerTest {
 
     // Create DENY policies for both users
     final DataHubPolicyInfo denyPolicy1 =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter1, DENY_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter1, DENY_POLICY_EFFECT);
     final DataHubPolicyInfo denyPolicy2 =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter2, DENY_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter2, DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put(
         "EDIT_ENTITY_TAGS", ImmutableList.of(denyPolicy1, denyPolicy2));
@@ -1394,13 +1394,14 @@ public class DataHubAuthorizerTest {
     allowActorFilter.setAllUsers(true);
     final DataHubPolicyInfo allowPolicy =
         createDataHubPolicyInfoFor(
-            true, privileges, null, null, allowActorFilter, ALLOW_POLICY_MODE);
+            true, privileges, null, null, allowActorFilter, ALLOW_POLICY_EFFECT);
 
     // Create DENY policy for specific user
     final DataHubActorFilter denyActorFilter = new DataHubActorFilter();
     denyActorFilter.setUsers(new UrnArray(ImmutableList.of(deniedUser)));
     final DataHubPolicyInfo denyPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, denyActorFilter, DENY_POLICY_MODE);
+        createDataHubPolicyInfoFor(
+            true, privileges, null, null, denyActorFilter, DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put(
         "EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy, denyPolicy));
@@ -1437,7 +1438,12 @@ public class DataHubAuthorizerTest {
 
     final DataHubPolicyInfo allowPolicy =
         createDataHubPolicyInfoFor(
-            true, ImmutableList.of("EDIT_ENTITY_TAGS"), null, null, actorFilter, ALLOW_POLICY_MODE);
+            true,
+            ImmutableList.of("EDIT_ENTITY_TAGS"),
+            null,
+            null,
+            actorFilter,
+            ALLOW_POLICY_EFFECT);
     final DataHubPolicyInfo denyPolicy =
         createDataHubPolicyInfoFor(
             true,
@@ -1445,7 +1451,7 @@ public class DataHubAuthorizerTest {
             null,
             null,
             actorFilter,
-            DENY_POLICY_MODE);
+            DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put("ALL", ImmutableList.of(allowPolicy, denyPolicy));
 
@@ -1473,9 +1479,10 @@ public class DataHubAuthorizerTest {
 
     final DataHubPolicyInfo allowPolicy =
         createDataHubPolicyInfoFor(
-            true, privileges, null, null, allowActorFilter, ALLOW_POLICY_MODE);
+            true, privileges, null, null, allowActorFilter, ALLOW_POLICY_EFFECT);
     final DataHubPolicyInfo denyPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, denyActorFilter, DENY_POLICY_MODE);
+        createDataHubPolicyInfoFor(
+            true, privileges, null, null, denyActorFilter, DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put(
         "EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy, denyPolicy));
@@ -1499,10 +1506,10 @@ public class DataHubAuthorizerTest {
     actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
 
     final DataHubPolicyInfo allowPolicy =
-        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_MODE);
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_EFFECT);
     // Create inactive DENY policy
     final DataHubPolicyInfo inactiveDenyPolicy =
-        createDataHubPolicyInfoFor(false, privileges, null, null, actorFilter, DENY_POLICY_MODE);
+        createDataHubPolicyInfoFor(false, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put(
         "EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy, inactiveDenyPolicy));

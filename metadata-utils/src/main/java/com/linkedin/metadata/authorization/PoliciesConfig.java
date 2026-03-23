@@ -34,8 +34,8 @@ public class PoliciesConfig {
   public static final String METADATA_POLICY_TYPE = "METADATA";
   public static final String ACTIVE_POLICY_STATE = "ACTIVE";
   public static final String INACTIVE_POLICY_STATE = "INACTIVE";
-  public static final String ALLOW_POLICY_MODE = "ALLOW";
-  public static final String DENY_POLICY_MODE = "DENY";
+  public static final String ALLOW_POLICY_EFFECT = "ALLOW";
+  public static final String DENY_POLICY_EFFECT = "DENY";
 
   // Platform Privileges //
 
@@ -1356,7 +1356,7 @@ public class PoliciesConfig {
                         .collect(Collectors.toCollection(StringArray::new)))
                 .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                 .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                .setMode(PoliciesConfig.ALLOW_POLICY_MODE)
+                .setEffect(PoliciesConfig.ALLOW_POLICY_EFFECT)
                 .setEditable(false)
                 .setResources(
                     new DataHubResourceFilter()

@@ -125,11 +125,11 @@ public class DataHubAuthorizer implements Authorizer {
     // 2. Separate policies into DENY and ALLOW groups. DENY policies take precedence.
     final List<DataHubPolicyInfo> denyPolicies =
         policiesToEvaluate.stream()
-            .filter(policy -> PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode()))
+            .filter(policy -> PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect()))
             .collect(Collectors.toList());
     final List<DataHubPolicyInfo> allowPolicies =
         policiesToEvaluate.stream()
-            .filter(policy -> !PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode()))
+            .filter(policy -> !PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect()))
             .collect(Collectors.toList());
 
     // 3. Evaluate DENY policies first - if any deny policy matches, deny immediately.
@@ -251,7 +251,7 @@ public class DataHubAuthorizer implements Authorizer {
       }
 
       // Only consider ALLOW policies for authorized actors (deny policies don't grant access)
-      if (PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode())) {
+      if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
         continue;
       }
 

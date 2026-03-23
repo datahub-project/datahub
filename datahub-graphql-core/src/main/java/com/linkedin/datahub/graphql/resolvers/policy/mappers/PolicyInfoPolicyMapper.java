@@ -5,11 +5,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.Policy;
+import com.linkedin.datahub.graphql.generated.PolicyEffect;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.PolicyMatchFilter;
-import com.linkedin.datahub.graphql.generated.PolicyMode;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
@@ -43,9 +43,9 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     // Careful - we assume no other Policy types or states have been ingested using a backdoor.
     result.setType(PolicyType.valueOf(info.getType()));
     result.setState(PolicyState.valueOf(info.getState()));
-    // Set mode with default value of ALLOW if not set
-    String mode = info.hasMode() ? info.getMode() : "ALLOW";
-    result.setMode(PolicyMode.valueOf(mode));
+    // Set effect with default value of ALLOW if not set
+    String effect = info.hasEffect() ? info.getEffect() : "ALLOW";
+    result.setEffect(PolicyEffect.valueOf(effect));
     result.setName(info.getDisplayName()); // Rebrand to 'name'
     result.setPrivileges(info.getPrivileges());
     result.setActors(mapActors(info.getActors()));

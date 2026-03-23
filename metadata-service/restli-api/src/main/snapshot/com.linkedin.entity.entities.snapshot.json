@@ -5668,9 +5668,9 @@
                       "fieldType" : "KEYWORD"
                     }
                   }, {
-                    "name" : "mode",
+                    "name" : "effect",
                     "type" : "string",
-                    "doc" : "The mode of the policy, ALLOW or DENY. Defaults to ALLOW for backwards compatibility.\nDENY policies take precedence over ALLOW policies.",
+                    "doc" : "The effect of the policy, ALLOW or DENY. Defaults to ALLOW for backwards compatibility.\nDENY policies take precedence over ALLOW policies.",
                     "default" : "ALLOW",
                     "optional" : true,
                     "Searchable" : {

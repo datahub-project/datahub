@@ -9636,9 +9636,9 @@ input PolicyUpdateInput {
   state: PolicyState!
 
   """
-  The Policy mode - whether it grants or denies access (defaults to ALLOW)
+  The Policy effect - whether it grants or denies access (defaults to ALLOW)
   """
-  mode: PolicyMode
+  effect: PolicyEffect
 
   """
   A Policy description
@@ -9758,9 +9758,9 @@ enum PolicyState {
 }
 
 """
-The mode of an Access Policy - determines whether it grants or denies access
+The effect of an Access Policy - determines whether it grants or denies access
 """
-enum PolicyMode {
+enum PolicyEffect {
   """
   A Policy that grants access when matched
   """
@@ -9799,9 +9799,9 @@ type Policy {
   state: PolicyState!
 
   """
-  The mode of the Policy - whether it grants or denies access
+  The effect of the Policy - whether it grants or denies access
   """
-  mode: PolicyMode!
+  effect: PolicyEffect!
 
   """
   The description of the Policy
@@ -9864,9 +9864,9 @@ type DataHubPolicy implements Entity {
   state: PolicyState!
 
   """
-  The mode of the Policy - whether it grants or denies access
+  The effect of the Policy - whether it grants or denies access
   """
-  mode: PolicyMode!
+  effect: PolicyEffect!
 
   """
   The description of the Policy

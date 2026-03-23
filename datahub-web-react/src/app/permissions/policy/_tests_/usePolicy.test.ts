@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react-hooks';
 
 import { usePolicy } from '@app/permissions/policy/usePolicy';
 
-import { PolicyMode, PolicyState, PolicyType } from '@types';
+import { PolicyEffect, PolicyState, PolicyType } from '@types';
 
 const mockReadQuery = vi.fn().mockReturnValue({
     listPolicies: { start: 0, count: 10, total: 0, policies: [] },
@@ -48,7 +48,7 @@ const denyPolicy = {
     type: PolicyType.Metadata,
     name: 'Deny Test Policy',
     state: PolicyState.Active,
-    mode: PolicyMode.Deny,
+    effect: PolicyEffect.Deny,
     description: 'Denies access',
     privileges: ['EDIT_ENTITY_TAGS'],
     resources: null,
@@ -58,14 +58,14 @@ const denyPolicy = {
 const allowPolicy = {
     ...denyPolicy,
     name: 'Allow Test Policy',
-    mode: PolicyMode.Allow,
+    effect: PolicyEffect.Allow,
 };
 
 function renderUsePolicy(focusPolicyUrn?: string) {
     return renderHook(() => usePolicy({}, focusPolicyUrn, vi.fn(), vi.fn(), vi.fn(), vi.fn()));
 }
 
-describe('usePolicy - mode handling in toPolicyInput', () => {
+describe('usePolicy - effect handling in toPolicyInput', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockReadQuery.mockReturnValue({
@@ -73,7 +73,7 @@ describe('usePolicy - mode handling in toPolicyInput', () => {
         });
     });
 
-    it('sends mode=DENY when creating a Deny policy', async () => {
+    it('sends effect=DENY when creating a Deny policy', async () => {
         const { result } = renderUsePolicy();
 
         await act(async () => {
@@ -83,13 +83,13 @@ describe('usePolicy - mode handling in toPolicyInput', () => {
         expect(mockCreatePolicy).toHaveBeenCalledWith(
             expect.objectContaining({
                 variables: expect.objectContaining({
-                    input: expect.objectContaining({ mode: PolicyMode.Deny }),
+                    input: expect.objectContaining({ effect: PolicyEffect.Deny }),
                 }),
             }),
         );
     });
 
-    it('sends mode=ALLOW when creating an Allow policy', async () => {
+    it('sends effect=ALLOW when creating an Allow policy', async () => {
         const { result } = renderUsePolicy();
 
         await act(async () => {
@@ -99,13 +99,13 @@ describe('usePolicy - mode handling in toPolicyInput', () => {
         expect(mockCreatePolicy).toHaveBeenCalledWith(
             expect.objectContaining({
                 variables: expect.objectContaining({
-                    input: expect.objectContaining({ mode: PolicyMode.Allow }),
+                    input: expect.objectContaining({ effect: PolicyEffect.Allow }),
                 }),
             }),
         );
     });
 
-    it('sends mode=DENY when updating an existing Deny policy', async () => {
+    it('sends effect=DENY when updating an existing Deny policy', async () => {
         const { result } = renderUsePolicy('urn:li:datahubPolicy:existing');
 
         await act(async () => {
@@ -116,24 +116,24 @@ describe('usePolicy - mode handling in toPolicyInput', () => {
             expect.objectContaining({
                 variables: expect.objectContaining({
                     urn: 'urn:li:datahubPolicy:existing',
-                    input: expect.objectContaining({ mode: PolicyMode.Deny }),
+                    input: expect.objectContaining({ effect: PolicyEffect.Deny }),
                 }),
             }),
         );
     });
 
-    it('defaults to mode=ALLOW when mode is undefined (backward-compat with pre-feature policies)', async () => {
-        const policyWithoutMode = { ...denyPolicy, mode: undefined as any };
+    it('defaults to effect=ALLOW when effect is undefined (backward-compat with pre-feature policies)', async () => {
+        const policyWithoutEffect = { ...denyPolicy, effect: undefined as any };
         const { result } = renderUsePolicy();
 
         await act(async () => {
-            result.current.onSavePolicy(policyWithoutMode);
+            result.current.onSavePolicy(policyWithoutEffect);
         });
 
         expect(mockCreatePolicy).toHaveBeenCalledWith(
             expect.objectContaining({
                 variables: expect.objectContaining({
-                    input: expect.objectContaining({ mode: PolicyMode.Allow }),
+                    input: expect.objectContaining({ effect: PolicyEffect.Allow }),
                 }),
             }),
         );

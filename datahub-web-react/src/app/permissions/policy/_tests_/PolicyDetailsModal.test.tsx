@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 
-import { EntityType, Policy, PolicyMatchCondition, PolicyMode, PolicyState, PolicyType } from '@types';
+import { EntityType, Policy, PolicyEffect, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
 // Mock the hooks
 vi.mock('@app/useEntityRegistry', () => ({
@@ -47,7 +47,7 @@ const mockPolicy: Omit<Policy, 'urn'> = {
     editable: true,
     description: 'A test policy',
     state: PolicyState.Active,
-    mode: PolicyMode.Allow,
+    effect: PolicyEffect.Allow,
     privileges: ['view'],
     resources: {
         filter: {
@@ -192,7 +192,7 @@ describe('PolicyDetailsModal', () => {
         expect(screen.getByText('Technical Owner')).toBeInTheDocument();
     });
 
-    it('displays Mode section with blue tag for Allow policy', () => {
+    it('displays Effect section with blue tag for Allow policy', () => {
         render(
             <BrowserRouter>
                 <PolicyDetailsModal
@@ -204,14 +204,14 @@ describe('PolicyDetailsModal', () => {
             </BrowserRouter>,
         );
 
-        expect(screen.getByText('Mode')).toBeInTheDocument();
-        const modeTag = screen.getByText(PolicyMode.Allow);
-        expect(modeTag).toBeInTheDocument();
-        expect(modeTag.closest('.ant-tag')).toHaveClass('ant-tag-blue');
+        expect(screen.getByText('Effect')).toBeInTheDocument();
+        const effectTag = screen.getByText(PolicyEffect.Allow);
+        expect(effectTag).toBeInTheDocument();
+        expect(effectTag.closest('.ant-tag')).toHaveClass('ant-tag-blue');
     });
 
-    it('displays Mode section with orange tag for Deny policy', () => {
-        const denyPolicy: Omit<Policy, 'urn'> = { ...mockPolicy, mode: PolicyMode.Deny };
+    it('displays Effect section with orange tag for Deny policy', () => {
+        const denyPolicy: Omit<Policy, 'urn'> = { ...mockPolicy, effect: PolicyEffect.Deny };
 
         render(
             <BrowserRouter>
@@ -224,9 +224,9 @@ describe('PolicyDetailsModal', () => {
             </BrowserRouter>,
         );
 
-        expect(screen.getByText('Mode')).toBeInTheDocument();
-        const modeTag = screen.getByText(PolicyMode.Deny);
-        expect(modeTag).toBeInTheDocument();
-        expect(modeTag.closest('.ant-tag')).toHaveClass('ant-tag-orange');
+        expect(screen.getByText('Effect')).toBeInTheDocument();
+        const effectTag = screen.getByText(PolicyEffect.Deny);
+        expect(effectTag).toBeInTheDocument();
+        expect(effectTag.closest('.ant-tag')).toHaveClass('ant-tag-orange');
     });
 });

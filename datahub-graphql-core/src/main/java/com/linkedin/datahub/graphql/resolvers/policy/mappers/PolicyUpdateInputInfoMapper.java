@@ -42,11 +42,11 @@ public class PolicyUpdateInputInfoMapper
     result.setPrivileges(new StringArray(policyInput.getPrivileges()));
     result.setActors(mapActors(policyInput.getActors()));
     result.setState(policyInput.getState().toString());
-    // Set mode with default value of ALLOW if not provided
-    if (policyInput.getMode() != null) {
-      result.setMode(policyInput.getMode().toString());
+    // Set effect with default value of ALLOW if not provided
+    if (policyInput.getEffect() != null) {
+      result.setEffect(policyInput.getEffect().toString());
     } else {
-      result.setMode("ALLOW");
+      result.setEffect("ALLOW");
     }
     if (policyInput.getResources() != null) {
       result.setResources(mapResources(policyInput.getResources()));

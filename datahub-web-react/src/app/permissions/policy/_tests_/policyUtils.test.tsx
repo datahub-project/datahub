@@ -8,7 +8,7 @@ import {
     updateListPoliciesCache,
 } from '@app/permissions/policy/policyUtils';
 
-import { PolicyMatchCondition, PolicyMode } from '@types';
+import { PolicyEffect, PolicyMatchCondition } from '@types';
 
 // Mock the Apollo Client readQuery and writeQuery methods
 const mockReadQuery = vi.fn();
@@ -23,8 +23,8 @@ vi.mock('@apollo/client', async () => ({
 }));
 
 describe('EMPTY_POLICY', () => {
-    it('defaults mode to Allow so new policies grant access by default', () => {
-        expect(EMPTY_POLICY.mode).toBe(PolicyMode.Allow);
+    it('defaults effect to Allow so new policies grant access by default', () => {
+        expect(EMPTY_POLICY.effect).toBe(PolicyEffect.Allow);
     });
 });
 

@@ -14,7 +14,7 @@ import {
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Maybe, Policy, PolicyMatchCondition, PolicyMode, PolicyState, PolicyType } from '@types';
+import { Maybe, Policy, PolicyEffect, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -72,7 +72,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
-    const isDenyPolicy = policy?.mode === PolicyMode.Deny;
+    const isDenyPolicy = policy?.effect === PolicyEffect.Deny;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
@@ -147,9 +147,9 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>Mode</Typography.Title>
+                    <Typography.Title level={5}>Effect</Typography.Title>
                     <ThinDivider />
-                    <Tag color={isDenyPolicy ? 'orange' : 'blue'}>{policy?.mode}</Tag>
+                    <Tag color={isDenyPolicy ? 'orange' : 'blue'}>{policy?.effect}</Tag>
                 </div>
                 <div>
                     <Typography.Title level={5}>Description</Typography.Title>
