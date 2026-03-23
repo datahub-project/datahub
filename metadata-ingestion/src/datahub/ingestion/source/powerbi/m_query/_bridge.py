@@ -37,7 +37,7 @@ class MQueryBridge:
         except ImportError as e:
             raise ImportError(
                 "PowerBI M-Query parsing requires 'mini-racer'. "
-                "Install it with: pip install 'mini-racer>=0.12.0'"
+                "Install it with: pip install 'acryl-datahub[powerbi]'"
             ) from e
 
         # Decompress bundle.js.gz in memory — fast (~50ms for 500KB) and happens once per process.
@@ -47,8 +47,20 @@ class MQueryBridge:
 
     def parse(self, expression: str) -> NodeIdMap:
         """
-        Parse an M-Query expression.
-        Returns nodeIdMap as dict[int, dict].
+        Parse an M-Query expression and return a flat node map.
+
+        Each key is a node ID (int); each value is a node dict with at least
+        ``kind`` (NodeKind string) and ``id``. Child nodes are embedded inline,
+        not as ID references, so you can walk them directly or look up any
+        node by ID via the returned map.
+
+        Example — the LetExpression root for ``let x = 1 in x`` is at the
+        root of the returned dict and looks roughly like::
+
+            {1: {"kind": "LetExpression", "id": 1, "variableList": {...}, ...},
+             2: {"kind": "ArrayWrapper", "id": 2, ...},
+             ...}
+
         Not thread-safe — callers must be single-threaded.
 
         Raises:
@@ -98,6 +110,7 @@ _bridge_instance: Optional[MQueryBridge] = None
 
 
 def get_bridge() -> MQueryBridge:
+    """Return the process-wide MQueryBridge, creating it on first call."""
     global _bridge_instance
     if _bridge_instance is None:
         _bridge_instance = MQueryBridge()
@@ -105,5 +118,10 @@ def get_bridge() -> MQueryBridge:
 
 
 def _clear_bridge() -> None:
+    """Drop the singleton so the next call to get_bridge() starts fresh.
+
+    Called after a V8 crash to avoid reusing a broken context, and in tests
+    to ensure each test module gets an isolated bridge.
+    """
     global _bridge_instance
     _bridge_instance = None

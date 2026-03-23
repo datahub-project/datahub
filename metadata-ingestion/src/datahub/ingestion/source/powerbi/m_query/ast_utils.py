@@ -39,10 +39,16 @@ def get_invoke_callee_name(node_map: NodeIdMap, invoke_node: dict) -> Optional[s
     """
     Resolve the callee name of an InvokeExpression.
 
-    In the powerquery-parser AST, a call like `Snowflake.Databases(...)` is
-    represented as a RecursivePrimaryExpression where:
-      - head: IdentifierExpression → identifier.literal = "Snowflake.Databases"
-      - recursiveExpressions: ArrayWrapper → elements = [InvokeExpression]
+    The powerquery-parser AST encodes ``Snowflake.Databases(...)`` as::
+
+        RecursivePrimaryExpression
+          head: IdentifierExpression  → identifier.literal = "Snowflake.Databases"
+          recursiveExpressions: ArrayWrapper
+            elements: [InvokeExpression ← this is the node passed in]
+
+    The function name lives on the *parent*, not the invoke node itself, so we
+    scan the flat map for a RecursivePrimaryExpression whose element list
+    contains this invoke node's ID.
 
     Returns None if the node is not an InvokeExpression or the callee cannot be resolved.
     """

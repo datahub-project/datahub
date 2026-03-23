@@ -49,7 +49,12 @@ def get_upstream_tables(
     config: PowerBiDashboardSourceConfig,
     parameters: Optional[Dict[str, str]] = None,
 ) -> List[Lineage]:
-    """Public API — signature unchanged from the Lark implementation."""
+    """Parse the M-Query expression on *table* and return upstream lineage.
+
+    Returns an empty list when the expression is absent, empty, a DAX
+    computed-table expression (no ``let`` keyword), or a NativeQuery that the
+    caller has opted out of (``native_query_parsing=False``).
+    """
     parameters = parameters or {}
 
     if table.expression is None:
