@@ -10,8 +10,9 @@ import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { useListRolesQuery } from '@graphql/role.generated';
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
-import { ActorFilter, CorpGroup, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
+import { ActorFilter, CorpGroup, CorpUser, DataHubRole, EntityType, PolicyType, SearchResult } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -97,6 +98,26 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         setActors({
             ...actors,
             resourceOwnersTypes: newResourceOwnersTypes?.length ? newResourceOwnersTypes : null,
+        });
+    };
+
+    // Fetch all roles for the roles selector.
+    const { data: rolesData } = useListRolesQuery({
+        variables: { input: { start: 0, count: 100 } },
+    });
+    const allRoles: DataHubRole[] = (rolesData?.listRoles?.roles as DataHubRole[]) || [];
+
+    const onSelectRoleActor = (newRole: string) => {
+        setActors({
+            ...actors,
+            roles: [...(actors.roles || []), newRole],
+        });
+    };
+
+    const onDeselectRoleActor = (role: string) => {
+        setActors({
+            ...actors,
+            roles: actors.roles?.filter((r) => r !== role),
         });
     };
 
@@ -239,9 +260,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Select dropdown values.
     const usersSelectUrns = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectUrns = actors.allGroups ? ['All'] : actors.groups || [];
+    const rolesSelectUrns = actors.roles || [];
     const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
     const usersSelectValues = actors.resolvedUsers?.filter((u) => usersSelectUrns.includes(u.urn)) || [];
     const groupsSelectValues = actors.resolvedGroups?.filter((g) => groupsSelectUrns.includes(g.urn)) || [];
+    const rolesMap = Object.fromEntries(allRoles.map((r) => [r.urn, r.name]));
 
     const onPreventMouseDown = (event) => {
         event.preventDefault();
@@ -380,6 +403,38 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
                     <Select.Option value="All">All Groups</Select.Option>
+                </Select>
+            </Form.Item>
+            <Form.Item label={<Typography.Text strong>Roles</Typography.Text>}>
+                <Typography.Paragraph>
+                    Select roles that this policy should apply to. Users and groups assigned any of these roles will
+                    receive the selected privileges.
+                </Typography.Paragraph>
+                <Select
+                    data-testid="roles"
+                    value={rolesSelectUrns}
+                    mode="multiple"
+                    placeholder="Select roles..."
+                    onSelect={(role: any) => onSelectRoleActor(role)}
+                    onDeselect={(role: any) => onDeselectRoleActor(role)}
+                    tagRender={(tagProps) => {
+                        const { closable, onClose, value } = tagProps;
+                        const handleClose = (event) => {
+                            onPreventMouseDown(event);
+                            onClose();
+                        };
+                        return (
+                            <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
+                                {rolesMap[value.toString()] || value}
+                            </StyledTag>
+                        );
+                    }}
+                >
+                    {allRoles.map((role) => (
+                        <Select.Option key={role.urn} value={role.urn}>
+                            {role.name}
+                        </Select.Option>
+                    ))}
                 </Select>
             </Form.Item>
         </ActorForm>

@@ -70,6 +70,11 @@ public class PolicyUpdateInputInfoMapper
           new UrnArray(
               actorInput.getUsers().stream().map(this::createUrn).collect(Collectors.toList())));
     }
+    if (actorInput.getRoles() != null) {
+      result.setRoles(
+          new UrnArray(
+              actorInput.getRoles().stream().map(this::createUrn).collect(Collectors.toList())));
+    }
     return result;
   }
 

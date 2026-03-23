@@ -76,6 +76,7 @@ export function usePolicy(
             actors: {
                 users: policy.actors.users,
                 groups: policy.actors.groups,
+                roles: policy.actors.roles,
                 allUsers: policy.actors.allUsers,
                 allGroups: policy.actors.allGroups,
                 resourceOwners: policy.actors.resourceOwners,

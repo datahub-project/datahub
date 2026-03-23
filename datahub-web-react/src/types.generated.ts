@@ -163,6 +163,8 @@ export type ActorFilterInput = {
   resourceOwners: Scalars['Boolean'];
   /** Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True) */
   resourceOwnersTypes?: Maybe<Array<Scalars['String']>>;
+  /** Roles to apply the policy to */
+  roles?: Maybe<Array<Scalars['String']>>;
   /** A disjunctive set of users to apply the policy to */
   users?: Maybe<Array<Scalars['String']>>;
 };

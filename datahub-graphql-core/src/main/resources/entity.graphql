@@ -10105,6 +10105,11 @@ input ActorFilterInput {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+
+  """
+  Roles to apply the policy to
+  """
+  roles: [String!]
 }
 
 """
