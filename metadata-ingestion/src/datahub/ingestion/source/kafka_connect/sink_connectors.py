@@ -349,14 +349,20 @@ class ClickHouseSinkConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> ClickHouseParser:
-        database: str = connector_manifest.config.get(CLICKHOUSE_DATABASE, "default")
+        database: str = connector_manifest.config.get(
+            ConnectorConfigKeys.CLICKHOUSE_DATABASE, "default"
+        )
 
         # Parse user-provided topic-to-table map (format: "topic1=table1,topic2=table2")
         provided_topics_to_tables: Dict[str, str] = {}
-        if connector_manifest.config.get(CLICKHOUSE_TOPIC2TABLE_MAP):
+        if connector_manifest.config.get(
+            ConnectorConfigKeys.CLICKHOUSE_TOPIC2TABLE_MAP
+        ):
             try:
                 mappings = parse_comma_separated_list(
-                    connector_manifest.config[CLICKHOUSE_TOPIC2TABLE_MAP]
+                    connector_manifest.config[
+                        ConnectorConfigKeys.CLICKHOUSE_TOPIC2TABLE_MAP
+                    ]
                 )
                 for mapping in mappings:
                     if "=" not in mapping:
@@ -426,7 +432,7 @@ class ClickHouseSinkConnector(BaseConnector):
         return {
             k: v
             for k, v in self.connector_manifest.config.items()
-            if k not in [CLICKHOUSE_PASSWORD]
+            if k not in [ConnectorConfigKeys.CLICKHOUSE_PASSWORD]
         }
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
