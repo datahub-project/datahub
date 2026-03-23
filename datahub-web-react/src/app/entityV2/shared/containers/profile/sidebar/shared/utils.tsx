@@ -1,7 +1,5 @@
 import moment from 'moment';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 import { CorpUser } from '@types';
 
 /**
@@ -13,8 +11,6 @@ export enum PopularityTier {
     TIER_3,
     TIER_4, // Least Popular
 }
-
-export const ACRYL_PLATFORM = 'DataHub Core';
 
 export enum ActionType {
     SHARE,
@@ -109,13 +105,15 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
     return status;
 };
 
-export function getRelativeTimeColor(time: number) {
+export type RelativeTimeStatus = 'green' | 'yellow' | 'red';
+
+export function getRelativeTimeStatus(time: number): RelativeTimeStatus {
     const relativeTime = moment(time);
     if (relativeTime.isAfter(moment().subtract(1, 'week'))) {
-        return `${REDESIGN_COLORS.GREEN_NORMAL}`;
+        return 'green';
     }
     if (relativeTime.isAfter(moment().subtract(1, 'month'))) {
-        return `${REDESIGN_COLORS.WARNING_YELLOW}`;
+        return 'yellow';
     }
-    return `${REDESIGN_COLORS.WARNING_RED}`;
+    return 'red';
 }

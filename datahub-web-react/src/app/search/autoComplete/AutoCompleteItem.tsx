@@ -11,7 +11,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, Entity, EntityType, Tag } from '@types';
 
-export const SuggestionContainer = styled.div`
+const SuggestionContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;

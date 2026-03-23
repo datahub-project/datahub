@@ -19,4 +19,4 @@ interface ConnectorRegistry {
 }
 
 // Export types for use in other files
-export type { ConnectorRegistry, PluginDetails, Capability };
+export type { ConnectorRegistry, PluginDetails };

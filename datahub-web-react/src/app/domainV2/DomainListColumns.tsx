@@ -5,8 +5,8 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import DomainItemMenu from '@app/domainV2/DomainItemMenu';
-import AvatarsGroup from '@app/shared/avatar/AvatarsGroup';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Maybe, Ownership } from '@types';
 
@@ -52,7 +52,7 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
 }
 
 export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
 
     if (!ownership) {
         return null;
@@ -62,9 +62,10 @@ export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
     if (!owners || owners.length === 0) {
         return null;
     }
+
     return (
         <AvatarGroupWrapper>
-            <AvatarsGroup size={24} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+            <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />
         </AvatarGroupWrapper>
     );
 }

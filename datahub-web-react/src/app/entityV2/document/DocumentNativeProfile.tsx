@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
@@ -56,8 +55,7 @@ const ContentCard = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
-    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once rgba(93, 102, 139, 0.2) is mapped
-    box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     height: 100%;
     overflow: hidden;
 `;

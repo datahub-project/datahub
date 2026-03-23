@@ -1,4 +1,3 @@
-import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     Assertion,
     AssertionResultType,
@@ -8,20 +7,8 @@ import {
     AssertionType,
     AuditStamp,
     DataPlatform,
-    EntityType,
     TagAssociation,
 } from '@src/types.generated';
-
-export type EntityStagedForAssertion = {
-    urn: string;
-    platform: DataPlatform;
-    entityType: EntityType;
-};
-
-export type AssertionBuilderSiblingOptions = {
-    title: string;
-    disabled?: boolean;
-} & Partial<EntityStagedForAssertion>;
 
 export type AssertionListFilter = {
     sortBy: string;
@@ -52,11 +39,6 @@ export type AssertionListTableRow = {
     status: AssertionRunStatus; // status;
     groupName?: string;
     name?: string;
-};
-
-export type AssertionGroupExtended = Omit<AssertionGroup, 'assertions'> & {
-    assertions: AssertionListTableRow[];
-    groupName?: JSX.Element;
 };
 
 export type AssertionStatusGroup = {

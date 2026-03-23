@@ -33,7 +33,6 @@ import {
     ENV,
     EXTRACT_OWNERS,
     EXTRACT_USAGE_HISTORY,
-    FieldType,
     FilterRecipeField,
     INCLUDE_LINEAGE,
     INCLUDE_TABLES,
@@ -360,28 +359,6 @@ interface RecipeFields {
         hasDynamicFields?: boolean;
     };
 }
-
-export const PLATFORM: RecipeField = {
-    name: 'platform',
-    label: 'Platform',
-    helper: 'Data Platform ID in DataHub',
-    tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
-    type: FieldType.TEXT,
-    fieldPath: 'platform',
-    placeholder: 'snowflake',
-    rules: [{ required: true, message: 'Platform is required' }],
-};
-
-export const DEFAULT_DB: RecipeField = {
-    name: 'default_db',
-    label: 'Default Database',
-    helper: 'Database for assets from connection',
-    tooltip: 'The Database associated with assets from the Looker connection.',
-    type: FieldType.TEXT,
-    fieldPath: 'default_db',
-    placeholder: 'default_db',
-    rules: [{ required: true, message: 'Default Database is required' }],
-};
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {

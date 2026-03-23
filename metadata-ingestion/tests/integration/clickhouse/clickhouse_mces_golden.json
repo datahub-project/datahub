@@ -2122,7 +2122,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1"
                 }
             ],
             "fineGrainedLineages": [
@@ -2137,7 +2137,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_DateTime\" AS \"col_DateTime\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2150,7 +2150,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_Int64\" AS \"col_Int64\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2163,7 +2163,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_Float64\" AS \"col_Float64\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2176,7 +2176,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_Decimal64\" AS \"col_Decimal64\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2189,7 +2189,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_String\" AS \"col_String\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1"
                 }
             ]
         }
@@ -2202,7 +2202,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2231,7 +2231,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2284,7 +2284,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2317,7 +2317,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc"
                 }
             ],
             "fineGrainedLineages": [
@@ -2332,7 +2332,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_DateTime\" AS \"col_DateTime\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2345,7 +2345,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_Int64\" AS \"col_Int64\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2358,7 +2358,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_Float64\" AS \"col_Float64\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2371,7 +2371,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_Decimal64\" AS \"col_Decimal64\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2384,7 +2384,7 @@
                     ],
                     "transformOperation": "COPY: \"test_data_types\".\"col_String\" AS \"col_String\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc"
                 }
             ]
         }
@@ -2397,7 +2397,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2426,7 +2426,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2479,7 +2479,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2512,7 +2512,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27"
                 }
             ],
             "fineGrainedLineages": [
@@ -2527,7 +2527,7 @@
                     ],
                     "transformOperation": "COPY: \"test_nested_data_types\".\"col_ArrayArrayInt\" AS \"col_ArrayArrayInt\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2540,7 +2540,7 @@
                     ],
                     "transformOperation": "COPY: \"test_nested_data_types\".\"col_LowCardinality\" AS \"col_LowCardinality\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2553,7 +2553,7 @@
                     ],
                     "transformOperation": "COPY: \"test_nested_data_types\".\"col_Nullable\" AS \"col_Nullable\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2566,7 +2566,7 @@
                     ],
                     "transformOperation": "COPY: \"test_nested_data_types\".\"col_Array_Nullable_String\" AS \"col_Array_Nullable_String\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2579,7 +2579,7 @@
                     ],
                     "transformOperation": "COPY: \"test_nested_data_types\".\"col_LowCardinality_Nullable_String\" AS \"col_LowCardinality_Nullable_String\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                    "query": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27"
                 }
             ]
         }
@@ -2592,7 +2592,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2621,7 +2621,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2674,7 +2674,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2690,7 +2690,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f60cb3140cf0174bbc306ed02fa51747696519208d5e9f2a8824b726ee8bdfb1",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2706,7 +2706,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_with_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_4a76e1ece07894814cb52b1e74a9094254baed6deb7392603cc7bf5caa2eaacc",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2722,7 +2722,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e2861ef93a936cbeb8a398a9d7a65f585fa98257360c5f8cde8a458b26d9db27",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2755,7 +2755,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.test_view%2CPROD%29"
+                    "query": "urn:li:query:view_c55660dca32f65491b0fe744082478ec28fffa8fac47a9e030a359b2805ec4d0"
                 }
             ]
         }
@@ -2768,7 +2768,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c55660dca32f65491b0fe744082478ec28fffa8fac47a9e030a359b2805ec4d0",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2797,7 +2797,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c55660dca32f65491b0fe744082478ec28fffa8fac47a9e030a359b2805ec4d0",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2823,7 +2823,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c55660dca32f65491b0fe744082478ec28fffa8fac47a9e030a359b2805ec4d0",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2839,7 +2839,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c55660dca32f65491b0fe744082478ec28fffa8fac47a9e030a359b2805ec4d0",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

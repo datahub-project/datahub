@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entity/shared/EntityContext';
 import { stripSiblingsFromEntity } from '@app/entity/shared/siblingUtils';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
@@ -21,7 +20,7 @@ const EntityListContainer = styled.div`
     flex-wrap: wrap;
 
     margin-left: -8px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const AndMoreWrapper = styled.div`
@@ -29,7 +28,7 @@ const AndMoreWrapper = styled.div`
     margin-top: 5px;
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 
@@ -74,8 +73,6 @@ export const SidebarSiblingsSection = () => {
         return <></>;
     }
 
-    // you are always going to be in the sibling group, so if the sibling group is just you do not render.
-    // The less than case is likely not neccessary but just there as a safety case for unexpected scenarios
     if (!showSeparateSiblings && allSiblingsInGroupThatExist.length <= 1) {
         return <></>;
     }
