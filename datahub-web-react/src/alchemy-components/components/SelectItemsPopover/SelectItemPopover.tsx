@@ -1,7 +1,6 @@
 import '@components/components/SelectItemsPopover/select-items-popover.less';
 
-import { Popover } from 'antd';
-import { CheckboxValueType } from 'antd/lib/checkbox/Group';
+import { Popover } from '@components';
 import React, { ReactNode } from 'react';
 
 import { SelectItems } from '@components/components/SelectItemsPopover/SelectItems';
@@ -15,13 +14,13 @@ export type SelectItemPopoverProps = {
     onVisibleChange: (isOpen: boolean) => void;
     refetch?: () => void;
     onClose?: () => void;
-    entityType: EntityType;
+    entityTypes: EntityType[];
     handleSelectionChange: ({
         selectedItems,
         removedItems,
     }: {
-        selectedItems: CheckboxValueType[];
-        removedItems: CheckboxValueType[];
+        selectedItems: string[];
+        removedItems: string[];
     }) => void;
     renderOption?: (option: { value: string; label: ReactNode | string; item?: any }) => React.ReactNode;
     children: React.ReactNode;
@@ -34,7 +33,7 @@ export const SelectItemPopover = ({
     selectedItems,
     refetch,
     onClose,
-    entityType,
+    entityTypes,
     handleSelectionChange,
     renderOption,
     children,
@@ -52,7 +51,7 @@ export const SelectItemPopover = ({
                     selectedItems={selectedItems}
                     refetch={refetch}
                     onClose={onClose}
-                    entityType={entityType}
+                    entityTypes={entityTypes}
                     handleSelectionChange={handleSelectionChange}
                     renderOption={renderOption}
                 />

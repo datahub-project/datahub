@@ -1,40 +1,15 @@
-import { CopyOutlined, DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, MenuProps, Popconfirm, Typography, message, notification } from 'antd';
+import { Button, toast } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
-import styled from 'styled-components/macro';
+
+import { Menu } from '@components/components/Menu';
+import { ItemType } from '@components/components/Menu/types';
 
 import { useDeleteOwnershipTypeMutation } from '@graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@types';
-
-const DROPDOWN_TEST_ID = 'ownership-table-dropdown';
-const EDIT_OWNERSHIP_TYPE_TEST_ID = 'edit-ownership-type';
-const DELETE_OWNERSHIP_TYPE_TEST_ID = 'delete-ownership-type';
-
-const StyledDropdown = styled(Dropdown)``;
-
-const MenuButtonContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-`;
-
-const MenuButtonText = styled(Typography.Text)`
-    font-size: 14px;
-    font-weight: 400;
-    margin-left: 8px;
-`;
-
-const StyledMoreOutlined = styled(MoreOutlined)`
-    width: 20px;
-    &&& {
-        padding-left: 0px;
-        padding-right: 0px;
-        font-size: 18px;
-    }
-    :hover {
-        cursor: pointer;
-    }
-`;
 
 type Props = {
     ownershipType: OwnershipTypeEntity;
@@ -44,7 +19,9 @@ type Props = {
 };
 
 export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refetch }: Props) => {
-    const editOnClick = () => {
+    const [deleteOwnershipTypeMutation] = useDeleteOwnershipTypeMutation();
+
+    const onEdit = () => {
         setIsOpen(true);
         setOwnershipType(ownershipType);
     };
@@ -53,8 +30,6 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         navigator.clipboard.writeText(ownershipType.urn);
     };
 
-    const [deleteOwnershipTypeMutation] = useDeleteOwnershipTypeMutation();
-
     const onDelete = () => {
         deleteOwnershipTypeMutation({
             variables: {
@@ -62,83 +37,51 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
             },
         })
             .then(() => {
-                notification.success({
-                    message: `Success`,
-                    description: 'You have deleted an ownership type.',
-                    placement: 'bottomLeft',
-                    duration: 3,
-                });
+                toast.success('Successfully deleted ownership type.');
                 setTimeout(() => {
                     refetch();
                 }, 3000);
             })
-            .catch((e: unknown) => {
-                message.destroy();
-                if (e instanceof Error) {
-                    message.error({
-                        content: `Failed to delete an ownership type`,
-                        duration: 3,
-                    });
-                }
+            .catch(() => {
+                toast.error('Failed to delete ownership type');
             });
     };
 
-    const items: MenuProps['items'] = [
+    const menuItems: ItemType[] = [
         {
+            type: 'item',
             key: 'edit',
-            icon: (
-                <MenuButtonContainer data-testid={EDIT_OWNERSHIP_TYPE_TEST_ID}>
-                    <EditOutlined />
-                    <MenuButtonText>Edit</MenuButtonText>
-                </MenuButtonContainer>
-            ),
+            title: 'Edit',
+            icon: PencilSimple,
+            onClick: onEdit,
         },
         {
-            key: 'delete',
-            icon: (
-                <Popconfirm
-                    title={<Typography.Text>Are you sure you want to delete this ownership type?</Typography.Text>}
-                    placement="left"
-                    onCancel={() => {}}
-                    onConfirm={onDelete}
-                    okText="Yes"
-                    cancelText="No"
-                >
-                    <MenuButtonContainer data-testid={DELETE_OWNERSHIP_TYPE_TEST_ID}>
-                        <DeleteOutlined />
-                        <MenuButtonText>Delete</MenuButtonText>
-                    </MenuButtonContainer>
-                </Popconfirm>
-            ),
-        },
-        {
+            type: 'item',
             key: 'copy',
-            icon: (
-                <MenuButtonContainer>
-                    <CopyOutlined />
-                    <MenuButtonText>Copy Urn</MenuButtonText>
-                </MenuButtonContainer>
-            ),
+            title: 'Copy Urn',
+            icon: Copy,
+            onClick: onCopy,
+        },
+        {
+            type: 'item',
+            key: 'delete',
+            title: 'Delete',
+            icon: Trash,
+            onClick: onDelete,
+            danger: true,
         },
     ];
 
-    const onClick: MenuProps['onClick'] = (e) => {
-        const key = e.key as string;
-        if (key === 'edit') {
-            editOnClick();
-        } else if (key === 'copy') {
-            onCopy();
-        }
-    };
-
-    const menuProps: MenuProps = {
-        items,
-        onClick,
-    };
-
     return (
-        <StyledDropdown menu={menuProps}>
-            <StyledMoreOutlined data-testid={DROPDOWN_TEST_ID} style={{ display: undefined }} />
-        </StyledDropdown>
+        <Menu items={menuItems}>
+            <Button
+                variant="text"
+                icon={{ icon: DotsThreeVertical, weight: 'bold', size: '2xl', color: 'gray' }}
+                size="lg"
+                isCircle
+                data-testid="ownership-table-dropdown"
+                style={{ background: 'none', border: 'none', boxShadow: 'none' }}
+            />
+        </Menu>
     );
 };

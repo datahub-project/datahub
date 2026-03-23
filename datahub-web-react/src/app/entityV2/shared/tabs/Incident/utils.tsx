@@ -126,10 +126,10 @@ const orderedIncidents = (priorityIncidentGroups) => {
     return newOrderedIncidents;
 };
 
-export const getIncidentType = (incident: Incident) =>
+const getIncidentType = (incident: Incident) =>
     incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
 
-export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupBy => {
+const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupBy => {
     // Pre-sort the list of incidents based on which has been most recently created.
     incidents?.sort((a, b) => a?.created?.time - b?.created?.time);
 

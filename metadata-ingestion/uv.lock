@@ -40,7 +40,6 @@ dependencies = [
     { name = "progressbar2" },
     { name = "psutil" },
     { name = "pydantic" },
-    { name = "pydantic-core" },
     { name = "python-dateutil" },
     { name = "python-json-logger" },
     { name = "pyyaml" },
@@ -640,7 +639,6 @@ dev = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pydantic" },
-    { name = "pydantic-core" },
     { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy", "zstandard"] },
@@ -833,7 +831,6 @@ docs = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pydantic" },
-    { name = "pydantic-core" },
     { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy", "zstandard"] },
@@ -2421,9 +2418,6 @@ requires-dist = [
     { name = "ijson", specifier = "<4.0.0" },
     { name = "ijson", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "ijson", marker = "extra == 'docs'", specifier = "<4.0.0" },
-    { name = "importlib-metadata", marker = "python_full_version < '3.10'", specifier = ">=4.0.0,<9.0.0" },
-    { name = "importlib-metadata", marker = "python_full_version < '3.10' and extra == 'dev'", specifier = ">=4.0.0,<9.0.0" },
-    { name = "importlib-metadata", marker = "python_full_version < '3.10' and extra == 'docs'", specifier = ">=4.0.0,<9.0.0" },
     { name = "ipython", marker = "extra == 'all'", specifier = "!=8.22.0,<9.0.0" },
     { name = "ipython", marker = "extra == 'athena'", specifier = "!=8.22.0,<9.0.0" },
     { name = "ipython", marker = "extra == 'bigquery'", specifier = "!=8.22.0,<9.0.0" },
@@ -2578,15 +2572,15 @@ requires-dist = [
     { name = "more-itertools", marker = "extra == 'powerbi'", specifier = "<11.0.0" },
     { name = "more-itertools", marker = "extra == 's3'", specifier = ">=8.12.0,<11.0.0" },
     { name = "more-itertools", marker = "extra == 's3-slim'", specifier = ">=8.12.0,<11.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 'all'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 'delta-lake'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 'dev'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 'docs'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 'gcs'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 'gcs-slim'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 'integration-tests'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 's3'", specifier = "<5.0.0" },
-    { name = "moto", extras = ["s3"], marker = "extra == 's3-slim'", specifier = "<5.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 'all'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 'delta-lake'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 'dev'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 'docs'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 'gcs'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 'gcs-slim'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 'integration-tests'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 's3'", specifier = ">=5.0.0,<6.0.0" },
+    { name = "moto", extras = ["s3"], marker = "extra == 's3-slim'", specifier = ">=5.0.0,<6.0.0" },
     { name = "msal", marker = "extra == 'all'", specifier = ">=1.31.1,<2.0.0" },
     { name = "msal", marker = "extra == 'dev'", specifier = ">=1.31.1,<2.0.0" },
     { name = "msal", marker = "extra == 'docs'", specifier = ">=1.31.1,<2.0.0" },
@@ -2839,9 +2833,6 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'docs'", specifier = ">=2.4.0,<2.12" },
     { name = "pydantic", marker = "extra == 'iceberg'", specifier = "<2.12" },
     { name = "pydantic", marker = "extra == 'integration-tests'", specifier = "<2.12" },
-    { name = "pydantic-core", specifier = "!=2.41.3,<3.0.0" },
-    { name = "pydantic-core", marker = "extra == 'dev'", specifier = "!=2.41.3,<3.0.0" },
-    { name = "pydantic-core", marker = "extra == 'docs'", specifier = "!=2.41.3,<3.0.0" },
     { name = "pydeequ", marker = "extra == 'abs'", specifier = ">=1.1.0,<2.0.0" },
     { name = "pydeequ", marker = "extra == 'all'", specifier = ">=1.1.0,<2.0.0" },
     { name = "pydeequ", marker = "extra == 'delta-lake'", specifier = ">=1.1.0,<2.0.0" },
@@ -8524,7 +8515,7 @@ wheels = [
 
 [[package]]
 name = "moto"
-version = "4.2.14"
+version = "5.1.22"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -8537,9 +8528,9 @@ dependencies = [
     { name = "werkzeug" },
     { name = "xmltodict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f8/b2/06671ae921e7c7ebf18a20a6218fb55e83c3784b026eaf3d5670f9315924/moto-4.2.14.tar.gz", hash = "sha256:8f9263ca70b646f091edcc93e97cda864a542e6d16ed04066b1370ed217bd190", size = 4933741, upload-time = "2024-01-27T12:34:45.795Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/3d/1765accbf753dc1ae52f26a2e2ed2881d78c2eb9322c178e45312472e4a0/moto-5.1.22.tar.gz", hash = "sha256:e5b2c378296e4da50ce5a3c355a1743c8d6d396ea41122f5bb2a40f9b9a8cc0e", size = 8547792, upload-time = "2026-03-08T21:06:43.731Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/0f/ef410e6660d381e04cb6f33065d03b3aefd3444d558fcdd41ef235a1802c/moto-4.2.14-py2.py3-none-any.whl", hash = "sha256:6d242dbbabe925bb385ddb6958449e5c827670b13b8e153ed63f91dbdb50372c", size = 3312702, upload-time = "2024-01-27T12:34:36.602Z" },
+    { url = "https://files.pythonhosted.org/packages/46/4f/8812a01e3e0bd6be3e13b90432fb5c696af9a720af3f00e6eba5ad748345/moto-5.1.22-py3-none-any.whl", hash = "sha256:d9f20ae3cf29c44f93c1f8f06c8f48d5560e5dc027816ef1d0d2059741ffcfbe", size = 6617400, upload-time = "2026-03-08T21:06:41.093Z" },
 ]
 
 [package.optional-dependencies]
@@ -9882,11 +9873,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/83/b7/a0d688f86c869073c
 
 [[package]]
 name = "py-partiql-parser"
-version = "0.5.0"
+version = "0.6.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e9/80/47fab55e0c82c447ed2b5b484f4ae6a6c306365f16c4fd578fda56c93468/py-partiql-parser-0.5.0.tar.gz", hash = "sha256:427a662e87d51a0a50150fc8b75c9ebb4a52d49129684856c40c88b8c8e027e4", size = 25850, upload-time = "2023-12-17T00:08:11.895Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/7a/a0f6bda783eb4df8e3dfd55973a1ac6d368a89178c300e1b5b91cd181e5e/py_partiql_parser-0.6.3.tar.gz", hash = "sha256:09cecf916ce6e3da2c050f0cb6106166de42c33d34a078ec2eb19377ea70389a", size = 17456, upload-time = "2025-10-18T13:56:13.441Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/43/5d/e87d4f895af6eff98b0db75f4c7cbb61b58dde9f5bd52682dfe58639fc79/py_partiql_parser-0.5.0-py3-none-any.whl", hash = "sha256:dc454c27526adf62deca5177ea997bf41fac4fd109c5d4c8d81f984de738ba8f", size = 23016, upload-time = "2023-12-17T00:08:10.128Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/33/a7cbfccc39056a5cf8126b7aab4c8bafbedd4f0ca68ae40ecb627a2d2cd3/py_partiql_parser-0.6.3-py2.py3-none-any.whl", hash = "sha256:deb0769c3346179d2f590dcbde556f708cdb929059fb654bad75f4cf6e07f582", size = 23752, upload-time = "2025-10-18T13:56:12.256Z" },
 ]
 
 [[package]]

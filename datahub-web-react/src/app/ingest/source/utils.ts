@@ -46,15 +46,13 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
 export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
-export const WARNING = 'WARNING';
 export const FAILURE = 'FAILURE';
-export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
-export const CANCELLED = 'CANCELLED';
-export const ABORTED = 'ABORTED';
-export const UP_FOR_RETRY = 'UP_FOR_RETRY';
+const CANCELLED = 'CANCELLED';
+const ABORTED = 'ABORTED';
+const UP_FOR_RETRY = 'UP_FOR_RETRY';
 export const ROLLING_BACK = 'ROLLING_BACK';
-export const ROLLED_BACK = 'ROLLED_BACK';
-export const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
+const ROLLED_BACK = 'ROLLED_BACK';
+const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
 
 export const CLI_EXECUTOR_ID = '__datahub_cli_';
 export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
@@ -394,7 +392,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dashboard.toLowerCase(),
 ]);
 
-export type EntityTypeCount = {
+type EntityTypeCount = {
     count: number;
     displayName: string;
 };

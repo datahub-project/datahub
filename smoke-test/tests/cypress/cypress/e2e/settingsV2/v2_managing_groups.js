@@ -6,7 +6,6 @@ const group_name = `Test group ${test_id}`;
 
 describe("create and manage group", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
@@ -78,54 +77,24 @@ describe("create and manage group", () => {
       }
     });
 
-    // Look for the Add Member button (it should be visible regardless of existing members)
     cy.get("button", { timeout: 10000 })
       .contains("Add Member")
       .should("be.visible")
       .click();
-    // Wait for the modal to appear and ensure it's fully loaded
     cy.get('[role="dialog"]', { timeout: 10000 }).should("be.visible");
-
-    // Try multiple approaches to interact with the user search dropdown
-    cy.get("body").then(($body) => {
-      // First try to find the ant-select component directly
-      if ($body.find(".ant-select:not(.ant-select-disabled)").length > 0) {
-        cy.get(".ant-select:not(.ant-select-disabled)")
-          .first()
-          .click({ force: true });
-      } else {
-        // Fallback: try to find the search input or placeholder
-        cy.get('[role="dialog"]').within(() => {
-          cy.get(
-            '.ant-select-selector, .ant-select-selection-search-input, [placeholder*="user"]',
-          )
-            .first()
-            .click({ force: true });
-        });
-      }
-    });
-
-    // Type the username into the search field (ensure we get only the visible one in the dialog)
-    cy.get('[role="dialog"]').within(() => {
-      cy.get('.ant-select-selection-search-input, input[role="combobox"]')
-        .first()
-        .should("be.visible")
-        .type(username, { force: true });
-    });
-
-    // Wait for search results and select the user
-    cy.get(".ant-select-item-option", { timeout: 10000 })
-      .contains(username)
+    cy.get('[data-testid="add-members-select"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
+    cy.get('[data-testid="add-members-select-base"]', { timeout: 10000 })
+      .should("exist")
+      .click({ force: true });
+    cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
       .should("be.visible")
-      .click();
-
-    // Wait for dropdown to close and verify the user was selected
+      .type(username);
+    cy.get('[data-testid="add-members-select-dropdown"]', { timeout: 10000 })
+      .contains(username)
+      .click({ force: true });
     cy.get('[role="dialog"]').within(() => {
-      // Wait for the dropdown to close
-      cy.get(".ant-select-dropdown", { timeout: 5000 }).should("not.exist");
-      // Verify the user was selected
-      cy.contains(username).should("be.visible");
-      // Click the Add button with force to handle any lingering overlay issues
       cy.get("button").contains("Add").click({ force: true });
     });
     cy.waitTextVisible("Group members added!");
@@ -145,7 +114,7 @@ describe("create and manage group", () => {
       .click();
     cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
     cy.clickOptionWithSpecificClass(".ant-typography", 0);
-    cy.clickOptionWithTestId("EditOutlinedIcon");
+    cy.clickOptionWithTestId("edit-group-profile-button");
     cy.get("#email").type(`${test_id}@testemail.com`);
     cy.get("#slack").type(`#${test_id}`);
     cy.get(".ant-form-item-control-input-content")
@@ -170,7 +139,7 @@ describe("create and manage group", () => {
       .should("be.visible")
       .click();
     cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
-    cy.get('[data-testid="EditOutlinedIcon"]').eq(1).click();
+    cy.get('[data-testid="edit-about-button"]').click({ force: true });
     cy.contains("Test group description").should("be.visible").type(" EDITED");
     cy.clickOptionWithText("Test group");
     cy.get("body").click();
@@ -194,17 +163,20 @@ describe("create and manage group", () => {
     cy.get('[data-testid="add-owners-sidebar-button"]', { timeout: 10000 })
       .should("be.visible")
       .click();
-    cy.get('[aria-label="Close"]').should("be.visible");
-    cy.get('[id="owner"]').click();
-    cy.contains("Add Owners").click();
-    cy.get('[id="owner"]').click();
-    cy.focused().type(username);
-    cy.get(`[data-testid="owner-option-${username}"]`, { timeout: 10000 })
+    cy.get('[role="dialog"]', { timeout: 10000 }).should("be.visible");
+    cy.get('[data-testid="add-owners-select"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
+    cy.get('[data-testid="add-owners-select-base"]', { timeout: 10000 })
+      .should("exist")
+      .click({ force: true });
+    cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
       .should("be.visible")
-      .click();
-    cy.focused().blur();
-    cy.contains(username, { matchCase: false }).should("have.length", 1);
-    cy.get('[role="dialog"] button').contains("Add").click();
+      .type(username);
+    cy.get('[data-testid="add-owners-select-dropdown"]', { timeout: 10000 })
+      .contains(username)
+      .click({ force: true });
+    cy.get('[role="dialog"] button').contains("Add").click({ force: true });
     cy.waitTextVisible("Owners Added");
     cy.contains(username, { matchCase: false }).should("be.visible");
   });
