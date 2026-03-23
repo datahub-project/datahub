@@ -3,13 +3,14 @@ package com.linkedin.datahub.graphql.resolvers.role;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateRoleInput;
-import com.linkedin.datahub.graphql.resolvers.policy.PolicyAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -17,6 +18,7 @@ import com.linkedin.policy.DataHubRoleInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +34,8 @@ public class UpdateRoleResolver implements DataFetcher<CompletableFuture<Boolean
       throws Exception {
     final QueryContext context = environment.getContext();
 
-    if (!PolicyAuthUtils.canManagePolicies(context)) {
+    if (!AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(POLICY_ENTITY_NAME))) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
