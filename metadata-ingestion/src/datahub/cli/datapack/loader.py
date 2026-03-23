@@ -563,6 +563,10 @@ def load_pack_into_datahub(
     run_id = _generate_run_id(pack.name)
 
     # Build pipeline config
+    sink_config: dict[str, str] = {"server": str(client_config.server)}
+    if client_config.token:
+        sink_config["token"] = client_config.token
+
     pipeline_config = {
         "run_id": run_id,
         "source": {
@@ -571,13 +575,9 @@ def load_pack_into_datahub(
         },
         "sink": {
             "type": "datahub-rest",
-            "config": {
-                "server": str(client_config.server),
-            },
+            "config": sink_config,
         },
     }
-    if client_config.token:
-        pipeline_config["sink"]["config"]["token"] = client_config.token
 
     if dry_run:
         click.echo(f"Dry run - would load {effective_path} with run_id={run_id}")

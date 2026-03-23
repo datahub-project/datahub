@@ -1,6 +1,7 @@
 """Tests for the schema compatibility filter."""
 
 import pathlib
+from typing import Dict, Set
 from unittest.mock import MagicMock, patch
 
 from datahub.cli.datapack.schema_compat import (
@@ -29,7 +30,7 @@ class TestIsMcpCompatible:
         assert is_mcp_compatible("dataset", "anything", {})
 
     def test_entity_with_no_aspects_rejects(self) -> None:
-        schema = {"dataset": set()}
+        schema: Dict[str, Set[str]] = {"dataset": set()}
         assert not is_mcp_compatible("dataset", "schemaMetadata", schema)
 
 

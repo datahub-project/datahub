@@ -10,7 +10,7 @@ import logging
 import pathlib
 import tempfile
 import time
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,10 @@ def _shift_value(value: int, delta_ms: int) -> int:
 
 
 def _walk_and_shift(
-    obj: object,
+    obj: Any,
     delta_ms: int,
     extra_fields: Optional[Set[str]] = None,
-) -> object:
+) -> Any:
     """Recursively walk a JSON-like structure and shift timestamp fields.
 
     Args:

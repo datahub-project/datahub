@@ -40,11 +40,11 @@ datahub datapack unload showcase-ecommerce
 
 ## Built-in Packs
 
-| Name | Description | Size |
-|------|-------------|------|
-| `bootstrap` | Lightweight bootstrap data (datasets, dashboards, users, tags) | ~100 KB |
+| Name                 | Description                                                                        | Size    |
+| -------------------- | ---------------------------------------------------------------------------------- | ------- |
+| `bootstrap`          | Lightweight bootstrap data (datasets, dashboards, users, tags)                     | ~100 KB |
 | `showcase-ecommerce` | Rich e-commerce demo with 1049 entities across Snowflake, Looker, PowerBI, Tableau | ~2.7 MB |
-| `covid-bigquery` | COVID-19 BigQuery dataset with 215 MCEs including lineage | ~3.2 MB |
+| `covid-bigquery`     | COVID-19 BigQuery dataset with 215 MCEs including lineage                          | ~3.2 MB |
 
 ## Agent Workflow
 
@@ -94,7 +94,7 @@ Data packs can also be loaded via ingestion recipes:
 source:
   type: datapack
   config:
-    pack_name: "showcase-ecommerce"       # OR pack_url: "https://..."
+    pack_name: "showcase-ecommerce" # OR pack_url: "https://..."
     no_time_shift: false
     as_of: "2025-01-15T00:00:00Z"
     trust_community: false

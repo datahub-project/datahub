@@ -139,11 +139,11 @@ datahub datapack unload showcase-ecommerce --hard
 
 ## Built-in Data Packs
 
-| Pack | Description | Entities | Platforms |
-|------|-------------|----------|-----------|
-| **bootstrap** | Lightweight bootstrap data with basic datasets, dashboards, users, and tags | ~50 | Kafka, Hive, HDFS |
-| **showcase-ecommerce** | Rich e-commerce demo with lineage, governance, glossary, domains, and data products | ~1,050 | Snowflake, Looker, PowerBI, Tableau, dbt, Spark, PostgreSQL, S3 |
-| **covid-bigquery** | COVID-19 BigQuery public datasets with ownership and lineage | ~100 | BigQuery |
+| Pack                   | Description                                                                         | Entities | Platforms                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------- |
+| **bootstrap**          | Lightweight bootstrap data with basic datasets, dashboards, users, and tags         | ~50      | Kafka, Hive, HDFS                                               |
+| **showcase-ecommerce** | Rich e-commerce demo with lineage, governance, glossary, domains, and data products | ~1,050   | Snowflake, Looker, PowerBI, Tableau, dbt, Spark, PostgreSQL, S3 |
+| **covid-bigquery**     | COVID-19 BigQuery public datasets with ownership and lineage                        | ~100     | BigQuery                                                        |
 
 ## Trust Model
 
