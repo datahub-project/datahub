@@ -1,4 +1,5 @@
 import {
+    EMPTY_POLICY,
     addOrUpdatePoliciesInList,
     getFieldCondition,
     getFieldValues,
@@ -7,7 +8,7 @@ import {
     updateListPoliciesCache,
 } from '@app/permissions/policy/policyUtils';
 
-import { PolicyMatchCondition } from '@types';
+import { PolicyMatchCondition, PolicyMode } from '@types';
 
 // Mock the Apollo Client readQuery and writeQuery methods
 const mockReadQuery = vi.fn();
@@ -20,6 +21,12 @@ vi.mock('@apollo/client', async () => ({
         writeQuery: mockWriteQuery,
     }),
 }));
+
+describe('EMPTY_POLICY', () => {
+    it('defaults mode to Allow so new policies grant access by default', () => {
+        expect(EMPTY_POLICY.mode).toBe(PolicyMode.Allow);
+    });
+});
 
 describe('addOrUpdatePoliciesInList', () => {
     it('should add a new policy to the list', () => {

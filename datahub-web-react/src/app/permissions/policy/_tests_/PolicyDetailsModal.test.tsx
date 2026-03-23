@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 
-import { EntityType, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
+import { EntityType, Policy, PolicyMatchCondition, PolicyMode, PolicyState, PolicyType } from '@types';
 
 // Mock the hooks
 vi.mock('@app/useEntityRegistry', () => ({
@@ -47,6 +47,7 @@ const mockPolicy: Omit<Policy, 'urn'> = {
     editable: true,
     description: 'A test policy',
     state: PolicyState.Active,
+    mode: PolicyMode.Allow,
     privileges: ['view'],
     resources: {
         filter: {
@@ -189,5 +190,43 @@ describe('PolicyDetailsModal', () => {
         // Check the ownership types section
         expect(screen.getByText('Applies to Owners')).toBeInTheDocument();
         expect(screen.getByText('Technical Owner')).toBeInTheDocument();
+    });
+
+    it('displays Mode section with blue tag for Allow policy', () => {
+        render(
+            <BrowserRouter>
+                <PolicyDetailsModal
+                    policy={mockPolicy}
+                    open
+                    onClose={() => {}}
+                    privileges={[{ type: 'view', name: 'View' }]}
+                />
+            </BrowserRouter>,
+        );
+
+        expect(screen.getByText('Mode')).toBeInTheDocument();
+        const modeTag = screen.getByText(PolicyMode.Allow);
+        expect(modeTag).toBeInTheDocument();
+        expect(modeTag.closest('.ant-tag')).toHaveClass('ant-tag-blue');
+    });
+
+    it('displays Mode section with orange tag for Deny policy', () => {
+        const denyPolicy: Omit<Policy, 'urn'> = { ...mockPolicy, mode: PolicyMode.Deny };
+
+        render(
+            <BrowserRouter>
+                <PolicyDetailsModal
+                    policy={denyPolicy}
+                    open
+                    onClose={() => {}}
+                    privileges={[{ type: 'view', name: 'View' }]}
+                />
+            </BrowserRouter>,
+        );
+
+        expect(screen.getByText('Mode')).toBeInTheDocument();
+        const modeTag = screen.getByText(PolicyMode.Deny);
+        expect(modeTag).toBeInTheDocument();
+        expect(modeTag.closest('.ant-tag')).toHaveClass('ant-tag-orange');
     });
 });
