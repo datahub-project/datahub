@@ -16,6 +16,7 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.eventgenerator.ApplicationsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DataProductPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DocumentInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DomainPropertiesChangeEventGenerator;
@@ -204,6 +205,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new StructuredPropertyChangeEventGenerator());
           }
           break;
+        case APPLICATION:
+          {
+            aspects.add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                APPLICATION_MEMBERSHIP_ASPECT_NAME,
+                new ApplicationsChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -330,6 +341,88 @@ public class TimelineServiceImpl implements TimelineService {
       domainElementAspectRegistry.put(elementName, aspects);
     }
 
+    // DataProduct registry
+    HashMap<ChangeCategory, Set<String>> dataProductElementAspectRegistry = new HashMap<>();
+    String entityTypeDataProduct = DATA_PRODUCT_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case OWNERSHIP:
+          {
+            aspects.add(OWNERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                OWNERSHIP_ASPECT_NAME,
+                new OwnershipChangeEventGenerator());
+          }
+          break;
+        case DOCUMENTATION:
+          {
+            aspects.add(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+                new DataProductPropertiesChangeEventGenerator());
+          }
+          break;
+        case TAG:
+          {
+            aspects.add(GLOBAL_TAGS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                GLOBAL_TAGS_ASPECT_NAME,
+                new GlobalTagsChangeEventGenerator());
+          }
+          break;
+        case GLOSSARY_TERM:
+          {
+            aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                GLOSSARY_TERMS_ASPECT_NAME,
+                new GlossaryTermsChangeEventGenerator());
+          }
+          break;
+        case DOMAIN:
+          {
+            aspects.add(DOMAINS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DOMAINS_ASPECT_NAME,
+                new SingleDomainChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        case APPLICATION:
+          {
+            aspects.add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                APPLICATION_MEMBERSHIP_ASPECT_NAME,
+                new ApplicationsChangeEventGenerator());
+          }
+          break;
+        default:
+          break;
+      }
+      dataProductElementAspectRegistry.put(elementName, aspects);
+    }
+
     // Document registry
     HashMap<ChangeCategory, Set<String>> documentElementAspectRegistry = new HashMap<>();
     String entityTypeDocument = DOCUMENT_ENTITY_NAME;
@@ -360,6 +453,7 @@ public class TimelineServiceImpl implements TimelineService {
     entityTypeElementAspectRegistry.put(
         GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DOMAIN_ENTITY_NAME, domainElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(DATA_PRODUCT_ENTITY_NAME, dataProductElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DOCUMENT_ENTITY_NAME, documentElementAspectRegistry);
   }
 

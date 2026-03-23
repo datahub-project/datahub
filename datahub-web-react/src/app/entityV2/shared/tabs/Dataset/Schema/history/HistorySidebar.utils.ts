@@ -70,6 +70,7 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
         ChangeCategoryType.Ownership,
         CATEGORY_DOMAIN,
         CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
     ]),
     [EntityType.GlossaryTerm]: new Set([
         ChangeCategoryType.Documentation,
@@ -83,6 +84,15 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
         ChangeCategoryType.Documentation,
         ChangeCategoryType.Ownership,
         CATEGORY_STRUCTURED_PROPERTY,
+    ]),
+    [EntityType.DataProduct]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
     ]),
 };
 

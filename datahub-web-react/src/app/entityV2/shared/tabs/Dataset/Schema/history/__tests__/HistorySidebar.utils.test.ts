@@ -8,7 +8,7 @@ import {
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
 
 describe('getCategoryOptions', () => {
-    it('returns 7 dataset-relevant categories for datasets (no Applications)', () => {
+    it('returns all 8 categories for datasets', () => {
         const options = getCategoryOptions(EntityType.Dataset);
         const values = options.map((o) => o.value);
 
@@ -20,8 +20,8 @@ describe('getCategoryOptions', () => {
             ChangeCategoryType.Ownership,
             CATEGORY_DOMAIN,
             CATEGORY_STRUCTURED_PROPERTY,
+            CATEGORY_APPLICATION,
         ]);
-        expect(values).not.toContain(CATEGORY_APPLICATION);
     });
 
     it('returns Documentation, Terms, Owners, Domains, Properties, Applications for glossary terms', () => {
@@ -52,6 +52,22 @@ describe('getCategoryOptions', () => {
         expect(values).not.toContain(CATEGORY_DOMAIN);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
         expect(values).not.toContain(CATEGORY_APPLICATION);
+    });
+
+    it('returns Documentation, Tags, Terms, Owners, Domains, Properties, Applications for data products', () => {
+        const options = getCategoryOptions(EntityType.DataProduct);
+        const values = options.map((o) => o.value);
+
+        expect(values).toEqual([
+            ChangeCategoryType.Documentation,
+            ChangeCategoryType.Tag,
+            ChangeCategoryType.GlossaryTerm,
+            ChangeCategoryType.Ownership,
+            CATEGORY_DOMAIN,
+            CATEGORY_STRUCTURED_PROPERTY,
+            CATEGORY_APPLICATION,
+        ]);
+        expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
     });
 
     it('falls back to all categories for entity types without a mapping', () => {
