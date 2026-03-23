@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
@@ -462,18 +463,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return jobs
 
-    def get_dataflow_graph(
-        self, script_path: str, flow_urn: str
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Get the DAG of transforms and data sources/sinks for a job.
-
-        Parameters
-        ----------
-            script_path:
-                S3 path to the job's Python script.
-        """
-
+    def get_dataflow_script(self, script_path: str, flow_urn: str) -> Optional[str]:
         # handle a bug in AWS where script path has duplicate prefixes
         if script_path.lower().startswith("s3://s3://"):
             script_path = script_path[5:]
@@ -520,7 +510,19 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.num_job_script_location_invalid += 1
             return None
 
-        script = obj["Body"].read().decode("utf-8")
+        return obj["Body"].read().decode("utf-8")
+
+    def get_dataflow_graph(
+        self, script: str, script_path: str, flow_urn: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the DAG of transforms and data sources/sinks for a job.
+
+        Parameters
+        ----------
+            script_path:
+                S3 path to the job's Python script.
+        """
 
         try:
             # extract the job DAG from the script
@@ -662,7 +664,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return nodes
 
-    def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]) -> MetadataWorkUnit:
+    def get_dataflow_wu(
+        self, flow_urn: str, job: Dict[str, Any], job_script: Optional[str]
+    ) -> MetadataWorkUnit:
         """
         Generate a DataFlow workunit for a Glue job.
 
@@ -689,6 +693,11 @@ class GlueSource(StatefulIngestionSourceBase):
         command = job.get("Command", {}).get("ScriptLocation")
         if command is not None:
             custom_props["command"] = command
+
+        if job_script is not None:
+            custom_props["script"] = _redact_secret_fields_in_dataflow_script(
+                job_script
+            )
 
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
@@ -1276,16 +1285,18 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.platform, job["Name"], self.env
             )
 
-            yield self.get_dataflow_wu(flow_urn, job)
-
+            job_script: Optional[str] = None
             job_script_location = job.get("Command", {}).get("ScriptLocation")
-
-            dag: Optional[Dict[str, Any]] = None
-
             if job_script_location is not None:
-                dag = self.get_dataflow_graph(job_script_location, flow_urn)
+                job_script = self.get_dataflow_script(job_script_location, flow_urn)
             else:
                 self.report.num_job_script_location_missing += 1
+
+            yield self.get_dataflow_wu(flow_urn, job, job_script)
+
+            dag: Optional[Dict[str, Any]] = None
+            if job_script:
+                dag = self.get_dataflow_graph(job_script, job_script_location, flow_urn)
 
             if dag is None:
                 continue
@@ -1646,3 +1657,14 @@ class GlueSource(StatefulIngestionSourceBase):
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
         self.report.report_warning(key, reason)
+
+
+def _redact_secret_fields_in_dataflow_script(script: str) -> str:
+    # It's possible for Glue Job nodes to contain sensitive values in their connection_info
+    # arguments. Redact all string values that are preceded by a key containing "password" or
+    # "secret".
+    return re.sub(
+        r'(?i)("(\\"|[^"])*(?:password|secret)(\\"|[^"])*"\s*:\s*)"(\\"|[^"])*"',
+        r'\1"*****"',
+        script,
+    )
