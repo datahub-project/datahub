@@ -45,7 +45,7 @@ jobs:
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
         with:
           checkout-head-only: false
       - uses: ./.github/actions/ci-optimization
@@ -57,7 +57,7 @@ jobs:
     steps:
       - name: Disk Check
         run: df -h . && docker images
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
         with:
           checkout-head-only: false
       - name: Free up disk space

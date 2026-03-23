@@ -25,7 +25,10 @@ jobs:
       python_release_version: ${{ steps.python_release_version.outputs.release_version }}
     steps:
       - name: Checkout
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        # Explicitly checkout head commit, as tag computation depends on it
+        with:
+          checkout-head-only: true
       - name: Compute Tag
         id: tag
         env:
@@ -53,7 +56,7 @@ jobs:
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:

@@ -43,7 +43,10 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        # Explicitly checkout head commit, as tag computation depends on it
+        with:
+          checkout-head-only: true
       - name: Compute Tag
         id: tag
         env:
@@ -61,7 +64,7 @@ jobs:
     needs: ["check-secret", "setup"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -194,7 +197,7 @@ jobs:
     needs: ["check-secret", "setup", "publish"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
