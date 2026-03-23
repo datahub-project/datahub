@@ -1,6 +1,7 @@
 import {
     ALL_CATEGORY_OPTIONS,
     CATEGORY_APPLICATION,
+    CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DOMAIN,
     CATEGORY_STRUCTURED_PROPERTY,
     getCategoryOptions,
@@ -54,7 +55,7 @@ describe('getCategoryOptions', () => {
         expect(values).not.toContain(CATEGORY_APPLICATION);
     });
 
-    it('returns Documentation, Tags, Terms, Owners, Domains, Properties, Applications for data products', () => {
+    it('returns all supported categories including Assets for data products', () => {
         const options = getCategoryOptions(EntityType.DataProduct);
         const values = options.map((o) => o.value);
 
@@ -66,6 +67,7 @@ describe('getCategoryOptions', () => {
             CATEGORY_DOMAIN,
             CATEGORY_STRUCTURED_PROPERTY,
             CATEGORY_APPLICATION,
+            CATEGORY_ASSET_MEMBERSHIP,
         ]);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
     });

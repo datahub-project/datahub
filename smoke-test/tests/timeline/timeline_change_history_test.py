@@ -10,7 +10,7 @@ Covered categories per entity:
   Dataset:      OWNERSHIP, DOCUMENTATION, TAG, GLOSSARY_TERM, DOMAIN, STRUCTURED_PROPERTY, APPLICATION
   GlossaryTerm: OWNERSHIP, DOCUMENTATION, DOMAIN, STRUCTURED_PROPERTY, GLOSSARY_TERM, APPLICATION
   Domain:       OWNERSHIP, DOCUMENTATION, STRUCTURED_PROPERTY
-  DataProduct:  OWNERSHIP, DOCUMENTATION, TAG, GLOSSARY_TERM, DOMAIN, STRUCTURED_PROPERTY, APPLICATION
+  DataProduct:  OWNERSHIP, DOCUMENTATION, TAG, GLOSSARY_TERM, DOMAIN, STRUCTURED_PROPERTY, APPLICATION, ASSET_MEMBERSHIP
 """
 
 import logging
@@ -24,6 +24,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ApplicationsClass,
     AuditStampClass,
+    DataProductAssociationClass,
     DataProductPropertiesClass,
     DatasetPropertiesClass,
     DomainsClass,
@@ -67,6 +68,12 @@ DOMAIN_ENGINEERING = f"urn:li:domain:timeline-ref-eng-{UNIQUE}"
 DOMAIN_MARKETING = f"urn:li:domain:timeline-ref-mkt-{UNIQUE}"
 APP_URN_1 = f"urn:li:application:timeline-ref-app1-{UNIQUE}"
 APP_URN_2 = f"urn:li:application:timeline-ref-app2-{UNIQUE}"
+ASSET_DATASET_1 = (
+    f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset1-{UNIQUE},PROD)"
+)
+ASSET_DATASET_2 = (
+    f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset2-{UNIQUE},PROD)"
+)
 
 # GraphQL query matching what the frontend HistorySidebar uses
 GET_TIMELINE_QUERY = """
@@ -867,6 +874,42 @@ class TestDataProductTimeline:
             "dataProduct/application",
         )
 
+    def test_data_product_asset_membership_changes(self, graph_client, auth_session):
+        """Add an asset, then swap it — verifies ASSET_MEMBERSHIP category."""
+        _emit_and_wait(
+            graph_client,
+            MetadataChangeProposalWrapper(
+                entityUrn=DATA_PRODUCT_URN,
+                aspect=DataProductPropertiesClass(
+                    name=f"Timeline Test Product {UNIQUE}",
+                    assets=[
+                        DataProductAssociationClass(destinationUrn=ASSET_DATASET_1)
+                    ],
+                ),
+            ),
+        )
+        _emit_and_wait(
+            graph_client,
+            MetadataChangeProposalWrapper(
+                entityUrn=DATA_PRODUCT_URN,
+                aspect=DataProductPropertiesClass(
+                    name=f"Timeline Test Product {UNIQUE}",
+                    assets=[
+                        DataProductAssociationClass(destinationUrn=ASSET_DATASET_2)
+                    ],
+                ),
+            ),
+        )
+
+        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["ASSET_MEMBERSHIP"])
+        events = _collect_change_events(txns)
+        assert len(events) >= 2, f"Expected >=2 asset events, got {len(events)}"
+        _assert_has_events(
+            events,
+            [("ASSET_MEMBERSHIP", "ADD"), ("ASSET_MEMBERSHIP", "REMOVE")],
+            "dataProduct/assetMembership",
+        )
+
     def test_data_product_all_categories(self, auth_session):
         """Verify all categories appear and actor attribution works."""
         txns = _get_timeline(auth_session, DATA_PRODUCT_URN)
@@ -881,6 +924,7 @@ class TestDataProductTimeline:
             "DOMAIN",
             "STRUCTURED_PROPERTY",
             "APPLICATION",
+            "ASSET_MEMBERSHIP",
         ]:
             assert expected in categories, (
                 f"DataProduct timeline missing {expected}. Found: {sorted(categories)}"

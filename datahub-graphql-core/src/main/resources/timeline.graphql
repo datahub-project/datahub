@@ -79,6 +79,10 @@ enum ChangeCategoryType {
   When application associations have been added or removed
   """
   APPLICATION
+  """
+  When assets have been added to or removed from a Data Product
+  """
+  ASSET_MEMBERSHIP
 }
 
 """

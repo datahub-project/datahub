@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -31,6 +32,8 @@ public class DataProductPropertiesChangeEventGenerator
       "Description for '%s' has been removed: '%s'.";
   private static final String DESCRIPTION_CHANGED_FORMAT =
       "Description of '%s' has been changed from '%s' to '%s'.";
+  private static final String ASSET_ADDED_FORMAT = "Asset '%s' added to data product '%s'.";
+  private static final String ASSET_REMOVED_FORMAT = "Asset '%s' removed from data product '%s'.";
 
   private static List<ChangeEvent> computeDiffs(
       @Nullable DataProductProperties baseProperties,
@@ -118,6 +121,72 @@ public class DataProductPropertiesChangeEventGenerator
     return changeEvents;
   }
 
+  private static List<ChangeEvent> computeAssetDiffs(
+      @Nullable DataProductProperties baseProperties,
+      @Nullable DataProductProperties targetProperties,
+      @Nonnull String entityUrn,
+      AuditStamp auditStamp) {
+
+    List<String> base = extractSortedAssetUrns(baseProperties);
+    List<String> target = extractSortedAssetUrns(targetProperties);
+
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+    int baseIdx = 0;
+    int targetIdx = 0;
+
+    while (baseIdx < base.size() && targetIdx < target.size()) {
+      int cmp = base.get(baseIdx).compareTo(target.get(targetIdx));
+      if (cmp == 0) {
+        ++baseIdx;
+        ++targetIdx;
+      } else if (cmp < 0) {
+        changeEvents.add(
+            buildAssetEvent(base.get(baseIdx), entityUrn, ChangeOperation.REMOVE, auditStamp));
+        ++baseIdx;
+      } else {
+        changeEvents.add(
+            buildAssetEvent(target.get(targetIdx), entityUrn, ChangeOperation.ADD, auditStamp));
+        ++targetIdx;
+      }
+    }
+    while (baseIdx < base.size()) {
+      changeEvents.add(
+          buildAssetEvent(base.get(baseIdx), entityUrn, ChangeOperation.REMOVE, auditStamp));
+      ++baseIdx;
+    }
+    while (targetIdx < target.size()) {
+      changeEvents.add(
+          buildAssetEvent(target.get(targetIdx), entityUrn, ChangeOperation.ADD, auditStamp));
+      ++targetIdx;
+    }
+    return changeEvents;
+  }
+
+  private static List<String> extractSortedAssetUrns(@Nullable DataProductProperties properties) {
+    if (properties == null || !properties.hasAssets()) {
+      return new ArrayList<>();
+    }
+    DataProductAssociationArray assets = properties.getAssets();
+    List<String> urns = new ArrayList<>(assets.size());
+    assets.forEach(assoc -> urns.add(assoc.getDestinationUrn().toString()));
+    urns.sort(Comparator.naturalOrder());
+    return urns;
+  }
+
+  private static ChangeEvent buildAssetEvent(
+      String assetUrn, String entityUrn, ChangeOperation operation, AuditStamp auditStamp) {
+    String format = (operation == ChangeOperation.ADD) ? ASSET_ADDED_FORMAT : ASSET_REMOVED_FORMAT;
+    return ChangeEvent.builder()
+        .modifier(assetUrn)
+        .entityUrn(entityUrn)
+        .category(ChangeCategory.ASSET_MEMBERSHIP)
+        .operation(operation)
+        .semVerChange(SemanticChangeType.MINOR)
+        .description(String.format(format, assetUrn, entityUrn))
+        .auditStamp(auditStamp)
+        .build();
+  }
+
   @Nullable
   private static DataProductProperties getPropertiesFromAspect(EntityAspect entityAspect) {
     if (entityAspect != null && entityAspect.getMetadata() != null) {
@@ -138,11 +207,14 @@ public class DataProductPropertiesChangeEventGenerator
       throw new IllegalArgumentException("Aspect is not " + DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
     }
     List<ChangeEvent> changeEvents = new ArrayList<>();
+    DataProductProperties baseProperties = getPropertiesFromAspect(previousValue);
+    DataProductProperties targetProperties = getPropertiesFromAspect(currentValue);
     if (element == ChangeCategory.DOCUMENTATION) {
-      DataProductProperties baseProperties = getPropertiesFromAspect(previousValue);
-      DataProductProperties targetProperties = getPropertiesFromAspect(currentValue);
       changeEvents.addAll(
           computeDiffs(baseProperties, targetProperties, currentValue.getUrn(), null));
+    } else if (element == ChangeCategory.ASSET_MEMBERSHIP) {
+      changeEvents.addAll(
+          computeAssetDiffs(baseProperties, targetProperties, currentValue.getUrn(), null));
     }
 
     SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;

@@ -417,6 +417,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new ApplicationsChangeEventGenerator());
           }
           break;
+        case ASSET_MEMBERSHIP:
+          {
+            aspects.add(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+                new DataProductPropertiesChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }

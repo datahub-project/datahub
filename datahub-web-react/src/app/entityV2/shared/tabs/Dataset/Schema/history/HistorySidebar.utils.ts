@@ -39,6 +39,7 @@ export const UNINFORMATIVE_OWNER_TYPES = new Set(['NONE', 'CUSTOM']);
 export const CATEGORY_DOMAIN = 'DOMAIN';
 export const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
 export const CATEGORY_APPLICATION = 'APPLICATION';
+export const CATEGORY_ASSET_MEMBERSHIP = 'ASSET_MEMBERSHIP';
 
 // Re-export generated enums for convenience within the history feature
 export { ChangeCategoryType, ChangeOperationType };
@@ -58,6 +59,7 @@ export const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: CATEGORY_DOMAIN, label: 'Domains' },
     { value: CATEGORY_STRUCTURED_PROPERTY, label: 'Properties' },
     { value: CATEGORY_APPLICATION, label: 'Applications' },
+    { value: CATEGORY_ASSET_MEMBERSHIP, label: 'Assets' },
 ];
 
 // Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
@@ -93,6 +95,7 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
         CATEGORY_DOMAIN,
         CATEGORY_STRUCTURED_PROPERTY,
         CATEGORY_APPLICATION,
+        CATEGORY_ASSET_MEMBERSHIP,
     ]),
 };
 
