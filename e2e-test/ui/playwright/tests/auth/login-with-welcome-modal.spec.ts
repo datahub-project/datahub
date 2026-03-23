@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
-import { LoginPage } from '../../pages/LoginPage';
-import { WelcomeModalPage } from '../../pages/WelcomeModalPage';
+import { LoginPage } from '../../pages/login-page';
+import { WelcomeModalPage } from '../../pages/welcome-modal-page';
 
 /**
  * Login with Welcome Modal tests - These tests verify login with modal functionality

@@ -18,7 +18,7 @@ const execAsync = promisify(exec);
  * - BusinessAttributes
  */
 
-const tokenFile = '.auth/gms-token.json';
+const tokenFile = '.auth/gms-token-datahub.json';
 
 setup('seed all test data', async () => {
   console.log('📦 Setting up all test data via DataHub CLI...');

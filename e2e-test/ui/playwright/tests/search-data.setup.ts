@@ -12,7 +12,7 @@ setup('seed search data', async () => {
 
   try {
     // Read GMS token
-    const tokenFile = path.join(__dirname, '../.auth/gms-token.json');
+    const tokenFile = path.join(__dirname, '../.auth/gms-token-datahub.json');
     const tokenData = JSON.parse(fs.readFileSync(tokenFile, 'utf-8'));
     const token = tokenData.token;
 

@@ -2,10 +2,8 @@ export const DEFAULT_TIMEOUT = 30000;
 export const NETWORK_IDLE_TIMEOUT = 10000;
 export const ANIMATION_TIMEOUT = 500;
 
-export const TEST_CREDENTIALS = {
-  username: process.env.TEST_USERNAME || 'datahub',
-  password: process.env.TEST_PASSWORD || 'datahub',
-};
+// TEST_CREDENTIALS removed — use fixtures/users.ts (resolvedUsers) as the
+// single source of truth for user credentials.
 
 export const ROUTES = {
   login: '/login',

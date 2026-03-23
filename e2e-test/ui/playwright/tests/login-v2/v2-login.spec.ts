@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
-import { LoginPage } from '../../pages/LoginPage';
-import { GraphQLHelper } from '../../helpers/GraphQLHelper';
+import { LoginPage } from '../../pages/login-page';
+import { GraphQLHelper } from '../../helpers/graphql-helper';
 
 /**
  * Login V2 tests - These tests verify login with Theme V2
