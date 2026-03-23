@@ -364,7 +364,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                 return (
                     <Pill
                         label={isDeny ? 'Deny' : 'Allow'}
-                        color={isDeny ? 'orange' : 'blue'}
+                        color={isDeny ? 'red' : 'blue'}
                         size="sm"
                         clickable={false}
                     />

@@ -165,21 +165,26 @@ public class PolicyEngine {
       final Optional<ResolvedEntitySpec> resource,
       final List<ResolvedEntitySpec> subResources) {
     Set<String> privileges = new HashSet<>();
+    Set<String> deniedPrivileges = new HashSet<>();
     Map<String, String> reasonsOfDeny = new HashedMap<>();
     PolicyEvaluationContext context = new PolicyEvaluationContext();
+
     for (DataHubPolicyInfo policy : policies) {
-      // Only consider ALLOW policies for granted privileges (deny policies don't grant access)
-      if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
-        continue;
-      }
       PolicyEvaluationResult result =
           isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources);
       if (result.isGranted()) {
-        privileges.addAll(policy.getPrivileges());
+        if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
+          deniedPrivileges.addAll(policy.getPrivileges());
+        } else {
+          privileges.addAll(policy.getPrivileges());
+        }
       } else {
         reasonsOfDeny.put(result.getPolicyName(), result.getReason());
       }
     }
+
+    privileges.removeAll(deniedPrivileges);
+
     return new PolicyGrantedPrivileges(new ArrayList<>(privileges), reasonsOfDeny);
   }
 

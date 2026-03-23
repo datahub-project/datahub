@@ -618,6 +618,31 @@ public class DataHubAuthorizerTest {
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
+  /** Test that ALLOW_ALL mode returns ALLOW even when DENY policies exist in the cache. */
+  @Test
+  public void testAllowAllModeIgnoresDenyPolicies() throws Exception {
+    _dataHubAuthorizer.setMode(DataHubAuthorizer.AuthorizationMode.ALLOW_ALL);
+
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    final List<String> privileges = ImmutableList.of("EDIT_ENTITY_OWNERS");
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:test");
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_OWNERS", ImmutableList.of(denyPolicy));
+
+    final AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrn.toString(),
+            "EDIT_ENTITY_OWNERS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
   @Test
   public void testInvalidateCache() throws Exception {
 
@@ -1461,6 +1486,39 @@ public class DataHubAuthorizerTest {
     // Should only contain privileges from ALLOW policies
     assertTrue(grantedPrivileges.getPrivileges().contains("EDIT_ENTITY_TAGS"));
     assertFalse(grantedPrivileges.getPrivileges().contains("EDIT_ENTITY_OWNERS"));
+  }
+
+  /** Test that a DENY policy removes overlapping privileges from ALLOW in getGrantedPrivileges. */
+  @Test
+  public void testGetGrantedPrivilegesDenyOverridesAllow() throws Exception {
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
+
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("VIEW_ENTITY_PAGE", "EDIT_ENTITY_TAGS"),
+            null,
+            null,
+            actorFilter,
+            ALLOW_POLICY_EFFECT);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("VIEW_ENTITY_PAGE"),
+            null,
+            null,
+            actorFilter,
+            DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("ALL", ImmutableList.of(allowPolicy, denyPolicy));
+
+    PolicyEngine.PolicyGrantedPrivileges grantedPrivileges =
+        _dataHubAuthorizer.getGrantedPrivileges(userUrn.toString(), Optional.empty());
+
+    assertFalse(grantedPrivileges.getPrivileges().contains("VIEW_ENTITY_PAGE"));
+    assertTrue(grantedPrivileges.getPrivileges().contains("EDIT_ENTITY_TAGS"));
   }
 
   /** Test that authorizedActors does not include actors from DENY policies */

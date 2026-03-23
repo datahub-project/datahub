@@ -108,6 +108,12 @@ public class DataHubAuthorizer implements Authorizer {
       return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
     }
 
+    // Short circuit: ALLOW_ALL bypasses all policy evaluation. Must come before DENY checks since
+    // isRequestGranted() returns true for any policy in ALLOW_ALL mode.
+    if (AuthorizationMode.ALLOW_ALL.equals(mode())) {
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
+    }
+
     Optional<ResolvedEntitySpec> resolvedResourceSpec =
         request.getResourceSpec().map(entitySpecResolver::resolve);
 

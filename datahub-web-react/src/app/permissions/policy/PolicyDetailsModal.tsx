@@ -149,7 +149,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 <div>
                     <Typography.Title level={5}>Effect</Typography.Title>
                     <ThinDivider />
-                    <Tag color={isDenyPolicy ? 'orange' : 'blue'}>{policy?.effect}</Tag>
+                    <Tag color={isDenyPolicy ? 'red' : 'blue'}>{policy?.effect}</Tag>
                 </div>
                 <div>
                     <Typography.Title level={5}>Description</Typography.Title>

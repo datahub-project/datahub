@@ -51,7 +51,6 @@ export function usePolicy(
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
     const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
-        console.log({ state });
         return {
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
                 return {
