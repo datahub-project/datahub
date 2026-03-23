@@ -13,6 +13,9 @@ from datahub.ingestion.source.fabric.data_factory.lineage import (
     InvokePipelineLineageExtractor,
 )
 from datahub.ingestion.source.fabric.data_factory.models import PipelineActivity
+from datahub.ingestion.source.fabric.data_factory.report import (
+    FabricDataFactorySourceReport,
+)
 
 WS_ID = "ws-11111111-1111-1111-1111-111111111111"
 ARTIFACT_ID = "lh-00000000-0000-0000-0000-000000000001"
@@ -44,34 +47,33 @@ def _make_connection(
 
 
 class TestResolvePlatform:
-    """Tests for _resolve_platform static method."""
+    """Tests for _resolve_platform method."""
+
+    def setup_method(self) -> None:
+        self.extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
 
     def test_fabric_connection_type(self) -> None:
-        assert (
-            CopyActivityLineageExtractor._resolve_platform("Snowflake") == "snowflake"
-        )
+        assert self.extractor._resolve_platform("Snowflake") == "snowflake"
 
     def test_fabric_onelake_type(self) -> None:
-        assert (
-            CopyActivityLineageExtractor._resolve_platform("Lakehouse")
-            == "fabric-onelake"
-        )
+        assert self.extractor._resolve_platform("Lakehouse") == "fabric-onelake"
 
     def test_adf_linked_service_fallback(self) -> None:
         # AzureBlobStorage is in ADF_LINKED_SERVICE_PLATFORM_MAP, not FABRIC_CONNECTION_PLATFORM_MAP
-        result = CopyActivityLineageExtractor._resolve_platform("AzureBlobStorage")
+        result = self.extractor._resolve_platform("AzureBlobStorage")
         assert result == "abs"
 
     def test_unmapped_returns_connection_type(self) -> None:
-        assert (
-            CopyActivityLineageExtractor._resolve_platform("UnknownDB") == "UnknownDB"
-        )
+        assert self.extractor._resolve_platform("UnknownDB") == "UnknownDB"
 
 
 class TestResolvePlatformInstance:
     def setup_method(self) -> None:
         self.extractor = CopyActivityLineageExtractor(
             connections_cache={},
+            report=FabricDataFactorySourceReport(),
             env="PROD",
             platform_instance="global-instance",
             platform_instance_map={"My Snowflake": "snowflake-prod"},
@@ -93,7 +95,9 @@ class TestResolvePlatformInstance:
         assert self.extractor._resolve_platform_instance(None) == "global-instance"
 
     def test_no_map_no_global(self) -> None:
-        extractor = CopyActivityLineageExtractor(connections_cache={}, env="PROD")
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
         assert extractor._resolve_platform_instance("anything") is None
 
 
@@ -104,7 +108,9 @@ class TestResolveConnectionAndType:
         """Path 1: externalReferences.connection → cache lookup."""
         conn = _make_connection("conn-1", "My Snowflake", "Snowflake")
         extractor = CopyActivityLineageExtractor(
-            connections_cache={"conn-1": conn}, env="PROD"
+            connections_cache={"conn-1": conn},
+            report=FabricDataFactorySourceReport(),
+            env="PROD",
         )
         name, ctype = extractor._resolve_connection_and_type(
             {"externalReferences": {"connection": "conn-1"}}
@@ -116,7 +122,9 @@ class TestResolveConnectionAndType:
         """Path 2a: connectionSettings.properties.externalReferences → cache."""
         conn = _make_connection("conn-2", "My Postgres", "PostgreSQL")
         extractor = CopyActivityLineageExtractor(
-            connections_cache={"conn-2": conn}, env="PROD"
+            connections_cache={"conn-2": conn},
+            report=FabricDataFactorySourceReport(),
+            env="PROD",
         )
         name, ctype = extractor._resolve_connection_and_type(
             {
@@ -130,7 +138,9 @@ class TestResolveConnectionAndType:
 
     def test_connection_settings_inline_type(self) -> None:
         """Path 2b: connectionSettings inline type."""
-        extractor = CopyActivityLineageExtractor(connections_cache={}, env="PROD")
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
         name, ctype = extractor._resolve_connection_and_type(
             {
                 "connectionSettings": {
@@ -144,7 +154,9 @@ class TestResolveConnectionAndType:
 
     def test_linked_service_inline_type(self) -> None:
         """Path 3: linkedService."""
-        extractor = CopyActivityLineageExtractor(connections_cache={}, env="PROD")
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
         name, ctype = extractor._resolve_connection_and_type(
             {
                 "linkedService": {
@@ -157,14 +169,18 @@ class TestResolveConnectionAndType:
         assert ctype == "AzureBlobStorage"
 
     def test_no_connection_returns_none(self) -> None:
-        extractor = CopyActivityLineageExtractor(connections_cache={}, env="PROD")
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
         name, ctype = extractor._resolve_connection_and_type({})
         assert name is None
         assert ctype is None
 
     def test_cache_miss_falls_through(self) -> None:
         """externalReferences with unknown ID falls through to next resolution path."""
-        extractor = CopyActivityLineageExtractor(connections_cache={}, env="PROD")
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
         name, ctype = extractor._resolve_connection_and_type(
             {
                 "externalReferences": {"connection": "unknown-id"},
@@ -238,7 +254,9 @@ class TestExtractFilePath:
 
 class TestResolveOnelakeUrn:
     def setup_method(self) -> None:
-        self.extractor = CopyActivityLineageExtractor(connections_cache={}, env="PROD")
+        self.extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
 
     def test_structured_with_schema_and_table(self) -> None:
         ds = {
@@ -299,6 +317,7 @@ class TestCopyExtractLineage:
         conn = _make_connection("conn-sf", "My Snowflake", "Snowflake")
         extractor = CopyActivityLineageExtractor(
             connections_cache={"conn-sf": conn},
+            report=FabricDataFactorySourceReport(),
             env="PROD",
         )
         activity = _make_activity(
@@ -338,7 +357,9 @@ class TestCopyExtractLineage:
         assert "fabric-onelake" in outputs[0]
 
     def test_empty_source_and_sink(self) -> None:
-        extractor = CopyActivityLineageExtractor(connections_cache={}, env="PROD")
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
         activity = _make_activity(type_properties={})
         inputs, outputs = extractor.extract_lineage(activity, WS_ID)
         assert inputs == []
@@ -348,7 +369,9 @@ class TestCopyExtractLineage:
         """The 'destination' key is used as fallback when 'sink' is absent."""
         conn = _make_connection("conn-1", "Dest Conn", "SQL")
         extractor = CopyActivityLineageExtractor(
-            connections_cache={"conn-1": conn}, env="PROD"
+            connections_cache={"conn-1": conn},
+            report=FabricDataFactorySourceReport(),
+            env="PROD",
         )
         activity = _make_activity(
             type_properties={
@@ -405,6 +428,7 @@ class TestInvokePipelineExtractLineage:
     ) -> InvokePipelineLineageExtractor:
         return InvokePipelineLineageExtractor(
             pipeline_activities_cache=cache or {},
+            report=FabricDataFactorySourceReport(),
             platform="fabric-data-factory",
             env="PROD",
         )

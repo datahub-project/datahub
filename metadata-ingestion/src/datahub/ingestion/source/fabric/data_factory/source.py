@@ -211,11 +211,22 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
 
     def _cache_connections(self) -> None:
         """Fetch all tenant connections and cache them keyed by ID."""
-        for raw in self.client.list_connections():
-            connection_id = raw.get("id", "")
-            if connection_id:
-                self._connections_cache[connection_id] = FabricConnection.from_dict(raw)
-        logger.info(f"Cached {len(self._connections_cache)} Fabric connection(s)")
+        try:
+            for raw in self.client.list_connections():
+                connection_id = raw.get("id", "")
+                if connection_id:
+                    self._connections_cache[connection_id] = FabricConnection.from_dict(
+                        raw
+                    )
+            logger.info(f"Cached {len(self._connections_cache)} Fabric connection(s)")
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Cache Connections",
+                message="Could not retrieve tenant connections. "
+                "Copy activity lineage may be incomplete.",
+                context="",
+                exc=e,
+            )
 
     @classmethod
     def create(
@@ -248,12 +259,14 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             self._cache_connections()
             self._copy_lineage_extractor = CopyActivityLineageExtractor(
                 connections_cache=self._connections_cache,
+                report=self.report,
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
                 platform_instance_map=self.config.platform_instance_map,
             )
             self._invoke_pipeline_extractor = InvokePipelineLineageExtractor(
                 pipeline_activities_cache=self._pipeline_activities_cache,
+                report=self.report,
                 platform=PLATFORM,
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
@@ -479,93 +492,154 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 activity.name, dataflow.urn
             )
 
-        # Emit each activity as a DataJob
         for activity in activities:
-            custom_props: dict[str, str] = {
-                "activity_type": activity.type,
-            }
-            if activity.state:
-                custom_props["state"] = activity.state
-            if activity.on_inactive_mark_as:
-                custom_props["on_inactive_mark_as"] = activity.on_inactive_mark_as
+            try:
+                custom_props: dict[str, str] = {
+                    "activity_type": activity.type,
+                }
+                if activity.state:
+                    custom_props["state"] = activity.state
+                if activity.on_inactive_mark_as:
+                    custom_props["on_inactive_mark_as"] = activity.on_inactive_mark_as
 
-            # Resolve upstream job dependencies from dependsOn
-            upstream_edges: list[EdgeClass] = []
-            if activity.depends_on:
-                for dep in activity.depends_on:
-                    upstream_urn = activity_urn_map.get(dep.activity)
-                    if upstream_urn:
-                        edge_props: Optional[Dict[str, str]] = None
-                        if dep.dependency_conditions:
-                            edge_props = {
-                                "dependencyConditions": ",".join(
-                                    dep.dependency_conditions
-                                )
-                            }
-                        upstream_edges.append(
-                            EdgeClass(
-                                destinationUrn=str(upstream_urn),
-                                properties=edge_props,
-                            )
-                        )
-                    else:
-                        self.report.report_warning(
-                            title="Unknown Activity Dependency",
-                            message="Activity depends on an activity not found in this pipeline.",
-                            context=f"pipeline={pipeline_item.name}, "
-                            f"activity={activity.name}, dependency={dep.activity}",
-                        )
-
-            # Extract dataset lineage for Copy activities
-            input_urns: list[str] = []
-            output_urns: list[str] = []
-            if activity.type == "Copy":
-                input_urns, output_urns = self._copy_lineage_extractor.extract_lineage(
-                    activity=activity,
-                    workspace_id=pipeline_item.workspace_id,
+                upstream_edges = self._resolve_upstream_edges(
+                    activity, activity_urn_map
+                )
+                input_urns, output_urns = self._extract_activity_lineage(
+                    activity, pipeline_item
                 )
 
-            datajob_urn = activity_urn_map[activity.name]
-            datajob_urn_str = str(datajob_urn)
+                datajob_urn_str = str(activity_urn_map[activity.name])
+                self._merge_cross_pipeline_info(
+                    datajob_urn_str,
+                    custom_props,
+                    upstream_edges,
+                    invoke_pipeline_lineage,
+                )
 
-            # Merge InvokePipeline custom properties (resolved during fetch)
-            invoke_result = invoke_pipeline_lineage.get(datajob_urn_str)
-            if invoke_result:
-                custom_props.update(invoke_result.custom_properties)
+                has_io = upstream_edges or input_urns or output_urns
+                datajob = DataJob(
+                    name=make_activity_job_id(activity.name),
+                    flow=dataflow,
+                    display_name=activity.name,
+                    description=activity.description,
+                    subtype=_ACTIVITY_SUBTYPE_MAP.get(activity.type),
+                    external_url=self._get_pipeline_url(
+                        pipeline_item.workspace_id, pipeline_item.id
+                    ),
+                    custom_properties=custom_props,
+                    extra_aspects=[
+                        DataJobInputOutputClass(
+                            inputDatasets=input_urns,
+                            outputDatasets=output_urns,
+                            inputDatajobEdges=upstream_edges,
+                        )
+                    ]
+                    if has_io
+                    else None,
+                )
+                datajob._set_container(workspace_key)
 
-            # Merge cross-pipeline incoming edges from InvokePipeline parents.
-            # If another pipeline's InvokePipeline targets this activity as
-            # the child's root activity, add the parent as an upstream edge.
-            cross_pipeline_parents = self._cross_pipeline_edges.get(datajob_urn_str, [])
-            for parent_urn in cross_pipeline_parents:
-                upstream_edges.append(EdgeClass(destinationUrn=parent_urn))
+                yield datajob
+                self.report.report_activity_scanned()
+            except Exception as e:
+                self.report.report_warning(
+                    title="Failed to Emit Activity",
+                    message="Error processing activity. Skipping to next.",
+                    context=f"pipeline={pipeline_item.name}, "
+                    f"activity={activity.name}, type={activity.type}",
+                    exc=e,
+                )
 
-            has_io = upstream_edges or input_urns or output_urns
-            subtype = _ACTIVITY_SUBTYPE_MAP.get(activity.type)
-            datajob = DataJob(
-                name=make_activity_job_id(activity.name),
-                flow=dataflow,
-                display_name=activity.name,
-                description=activity.description,
-                subtype=subtype,
-                external_url=self._get_pipeline_url(
-                    pipeline_item.workspace_id, pipeline_item.id
-                ),
-                custom_properties=custom_props,
-                extra_aspects=[
-                    DataJobInputOutputClass(
-                        inputDatasets=input_urns,
-                        outputDatasets=output_urns,
-                        inputDatajobEdges=upstream_edges,
-                    )
-                ]
-                if has_io
-                else None,
+    def _resolve_upstream_edges(
+        self,
+        activity: PipelineActivity,
+        activity_urn_map: dict[str, DataJobUrn],
+    ) -> list[EdgeClass]:
+        """Build upstream edges from activity dependsOn references."""
+        edges: list[EdgeClass] = []
+        for dep in activity.depends_on:
+            upstream_urn = activity_urn_map.get(dep.activity)
+            if not upstream_urn:
+                continue
+            edge_props: Optional[Dict[str, str]] = None
+            if dep.dependency_conditions:
+                edge_props = {
+                    "dependencyConditions": ",".join(dep.dependency_conditions)
+                }
+            edges.append(
+                EdgeClass(
+                    destinationUrn=str(upstream_urn),
+                    properties=edge_props,
+                )
             )
-            datajob._set_container(workspace_key)
+        return edges
 
-            yield datajob
-            self.report.report_activity_scanned()
+    def _extract_activity_lineage(
+        self,
+        activity: PipelineActivity,
+        pipeline_item: FabricItem,
+    ) -> tuple[list[str], list[str]]:
+        """Dispatch lineage extraction based on activity type.
+
+        Returns (input_urns, output_urns).
+        """
+        if activity.type == "Copy":
+            return self._extract_copy_activity_lineage(activity, pipeline_item)
+        return [], []
+
+    def _extract_copy_activity_lineage(
+        self,
+        activity: PipelineActivity,
+        pipeline_item: FabricItem,
+    ) -> tuple[list[str], list[str]]:
+        """Extract dataset lineage for a Copy activity, with resilient reporting.
+
+        Returns (input_urns, output_urns).
+        """
+        activity_key = f"{pipeline_item.name}.{activity.name}"
+        try:
+            input_urns, output_urns = self._copy_lineage_extractor.extract_lineage(
+                activity=activity,
+                workspace_id=pipeline_item.workspace_id,
+            )
+            if input_urns or output_urns:
+                self.report.report_lineage_extracted()
+            else:
+                self.report.report_lineage_failed(activity_key)
+                self.report.report_warning(
+                    title="Copy Activity Lineage Not Resolved",
+                    message="Could not resolve dataset lineage. "
+                    "Retrieve the pipeline definition JSON to "
+                    "identify the unsupported format.",
+                    context=activity_key,
+                )
+            return input_urns, output_urns
+        except Exception as e:
+            self.report.report_lineage_failed(activity_key)
+            self.report.report_warning(
+                title="Copy Activity Lineage Extraction Error",
+                message="Unexpected error extracting lineage. "
+                "Activity will be emitted without lineage.",
+                context=activity_key,
+                exc=e,
+            )
+            return [], []
+
+    def _merge_cross_pipeline_info(
+        self,
+        datajob_urn_str: str,
+        custom_props: dict[str, str],
+        upstream_edges: list[EdgeClass],
+        invoke_pipeline_lineage: dict[str, InvokePipelineActivityLineage],
+    ) -> None:
+        """Merge InvokePipeline properties and cross-pipeline parent edges."""
+        invoke_result = invoke_pipeline_lineage.get(datajob_urn_str)
+        if invoke_result:
+            custom_props.update(invoke_result.custom_properties)
+
+        for parent_urn in self._cross_pipeline_edges.get(datajob_urn_str, []):
+            upstream_edges.append(EdgeClass(destinationUrn=parent_urn))
 
     def _process_pipeline_runs(
         self,
@@ -595,15 +669,23 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         for run in runs:
             if run.status == ItemJobStatus.NOT_STARTED:
                 continue
-            yield from self._emit_pipeline_run(run, flow_urn)
-            self.report.report_pipeline_run_scanned()
+            try:
+                yield from self._emit_pipeline_run(run, flow_urn)
+                self.report.report_pipeline_run_scanned()
 
-            # Query activity runs for this pipeline run
-            yield from self._process_activity_runs(
-                pipeline_item=pipeline_item,
-                run=run,
-                flow_urn=flow_urn,
-            )
+                # Query activity runs for this pipeline run
+                yield from self._process_activity_runs(
+                    pipeline_item=pipeline_item,
+                    run=run,
+                    flow_urn=flow_urn,
+                )
+            except Exception as e:
+                self.report.report_warning(
+                    title="Failed to Process Pipeline Run",
+                    message="Error processing pipeline run. Skipping to next run.",
+                    context=f"pipeline={pipeline_item.name}, run={run.id}",
+                    exc=e,
+                )
 
     def _emit_pipeline_run(
         self,
@@ -685,12 +767,22 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             return
 
         for activity_run in activity_runs:
-            yield from self._emit_activity_run(
-                activity_run=activity_run,
-                pipeline_item=pipeline_item,
-                flow_urn=flow_urn,
-            )
-            self.report.report_activity_run_scanned()
+            try:
+                yield from self._emit_activity_run(
+                    activity_run=activity_run,
+                    pipeline_item=pipeline_item,
+                    flow_urn=flow_urn,
+                )
+                self.report.report_activity_run_scanned()
+            except Exception as e:
+                self.report.report_warning(
+                    title="Failed to Emit Activity Run",
+                    message="Error processing activity run. Skipping to next.",
+                    context=f"pipeline={pipeline_item.name}, "
+                    f"activity={activity_run.activity_name}, "
+                    f"run={activity_run.activity_run_id}",
+                    exc=e,
+                )
 
     def _emit_activity_run(
         self,

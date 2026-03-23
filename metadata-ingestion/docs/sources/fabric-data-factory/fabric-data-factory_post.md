@@ -128,13 +128,24 @@ urn:li:dataFlow:(fabric-data-factory,{platform_instance}.{workspace_id}.{pipelin
 
 ### Limitations
 
-- **Lineage scope**: Only Copy and InvokePipeline activities produce dataset or pipeline lineage. Other activity types are ingested as DataJobs without dataset-level lineage.
-- **Run history limit**: The Fabric API returns at most 100 recently completed runs per pipeline. Run ingestion more frequently to capture deeper history.
+- **Run history limit**: The Fabric API returns at most 100 recently completed runs per pipeline. If `execution_history_days` covers more runs than this limit, only the most recent 100 are returned. Run ingestion more frequently to capture deeper history.
+- **No Dataflow Gen2 support**: Dataflow Gen2 items (standalone workspace-level items with transformation logic) are not extracted.
+- **No CopyJob support**: Standalone CopyJob items at the workspace level are not extracted. Only Copy activities embedded within pipelines produce lineage.
+- **No trigger/schedule metadata**: Pipeline triggers and schedules are not extracted.
+- **ExecutePipeline not supported**: The `ExecutePipeline` activity type is marked as legacy in Fabric and is not supported for cross-pipeline lineage.
+
+#### Lineage
+
+- **Lineage scope**: Only Copy and InvokePipeline activities produce dataset or pipeline lineage. Other activity types (Lookup, Wait, ForEach, Script, etc.) are ingested as DataJobs without dataset-level lineage.
+- **InvokePipeline Activity operation types**: Only the `InvokeFabricPipeline` operation type is supported for cross-pipeline lineage. Other operation types (`InvokeAdfPipeline`, `InvokeExternalPipeline`) are not resolved and will be skipped.
+- **Query-based Copy sources**: When a Copy activity uses `sqlReaderQuery` or `sqlReaderStoredProcedureName` instead of a direct table reference, lineage is **not extracted**.
+- **No column-level lineage**: The connector extracts dataset-level lineage only. Column-to-column mappings from Copy activity translator configurations are not extracted.
+- **No Notebook/SparkJobDefinition lineage**: Notebook and SparkJobDefinition activities are ingested as DataJobs but their lineage is not resolved.
 - **Connection resolution**: Unmapped connection types fall back to using the connection type string as the platform name, which may not match your existing DataHub platform names. Use `platform_instance_map` to explicitly map connection names.
 
 ### Troubleshooting
 
 - **401/403 errors**: Ensure the service principal has the correct Fabric API permissions and is added as a workspace member.
 - **Empty results**: Check that `workspace_pattern` and `pipeline_pattern` are not filtering out all items.
-- **Missing lineage**: Verify that `include_lineage: true` is set and that Fabric connections are properly configured for the pipelines.
+- **Missing lineage**: Verify that `include_lineage: true` is set and that Fabric connections are properly configured for the pipelines. Also review the [Lineage limitations](#lineage) section for unsupported activity types and scenarios.
 - **Stale entities**: Enable `stateful_ingestion` to automatically remove entities that no longer exist in Fabric.

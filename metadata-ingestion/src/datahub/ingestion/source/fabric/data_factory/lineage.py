@@ -16,6 +16,9 @@ from datahub.ingestion.source.fabric.data_factory.models import (
     InvokePipelineActivityLineage,
     PipelineActivity,
 )
+from datahub.ingestion.source.fabric.data_factory.report import (
+    FabricDataFactorySourceReport,
+)
 from datahub.metadata.urns import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -31,11 +34,13 @@ class CopyActivityLineageExtractor:
     def __init__(
         self,
         connections_cache: Dict[str, FabricConnection],
+        report: FabricDataFactorySourceReport,
         env: str,
         platform_instance: Optional[str] = None,
         platform_instance_map: Optional[Dict[str, str]] = None,
     ) -> None:
         self._connections_cache = connections_cache
+        self._report = report
         self._env = env
         self._platform_instance = platform_instance
         self._platform_instance_map = platform_instance_map or {}
@@ -77,7 +82,9 @@ class CopyActivityLineageExtractor:
         )
         if not connection_type:
             logger.debug(
-                f"Could not resolve connection type for activity '{activity.name}'"
+                "Could not resolve connection type for activity '%s'. "
+                "This may indicate an unsupported connection format.",
+                activity.name,
             )
             return None
 
@@ -91,8 +98,10 @@ class CopyActivityLineageExtractor:
         )
         if not table_name:
             logger.debug(
-                f"Could not extract table name from "
-                f"datasetSettings of activity '{activity.name}'"
+                "Could not extract table name from datasetSettings "
+                "of activity '%s' (connection_type=%s).",
+                activity.name,
+                connection_type,
             )
             return None
 
@@ -138,6 +147,12 @@ class CopyActivityLineageExtractor:
             conn = self._connections_cache.get(ds_conn_id)
             if conn:
                 return conn.display_name, conn.connection_type
+            logger.debug(
+                "Connection ID '%s' from externalReferences not found in cache "
+                "(cache has %d entries)",
+                ds_conn_id,
+                len(self._connections_cache),
+            )
 
         # 2a. connectionSettings externalReferences → cache
         cs_conn_id = (conn_settings_props.get("externalReferences") or {}).get(
@@ -147,6 +162,11 @@ class CopyActivityLineageExtractor:
             conn = self._connections_cache.get(cs_conn_id)
             if conn:
                 return conn.display_name, conn.connection_type
+            logger.debug(
+                "Connection ID '%s' from connectionSettings.externalReferences "
+                "not found in cache",
+                cs_conn_id,
+            )
 
         # 2b. connectionSettings.properties.type (inline)
         cs_type: Optional[str] = conn_settings_props.get("type")
@@ -176,8 +196,7 @@ class CopyActivityLineageExtractor:
                 return mapped
         return self._platform_instance
 
-    @staticmethod
-    def _resolve_platform(connection_type: str) -> str:
+    def _resolve_platform(self, connection_type: str) -> str:
         """Map a connection type to a DataHub platform identifier."""
         platform = FABRIC_CONNECTION_PLATFORM_MAP.get(connection_type)
         if platform is None:
@@ -187,9 +206,10 @@ class CopyActivityLineageExtractor:
             platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(connection_type)
         if platform is None:
             logger.debug(
-                f"Unmapped connection type '{connection_type}', "
-                f"defaulting to connection type as platform"
+                "Unmapped connection type '%s', defaulting to connection type as platform",
+                connection_type,
             )
+            self._report.report_unmapped_connection_type(connection_type)
             return connection_type
         return platform
 
@@ -214,6 +234,10 @@ class CopyActivityLineageExtractor:
             "artifactId"
         ) or ds_type_props.get("artifactId")
         if not artifact_id:
+            logger.debug(
+                "No artifactId found in OneLake datasetSettings for activity '%s'",
+                activity.name,
+            )
             return None
 
         resolved_workspace_id: str = (
@@ -235,11 +259,12 @@ class CopyActivityLineageExtractor:
             )
 
         # 2. File-based: location block (Lakehouse "Files" section)
-        # file_path = self._extract_file_path(ds_type_props.get("location") or {})
-        # TODO: once file based datsets are supported in OneLake connector, remove this log and return a URN of file
+        # TODO: once file based datasets are supported in OneLake connector,
+        # remove this log and return a URN of file
         logger.debug(
-            f"OneLake dataset for activity '{activity.name}' has artifactId "
-            f"but no table — skipping URN"
+            "OneLake dataset for activity '%s' has artifactId "
+            "but no table — file-based datasets not yet supported",
+            activity.name,
         )
         return None
 
@@ -287,11 +312,13 @@ class InvokePipelineLineageExtractor:
     def __init__(
         self,
         pipeline_activities_cache: dict[tuple[str, str], List[PipelineActivity]],
+        report: FabricDataFactorySourceReport,
         platform: str,
         env: str,
         platform_instance: Optional[str] = None,
     ) -> None:
         self._pipeline_activities_cache = pipeline_activities_cache
+        self._report = report
         self._platform = platform
         self._env = env
         self._platform_instance = platform_instance
@@ -312,10 +339,11 @@ class InvokePipelineLineageExtractor:
         if operation_type == self.SUPPORTED_OPERATION_TYPE:
             return self._resolve_fabric_pipeline(activity, parent_workspace_id)
 
-        logger.debug(
-            f"InvokePipeline activity '{activity.name}' has "
-            f"operationType={operation_type}, only "
-            f"{self.SUPPORTED_OPERATION_TYPE} is supported — skipping"
+        self._report.report_warning(
+            title="InvokePipeline Lineage Not Resolved",
+            message="Unsupported operationType. "
+            "Only InvokeFabricPipeline is supported.",
+            context=f"activity={activity.name}, operationType={operation_type}",
         )
         return None
 
@@ -329,8 +357,9 @@ class InvokePipelineLineageExtractor:
         child_pipeline_id = type_props.get("pipelineId")
         if not child_pipeline_id:
             logger.debug(
-                f"InvokePipeline activity '{activity.name}' has no pipelineId, "
-                "skipping cross-pipeline lineage"
+                "InvokePipeline activity '%s' has no pipelineId, "
+                "skipping cross-pipeline lineage",
+                activity.name,
             )
             return None
 
@@ -360,9 +389,11 @@ class InvokePipelineLineageExtractor:
                 )
         else:
             logger.debug(
-                f"InvokePipeline '{activity.name}' references pipeline "
-                f"{child_pipeline_id} in workspace {child_workspace_id} "
-                "which is not in the activities cache — skipping edge"
+                "InvokePipeline '%s' references pipeline %s in workspace %s "
+                "which is not in the activities cache — skipping edge",
+                activity.name,
+                child_pipeline_id,
+                child_workspace_id,
             )
 
         # Build custom properties for the InvokePipeline DataJob

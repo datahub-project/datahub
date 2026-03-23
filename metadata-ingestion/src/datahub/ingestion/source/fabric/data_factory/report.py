@@ -7,7 +7,7 @@ from datahub.ingestion.source.fabric.common.report import FabricClientReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 
 @dataclass
@@ -29,6 +29,12 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
     filtered_pipelines: LossyList[str] = field(default_factory=LossyList)
+
+    # Lineage extraction tracking
+    lineage_extracted: int = 0
+    lineage_failed: int = 0
+    lineage_failed_details: LossyList[str] = field(default_factory=LossyList)
+    unmapped_connection_types: LossyDict[str, int] = field(default_factory=LossyDict)
 
     # Client report
     client_report: Optional[FabricDataFactoryClientReport] = None
@@ -53,3 +59,14 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
 
     def report_activity_run_scanned(self) -> None:
         self.activity_runs_scanned += 1
+
+    def report_lineage_extracted(self) -> None:
+        self.lineage_extracted += 1
+
+    def report_lineage_failed(self, activity_key: str) -> None:
+        self.lineage_failed += 1
+        self.lineage_failed_details.append(activity_key)
+
+    def report_unmapped_connection_type(self, connection_type: str) -> None:
+        current = self.unmapped_connection_types.get(connection_type, 0)
+        self.unmapped_connection_types[connection_type] = current + 1
