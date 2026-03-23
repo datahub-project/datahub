@@ -313,10 +313,8 @@ class SnowflakeSinkConnector(BaseConnector):
         for topic, table in parser.topics_to_tables.items():
             target_dataset: str = f"{parser.database_name}.{parser.schema_name}.{table}"
 
-            # Extract column-level lineage if enabled (uses base class method)
-            fine_grained = self._extract_fine_grained_lineage(
-                source_dataset=topic,
-                source_platform=KAFKA,
+            fine_grained = self._extract_sink_fine_grained_lineage(
+                source_topic=topic,
                 target_dataset=target_dataset,
                 target_platform="snowflake",
             )
@@ -565,10 +563,8 @@ class BigQuerySinkConnector(BaseConnector):
                 continue
             target_dataset: str = f"{project}.{dataset_table}"
 
-            # Extract column-level lineage if enabled (uses base class method)
-            fine_grained = self._extract_fine_grained_lineage(
-                source_dataset=original_topic,
-                source_platform=KAFKA,
+            fine_grained = self._extract_sink_fine_grained_lineage(
+                source_topic=original_topic,
                 target_dataset=target_dataset,
                 target_platform=target_platform,
             )
@@ -1070,10 +1066,8 @@ class JdbcSinkConnector(BaseConnector):
                     # Platform doesn't use schemas: database.table
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 
-                # Extract column-level lineage if enabled (uses base class method)
-                fine_grained = self._extract_fine_grained_lineage(
-                    source_dataset=original_topic,
-                    source_platform=KAFKA,
+                fine_grained = self._extract_sink_fine_grained_lineage(
+                    source_topic=original_topic,
                     target_dataset=target_dataset,
                     target_platform=parser.target_platform,
                 )

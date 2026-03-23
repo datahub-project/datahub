@@ -4666,7 +4666,8 @@ class TestFineGrainedLineageWithReplaceField:
 
         downstream_fields = []
         for fg_lineage in lineage.fine_grained_lineages:
-            for downstream_urn in fg_lineage["downstreams"]:
+            assert fg_lineage.downstreams is not None
+            for downstream_urn in fg_lineage.downstreams:
                 field_name = downstream_urn.split(",")[-1].rstrip(")")
                 downstream_fields.append(field_name)
 
@@ -4730,7 +4731,8 @@ class TestFineGrainedLineageWithReplaceField:
 
         downstream_fields = []
         for fg_lineage in lineage.fine_grained_lineages:
-            for downstream_urn in fg_lineage["downstreams"]:
+            assert fg_lineage.downstreams is not None
+            for downstream_urn in fg_lineage.downstreams:
                 field_name = downstream_urn.split(",")[-1].rstrip(")")
                 downstream_fields.append(field_name)
 
@@ -4791,7 +4793,8 @@ class TestFineGrainedLineageWithReplaceField:
 
         downstream_fields = []
         for fg_lineage in lineage.fine_grained_lineages:
-            for downstream_urn in fg_lineage["downstreams"]:
+            assert fg_lineage.downstreams is not None
+            for downstream_urn in fg_lineage.downstreams:
                 field_name = downstream_urn.split(",")[-1].rstrip(")")
                 downstream_fields.append(field_name)
 
@@ -4858,7 +4861,8 @@ class TestFineGrainedLineageWithReplaceField:
 
         downstream_fields = []
         for fg_lineage in lineage.fine_grained_lineages:
-            for downstream_urn in fg_lineage["downstreams"]:
+            assert fg_lineage.downstreams is not None
+            for downstream_urn in fg_lineage.downstreams:
                 field_name = downstream_urn.split(",")[-1].rstrip(")")
                 downstream_fields.append(field_name)
 
