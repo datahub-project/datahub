@@ -1,8 +1,4 @@
 describe("login", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
-
   it("logs in", () => {
     cy.visit("/");
     cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));

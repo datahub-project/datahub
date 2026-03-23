@@ -70,15 +70,17 @@ describe('DeprecationPill', () => {
     it('shows "No additional details" when no details provided', async () => {
         render(
             <MockedProvider>
-                <DeprecationIcon
-                    {...defaultProps}
-                    deprecation={{
-                        note: '',
-                        decommissionTime: null,
-                        deprecated: true,
-                        replacement: null,
-                    }}
-                />
+                <CustomThemeProvider>
+                    <DeprecationIcon
+                        {...defaultProps}
+                        deprecation={{
+                            note: '',
+                            decommissionTime: null,
+                            deprecated: true,
+                            replacement: null,
+                        }}
+                    />
+                </CustomThemeProvider>
             </MockedProvider>,
         );
 

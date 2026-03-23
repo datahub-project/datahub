@@ -16,7 +16,7 @@ interface GlossaryItemRibbonProps {
     color: string;
 }
 
-export const GLOSSARY_RIBBON_SIZE = 8;
+const GLOSSARY_RIBBON_SIZE = 8;
 
 const GlossaryItemRibbon = styled.span<GlossaryItemRibbonProps>`
     position: absolute;

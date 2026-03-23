@@ -13,7 +13,6 @@ const openStatsTabOfSampleEntity = () => {
 
 describe("Charts", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

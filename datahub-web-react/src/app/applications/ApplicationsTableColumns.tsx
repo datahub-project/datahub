@@ -1,18 +1,19 @@
-import { Icon, colors, typography } from '@components';
+import { Icon, typography } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { useEntityRegistry, useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EntityType, Ownership } from '@src/types.generated';
 
 const ApplicationName = styled.div`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -25,15 +26,9 @@ const ApplicationName = styled.div`
 const ApplicationDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: normal;
     line-height: 1.4;
-`;
-
-const OwnersContainer = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
 `;
 
 const ColumnContainer = styled.div`
@@ -48,8 +43,12 @@ const MenuItem = styled.div`
     padding: 5px 70px 5px 5px;
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-family: ${typography.fonts.body};
+`;
+
+const DeleteMenuItem = styled(MenuItem)`
+    color: ${(props) => props.theme.colors.textError};
 `;
 
 export const ApplicationNameColumn = React.memo(
@@ -87,24 +86,18 @@ export const ApplicationDescriptionColumn = React.memo(
     },
 );
 
-export const ApplicationOwnersColumn = React.memo(
-    ({ applicationUrn, owners }: { applicationUrn: string; owners: Ownership }) => {
-        return (
-            <ColumnContainer>
-                <OwnersContainer>
-                    {owners?.owners?.map((ownerItem) => (
-                        <ExpandedOwner
-                            key={ownerItem.owner?.urn}
-                            entityUrn={applicationUrn}
-                            owner={ownerItem}
-                            hidePopOver
-                        />
-                    ))}
-                </OwnersContainer>
-            </ColumnContainer>
-        );
-    },
-);
+export const ApplicationOwnersColumn = React.memo(({ owners }: { owners: Ownership }) => {
+    const entityRegistry = useEntityRegistryV2();
+    const ownerList = owners?.owners || [];
+
+    if (ownerList.length === 0) return <>-</>;
+
+    return (
+        <ColumnContainer>
+            <OwnerAvatarGroup owners={ownerList} entityRegistry={entityRegistry} />
+        </ColumnContainer>
+    );
+});
 
 export const ApplicationActionsColumn = React.memo(
     ({ applicationUrn, onDelete }: { applicationUrn: string; onDelete: () => void }) => {
@@ -135,9 +128,9 @@ export const ApplicationActionsColumn = React.memo(
             {
                 key: '2',
                 label: (
-                    <MenuItem onClick={onDelete} data-testid="action-delete" style={{ color: colors.red[500] }}>
+                    <DeleteMenuItem onClick={onDelete} data-testid="action-delete">
                         Delete
-                    </MenuItem>
+                    </DeleteMenuItem>
                 ),
             },
         ];
@@ -145,7 +138,7 @@ export const ApplicationActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Dropdown menu={{ items }} trigger={['click']} data-testid={`${applicationUrn}-actions-dropdown`}>
-                    <Icon icon="MoreVert" size="md" />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid="MoreVertOutlinedIcon" />
                 </Dropdown>
             </CardIcons>
         );

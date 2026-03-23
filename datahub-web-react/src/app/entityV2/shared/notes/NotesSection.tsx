@@ -1,9 +1,12 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Avatar } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -11,8 +14,6 @@ import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { COLORS } from '@app/sharedV2/colors';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useDeletePostMutation } from '@graphql/post.generated';
@@ -61,7 +62,7 @@ export default function NotesSection({ urn, subResource, notes, refetch, showEmp
                 extra={
                     isSchemaEditable && (
                         <SectionActionButton
-                            button={<AddRoundedIcon />}
+                            icon={Plus}
                             onClick={(event) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();
@@ -109,7 +110,7 @@ const NoteWrapper = styled.div`
 `;
 
 const NoteContent = styled.div`
-    border-left: 2px solid ${COLORS.blue_5};
+    border-left: 2px solid ${(props) => props.theme.colors.borderBrand};
     padding: 2px 0 5px 10px;
     display: flex;
     flex-direction: column;
@@ -121,7 +122,7 @@ const NoteHeader = styled.div`
     align-items: center;
     display: flex;
     font-size: 12px;
-    color: ${COLORS.blue_10};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const NoteTime = styled.div`
@@ -181,7 +182,9 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
         <NoteWrapper>
             <NoteContent>
                 <NoteHeader>
-                    <NoteOwner>{note.lastModified.actor && <CustomAvatar size={18} name={parsedName} />}</NoteOwner>
+                    <NoteOwner>
+                        {note.lastModified.actor && <Avatar name={parsedName} type={AvatarType.user} size="sm" />}
+                    </NoteOwner>
                     <NoteTime>
                         {isToday && 'Today'}
                         {isYesterday && 'Yesterday'}
@@ -200,11 +203,8 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
             {isSchemaEditable && (
                 <NoteEditWrapper>
                     <NoteEditIcons>
-                        <SectionActionButton button={<EditOutlinedIcon />} onClick={() => setShowEditModal(true)} />
-                        <SectionActionButton
-                            button={<DeleteOutlineOutlinedIcon />}
-                            onClick={() => setShowDeleteModal(true)}
-                        />
+                        <SectionActionButton icon={PencilSimple} onClick={() => setShowEditModal(true)} />
+                        <SectionActionButton icon={Trash} onClick={() => setShowDeleteModal(true)} />
                     </NoteEditIcons>
                 </NoteEditWrapper>
             )}

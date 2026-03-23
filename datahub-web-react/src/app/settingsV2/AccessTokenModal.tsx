@@ -1,3 +1,5 @@
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -134,7 +136,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
             <ModalContent>
                 <InfoAlert>
                     <InfoIconWrapper>
-                        <Icon icon="Info" source="phosphor" size="inherit" />
+                        <Icon icon={Info} size="inherit" />
                     </InfoIconWrapper>
                     <Text size="sm">
                         Make sure to copy your access token now. You won&apos;t be able to see it again.
@@ -153,7 +155,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessToken, 'Token')}
                             data-testid="copy-token-button"
-                            icon={{ icon: 'Copy', source: 'phosphor' }}
+                            icon={{ icon: Copy }}
                         >
                             Copy
                         </CopyButton>
@@ -175,7 +177,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessTokenCurl, 'cURL command')}
                             data-testid="copy-curl-button"
-                            icon={{ icon: 'Copy', source: 'phosphor' }}
+                            icon={{ icon: Copy }}
                         >
                             Copy
                         </CopyButton>

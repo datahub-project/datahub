@@ -1,5 +1,5 @@
 import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { Key } from '@phosphor-icons/react';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

@@ -1,3 +1,4 @@
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import React from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -23,7 +24,7 @@ const TopDomainsModule = (props: ModuleProps) => {
         <LargeModule {...props} loading={loading} onClickViewAll={navigateToDomains} dataTestId="domains-module">
             {domains.length === 0 ? (
                 <EmptyContent
-                    icon="Globe"
+                    icon={Globe}
                     title="No Domains Created"
                     description="Start by creating a domain in order to see it on your list"
                     linkText="Configure your data domains"

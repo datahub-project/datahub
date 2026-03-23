@@ -8,7 +8,7 @@ export enum FormView {
     BY_ENTITY,
 }
 
-export type EntityFormContextType = {
+type EntityFormContextType = {
     formUrn: string;
     isInFormContext: boolean;
     entityData: GenericEntityProperties | undefined;
@@ -27,7 +27,7 @@ export type EntityFormContextType = {
     isVerificationType: boolean;
 };
 
-export const DEFAULT_CONTEXT = {
+const DEFAULT_CONTEXT = {
     formUrn: '',
     isInFormContext: false,
     entityData: undefined,
