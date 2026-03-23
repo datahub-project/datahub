@@ -131,7 +131,11 @@ export default function ChangeTransactionView({
                 </TransactionDateHeader>
                 <div>
                     {transaction?.changes?.map((change) => (
-                        <ChangeEventComponent changeEvent={change} nameMap={nameMap} />
+                        <ChangeEventComponent
+                            key={`${change.category}-${change.operation}-${change.description}`}
+                            changeEvent={change}
+                            nameMap={nameMap}
+                        />
                     ))}
                 </div>
             </ChangeTransactionMainContent>

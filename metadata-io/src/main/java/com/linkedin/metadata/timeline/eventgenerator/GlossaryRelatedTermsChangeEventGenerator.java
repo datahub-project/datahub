@@ -100,58 +100,13 @@ public class GlossaryRelatedTermsChangeEventGenerator
       @Nonnull String relationshipName,
       @Nonnull String entityUrn,
       AuditStamp auditStamp) {
-
-    List<GlossaryTermUrn> base = baseTerms != null ? new ArrayList<>(baseTerms) : new ArrayList<>();
-    List<GlossaryTermUrn> target =
-        targetTerms != null ? new ArrayList<>(targetTerms) : new ArrayList<>();
-
-    base.sort(Comparator.comparing(GlossaryTermUrn::toString));
-    target.sort(Comparator.comparing(GlossaryTermUrn::toString));
-
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    int baseIdx = 0;
-    int targetIdx = 0;
-
-    while (baseIdx < base.size() && targetIdx < target.size()) {
-      int comparison = base.get(baseIdx).toString().compareTo(target.get(targetIdx).toString());
-      if (comparison == 0) {
-        ++baseIdx;
-        ++targetIdx;
-      } else if (comparison < 0) {
-        changeEvents.add(
-            buildEvent(
-                base.get(baseIdx),
-                relationshipName,
-                entityUrn,
-                ChangeOperation.REMOVE,
-                auditStamp));
-        ++baseIdx;
-      } else {
-        changeEvents.add(
-            buildEvent(
-                target.get(targetIdx),
-                relationshipName,
-                entityUrn,
-                ChangeOperation.ADD,
-                auditStamp));
-        ++targetIdx;
-      }
-    }
-
-    while (baseIdx < base.size()) {
-      changeEvents.add(
-          buildEvent(
-              base.get(baseIdx), relationshipName, entityUrn, ChangeOperation.REMOVE, auditStamp));
-      ++baseIdx;
-    }
-    while (targetIdx < target.size()) {
-      changeEvents.add(
-          buildEvent(
-              target.get(targetIdx), relationshipName, entityUrn, ChangeOperation.ADD, auditStamp));
-      ++targetIdx;
-    }
-
-    return changeEvents;
+    List<GlossaryTermUrn> base = baseTerms != null ? new ArrayList<>(baseTerms) : null;
+    List<GlossaryTermUrn> target = targetTerms != null ? new ArrayList<>(targetTerms) : null;
+    return ChangeEventGeneratorUtils.sortedMergeDiff(
+        base,
+        target,
+        GlossaryTermUrn::toString,
+        (term, op) -> buildEvent(term, relationshipName, entityUrn, op, auditStamp));
   }
 
   private static ChangeEvent buildEvent(
@@ -201,8 +156,10 @@ public class GlossaryRelatedTermsChangeEventGenerator
     if (element == ChangeCategory.GLOSSARY_TERM) {
       GlossaryRelatedTerms baseRelatedTerms = getGlossaryRelatedTermsFromAspect(previousValue);
       GlossaryRelatedTerms targetRelatedTerms = getGlossaryRelatedTermsFromAspect(currentValue);
-      changeEvents.addAll(
-          computeDiffs(baseRelatedTerms, targetRelatedTerms, currentValue.getUrn(), null));
+      if (targetRelatedTerms != null) {
+        changeEvents.addAll(
+            computeDiffs(baseRelatedTerms, targetRelatedTerms, currentValue.getUrn(), null));
+      }
     }
 
     SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;

@@ -126,50 +126,22 @@ public class DataProductPropertiesChangeEventGenerator
       @Nullable DataProductProperties targetProperties,
       @Nonnull String entityUrn,
       AuditStamp auditStamp) {
-
-    List<String> base = extractSortedAssetUrns(baseProperties);
-    List<String> target = extractSortedAssetUrns(targetProperties);
-
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    int baseIdx = 0;
-    int targetIdx = 0;
-
-    while (baseIdx < base.size() && targetIdx < target.size()) {
-      int cmp = base.get(baseIdx).compareTo(target.get(targetIdx));
-      if (cmp == 0) {
-        ++baseIdx;
-        ++targetIdx;
-      } else if (cmp < 0) {
-        changeEvents.add(
-            buildAssetEvent(base.get(baseIdx), entityUrn, ChangeOperation.REMOVE, auditStamp));
-        ++baseIdx;
-      } else {
-        changeEvents.add(
-            buildAssetEvent(target.get(targetIdx), entityUrn, ChangeOperation.ADD, auditStamp));
-        ++targetIdx;
-      }
-    }
-    while (baseIdx < base.size()) {
-      changeEvents.add(
-          buildAssetEvent(base.get(baseIdx), entityUrn, ChangeOperation.REMOVE, auditStamp));
-      ++baseIdx;
-    }
-    while (targetIdx < target.size()) {
-      changeEvents.add(
-          buildAssetEvent(target.get(targetIdx), entityUrn, ChangeOperation.ADD, auditStamp));
-      ++targetIdx;
-    }
-    return changeEvents;
+    List<String> base = extractAssetUrns(baseProperties);
+    List<String> target = extractAssetUrns(targetProperties);
+    return ChangeEventGeneratorUtils.sortedMergeDiff(
+        base,
+        target,
+        java.util.function.Function.identity(),
+        (assetUrn, op) -> buildAssetEvent(assetUrn, entityUrn, op, auditStamp));
   }
 
-  private static List<String> extractSortedAssetUrns(@Nullable DataProductProperties properties) {
+  private static List<String> extractAssetUrns(@Nullable DataProductProperties properties) {
     if (properties == null || !properties.hasAssets()) {
-      return new ArrayList<>();
+      return null;
     }
     DataProductAssociationArray assets = properties.getAssets();
     List<String> urns = new ArrayList<>(assets.size());
     assets.forEach(assoc -> urns.add(assoc.getDestinationUrn().toString()));
-    urns.sort(Comparator.naturalOrder());
     return urns;
   }
 
@@ -209,12 +181,14 @@ public class DataProductPropertiesChangeEventGenerator
     List<ChangeEvent> changeEvents = new ArrayList<>();
     DataProductProperties baseProperties = getPropertiesFromAspect(previousValue);
     DataProductProperties targetProperties = getPropertiesFromAspect(currentValue);
-    if (element == ChangeCategory.DOCUMENTATION) {
-      changeEvents.addAll(
-          computeDiffs(baseProperties, targetProperties, currentValue.getUrn(), null));
-    } else if (element == ChangeCategory.ASSET_MEMBERSHIP) {
-      changeEvents.addAll(
-          computeAssetDiffs(baseProperties, targetProperties, currentValue.getUrn(), null));
+    if (targetProperties != null) {
+      if (element == ChangeCategory.DOCUMENTATION) {
+        changeEvents.addAll(
+            computeDiffs(baseProperties, targetProperties, currentValue.getUrn(), null));
+      } else if (element == ChangeCategory.ASSET_MEMBERSHIP) {
+        changeEvents.addAll(
+            computeAssetDiffs(baseProperties, targetProperties, currentValue.getUrn(), null));
+      }
     }
 
     SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;

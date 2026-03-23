@@ -87,7 +87,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
     // Reset selection when the available categories change (e.g. navigating between entity types)
     useEffect(() => setSelectedCategories(allCategoryValues), [allCategoryValues]);
 
-    const { data: entityTimelineData } = useGetTimelineQuery({
+    const { data: entityTimelineData, error: entityTimelineError } = useGetTimelineQuery({
         skip: !open,
         variables: {
             input: {
@@ -96,7 +96,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
             },
         },
     });
-    const { data: siblingTimelineData } = useGetTimelineQuery({
+    const { data: siblingTimelineData, error: siblingTimelineError } = useGetTimelineQuery({
         skip: !open || !siblingUrn,
         variables: {
             input: {
@@ -105,6 +105,8 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
             },
         },
     });
+
+    const hasError = !!entityTimelineError || !!siblingTimelineError;
 
     const { entityPlatform, siblingPlatform } = useGetSiblingPlatforms();
 
@@ -188,14 +190,21 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
 
                 <ChangeTransactionList>
                     {filteredEntries
-                        .map((entry) => <ChangeTransactionView key={entry.transaction.versionStamp} {...entry} />)
+                        .map((entry) => (
+                            <ChangeTransactionView
+                                key={`${entry.transaction.timestampMillis}-${entry.transaction.actor}`}
+                                {...entry}
+                            />
+                        ))
                         .reverse()}
                 </ChangeTransactionList>
 
                 <HistoryFooter>
-                    {mayBeTruncated
-                        ? 'Showing the most recent changes. Older history may not be displayed.'
-                        : 'Complete change history'}
+                    {hasError && 'Unable to load change history.'}
+                    {!hasError &&
+                        mayBeTruncated &&
+                        'Showing the most recent changes. Older history may not be displayed.'}
+                    {!hasError && !mayBeTruncated && 'Complete change history'}
                 </HistoryFooter>
             </DrawerContent>
         </StyledDrawer>

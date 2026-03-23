@@ -29,51 +29,12 @@ public class ApplicationsChangeEventGenerator extends EntityChangeEventGenerator
       @Nullable Applications targetApplications,
       @Nonnull String entityUrn,
       AuditStamp auditStamp) {
-
     List<Urn> base =
-        baseApplications != null
-            ? new ArrayList<>(baseApplications.getApplications())
-            : new ArrayList<>();
+        baseApplications != null ? new ArrayList<>(baseApplications.getApplications()) : null;
     List<Urn> target =
-        targetApplications != null
-            ? new ArrayList<>(targetApplications.getApplications())
-            : new ArrayList<>();
-
-    base.sort(Comparator.comparing(Urn::toString));
-    target.sort(Comparator.comparing(Urn::toString));
-
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    int baseIdx = 0;
-    int targetIdx = 0;
-
-    while (baseIdx < base.size() && targetIdx < target.size()) {
-      int comparison = base.get(baseIdx).toString().compareTo(target.get(targetIdx).toString());
-      if (comparison == 0) {
-        ++baseIdx;
-        ++targetIdx;
-      } else if (comparison < 0) {
-        changeEvents.add(
-            buildEvent(base.get(baseIdx), entityUrn, ChangeOperation.REMOVE, auditStamp));
-        ++baseIdx;
-      } else {
-        changeEvents.add(
-            buildEvent(target.get(targetIdx), entityUrn, ChangeOperation.ADD, auditStamp));
-        ++targetIdx;
-      }
-    }
-
-    while (baseIdx < base.size()) {
-      changeEvents.add(
-          buildEvent(base.get(baseIdx), entityUrn, ChangeOperation.REMOVE, auditStamp));
-      ++baseIdx;
-    }
-    while (targetIdx < target.size()) {
-      changeEvents.add(
-          buildEvent(target.get(targetIdx), entityUrn, ChangeOperation.ADD, auditStamp));
-      ++targetIdx;
-    }
-
-    return changeEvents;
+        targetApplications != null ? new ArrayList<>(targetApplications.getApplications()) : null;
+    return ChangeEventGeneratorUtils.sortedMergeDiff(
+        base, target, Urn::toString, (app, op) -> buildEvent(app, entityUrn, op, auditStamp));
   }
 
   private static ChangeEvent buildEvent(

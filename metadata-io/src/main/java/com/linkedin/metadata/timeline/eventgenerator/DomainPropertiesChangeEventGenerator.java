@@ -131,8 +131,11 @@ public class DomainPropertiesChangeEventGenerator
     if (element == ChangeCategory.DOCUMENTATION) {
       DomainProperties baseDomainProperties = getDomainPropertiesFromAspect(previousValue);
       DomainProperties targetDomainProperties = getDomainPropertiesFromAspect(currentValue);
-      changeEvents.addAll(
-          computeDiffs(baseDomainProperties, targetDomainProperties, currentValue.getUrn(), null));
+      if (targetDomainProperties != null) {
+        changeEvents.addAll(
+            computeDiffs(
+                baseDomainProperties, targetDomainProperties, currentValue.getUrn(), null));
+      }
     }
 
     SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;

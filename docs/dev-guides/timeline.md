@@ -3,7 +3,7 @@ title: "Timeline API"
 ---
 
 The Timeline API supports viewing version history of schemas, documentation, tags, glossary terms, and other updates
-to entities. At present, the API only supports Datasets and Glossary Terms.
+to entities. The API supports Datasets, Glossary Terms, Domains, and Data Products.
 
 ## Compatibility
 
@@ -256,7 +256,4 @@ Here are a few screenshots showing how to navigate to it. You can try out the AP
 ## Future Work
 
 - Supporting versions as start and end parameters as part of the call to the timeline API
-- Supporting entities beyond Datasets
-- Adding GraphQL API support
 - Supporting materialization of computed versions for entity categories (compared to the current read-time version computation)
-- Support in the UI to visualize the timeline in various places (e.g. schema history, etc.)

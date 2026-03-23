@@ -44,6 +44,8 @@ public enum ChangeCategory {
     COMPOUND_CATEGORIES = new HashMap<>();
     COMPOUND_CATEGORIES.put(Arrays.asList(GLOSSARY_TERM.name().split("_")), GLOSSARY_TERM);
     COMPOUND_CATEGORIES.put(Arrays.asList(TECHNICAL_SCHEMA.name().split("_")), TECHNICAL_SCHEMA);
+    COMPOUND_CATEGORIES.put(
+        Arrays.asList(STRUCTURED_PROPERTY.name().split("_")), STRUCTURED_PROPERTY);
     COMPOUND_CATEGORIES.put(Arrays.asList(ASSET_MEMBERSHIP.name().split("_")), ASSET_MEMBERSHIP);
   }
 }

@@ -33,8 +33,9 @@ export const GLOSSARY_RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
 export const UNINFORMATIVE_OWNER_TYPES = new Set(['NONE', 'CUSTOM']);
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Change categories not yet in the generated ChangeCategoryType enum
-// (pending GraphQL schema update). Use these string constants until then.
+// These categories exist in the GraphQL schema (timeline.graphql) but the
+// generated TypeScript enum may lag behind depending on when codegen was last
+// run. String constants here ensure the values are always available.
 // ──────────────────────────────────────────────────────────────────────────────
 export const CATEGORY_DOMAIN = 'DOMAIN';
 export const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
@@ -45,7 +46,7 @@ export const CATEGORY_ASSET_MEMBERSHIP = 'ASSET_MEMBERSHIP';
 export { ChangeCategoryType, ChangeOperationType };
 
 // Category value type — includes generated enum values plus string constants
-// for categories not yet in the GraphQL schema.
+// for categories that may not yet be in the locally generated TypeScript types.
 export type ChangeCategoryValue = ChangeCategoryType | string;
 
 export type CategoryOption = { value: ChangeCategoryValue; label: string };

@@ -52,8 +52,10 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 
+@Slf4j
 public class TimelineServiceImpl implements TimelineService {
 
   private static final long DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS =
@@ -758,6 +760,12 @@ public class TimelineServiceImpl implements TimelineService {
             semanticChangeTransactions.add(changeTransaction);
           }
         } catch (Exception e) {
+          log.error(
+              "Failed to compute semantic diff for entity={}, aspect={}, element={}",
+              currentValue.getUrn(),
+              aspectName,
+              element,
+              e);
           semanticChangeTransactions.add(
               ChangeTransaction.builder()
                   .semVerChange(SemanticChangeType.EXCEPTIONAL)

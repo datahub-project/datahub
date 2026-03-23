@@ -109,7 +109,7 @@ def get_timeline(
     required=True,
     multiple=True,
     type=str,
-    help="One of tag, glossary_term, technical_schema, documentation, ownership (or owner)",
+    help="One of tag, glossary_term, technical_schema, documentation, ownership (or owner), domain, structured_property, application, asset_membership",
 )
 @click.option(
     "--start",
@@ -146,6 +146,10 @@ def timeline(
         "GLOSSARY_TERM",
         "TECHNICAL_SCHEMA",
         "DOCUMENTATION",
+        "DOMAIN",
+        "STRUCTURED_PROPERTY",
+        "APPLICATION",
+        "ASSET_MEMBERSHIP",
     ]
     # Accept OWNER as a backward-compat alias for OWNERSHIP
     category_aliases = {"OWNER": "OWNERSHIP"}

@@ -37,10 +37,14 @@ export function useResolveEntityNames(transactions: ChangeTransaction[] | undefi
         return Array.from(urnSet);
     }, [transactions]);
 
-    const { data } = useGetEntityDisplayNamesQuery({
+    const { data, error } = useGetEntityDisplayNamesQuery({
         skip: urns.length === 0,
         variables: { urns },
     });
+
+    if (error) {
+        console.warn('Failed to resolve entity display names for Change History sidebar', error);
+    }
 
     return useMemo(() => {
         const nameMap = new Map<string, string>();
