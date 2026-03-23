@@ -226,7 +226,6 @@ public class PolicyEngine {
       return true;
     }
     if (requestResource.isEmpty()) {
-      // If the policy applies to all resources, it matches even without a specific resource
       if (policyResourceFilter.isAllResources()) {
         return true;
       }
