@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-Generate AST fixture JSON files for test_ast_utils.py.
-Run once after updating the bridge (rebuild bundle.js), then commit the output.
+Optional dev-only tool for manually inspecting the parsed AST of M_QUERIES entries.
 
-Usage (from the repo root):
+This script is no longer needed for tests (tests generate ASTs at test time now).
+It is kept as an optional tool for manual AST inspection during development.
+
+Usage (from the repo root, output defaults to ./ast_fixtures_debug/):
+    PYTHONPATH=metadata-ingestion/src python \
+        metadata-ingestion/src/datahub/ingestion/source/powerbi/m_query/mquery_bridge/generate_fixtures.py
+
+To override the output directory:
     PYTHONPATH=metadata-ingestion/src python \
         metadata-ingestion/src/datahub/ingestion/source/powerbi/m_query/mquery_bridge/generate_fixtures.py \
-        --output metadata-ingestion/tests/integration/powerbi/mquery_ast_fixtures/
+        --output /path/to/output/
 """
 
 import argparse
@@ -32,7 +38,12 @@ def slugify(text: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--output",
+        required=False,
+        type=Path,
+        default=Path("./ast_fixtures_debug/"),
+    )
     args = parser.parse_args()
 
     # Import bridge here so PYTHONPATH errors surface clearly.

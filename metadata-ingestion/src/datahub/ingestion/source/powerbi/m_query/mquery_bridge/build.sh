@@ -30,4 +30,5 @@ gzip -9 -f bundle.js   # produces bundle.js.gz; -f overwrites existing
 echo "    Written: bundle.js.gz ($(du -sh bundle.js.gz | cut -f1))"
 echo ""
 echo "==> Done. Commit bundle.js.gz and package-lock.json."
-echo "    Then run generate_fixtures.py to regenerate test AST fixtures if needed."
+echo "    Tests no longer depend on committed fixtures — they generate ASTs at test time."
+echo "    generate_fixtures.py is kept as an optional tool for manual AST inspection only."
