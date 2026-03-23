@@ -158,9 +158,7 @@ jobs:
           fi
 
           # Strip out files that cannot affect connectors
-          connector_relevant_files="$mi_files"
-          connector_relevant_files=$(echo "$connector_relevant_files" | grep -v '^metadata-ingestion/tests/' || true)
-          connector_relevant_files=$(echo "$connector_relevant_files" | grep -v '\.md$' || true)
+          connector_relevant_files=$(echo "$mi_files" | grep -v '^metadata-ingestion/tests/' | grep -v '\.md$' || true)
 
           if [ -z "$connector_relevant_files" ]; then
             echo "All metadata-ingestion changes are tests or docs only — skipping connector tests"
