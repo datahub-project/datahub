@@ -10,7 +10,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -108,7 +107,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   private static List<ChangeEvent> getGlobalTagChangeEvents(
       SchemaField baseField,
       SchemaField targetField,
-      String parentUrnStr,
+      Urn parentUrn,
       String datasetFieldUrn,
       AuditStamp auditStamp) {
 
@@ -124,14 +123,6 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       String fieldPath =
           targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
       // 2. Convert EntityTagChangeEvent into a SchemaFieldTagChangeEvent.
-      final Urn parentUrn;
-      try {
-        parentUrn = UrnUtils.getUrn(parentUrnStr);
-      } catch (Exception e) {
-        log.error("Failed to parse parentUrnStr: {}", parentUrnStr, e);
-        return Collections.emptyList();
-      }
-
       return convertEntityTagChangeEvents(fieldPath, parentUrn, entityTagChangeEvents);
     }
 
@@ -141,7 +132,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   private static List<ChangeEvent> getGlossaryTermsChangeEvents(
       SchemaField baseField,
       SchemaField targetField,
-      String parentUrnStr,
+      Urn parentUrn,
       String datasetFieldUrn,
       AuditStamp auditStamp) {
 
@@ -157,14 +148,6 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       String fieldPath =
           targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
       // 2. Convert EntityGlossaryTermChangeEvent into a SchemaFieldGlossaryTermChangeEvent.
-      final Urn parentUrn;
-      try {
-        parentUrn = UrnUtils.getUrn(parentUrnStr);
-      } catch (Exception e) {
-        log.error("Failed to parse parentUrnStr: {}", parentUrnStr, e);
-        return Collections.emptyList();
-      }
-
       return convertEntityGlossaryTermChangeEvents(
           fieldPath, parentUrn, entityGlossaryTermsChangeEvents);
     }
@@ -191,6 +174,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       ChangeEvent descriptionChangeEvent =
           getDescriptionChange(baseField, targetField, datasetFieldUrn, auditStamp);
       if (descriptionChangeEvent != null) {
+        String fieldPath =
+            targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
+        descriptionChangeEvent =
+            convertEntityDocumentationChangeEvent(fieldPath, datasetUrn, descriptionChangeEvent);
         propChangeEvents.add(descriptionChangeEvent);
       }
     }
@@ -199,14 +186,14 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     if (changeCategories != null && changeCategories.contains(ChangeCategory.TAG)) {
       propChangeEvents.addAll(
           getGlobalTagChangeEvents(
-              baseField, targetField, datasetUrn.toString(), datasetFieldUrn, auditStamp));
+              baseField, targetField, datasetUrn, datasetFieldUrn, auditStamp));
     }
 
     // Glossary terms.
     if (changeCategories != null && changeCategories.contains(ChangeCategory.GLOSSARY_TERM)) {
       propChangeEvents.addAll(
           getGlossaryTermsChangeEvents(
-              baseField, targetField, datasetUrn.toString(), datasetFieldUrn, auditStamp));
+              baseField, targetField, datasetUrn, datasetFieldUrn, auditStamp));
     }
 
     return propChangeEvents;

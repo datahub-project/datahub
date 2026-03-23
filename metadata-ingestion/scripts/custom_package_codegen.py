@@ -1,16 +1,11 @@
 import json
 import re
 import subprocess
-import sys
+from importlib.metadata import version
 from pathlib import Path
 
 import avro_codegen
 import click
-
-if sys.version_info < (3, 10):
-    from importlib_metadata import version
-else:
-    from importlib.metadata import version
 
 _avrogen_version = version("avro-gen3")
 
