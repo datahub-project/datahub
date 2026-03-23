@@ -17,7 +17,7 @@ from typing import (
     Set,
 )
 
-from google.api_core import retry
+from google.api_core import exceptions as api_exceptions, retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.bigquery import retry as bq_retry
 from google.cloud.bigquery.table import (
@@ -456,19 +456,34 @@ class BigQuerySchemaApi:
             else:
                 query_template = BigqueryQuery.tables_for_dataset_without_partition_data
 
-            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
-            # and skip the others. Sharded tables are tables with suffix _20220102
-            cur = self.get_query_result(
-                query_template.format(
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                    table_filter=(
-                        f" and t.table_name in ({filter_clause})"
-                        if filter_clause
-                        else ""
-                    ),
+            query_args = dict(
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table_filter=(
+                    f" and t.table_name in ({filter_clause})" if filter_clause else ""
                 ),
             )
+
+            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+            # and skip the others. Sharded tables are tables with suffix _20220102
+            try:
+                cur = self.get_query_result(query_template.format(**query_args))
+            except api_exceptions.NotFound as e:
+                if with_partitions and "INFORMATION_SCHEMA" in str(e):
+                    # Linked datasets and some special dataset types don't expose
+                    # INFORMATION_SCHEMA.TABLE_STORAGE. Fall back to the lighter query
+                    # that skips storage statistics.
+                    logger.warning(
+                        f"INFORMATION_SCHEMA.TABLE_STORAGE not available for {project_id}.{dataset_name}, "
+                        f"falling back to query without storage statistics. Error: {e}"
+                    )
+                    cur = self.get_query_result(
+                        BigqueryQuery.tables_for_dataset_without_partition_data.format(
+                            **query_args
+                        )
+                    )
+                else:
+                    raise
 
             for table in cur:
                 try:
