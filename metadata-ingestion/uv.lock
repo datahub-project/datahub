@@ -1075,6 +1075,7 @@ glue = [
     { name = "cachetools" },
     { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
+    { name = "sqlglotc" },
     { name = "urllib3" },
 ]
 grafana = [
@@ -3204,6 +3205,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'trino'", specifier = "==30.0.3" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'unity-catalog'", specifier = "==30.0.3" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'vertica'", specifier = "==30.0.3" },
+    { name = "sqlglotc", marker = "extra == 'glue'", specifier = "==30.0.3" },
     { name = "sqlparse", marker = "extra == 'all'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'athena'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'bigquery'", specifier = "<0.6.0" },
