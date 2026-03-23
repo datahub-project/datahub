@@ -6,6 +6,7 @@ import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
 import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSidebarSection';
 import { UserGroupSideBarSection } from '@app/entityV2/shared/sidebarSection/UserGroupSidebarSection';
 import { UserOwnershipSidebarSection } from '@app/entityV2/shared/sidebarSection/UserOwnershipSideBarSection';
+import { UserRolesSidebarSection } from '@app/entityV2/shared/sidebarSection/UserRolesSidebarSection';
 import { SidebarData, UserProfileInfoCard } from '@app/entityV2/user/UserProfileInfoCard';
 
 import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
@@ -70,6 +71,7 @@ export default function UserSidebar({ sidebarData, refetch }: Props) {
                 />
                 <UserOwnershipSidebarSection ownershipResults={ownershipResults} />
                 <UserGroupSideBarSection groupsDetails={groupsDetails} />
+                <UserRolesSidebarSection rolesDetails={dataHubRoles} />
             </Content>
         </SideBar>
     );
