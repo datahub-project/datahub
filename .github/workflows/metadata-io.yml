@@ -45,7 +45,7 @@ jobs:
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
   build-metadata-io:
@@ -55,7 +55,7 @@ jobs:
     steps:
       - name: Disk Check
         run: df -h . && docker images
-      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
       - name: Set up JDK 17
