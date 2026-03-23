@@ -763,7 +763,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_3
+@pytest.mark.integration_batch_5
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_signout_timeout_mces.json"
     golden_file_name: str = "tableau_signout_timeout_mces_golden.json"

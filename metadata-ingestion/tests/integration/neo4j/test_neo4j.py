@@ -8,7 +8,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 _resources_dir = pathlib.Path(__file__).parent
 
-pytestmark = pytest.mark.integration_batch_3
+pytestmark = pytest.mark.integration_batch_2
 
 
 @pytest.fixture(scope="module")
