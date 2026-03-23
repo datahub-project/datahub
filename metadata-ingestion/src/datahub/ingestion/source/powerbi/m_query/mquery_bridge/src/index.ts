@@ -1,51 +1,24 @@
-import * as readline from "readline";
 import { TaskUtils, DefaultSettings, ResultKind } from "@microsoft/powerquery-parser";
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    crlfDelay: Infinity,
-});
+declare const global: Record<string, unknown>;
 
-rl.on("line", (line: string) => {
-    let req: { text: string };
-    try {
-        req = JSON.parse(line) as { text: string };
-    } catch (e) {
-        write({ ok: false, error: `JSON parse error: ${String(e)}` });
-        return;
-    }
-
-    const { text } = req;
+global.parseExpression = async function (text: unknown): Promise<string> {
     if (typeof text !== "string") {
-        write({ ok: false, error: "Invalid request: 'text' field must be a string" });
-        return;
+        return JSON.stringify({ ok: false, error: "parseExpression: 'text' must be a string" });
     }
-
-    TaskUtils.tryLexParse(DefaultSettings, text)
-        .then((result) => {
-            if (result.resultKind === ResultKind.Error) {
-                const err = result.error;
-                const errorMsg =
-                    typeof err === "object" && err !== null
-                        ? `${(err as any).kind ?? "ParseError"}: ${(err as any).message ?? String(err)}`
-                        : String(err);
-                write({ ok: false, error: errorMsg });
-            } else {
-                const nodeIdMap = [
-                    ...result.nodeIdMapCollection.astNodeById.entries(),
-                ];
-                write({ ok: true, nodeIdMap });
-            }
-        })
-        .catch((e) => {
-            write({ ok: false, error: String(e) });
-        });
-});
-
-rl.on("close", () => {
-    process.exit(0);
-});
-
-function write(obj: object): void {
-    process.stdout.write(JSON.stringify(obj) + "\n");
-}
+    try {
+        const result = await TaskUtils.tryLexParse(DefaultSettings, text);
+        if (result.resultKind === ResultKind.Error) {
+            const err = result.error;
+            const errorMsg =
+                typeof err === "object" && err !== null
+                    ? `${(err as { kind?: string }).kind ?? "ParseError"}: ${(err as { message?: string }).message ?? String(err)}`
+                    : String(err);
+            return JSON.stringify({ ok: false, error: errorMsg });
+        }
+        const nodeIdMap = [...result.nodeIdMapCollection.astNodeById.entries()];
+        return JSON.stringify({ ok: true, nodeIdMap });
+    } catch (e) {
+        return JSON.stringify({ ok: false, error: String(e) });
+    }
+};
