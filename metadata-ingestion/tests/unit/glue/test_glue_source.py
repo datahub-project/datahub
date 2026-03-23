@@ -1375,8 +1375,8 @@ def test_process_dataflow_node_glue_connection_query_multi_table() -> None:
     customers_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)"
     )
-    assert result["urn"] == orders_urn
-    assert result["dataset_urns"] == [orders_urn, customers_urn]
+    assert result["urn"] in (orders_urn, customers_urn)
+    assert set(result["dataset_urns"]) == {orders_urn, customers_urn}
 
 
 def test_process_dataflow_node_jdbc_query_fallback() -> None:

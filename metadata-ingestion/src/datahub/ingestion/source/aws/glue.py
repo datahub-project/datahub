@@ -21,7 +21,6 @@ from typing import (
 from urllib.parse import urlparse
 
 import botocore.exceptions
-import sqlglot
 import yaml
 from pydantic import field_validator
 from pydantic.fields import Field
@@ -126,6 +125,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
@@ -603,32 +603,37 @@ class GlueSource(StatefulIngestionSourceBase):
         database = url.path.lstrip("/").split("?")[0]
         return platform, database
 
-    def _extract_tables_from_query(
-        self, query: str, flow_urn: str, node_label: str
+    def _extract_urns_from_query(
+        self, query: str, platform: str, database: str, flow_urn: str, node_label: str
     ) -> Optional[List[str]]:
-        """Extract all table references from a SQL query string.
+        """Parse a SQL query and return DataHub URNs for all referenced input tables.
 
-        Returns a list of "schema.table" or "table" strings (one per table found,
-        supporting JOINs and CTEs). Returns None on parse failure or no tables.
+        Uses dialect-aware parsing via sqlglot_lineage with default schema resolution.
+        Returns None on parse failure or when no tables are found.
         """
-        try:
-            tree = sqlglot.parse_one(query)
-            tables = list(tree.find_all(sqlglot.exp.Table))
-        except Exception as e:
+        result = create_lineage_sql_parsed_result(
+            query=query,
+            default_db=database,
+            platform=platform,
+            platform_instance=None,
+            env=self.env,
+            default_schema=JDBC_DEFAULT_SCHEMA.get(platform),
+            schema_aware=False,
+            generate_column_lineage=False,
+        )
+        if result.debug_info.error:
             self.report_warning(
                 flow_urn,
-                f"Failed to parse SQL query for node {node_label}: {e}. Skipping",
+                f"Failed to parse SQL query for node {node_label}: {result.debug_info.error}. Skipping",
             )
             return None
-
-        if not tables:
+        if not result.in_tables:
             self.report_warning(
                 flow_urn,
                 f"No tables found in SQL query for node {node_label}. Skipping",
             )
             return None
-
-        return [f"{t.db}.{t.name}" if t.db else t.name for t in tables]
+        return result.in_tables
 
     def _resolve_glue_connection(
         self, connection_name: str, flow_urn: str
@@ -708,20 +713,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
-    def _resolve_dbtables(
-        self,
-        connection_options: Dict[str, Any],
-        flow_urn: str,
-        node_label: str,
-    ) -> Optional[List[str]]:
-        dbtable = connection_options.get("dbtable")
-        if dbtable:
-            return [dbtable]
-        query = connection_options.get("query")
-        if query:
-            return self._extract_tables_from_query(query, flow_urn, node_label)
-        return None
-
     def _build_jdbc_dataset_name(
         self, platform: str, database: str, dbtable: str
     ) -> str:
@@ -740,28 +731,32 @@ class GlueSource(StatefulIngestionSourceBase):
         connection_name = connection_options["connectionName"]
         node_label = f"{node['NodeType']}-{node['Id']}"
 
-        dbtables = self._resolve_dbtables(connection_options, flow_urn, node_label)
-        if not dbtables:
-            self.report_warning(
-                flow_urn,
-                f"Missing dbtable for node {node_label}. Skipping",
-            )
-            return None
-
         resolved = self._resolve_glue_connection(connection_name, flow_urn)
         if resolved is None:
             return None
-
         platform, database = resolved
-        return [
-            make_dataset_urn_with_platform_instance(
-                platform=platform,
-                name=self._build_jdbc_dataset_name(platform, database, dbtable),
-                env=self.env,
-                platform_instance=None,
+
+        dbtable = connection_options.get("dbtable")
+        if dbtable:
+            return [
+                make_dataset_urn_with_platform_instance(
+                    platform=platform,
+                    name=self._build_jdbc_dataset_name(platform, database, dbtable),
+                    env=self.env,
+                    platform_instance=None,
+                )
+            ]
+
+        query = connection_options.get("query")
+        if query:
+            return self._extract_urns_from_query(
+                query, platform, database, flow_urn, node_label
             )
-            for dbtable in dbtables
-        ]
+
+        self.report_warning(
+            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        )
+        return None
 
     def _process_jdbc_node(
         self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
@@ -770,11 +765,9 @@ class GlueSource(StatefulIngestionSourceBase):
         jdbc_url = connection_options.get("url")
         node_label = f"{node['NodeType']}-{node['Id']}"
 
-        dbtables = self._resolve_dbtables(connection_options, flow_urn, node_label)
-        if not jdbc_url or not dbtables:
+        if not jdbc_url:
             self.report_warning(
-                flow_urn,
-                f"Missing JDBC URL or table for node {node_label}. Skipping",
+                flow_urn, f"Missing JDBC URL for node {node_label}. Skipping"
             )
             return None
 
@@ -787,15 +780,27 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return None
 
-        return [
-            make_dataset_urn_with_platform_instance(
-                platform=platform,
-                name=self._build_jdbc_dataset_name(platform, database, dbtable),
-                env=self.env,
-                platform_instance=None,
+        dbtable = connection_options.get("dbtable")
+        if dbtable:
+            return [
+                make_dataset_urn_with_platform_instance(
+                    platform=platform,
+                    name=self._build_jdbc_dataset_name(platform, database, dbtable),
+                    env=self.env,
+                    platform_instance=None,
+                )
+            ]
+
+        query = connection_options.get("query")
+        if query:
+            return self._extract_urns_from_query(
+                query, platform, database, flow_urn, node_label
             )
-            for dbtable in dbtables
-        ]
+
+        self.report_warning(
+            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        )
+        return None
 
     def process_dataflow_node(
         self,
