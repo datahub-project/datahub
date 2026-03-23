@@ -125,14 +125,11 @@ export type ActorFilter = {
   allGroups: Scalars['Boolean'];
   /** Whether the filter should apply to all users */
   allUsers: Scalars['Boolean'];
-  /** A set of groups explicitly excluded from this policy, even if matched by groups/allGroups */
+  /** A set of groups to exclude from this policy. Takes precedence over groups/allGroups. */
   excludedGroups?: Maybe<Array<Scalars['String']>>;
-  /**
-   * Ownership types explicitly excluded from this policy. Owners whose type is in this list will not match,
-   * even if they match via resourceOwnersTypes. Takes precedence over resourceOwnersTypes.
-   */
+  /** Set of OwnershipTypes to exclude from this policy (if resourceOwners is set to True). Takes precedence over resourceOwnersTypes. */
   excludedResourceOwnersTypes?: Maybe<Array<Scalars['String']>>;
-  /** A set of users explicitly excluded from this policy, even if matched by users/allUsers */
+  /** A set of users to exclude from this policy. Takes precedence over users/allUsers. */
   excludedUsers?: Maybe<Array<Scalars['String']>>;
   /** A disjunctive set of groups to apply the policy to */
   groups?: Maybe<Array<Scalars['String']>>;
@@ -167,11 +164,11 @@ export type ActorFilterInput = {
   allGroups: Scalars['Boolean'];
   /** Whether the filter should apply to all users */
   allUsers: Scalars['Boolean'];
-  /** A set of groups explicitly excluded from this policy, even if matched by groups/allGroups */
+  /** A set of groups to exclude from this policy. Takes precedence over groups/allGroups. */
   excludedGroups?: Maybe<Array<Scalars['String']>>;
-  /** Ownership types explicitly excluded from this policy. Takes precedence over resourceOwnersTypes. */
+  /** Set of OwnershipTypes to exclude from this policy (if resourceOwners is set to True). Takes precedence over resourceOwnersTypes. */
   excludedResourceOwnersTypes?: Maybe<Array<Scalars['String']>>;
-  /** A set of users explicitly excluded from this policy, even if matched by users/allUsers */
+  /** A set of users to exclude from this policy. Takes precedence over users/allUsers. */
   excludedUsers?: Maybe<Array<Scalars['String']>>;
   /** A disjunctive set of groups to apply the policy to */
   groups?: Maybe<Array<Scalars['String']>>;
