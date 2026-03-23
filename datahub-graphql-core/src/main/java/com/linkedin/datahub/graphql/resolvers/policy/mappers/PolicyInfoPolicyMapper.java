@@ -70,10 +70,6 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
       result.setUsers(
           actorFilter.getUsers().stream().map(Urn::toString).collect(Collectors.toList()));
     }
-    if (actorFilter.hasRoles()) {
-      result.setRoles(
-          actorFilter.getRoles().stream().map(Urn::toString).collect(Collectors.toList()));
-    }
     if (actorFilter.hasExcludedUsers()) {
       result.setExcludedUsers(
           actorFilter.getExcludedUsers().stream().map(Urn::toString).collect(Collectors.toList()));
@@ -87,6 +83,10 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
           actorFilter.getExcludedResourceOwnersTypes().stream()
               .map(Urn::toString)
               .collect(Collectors.toList()));
+    }
+    if (actorFilter.hasRoles()) {
+      result.setRoles(
+          actorFilter.getRoles().stream().map(Urn::toString).collect(Collectors.toList()));
     }
     return result;
   }
