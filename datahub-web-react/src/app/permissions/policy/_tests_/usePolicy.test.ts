@@ -49,6 +49,7 @@ const denyPolicy = {
     name: 'Deny Test Policy',
     state: PolicyState.Active,
     effect: PolicyEffect.Deny,
+    editable: true,
     description: 'Denies access',
     privileges: ['EDIT_ENTITY_TAGS'],
     resources: null,
