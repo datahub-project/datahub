@@ -78,18 +78,11 @@ jobs:
       - name: Get PR info
         if: steps.check-both.outputs.both_passed == 'true'
         id: pr-info
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          REPO="${{ github.repository }}"
-          HEAD_OWNER="${{ github.event.workflow_run.head_repository.owner.login }}"
-
-          PR_NUMBER=$(gh api "/repos/${REPO}/pulls?head=${HEAD_OWNER}:${BRANCH}&state=open" \
-            --jq '.[0].number // empty')
+          PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
 
           if [ -z "$PR_NUMBER" ]; then
-            echo "No open PR found for branch ${BRANCH} — skipping"
+            echo "No open PR found — skipping"
             echo "has_pr=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_pr=true" >> "$GITHUB_OUTPUT"
