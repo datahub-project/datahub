@@ -18,7 +18,7 @@ runs:
   steps:
     - name: Upload test results
       if: (!cancelled())
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: ${{ inputs.artifact-name }}
         path: ${{ inputs.test-results-paths }}
@@ -26,7 +26,7 @@ runs:
 
     - name: Publish test results
       if: (!cancelled())
-      uses: test-summary/action@v2
+      uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
       with:
         paths: ${{ inputs.junit-file-globs }}
         show: fail

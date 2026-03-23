@@ -1180,9 +1180,7 @@ pydantic==2.11.10
     #   unstructured-ingest
     #   weasel
 pydantic-core==2.33.2
-    # via
-    #   acryl-datahub
-    #   pydantic
+    # via pydantic
 pydash==8.0.6
     # via okta
 pydeequ==1.5.0
