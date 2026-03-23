@@ -178,6 +178,10 @@ public class PoliciesConfig {
           "Manage Business Attribute",
           "Create, update, delete Business Attribute");
 
+  public static final Privilege MANAGE_ROLES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ROLES", "Manage Roles", "Create, edit, and delete custom roles on DataHub.");
+
   public static final Privilege MANAGE_CONNECTIONS_PRIVILEGE =
       Privilege.of(
           "MANAGE_CONNECTIONS",
@@ -242,6 +246,7 @@ public class PoliciesConfig {
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
+          MANAGE_ROLES_PRIVILEGE,
           MANAGE_USERS_AND_GROUPS_PRIVILEGE,
           CREATE_USERS_AND_GROUPS_PRIVILEGE,
           UPDATE_USERS_AND_GROUPS_PRIVILEGE,
@@ -1330,6 +1335,19 @@ public class PoliciesConfig {
                               DELETE_ENTITY_PRIVILEGE,
                               VIEW_ENTITY_PAGE_PRIVILEGE,
                               SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  Constants.DATAHUB_ROLE_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_ROLES_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_ROLES_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_ROLES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
                       .build())
               .build();
 

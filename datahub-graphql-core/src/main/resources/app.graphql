@@ -85,6 +85,11 @@ type PlatformPrivileges {
   managePolicies: Boolean!
 
   """
+  Whether the user should be able to manage roles
+  """
+  manageRoles: Boolean!
+
+  """
   Whether the user should be able to manage users & groups
   """
   manageIdentities: Boolean!

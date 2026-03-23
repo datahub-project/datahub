@@ -53,6 +53,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), MANAGE, List.of(POLICY_ENTITY_NAME));
   }
 
+  public static boolean canManageRoles(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(DATAHUB_ROLE_ENTITY_NAME));
+  }
+
   public static boolean canGeneratePersonalAccessToken(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
             context.getOperationContext(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE)

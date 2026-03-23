@@ -70,6 +70,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
             platformPrivileges.setViewAnalytics(canViewAnalytics(context));
             platformPrivileges.setManagePolicies(canManagePolicies(context));
+            platformPrivileges.setManageRoles(AuthorizationUtils.canManageRoles(context));
             platformPrivileges.setManageIdentities(canManageUsersGroups(context));
             platformPrivileges.setGeneratePersonalAccessTokens(
                 canGeneratePersonalAccessToken(context));
