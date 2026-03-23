@@ -124,7 +124,9 @@ class DataplexLineageExtractor:
             )
             lineage_data: dict[str, list[Any]] = {"upstream": [], "downstream": []}
             # We only need multi-region name like US, EU, etc.
-            parent = f"projects/{project_id}/locations/{self.config.entries_location}"
+            parent = (
+                f"projects/{project_id}/locations/{self.config.entries_locations[0]}"
+            )
 
             # Get upstream lineage (where this entry is the target) - retries are handled inside _search_links_by_target
             upstream_links = self._search_links_by_target(parent, fully_qualified_name)

@@ -92,7 +92,7 @@ class TestDataplexConfig:
         """Test configuration for entries-only mode."""
         config = DataplexConfig(
             project_ids=["test-project"],
-            entries_location="us",
+            entries_locations=["us"],
             filter_config={
                 "entries": {
                     "dataset_pattern": {"allow": ["prod_.*"]},
@@ -100,7 +100,7 @@ class TestDataplexConfig:
             },
         )
 
-        assert config.entries_location == "us"
+        assert config.entries_locations == ["us"]
         assert config.filter_config.entries.dataset_pattern.allowed("prod_table")
         assert not config.filter_config.entries.dataset_pattern.allowed("dev_table")
 
@@ -135,7 +135,7 @@ class TestDataplexConfig:
         assert config.lineage_retry_backoff_multiplier == 1.0
 
         # Location defaults
-        assert config.entries_location == "us"
+        assert config.entries_locations == ["us", "eu", "asia", "global"]
 
         # Filter defaults (should allow all)
         assert config.filter_config.entries.dataset_pattern.allowed("any-entry")
@@ -291,20 +291,14 @@ class TestDataplexConfig:
         config = DataplexConfig(project_ids=["test-project"])
 
         assert config.entries_locations == ["us", "eu", "asia", "global"]
-        assert config.entries_location == "us"
 
-    def test_entries_locations_backward_compatibility(self):
-        """Test entries_location and entries_locations remain compatible."""
-        config_single = DataplexConfig(
-            project_ids=["test-project"],
-            entries_location="us-west2",
+    def test_entries_locations_must_not_be_empty(self):
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig(
+                project_ids=["test-project"],
+                entries_locations=[],
+            )
+        assert (
+            "At least one entries location must be specified via entries_locations."
+            in str(exc_info.value)
         )
-        assert config_single.entries_locations == ["us-west2"]
-        assert config_single.entries_location == "us-west2"
-
-        config_multi = DataplexConfig(
-            project_ids=["test-project"],
-            entries_locations=["global", "us"],
-        )
-        assert config_multi.entries_locations == ["global", "us"]
-        assert config_multi.entries_location == "global"

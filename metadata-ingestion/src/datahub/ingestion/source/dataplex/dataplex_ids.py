@@ -254,6 +254,16 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
     ),
 }
 
+PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM: dict[
+    Literal["bigquery", "cloudsql", "spanner", "pubsub"],
+    type[DataplexProjectId],
+] = {
+    "bigquery": DataplexBigQueryProject,
+    "cloudsql": DataplexCloudSqlProject,
+    "spanner": DataplexSpannerProject,
+    "pubsub": DataplexPubSubProject,
+}
+
 
 def extract_entry_type_short_name(entry_type: str) -> Optional[str]:
     match = ENTRY_TYPE_SHORT_NAME_REGEX.match(entry_type)
@@ -399,6 +409,41 @@ def build_container_urn_from_fqn(
     if schema_key is None:
         return None
     return schema_key.as_urn()
+
+
+def build_project_schema_key_from_fqn(
+    entry_type_or_short_name: str, fully_qualified_name: str
+) -> Optional[DataplexProjectId]:
+    mapping = _get_mapping(entry_type_or_short_name)
+    if mapping is None:
+        return None
+
+    identity_fields = parse_fully_qualified_name(
+        entry_type_or_short_name=entry_type_or_short_name,
+        fully_qualified_name=fully_qualified_name,
+    )
+    if identity_fields is None:
+        return None
+
+    project_key_class = PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM.get(
+        mapping.datahub_platform
+    )
+    if project_key_class is None:
+        return None
+
+    return _instantiate_key(project_key_class, identity_fields)
+
+
+def build_project_container_urn_from_fqn(
+    entry_type_or_short_name: str, fully_qualified_name: str
+) -> Optional[str]:
+    project_key = build_project_schema_key_from_fqn(
+        entry_type_or_short_name=entry_type_or_short_name,
+        fully_qualified_name=fully_qualified_name,
+    )
+    if project_key is None:
+        return None
+    return project_key.as_urn()
 
 
 def build_parent_container_urn(

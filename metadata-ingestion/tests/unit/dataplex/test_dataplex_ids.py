@@ -7,11 +7,14 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     DataplexBigQueryDataset,
     DataplexCloudSpannerDatabase,
     DataplexCloudSqlMySqlDatabase,
+    DataplexProjectId,
     DataplexPubSubTopic,
     build_container_urn_from_fqn,
     build_dataset_urn_from_fqn,
     build_parent_container_urn,
     build_parent_schema_key,
+    build_project_container_urn_from_fqn,
+    build_project_schema_key_from_fqn,
     build_schema_key_from_fqn,
     extract_entry_type_short_name,
     parse_fully_qualified_name,
@@ -295,3 +298,22 @@ def test_build_parent_container_urn() -> None:
     )
     assert parent_container_urn is not None
     assert parent_container_urn.startswith("urn:li:container:")
+
+
+def test_build_project_schema_key_from_fqn() -> None:
+    project_key = build_project_schema_key_from_fqn(
+        "cloud-spanner-table",
+        "spanner:harshal-playground-306419.regional-us-west2.sergio-test.cymbal.ShoppingCarts",
+    )
+    assert project_key is not None
+    assert isinstance(project_key, DataplexProjectId)
+    assert project_key.project_id == "harshal-playground-306419"
+
+
+def test_build_project_container_urn_from_fqn() -> None:
+    project_urn = build_project_container_urn_from_fqn(
+        "bigquery-table",
+        "bigquery:harshal-playground-306419.fivetran_smoke_test.destination_schema_metadata",
+    )
+    assert project_urn is not None
+    assert project_urn.startswith("urn:li:container:")

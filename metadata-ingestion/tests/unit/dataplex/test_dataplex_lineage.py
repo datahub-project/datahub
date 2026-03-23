@@ -20,7 +20,7 @@ def dataplex_config() -> DataplexConfig:
     """Create a test configuration."""
     return DataplexConfig(
         project_ids=["test-project"],
-        entries_location="us",
+        entries_locations=["us"],
         include_lineage=True,
     )
 
@@ -67,7 +67,7 @@ def test_lineage_extraction_disabled(
     """Test that lineage extraction is skipped when disabled."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        entries_location="us",
+        entries_locations=["us"],
         include_lineage=False,  # Disabled
     )
 

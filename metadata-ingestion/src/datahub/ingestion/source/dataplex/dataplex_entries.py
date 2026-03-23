@@ -4,18 +4,23 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from threading import Lock
-from typing import TYPE_CHECKING, Iterable, Optional
+from typing import TYPE_CHECKING, Iterable, Optional, Protocol
 
 from google.cloud import dataplex_v1
 
+from datahub.ingestion.api.report import Report
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
+    DataplexEntryTypeMapping,
     build_parent_container_urn,
     build_parent_schema_key,
+    build_project_schema_key_from_fqn,
     build_schema_key_from_fqn,
     extract_entry_type_short_name,
+    parse_fully_qualified_name,
 )
 from datahub.ingestion.source.dataplex.dataplex_properties import (
     extract_entry_custom_properties,
@@ -30,11 +35,32 @@ from datahub.utilities.lossy_collections import LossyList
 if TYPE_CHECKING:
     from datahub.sdk.entity import Entity
 
+
+class DataplexProcessorReport(Protocol):
+    def report_entry_group(self, entry_group_name: str, filtered: bool) -> None: ...
+
+    def report_entry(
+        self,
+        entry_name: str,
+        filtered_missing_fqn: bool,
+        filtered_fqn: bool,
+        filtered_name: bool,
+    ) -> None: ...
+
+    def report_warning(
+        self,
+        message: str,
+        context: Optional[str] = None,
+        title: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+    ) -> None: ...
+
+
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class DataplexEntriesReport:
+class DataplexEntriesReport(Report):
     """Entry-processing observability metrics.
 
     Tracks high-level counters and lossy samples for filtered and processed
@@ -56,6 +82,20 @@ class DataplexEntriesReport:
 
     entries_processed: int = 0
     entries_processed_samples: LossyList[str] = field(default_factory=LossyList)
+
+    def report_warning(
+        self,
+        message: str,
+        context: Optional[str] = None,
+        title: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        warning_message = f"{title}: {message}" if title else message
+        if context:
+            warning_message = f"{warning_message} | context={context}"
+        if exc:
+            warning_message = f"{warning_message} | exc={exc}"
+        logger.warning(warning_message)
 
     def report_entry_group(self, entry_group_name: str, filtered: bool) -> None:
         """Report one scanned entry group and its filtering outcome."""
@@ -106,7 +146,7 @@ class DataplexEntriesProcessor:
         self,
         config: DataplexConfig,
         catalog_client: dataplex_v1.CatalogServiceClient,
-        report: DataplexEntriesReport,
+        report: DataplexProcessorReport,
         entry_data_by_project: dict[str, set[EntryDataTuple]],
         entry_data_lock: Lock,
     ) -> None:
@@ -115,14 +155,11 @@ class DataplexEntriesProcessor:
         self.report = report
         self.entry_data_by_project = entry_data_by_project
         self.entry_data_lock = entry_data_lock
+        self._emitted_project_containers: set[str] = set()
 
     def process_project(self, project_id: str) -> Iterable["Entity"]:
         """Iterate all configured locations for project-level entry processing."""
-        entries_locations = getattr(self.config, "entries_locations", None)
-        if entries_locations is None:
-            entries_locations = [self.config.entries_location]
-
-        for location in entries_locations:
+        for location in self.config.entries_locations:
             yield from self.process_location(project_id, location)
 
     def process_location(self, project_id: str, location: str) -> Iterable["Entity"]:
@@ -151,6 +188,13 @@ class DataplexEntriesProcessor:
             if filtered_name or filtered_missing_fqn or filtered_fqn:
                 continue
 
+            project_container = self.build_project_container_for_entry(entry)
+            if project_container is not None:
+                project_container_urn = project_container.urn.urn()
+                if project_container_urn not in self._emitted_project_containers:
+                    self._emitted_project_containers.add(project_container_urn)
+                    yield project_container
+
             entity = self.build_entity_for_entry(entry)
             if entity is None:
                 continue
@@ -174,7 +218,7 @@ class DataplexEntriesProcessor:
 
         for entry_group in self.list_entry_groups(project_id, location):
             logger.info(f"Listing entry group {entry_group.name}")
-            logger.debug(f"Entry group payload: {entry_group}")
+            logger.info(f"Entry group payload: {entry_group}")
             filtered_entry_group = not self.should_process_entry_group(entry_group.name)
             self.report.report_entry_group(
                 entry_group.name, filtered=filtered_entry_group
@@ -185,7 +229,7 @@ class DataplexEntriesProcessor:
             request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
             for entry in self.catalog_client.list_entries(request=request):
                 logger.info(f"Listing entry {entry.name} from group {entry_group.name}")
-                logger.debug(f"ListEntries payload: {entry}")
+                logger.info(f"ListEntries payload: {entry}")
                 try:
                     entry_request = dataplex_v1.GetEntryRequest(
                         name=entry.name,
@@ -193,8 +237,11 @@ class DataplexEntriesProcessor:
                     )
                     yield self.catalog_client.get_entry(request=entry_request)
                 except Exception as exc:
-                    logger.warning(
-                        f"Failed to fetch entry details for {entry.name}: {exc}"
+                    self.report.report_warning(
+                        title="Dataplex entry fetch failed",
+                        message="Failed to fetch Dataplex entry details. Skipping entry.",
+                        context=f"entry_name={entry.name}, entry_payload={entry}",
+                        exc=exc,
                     )
 
         yield from self.collect_spanner_entries(project_id, location)
@@ -243,13 +290,10 @@ class DataplexEntriesProcessor:
         if not entry.fully_qualified_name:
             return None
 
-        short_name = extract_entry_type_short_name(entry.entry_type) or entry.entry_type
-        mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(short_name)
-        if mapping is None:
-            logger.warning(
-                f"Unsupported Dataplex entry_type={entry.entry_type} for entry={entry.name}, skipping"
-            )
+        mapping_result = self._resolve_entry_type_mapping(entry)
+        if mapping_result is None:
             return None
+        short_name, mapping = mapping_result
 
         entry_name = entry.name
         display_name = self._extract_display_name(entry)
@@ -316,21 +360,81 @@ class DataplexEntriesProcessor:
         if container_key is None:
             return None
 
+        # For containers, always derive parent linkage from Dataplex parent_entry.
+        parent_container_urn = self.build_entry_container_urn(entry)
+        if parent_container_urn is None:
+            project_schema_key = build_project_schema_key_from_fqn(
+                entry_type_or_short_name=short_name,
+                fully_qualified_name=entry.fully_qualified_name,
+            )
+            if project_schema_key is not None:
+                parent_container_urn = project_schema_key.as_urn()
+        parent_container_path = (
+            [parent_container_urn] if parent_container_urn is not None else None
+        )
+
         return Container(
             container_key=container_key,
             display_name=display_name,
             description=description or None,
             created=created,
             last_modified=last_modified,
+            parent_container=parent_container_path,
             subtype=mapping.datahub_subtype,
             extra_properties=custom_properties,
+        )
+
+    def build_project_container_for_entry(
+        self, entry: dataplex_v1.Entry
+    ) -> Optional[Container]:
+        """Build project-level container for an entry's owning project."""
+        if not entry.fully_qualified_name:
+            return None
+
+        mapping_result = self._resolve_entry_type_mapping(entry)
+        if mapping_result is None:
+            return None
+        short_name, mapping = mapping_result
+
+        project_schema_key = build_project_schema_key_from_fqn(
+            entry_type_or_short_name=short_name,
+            fully_qualified_name=entry.fully_qualified_name,
+        )
+        if project_schema_key is None:
+            return None
+
+        identity = parse_fully_qualified_name(short_name, entry.fully_qualified_name)
+        if identity is None:
+            return None
+        project_id = identity.get("project_id")
+        if project_id is None:
+            return None
+
+        return Container(
+            container_key=project_schema_key,
+            display_name=project_id,
+            parent_container=None,
+            subtype=DatasetContainerSubTypes.BIGQUERY_PROJECT,
+            extra_properties={
+                "dataplex_ingested": "true",
+                "dataplex_project_id": project_id,
+                "dataplex_entry_type": entry.entry_type,
+                "dataplex_source_platform": mapping.datahub_platform,
+            },
         )
 
     def build_entry_container_urn(self, entry: dataplex_v1.Entry) -> Optional[str]:
         """Build container-relationship URN for entry parent."""
         if not entry.parent_entry:
             return None
-        short_name = extract_entry_type_short_name(entry.entry_type) or entry.entry_type
+        short_name = extract_entry_type_short_name(entry.entry_type)
+        if short_name is None:
+            self.report.report_warning(
+                title="Invalid Dataplex entry type format",
+                message="Failed to extract short entry type from Dataplex entry_type. Skipping parent container link.",
+                context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
+            )
+            return None
         parent_schema_key = build_parent_schema_key(
             entry_type_or_short_name=short_name,
             parent_entry=entry.parent_entry,
@@ -391,7 +495,14 @@ class DataplexEntriesProcessor:
         if not entry.fully_qualified_name:
             return
 
-        short_name = extract_entry_type_short_name(entry.entry_type) or entry.entry_type
+        short_name = extract_entry_type_short_name(entry.entry_type)
+        if short_name is None:
+            self.report.report_warning(
+                title="Invalid Dataplex entry type format",
+                message="Failed to extract short entry type from Dataplex entry_type. Skipping lineage tracking.",
+                context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
+            )
+            return
         mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(short_name)
         if mapping is None or mapping.datahub_entity_type != "Dataset":
             return
@@ -411,3 +522,26 @@ class DataplexEntriesProcessor:
                     dataset_id=dataset_name,
                 )
             )
+
+    def _resolve_entry_type_mapping(
+        self, entry: dataplex_v1.Entry
+    ) -> Optional[tuple[str, DataplexEntryTypeMapping]]:
+        short_name = extract_entry_type_short_name(entry.entry_type)
+        if short_name is None:
+            self.report.report_warning(
+                title="Invalid Dataplex entry type format",
+                message="Failed to extract short entry type from Dataplex entry_type. Skipping entry.",
+                context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
+            )
+            return None
+
+        mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(short_name)
+        if mapping is None:
+            self.report.report_warning(
+                title="Unsupported Dataplex entry type",
+                message="Encountered Dataplex entry with unsupported entry_type. Skipping entry.",
+                context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
+            )
+            return None
+
+        return short_name, mapping

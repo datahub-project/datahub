@@ -86,11 +86,6 @@ class DataplexConfig(
         "Default: ['us', 'eu', 'asia', 'global'].",
     )
 
-    entries_location: Optional[str] = Field(
-        default=None,
-        description="Deprecated single-location alias. Prefer entries_locations.",
-    )
-
     filter_config: DataplexFilterConfig = Field(
         default_factory=DataplexFilterConfig,
         description="Filters to control which Dataplex resources are ingested.",
@@ -166,25 +161,6 @@ class DataplexConfig(
 
         return values
 
-    @model_validator(mode="before")
-    @classmethod
-    def entries_location_backward_compatibility(cls, values: Dict) -> Dict:
-        """Handle backward compatibility for entries_location -> entries_locations migration."""
-        entries_location = values.get("entries_location")
-        entries_locations = values.get("entries_locations")
-
-        if entries_locations is None and entries_location:
-            result = dict(values)
-            result["entries_locations"] = [entries_location]
-            return result
-
-        if entries_locations and entries_location is None:
-            result = dict(values)
-            result["entries_location"] = entries_locations[0]
-            return result
-
-        return values
-
     @model_validator(mode="after")
     def validate_project_ids(self) -> "DataplexConfig":
         """Ensure at least one project is configured."""
@@ -202,9 +178,6 @@ class DataplexConfig(
             raise ValueError(
                 "At least one entries location must be specified via entries_locations."
             )
-
-        if self.entries_location is None:
-            self.entries_location = self.entries_locations[0]
 
         return self
 
