@@ -5,7 +5,7 @@ const password = "Example password";
 const group_name = `Test group ${test_id}`;
 
 const loginAndGoToDataset = () => {
-  cy.loginWithCredentials();
+  cy.login();
   cy.goToDataset(
     "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
     "SampleCypressHiveDataset",
@@ -14,10 +14,18 @@ const loginAndGoToDataset = () => {
 
 const addOwner = (owner, type) => {
   cy.clickOptionWithTestId("add-owners-button");
-  cy.contains("Search for users or groups...").click({ force: true });
-  cy.focused().type(owner);
-  cy.get(".ant-select-item").contains(owner).click();
-  cy.focused().blur();
+  cy.get('[data-testid="add-owners-select"]', { timeout: 10000 }).should(
+    "be.visible",
+  );
+  cy.get('[data-testid="add-owners-select-base"]', { timeout: 10000 })
+    .should("exist")
+    .click({ force: true });
+  cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
+    .should("be.visible")
+    .type(owner);
+  cy.get('[data-testid="add-owners-select-dropdown"]', { timeout: 10000 })
+    .contains(owner)
+    .click({ force: true });
   cy.waitTextVisible(owner);
   cy.get('[role="dialog"]').contains("Technical Owner").click();
   cy.get('[role="listbox"]').parent().contains(type).click();
@@ -53,18 +61,17 @@ const addAndRemoveOwnerOnDataset = (owner, type, elementId) => {
   removeOwner(owner, elementId);
 };
 
-describe("add, remove ownership for dataset", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("add, remove ownership for dataset", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(false);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
   it("create test user and test group, add user to a group", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.createUser(username, password, email);
     cy.createGroup(group_name, "Test group description", test_id);
-    cy.setIsThemeV2Enabled(false);
     cy.addGroupMember(
       group_name,
       `/group/urn:li:corpGroup:${test_id}/assets`,

@@ -859,7 +859,7 @@ more-itertools==10.8.0
     #   jaraco-classes
     #   jaraco-functools
     #   simple-salesforce
-moto==4.2.14
+moto==5.1.22
     # via acryl-datahub
 msal==1.35.1
     # via
@@ -1124,7 +1124,7 @@ pure-sasl==0.6.2
     # via
     #   acryl-pyhive
     #   thrift-sasl
-py-partiql-parser==0.5.0
+py-partiql-parser==0.6.3
     # via moto
 py4j==0.10.9.9
     # via pyspark
@@ -1179,9 +1179,7 @@ pydantic==2.11.10
     #   unstructured-ingest
     #   weasel
 pydantic-core==2.33.2
-    # via
-    #   acryl-datahub
-    #   pydantic
+    # via pydantic
 pydash==8.0.6
     # via okta
 pydeequ==1.5.0
@@ -1867,7 +1865,7 @@ tzlocal==5.3.1
     #   trino
 uc-micro-py==2.0.0
     # via linkify-it-py
-ujson==5.11.0
+ujson==5.12.0
     # via acryl-datahub
 unicodecsv==0.14.1
     # via

@@ -32,7 +32,7 @@ from tests.integration.snowflake.common import (
     default_query_results,
 )
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_1
 
 
 def random_email():
