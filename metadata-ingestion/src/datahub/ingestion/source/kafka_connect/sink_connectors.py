@@ -356,7 +356,7 @@ class ClickHouseSinkConnector(BaseConnector):
         if connector_manifest.config.get("topic2TableMap"):
             try:
                 mappings = parse_comma_separated_list(
-                    connector_manifest.config["topic2TableMap"]
+                    connector_manifest.config[CLICKHOUSE_TOPIC2TABLE_MAP]
                 )
                 for mapping in mappings:
                     if "=" not in mapping:
