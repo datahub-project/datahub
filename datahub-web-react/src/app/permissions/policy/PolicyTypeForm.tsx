@@ -91,8 +91,8 @@ export default function PolicyTypeForm({
                     </Select.Option>
                 </Select>
                 <TypeDescriptionParagraph type="secondary">
-                    <b>Allow</b> policies grant access to resources when matched. <b>Deny</b> policies explicitly deny 
-                    access and take precedence over Allow policies. Use Deny policies to restrict access to specific 
+                    <b>Allow</b> policies grant access to resources when matched. <b>Deny</b> policies explicitly deny
+                    access and take precedence over Allow policies. Use Deny policies to restrict access to specific
                     users, groups, or resources even if they would normally be granted access by an Allow policy.
                 </TypeDescriptionParagraph>
             </Form.Item>

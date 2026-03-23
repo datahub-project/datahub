@@ -88,11 +88,10 @@ export const mapResourceTypeToPrivileges = (
 const createCriterion = (
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
-    condition: PolicyMatchCondition = PolicyMatchCondition.Equals,
 ): PolicyMatchCriterion => ({
     field: resourceFieldType,
     values: fieldValues,
-    condition,
+    condition: PolicyMatchCondition.Equals,
 });
 
 export const createCriterionValue = (value: string): PolicyMatchCriterionValue => ({ value });
@@ -150,13 +149,12 @@ export const setFieldValues = (
     filter: PolicyMatchFilter,
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
-    condition: PolicyMatchCondition = PolicyMatchCondition.Equals,
 ): PolicyMatchFilter => {
     const restCriteria = filter.criteria?.filter((criterion) => criterion.field !== resourceFieldType) || [];
     if (fieldValues.length === 0) {
         return { ...filter, criteria: restCriteria };
     }
-    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues, condition)] };
+    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues)] };
 };
 
 export const addOrUpdatePoliciesInList = (existingPolicies, newPolicies) => {

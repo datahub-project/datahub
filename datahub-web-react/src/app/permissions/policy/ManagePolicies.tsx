@@ -38,7 +38,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListPoliciesQuery } from '@graphql/policy.generated';
-import { AndFilterInput, EntityType, FilterOperator, Policy, PolicyState } from '@types';
+import { AndFilterInput, EntityType, FilterOperator, Policy, PolicyMode, PolicyState } from '@types';
 
 const PageContainer = styled.div`
     width: 100%;
@@ -349,6 +349,22 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     <Pill
                         label={record?.state?.charAt(0) + record?.state?.slice(1)?.toLowerCase()}
                         color={isActive ? 'green' : 'red'}
+                        size="sm"
+                        clickable={false}
+                    />
+                );
+            },
+        },
+        {
+            title: 'Mode',
+            key: 'mode',
+            width: '10%',
+            render: (record: any) => {
+                const isDeny = record?.mode === PolicyMode.Deny;
+                return (
+                    <Pill
+                        label={isDeny ? 'Deny' : 'Allow'}
+                        color={isDeny ? 'orange' : 'blue'}
                         size="sm"
                         clickable={false}
                     />

@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import { Radio, Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
+import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -12,7 +12,6 @@ import {
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
-    getFieldCondition,
     getFieldValues,
     getFieldValuesOfTags,
     mapResourceTypeToDisplayName,
@@ -30,7 +29,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { Container, Domain, Entity, EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
+import { Container, Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -73,15 +72,6 @@ const StyleTag = styled(CustomTag)`
     line-height: 16px;
 `;
 
-const ConditionSelector = styled.div`
-    margin-bottom: 12px;
-    .ant-radio-button-wrapper {
-        height: 28px;
-        line-height: 26px;
-        font-size: 13px;
-    }
-`;
-
 /**
  * Component used to construct the "privileges" and "resources" portion of a DataHub
  * access Policy.
@@ -117,20 +107,6 @@ export default function PolicyPrivilegeForm({
     } = useAppConfig();
 
     const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
-    
-    // Conditions for each filter type - initialize from existing policy if available
-    const [tagCondition, setTagCondition] = useState<PolicyMatchCondition>(
-        getFieldCondition(resources.filter, 'TAG') || PolicyMatchCondition.Equals,
-    );
-    const [domainCondition, setDomainCondition] = useState<PolicyMatchCondition>(
-        getFieldCondition(resources.filter, 'DOMAIN') || PolicyMatchCondition.Equals,
-    );
-    const [containerCondition, setContainerCondition] = useState<PolicyMatchCondition>(
-        getFieldCondition(resources.filter, 'CONTAINER') || PolicyMatchCondition.Equals,
-    );
-    const [resourceCondition, setResourceCondition] = useState<PolicyMatchCondition>(
-        getFieldCondition(resources.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals,
-    );
     // RESOURCE_TYPE and RESOURCE_URN are deprecated, but need to get them for backwards compatibility
     const resourceTypes = getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [];
     const resourceEntities = getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
@@ -263,7 +239,7 @@ export default function PolicyPrivilegeForm({
                     resource,
                     getEntityFromSearchResults(resourceSearchResults, resource) || null,
                 ),
-            ], resourceCondition),
+            ]),
         });
     };
 
@@ -280,7 +256,6 @@ export default function PolicyPrivilegeForm({
                 filterWithoutDeprecatedField,
                 URN,
                 resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
-                resourceCondition,
             ),
         });
     };
@@ -294,7 +269,7 @@ export default function PolicyPrivilegeForm({
         const updatedFilter = setFieldValues(filter, 'DOMAIN', [
             ...domains,
             createCriterionValueWithEntity(domainUrn, domainEntity || null),
-        ], domainCondition);
+        ]);
         setResources({
             ...resources,
             filter: updatedFilter,
@@ -317,7 +292,6 @@ export default function PolicyPrivilegeForm({
                 filter,
                 'DOMAIN',
                 domains?.filter((criterionValue) => criterionValue.value !== domain),
-                domainCondition,
             ),
         });
     };
@@ -331,7 +305,7 @@ export default function PolicyPrivilegeForm({
         const updatedFilter = setFieldValues(filter, 'CONTAINER', [
             ...containers,
             createCriterionValueWithEntity(containerUrn, containerEntity || null),
-        ], containerCondition);
+        ]);
         setResources({
             ...resources,
             filter: updatedFilter,
@@ -348,7 +322,6 @@ export default function PolicyPrivilegeForm({
                 filter,
                 'CONTAINER',
                 containers?.filter((criterionValue) => criterionValue.value !== containerUrn),
-                containerCondition,
             ),
         });
     };
@@ -488,7 +461,7 @@ export default function PolicyPrivilegeForm({
 
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TAG', [...tags, urn as any], tagCondition),
+            filter: setFieldValues(filter, 'TAG', [...tags, urn as any]),
         });
         setSelectedTags([...(selectedTags as any), selectedTagOption]);
         if (inputEl && inputEl.current) {
@@ -510,7 +483,6 @@ export default function PolicyPrivilegeForm({
                 filter,
                 'TAG',
                 tags?.filter((criterionValue) => (criterionValue as any) !== urn),
-                tagCondition,
             ),
         });
     };
@@ -597,18 +569,8 @@ export default function PolicyPrivilegeForm({
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Resource</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for specific resources the policy should apply to or exclude.
-                    </Typography.Paragraph>
-                    <ConditionSelector>
-                        <Radio.Group value={resourceCondition} onChange={(e) => setResourceCondition(e.target.value)}>
-                            <Radio.Button value={PolicyMatchCondition.Equals}>Specific Resources</Radio.Button>
-                            <Radio.Button value={PolicyMatchCondition.NotEquals}>Exclude Specific Resources</Radio.Button>
-                        </Radio.Group>
-                    </ConditionSelector>
-                    <Typography.Paragraph type="secondary" style={{ fontSize: '12px', marginTop: '8px' }}>
-                        {resourceCondition === PolicyMatchCondition.Equals 
-                            ? 'Policy applies only to the selected specific resources.'
-                            : 'Policy applies to all resources except the selected ones.'}
+                        Search for specific resources the policy should apply to. If <b>none</b> is selected, policy is
+                        applied to <b>all</b> resources of the given type.
                     </Typography.Paragraph>
                     <Select
                         notFoundContent="No search results found"
@@ -642,18 +604,8 @@ export default function PolicyPrivilegeForm({
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Select Tags</Typography.Text>}>
                     <Typography.Paragraph>
-                        Select whether the policy should apply to entities that have or don&apos;t have the selected tags.
-                    </Typography.Paragraph>
-                    <ConditionSelector>
-                        <Radio.Group value={tagCondition} onChange={(e) => setTagCondition(e.target.value)}>
-                            <Radio.Button value={PolicyMatchCondition.Equals}>Has Tag</Radio.Button>
-                            <Radio.Button value={PolicyMatchCondition.NotEquals}>Does Not Have Tag</Radio.Button>
-                        </Radio.Group>
-                    </ConditionSelector>
-                    <Typography.Paragraph type="secondary" style={{ fontSize: '12px', marginTop: '8px' }}>
-                        {tagCondition === PolicyMatchCondition.Equals 
-                            ? 'Policy applies to entities that have all of the selected tags.'
-                            : 'Policy applies to entities that do not have any of the selected tags.'}
+                        The policy will apply to all entities containing all of the chosen tags. If no tags are
+                        selected, the policy will not account for tags.
                     </Typography.Paragraph>
                     <TagSelect
                         data-testid="tag-term-modal-input"
@@ -684,18 +636,8 @@ export default function PolicyPrivilegeForm({
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Select Domains</Typography.Text>}>
                     <Typography.Paragraph>
-                        Select whether the policy should apply to entities in or not in the selected domains.
-                    </Typography.Paragraph>
-                    <ConditionSelector>
-                        <Radio.Group value={domainCondition} onChange={(e) => setDomainCondition(e.target.value)}>
-                            <Radio.Button value={PolicyMatchCondition.Equals}>In Domain</Radio.Button>
-                            <Radio.Button value={PolicyMatchCondition.NotEquals}>Not In Domain</Radio.Button>
-                        </Radio.Group>
-                    </ConditionSelector>
-                    <Typography.Paragraph type="secondary" style={{ fontSize: '12px', marginTop: '8px' }}>
-                        {domainCondition === PolicyMatchCondition.Equals 
-                            ? 'Policy applies to entities in the selected domains and all their nested domains.'
-                            : 'Policy applies to entities not in the selected domains.'}
+                        The policy will apply to any chosen domains and all their nested domains. If <b>none</b> are
+                        selected, the policy is applied to <b>all</b> resources of in all domains.
                     </Typography.Paragraph>
                     <ClickOutside onClickOutside={handleCLickOutside}>
                         <Select
@@ -734,18 +676,8 @@ export default function PolicyPrivilegeForm({
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Select Containers</Typography.Text>}>
                     <Typography.Paragraph>
-                        Select whether the policy should apply to entities in or not in the selected containers.
-                    </Typography.Paragraph>
-                    <ConditionSelector>
-                        <Radio.Group value={containerCondition} onChange={(e) => setContainerCondition(e.target.value)}>
-                            <Radio.Button value={PolicyMatchCondition.Equals}>In Container</Radio.Button>
-                            <Radio.Button value={PolicyMatchCondition.NotEquals}>Not In Container</Radio.Button>
-                        </Radio.Group>
-                    </ConditionSelector>
-                    <Typography.Paragraph type="secondary" style={{ fontSize: '12px', marginTop: '8px' }}>
-                        {containerCondition === PolicyMatchCondition.Equals 
-                            ? 'Policy applies to entities in the selected containers.'
-                            : 'Policy applies to entities not in the selected containers.'}
+                        The policy will apply to resources only in the chosen containers. If <b>none</b> are selected,
+                        the policy is applied to resources in <b>all</b> containers.
                     </Typography.Paragraph>
                     <Select
                         showSearch
