@@ -393,14 +393,17 @@ class GCSSource(StatefulIngestionSourceBase):
             s3_config = DataLakeSourceConfig(
                 path_specs=s3_path_specs,
                 aws_config=AwsConnectionConfig(
-                    aws_endpoint_url="https://storage.googleapis.com",
+                    aws_endpoint_url=GCS_ENDPOINT_URL,
                     aws_access_key_id=self.config.credential.hmac_access_id,
                     aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                     aws_region="auto",
                 ),
                 env=self.config.env,
+                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                 max_rows=self.config.max_rows,
                 number_of_files_to_sample=self.config.number_of_files_to_sample,
+                platform=PLATFORM_GCS,
+                platform_instance=self.config.platform_instance,
             )
         else:  # workload_identity_federation
             wif_options = [
@@ -434,8 +437,11 @@ class GCSSource(StatefulIngestionSourceBase):
                 path_specs=s3_path_specs,
                 aws_config=aws_config,
                 env=self.config.env,
+                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                 max_rows=self.config.max_rows,
                 number_of_files_to_sample=self.config.number_of_files_to_sample,
+                platform=PLATFORM_GCS,
+                platform_instance=self.config.platform_instance,
             )
 
         return s3_config
