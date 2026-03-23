@@ -10,8 +10,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
-from datahub.utilities.sample_data import download_sample_data
+from datahub.ingestion.source.datapack import DataPackSource, DataPackSourceConfig
 
 
 class DemoDataConfig(ConfigModel):
@@ -25,14 +24,20 @@ class DemoDataConfig(ConfigModel):
 class DemoDataSource(Source):
     """
     This source loads sample data into DataHub. It is intended for demo and testing purposes only.
+
+    This is a thin wrapper around the DataPack source that loads the "bootstrap" pack.
+    For more control, use the 'datapack' source type directly.
     """
 
     def __init__(self, ctx: PipelineContext, config: DemoDataConfig):
-        file_config = FileSourceConfig(path=str(download_sample_data()))
-        self.file_source: GenericFileSource = GenericFileSource(ctx, file_config)
+        datapack_config = DataPackSourceConfig(
+            pack_name="bootstrap",
+            no_time_shift=True,  # Backward compat: demo-data never time-shifted
+        )
+        self.datapack_source = DataPackSource(ctx, datapack_config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.file_source.get_workunits()
+        yield from self.datapack_source.get_workunits()
 
     def get_report(self) -> SourceReport:
-        return self.file_source.get_report()
+        return self.datapack_source.get_report()

@@ -1091,6 +1091,7 @@ entry_points = {
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
+        "datapack = datahub.ingestion.source.datapack:DataPackSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",

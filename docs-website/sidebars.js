@@ -1077,6 +1077,7 @@ module.exports = {
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
       items: [
+        "docs/cli-commands/datapack",
         "docs/cli-commands/dataset",
         "docs/cli-commands/graphql",
         "docs/cli-commands/search",

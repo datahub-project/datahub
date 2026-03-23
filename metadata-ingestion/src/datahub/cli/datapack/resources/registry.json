@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "packs": {
+    "bootstrap": {
+      "name": "bootstrap",
+      "description": "Default DataHub bootstrap data with datasets, dashboards, users, and tags",
+      "url": "https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-ingestion/examples/mce_files/bootstrap_mce.json",
+      "size_hint": "~100 KB",
+      "tags": ["demo", "bootstrap"],
+      "trust": "verified",
+      "reference_timestamp": 1758537741905,
+      "min_server_version": "0.14.0",
+      "pack_format_version": "1"
+    },
+    "showcase-ecommerce": {
+      "name": "showcase-ecommerce",
+      "description": "Rich e-commerce demo with 1049 entities across Snowflake, Looker, PowerBI, Tableau, including lineage, governance, glossary, domains, and data products",
+      "url": "https://raw.githubusercontent.com/datahub-project/static-assets/main/datapacks/showcase-ecommerce/index.json",
+      "size_hint": "~2.7 MB",
+      "tags": ["demo", "showcase", "ecommerce", "snowflake", "looker", "powerbi", "tableau", "lineage", "governance"],
+      "trust": "verified",
+      "reference_timestamp": 1769615173327,
+      "min_server_version": "0.14.0",
+      "pack_format_version": "1"
+    },
+    "covid-bigquery": {
+      "name": "covid-bigquery",
+      "description": "COVID-19 BigQuery dataset with 215 MCEs including lineage and profiling",
+      "url": "https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-ingestion/examples/demo_data/demo_data.json",
+      "size_hint": "~3.2 MB",
+      "tags": ["demo", "bigquery", "covid"],
+      "trust": "verified",
+      "reference_timestamp": 1621882982738,
+      "min_server_version": "0.14.0",
+      "pack_format_version": "1"
+    }
+  }
+}
