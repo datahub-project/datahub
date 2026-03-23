@@ -200,10 +200,10 @@ export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs 
 }
 
 export function formatDuration(durationMs: number): string {
-    const dur = dayjs.duration(durationMs);
-    const hours = Math.floor(dur.asHours());
-    const minutes = dur.minutes();
-    const seconds = dur.seconds();
+    const duration = dayjs.duration(durationMs);
+    const hours = Math.floor(duration.asHours());
+    const minutes = duration.minutes();
+    const seconds = duration.seconds();
 
     if (hours === 0 && minutes === 0) {
         return seconds === 1 ? `${seconds} sec` : `${seconds} secs`;
@@ -218,10 +218,10 @@ export function formatDuration(durationMs: number): string {
 }
 
 export function formatDetailedDuration(durationMs: number): string {
-    const dur = dayjs.duration(durationMs);
-    const hours = Math.floor(dur.asHours());
-    const minutes = dur.minutes();
-    const seconds = dur.seconds();
+    const duration = dayjs.duration(durationMs);
+    const hours = Math.floor(duration.asHours());
+    const minutes = duration.minutes();
+    const seconds = duration.seconds();
 
     const parts: string[] = [];
 
