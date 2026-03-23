@@ -1,4 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, Pill, StructuredPopover, Switch } from '@components';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Card, Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -123,7 +125,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                     <Button
                         variant="text"
                         onClick={() => window.open(learnMoreLink, '_blank')}
-                        icon={{ icon: 'ArrowRight', source: 'phosphor' }}
+                        icon={{ icon: ArrowRight }}
                         iconPosition="right"
                     >
                         Learn more

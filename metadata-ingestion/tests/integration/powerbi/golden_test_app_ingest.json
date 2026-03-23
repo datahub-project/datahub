@@ -19,6 +19,7 @@
                     "destinationUrn": "urn:li:dashboard:(powerbi,reports.455AB99B-E110-46E6-90D3-F015CABD1156)"
                 }
             ],
+            "dashboardUrl": "https://app.powerbi.com/groups/8F756DE6-26AD-45FF-A201-44276FF1F561/apps/2A4D0E82-E7A4-45B1-BD72-2A2CF82C9CB6",
             "lastModified": {
                 "created": {
                     "time": 0,

@@ -82,7 +82,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
         return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
 
 
-@platform_name("ClickHouse")
+@platform_name("ClickHouse", id="clickhouse-usage")
 @config_class(ClickHouseUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
@@ -93,21 +93,15 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 @dataclasses.dataclass
 class ClickHouseUsageSource(Source):
     """
-    This plugin has the below functionalities -
-    1. For a specific dataset this plugin ingests the following statistics -
-       1. top n queries.
-       2. top users.
-       3. usage of each column in the dataset.
-    2. Aggregation of these statistics into buckets, by day or hour granularity.
+    Source that extracts usage statistics from ClickHouse by analyzing system.query_log.
 
-    Usage information is computed by querying the system.query_log table. In case you have a cluster or need to apply additional transformation/filters you can create a view and put to the `query_log_table` setting.
-
-    :::note
-
-    This source only does usage statistics. To get the tables, views, and schemas in your ClickHouse warehouse, ingest using the `clickhouse` source described above.
-
-    :::
-
+    Implementation notes:
+    - Queries system.query_log (or custom view via query_log_table config) for SELECT queries
+    - Filters out system tables, table functions, and internal queries
+    - Uses SQLAlchemy to connect to ClickHouse
+    - Parses tables and columns arrays from query log
+    - Aggregates usage by time bucket using BaseUsageConfig
+    - Only processes QueryFinish events with Select query_kind
     """
 
     config: ClickHouseUsageConfig

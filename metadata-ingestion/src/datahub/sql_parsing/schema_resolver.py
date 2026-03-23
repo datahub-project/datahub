@@ -2,7 +2,7 @@ import contextlib
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
 
@@ -11,8 +11,10 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName as _TableName
@@ -63,7 +65,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         platform: str,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
-        graph: Optional[DataHubGraph] = None,
+        graph: Optional["DataHubGraph"] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
     ):
@@ -248,7 +250,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
 
-    def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
+    def _fetch_schema_info(
+        self, graph: "DataHubGraph", urn: str
+    ) -> Optional[SchemaInfo]:
         aspect = graph.get_aspect(urn, SchemaMetadataClass)
         if not aspect:
             return None

@@ -29,15 +29,6 @@ outputs:
   kafka-setup-change:
     description: "Kafka setup docker change"
     value: ${{ steps.filter.outputs.kafka-setup == 'true' }}
-  mysql-setup-change:
-    description: "Mysql setup docker change"
-    value: ${{ steps.filter.outputs.mysql-setup == 'true' }}
-  postgres-setup-change:
-    description: "Postgres setup docker change"
-    value: ${{ steps.filter.outputs.postgres-setup == 'true' }}
-  elasticsearch-setup-change:
-    description: "Elasticsearch setup docker change"
-    value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
   smoke-test-change:
     description: "Smoke test change"
     value: ${{ steps.filter.outputs.smoke-test == 'true' }}
@@ -60,7 +51,7 @@ runs:
         else
           echo "trigger=pr" >> $GITHUB_OUTPUT
         fi
-    - uses: dorny/paths-filter@v3
+    - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
       id: filter
       with:
         token: "" # Empty token forces it to use raw git commands.
@@ -97,12 +88,6 @@ runs:
             - "docker/**"
           kafka-setup:
             - "docker/kafka-setup/**"
-          mysql-setup:
-            - "docker/mysql-setup/**"
-          postgres-setup:
-            - "docker/postgres-setup/**"
-          elasticsearch-setup:
-            - "docker/elasticsearch-setup/**"
           smoke-test:
             - "smoke-test/**"
           actions:

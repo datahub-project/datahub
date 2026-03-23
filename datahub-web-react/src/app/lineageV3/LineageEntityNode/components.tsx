@@ -1,7 +1,7 @@
 import { colors } from '@components';
 import styled from 'styled-components';
 
-export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
+const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
     background-color: ${colors.white};
     color: ${colors.violet[500]};
     cursor: pointer;

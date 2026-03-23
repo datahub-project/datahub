@@ -43,9 +43,10 @@ const verifyViewCardDetails = (query, title, description) => {
   cy.get(".ant-modal-content").waitTextVisible(description);
 };
 
-describe("manage queries", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("manage queries", () => {
   beforeEach(() => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.goToDataset(DATASET_URN, "SampleCypressHdfsDataset");
     cy.openEntityTab("Queries");
   });

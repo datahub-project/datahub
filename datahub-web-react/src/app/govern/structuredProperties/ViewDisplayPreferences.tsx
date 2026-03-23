@@ -1,3 +1,4 @@
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React from 'react';
 
@@ -23,7 +24,7 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
             <StyledCollapse
                 ghost
                 expandIcon={({ isActive }) => (
-                    <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                    <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
                 )}
                 expandIconPosition="end"
                 defaultActiveKey={[1]}

@@ -2,6 +2,7 @@ import importlib
 import inspect
 import sys
 import unittest.mock
+from importlib.metadata import entry_points
 from typing import (
     Any,
     Callable,
@@ -19,11 +20,6 @@ import typing_inspect
 
 from datahub._version import __package_name__
 from datahub.configuration.common import ConfigurationError
-
-if sys.version_info < (3, 10):
-    from importlib_metadata import entry_points
-else:
-    from importlib.metadata import entry_points
 
 T = TypeVar("T")
 
