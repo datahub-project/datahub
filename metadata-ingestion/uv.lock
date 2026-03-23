@@ -1001,6 +1001,11 @@ excel = [
     { name = "urllib3" },
     { name = "wcmatch" },
 ]
+fabric-data-factory = [
+    { name = "azure-core" },
+    { name = "azure-identity" },
+    { name = "requests" },
+]
 fabric-onelake = [
     { name = "azure-identity" },
     { name = "pyodbc" },
@@ -1984,6 +1989,7 @@ requires-dist = [
     { name = "azure-core", marker = "extra == 'dev'", specifier = ">=1.38.0,<2.0.0" },
     { name = "azure-core", marker = "extra == 'docs'", specifier = ">=1.38.0,<2.0.0" },
     { name = "azure-core", marker = "extra == 'excel'", specifier = ">=1.38.0,<2.0.0" },
+    { name = "azure-core", marker = "extra == 'fabric-data-factory'", specifier = ">=1.38.0,<2.0.0" },
     { name = "azure-core", marker = "extra == 'integration-tests'", specifier = ">=1.38.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'abs'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'abs-slim'", specifier = ">=1.21.0,<2.0.0" },
@@ -1993,6 +1999,7 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'dev'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'docs'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'excel'", specifier = ">=1.21.0,<2.0.0" },
+    { name = "azure-identity", marker = "extra == 'fabric-data-factory'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'fabric-onelake'", specifier = ">=1.21.0,<2.0" },
     { name = "azure-identity", marker = "extra == 'integration-tests'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-mgmt-datafactory", marker = "extra == 'all'", specifier = ">=9.0.0,<10.0.0" },
@@ -2909,6 +2916,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'dev'", specifier = "==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'docs'", specifier = "==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'dremio'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'fabric-data-factory'", specifier = ">=2.28.0,<3.0" },
     { name = "requests", marker = "extra == 'fabric-onelake'", specifier = ">=2.28.0,<3.0" },
     { name = "requests", marker = "extra == 'flink'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'grafana'", specifier = "<3.0.0" },
