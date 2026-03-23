@@ -1603,7 +1603,7 @@ class SqlParsingAggregator(Closeable):
 
     @classmethod
     def _view_query_id(cls, view_urn: UrnStr) -> str:
-        return f"view_{DatasetUrn.url_encode(view_urn)}"
+        return f"view_{generate_hash(view_urn)}"
 
     @classmethod
     def _known_lineage_query_id(cls) -> str:
