@@ -78,7 +78,7 @@ const StyleTag = styled(CustomTag)`
 const SelectRow = styled.div`
     display: flex;
     gap: 8px;
-    align-items: flex-start;
+    align-items: center;
 `;
 
 /**
