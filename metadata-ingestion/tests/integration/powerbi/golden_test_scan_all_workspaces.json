@@ -1,5 +1,27 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "powerbi",
+                "env": "DEV",
+                "dataset": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "name": "library-dataset",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
@@ -9,6 +31,38 @@
             "materialized": false,
             "viewLogic": "dummy",
             "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -30,9 +84,44 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "library-dataset"
+                    "id": "library-dataset",
+                    "urn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -172,6 +261,22 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
@@ -213,7 +318,8 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "library-dataset"
+                    "id": "library-dataset",
+                    "urn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
                 }
             ]
         }
@@ -382,7 +488,8 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "library-dataset"
+                    "id": "library-dataset",
+                    "urn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
                 }
             ]
         }
@@ -446,6 +553,22 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
@@ -474,6 +597,22 @@
             "materialized": false,
             "viewLogic": "let\n    Source = Value.NativeQuery(Snowflake.Databases(\"bu20658.ap-southeast-2.snowflakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"SELECT\nconcat((UPPER(REPLACE(SELLER,'-',''))), MONTHID) as AGENT_KEY,\nconcat((UPPER(REPLACE(CLIENT_DIRECTOR,'-',''))), MONTHID) as CD_AGENT_KEY,\n *\nFROM\nOPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4\", null, [EnableFolding=true]),\n    #\"Added Conditional Column\" = Table.AddColumn(Source, \"SME Units ENT\", each if [DEAL_TYPE] = \"SME Unit\" then [UNIT] else 0),\n    #\"Added Conditional Column1\" = Table.AddColumn(#\"Added Conditional Column\", \"Banklink Units\", each if [DEAL_TYPE] = \"Banklink\" then [UNIT] else 0),\n    #\"Removed Columns\" = Table.RemoveColumns(#\"Added Conditional Column1\",{\"Banklink Units\"}),\n    #\"Added Custom\" = Table.AddColumn(#\"Removed Columns\", \"Banklink Units\", each if [DEAL_TYPE] = \"Banklink\" and [SALES_TYPE] = \"3 - Upsell\"\nthen [UNIT]\n\nelse if [SALES_TYPE] = \"Adjusted BL Migration\"\nthen [UNIT]\n\nelse 0),\n    #\"Added Custom1\" = Table.AddColumn(#\"Added Custom\", \"SME Units in $ (*$361)\", each if [DEAL_TYPE] = \"SME Unit\" \nand [SALES_TYPE] <> \"4 - Renewal\"\n    then [UNIT] * 361\nelse 0),\n    #\"Added Custom2\" = Table.AddColumn(#\"Added Custom1\", \"Banklink in $ (*$148)\", each [Banklink Units] * 148)\nin\n    #\"Added Custom2\"",
             "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
         }
     },
     "systemMetadata": {
@@ -527,7 +666,8 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "library-dataset"
+                    "id": "library-dataset",
+                    "urn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
                 }
             ]
         }
@@ -624,7 +764,8 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "library-dataset"
+                    "id": "library-dataset",
+                    "urn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
                 }
             ]
         }
@@ -660,6 +801,22 @@
                 }
             },
             "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
         }
     },
     "systemMetadata": {
@@ -789,7 +946,8 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "library-dataset"
+                    "id": "library-dataset",
+                    "urn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
                 }
             ]
         }
@@ -941,6 +1099,38 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
     "changeType": "UPSERT",
@@ -978,7 +1168,8 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "library-dataset"
+                    "id": "library-dataset",
+                    "urn": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
                 }
             ]
         }
@@ -1090,9 +1281,26 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "hr_pbi_test"
+                    "id": "hr_pbi_test",
+                    "urn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6ac0662f0f2fc3a9196ac505da2182b2"
         }
     },
     "systemMetadata": {
@@ -1201,7 +1409,8 @@
                     "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
                 },
                 {
-                    "id": "hr_pbi_test"
+                    "id": "hr_pbi_test",
+                    "urn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc"
                 }
             ]
         }
@@ -1405,6 +1614,28 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "powerbi",
+                "env": "DEV",
+                "dataset": "ba0130a1-5b03-40de-9535-b34e778ea6ed"
+            },
+            "name": "hr_pbi_test",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
     "changeType": "UPSERT",
@@ -1412,6 +1643,38 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -1430,6 +1693,40 @@
             "typeNames": [
                 "Table"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -1468,6 +1765,38 @@
             "name": "dbo_book_issue",
             "description": "hr pbi test description",
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc"
         }
     },
     "systemMetadata": {
