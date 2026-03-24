@@ -266,17 +266,32 @@ datahub docker quickstart
 - ✅ **Sample Data:** Pre-loaded datasets, lineage, and owners for exploration.
 - ✅ **Ingestion Ready:** Fully prepared to connect your own local or cloud data sources.
 
+**Want the bleeding edge?**
+If you want to try the latest unreleased features from the main branch, you can run:
+
+```bash
+git clone https://github.com/datahub-project/datahub.git
+cd datahub
+./docker/quickstart.sh  # Pulls :head images (latest from master)
+```
+> ⚠️ This runs pre-built Docker images (stable or head) and does NOT include your local code changes.
+> To test local changes, see Option 3 below.
+
 ### Option 3: Run from Source (For Contributors)
 
-Best for advanced users who want to modify the core codebase or run directly from the repository:
+Best for contributors who want to modify code and test their changes:
 
 ```bash
 # Clone the repository
 git clone https://github.com/datahub-project/datahub.git
 cd datahub
 
-# Start all services with docker-compose
-./docker/quickstart.sh
+# Trust mise config (installs Java 17, Node 22, Python 3.11)
+mise trust
+mise install
+
+# Build and start DataHub with your local code changes
+./gradlew quickstartDebug
 
 # Access DataHub at http://localhost:9002
 # Default credentials: datahub / datahub
