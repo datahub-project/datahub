@@ -78,7 +78,7 @@ public class RollbackService {
     }
 
     List<AspectRowSummary> aspectRowsToDelete = rollbackTargetAspects(runId, hardDelete);
-    if (!isAuthorized(opContext, aspectRowsToDelete)) {
+    if (!isAuthorized(opContext, aspectRowsToDelete, authorizer)) {
       throw new AuthenticationException("User is NOT unauthorized to delete entities.");
     }
 
@@ -301,8 +301,11 @@ public class RollbackService {
   }
 
   private boolean isAuthorized(
-      @Nonnull OperationContext opContext, @Nonnull List<AspectRowSummary> rowSummaries) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<AspectRowSummary> rowSummaries,
+      Authorizer authorizer) {
 
+    // Standard authorization
     return AuthUtil.isAPIAuthorizedEntityUrns(
         opContext,
         DELETE,

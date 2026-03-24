@@ -13,6 +13,7 @@ import static io.datahubproject.metadata.context.SystemTelemetryContext.EVENT_SO
 import static io.datahubproject.metadata.context.SystemTelemetryContext.SOURCE_IP_KEY;
 import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +53,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
@@ -177,6 +179,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+  private final boolean domainBasedAuthorizationEnabled;
   private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
 
   @Getter
@@ -245,6 +248,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final boolean enableBrowseV2,
       @javax.annotation.Nullable
           final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        cdcModeChangeLog,
+        preProcessHooks,
+        retry,
+        enableBrowseV2,
+        metricUtils,
+        false);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final boolean cdcModeChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
+      final boolean enableBrowseV2,
+      @javax.annotation.Nullable final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils,
+      final boolean domainBasedAuthorizationEnabled) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
@@ -254,6 +279,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
     this.metricUtils = metricUtils;
+    this.domainBasedAuthorizationEnabled = domainBasedAuthorizationEnabled;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
 
@@ -1676,6 +1702,40 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    if (async && domainBasedAuthorizationEnabled && !opContext.isSystemAuth()) {
+      // For async mode, the DomainBasedAuthorizationValidator runs under system context
+      // and cannot check user auth. Perform the domain auth pre-check here with the user context.
+      List<MetadataChangeProposal> mcps =
+          aspectsBatch.getMCPItems().stream()
+              .map(MCPItem::getMetadataChangeProposal)
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList());
+      if (!mcps.isEmpty()) {
+        Map<com.linkedin.common.urn.Urn, Set<com.linkedin.common.urn.Urn>> newDomainsByEntity =
+            DomainExtractionUtils.extractNewDomainsFromMCPs(mcps);
+        Map<MetadataChangeProposal, Boolean> authResults =
+            DomainAuthorizationHelper.authorizeWithDomains(
+                opContext,
+                opContext.getEntityRegistry(),
+                mcps,
+                newDomainsByEntity,
+                opContext.getAspectRetriever());
+        List<MetadataChangeProposal> failures =
+            authResults.entrySet().stream()
+                .filter(entry -> !entry.getValue())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        if (!failures.isEmpty()) {
+          String errorMessages =
+              failures.stream()
+                  .map(mcp -> String.valueOf(mcp.getEntityUrn()))
+                  .collect(Collectors.joining(", "));
+          throw new com.linkedin.metadata.entity.validation.ValidationException(
+              "User is unauthorized to modify entities (async): " + errorMessages);
+        }
+      }
+    }
+
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =

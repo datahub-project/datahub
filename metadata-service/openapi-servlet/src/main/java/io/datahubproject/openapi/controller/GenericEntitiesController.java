@@ -21,6 +21,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -99,6 +100,7 @@ public abstract class GenericEntitiesController<
   @Autowired protected TimeseriesAspectService timeseriesAspectService;
   @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
+  @Autowired protected ConfigurationProvider configurationProvider;
 
   @Qualifier("systemOperationContext")
   @Autowired
@@ -554,9 +556,14 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      // Standard auth: type-level check. When domain-based auth is enabled this is superseded by
+      // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
+      if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+      }
     }
 
     AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());

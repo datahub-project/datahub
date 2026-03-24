@@ -14,6 +14,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
@@ -40,10 +41,8 @@ public class UnsetDomainResolverTest {
 
   @Test
   public void testGetSuccessNoExistingDomains() throws Exception {
-    // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    // Test setting the domain
     Mockito.when(
             mockClient.batchGetV2(
                 any(),
@@ -62,7 +61,10 @@ public class UnsetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
-    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
+
+    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService, mockFlags);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -116,9 +118,11 @@ public class UnsetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
-    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
 
-    // Execute resolver
+    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService, mockFlags);
+
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
@@ -160,7 +164,10 @@ public class UnsetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
 
-    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
+
+    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService, mockFlags);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -174,10 +181,13 @@ public class UnsetDomainResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService<?> mockService = getMockEntityService();
-    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
+
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(false);
+
+    UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService, mockFlags);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -195,8 +205,12 @@ public class UnsetDomainResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .ingestProposal(any(), Mockito.any(), anyBoolean());
+
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
+
     UnsetDomainResolver resolver =
-        new UnsetDomainResolver(mockClient, Mockito.mock(EntityService.class));
+        new UnsetDomainResolver(mockClient, Mockito.mock(EntityService.class), mockFlags);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

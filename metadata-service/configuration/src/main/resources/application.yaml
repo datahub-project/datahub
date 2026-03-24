@@ -87,6 +87,7 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
+    domainBasedAuthorizationEnabled: ${DOMAIN_BASED_AUTHORIZATION_ENABLED:false}
   # Enables authorization of reads, writes, and deletes on REST APIs.
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   view:
@@ -1074,6 +1075,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  domainBasedAuthorizationEnabled: ${DOMAIN_BASED_AUTHORIZATION_ENABLED:false} # Enables domain-based authorization for entity operations
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:false} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
 
