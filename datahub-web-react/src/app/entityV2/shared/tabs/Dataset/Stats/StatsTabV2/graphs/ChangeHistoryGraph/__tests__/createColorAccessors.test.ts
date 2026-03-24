@@ -1,5 +1,7 @@
-// Disabling hardcoded colors rule in test file
+// Disabling no hardcoded colors rule in test file
 /* eslint-disable rulesdir/no-hardcoded-colors */
+import { DefaultTheme } from 'styled-components';
+
 import { DEFAULT_OPERATION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/constants';
 import {
     AggregationGroup,
@@ -8,6 +10,18 @@ import {
 import { createColorAccessors } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/utils';
 import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 import { OperationType } from '@src/types.generated';
+
+const mockTheme = {
+    colors: {
+        bgSurfaceDarker: '#EBECF0',
+        chartsBrandBase: '#CAC3F1',
+        chartsBrandMedium: '#705EE4',
+        chartsHeatmapHigh: '#3E2F9D',
+        chartsRedLow: '#ECA5A5',
+        chartsRedMedium: '#D23939',
+        chartsRedHigh: '#8B1A1A',
+    },
+} as unknown as DefaultTheme;
 
 function getSampleOfOperationsData(value: number): OperationsData {
     return {
@@ -83,10 +97,12 @@ describe('createColorAccessors', () => {
     it('should correctly create color accessors for day and each operation type', () => {
         const customType = 'custom_custom_type_1';
 
-        const response = createColorAccessors(getSampleOfOperationsData(150), CALENDAR_DATA_SAMPLE, [
-            ...DEFAULT_OPERATION_TYPES,
-            customType,
-        ]);
+        const response = createColorAccessors(
+            getSampleOfOperationsData(150),
+            CALENDAR_DATA_SAMPLE,
+            [...DEFAULT_OPERATION_TYPES, customType],
+            mockTheme,
+        );
 
         expect(response.day(getSampleOfOperationsData(0))).toBe('#EBECF0');
         expect(response.day(getSampleOfOperationsData(25))).toBe('rgb(119, 103, 218)');

@@ -46,14 +46,14 @@ export class DataJobEntity implements Entity<DataJob> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ConsoleSqlOutlined style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
+            return <ConsoleSqlOutlined style={{ fontSize, color: color || 'var(--theme-icon)' }} />;
         }
 
         return (
             <ConsoleSqlOutlined
                 style={{
                     fontSize,
-                    color: color || 'var(--theme-icon, #BFBFBF)',
+                    color: color || 'var(--theme-icon)',
                 }}
             />
         );

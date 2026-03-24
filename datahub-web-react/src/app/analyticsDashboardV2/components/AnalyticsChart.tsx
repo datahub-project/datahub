@@ -500,7 +500,7 @@ export const AnalyticsChart = ({ chartData }: Props) => {
 
             // Use smart color assignment for stacked bar chart segments
             // eslint-disable-next-line react-hooks/rules-of-hooks
-            const { getColorByKey } = useAnalyticsChartColors(allSegmentLabels);
+            const { getColorByKey } = useAnalyticsChartColors(allSegmentLabels, theme);
             const segmentColors = allSegmentLabels.map((label) => getColorByKey(label));
 
             return (

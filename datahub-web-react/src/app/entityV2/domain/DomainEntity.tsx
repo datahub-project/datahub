@@ -49,7 +49,7 @@ export class DomainEntity implements Entity<Domain> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DomainIcon style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
+            return <DomainIcon style={{ fontSize, color: color || 'var(--theme-icon)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {

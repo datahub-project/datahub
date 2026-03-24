@@ -1,6 +1,6 @@
 import { Col, Divider, Typography } from 'antd';
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ChartCard } from '@app/analyticsDashboard/components/ChartCard';
 import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
@@ -33,18 +33,16 @@ export type Props = {
     dateRange: DateRange;
 };
 
-/**
- * Change these to change the chart axis & line colors
- * TODO: Add this to the theme config.
- */
-const DEFAULT_LINE_COLOR = '#20d3bd';
-const DEFAULT_AXIS_COLOR = '#D8D8D8';
 const DEFAULT_AXIS_WIDTH = 2;
 
 /**
  * Time Series Chart with a single line.
  */
 export default function StatChart({ title, values, tickInterval: interval, dateRange }: Props) {
+    const theme = useTheme();
+    const DEFAULT_LINE_COLOR = theme.colors.chartsBlueMedium;
+    const DEFAULT_AXIS_COLOR = theme.colors.border;
+
     const timeSeriesData = useMemo(
         () =>
             values

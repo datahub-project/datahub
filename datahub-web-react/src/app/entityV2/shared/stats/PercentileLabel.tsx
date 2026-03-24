@@ -35,7 +35,7 @@ export const PercentileLabel = ({ percentile, description }: Props) => {
             showArrow={false}
             content={<Description>{description}</Description>}
         >
-            <Label color={percentileToColor(percentile)}>{percentileToLabel(percentile)}</Label>
+            <Label color={percentileToColor(percentile, theme)}>{percentileToLabel(percentile)}</Label>
         </Popover>
     );
 };

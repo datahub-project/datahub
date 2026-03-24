@@ -5,6 +5,7 @@ import { scaleLinear, scaleTime } from '@visx/scale';
 import { LinePath } from '@visx/shape';
 import { extent, max } from '@visx/vendor/d3-array';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { ChartWrapper } from '@app/dataviz/components';
 
@@ -20,6 +21,8 @@ type Data = {
 export const SimpleLineChart = ({ data }: Props) => {
     const getDate = (d: Data) => new Date(d.date);
     const getValue = (d: Data) => d.value;
+
+    const theme = useTheme();
 
     const markerEnd = 'url(#marker-circle)';
 
@@ -46,18 +49,24 @@ export const SimpleLineChart = ({ data }: Props) => {
                         <svg width={width} height={height}>
                             <defs>
                                 <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stopColor="#20D3BD" />
-                                    <stop offset="100%" stopColor="#9F33CC" />
+                                    <stop offset="0%" stopColor={theme.colors.chartsGradientStart} />
+                                    <stop offset="100%" stopColor={theme.colors.chartsGradientEnd} />
                                 </linearGradient>
                             </defs>
-                            <MarkerCircle id="marker-circle" fill="#9F33CC" stroke="#fff" strokeWidth={2} size={3} />
+                            <MarkerCircle
+                                id="marker-circle"
+                                fill={theme.colors.chartsGradientEnd}
+                                stroke={theme.colors.bg}
+                                strokeWidth={2}
+                                size={3}
+                            />
                             <LinePath
                                 data={data}
                                 x={(d: Data) => xScale(getDate(d))}
                                 y={(d: Data) => yScale(getValue(d))}
                                 curve={curveCatmullRom}
                                 markerEnd={markerEnd}
-                                stroke="#9F33CC"
+                                stroke={theme.colors.chartsGradientEnd}
                             />
                         </svg>
                     );

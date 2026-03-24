@@ -33,7 +33,7 @@ export class DataProductEntity implements Entity<DataProduct> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FileDoneOutlined style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
+            return <FileDoneOutlined style={{ fontSize, color: color || 'var(--theme-icon)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -46,7 +46,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             <FileDoneOutlined
                 style={{
                     fontSize,
-                    color: color || 'var(--theme-icon, #BFBFBF)',
+                    color: color || 'var(--theme-icon)',
                 }}
             />
         );

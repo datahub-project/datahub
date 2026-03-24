@@ -2,6 +2,7 @@ import { ParentSize } from '@visx/responsive';
 import { Axis, BarSeries, BarStack, Grid, XYChart } from '@visx/xychart';
 import dayjs from 'dayjs';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { Legend } from '@app/dataviz/Legend';
 import { ChartWrapper } from '@app/dataviz/components';
@@ -24,6 +25,8 @@ export const BarChart = <Data extends object, DataKeys>({
     tickFormat?: string;
     yAxisLabel?: string;
 }) => {
+    const theme = useTheme();
+
     if (!Array.isArray(dataKeys)) throw new Error('Datakeys must be an array');
 
     const multipleData = dataKeys.length > 1;
@@ -46,7 +49,11 @@ export const BarChart = <Data extends object, DataKeys>({
                                 margin={margin}
                                 captureEvents={false}
                             >
-                                <Grid columns={false} numTicks={tickCount} lineStyle={{ stroke: '#EAEAEA' }} />
+                                <Grid
+                                    columns={false}
+                                    numTicks={tickCount}
+                                    lineStyle={{ stroke: theme.colors.border }}
+                                />
                                 {multipleData ? (
                                     <BarStack>
                                         {dataKeys

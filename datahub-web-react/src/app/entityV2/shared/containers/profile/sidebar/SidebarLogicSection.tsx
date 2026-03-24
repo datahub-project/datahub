@@ -20,7 +20,7 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
     max-height: 600px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 85%, rgba(0, 0, 0, 0) 100%);
+    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
     span {
         font-family: 'Roboto Mono', monospace;
     }

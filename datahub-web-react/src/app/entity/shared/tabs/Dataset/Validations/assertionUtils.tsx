@@ -1,7 +1,6 @@
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
-
-import ColorTheme from '@src/conf/theme/colorThemes/types';
+import { DefaultTheme } from 'styled-components';
 
 import {
     AssertionResultType,
@@ -41,19 +40,19 @@ export const getResultText = (result: AssertionResultType) => {
 /**
  * Returns the display color assoociated with an AssertionResultType
  */
-export const getResultColor = (result: AssertionResultType, colors?: Partial<ColorTheme>) => {
+export const getResultColor = (result: AssertionResultType, theme: DefaultTheme) => {
     switch (result) {
         case AssertionResultType.Success:
-            return colors?.iconSuccess ?? '#4db31b';
+            return theme.colors.iconSuccess;
         case AssertionResultType.Failure:
-            return colors?.iconError ?? '#F5222D';
+            return theme.colors.iconError;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
 };
 
-export const getResultIcon = (result: AssertionResultType, colors?: Partial<ColorTheme>) => {
-    const resultColor = getResultColor(result, colors);
+export const getResultIcon = (result: AssertionResultType, theme: DefaultTheme) => {
+    const resultColor = getResultColor(result, theme);
     switch (result) {
         case AssertionResultType.Success:
             return <CheckCircleOutlined style={{ color: resultColor }} />;

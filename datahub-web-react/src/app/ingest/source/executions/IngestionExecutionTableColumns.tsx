@@ -3,7 +3,7 @@ import { Text, Tooltip } from '@components';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     CLI_INGESTION_SOURCE,
@@ -55,9 +55,10 @@ interface StatusColumnProps {
 }
 
 export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusColumnProps) {
+    const theme = useTheme();
     const Icon = getExecutionRequestStatusIcon(status);
     const text = getExecutionRequestStatusDisplayText(status);
-    const color = getExecutionRequestStatusDisplayColor(status);
+    const color = getExecutionRequestStatusDisplayColor(theme, status);
     return (
         <StatusContainer>
             {Icon && <Icon style={{ color, fontSize: 14 }} />}

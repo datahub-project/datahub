@@ -308,6 +308,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     )}
                     {!!lastRunEvent?.status && (
                         <LastRunIcon
+                            theme={theme}
                             status={lastRunEvent.status}
                             resultType={lastRunEvent.result?.resultType ?? undefined}
                             showTooltip

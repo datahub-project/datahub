@@ -9,7 +9,7 @@ import {
 import { Button, Checkbox, Dropdown, Empty, Image, Modal, Tag, Tooltip, Typography, message } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
@@ -98,6 +98,7 @@ export const DatasetAssertionsList = ({
     const entityData = useEntityData();
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const deleteAssertion = async (urn: string) => {
         try {
@@ -158,9 +159,12 @@ export const DatasetAssertionsList = ({
             render: (_, record: any) => {
                 const executionDate = record.lastExecTime && new Date(record.lastExecTime);
                 const localTime = executionDate && `${executionDate.toLocaleDateString()}`;
-                const resultColor = (record.lastExecResult && getResultColor(record.lastExecResult)) || 'default';
+                const resultColor =
+                    (record.lastExecResult && getResultColor(record.lastExecResult, theme)) || 'default';
                 const resultText = (record.lastExecResult && getResultText(record.lastExecResult)) || 'No Evaluations';
-                const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult)) || <StopOutlined />;
+                const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult, theme)) || (
+                    <StopOutlined />
+                );
                 const selected = selectedUrns?.some((selectedUrn) => selectedUrn === record.urn);
                 const isPartOfContract = contract && isAssertionPartOfContract(record, contract);
 

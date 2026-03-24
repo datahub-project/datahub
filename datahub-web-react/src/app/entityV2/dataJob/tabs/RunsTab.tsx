@@ -2,7 +2,7 @@ import { DeliveredProcedureOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { DefaultTheme, useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import {
@@ -51,74 +51,78 @@ function getStatusForStyling(status?: DataProcessRunStatus, resultType?: DataPro
     return 'RUNNING';
 }
 
-const columns = [
-    {
-        title: 'Time',
-        dataIndex: 'time',
-        key: 'time',
-        render: (value) => (
-            <Tooltip title={new Date(Number(value)).toUTCString()}>{new Date(Number(value)).toLocaleString()}</Tooltip>
-        ),
-    },
-    {
-        title: 'Run ID',
-        dataIndex: 'name',
-        key: 'name',
-    },
-    {
-        title: 'Status',
-        dataIndex: 'status',
-        key: 'status',
-        render: (status: any, row) => {
-            const statusForStyling = getStatusForStyling(status, row?.resultType);
-            const text = getExecutionRequestStatusDisplayText(statusForStyling);
-            const color = getExecutionRequestStatusDisplayColor(statusForStyling);
-            return (
-                <>
-                    <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                        <LastRunIcon status={status} resultType={row?.resultType} />
-                        <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                            {text || 'N/A'}
-                        </Typography.Text>
-                    </div>
-                </>
-            );
-        },
-    },
-    {
-        title: 'Inputs',
-        dataIndex: 'inputs',
-        key: 'inputs',
-        render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
-        width: 150,
-    },
-    {
-        title: 'Outputs',
-        dataIndex: 'outputs',
-        key: 'outputs',
-        render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
-        width: 150,
-    },
-    {
-        title: '',
-        dataIndex: 'externalUrl',
-        key: 'externalUrl',
-        render: (externalUrl) =>
-            externalUrl && (
-                <Tooltip title="View task run details">
-                    <ExternalUrlLink href={externalUrl}>
-                        <DeliveredProcedureOutlined />
-                    </ExternalUrlLink>
-                </Tooltip>
-            ),
-    },
-];
-
 const PAGE_SIZE = 20;
 
 export const RunsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
+
+    const theme = useTheme();
+
+    const columns = [
+        {
+            title: 'Time',
+            dataIndex: 'time',
+            key: 'time',
+            render: (value) => (
+                <Tooltip title={new Date(Number(value)).toUTCString()}>
+                    {new Date(Number(value)).toLocaleString()}
+                </Tooltip>
+            ),
+        },
+        {
+            title: 'Run ID',
+            dataIndex: 'name',
+            key: 'name',
+        },
+        {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (status: any, row) => {
+                const statusForStyling = getStatusForStyling(status, row?.resultType);
+                const text = getExecutionRequestStatusDisplayText(statusForStyling);
+                const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
+                return (
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
+                            <LastRunIcon theme={theme} status={status} resultType={row?.resultType} />
+                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
+                                {text || 'N/A'}
+                            </Typography.Text>
+                        </div>
+                    </>
+                );
+            },
+        },
+        {
+            title: 'Inputs',
+            dataIndex: 'inputs',
+            key: 'inputs',
+            render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
+            width: 150,
+        },
+        {
+            title: 'Outputs',
+            dataIndex: 'outputs',
+            key: 'outputs',
+            render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
+            width: 150,
+        },
+        {
+            title: '',
+            dataIndex: 'externalUrl',
+            key: 'externalUrl',
+            render: (externalUrl) =>
+                externalUrl && (
+                    <Tooltip title="View task run details">
+                        <ExternalUrlLink href={externalUrl}>
+                            <DeliveredProcedureOutlined />
+                        </ExternalUrlLink>
+                    </Tooltip>
+                ),
+        },
+    ];
 
     const { loading, data } = useGetExecutionRunsQuery({
         variables: {
@@ -173,16 +177,17 @@ export const RunsTab = () => {
 };
 
 interface LastRunIconProps {
+    theme: DefaultTheme;
     status?: DataProcessRunStatus;
     resultType?: DataProcessInstanceRunResultType;
     showTooltip?: boolean;
 }
 
-export function LastRunIcon({ status, resultType, showTooltip }: LastRunIconProps): JSX.Element {
+export function LastRunIcon({ theme, status, resultType, showTooltip }: LastRunIconProps): JSX.Element {
     const statusForStyling = getStatusForStyling(status, resultType);
     const text = getExecutionRequestStatusDisplayText(statusForStyling);
     const Icon = getExecutionRequestStatusIcon(statusForStyling);
-    const color = getExecutionRequestStatusDisplayColor(statusForStyling);
+    const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
 
     const icon = Icon && <Icon style={{ color, fontSize: 'inherit' }} />;
 

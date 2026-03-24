@@ -26,14 +26,14 @@ export class RoleEntity implements Entity<Role> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TagFilled style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
+            return <TagFilled style={{ fontSize, color: color || 'var(--theme-icon)' }} />;
         }
 
         return (
             <TagOutlined
                 style={{
                     fontSize,
-                    color: color || 'var(--theme-icon, #BFBFBF)',
+                    color: color || 'var(--theme-icon)',
                 }}
             />
         );

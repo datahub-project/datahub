@@ -18,7 +18,7 @@ const ContentContainer = styled.div<{ $expanded: boolean; $hasMore: boolean }>`
     ${({ $expanded, $hasMore }) =>
         !$expanded &&
         $hasMore &&
-        // TO-DO: Use closest matching color tokens or add new ones 
+        // TO-DO: Use closest matching color tokens or add new ones
         // eslint-disable-next-line rulesdir/no-hardcoded-colors
         `
             -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 90%, rgba(0,0,0,0) 100%);

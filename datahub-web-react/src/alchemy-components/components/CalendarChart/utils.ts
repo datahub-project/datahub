@@ -186,6 +186,8 @@ export function generateMockData(
         });
 }
 
+// Disabling no hardcoded colors rule because this is a mock utility used only in stories files, need not be mapped to theme tokens
+/* eslint-disable rulesdir/no-hardcoded-colors */
 export function getMockedProps(
     startDate = '2024-01-01',
     endDate = '2024-12-31',
@@ -214,3 +216,4 @@ export function getMockedProps(
         colorAccessor,
     };
 }
+/* eslint-enable rulesdir/no-hardcoded-colors */

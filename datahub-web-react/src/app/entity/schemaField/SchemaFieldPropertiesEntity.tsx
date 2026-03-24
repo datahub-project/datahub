@@ -11,8 +11,8 @@ import { Dataset, EntityType, SchemaFieldEntity, SearchResult } from '@types';
 export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     type: EntityType = EntityType.SchemaField;
 
-    icon = (fontSize: number, styleType: IconStyleType, color = '#BFBFBF') => (
-        <PicCenterOutlined style={{ fontSize, color }} />
+    icon = (fontSize: number, styleType: IconStyleType, color) => (
+        <PicCenterOutlined style={{ fontSize, color: color || 'var(--theme-icon)' }} />
     );
 
     isSearchEnabled = () => true;

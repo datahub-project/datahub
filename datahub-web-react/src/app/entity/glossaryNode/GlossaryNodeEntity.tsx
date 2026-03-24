@@ -27,14 +27,14 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
+            return <FolderFilled style={{ fontSize, color: color || 'var(--theme-icon)' }} />;
         }
 
         return (
             <FolderOutlined
                 style={{
                     fontSize,
-                    color: color || 'var(--theme-icon, #BFBFBF)',
+                    color: color || 'var(--theme-icon)',
                 }}
             />
         );

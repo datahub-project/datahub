@@ -37,7 +37,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DatabaseFilled style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
+            return <DatabaseFilled style={{ fontSize, color: color || 'var(--theme-icon)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
