@@ -18,9 +18,9 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
     DataplexEntryTypeMapping,
-    build_parent_schema_key,
+    build_container_key_from_fqn,
+    build_parent_container_key,
     build_project_schema_key_from_fqn,
-    build_schema_key_from_fqn,
     extract_datahub_dataset_name_from_fqn,
     extract_entry_type_short_name,
     parse_fully_qualified_name,
@@ -308,7 +308,7 @@ class DataplexEntriesProcessor:
             if entry.parent_entry:
                 parent_container_key = cast(
                     Optional[ContainerKey],
-                    build_parent_schema_key(
+                    build_parent_container_key(
                         entry_type_or_short_name=short_name,
                         parent_entry=entry.parent_entry,
                     ),
@@ -340,7 +340,7 @@ class DataplexEntriesProcessor:
                 schema=schema_metadata,
             )
 
-        container_key = build_schema_key_from_fqn(
+        container_key = build_container_key_from_fqn(
             entry_type_or_short_name=short_name,
             fully_qualified_name=entry.fully_qualified_name,
         )
@@ -423,7 +423,7 @@ class DataplexEntriesProcessor:
                 context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
             )
             return None
-        parent_schema_key = build_parent_schema_key(
+        parent_schema_key = build_parent_container_key(
             entry_type_or_short_name=short_name,
             parent_entry=entry.parent_entry,
         )

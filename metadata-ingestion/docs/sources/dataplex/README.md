@@ -14,6 +14,7 @@ Dataplex ingestion is entry-type driven: each Universal Catalog `entry_type` map
 | :----------------------------- | :--------------- | :----------------------------- | :------------------------------------------------------ |
 | `bigquery-dataset`             | `bigquery`       | Container (`BigQuery Dataset`) | Parent is project container                             |
 | `bigquery-table`               | `bigquery`       | Dataset (`Table`)              | Parent is BigQuery dataset container                    |
+| `bigquery-view`                | `bigquery`       | Dataset (`View`)               | Parent is BigQuery dataset container                    |
 | `cloudsql-mysql-instance`      | `cloudsql`       | Container (`Instance`)         | Parent is project container                             |
 | `cloudsql-mysql-database`      | `cloudsql`       | Container (`Database`)         | Parent is Cloud SQL instance container                  |
 | `cloudsql-mysql-table`         | `cloudsql`       | Dataset (`Table`)              | Parent is Cloud SQL database container                  |

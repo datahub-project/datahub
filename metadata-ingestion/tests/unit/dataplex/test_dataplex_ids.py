@@ -6,16 +6,16 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
     DataplexBigQueryDataset,
     DataplexCloudSpannerDatabase,
-    DataplexCloudSqlMySqlDatabase,
+    DataplexCloudSpannerInstance,
+    DataplexCloudSqlMySqlInstance,
     DataplexProjectId,
-    DataplexPubSubTopic,
+    build_container_key_from_fqn,
     build_container_urn_from_fqn,
     build_dataset_urn_from_fqn,
+    build_parent_container_key,
     build_parent_container_urn,
-    build_parent_schema_key,
     build_project_container_urn_from_fqn,
     build_project_schema_key_from_fqn,
-    build_schema_key_from_fqn,
     extract_entry_type_short_name,
     is_supported_lineage_entry_type,
     parse_fully_qualified_name,
@@ -24,12 +24,10 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
 
 
 def test_schema_key_parent_chain_for_project_has_no_duplicate_step() -> None:
-    table_key = build_schema_key_from_fqn(
-        "cloudsql-mysql-table",
-        "cloudsql_mysql:harshal-playground-306419.us-west2.sergio-test.sergio-db.your_table",
+    database_key = build_container_key_from_fqn(
+        "cloudsql-mysql-database",
+        "cloudsql_mysql:harshal-playground-306419.us-west2.sergio-test.sergio-db",
     )
-    assert table_key is not None
-    database_key = table_key.parent_key()
     assert database_key is not None
     instance_key = database_key.parent_key()
     assert instance_key is not None
@@ -45,6 +43,10 @@ def test_schema_key_parent_chain_for_project_has_no_duplicate_step() -> None:
         (
             "projects/655216118709/locations/global/entryTypes/bigquery-table",
             "bigquery-table",
+        ),
+        (
+            "projects/655216118709/locations/global/entryTypes/bigquery-view",
+            "bigquery-view",
         ),
         (
             "projects/655216118709/locations/global/entryTypes/cloud-spanner-instance",
@@ -70,6 +72,7 @@ def test_supported_entry_type_mapping_keys() -> None:
     assert set(DATAPLEX_ENTRY_TYPE_MAPPINGS.keys()) == {
         "bigquery-dataset",
         "bigquery-table",
+        "bigquery-view",
         "cloudsql-mysql-instance",
         "cloudsql-mysql-database",
         "cloudsql-mysql-table",
@@ -90,28 +93,29 @@ def test_mapping_regex_groups_match_schema_key_fields() -> None:
     """
     for entry_type_short_name, mapping in DATAPLEX_ENTRY_TYPE_MAPPINGS.items():
         fqn_group_names = set(mapping.fqn_regex.groupindex.keys())
-        schema_field_names = set(mapping.schema_key_class.model_fields.keys())
-        assert fqn_group_names.issubset(schema_field_names), (
-            f"{entry_type_short_name}: fqn_regex groups {fqn_group_names} "
-            f"must be subset of {mapping.schema_key_class.__name__} fields "
-            f"{schema_field_names}"
-        )
+        if mapping.container_key_class is not None:
+            container_field_names = set(mapping.container_key_class.model_fields.keys())
+            assert fqn_group_names.issubset(container_field_names), (
+                f"{entry_type_short_name}: fqn_regex groups {fqn_group_names} "
+                f"must be subset of {mapping.container_key_class.__name__} fields "
+                f"{container_field_names}"
+            )
 
         if mapping.parent_entry_regex is None:
             continue
 
-        assert mapping.parent_schema_key_class is not None, (
+        assert mapping.parent_container_key_class is not None, (
             f"{entry_type_short_name}: parent_entry_regex exists but "
-            "parent_schema_key_class is missing"
+            "parent_container_key_class is missing"
         )
         parent_group_names = set(mapping.parent_entry_regex.groupindex.keys())
-        parent_schema_field_names = set(
-            mapping.parent_schema_key_class.model_fields.keys()
+        parent_container_field_names = set(
+            mapping.parent_container_key_class.model_fields.keys()
         )
-        assert parent_group_names.issubset(parent_schema_field_names), (
+        assert parent_group_names.issubset(parent_container_field_names), (
             f"{entry_type_short_name}: parent_entry_regex groups {parent_group_names} "
-            f"must be subset of {mapping.parent_schema_key_class.__name__} fields "
-            f"{parent_schema_field_names}"
+            f"must be subset of {mapping.parent_container_key_class.__name__} fields "
+            f"{parent_container_field_names}"
         )
 
 
@@ -125,6 +129,15 @@ def test_mapping_regex_groups_match_schema_key_fields() -> None:
                 "project_id": "harshal-playground-306419",
                 "dataset_id": "fivetran_smoke_test",
                 "table_id": "destination_schema_metadata",
+            },
+        ),
+        (
+            "bigquery-view",
+            "bigquery:harshal-playground-306419.fivetran_smoke_test.destination_schema_view",
+            {
+                "project_id": "harshal-playground-306419",
+                "dataset_id": "fivetran_smoke_test",
+                "table_id": "destination_schema_view",
             },
         ),
         (
@@ -195,6 +208,15 @@ def test_parse_fully_qualified_name_invalid() -> None:
             },
         ),
         (
+            "bigquery-view",
+            "projects/harshal-playground-306419/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/harshal-playground-306419/datasets/fivetran_smoke_test",
+            {
+                "project_id": "harshal-playground-306419",
+                "dataset_id": "fivetran_smoke_test",
+            },
+        ),
+        (
             "cloud-spanner-table",
             "projects/harshal-playground-306419/locations/us-west2/entryGroups/@spanner/entries/"
             "spanner.googleapis.com/projects/harshal-playground-306419/instances/sergio-test/databases/cymbal",
@@ -225,8 +247,8 @@ def test_parse_parent_entry_examples(
     assert parse_parent_entry(entry_type_short_name, parent_entry) == expected
 
 
-def test_build_schema_key_from_fqn_container_types() -> None:
-    bq_key = build_schema_key_from_fqn(
+def test_build_container_key_from_fqn_container_types() -> None:
+    bq_key = build_container_key_from_fqn(
         "bigquery-dataset",
         "bigquery:harshal-playground-306419.big_tables",
     )
@@ -234,7 +256,7 @@ def test_build_schema_key_from_fqn_container_types() -> None:
     assert bq_key.project_id == "harshal-playground-306419"
     assert bq_key.dataset_id == "big_tables"
 
-    spanner_key = build_schema_key_from_fqn(
+    spanner_key = build_container_key_from_fqn(
         "cloud-spanner-database",
         "spanner:harshal-playground-306419.regional-us-west2.sergio-test.cymbal",
     )
@@ -242,24 +264,22 @@ def test_build_schema_key_from_fqn_container_types() -> None:
     assert spanner_key.instance_id == "sergio-test"
 
 
-def test_build_schema_key_from_fqn_dataset_types() -> None:
-    mysql_key = build_schema_key_from_fqn(
+def test_build_container_key_from_fqn_dataset_types_returns_none() -> None:
+    mysql_table_key = build_container_key_from_fqn(
         "cloudsql-mysql-table",
         "cloudsql_mysql:harshal-playground-306419.us-west2.sergio-test.sergio-db.your_table",
     )
-    assert isinstance(mysql_key, DataplexCloudSqlMySqlDatabase)
-    assert mysql_key.database_id == "sergio-db"
+    assert mysql_table_key is None
 
-    pubsub_key = build_schema_key_from_fqn(
+    pubsub_key = build_container_key_from_fqn(
         "pubsub-topic",
         "pubsub:topic:acryl-staging.observe-staging-obs",
     )
-    assert isinstance(pubsub_key, DataplexPubSubTopic)
-    assert pubsub_key.topic_id == "observe-staging-obs"
+    assert pubsub_key is None
 
 
-def test_build_parent_schema_key() -> None:
-    parent_key = build_parent_schema_key(
+def test_build_parent_container_key() -> None:
+    parent_key = build_parent_container_key(
         "cloud-spanner-table",
         "projects/harshal-playground-306419/locations/us-west2/entryGroups/@spanner/entries/"
         "spanner.googleapis.com/projects/harshal-playground-306419/instances/sergio-test/databases/cymbal",
@@ -339,10 +359,10 @@ def test_build_project_container_urn_from_fqn() -> None:
 def test_identity_helpers_return_none_for_unsupported_or_invalid_inputs() -> None:
     assert parse_fully_qualified_name("unsupported-type", "bigquery:p.ds.t") is None
     assert parse_parent_entry("unsupported-type", "projects/p/...") is None
-    assert build_schema_key_from_fqn("unsupported-type", "bigquery:p.ds") is None
-    assert build_parent_schema_key("unsupported-type", "projects/p/...") is None
+    assert build_container_key_from_fqn("unsupported-type", "bigquery:p.ds") is None
+    assert build_parent_container_key("unsupported-type", "projects/p/...") is None
     assert (
-        build_parent_schema_key(
+        build_parent_container_key(
             "bigquery-table", "projects/p/locations/us/entryGroups/g/entries/invalid"
         )
         is None
@@ -368,8 +388,33 @@ def test_identity_helpers_return_none_for_unsupported_or_invalid_inputs() -> Non
     assert build_parent_container_urn("bigquery-dataset", "projects/p/...") is None
 
 
+def test_build_parent_container_key_for_dataset_entry_types() -> None:
+    bq_parent = build_parent_container_key(
+        "bigquery-table",
+        "projects/harshal-playground-306419/locations/us/entryGroups/@bigquery/entries/"
+        "bigquery.googleapis.com/projects/harshal-playground-306419/datasets/fivetran_smoke_test",
+    )
+    assert isinstance(bq_parent, DataplexBigQueryDataset)
+
+    cloudsql_parent = build_parent_container_key(
+        "cloudsql-mysql-table",
+        "projects/harshal-playground-306419/locations/us-west2/entryGroups/@cloudsql/entries/"
+        "cloudsql.googleapis.com/projects/harshal-playground-306419/locations/us-west2/instances/sergio-test/"
+        "databases/sergio-db",
+    )
+    assert isinstance(cloudsql_parent, DataplexCloudSqlMySqlInstance)
+
+    spanner_parent = build_parent_container_key(
+        "cloud-spanner-database",
+        "projects/harshal-playground-306419/locations/us-west2/entryGroups/@spanner/entries/"
+        "spanner.googleapis.com/projects/harshal-playground-306419/instances/sergio-test",
+    )
+    assert isinstance(spanner_parent, DataplexCloudSpannerInstance)
+
+
 def test_is_supported_lineage_entry_type_helper() -> None:
     assert is_supported_lineage_entry_type("bigquery-table")
+    assert is_supported_lineage_entry_type("bigquery-view")
     assert is_supported_lineage_entry_type("cloudsql-mysql-table")
     assert is_supported_lineage_entry_type("cloud-spanner-table")
     assert is_supported_lineage_entry_type("pubsub-topic")

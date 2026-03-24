@@ -16,12 +16,12 @@ Important observed deviations from public docs (based on real Dataplex entries):
 - Cloud SQL MySQL uses ``cloudsql-mysql-database`` entry types in practice, while
   docs may refer to the logical level as schema.
 
-Regex/SchemaKey contract:
+Regex/ContainerKey contract:
 - Named capture groups in ``fqn_regex`` and ``parent_entry_regex`` are expected to
-  match field names on the target SchemaKey classes.
+  match field names on the target container-key classes.
 - Example: ``(?P<project_id>...)`` maps to ``DataplexProjectId.project_id``.
 - This contract is enforced by
-  ``test_mapping_regex_groups_match_schema_key_fields`` in
+  ``test_mapping_regex_groups_match_container_key_fields`` in
   ``test_dataplex_ids.py`` so new entry type mappings fail fast if regex groups
   and key fields drift.
 """
@@ -62,10 +62,6 @@ class DataplexBigQueryDataset(DataplexBigQueryProject):
     dataset_id: str
 
 
-class DataplexBigQueryTable(DataplexBigQueryDataset):
-    table_id: str
-
-
 class DataplexCloudSqlProject(DataplexProjectId):
     platform: str = "cloudsql"
 
@@ -77,10 +73,6 @@ class DataplexCloudSqlMySqlInstance(DataplexCloudSqlProject):
 
 class DataplexCloudSqlMySqlDatabase(DataplexCloudSqlMySqlInstance):
     database_id: str
-
-
-class DataplexCloudSqlMySqlTable(DataplexCloudSqlMySqlDatabase):
-    table_id: str
 
 
 class DataplexSpannerProject(DataplexProjectId):
@@ -96,16 +88,8 @@ class DataplexCloudSpannerDatabase(DataplexCloudSpannerInstance):
     database_id: str
 
 
-class DataplexCloudSpannerTable(DataplexCloudSpannerDatabase):
-    table_id: str
-
-
 class DataplexPubSubProject(DataplexProjectId):
     platform: str = "pubsub"
-
-
-class DataplexPubSubTopic(DataplexPubSubProject):
-    topic_id: str
 
 
 PROJECT_KEY_CLASSES: tuple[type[DataplexProjectId], ...] = (
@@ -125,8 +109,8 @@ class DataplexEntryTypeMapping:
     datahub_subtype: str
     fqn_regex: Pattern[str]
     parent_entry_regex: Optional[Pattern[str]]
-    schema_key_class: type[DataplexProjectId]
-    parent_schema_key_class: Optional[type[DataplexProjectId]]
+    container_key_class: Optional[type[DataplexProjectId]]
+    parent_container_key_class: Optional[type[DataplexProjectId]]
 
 
 ENTRY_TYPE_SHORT_NAME_REGEX = re.compile(
@@ -194,8 +178,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         fqn_regex=BIGQUERY_DATASET_FQN_REGEX,
         # Top-level in Dataplex entry hierarchy: no parent_entry on payload.
         parent_entry_regex=None,
-        schema_key_class=DataplexBigQueryDataset,
-        parent_schema_key_class=None,
+        container_key_class=DataplexBigQueryDataset,
+        parent_container_key_class=None,
     ),
     "bigquery-table": DataplexEntryTypeMapping(
         datahub_platform="bigquery",
@@ -203,8 +187,18 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_subtype=DatasetSubTypes.TABLE,
         fqn_regex=BIGQUERY_TABLE_FQN_REGEX,
         parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
-        schema_key_class=DataplexBigQueryTable,
-        parent_schema_key_class=DataplexBigQueryDataset,
+        container_key_class=None,
+        parent_container_key_class=DataplexBigQueryDataset,
+    ),
+    "bigquery-view": DataplexEntryTypeMapping(
+        datahub_platform="bigquery",
+        datahub_entity_type="Dataset",
+        datahub_subtype=DatasetSubTypes.VIEW,
+        # BigQuery views share the same FQN and parent_entry shape as tables.
+        fqn_regex=BIGQUERY_TABLE_FQN_REGEX,
+        parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
+        container_key_class=None,
+        parent_container_key_class=DataplexBigQueryDataset,
     ),
     "cloudsql-mysql-instance": DataplexEntryTypeMapping(
         datahub_platform="cloudsql",
@@ -213,8 +207,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         fqn_regex=MYSQL_INSTANCE_FQN_REGEX,
         # Top-level in Dataplex entry hierarchy: no parent_entry on payload.
         parent_entry_regex=None,
-        schema_key_class=DataplexCloudSqlMySqlInstance,
-        parent_schema_key_class=None,
+        container_key_class=DataplexCloudSqlMySqlInstance,
+        parent_container_key_class=None,
     ),
     "cloudsql-mysql-database": DataplexEntryTypeMapping(
         datahub_platform="cloudsql",
@@ -222,8 +216,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_subtype=DatasetContainerSubTypes.DATABASE,
         fqn_regex=MYSQL_DATABASE_FQN_REGEX,
         parent_entry_regex=MYSQL_INSTANCE_PARENT_ENTRY_REGEX,
-        schema_key_class=DataplexCloudSqlMySqlDatabase,
-        parent_schema_key_class=DataplexCloudSqlMySqlInstance,
+        container_key_class=DataplexCloudSqlMySqlDatabase,
+        parent_container_key_class=DataplexCloudSqlMySqlInstance,
     ),
     "cloudsql-mysql-table": DataplexEntryTypeMapping(
         datahub_platform="cloudsql",
@@ -231,8 +225,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_subtype=DatasetSubTypes.TABLE,
         fqn_regex=MYSQL_TABLE_FQN_REGEX,
         parent_entry_regex=MYSQL_DATABASE_PARENT_ENTRY_REGEX,
-        schema_key_class=DataplexCloudSqlMySqlTable,
-        parent_schema_key_class=DataplexCloudSqlMySqlDatabase,
+        container_key_class=None,
+        parent_container_key_class=DataplexCloudSqlMySqlDatabase,
     ),
     "cloud-spanner-instance": DataplexEntryTypeMapping(
         datahub_platform="spanner",
@@ -241,8 +235,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         fqn_regex=SPANNER_INSTANCE_FQN_REGEX,
         # Top-level in Dataplex entry hierarchy: no parent_entry on payload.
         parent_entry_regex=None,
-        schema_key_class=DataplexCloudSpannerInstance,
-        parent_schema_key_class=None,
+        container_key_class=DataplexCloudSpannerInstance,
+        parent_container_key_class=None,
     ),
     "cloud-spanner-database": DataplexEntryTypeMapping(
         datahub_platform="spanner",
@@ -250,8 +244,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_subtype=DatasetContainerSubTypes.DATABASE,
         fqn_regex=SPANNER_DATABASE_FQN_REGEX,
         parent_entry_regex=SPANNER_INSTANCE_PARENT_ENTRY_REGEX,
-        schema_key_class=DataplexCloudSpannerDatabase,
-        parent_schema_key_class=DataplexCloudSpannerInstance,
+        container_key_class=DataplexCloudSpannerDatabase,
+        parent_container_key_class=DataplexCloudSpannerInstance,
     ),
     "cloud-spanner-table": DataplexEntryTypeMapping(
         datahub_platform="spanner",
@@ -259,8 +253,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_subtype=DatasetSubTypes.TABLE,
         fqn_regex=SPANNER_TABLE_FQN_REGEX,
         parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
-        schema_key_class=DataplexCloudSpannerTable,
-        parent_schema_key_class=DataplexCloudSpannerDatabase,
+        container_key_class=None,
+        parent_container_key_class=DataplexCloudSpannerDatabase,
     ),
     "pubsub-topic": DataplexEntryTypeMapping(
         datahub_platform="pubsub",
@@ -268,8 +262,8 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         datahub_subtype=DatasetSubTypes.TOPIC,
         fqn_regex=PUBSUB_TOPIC_FQN_REGEX,
         parent_entry_regex=None,
-        schema_key_class=DataplexPubSubTopic,
-        parent_schema_key_class=None,
+        container_key_class=None,
+        parent_container_key_class=None,
     ),
 }
 
@@ -350,11 +344,11 @@ def _instantiate_key(
     return key_class(**constructor_args)
 
 
-def build_schema_key_from_fqn(
+def build_container_key_from_fqn(
     entry_type_or_short_name: str, fully_qualified_name: str
 ) -> Optional[DataplexProjectId]:
     mapping = _get_mapping(entry_type_or_short_name)
-    if mapping is None:
+    if mapping is None or mapping.container_key_class is None:
         return None
 
     identity_fields = parse_fully_qualified_name(
@@ -364,14 +358,14 @@ def build_schema_key_from_fqn(
     if identity_fields is None:
         return None
 
-    return _instantiate_key(mapping.schema_key_class, identity_fields)
+    return _instantiate_key(mapping.container_key_class, identity_fields)
 
 
-def build_parent_schema_key(
+def build_parent_container_key(
     entry_type_or_short_name: str, parent_entry: str
 ) -> Optional[DataplexProjectId]:
     mapping = _get_mapping(entry_type_or_short_name)
-    if mapping is None or mapping.parent_schema_key_class is None:
+    if mapping is None or mapping.parent_container_key_class is None:
         return None
 
     identity_fields = parse_parent_entry(
@@ -381,7 +375,7 @@ def build_parent_schema_key(
     if identity_fields is None:
         return None
 
-    return _instantiate_key(mapping.parent_schema_key_class, identity_fields)
+    return _instantiate_key(mapping.parent_container_key_class, identity_fields)
 
 
 def build_dataset_urn_from_fqn(
@@ -436,7 +430,7 @@ def build_container_urn_from_fqn(
     if mapping is None or mapping.datahub_entity_type != "Container":
         return None
 
-    schema_key = build_schema_key_from_fqn(
+    schema_key = build_container_key_from_fqn(
         entry_type_or_short_name, fully_qualified_name
     )
     if schema_key is None:
@@ -482,7 +476,7 @@ def build_project_container_urn_from_fqn(
 def build_parent_container_urn(
     entry_type_or_short_name: str, parent_entry: str
 ) -> Optional[str]:
-    parent_schema_key = build_parent_schema_key(
+    parent_schema_key = build_parent_container_key(
         entry_type_or_short_name=entry_type_or_short_name,
         parent_entry=parent_entry,
     )
