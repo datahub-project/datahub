@@ -141,4 +141,16 @@ def _clear_bridge() -> None:
     """
     global _bridge_instance
     with _bridge_lock:
+        if _bridge_instance is not None:
+            # Explicitly close the V8 context before dropping the reference.
+            # If we just set _bridge_instance = None here, Python's GC decides
+            # when to finalize the MiniRacer object. If that happens while other
+            # threads are active (e.g. in a later, unrelated test), MiniRacer's
+            # __del__ -> close() path segfaults. Closing synchronously here, while
+            # the lock is held and no concurrent parse() calls are in flight,
+            # shuts down V8 cleanly.
+            try:
+                _bridge_instance._ctx.close()
+            except Exception:
+                pass
         _bridge_instance = None
