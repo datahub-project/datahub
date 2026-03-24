@@ -13,12 +13,11 @@ npm ci
 echo "==> Compiling TypeScript"
 npx tsc
 
-echo "==> Bundling and minifying with esbuild"
+echo "==> Bundling with esbuild (no --minify: keeps LexError/ParseError .name for bridge messages; gzip shrinks the artifact)"
 # Use --platform=browser (IIFE output) so the bundle runs in py_mini_racer's
 # V8 context, which has no Node.js built-ins (no exports, require, process).
 npx esbuild dist/index.js \
   --bundle \
-  --minify \
   --platform=browser \
   --target=es2020 \
   --format=iife \

@@ -1,4 +1,4 @@
-"""Tests for the M-Query binary bridge subprocess manager."""
+"""Tests for the M-Query V8 bridge (py_mini_racer + bundle.js.gz)."""
 
 import pytest
 
@@ -26,14 +26,69 @@ def test_bridge_parses_simple_let_expression():
     _clear_bridge()
     bridge = get_bridge()
     node_map = bridge.parse("let Source = 1 in Source")
-    # At least one node must be a LetExpression
     kinds = {node["kind"] for node in node_map.values()}
     assert "LetExpression" in kinds
     _clear_bridge()
 
 
-def test_bridge_raises_on_invalid_expression():
-    """A syntax error returns MQueryParseError, not a crash."""
+def test_bridge_parses_minimal_section_document():
+    """DefaultSettings use ParseEitherExpressionOrSection — a bare section parses."""
+    from datahub.ingestion.source.powerbi.m_query._bridge import (
+        _clear_bridge,
+        get_bridge,
+    )
+
+    _clear_bridge()
+    bridge = get_bridge()
+    node_map = bridge.parse("section;")
+    kinds = {node["kind"] for node in node_map.values()}
+    assert "Section" in kinds
+    _clear_bridge()
+
+
+@pytest.mark.parametrize(
+    ("expression", "required_substrings"),
+    [
+        # Lex stage (tokenization) — inputs that never reach the parser
+        (
+            "###",
+            ("lex:", "line"),
+        ),
+        (
+            '"unterminated',
+            ("lex:", "unterminated"),
+        ),
+        # Parse stage
+        (
+            "let x =",
+            ("parse:", "end-of-stream"),
+        ),
+        (
+            "",
+            ("parse:", "end-of-stream"),
+        ),
+        (
+            "let x = ) in x",
+            ("parse:", "parenthesis"),
+        ),
+        (
+            "let Source = 1 in Source extra",
+            ("parse:", "tokens remain"),
+        ),
+        (
+            "let Source = Sql.Database( in Source",
+            ("parse:", "keyword"),
+        ),
+        (
+            "shared x = 1;",
+            ("parse:", "shared"),
+        ),
+    ],
+)
+def test_bridge_errors_include_stage_and_details(
+    expression: str, required_substrings: tuple[str, ...]
+) -> None:
+    """Lex/Parse failures surface as MQueryParseError with Lex:/Parse: prefix and message text."""
     from datahub.ingestion.source.powerbi.m_query._bridge import (
         MQueryParseError,
         _clear_bridge,
@@ -43,8 +98,10 @@ def test_bridge_raises_on_invalid_expression():
     _clear_bridge()
     bridge = get_bridge()
     with pytest.raises(MQueryParseError) as exc_info:
-        bridge.parse("### not valid M-Query ###")
-    assert str(exc_info.value)  # message is non-empty
+        bridge.parse(expression)
+    message = str(exc_info.value).lower()
+    for needle in required_substrings:
+        assert needle in message, f"expected {needle!r} in {message!r}"
     _clear_bridge()
 
 
