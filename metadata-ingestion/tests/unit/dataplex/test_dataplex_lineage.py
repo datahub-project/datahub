@@ -86,6 +86,14 @@ def test_lineage_extraction_disabled(
     assert result is None
 
 
+def test_construct_fqn_cloudsql(lineage_extractor: DataplexLineageExtractor) -> None:
+    """Test FQN construction for Cloud SQL datasets."""
+    fqn = lineage_extractor._construct_fqn(
+        "cloudsql", "my-project.us-west2.instance.database.table"
+    )
+    assert fqn == "cloudsql_mysql:my-project.us-west2.instance.database.table"
+
+
 def test_construct_fqn_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
     """Test FQN construction for BigQuery tables."""
     fqn = lineage_extractor._construct_fqn("bigquery", "my-project.my-dataset.my-table")

@@ -333,3 +333,35 @@ def test_build_project_container_urn_from_fqn() -> None:
     )
     assert project_urn is not None
     assert project_urn.startswith("urn:li:container:")
+
+
+def test_identity_helpers_return_none_for_unsupported_or_invalid_inputs() -> None:
+    assert parse_fully_qualified_name("unsupported-type", "bigquery:p.ds.t") is None
+    assert parse_parent_entry("unsupported-type", "projects/p/...") is None
+    assert build_schema_key_from_fqn("unsupported-type", "bigquery:p.ds") is None
+    assert build_parent_schema_key("unsupported-type", "projects/p/...") is None
+    assert (
+        build_parent_schema_key(
+            "bigquery-table", "projects/p/locations/us/entryGroups/g/entries/invalid"
+        )
+        is None
+    )
+
+    assert (
+        build_dataset_urn_from_fqn("unsupported-type", "bigquery:p.ds.t", "PROD")
+        is None
+    )
+    assert build_dataset_urn_from_fqn("bigquery-table", "bigquery", "PROD") is None
+    assert build_container_urn_from_fqn("bigquery-table", "bigquery:p.ds.t") is None
+    assert (
+        build_container_urn_from_fqn("cloudsql-mysql-instance", "cloudsql_mysql")
+        is None
+    )
+    assert (
+        build_project_schema_key_from_fqn("unsupported-type", "bigquery:p.ds") is None
+    )
+    assert (
+        build_project_container_urn_from_fqn("unsupported-type", "bigquery:p.ds")
+        is None
+    )
+    assert build_parent_container_urn("bigquery-dataset", "projects/p/...") is None

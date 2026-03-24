@@ -113,11 +113,18 @@ class TestDataplexConfig:
 
     def test_config_project_id_backward_compatibility(self):
         """Test backward compatibility for project_id field."""
-        # Using deprecated project_id (single)
-        config = DataplexConfig(project_ids=["test-project"])
-
-        # Should be migrated to project_ids
+        config = DataplexConfig.model_validate({"project_id": "test-project"})
         assert config.project_ids == ["test-project"]
+
+    def test_config_project_ids_take_precedence_over_project_id(self):
+        """Test project_ids precedence when both fields are provided."""
+        config = DataplexConfig.model_validate(
+            {
+                "project_id": "legacy-project",
+                "project_ids": ["project-1", "project-2"],
+            }
+        )
+        assert config.project_ids == ["project-1", "project-2"]
 
     def test_config_default_values(self):
         """Test that default configuration values are correct."""

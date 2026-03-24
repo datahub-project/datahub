@@ -563,6 +563,85 @@ class TestDataplexEntriesProcessorDesign:
         ):
             assert processor.build_entity_for_entry(invalid_dataset_fqn) is None
 
+    def test_build_entity_for_entry_dataset_without_parent_container(self) -> None:
+        processor = self._build_processor()
+        processor.config.include_schema = False
+
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
+        )
+        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.parent_container is None
+
+    def test_extract_helpers_cover_display_description_datetime_and_group_id(
+        self,
+    ) -> None:
+        processor = self._build_processor()
+
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.entry_source = Mock()
+        entry.entry_source.display_name = "Display"
+        entry.entry_source.description = "Description"
+        ts = Mock()
+        ts.timestamp.return_value = 123.0
+        entry.entry_source.create_time = ts
+        entry.entry_source.update_time = ts
+
+        assert processor._extract_display_name(entry) == "Display"
+        assert processor._extract_description(entry) == "Description"
+        assert processor._extract_entry_group_id(entry.name) == "g"
+        assert processor._extract_datetime(entry, "create_time") is not None
+        assert processor._extract_datetime(entry, "update_time") is not None
+
+        no_source_entry = Mock(spec=dataplex_v1.Entry)
+        no_source_entry.name = "projects/p/locations/us/entries/e2"
+        no_source_entry.entry_source = None
+        assert processor._extract_description(no_source_entry) == ""
+        assert processor._extract_datetime(no_source_entry, "create_time") is None
+        assert processor._extract_entry_group_id(no_source_entry.name) == "unknown"
+
+    def test_build_entry_container_key_warns_for_invalid_entry_type(self) -> None:
+        processor = self._build_processor()
+
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.entry_type = "invalid-entry-type"
+        entry.parent_entry = "projects/p/locations/us/entryGroups/g/entries/parent"
+
+        assert processor.build_entry_container_key(entry) is None
+        source_report = cast(Mock, processor.source_report)
+        source_report.report_warning.assert_called_once()
+
+    def test_track_entry_for_lineage_warns_for_invalid_entry_type(self) -> None:
+        processor = self._build_processor()
+
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.entry_type = "invalid-entry-type"
+        entry.fully_qualified_name = "bigquery:p.ds.table"
+
+        processor._track_entry_for_lineage("project-1", entry)
+
+        source_report = cast(Mock, processor.source_report)
+        source_report.report_warning.assert_called_once()
+        assert "project-1" not in processor.entry_data_by_project
+
     def test_build_entry_container_key_and_lineage_tracking(self) -> None:
         processor = self._build_processor()
 
