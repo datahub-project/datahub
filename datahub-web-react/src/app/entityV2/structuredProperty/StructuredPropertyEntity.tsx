@@ -1,4 +1,4 @@
-import { ListDashes } from '@phosphor-icons/react';
+import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
 import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';

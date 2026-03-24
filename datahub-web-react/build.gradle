@@ -142,6 +142,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 
   if (targetFile.isEmpty()) {
     // Run on all files
+    inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
     args = ['run', 'lint']
   } else {
     // Run on specific file - run lint, format-check, and type-check
@@ -163,7 +164,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   }
 }
 
-test.dependsOn([yarnInstall, yarnTest, yarnLint])
+test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   def targetFile = project.findProperty('file') ?: ''
@@ -317,4 +318,13 @@ jar {
   }
   archiveClassifier = 'assets'
 }
+
+tasks.register('lint') {
+  dependsOn yarnLint
+}
+
+tasks.register('lintFix') {
+  dependsOn yarnLintFix
+}
+
 build.dependsOn jar

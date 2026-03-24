@@ -11,7 +11,10 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { Columns, ListBullets, Table, TreeStructure } from '@phosphor-icons/react';
+import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

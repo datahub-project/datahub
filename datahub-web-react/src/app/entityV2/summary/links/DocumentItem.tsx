@@ -1,4 +1,5 @@
 import { Icon, Text, Tooltip, colors } from '@components';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -56,7 +57,7 @@ export default function DocumentItem({ document, onClick }: Props) {
     return (
         <DocumentContainer onClick={handleClick} data-testid={`${document.urn}-${title}`}>
             <LeftSection>
-                <Icon icon="FileText" source="phosphor" color="primary" size="lg" />
+                <Icon icon={FileText} color="primary" size="lg" />
                 <Text
                     style={{
                         overflow: 'hidden',

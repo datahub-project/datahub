@@ -1,4 +1,9 @@
-import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,7 +14,7 @@ import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { Document } from '@types';
 
-export interface DocumentChild {
+interface DocumentChild {
     urn: string;
     title: string;
 }
@@ -31,19 +36,19 @@ const SearchResultItemContainer = styled.div<{ $isSelected: boolean; $level: num
     ${(props) =>
         props.$isSelected
             ? `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
-    `
+ background: linear-gradient(
+ 180deg,
+ rgba(83, 63, 209, 0.04) -3.99%,
+ rgba(112, 94, 228, 0.04) 53.04%,
+ rgba(112, 94, 228, 0.04) 100%
+ );
+ box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+ `
             : `
-        &:hover {
-            background-color: ${colors.gray[1500]};
-        }
-    `}
+ &:hover {
+ background-color: ${colors.gray[1500]};
+ }
+ `}
 
     &:hover .search-result-actions {
         opacity: 1;
@@ -91,11 +96,11 @@ const SearchResultTitle = styled.span<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-    `}
+ background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
+ background-clip: text;
+ -webkit-text-fill-color: transparent;
+ font-weight: 600;
+ `}
 `;
 
 const SearchResultBreadcrumb = styled.div`
@@ -258,11 +263,7 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
                 {onCreateChild && (
                     <Actions className="search-result-actions">
                         <Tooltip title="New document" placement="bottom" showArrow={false}>
-                            <ActionButton
-                                icon={{ icon: 'Plus', source: 'phosphor' }}
-                                variant="text"
-                                onClick={handleAddChildClick}
-                            />
+                            <ActionButton icon={{ icon: Plus }} variant="text" onClick={handleAddChildClick} />
                         </Tooltip>
                     </Actions>
                 )}

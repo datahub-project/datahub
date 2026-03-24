@@ -153,6 +153,19 @@ public class DatabaseOperationsTest {
   }
 
   @Test
+  public void testMysqlCreateTableSqlStatementsMatchesMysqlSetupCharsetAndCollation() {
+    java.util.List<String> statements = mysqlOps.createTableSqlStatements();
+    assertNotNull(statements);
+    String ddl = statements.get(0);
+    assertTrue(
+        ddl.contains("CHARACTER SET utf8mb4"),
+        "Table DDL should match docker/mysql-setup/init.sql charset to avoid case/encoding regression");
+    assertTrue(
+        ddl.contains("COLLATE utf8mb4_bin"),
+        "Table DDL should match docker/mysql-setup/init.sql collation (case-sensitive)");
+  }
+
+  @Test
   public void testPostgresModifyJdbcUrl() {
     String originalUrl = "jdbc:postgresql://localhost:5432/testdb";
     String result = postgresOps.modifyJdbcUrl(originalUrl, true);

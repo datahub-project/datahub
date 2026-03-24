@@ -1,4 +1,4 @@
-import { UsersThree } from '@phosphor-icons/react';
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
