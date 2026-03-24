@@ -20,7 +20,10 @@ class CustomTagException(Exception):
 class ConditionNode(Node):
     def __init__(self, tok: Token, sql_or_lookml_reference: str, filter_name: str):
         super().__init__(tok)
-        self.blank = False  # This node produces visible output
+        # v2 defaults Node.blank = True. When all nodes in a BlockNode are "blank",
+        # v2 renders to NullIO (discards output). Our tag produces real SQL, so we
+        # must opt out of blank-block suppression.
+        self.blank = False
         self.sql_or_lookml_reference = sql_or_lookml_reference
         self.filter_name = filter_name
 
@@ -33,7 +36,10 @@ class ConditionNode(Node):
 class IncrementConditionNode(Node):
     def __init__(self, tok: Token, sql_or_lookml_reference: str):
         super().__init__(tok)
-        self.blank = False  # This node produces visible output
+        # v2 defaults Node.blank = True. When all nodes in a BlockNode are "blank",
+        # v2 renders to NullIO (discards output). Our tag produces real SQL, so we
+        # must opt out of blank-block suppression.
+        self.blank = False
         self.sql_or_lookml_reference = sql_or_lookml_reference
 
     def render_to_output(self, context: RenderContext, buffer: TextIO) -> int:
