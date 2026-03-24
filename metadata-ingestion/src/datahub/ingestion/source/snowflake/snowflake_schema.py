@@ -325,6 +325,27 @@ class SnowflakeDatabase:
     last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
+    # Fields from SHOW DATABASES (not available via information_schema)
+    origin: Optional[str] = None  # e.g. "org.account.share_name" for shared DBs
+    kind: Optional[str] = None  # "STANDARD", "IMPORTED DATABASE", etc.
+    is_transient: bool = False
+    retention_time: Optional[int] = None
+    owner: Optional[str] = None
+
+    def is_shared_database(self) -> bool:
+        """True if this database was created from an inbound share."""
+        return bool(self.origin)
+
+    def get_share_origin(self) -> Optional[tuple]:
+        """Parse origin into (org_name_or_none, account_name, share_name)."""
+        if not self.origin:
+            return None
+        parts = self.origin.split(".")
+        if len(parts) == 3:
+            return (parts[0], parts[1], parts[2])
+        if len(parts) == 2:
+            return (None, parts[0], parts[1])
+        return None
 
 
 @dataclass(frozen=True)
@@ -605,10 +626,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
 
         for database in cur:
+            origin = database.get("origin", "") or ""
+            retention = database.get("retention_time")
             snowflake_db = SnowflakeDatabase(
                 name=database["name"],
                 created=database["created_on"],
                 comment=database["comment"],
+                origin=origin if origin else None,
+                kind=database.get("kind"),
+                is_transient=str(database.get("is_transient", "")).upper() == "YES",
+                retention_time=int(retention) if retention is not None else None,
+                owner=database.get("owner"),
             )
             databases.append(snowflake_db)
 

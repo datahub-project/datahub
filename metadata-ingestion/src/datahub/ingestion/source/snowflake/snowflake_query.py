@@ -199,6 +199,10 @@ class SnowflakeQuery:
         return "select CURRENT_WAREHOUSE()"
 
     @staticmethod
+    def current_organization_name() -> str:
+        return "select CURRENT_ORGANIZATION_NAME()"
+
+    @staticmethod
     def show_databases() -> str:
         return "show databases"
 

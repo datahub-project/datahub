@@ -455,6 +455,30 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    include_organization_metadata: bool = Field(
+        default=True,
+        description="If enabled, captures Snowflake Organization name via "
+        "CURRENT_ORGANIZATION_NAME() and emits it on a DataPlatformInstance entity. "
+        "Available since Snowflake 6.0 (2021). Silently skipped if the function is "
+        "unavailable or the account does not belong to an organization.",
+    )
+
+    account_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps Snowflake account identifiers to DataHub platform_instance names "
+        "for automatic cross-account share lineage. Keys can be account locators "
+        "(e.g., 'xy12345') or org-qualified names (e.g., 'myorg.account1'). "
+        "If a producer/consumer account is not in the mapping, the account identifier "
+        "itself is used as the platform_instance.",
+    )
+
+    def resolve_account_to_platform_instance(self, account_identifier: str) -> str:
+        """Resolve a Snowflake account identifier to a DataHub platform_instance."""
+        for key, value in self.account_mapping.items():
+            if key.upper() == account_identifier.upper():
+                return value
+        return account_identifier
+
     enumerate_share_objects: bool = Field(
         default=False,
         description="If enabled, uses SHOW SHARES and DESCRIBE SHARE to discover the exact objects "

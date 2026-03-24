@@ -333,6 +333,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     GENERIC_PERMISSION_ERROR_KEY,
                     "No databases found. Please check permissions.",
                 )
+
+            # Merge fields from SHOW DATABASES (origin, kind, etc.) into
+            # the information_schema results, which lack these columns.
+            show_db_lookup = {db.name.upper(): db for db in databases}
+            for db in ischema_databases:
+                show_db = show_db_lookup.get(db.name.upper())
+                if show_db:
+                    db.origin = show_db.origin
+                    db.kind = show_db.kind
+                    db.is_transient = show_db.is_transient
+                    db.retention_time = show_db.retention_time
+                    db.owner = show_db.owner
+
             return ischema_databases
 
     def get_databases_from_ischema(
@@ -2462,6 +2475,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             database.name,
         )
 
+        extra_properties: Dict[str, str] = {}
+        if database.origin:
+            extra_properties["origin"] = database.origin
+        if database.kind:
+            extra_properties["kind"] = database.kind
+        if database.is_transient:
+            extra_properties["is_transient"] = "true"
+        if database.retention_time is not None:
+            extra_properties["retention_time"] = str(database.retention_time)
+        if database.owner:
+            extra_properties["owner"] = database.owner
+
         yield from gen_database_container(
             name=database.name,
             database=self.snowflake_identifier(database.name),
@@ -2503,6 +2528,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 if database.tags and self.config.extract_tags_as_structured_properties
                 else None
             ),
+            extra_properties=extra_properties or None,
         )
 
     def gen_schema_containers(

@@ -98,6 +98,7 @@ class SnowflakeV2Report(
 ):
     account_locator: Optional[str] = None
     region: Optional[str] = None
+    organization_name: Optional[str] = None
 
     schemas_scanned: int = 0
     databases_scanned: int = 0

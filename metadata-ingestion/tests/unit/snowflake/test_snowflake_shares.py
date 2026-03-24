@@ -25,7 +25,7 @@ def make_mock_connection(query_responses: Dict[str, List[dict]]) -> MagicMock:
     """Create a mock SnowflakeConnection whose .query() returns pre-set rows by SQL prefix."""
     conn = MagicMock()
 
-    def query_side_effect(sql: str):
+    def query_side_effect(sql: str) -> List[dict]:
         for prefix, rows in query_responses.items():
             if sql.strip().upper().startswith(prefix.upper()):
                 return rows
@@ -609,7 +609,7 @@ def test_enumerate_share_objects_describe_share_fails_falls_back(
 
     conn = MagicMock()
 
-    def query_side_effect(sql: str):
+    def query_side_effect(sql: str) -> List[dict]:
         if sql.strip().upper().startswith("SHOW SHARES"):
             return [{"kind": "OUTBOUND", "name": "share2", "database_name": "DB2"}]
         raise Exception("Describe share failed")
