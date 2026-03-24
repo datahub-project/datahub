@@ -25,7 +25,9 @@ IGNORED_WORKFLOWS = {
     "Create Linear Ticket for PR & Issue Review",
     "PR & Issue Routing (Linear Shadow Mode)",
     "PR Comment",
-    "Pull Request Labeler"
+    "Pull Request Labeler",
+    # docker-unified.yml uses workflow_dispatch only in this fork to prevent OSS publishing
+    "Docker Build, Scan, Test",
 }
 
 
