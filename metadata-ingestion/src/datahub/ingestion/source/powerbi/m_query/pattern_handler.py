@@ -1099,7 +1099,11 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
             return Lineage.empty()
 
         # First is host name
-        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+        server, _ = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list,
+            node_map=data_access_func_detail.node_map,
+            parameters=data_access_func_detail.parameters,
+        )
         if server is None:
             logger.debug("Server not found in MSSQL Sql.Databases data access function")
             return Lineage.empty()

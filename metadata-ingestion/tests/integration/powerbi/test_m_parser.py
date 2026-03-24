@@ -65,7 +65,6 @@ M_QUERIES = [
     'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
     'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
     'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
-    'let\n    Source = Sql.Databases("ws-azu-e2-synapse-prod-ondemand.sql.azuresynapse.net"),\n    DB_Source = Source{[Name="DATABASE_NAME"]}[Data],\n    TABLE_Source = DB_Source{[Schema="SCHEMA_NAME",Item="TABLE_NAME"]}[Data]\nin\n    TABLE_SOURCE',
 ]
 
 
@@ -323,7 +322,14 @@ def test_mssql_with_query():
 
 
 def test_mssql_multi_database():
-    q = M_QUERIES[38]
+    q = """
+    let
+        Source = Sql.Databases("ws-azu-e2-synapse-prod-ondemand.sql.azuresynapse.net"),
+        DB_Source = Source{[Name="DATABASE_NAME"]}[Data],
+        TABLE_Source = DB_Source{[Schema="SCHEMA_NAME",Item="TABLE_NAME"]}[Data]
+    in
+        TABLE_Source
+    """
 
     lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
