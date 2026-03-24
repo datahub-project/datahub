@@ -27,7 +27,9 @@ class PineconeSourceReport(StaleEntityRemovalSourceReport):
     schema_inference_failed: LossyDict[str, str] = field(default_factory=LossyDict)
 
     # Warnings
-    warnings: LossyDict[str, LossyList[str]] = field(default_factory=lambda: LossyDict())
+    warnings: LossyDict[str, LossyList[str]] = field(
+        default_factory=lambda: LossyDict()
+    )
 
     def report_index_scanned(self, index_name: str) -> None:
         """Record that an index was scanned."""
@@ -49,7 +51,9 @@ class PineconeSourceReport(StaleEntityRemovalSourceReport):
         """Record that a namespace was filtered out."""
         self.namespaces_filtered += 1
 
-    def report_namespace_failed(self, index_name: str, namespace: str, error: str) -> None:
+    def report_namespace_failed(
+        self, index_name: str, namespace: str, error: str
+    ) -> None:
         """Record that a namespace failed to process."""
         if index_name not in self.namespaces_failed:
             self.namespaces_failed[index_name] = LossyList()

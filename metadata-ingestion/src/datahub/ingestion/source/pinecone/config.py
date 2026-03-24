@@ -20,7 +20,7 @@ class PineconeConfig(
 ):
     """
     Configuration for Pinecone source.
-    
+
     Extracts metadata from Pinecone vector database including:
     - Index configurations (dimension, metric, type)
     - Namespace information and statistics
@@ -32,7 +32,7 @@ class PineconeConfig(
         description="Pinecone API key for authentication. "
         "Can be found in the Pinecone console under API Keys."
     )
-    
+
     environment: Optional[str] = Field(
         default=None,
         description="Pinecone environment (for pod-based indexes). "
@@ -54,7 +54,7 @@ class PineconeConfig(
         "Specify 'allow' patterns to include specific indexes, "
         "and 'deny' patterns to exclude indexes.",
     )
-    
+
     namespace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for namespaces to filter in ingestion. "
@@ -68,13 +68,13 @@ class PineconeConfig(
         description="Whether to infer schemas from vector metadata. "
         "When enabled, samples vectors from each namespace to build a schema.",
     )
-    
+
     schema_sampling_size: PositiveInt = Field(
         default=100,
         description="Number of vectors to sample per namespace for schema inference. "
         "Higher values provide more accurate schemas but increase ingestion time.",
     )
-    
+
     max_metadata_fields: PositiveInt = Field(
         default=100,
         description="Maximum number of metadata fields to include in the inferred schema. "

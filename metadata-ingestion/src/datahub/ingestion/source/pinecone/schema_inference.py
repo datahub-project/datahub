@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class MetadataSchemaInferrer:
     """
     Infers DataHub schema from Pinecone vector metadata.
-    
+
     Analyzes metadata from sampled vectors to determine:
     - Field names
     - Field types (string, number, boolean, array)
@@ -34,7 +34,7 @@ class MetadataSchemaInferrer:
     def __init__(self, max_fields: int = 100):
         """
         Initialize the schema inferrer.
-        
+
         Args:
             max_fields: Maximum number of fields to include in schema
         """
@@ -48,12 +48,12 @@ class MetadataSchemaInferrer:
     ) -> Optional[SchemaMetadataClass]:
         """
         Infer schema from a list of vector records.
-        
+
         Args:
             vectors: List of vector records with metadata
             dataset_name: Name of the dataset (for logging)
             platform: Platform name
-            
+
         Returns:
             SchemaMetadataClass or None if no metadata found
         """
@@ -95,10 +95,10 @@ class MetadataSchemaInferrer:
     ) -> tuple[Dict[str, Dict[str, Any]], int]:
         """
         Collect statistics about metadata fields across vectors.
-        
+
         Args:
             vectors: List of vector records
-            
+
         Returns:
             Tuple of (field statistics dictionary, total vector count)
         """
@@ -131,10 +131,10 @@ class MetadataSchemaInferrer:
     def _infer_field_type(self, value: Any) -> str:
         """
         Infer the type of a field value.
-        
+
         Args:
             value: Field value
-            
+
         Returns:
             Type name as string
         """
@@ -159,18 +159,18 @@ class MetadataSchemaInferrer:
     ) -> List[SchemaFieldClass]:
         """
         Generate SchemaField objects from field statistics.
-        
+
         Args:
             field_stats: Field statistics dictionary
             total_vectors: Total number of vectors analyzed
-            
+
         Returns:
             List of SchemaFieldClass objects
         """
         if not field_stats:
             logger.warning("No field statistics to generate schema from")
             return []
-        
+
         schema_fields = []
 
         # Sort fields by frequency (most common first)
@@ -199,15 +199,15 @@ class MetadataSchemaInferrer:
             field_path = f"{self.FIELD_PATH_VERSION}.{field_name}"
 
             # Create description with accurate frequency
-            frequency_pct = (stats["count"] / total_vectors * 100) if total_vectors > 0 else 0
-            
-            description_parts = [
-                f"Appears in {frequency_pct:.1f}% of vectors"
-            ]
-            
+            frequency_pct = (
+                (stats["count"] / total_vectors * 100) if total_vectors > 0 else 0
+            )
+
+            description_parts = [f"Appears in {frequency_pct:.1f}% of vectors"]
+
             if len(types) > 1:
                 description_parts.append(f"Multiple types: {', '.join(sorted(types))}")
-            
+
             # Add sample values for context
             if stats["sample_values"]:
                 sample_str = ", ".join(str(v)[:50] for v in stats["sample_values"][:3])
@@ -232,10 +232,10 @@ class MetadataSchemaInferrer:
     def _select_primary_type(self, types: Set[str]) -> str:
         """
         Select the primary type when multiple types are present.
-        
+
         Args:
             types: Set of type names
-            
+
         Returns:
             Primary type name
         """
@@ -252,10 +252,10 @@ class MetadataSchemaInferrer:
     def _create_field_type(self, type_name: str) -> SchemaFieldDataTypeClass:
         """
         Create a SchemaFieldDataType from a type name.
-        
+
         Args:
             type_name: Type name (string, number, boolean, array)
-            
+
         Returns:
             SchemaFieldDataTypeClass
         """

@@ -90,7 +90,10 @@ class PineconeSource(StatefulIngestionSourceBase):
 
         # Initialize domain registry if needed
         self.domain_registry = DomainRegistry(
-            cached_domains=[domain_id for domain_id in ([] if not config.domain else [config.domain])],
+            cached_domains=[
+                domain_id
+                for domain_id in ([] if not config.domain else [config.domain])
+            ],
             graph=ctx.graph,
         )
 
@@ -142,7 +145,9 @@ class PineconeSource(StatefulIngestionSourceBase):
                     yield from self._process_namespaces(index_info)
 
                 except Exception as e:
-                    logger.error(f"Failed to process index {index_info.name}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to process index {index_info.name}: {e}", exc_info=True
+                    )
                     self.report.report_index_failed(index_info.name, str(e))
                     continue
 
@@ -150,7 +155,9 @@ class PineconeSource(StatefulIngestionSourceBase):
             logger.error(f"Failed to list indexes: {e}", exc_info=True)
             raise
 
-    def _generate_index_container(self, index_info: IndexInfo) -> Iterable[MetadataWorkUnit]:
+    def _generate_index_container(
+        self, index_info: IndexInfo
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate container workunit for a Pinecone index.
 
@@ -227,15 +234,21 @@ class PineconeSource(StatefulIngestionSourceBase):
         try:
             # List namespaces
             namespaces = self.client.list_namespaces(index_info.name)
-            logger.info(f"Found {len(namespaces)} namespaces in index {index_info.name}")
+            logger.info(
+                f"Found {len(namespaces)} namespaces in index {index_info.name}"
+            )
 
             for namespace_stats in namespaces:
                 # Check if namespace should be processed
                 namespace_name = namespace_stats.name or "(default)"
 
                 if not self.config.namespace_pattern.allowed(namespace_stats.name):
-                    self.report.report_namespace_filtered(index_info.name, namespace_name)
-                    logger.debug(f"Filtered out namespace: {index_info.name}/{namespace_name}")
+                    self.report.report_namespace_filtered(
+                        index_info.name, namespace_name
+                    )
+                    logger.debug(
+                        f"Filtered out namespace: {index_info.name}/{namespace_name}"
+                    )
                     continue
 
                 self.report.report_namespace_scanned(index_info.name, namespace_name)
@@ -255,7 +268,7 @@ class PineconeSource(StatefulIngestionSourceBase):
                 except Exception as e:
                     logger.error(
                         f"Failed to process namespace {index_info.name}/{namespace_name}: {e}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     self.report.report_namespace_failed(
                         index_info.name, namespace_name, str(e)
@@ -263,7 +276,10 @@ class PineconeSource(StatefulIngestionSourceBase):
                     continue
 
         except Exception as e:
-            logger.error(f"Failed to list namespaces for index {index_info.name}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to list namespaces for index {index_info.name}: {e}",
+                exc_info=True,
+            )
             raise
 
     def _generate_namespace_container(
@@ -382,8 +398,7 @@ class PineconeSource(StatefulIngestionSourceBase):
 
             except Exception as e:
                 logger.error(
-                    f"Failed to infer schema for {dataset_name}: {e}",
-                    exc_info=True
+                    f"Failed to infer schema for {dataset_name}: {e}", exc_info=True
                 )
                 self.report.report_schema_inference_failed(dataset_name, str(e))
 
@@ -451,7 +466,9 @@ class PineconeSource(StatefulIngestionSourceBase):
             )
 
             if not vectors:
-                logger.info(f"No vectors sampled from {dataset_name}, skipping schema inference")
+                logger.info(
+                    f"No vectors sampled from {dataset_name}, skipping schema inference"
+                )
                 return None
 
             # Check if any vectors have metadata
@@ -475,7 +492,9 @@ class PineconeSource(StatefulIngestionSourceBase):
             return schema_metadata
 
         except Exception as e:
-            logger.error(f"Schema inference failed for {dataset_name}: {e}", exc_info=True)
+            logger.error(
+                f"Schema inference failed for {dataset_name}: {e}", exc_info=True
+            )
             return None
 
     def get_report(self) -> PineconeSourceReport:
