@@ -1,6 +1,5 @@
 import { FolderFilled } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
-import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -23,6 +22,7 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import TableIcon from '@src/images/table-icon.svg?react';
+import dayjs from '@utils/dayjs';
 
 import {
     Container,
@@ -242,7 +242,7 @@ function getStructuredPropFilterDisplayName(field: string, value: string, entity
 
     // check for structured prop date values
     if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN) {
-        return moment(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
+        return dayjs(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
     }
 
     // check for structured prop number values
