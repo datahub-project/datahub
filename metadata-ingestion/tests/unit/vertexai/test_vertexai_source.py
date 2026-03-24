@@ -227,20 +227,19 @@ def test_multi_project_urns_are_project_specific() -> None:
 @patch(
     "datahub.ingestion.source.vertexai.vertexai.VertexAISource._resolve_target_projects"
 )
-def test_parallelism_enabled_with_default_threads(
+def test_parallelism_enabled_automatically(
     mock_projects: MagicMock,
     mock_executor: MagicMock,
     _mock_init: MagicMock,
     _mock_metadata_client: MagicMock,
 ) -> None:
-    """Default max_threads_resource_parallelism=3 should use ThreadedIteratorExecutor."""
+    """Parallelism is automatic: one thread per resource type when multiple resource types are enabled."""
     mock_projects.return_value = [PROJECT_ID]
     mock_executor.process.return_value = iter([])
 
     config = VertexAIConfig.model_validate(
         {"project_ids": [PROJECT_ID], "region": REGION}
     )
-    assert config.max_threads_resource_parallelism == 3
 
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
     with (
@@ -260,6 +259,7 @@ def test_parallelism_enabled_with_default_threads(
 
     mock_executor.process.assert_called_once()
     _, kwargs = mock_executor.process.call_args
+    # max_workers should equal the number of phase1 resource types
     assert kwargs["max_workers"] == 3
 
 
@@ -269,21 +269,19 @@ def test_parallelism_enabled_with_default_threads(
 @patch(
     "datahub.ingestion.source.vertexai.vertexai.VertexAISource._resolve_target_projects"
 )
-def test_parallelism_disabled_when_threads_is_one(
+def test_parallelism_disabled_via_env_var(
     mock_projects: MagicMock,
     mock_executor: MagicMock,
     _mock_init: MagicMock,
     _mock_metadata_client: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """max_threads_resource_parallelism=1 should skip ThreadedIteratorExecutor entirely."""
+    """DATAHUB_VERTEXAI_DISABLE_PARALLELISM=1 should skip ThreadedIteratorExecutor."""
+    monkeypatch.setenv("DATAHUB_VERTEXAI_DISABLE_PARALLELISM", "1")
     mock_projects.return_value = [PROJECT_ID]
 
     config = VertexAIConfig.model_validate(
-        {
-            "project_ids": [PROJECT_ID],
-            "region": REGION,
-            "max_threads_resource_parallelism": 1,
-        }
+        {"project_ids": [PROJECT_ID], "region": REGION}
     )
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
     with (

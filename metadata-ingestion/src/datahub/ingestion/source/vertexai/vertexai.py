@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import AbstractContextManager, nullcontext
 from typing import Dict, Iterable, List, Literal, Optional, Union
 
@@ -410,20 +411,22 @@ class VertexAISource(StatefulIngestionSourceBase):
                 if self.config.include_pipelines:
                     phase1_resources.append(("pipelines",))
 
-                if (
-                    self.config.max_threads_resource_parallelism > 1
-                    and len(phase1_resources) > 1
-                ):
+                disable_parallelism = os.environ.get(
+                    "DATAHUB_VERTEXAI_DISABLE_PARALLELISM", ""
+                ).lower() in ("1", "true")
+
+                if not disable_parallelism and len(phase1_resources) > 1:
+                    max_workers = len(phase1_resources)
                     logger.info(
                         "Fetching resources for project=%s region=%s with %d threads",
                         project_id,
                         region,
-                        self.config.max_threads_resource_parallelism,
+                        max_workers,
                     )
                     yield from ThreadedIteratorExecutor.process(
                         worker_func=self._fetch_phase1_resource,
                         args_list=phase1_resources,
-                        max_workers=self.config.max_threads_resource_parallelism,
+                        max_workers=max_workers,
                     )
                 else:
                     for (resource_type,) in phase1_resources:

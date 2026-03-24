@@ -104,10 +104,10 @@ Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, 
 
 The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. Use `env` (e.g., `PROD`, `DEV`, `STAGING`) to distinguish between environments. The optional `platform_instance` field namespaces resources to avoid URN collisions when ingesting from multiple Vertex AI setups.
 
-> **Deprecation Notice**: The `project_id` (singular) configuration field is deprecated. Use `project_ids` (list) instead:
+> **Deprecation Notice**: The `project_id` (singular) configuration field is deprecated and will be removed in a future release. Use `project_ids` (list) instead:
 >
 > ```yaml
-> # Deprecated — will be removed in a future major release
+> # Deprecated
 > project_id: my-project
 >
 > # Preferred
@@ -115,7 +115,7 @@ The source supports ingesting across multiple GCP projects by specifying `projec
 >   - my-project
 > ```
 >
-> Existing recipes using `project_id` continue to work and are automatically migrated at startup, but will emit a deprecation warning in the ingestion logs.
+> **Migration behavior**: If `project_id` is set and `project_ids` is not, the value is automatically moved to `project_ids` and a deprecation warning is logged. If both are set with the same value, `project_id` is silently ignored. If both are set with conflicting values, ingestion fails with a validation error. No manual migration is required — update your recipe at your convenience to silence the warning.
 
 **Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
 
@@ -232,7 +232,8 @@ To ensure external datasets are properly linked with correct platform instances 
 source:
   type: vertexai
   config:
-    project_id: my-project
+    project_ids:
+      - my-project
     platform_instance_map:
       gcs:
         platform_instance: prod-gcs

@@ -53,13 +53,13 @@ def test_deprecated_project_id_migrates_to_project_ids() -> None:
         {"project_id": "my-gcp-project", "region": "us-central1"}
     )
 
-    assert config.project_id is None
+    assert not hasattr(config, "project_id")
     assert config.project_ids == ["my-gcp-project"]
 
 
 def test_conflicting_project_id_and_project_ids_raises() -> None:
     """Setting project_id and a different project_ids list should fail at config time."""
-    with pytest.raises(ValueError, match="Conflicting project configuration"):
+    with pytest.raises(ValueError, match="Conflicting config"):
         VertexAIConfig.model_validate(
             {
                 "project_id": "fallback-project",
@@ -78,7 +78,7 @@ def test_project_id_already_in_project_ids_is_deduplicated() -> None:
             "project_ids": ["my-gcp-project", "other-project"],
         }
     )
-    assert config.project_id is None
+    assert not hasattr(config, "project_id")
     assert config.project_ids == ["my-gcp-project", "other-project"]
 
 
@@ -104,7 +104,7 @@ def test_project_labels_format_validation() -> None:
 
 
 def test_project_labels_empty_string_rejected() -> None:
-    with pytest.raises(ValueError, match="empty"):
+    with pytest.raises(ValueError, match="Invalid project_labels format"):
         VertexAIConfig.model_validate(
             {"project_labels": ["env:prod", ""], "region": "us-central1"}
         )
