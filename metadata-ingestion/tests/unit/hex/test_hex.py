@@ -173,9 +173,7 @@ class TestHexSourceConfig(unittest.TestCase):
         project_with_keep_scratchpad = Project(
             id="project-2",
             title="Project with Keep_Scratchpad",
-            categories=[
-                Category(name="Keep_Scratchpad", description="Should be kept")
-            ],
+            categories=[Category(name="Keep_Scratchpad", description="Should be kept")],
             created_at=datetime.now(tz=timezone.utc),
             last_edited_at=datetime.now(tz=timezone.utc),
         )
@@ -191,9 +189,7 @@ class TestHexSourceConfig(unittest.TestCase):
         component_with_keep_scratchpad = Component(
             id="component-1",
             title="Component with Keep_Scratchpad",
-            categories=[
-                Category(name="Keep_Scratchpad", description="Should be kept")
-            ],
+            categories=[Category(name="Keep_Scratchpad", description="Should be kept")],
             created_at=datetime.now(tz=timezone.utc),
             last_edited_at=datetime.now(tz=timezone.utc),
         )
@@ -218,9 +214,7 @@ class TestHexSourceConfig(unittest.TestCase):
             component_with_keep_scratchpad,
         ]
 
-        with patch.object(
-            source.hex_api, "fetch_projects", return_value=mock_projects
-        ):
+        with patch.object(source.hex_api, "fetch_projects", return_value=mock_projects):
             # Run the pipeline to populate the registries
             list(source.get_workunits_internal())
 
@@ -268,9 +262,7 @@ class TestHexSourceConfig(unittest.TestCase):
 
         mock_projects = [project_with_production, project_with_scratchpad]
 
-        with patch.object(
-            source.hex_api, "fetch_projects", return_value=mock_projects
-        ):
+        with patch.object(source.hex_api, "fetch_projects", return_value=mock_projects):
             list(source.get_workunits_internal())
 
         # Verify: only project with "Production" should be kept

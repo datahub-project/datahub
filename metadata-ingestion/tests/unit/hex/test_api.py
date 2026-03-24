@@ -55,7 +55,9 @@ class TestHexAPI(unittest.TestCase):
 
         # Mock the session.get method after the session is created
         with patch.object(
-            hex_api.session, "get", side_effect=[mock_response1, mock_response2, mock_response3]
+            hex_api.session,
+            "get",
+            side_effect=[mock_response1, mock_response2, mock_response3],
         ) as mock_get:
             results = list(hex_api.fetch_projects())
 

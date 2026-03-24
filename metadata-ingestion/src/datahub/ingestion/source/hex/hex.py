@@ -263,7 +263,9 @@ class HexSource(StatefulIngestionSourceBase):
                 skip_item = False
                 if project_or_component.categories:
                     for category in project_or_component.categories:
-                        if not self.source_config.category_pattern.allowed(category.name):
+                        if not self.source_config.category_pattern.allowed(
+                            category.name
+                        ):
                             skip_item = True
                             break
 
