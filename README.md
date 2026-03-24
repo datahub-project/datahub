@@ -63,6 +63,7 @@ _Enterprise-grade metadata platform enabling discovery, governance, and observab
 </p>
 
 <p align="center">
+  <a href="https://datahub.com/free-trial/"><b>Free Cloud Trial</b></a> •
   <a href="https://docs.datahub.com/docs/quickstart"><b>Quick Start</b></a> •
   <a href="https://demo.datahub.com"><b>Live Demo</b></a> •
   <a href="https://docs.datahub.com"><b>Documentation</b></a> •
