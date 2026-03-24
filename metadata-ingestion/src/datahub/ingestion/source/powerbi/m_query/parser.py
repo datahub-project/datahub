@@ -58,11 +58,15 @@ def get_upstream_tables(
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
-    Returns an empty list when the expression is absent, empty, a DAX
-    computed-table expression (no ``let`` keyword), or a NativeQuery that the
+    Returns an empty list when the expression is absent, empty, or a NativeQuery that the
     caller has opted out of (``native_query_parsing=False``).
+
+    Non-M expressions without ``let`` (typical DAX calculated tables) still fail M parse;
+    when sibling tables exist, DAX table-reference extraction may return lineage via
+    ``powerbi_table_upstreams``.
     """
     parameters = parameters or {}
+    tel = reporter.table_expression_lineage_stats
 
     if table.expression is None:
         logger.debug("There is no M-Query expression in table %s", table.full_name)
@@ -88,7 +92,7 @@ def get_upstream_tables(
             "Skipping NativeQuery expression (native_query_parsing=False) for %s",
             table.full_name,
         )
-        reporter.m_query_native_query_skipped += 1
+        tel.m_query_native_query_skipped += 1
         return []
 
     sibling_names: frozenset = frozenset(
@@ -97,13 +101,13 @@ def get_upstream_tables(
         if t.name != table.name
     )
 
-    reporter.m_query_parse_attempts += 1
+    tel.m_query_parse_attempts += 1
 
     try:
-        with reporter.m_query_parse_timer:
+        with tel.m_query_bridge_parse_timer:
             node_map = _parse_with_bridge(expression, config.m_query_parse_timeout)
     except TimeoutException:
-        reporter.m_query_parse_timeouts += 1
+        tel.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",
             message=f"M-Query parsing timed out after {config.m_query_parse_timeout} seconds. Lineage for this table will not be extracted.",
@@ -117,7 +121,7 @@ def get_upstream_tables(
         # Platform Expression". Preserve that behaviour: only warn when the
         # expression looks like it was intended to be M-Query.
         if "let" not in expression.lower():
-            reporter.m_query_non_mquery_expressions += 1
+            tel.m_query_non_m_expression += 1
             logger.info(
                 "Non-M-Query expression in table %s — skipping lineage extraction "
                 "(expression does not contain 'let'). Expression: %s. Error: %s",
@@ -126,11 +130,13 @@ def get_upstream_tables(
                 e,
             )
             if sibling_names:
+                tel.dax_calculated_table_extractions += 1
                 table_refs = dax_resolver.extract_dax_table_references(
                     expression, sibling_names
                 )
                 if table_refs:
-                    reporter.m_query_resolver_successes += 1
+                    tel.dax_calculated_table_sibling_refs_found += 1
+                    tel.m_query_lineage_extracted += 1
                     return [
                         Lineage(
                             upstreams=[],
@@ -138,17 +144,18 @@ def get_upstream_tables(
                             powerbi_table_upstreams=table_refs,
                         )
                     ]
-        else:
-            reporter.m_query_parse_unknown_errors += 1
-            reporter.warning(
-                title="Unable to parse M-Query expression",
-                message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
-                context=f"table-full-name={table.full_name}, expression={expression}",
-                exc=e,
-            )
+            tel.m_query_no_lineage += 1
+            return []
+        tel.m_query_parse_unexpected_failures += 1
+        reporter.warning(
+            title="Unable to parse M-Query expression",
+            message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
+            context=f"table-full-name={table.full_name}, expression={expression}",
+            exc=e,
+        )
         return []
     except MQueryBridgeError as e:
-        reporter.m_query_parse_unknown_errors += 1
+        tel.m_query_parse_unexpected_failures += 1
         reporter.warning(
             title="Unable to parse M-Query expression",
             message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
@@ -157,7 +164,7 @@ def get_upstream_tables(
         )
         return []
 
-    reporter.m_query_parse_successes += 1
+    tel.m_query_m_ast_parsed += 1
 
     try:
         data_access_func_details = mquery_resolver.resolve_to_data_access_functions(
@@ -170,7 +177,7 @@ def get_upstream_tables(
                     node_map, sibling_names
                 )
                 if table_refs:
-                    reporter.m_query_resolver_successes += 1
+                    tel.m_query_lineage_extracted += 1
                     return [
                         Lineage(
                             upstreams=[],
@@ -208,9 +215,9 @@ def get_upstream_tables(
                 lineages.append(lineage)
 
         if lineages:
-            reporter.m_query_resolver_successes += 1
+            tel.m_query_lineage_extracted += 1
         else:
-            reporter.m_query_resolver_no_lineage += 1
+            tel.m_query_no_lineage += 1
             if data_access_func_details:
                 # Function(s) were recognized but all handlers returned empty —
                 # the per-handler debug logs above explain why. Log the expression
@@ -226,7 +233,7 @@ def get_upstream_tables(
         return lineages
 
     except Exception as e:
-        reporter.m_query_resolver_errors += 1
+        tel.m_query_resolution_exceptions += 1
         reporter.warning(
             title="Unknown M-Query Pattern",
             message="Encountered an unknown M-Query Expression",

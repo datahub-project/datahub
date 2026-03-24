@@ -421,6 +421,7 @@ class Mapper:
 
         # Column-level lineage from DAX calculated column expressions
         if self.__config.extract_column_level_lineage and table.dataset:
+            tel_stats = self.__reporter.table_expression_lineage_stats
             sibling_table_urns = {
                 t.name.lower(): self.assets_urn_to_lowercase(
                     builder.make_dataset_urn_with_platform_instance(
@@ -435,12 +436,15 @@ class Mapper:
             for col in table.columns or []:
                 if not col.expression:
                     continue
+                tel_stats.dax_calculated_column_scanned += 1
                 col_cll = dax_resolver.extract_dax_column_lineage(
                     column_name=col.name,
                     expression=col.expression,
                     table_urn=ds_urn,
                     sibling_table_urns=sibling_table_urns,
                 )
+                if col_cll:
+                    tel_stats.dax_calculated_column_lineage_emitted += 1
                 for cll_info in col_cll:
                     downstream_fields = [
                         builder.make_schema_field_urn(

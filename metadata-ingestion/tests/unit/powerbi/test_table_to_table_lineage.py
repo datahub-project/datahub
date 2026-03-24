@@ -92,9 +92,13 @@ def test_bare_identifier_references_sibling_table():
     )
     refs = [r for lin in lineages for r in lin.powerbi_table_upstreams]
     assert refs == ["DimDate"]
-    assert reporter.m_query_resolver_successes == 1, (
+    tel = reporter.table_expression_lineage_stats
+    assert tel.m_query_m_ast_parsed == 1
+    assert tel.m_query_lineage_extracted == 1, (
         "Expected a resolver path to find the sibling reference"
     )
+    assert tel.dax_calculated_table_extractions == 0
+    assert tel.dax_calculated_table_sibling_refs_found == 0
 
 
 def test_quoted_let_identifier_references_sibling_table():
@@ -147,15 +151,55 @@ def test_external_source_expression_unchanged():
 def test_dax_summarize_references_sibling_table():
     """DAX summarize expression references 'FMS Lookup' sibling table."""
     expr = "summarize('FMS Lookup','FMS Lookup'[FMSID])"
-    refs = _upstream_tables(expr, "Summary", ["FMS Lookup", "OtherTable"])
+    table = _make_table_with_siblings(expr, "Summary", ["FMS Lookup", "OtherTable"])
+    config = _make_config()
+    reporter = PowerBiDashboardSourceReport()
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        parameters={},
+    )
+    refs = [r for lin in lineages for r in lin.powerbi_table_upstreams]
     assert refs == ["FMS Lookup"]
+    tel = reporter.table_expression_lineage_stats
+    assert tel.m_query_non_m_expression == 1
+    assert tel.m_query_m_ast_parsed == 0
+    assert tel.m_query_lineage_extracted == 1
+    assert tel.dax_calculated_table_extractions == 1
+    assert tel.dax_calculated_table_sibling_refs_found == 1
 
 
 def test_dax_builtin_does_not_match_absent_sibling():
-    """DAX built-in table name that is not a sibling should not produce refs."""
+    """CALENDAR(...) should not emit sibling refs when Sales is unrelated.
+
+    The M bridge may parse this expression successfully; we still expect no
+    powerbi_table_upstreams when nothing resolves to the sibling set.
+    """
     expr = "CALENDAR(DATE(2020,1,1), DATE(2025,1,1))"
-    refs = _upstream_tables(expr, "DateTable", ["Sales"])
-    assert refs == []
+    table = _make_table_with_siblings(expr, "DateTable", ["Sales"])
+    config = _make_config()
+    reporter = PowerBiDashboardSourceReport()
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        parameters={},
+    )
+    assert [r for lin in lineages for r in lin.powerbi_table_upstreams] == []
+    tel = reporter.table_expression_lineage_stats
+    assert tel.m_query_no_lineage == 1
+    assert tel.m_query_lineage_extracted == 0
+    assert tel.dax_calculated_table_extractions == 0
+    assert tel.dax_calculated_table_sibling_refs_found == 0
 
 
 def test_dax_column_lineage_related_lookup():
