@@ -28,9 +28,9 @@ The connector links Vertex AI resources to external datasets when referenced in 
 
 Use `platform_instance_map` to configure platform instances and environments for external platforms, ensuring URNs match those from native connectors for proper lineage connectivity.
 
-#### ML Metadata Lineage
+#### CustomJob Lineage
 
-The connector extracts lineage and metrics from CustomJob training jobs using the **Vertex AI ML Metadata API**. This enables:
+The connector supports extracting lineage and metrics from CustomJob training jobs using the **Vertex AI ML Metadata API**. This enables:
 
 - **Full lineage tracking** for CustomJob: input datasets → training job → output models
 - **Hyperparameters and metrics extraction** from training jobs that log to ML Metadata Executions
@@ -42,7 +42,9 @@ These features are controlled by the following configuration options:
 - `extract_execution_metrics` (default: `true`) — Extracts hyperparameters and metrics from ML Metadata Executions
 - `include_evaluations` (default: `true`) — Ingests model evaluations and evaluation metrics
 
-For CustomJob lineage to work, your training scripts must log artifacts to Vertex AI ML Metadata. This happens automatically when using the Vertex AI Experiments SDK, or you can log manually:
+:::tip "Log to Vertex AI ML Metadata"
+For CustomJob lineage to work, your training jobs must log to Vertex AI ML Metadata. This happens automatically when using Vertex AI Experiments SDK or manually logging artifacts/executions to ML Metadata.
+:::
 
 ```python
 from google.cloud import aiplatform
