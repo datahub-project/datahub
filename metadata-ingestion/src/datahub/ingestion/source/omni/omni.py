@@ -365,7 +365,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             external_url=external_url,
             dashboard_url=external_url,
             custom_properties=custom_properties,
-            parent_container=folder_urn,  # type: ignore[arg-type]
+            **({"parent_container": [folder_urn]} if folder_urn else {}),
         )
         dashboard.set_charts(chart_urns)
         if updated_at:
@@ -601,7 +601,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self,
         model_id: str,
         topic_name: str,
-        topic: Dict[str, object],
+        topic: Dict[str, Any],
         platform: str,
         database: str,
         connection_id: str,
@@ -644,7 +644,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.report.semantic_datasets_emitted += 1
 
-        for view in topic.get("views", []):  # type: ignore[union-attr,attr-defined]
+        views_raw = topic.get("views", [])
+        views = views_raw if isinstance(views_raw, list) else []
+        for view in views:
             view_name = (view or {}).get("name") if isinstance(view, dict) else None
             if not view_name:
                 continue
@@ -1028,20 +1030,18 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             self._folder_dataset_urns.add(folder_urn)
 
-    def _ingest_topic_from_dashboard(
+    def _ingest_topic_payload_for_dashboard_tile(
         self,
         model_id: str,
         topic_name: str,
+        topic: Dict[str, Any],
     ) -> Iterator[MetadataWorkUnit]:
-        """Fetch (or fall back to YAML) and ingest a topic referenced by a dashboard tile."""
+        """Pass dashboard tile topic payloads into :meth:`_ingest_topic_payload` with model context."""
         ctx = self._model_context_by_id.get(model_id, {})
-        mcp = {
-            "modelKind": str(ctx.get("model_kind") or ""),
-            "modelLayer": str(ctx.get("model_layer") or ""),
-        }
-        kwargs = dict(
+        yield from self._ingest_topic_payload(
             model_id=model_id,
             topic_name=topic_name,
+            topic=topic,
             platform=str(ctx.get("platform") or "database"),
             database=str(ctx.get("database") or ""),
             connection_id=str(ctx.get("connection_id") or ""),
@@ -1051,18 +1051,32 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             ),
             inferred=True,
-            model_custom_properties=mcp,
+            model_custom_properties={
+                "modelKind": str(ctx.get("model_kind") or ""),
+                "modelLayer": str(ctx.get("model_layer") or ""),
+            },
         )
+
+    def _ingest_topic_from_dashboard(
+        self,
+        model_id: str,
+        topic_name: str,
+    ) -> Iterator[MetadataWorkUnit]:
+        """Fetch (or fall back to YAML) and ingest a topic referenced by a dashboard tile."""
         try:
             tp = self.client.get_topic(model_id, topic_name)
             if tp:
-                yield from self._ingest_topic_payload(topic=tp, **kwargs)  # type: ignore[arg-type]
+                yield from self._ingest_topic_payload_for_dashboard_tile(
+                    model_id, topic_name, tp
+                )
         except Exception as exc:
             ts = self._topic_specs_by_model_id.get(model_id, {})
             vs = self._view_specs_by_model_id.get(model_id, {})
             yt = self._topic_payload_from_yaml_specs(topic_name, ts, vs)
             if yt.get("views"):
-                yield from self._ingest_topic_payload(topic=yt, **kwargs)  # type: ignore[arg-type]
+                yield from self._ingest_topic_payload_for_dashboard_tile(
+                    model_id, topic_name, yt
+                )
             else:
                 self.report.warning(
                     "topic-fetch-from-dashboard",
