@@ -1272,10 +1272,13 @@ class SQLServerSource(SQLAlchemySource):
         fk_dict: Dict[str, Any],
         inspector: Inspector,
     ) -> ForeignKeyConstraintClass:
-        fk_dict["constrained_columns"] = [
-            f.lower() for f in fk_dict["constrained_columns"]
-        ]
-        fk_dict["referred_columns"] = [f.lower() for f in fk_dict["referred_columns"]]
+        if self.config.convert_urns_to_lowercase:
+            fk_dict["constrained_columns"] = [
+                f.lower() for f in fk_dict["constrained_columns"]
+            ]
+            fk_dict["referred_columns"] = [
+                f.lower() for f in fk_dict["referred_columns"]
+            ]
         return super().get_foreign_key_metadata(dataset_urn, schema, fk_dict, inspector)
 
     def get_inspectors(self) -> Iterable[Inspector]:
