@@ -125,28 +125,30 @@ def browser_sso_login(
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
-        context = browser.new_context()
-        page = context.new_page()
-
-        page.goto(f"{frontend_url}{auth_path}")
-
-        # Wait for the actor cookie, which signals successful SSO login.
-        actor_urn = None
         try:
-            page.wait_for_function(
-                """() => document.cookie.split('; ').some(c => c.startsWith('actor='))""",
-                timeout=timeout_ms,
-            )
-        except Exception as e:
-            browser.close()
-            raise click.ClickException(
-                f"SSO login timed out after {timeout_ms // 1000} seconds. "
-                "Please try again."
-            ) from e
+        	context = browser.new_context()
+        	page = context.new_page()
 
-        # Extract cookies from the browser context
-        cookies = context.cookies()
-        browser.close()
+        	page.goto(f"{frontend_url}{auth_path}")
+
+        	# Wait for the actor cookie, which signals successful SSO login.
+        	actor_urn = None
+        	try:
+            	page.wait_for_function(
+                		"""() => document.cookie.split('; ').some(c => c.startsWith('actor='))""",
+                		timeout=timeout_ms,
+            	)
+        	except Exception as e:
+            	browser.close()
+            	raise click.ClickException(
+                		f"SSO login timed out after {timeout_ms // 1000} seconds. "
+                		"Please try again."
+            	) from e
+
+        	# Extract cookies from the browser context
+        	cookies = context.cookies()
+        finally:
+        	browser.close()
 
     # Build a requests.Session with the extracted cookies
     session = requests.Session()
