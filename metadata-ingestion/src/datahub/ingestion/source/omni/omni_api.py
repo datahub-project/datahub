@@ -1,5 +1,11 @@
+import logging
 import time
 from typing import Any, Dict, Iterator, List, Optional
+
+logger = logging.getLogger(__name__)
+
+# Safety cap: avoids unbounded requests if cursor pagination misbehaves.
+_MAX_PAGINATION_PAGES = 1000
 
 import pydantic
 import requests
@@ -66,6 +72,11 @@ class OmniClient:
     def paginate_records(
         self, path: str, params: Optional[Dict[str, Any]] = None
     ) -> Iterator[Dict[str, Any]]:
+        """Yield records from cursor-paged GET responses.
+
+        Stops after at most ``_MAX_PAGINATION_PAGES`` pages as a safety limit
+        if the API keeps returning ``hasNextPage`` (e.g. misbehaving cursor).
+        """
         query = dict(params or {})
         seen_cursors: set = set()
         page_count = 0
@@ -84,7 +95,13 @@ class OmniClient:
                 break
             seen_cursors.add(next_cursor)
             query["cursor"] = next_cursor
-            if page_count >= 1000:
+            if page_count >= _MAX_PAGINATION_PAGES:
+                logger.warning(
+                    "Stopping pagination after %s pages (safety cap) for %s; "
+                    "more pages may exist.",
+                    _MAX_PAGINATION_PAGES,
+                    path,
+                )
                 break
 
     def test_connection(self) -> bool:
