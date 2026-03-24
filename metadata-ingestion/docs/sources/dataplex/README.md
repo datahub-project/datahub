@@ -2,7 +2,7 @@
 
 Dataplex is a DataHub utility or metadata-focused integration. Learn more in the [official Dataplex documentation](https://cloud.google.com/dataplex).
 
-The DataHub integration for Dataplex uses Universal Catalog entries as the source of truth and maps them into DataHub datasets and containers with provider-native URNs (for example `bigquery`, `cloudsql`, `spanner`, and `pubsub`). Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Dataplex uses Universal Catalog entries as the source of truth and maps them into DataHub datasets and containers with provider-native URNs (for example `bigquery`, `cloudsql`, `spanner`, `pubsub`, and `bigtable`). Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 
@@ -21,4 +21,6 @@ Dataplex ingestion is entry-type driven: each Universal Catalog `entry_type` map
 | `cloud-spanner-instance`       | `spanner`        | Container (`Instance`)         | Parent is project container                             |
 | `cloud-spanner-database`       | `spanner`        | Container (`Database`)         | Parent is Spanner instance container                    |
 | `cloud-spanner-table`          | `spanner`        | Dataset (`Table`)              | Parent is Spanner database container                    |
+| `cloud-bigtable-instance`      | `bigtable`       | Container (`Instance`)         | Parent is project container                             |
+| `cloud-bigtable-table`         | `bigtable`       | Dataset (`Table`)              | Parent is Bigtable instance container                   |
 | `pubsub-topic`                 | `pubsub`         | Dataset (`Topic`)              | No parent container from Dataplex entry hierarchy today |

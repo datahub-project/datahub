@@ -92,19 +92,28 @@ class DataplexPubSubProject(DataplexProjectId):
     platform: str = "pubsub"
 
 
+class DataplexBigtableProject(DataplexProjectId):
+    platform: str = "bigtable"
+
+
+class DataplexBigtableInstance(DataplexBigtableProject):
+    instance_id: str
+
+
 PROJECT_KEY_CLASSES: tuple[type[DataplexProjectId], ...] = (
     DataplexProjectId,
     DataplexBigQueryProject,
     DataplexCloudSqlProject,
     DataplexSpannerProject,
     DataplexPubSubProject,
+    DataplexBigtableProject,
 )
 
 
 @dataclass(frozen=True)
 class DataplexEntryTypeMapping:
     # Keep platform values strict because they feed URN generation.
-    datahub_platform: Literal["bigquery", "cloudsql", "spanner", "pubsub"]
+    datahub_platform: Literal["bigquery", "cloudsql", "spanner", "pubsub", "bigtable"]
     datahub_entity_type: Literal["Dataset", "Container"]
     datahub_subtype: str
     fqn_regex: Pattern[str]
@@ -151,6 +160,12 @@ SPANNER_TABLE_FQN_REGEX = re.compile(
 PUBSUB_TOPIC_FQN_REGEX = re.compile(
     r"^pubsub:topic:(?P<project_id>[^.]+)\.(?P<topic_id>[^.]+)$"
 )
+BIGTABLE_INSTANCE_FQN_REGEX = re.compile(
+    r"^bigtable:(?P<project_id>[^.]+)\.(?P<instance_id>[^.]+)$"
+)
+BIGTABLE_TABLE_FQN_REGEX = re.compile(
+    r"^bigtable:(?P<project_id>[^.]+)\.(?P<instance_id>[^.]+)\.(?P<table_id>[^.]+)$"
+)
 
 # parent_entry regexes
 BIGQUERY_DATASET_PARENT_ENTRY_REGEX = re.compile(
@@ -167,6 +182,9 @@ SPANNER_INSTANCE_PARENT_ENTRY_REGEX = re.compile(
 )
 SPANNER_DATABASE_PARENT_ENTRY_REGEX = re.compile(
     r"^projects/[^/]+/locations/(?P<location>[^/]+)/entryGroups/[^/]+/entries/spanner\.googleapis\.com/projects/(?P<project_id>[^/]+)/instances/(?P<instance_id>[^/]+)/databases/(?P<database_id>[^/]+)$"
+)
+BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX = re.compile(
+    r"^projects/[^/]+/locations/[^/]+/entryGroups/[^/]+/entries/bigtable\.googleapis\.com/projects/(?P<project_id>[^/]+)/instances/(?P<instance_id>[^/]+)$"
 )
 
 
@@ -265,16 +283,36 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         container_key_class=None,
         parent_container_key_class=None,
     ),
+    "cloud-bigtable-instance": DataplexEntryTypeMapping(
+        datahub_platform="bigtable",
+        datahub_entity_type="Container",
+        datahub_subtype=DatasetContainerSubTypes.INSTANCE,
+        fqn_regex=BIGTABLE_INSTANCE_FQN_REGEX,
+        # Top-level in Dataplex entry hierarchy: no parent_entry on payload.
+        parent_entry_regex=None,
+        container_key_class=DataplexBigtableInstance,
+        parent_container_key_class=None,
+    ),
+    "cloud-bigtable-table": DataplexEntryTypeMapping(
+        datahub_platform="bigtable",
+        datahub_entity_type="Dataset",
+        datahub_subtype=DatasetSubTypes.TABLE,
+        fqn_regex=BIGTABLE_TABLE_FQN_REGEX,
+        parent_entry_regex=BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX,
+        container_key_class=None,
+        parent_container_key_class=DataplexBigtableInstance,
+    ),
 }
 
 PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM: dict[
-    Literal["bigquery", "cloudsql", "spanner", "pubsub"],
+    Literal["bigquery", "cloudsql", "spanner", "pubsub", "bigtable"],
     type[DataplexProjectId],
 ] = {
     "bigquery": DataplexBigQueryProject,
     "cloudsql": DataplexCloudSqlProject,
     "spanner": DataplexSpannerProject,
     "pubsub": DataplexPubSubProject,
+    "bigtable": DataplexBigtableProject,
 }
 
 

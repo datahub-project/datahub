@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
     DataplexBigQueryDataset,
+    DataplexBigtableInstance,
     DataplexCloudSpannerDatabase,
     DataplexCloudSpannerInstance,
     DataplexCloudSqlMySqlInstance,
@@ -53,6 +54,14 @@ def test_schema_key_parent_chain_for_project_has_no_duplicate_step() -> None:
             "cloud-spanner-instance",
         ),
         (
+            "projects/655216118709/locations/global/entryTypes/cloud-bigtable-instance",
+            "cloud-bigtable-instance",
+        ),
+        (
+            "projects/655216118709/locations/global/entryTypes/cloud-bigtable-table",
+            "cloud-bigtable-table",
+        ),
+        (
             "projects/655216118709/locations/global/entryTypes/pubsub-topic",
             "pubsub-topic",
         ),
@@ -79,6 +88,8 @@ def test_supported_entry_type_mapping_keys() -> None:
         "cloud-spanner-instance",
         "cloud-spanner-database",
         "cloud-spanner-table",
+        "cloud-bigtable-instance",
+        "cloud-bigtable-table",
         "pubsub-topic",
     }
 
@@ -171,6 +182,23 @@ def test_mapping_regex_groups_match_schema_key_fields() -> None:
             },
         ),
         (
+            "cloud-bigtable-instance",
+            "bigtable:trustedplatform-pl-production.feature-store",
+            {
+                "project_id": "trustedplatform-pl-production",
+                "instance_id": "feature-store",
+            },
+        ),
+        (
+            "cloud-bigtable-table",
+            "bigtable:trustedplatform-pl-production.feature-store.counts",
+            {
+                "project_id": "trustedplatform-pl-production",
+                "instance_id": "feature-store",
+                "table_id": "counts",
+            },
+        ),
+        (
             "pubsub-topic",
             "pubsub:topic:acryl-staging.observe-staging-obs",
             {
@@ -239,6 +267,15 @@ def test_parse_fully_qualified_name_invalid() -> None:
                 "database_id": "sergio-db",
             },
         ),
+        (
+            "cloud-bigtable-table",
+            "projects/trustedplatform-pl-production/locations/global/entryGroups/@bigtable/entries/"
+            "bigtable.googleapis.com/projects/trustedplatform-pl-production/instances/feature-store",
+            {
+                "project_id": "trustedplatform-pl-production",
+                "instance_id": "feature-store",
+            },
+        ),
     ],
 )
 def test_parse_parent_entry_examples(
@@ -262,6 +299,13 @@ def test_build_container_key_from_fqn_container_types() -> None:
     )
     assert isinstance(spanner_key, DataplexCloudSpannerDatabase)
     assert spanner_key.instance_id == "sergio-test"
+
+    bigtable_key = build_container_key_from_fqn(
+        "cloud-bigtable-instance",
+        "bigtable:trustedplatform-pl-production.feature-store",
+    )
+    assert isinstance(bigtable_key, DataplexBigtableInstance)
+    assert bigtable_key.instance_id == "feature-store"
 
 
 def test_build_container_key_from_fqn_dataset_types_returns_none() -> None:
@@ -411,13 +455,22 @@ def test_build_parent_container_key_for_dataset_entry_types() -> None:
     )
     assert isinstance(spanner_parent, DataplexCloudSpannerInstance)
 
+    bigtable_parent = build_parent_container_key(
+        "cloud-bigtable-table",
+        "projects/trustedplatform-pl-production/locations/global/entryGroups/@bigtable/entries/"
+        "bigtable.googleapis.com/projects/trustedplatform-pl-production/instances/feature-store",
+    )
+    assert isinstance(bigtable_parent, DataplexBigtableInstance)
+
 
 def test_is_supported_lineage_entry_type_helper() -> None:
     assert is_supported_lineage_entry_type("bigquery-table")
     assert is_supported_lineage_entry_type("bigquery-view")
     assert is_supported_lineage_entry_type("cloudsql-mysql-table")
     assert is_supported_lineage_entry_type("cloud-spanner-table")
+    assert is_supported_lineage_entry_type("cloud-bigtable-table")
     assert is_supported_lineage_entry_type("pubsub-topic")
     assert not is_supported_lineage_entry_type("bigquery-dataset")
+    assert not is_supported_lineage_entry_type("cloud-bigtable-instance")
     assert not is_supported_lineage_entry_type("cloudsql-mysql-database")
     assert not is_supported_lineage_entry_type("unknown-entry-type")
