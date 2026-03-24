@@ -618,7 +618,7 @@ class TestDataplexEntriesProcessorDesign:
 
         assert processor.build_entry_container_key(entry) is None
         source_report = cast(Mock, processor.source_report)
-        source_report.report_warning.assert_called_once()
+        source_report.warning.assert_called_once()
 
     def test_track_entry_for_lineage_warns_for_invalid_entry_type(self) -> None:
         processor = self._build_processor()
@@ -631,7 +631,7 @@ class TestDataplexEntriesProcessorDesign:
         processor._track_entry_for_lineage("project-1", entry)
 
         source_report = cast(Mock, processor.source_report)
-        source_report.report_warning.assert_called_once()
+        source_report.warning.assert_called_once()
         assert "project-1" not in processor.entry_data_by_project
 
     def test_build_entry_container_key_and_lineage_tracking(self) -> None:

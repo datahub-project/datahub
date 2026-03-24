@@ -156,7 +156,7 @@ class DataplexLineageExtractor:
         except Exception as e:
             # After retries are exhausted, report structured warning and continue
             self.report.num_lineage_entries_failed += 1
-            self.report.report_warning(
+            self.report.warning(
                 "Failed to get lineage for entry after retries. Continuing with other entries.",
                 context=entry.dataplex_entry_short_name,
                 exc=e,
@@ -469,7 +469,7 @@ class DataplexLineageExtractor:
                     )
                 except Exception as e:
                     self.report.num_lineage_entries_failed += 1
-                    self.report.report_warning(
+                    self.report.warning(
                         "Failed to generate lineage for entry.",
                         context=entry.datahub_dataset_name,
                         exc=e,
@@ -517,7 +517,7 @@ class DataplexLineageExtractor:
                         )
                     except Exception as e:
                         self.report.num_lineage_entries_failed += 1
-                        self.report.report_warning(
+                        self.report.warning(
                             "Failed to generate lineage for entry.",
                             context=entry.datahub_dataset_name,
                             exc=e,

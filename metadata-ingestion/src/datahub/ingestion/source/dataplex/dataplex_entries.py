@@ -220,7 +220,7 @@ class DataplexEntriesProcessor:
                     )
                     yield self.catalog_client.get_entry(request=entry_request)
                 except Exception as exc:
-                    self.source_report.report_warning(
+                    self.source_report.warning(
                         title="Dataplex entry fetch failed",
                         message="Failed to fetch Dataplex entry details. Skipping entry.",
                         context=f"entry_name={entry.name}, entry_payload={entry}",
@@ -417,7 +417,7 @@ class DataplexEntriesProcessor:
             return None
         short_name = extract_entry_type_short_name(entry.entry_type)
         if short_name is None:
-            self.source_report.report_warning(
+            self.source_report.warning(
                 title="Invalid Dataplex entry type format",
                 message="Failed to extract short entry type from Dataplex entry_type. Skipping parent container link.",
                 context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
@@ -479,7 +479,7 @@ class DataplexEntriesProcessor:
 
         short_name = extract_entry_type_short_name(entry.entry_type)
         if short_name is None:
-            self.source_report.report_warning(
+            self.source_report.warning(
                 title="Invalid Dataplex entry type format",
                 message="Failed to extract short entry type from Dataplex entry_type. Skipping lineage tracking.",
                 context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
@@ -521,7 +521,7 @@ class DataplexEntriesProcessor:
     ) -> Optional[tuple[str, DataplexEntryTypeMapping]]:
         short_name = extract_entry_type_short_name(entry.entry_type)
         if short_name is None:
-            self.source_report.report_warning(
+            self.source_report.warning(
                 title="Invalid Dataplex entry type format",
                 message="Failed to extract short entry type from Dataplex entry_type. Skipping entry.",
                 context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
@@ -530,7 +530,7 @@ class DataplexEntriesProcessor:
 
         mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(short_name)
         if mapping is None:
-            self.source_report.report_warning(
+            self.source_report.warning(
                 title="Unsupported Dataplex entry type",
                 message="Encountered Dataplex entry with unsupported entry_type. Skipping entry.",
                 context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
