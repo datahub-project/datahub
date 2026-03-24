@@ -30,7 +30,7 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const PreviewImage = styled.img`
+const PreviewImage = styled.img`
     max-height: 18px;
     width: auto;
     object-fit: contain;

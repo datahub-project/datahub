@@ -1,9 +1,9 @@
-import { BookOpen } from '@phosphor-icons/react';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -11,7 +11,6 @@ import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
 import GroupSidebar from '@app/entityV2/group/GroupSidebar';
 import { TabType } from '@app/entityV2/group/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -28,7 +27,6 @@ import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { useGetGroupQuery } from '@graphql/group.generated';
 import { EntityRelationshipsResult, EntityType, OriginType, Ownership } from '@types';
@@ -47,7 +45,7 @@ const GroupProfileWrapper = styled.div`
         margin: 0;
     }
 
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
     overflow: hidden;
     height: 100%;
@@ -59,7 +57,7 @@ const GroupProfileWrapper = styled.div`
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
-    ${(props) => props.isVisible && `border-right: 1px solid ${REDESIGN_COLORS.SIDE_BAR_BORDER_RIGHT};`}
+    ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
     overflow: inherit;
 `;
 
@@ -77,6 +75,7 @@ type Props = {
  * TODO: Add use of apollo cache to improve fetching performance.
  */
 export default function GroupProfile({ urn }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
@@ -210,7 +209,7 @@ export default function GroupProfile({ urn }: Props) {
                         md={17}
                         sm={24}
                         xs={24}
-                        style={{ borderLeft: `1px solid ${colors.gray[100]}`, height: '100%' }}
+                        style={{ borderLeft: `1px solid ${theme.colors.border}`, height: '100%' }}
                     >
                         <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                     </Col>

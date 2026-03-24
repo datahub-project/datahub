@@ -1,8 +1,8 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldGlossaryTermChangeEvent;
@@ -10,7 +10,9 @@ import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldTagChangeEv
 import com.linkedin.metadata.timeline.data.entity.GlossaryTermChangeEvent;
 import com.linkedin.metadata.timeline.data.entity.TagChangeEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -24,21 +26,24 @@ public class ChangeEventGeneratorUtils {
         .filter(entityTagChangeEvent -> entityTagChangeEvent instanceof TagChangeEvent)
         .map(entityTagChangeEvent -> (TagChangeEvent) entityTagChangeEvent)
         .map(
-            entityTagChangeEvent ->
-                SchemaFieldTagChangeEvent.schemaFieldTagChangeEventBuilder()
-                    .modifier(entityTagChangeEvent.getModifier())
-                    .entityUrn(entityTagChangeEvent.getEntityUrn())
-                    .category(entityTagChangeEvent.getCategory())
-                    .operation(entityTagChangeEvent.getOperation())
-                    .semVerChange(entityTagChangeEvent.getSemVerChange())
-                    .description(entityTagChangeEvent.getDescription())
-                    .tagUrn(
-                        UrnUtils.getUrn(
-                            (String) entityTagChangeEvent.getParameters().get("tagUrn")))
-                    .auditStamp(entityTagChangeEvent.getAuditStamp())
-                    .fieldPath(fieldPath)
-                    .parentUrn(parentUrn)
-                    .build())
+            entityTagChangeEvent -> {
+              Map<String, Object> parameters =
+                  ImmutableMap.of(
+                      "fieldPath", fieldPath,
+                      "parentUrn", parentUrn.toString(),
+                      "tagUrn", entityTagChangeEvent.getParameters().get("tagUrn"),
+                      "context", entityTagChangeEvent.getParameters().get("context"));
+              return SchemaFieldTagChangeEvent.schemaFieldTagChangeEventBuilder()
+                  .modifier(entityTagChangeEvent.getModifier())
+                  .entityUrn(entityTagChangeEvent.getEntityUrn())
+                  .category(entityTagChangeEvent.getCategory())
+                  .operation(entityTagChangeEvent.getOperation())
+                  .semVerChange(entityTagChangeEvent.getSemVerChange())
+                  .description(entityTagChangeEvent.getDescription())
+                  .parameters(parameters)
+                  .auditStamp(entityTagChangeEvent.getAuditStamp())
+                  .build();
+            })
         .collect(Collectors.toList());
   }
 
@@ -54,22 +59,44 @@ public class ChangeEventGeneratorUtils {
             entityGlossaryTermChangeEvent ->
                 (GlossaryTermChangeEvent) entityGlossaryTermChangeEvent)
         .map(
-            entityGlossaryTermChangeEvent ->
-                SchemaFieldGlossaryTermChangeEvent.schemaFieldGlossaryTermChangeEventBuilder()
-                    .modifier(entityGlossaryTermChangeEvent.getModifier())
-                    .entityUrn(entityGlossaryTermChangeEvent.getEntityUrn())
-                    .category(entityGlossaryTermChangeEvent.getCategory())
-                    .operation(entityGlossaryTermChangeEvent.getOperation())
-                    .semVerChange(entityGlossaryTermChangeEvent.getSemVerChange())
-                    .description(entityGlossaryTermChangeEvent.getDescription())
-                    .termUrn(
-                        UrnUtils.getUrn(
-                            (String) entityGlossaryTermChangeEvent.getParameters().get("termUrn")))
-                    .auditStamp(entityGlossaryTermChangeEvent.getAuditStamp())
-                    .fieldPath(fieldPath)
-                    .parentUrn(parentUrn)
-                    .build())
+            entityGlossaryTermChangeEvent -> {
+              Map<String, Object> parameters =
+                  ImmutableMap.of(
+                      "fieldPath", fieldPath,
+                      "parentUrn", parentUrn.toString(),
+                      "termUrn", entityGlossaryTermChangeEvent.getParameters().get("termUrn"),
+                      "context", entityGlossaryTermChangeEvent.getParameters().get("context"));
+
+              return SchemaFieldGlossaryTermChangeEvent.schemaFieldGlossaryTermChangeEventBuilder()
+                  .modifier(entityGlossaryTermChangeEvent.getModifier())
+                  .entityUrn(entityGlossaryTermChangeEvent.getEntityUrn())
+                  .category(entityGlossaryTermChangeEvent.getCategory())
+                  .operation(entityGlossaryTermChangeEvent.getOperation())
+                  .semVerChange(entityGlossaryTermChangeEvent.getSemVerChange())
+                  .description(entityGlossaryTermChangeEvent.getDescription())
+                  .parameters(parameters)
+                  .auditStamp(entityGlossaryTermChangeEvent.getAuditStamp())
+                  .build();
+            })
         .collect(Collectors.toList());
+  }
+
+  public static ChangeEvent convertEntityDocumentationChangeEvent(
+      @Nonnull String fieldPath, @Nonnull Urn parentUrn, @Nonnull ChangeEvent event) {
+    Map<String, Object> parameters = new HashMap<>(event.getParameters());
+    parameters.put("fieldPath", fieldPath);
+    parameters.put("parentUrn", parentUrn.toString());
+
+    return ChangeEvent.builder()
+        .modifier(event.getModifier())
+        .entityUrn(event.getEntityUrn())
+        .category(event.getCategory())
+        .operation(event.getOperation())
+        .semVerChange(event.getSemVerChange())
+        .description(event.getDescription())
+        .parameters(parameters)
+        .auditStamp(event.getAuditStamp())
+        .build();
   }
 
   public static <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(

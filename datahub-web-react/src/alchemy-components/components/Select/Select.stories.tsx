@@ -1,9 +1,10 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
 import { Select, selectDefaults } from '@components/components/Select/Select';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 import { SelectSizeOptions } from '@components/components/Select/types';
@@ -174,7 +175,7 @@ const meta: Meta = {
         icon: {
             description: `The name of the icon to display.`,
             type: 'string',
-            options: AVAILABLE_ICONS,
+            options: ['Info', 'Star', 'Globe'],
             table: {
                 defaultValue: { summary: 'undefined' },
             },
@@ -379,7 +380,7 @@ export const simpleSelectWithIcon = () => (
             { label: 'Option 3', value: '3' },
         ]}
         label="Simple Select with icon"
-        icon="Search"
+        icon={MagnifyingGlass}
     />
 );
 
@@ -503,6 +504,6 @@ export const withIcon = () => (
         ]}
         label="Select with icon"
         values={['2']}
-        icon="Search"
+        icon={MagnifyingGlass}
     />
 );

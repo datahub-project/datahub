@@ -4,7 +4,7 @@ import React from 'react';
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const GROUPS_INTRO_ID = 'groups-intro';
-export const GROUPS_CREATE_GROUP_ID = 'groups-create-group';
+const GROUPS_CREATE_GROUP_ID = 'groups-create-group';
 
 export const GroupsOnboardingConfig: OnboardingStep[] = [
     {

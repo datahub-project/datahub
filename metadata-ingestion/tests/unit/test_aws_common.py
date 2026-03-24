@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import boto3
 import pytest
-from moto import mock_iam, mock_lambda, mock_sts
+from moto import mock_aws
 
 from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
@@ -143,9 +143,7 @@ class TestAwsCommon:
         mock_get.return_value.status_code = 404
         assert is_running_on_ec2() is False
 
-    @mock_sts
-    @mock_lambda
-    @mock_iam
+    @mock_aws
     def test_get_current_identity_lambda(self):
         """Test getting identity in Lambda environment"""
         with patch.dict(
@@ -186,7 +184,7 @@ class TestAwsCommon:
 
     @patch("requests.get")
     @patch("requests.put")
-    @mock_sts
+    @mock_aws
     def test_get_instance_role_arn_success(self, mock_put, mock_get):
         """Test getting EC2 instance role ARN"""
         mock_put.return_value.status_code = 200
@@ -206,7 +204,7 @@ class TestAwsCommon:
                 role_arn == "arn:aws:sts::123456789012:assumed-role/test-role/instance"
             )
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_basic(self, mock_aws_config):
         """Test basic AWS connection configuration"""
         session = mock_aws_config.get_session()
@@ -214,7 +212,7 @@ class TestAwsCommon:
         assert creds.access_key == "test-key"
         assert creds.secret_key == "test-secret"
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_with_session_token(self):
         """Test AWS connection with session token"""
         config = AwsConnectionConfig(
@@ -229,7 +227,7 @@ class TestAwsCommon:
         assert creds is not None
         assert creds.token == "test-token"
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_role_assumption(self):
         """Test AWS connection with role assumption"""
         config = AwsConnectionConfig(
@@ -247,7 +245,7 @@ class TestAwsCommon:
             creds = session.get_credentials()
             assert creds is not None
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_skip_role_assumption(self):
         """Test AWS connection skipping role assumption when already in role"""
         config = AwsConnectionConfig(
@@ -265,7 +263,7 @@ class TestAwsCommon:
             session = config.get_session()
             assert session is not None
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_multiple_roles(self):
         """Test AWS connection with multiple role assumption"""
         config = AwsConnectionConfig(
@@ -341,7 +339,7 @@ class TestAwsCommon:
         with patch.dict(os.environ, env_vars, clear=True):
             assert detect_aws_environment() == expected_environment
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_credentials_cached_across_sessions(self):
         """
         Test that assumed role credentials are cached and reused across multiple
@@ -413,7 +411,7 @@ class TestAwsCommon:
             # assume_role should still only be called once
             assert mock_assume_role.call_count == 1
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_refreshes_expired_credentials(self):
         """
         Test that expired credentials trigger a new role assumption.
@@ -471,7 +469,7 @@ class TestAwsCommon:
             # assume_role should be called again due to expiration
             assert mock_assume_role.call_count == 2
 
-    @mock_sts
+    @mock_aws
     def test_multiple_clients_use_same_cached_credentials(self):
         """
         Test that multiple AWS clients (glue, s3, lakeformation) created from
@@ -521,7 +519,7 @@ class TestAwsCommon:
             # assume_role should only be called once
             assert mock_assume_role.call_count == 1
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_without_caching_before_fix(self):
         """
         This test demonstrates the bug that existed before the fix.
@@ -576,7 +574,7 @@ class TestAwsCommon:
             assert creds2.secret_key == "ASSUMED_SECRET"
             assert creds2.token == "ASSUMED_TOKEN"
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_with_explicit_credentials(self):
         """
         Test that explicit credentials (aws_access_key_id/aws_secret_access_key)
@@ -597,7 +595,7 @@ class TestAwsCommon:
         assert creds.access_key == "EXPLICIT_KEY"
         assert creds.secret_key == "EXPLICIT_SECRET"
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_chain(self):
         """
         Test assuming multiple roles in a chain.

@@ -29,8 +29,6 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect<0.10.0",
     "pydantic>=2.4.0,<3.0.0",
-    # 2.41.3 https://github.com/pydantic/pydantic-core/issues/1841
-    "pydantic_core!=2.41.3,<3.0.0",
     "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
@@ -50,8 +48,6 @@ framework_common = {
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
     "toml>=0.10.0,<=0.10.2",
-    # In Python 3.10+, importlib_metadata is included in the standard library.
-    "importlib_metadata>=4.0.0,<9.0.0; python_version < '3.10'",
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "avro-gen3==0.7.16",
@@ -78,13 +74,13 @@ framework_common = {
     # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
+    # Required for GraphQL query adaptation (used by search CLI)
+    "graphql-core>=3.0.0,<4.0.0",
 }
 
 rest_common = {
     "requests<3.0.0",
     "requests_file<4.0.0",
-    # Required for GraphQL query adaptation and schema introspection
-    "graphql-core>=3.0.0,<4.0.0",
 }
 
 kafka_common = {
@@ -112,8 +108,7 @@ kafka_protobuf = {
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
     # NOTE: potential conflict with feast also depending on grpcio
     "grpcio>=1.44.0,<2.0.0",
-    # Note: grpcio-tools>=1.63 requires protobuf>=5, but google-cloud-* requires protobuf<5
-    # So grpcio-tools is constrained to <1.63.0 automatically
+    # grpcio-tools>=1.63 requires protobuf>=5. We intentionally allow that range.
     "grpcio-tools>=1.44.0,<2.0.0",
 }
 
@@ -129,7 +124,9 @@ sqlglot_lib = {
     # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
     # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
-    "sqlglot[c]==29.0.1",
+    # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
+    # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
+    "sqlglot[c]==30.0.3",
     "patchy==2.8.0",
 }
 
@@ -250,7 +247,7 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging<=3.5.0",
+    "google-cloud-logging<4.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
@@ -268,12 +265,16 @@ clickhouse_common = {
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
+datacatalog_lineage_common = {
+    # 0.3.0+ uses google.cloud.datacatalog_lineage import path.
+    "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
+    # Enforce non-vulnerable protobuf baseline (CVE-2026-0994).
+    "protobuf>=5.0.0,<7.0.0",
+}
+
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
-    # Pinned to 0.2.2 because 0.3.0 changed the import path from
-    # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
-    # which breaks existing code using the old import path
-    "google-cloud-datacatalog-lineage==0.2.2",
+    *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
 
@@ -306,7 +307,7 @@ snowflake_common = {
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
     #
-    # Upper bound <1.7.4 was (accidentally?) removed 
+    # Upper bound <1.7.4 was (accidentally?) removed
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
@@ -385,10 +386,11 @@ s3_base = {
     *pyarrow_common,
     "tableschema>=1.20.2,<2.0.0",
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
-    "ujson>=5.2.0,<6.0.0",
+    # >=5.12.0: fixes DoS (memory growth on parsing huge integers in 5.4–5.11; dumps() indent
+    # overflow/infinite loop GHSA-c8rr-9gxc-jprv). Keep <6 until major API review.
+    "ujson>=5.12.0,<6.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
-    # moto 5.0.0 drops support for Python 3.7
-    "moto[s3]<5.0.0",
+    "moto[s3]>=5.0.0,<6.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
@@ -413,7 +415,7 @@ abs_base = {
     *pyarrow_common,
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
-    "ujson>=5.2.0,<6.0.0",
+    "ujson>=5.12.0,<6.0.0",
     *path_spec_common,
 }
 
@@ -572,12 +574,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | sqlglot_lib
     | classification_lib
-    | {
-        # Pinned to 0.2.2 because 0.3.0 changed the import path from
-        # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
-        # which breaks existing code using the old import path
-        "google-cloud-datacatalog-lineage==0.2.2",
-    },
+    | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
@@ -632,6 +629,7 @@ plugins: Dict[str, Set[str]] = {
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
     },
+    "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
     "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -663,7 +661,8 @@ plugins: Dict[str, Set[str]] = {
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    "kafka-connect": sql_common
+    | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -887,9 +886,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "confluence",
-            # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
-            # It's available as a separate extra and in the docs extra for doc generation
-            # TODO: Re-add datahub-documents here now that Python 3.9 support was dropped
+            "datahub-documents",
             "dataplex",
             "delta-lake",
             "dremio",
@@ -1032,6 +1029,7 @@ entry_points = {
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "excel = datahub.ingestion.source.excel.source:ExcelSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
+        "flink = datahub.ingestion.source.flink.source:FlinkSource",
         "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
@@ -1209,6 +1207,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
         "datahub.ingestion.autogenerated": ["*.json"],
         "datahub.cli.gql": ["*.gql"],
+        "datahub.cli.resources": ["*.md"],
     },
     # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
     # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
