@@ -204,7 +204,7 @@ def browser_sso_login(
         },
     }
 
-    response = session.post(f"{frontend_url}/api/v2/graphql", json=json_payload)
+    response = session.post(f"{frontend_url}/api/v2/graphql", json=json_payload, timeout=30)
     response.raise_for_status()
 
     data = response.json()
