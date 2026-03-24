@@ -120,7 +120,7 @@ def main() -> int:
                 print(f"WARNING: {workflow_file.name} has a push/PR trigger but no 'name' field")
 
     missing = expected - listed
-    extra = listed - expected
+    extra = (listed - expected) - IGNORED_WORKFLOWS
 
     if is_ci:
         markdown = _markdown_output(missing, extra, listed)
