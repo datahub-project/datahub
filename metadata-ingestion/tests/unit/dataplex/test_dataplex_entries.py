@@ -180,6 +180,18 @@ class TestDataplexEntriesProcessorDesign:
 
         assert processor._extract_display_name(entry) == "e1"
 
+    def test_extract_display_name_falls_back_when_display_name_is_non_string(
+        self,
+    ) -> None:
+        processor = self._build_processor()
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry_source = Mock()
+        entry_source.display_name = Mock()
+        entry.entry_source = entry_source
+
+        assert processor._extract_display_name(entry) == "e1"
+
     def test_collect_entries_streams_before_spanner_search(self) -> None:
         catalog_client = Mock()
         processor = DataplexEntriesProcessor(

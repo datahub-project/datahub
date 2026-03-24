@@ -448,8 +448,10 @@ class DataplexEntriesProcessor:
             return "unknown"
 
     def _extract_display_name(self, entry: dataplex_v1.Entry) -> str:
-        if entry.entry_source and entry.entry_source.display_name:
-            return entry.entry_source.display_name
+        if entry.entry_source:
+            display_name = getattr(entry.entry_source, "display_name", None)
+            if isinstance(display_name, str) and display_name.strip():
+                return display_name
         return entry.name.split("/")[-1]
 
     def _extract_description(self, entry: dataplex_v1.Entry) -> str:
