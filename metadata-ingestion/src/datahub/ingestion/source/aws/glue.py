@@ -29,7 +29,7 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
@@ -175,6 +175,19 @@ def _sanitize_jdbc_url(jdbc_url: str) -> str:
     return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
 
 
+class TargetPlatformConfig(ConfigModel):
+    """Config for aligning dataset URNs with a separately ingested platform."""
+
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance used by the separate ingestion of this platform.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment used by the separate ingestion of this platform. Defaults to the Glue source env.",
+    )
+
+
 class GlueSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
 ):
@@ -254,6 +267,17 @@ class GlueSourceConfig(
     include_column_lineage: bool = Field(
         default=True,
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+    )
+
+    target_platform_configs: Dict[str, TargetPlatformConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Optional per-platform config for aligning dataset URNs with separately ingested platforms. "
+            "Keys are DataHub platform names (e.g. 'postgres', 'mysql', 'redshift'). "
+            "When provided, the platform_instance and env are applied to dataset URNs so they match "
+            "the URNs produced by the platform's own connector. "
+            "Only needed when the target platform's connector uses a platform_instance or a different env."
+        ),
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -718,6 +742,23 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
+    def _make_dataset_urn_for_platform(self, platform: str, dataset_name: str) -> str:
+        """Build a dataset URN using target_platform_configs if available.
+
+        If target_platform_configs has an entry for this platform, applies its
+        platform_instance and env so the URN matches what the platform's own
+        connector produces.
+        """
+        target_config = self.source_config.target_platform_configs.get(platform)
+        return make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=dataset_name,
+            env=target_config.env if target_config and target_config.env else self.env,
+            platform_instance=(
+                target_config.platform_instance if target_config else None
+            ),
+        )
+
     def _build_jdbc_dataset_name(
         self, platform: str, database: str, dbtable: str
     ) -> str:
@@ -744,11 +785,9 @@ class GlueSource(StatefulIngestionSourceBase):
         dbtable = connection_options.get("dbtable")
         if dbtable:
             return [
-                make_dataset_urn_with_platform_instance(
-                    platform=platform,
-                    name=self._build_jdbc_dataset_name(platform, database, dbtable),
-                    env=self.env,
-                    platform_instance=None,
+                self._make_dataset_urn_for_platform(
+                    platform,
+                    self._build_jdbc_dataset_name(platform, database, dbtable),
                 )
             ]
 
@@ -788,11 +827,9 @@ class GlueSource(StatefulIngestionSourceBase):
         dbtable = connection_options.get("dbtable")
         if dbtable:
             return [
-                make_dataset_urn_with_platform_instance(
-                    platform=platform,
-                    name=self._build_jdbc_dataset_name(platform, database, dbtable),
-                    env=self.env,
-                    platform_instance=None,
+                self._make_dataset_urn_for_platform(
+                    platform,
+                    self._build_jdbc_dataset_name(platform, database, dbtable),
                 )
             ]
 
