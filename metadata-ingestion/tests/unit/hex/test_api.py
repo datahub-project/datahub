@@ -37,11 +37,14 @@ class TestHexAPI(unittest.TestCase):
     def test_fetch_projects_pagination(self):
         page1_data = load_json_data("hex_projects_page1.json")
         page2_data = load_json_data("hex_projects_page2.json")
+        page3_data = load_json_data("hex_projects_page3.json")
 
         mock_response1 = MagicMock()
         mock_response1.json.return_value = page1_data
         mock_response2 = MagicMock()
         mock_response2.json.return_value = page2_data
+        mock_response3 = MagicMock()
+        mock_response3.json.return_value = page3_data
 
         hex_api = HexApi(
             token=self.token,
@@ -52,7 +55,7 @@ class TestHexAPI(unittest.TestCase):
 
         # Mock the session.get method after the session is created
         with patch.object(
-            hex_api.session, "get", side_effect=[mock_response1, mock_response2]
+            hex_api.session, "get", side_effect=[mock_response1, mock_response2, mock_response3]
         ) as mock_get:
             results = list(hex_api.fetch_projects())
 

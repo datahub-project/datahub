@@ -1,0 +1,147 @@
+{
+  "values": [
+    {
+      "id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cg",
+      "title": "PlayNotebook",
+      "description": "This is a play project\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user5@example.com"
+      },
+      "owner": {
+        "email": "user5@example.com"
+      },
+      "status": {
+        "name": "In development"
+      },
+      "categories": [
+        {
+          "name": "Scratchpad",
+          "description": "Personal scratchpad for a team member. Not intended for broad consumption"
+        }
+      ],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 16,
+          "lastSevenDays": 1,
+          "lastFourteenDays": 1,
+          "lastThirtyDays": 1
+        },
+        "lastViewedAt": "2025-03-17T14:55:34.717Z",
+        "publishedResultsUpdatedAt": "2025-03-18T12:11:34.907Z"
+      },
+      "lastEditedAt": "2024-12-18T08:38:03.873Z",
+      "lastPublishedAt": "2024-12-13T23:26:27.466Z",
+      "createdAt": "2024-12-03T09:54:58.471Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [
+        {
+          "cadence": "WEEKLY",
+          "enabled": true,
+          "hourly": null,
+          "daily": null,
+          "weekly": {
+            "dayOfWeek": "TUESDAY",
+            "hour": 17,
+            "minute": 40,
+            "timezone": "+05:30"
+          },
+          "monthly": null,
+          "custom": null
+        }
+      ],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user4a@example.com"
+            },
+            "access": "FULL_ACCESS"
+          },
+          {
+            "user": {
+              "email": "user5@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "4759f33c-1ab9-403d-92e8-9bef48de00cg",
+      "title": "Cancelled Orders",
+      "description": null,
+      "type": "COMPONENT",
+      "creator": {
+        "email": "user4a@example.com"
+      },
+      "owner": {
+        "email": "user4a@example.com"
+      },
+      "status": null,
+      "categories": [{
+          "name": "Keep_Scratchpad",
+          "description": "Intended for broad consumption"
+        }],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": "2024-12-13T23:22:48.995Z"
+      },
+      "lastEditedAt": "2024-12-13T23:22:58.183Z",
+      "lastPublishedAt": "2024-12-13T23:22:58.189Z",
+      "createdAt": "2024-12-09T15:39:26.093Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user4a@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "after": "djI6WyIyMDI0LTEyLTA5VDE1OjM5OjI2LjA5M1oiLCI0NzU5ZjMzYy0xYWI5LTQwM2QtOTJlOC05YmVmNDhkZTAwYzQiXQ",
+    "before": "djI6WyIyMDI0LTA4LTIxVDE3OjA3OjE5LjI3NVoiLCJjOGY4MTVjOC04OGMyLTRkZWEtOTgxZi02OWY1NDRkNjE2NWQiXQ"
+  }
+}
