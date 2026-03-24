@@ -44,6 +44,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.omni.omni_api import OmniClient
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 from datahub.ingestion.source.omni.omni_lineage_parser import (
@@ -203,10 +204,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             displayName="Omni",
             logoUrl=self.DEFAULT_LOGO_URL,
         )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=make_data_platform_urn(self.PLATFORM),
-            aspect=platform_info,
-        ).as_workunit()
+        yield self._as_wu(
+            MetadataChangeProposalWrapper(
+                entityUrn=make_data_platform_urn(self.PLATFORM),
+                aspect=platform_info,
+            )
+        )
 
     def _emit_upstream_lineage(
         self,
@@ -373,16 +376,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 dashboard.set_last_modified(dt)
             except Exception as exc:
-                logger.warning(
-                    "Skipping dashboard last_modified: failed to parse %r: %s",
-                    updated_at,
-                    exc,
-                )
+                logger.warning("Skipping dashboard last_modified: failed to parse %r: %s", updated_at, exc)
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
-            dashboard.set_owners(
-                [(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)]
-            )
+            dashboard.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from dashboard.as_workunits()
 
     def _emit_chart(
@@ -414,11 +411,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 chart.set_last_modified(dt)
             except Exception as exc:
-                logger.warning(
-                    "Skipping chart last_modified: failed to parse %r: %s",
-                    updated_at,
-                    exc,
-                )
+                logger.warning("Skipping chart last_modified: failed to parse %r: %s", updated_at, exc)
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
             chart.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
@@ -640,7 +633,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             display_name=f"{readable_model}.topic.{topic_name}",
             description="Omni topic entity.",
             custom_properties=topic_props,
-            subtype="Topic",
+            subtype=DatasetSubTypes.TOPIC,
         )
         self.report.semantic_datasets_emitted += 1
 
@@ -1140,7 +1133,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                                 "topicName": topic_name,
                                 "inferred": "true",
                             },
-                            subtype="Topic",
+                            subtype=DatasetSubTypes.TOPIC,
                         )
                         self.report.semantic_datasets_emitted += 1
                     chart_inputs[qp_id].add(topic_urn)
