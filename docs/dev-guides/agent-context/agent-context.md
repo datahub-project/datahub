@@ -1,6 +1,6 @@
 # Agent Context Kit
 
-> **📚 Navigation**: [LangChain Integration →](./langchain.md) | [Google ADK Integration →](./google-adk.md) | [Google Vertex AI Integration →](./google-vertex-ai.md) | [Snowflake Integration →](./snowflake.md) | [Copilot Studio Integration →](./copilot-studio.md)
+> **📚 Navigation**: [Cursor Integration →](./cursor.md) | [Claude Code Integration →](./claude-code.md) | [LangChain Integration →](./langchain.md) | [Google ADK Integration →](./google-adk.md) | [Google Vertex AI Integration →](./google-vertex-ai.md) | [Snowflake Integration →](./snowflake.md) | [Copilot Studio Integration →](./copilot-studio.md)
 
 ## What Problem Does This Solve?
 
@@ -28,10 +28,12 @@ When building AI agents that answer questions about data, agents often face thes
 ### Quick Start Guide
 
 1. **New to Agent Context?** Start here with the basic example below
-2. **Using LangChain?** See the [LangChain integration guide](./langchain.md)
-3. **Using Google ADK?** See the [Google ADK integration guide](./google-adk.md)
-4. **Using Google Vertex AI Agent Builder?** See the [Google Vertex AI integration guide](./google-vertex-ai.md)
-5. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
+2. **Using Cursor?** See the [Cursor integration guide](./cursor.md)
+3. **Using Claude Code?** See the [Claude Code integration guide](./claude-code.md)
+4. **Using LangChain?** See the [LangChain integration guide](./langchain.md)
+5. **Using Google ADK?** See the [Google ADK integration guide](./google-adk.md)
+6. **Using Google Vertex AI Agent Builder?** See the [Google Vertex AI integration guide](./google-vertex-ai.md)
+7. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
 
 ## Installation
 
@@ -97,6 +99,8 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 | Platform                 | Status      | Guide                                           |
 | ------------------------ | ----------- | ----------------------------------------------- |
 | Custom                   | Launched    | See below                                       |
+| Cursor                   | Launched    | [Cursor Guide](./cursor.md)                     |
+| Claude Code              | Launched    | [Claude Code Guide](./claude-code.md)           |
 | Langchain                | Launched    | [LangChain Guide](./langchain.md)               |
 | Snowflake                | Launched    | [Snowflake Guide](./snowflake.md)               |
 | Google ADK               | Launched    | [Google ADK Guide](./google-adk.md)             |
