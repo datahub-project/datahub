@@ -7,11 +7,13 @@ from typing import List, Optional
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.core_client import FabricCoreClient
 from datahub.ingestion.source.fabric.common.models import FabricJobInstance
-from datahub.ingestion.source.fabric.common.report import FabricClientReport
 from datahub.ingestion.source.fabric.common.utils import parse_iso_datetime
 from datahub.ingestion.source.fabric.data_factory.models import (
     PipelineActivity,
     PipelineActivityRun,
+)
+from datahub.ingestion.source.fabric.data_factory.report import (
+    FabricDataFactoryClientReport,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ class FabricDataFactoryClient(FabricCoreClient):
         self,
         auth_helper: FabricAuthHelper,
         timeout: int = 30,
-        report: Optional[FabricClientReport] = None,
+        report: Optional[FabricDataFactoryClientReport] = None,
     ):
         super().__init__(auth_helper, timeout, report)
 
@@ -113,13 +115,13 @@ class FabricDataFactoryClient(FabricCoreClient):
                     try:
                         activities.append(PipelineActivity.from_dict(activity_dict))
                     except KeyError as e:
-                        logger.debug(
+                        self.report.report_parse_failure(
                             f"Skipping malformed activity in pipeline "
                             f"{pipeline_id}: missing required field {e}"
                         )
                 return activities
 
-        logger.warning(
+        self.report.report_parse_failure(
             f"No pipeline-content.json found in definition for pipeline {pipeline_id}"
         )
         return []
@@ -161,7 +163,13 @@ class FabricDataFactoryClient(FabricCoreClient):
 
         logger.debug(f"Querying activity runs for pipeline run {pipeline_run_id}")
 
-        return [
-            PipelineActivityRun.from_dict(r)
-            for r in self._paginate_post(endpoint, body)
-        ]
+        activity_runs: List[PipelineActivityRun] = []
+        for r in self._paginate_post(endpoint, body):
+            try:
+                activity_runs.append(PipelineActivityRun.from_dict(r))
+            except KeyError as e:
+                self.report.report_parse_failure(
+                    f"Skipping malformed activity run in pipeline run "
+                    f"{pipeline_run_id}: missing required field {e}"
+                )
+        return activity_runs

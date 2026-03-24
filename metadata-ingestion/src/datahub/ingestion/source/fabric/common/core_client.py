@@ -6,6 +6,7 @@ from typing import Dict, Iterator, List, Optional
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
+    FabricConnection,
     FabricItem,
     FabricJobInstance,
     FabricWorkspace,
@@ -44,13 +45,18 @@ class FabricCoreClient(BaseFabricClient):
         """
         logger.info("Listing Fabric workspaces")
         for workspace_data in self._list_workspaces_raw():
-            yield FabricWorkspace(
-                id=workspace_data.get("id", ""),
-                name=workspace_data.get("displayName", ""),
-                description=workspace_data.get("description"),
-                type=workspace_data.get("type"),
-                capacity_id=workspace_data.get("capacityId"),
-            )
+            try:
+                yield FabricWorkspace(
+                    id=workspace_data["id"],
+                    name=workspace_data.get("displayName", ""),
+                    description=workspace_data.get("description"),
+                    type=workspace_data.get("type"),
+                    capacity_id=workspace_data.get("capacityId"),
+                )
+            except KeyError as e:
+                self.report.report_parse_failure(
+                    f"Skipping malformed workspace: missing required field {e}"
+                )
 
     def list_items(
         self, workspace_id: str, item_type: Optional[str] = None
@@ -73,13 +79,19 @@ class FabricCoreClient(BaseFabricClient):
         for item_data in self._paginate(
             f"workspaces/{workspace_id}/items", params=params
         ):
-            yield FabricItem(
-                id=item_data.get("id", ""),
-                name=item_data.get("displayName", ""),
-                type=item_data.get("type", item_type or ""),
-                workspace_id=workspace_id,
-                description=item_data.get("description"),
-            )
+            try:
+                yield FabricItem(
+                    id=item_data["id"],
+                    name=item_data.get("displayName", ""),
+                    type=item_data.get("type", item_type or ""),
+                    workspace_id=workspace_id,
+                    description=item_data.get("description"),
+                )
+            except KeyError as e:
+                self.report.report_parse_failure(
+                    f"Skipping malformed item in workspace "
+                    f"{workspace_id}: missing required field {e}"
+                )
 
     def get_item_definition(
         self, workspace_id: str, item_id: str
@@ -112,7 +124,7 @@ class FabricCoreClient(BaseFabricClient):
             try:
                 content = json.loads(base64.b64decode(payload_b64))
             except Exception:
-                logger.warning(
+                self.report.report_parse_failure(
                     f"Failed to decode definition part '{path}' for item {item_id}"
                 )
                 continue
@@ -120,7 +132,7 @@ class FabricCoreClient(BaseFabricClient):
 
         return result
 
-    def list_connections(self) -> Iterator[dict]:
+    def list_connections(self) -> Iterator[FabricConnection]:
         """List all tenant-scoped connections accessible to the caller.
 
         Connections are referenced by pipeline activities via
@@ -129,10 +141,16 @@ class FabricCoreClient(BaseFabricClient):
         Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/connections/list-connections
 
         Yields:
-            Raw connection dicts from the API response.
+            FabricConnection objects
         """
         logger.info("Listing Fabric connections")
-        yield from self._paginate("connections")
+        for raw in self._paginate("connections"):
+            try:
+                yield FabricConnection.from_dict(raw)
+            except KeyError as e:
+                self.report.report_parse_failure(
+                    f"Skipping malformed connection: missing required field {e}"
+                )
 
     def list_item_job_instances(
         self, workspace_id: str, item_id: str
@@ -152,17 +170,23 @@ class FabricCoreClient(BaseFabricClient):
         endpoint = f"workspaces/{workspace_id}/items/{item_id}/jobs/instances"
         logger.debug(f"Listing job instances for item {item_id}")
         for data in self._paginate(endpoint):
-            # failureReason is an ErrorResponse object; extract the message
-            raw_failure = data.get("failureReason")
-            failure_reason = raw_failure.get("message") if raw_failure else None
+            try:
+                # failureReason is an ErrorResponse object; extract the message
+                raw_failure = data.get("failureReason")
+                failure_reason = raw_failure.get("message") if raw_failure else None
 
-            yield FabricJobInstance(
-                id=data.get("id", ""),
-                item_id=item_id,
-                workspace_id=workspace_id,
-                status=data.get("status", ""),
-                start_time_utc=data.get("startTimeUtc"),
-                end_time_utc=data.get("endTimeUtc"),
-                invoke_type=data.get("invokeType"),
-                failure_reason=failure_reason,
-            )
+                yield FabricJobInstance(
+                    id=data["id"],
+                    item_id=item_id,
+                    workspace_id=workspace_id,
+                    status=data["status"],
+                    start_time_utc=data.get("startTimeUtc"),
+                    end_time_utc=data.get("endTimeUtc"),
+                    invoke_type=data.get("invokeType"),
+                    failure_reason=failure_reason,
+                )
+            except KeyError as e:
+                self.report.report_parse_failure(
+                    f"Skipping malformed job instance for item "
+                    f"{item_id}: missing required field {e}"
+                )

@@ -212,12 +212,8 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
     def _cache_connections(self) -> None:
         """Fetch all tenant connections and cache them keyed by ID."""
         try:
-            for raw in self.client.list_connections():
-                connection_id = raw.get("id", "")
-                if connection_id:
-                    self._connections_cache[connection_id] = FabricConnection.from_dict(
-                        raw
-                    )
+            for conn in self.client.list_connections():
+                self._connections_cache[conn.id] = conn
             logger.info(f"Cached {len(self._connections_cache)} Fabric connection(s)")
         except Exception as e:
             self.report.report_warning(

@@ -200,18 +200,9 @@ class TestPipelineActivityRun:
         assert run.error_message == "Some error"
         assert run.retry_attempt == 1
 
-    def test_from_dict_empty_defaults(self) -> None:
-        run = PipelineActivityRun.from_dict({})
-        assert run.activity_name == ""
-        assert run.activity_type == ""
-        assert run.activity_run_id == ""
-        assert run.pipeline_run_id == ""
-        assert run.status == ""
-        assert run.activity_run_start is None
-        assert run.activity_run_end is None
-        assert run.duration_in_ms is None
-        assert run.error_message is None
-        assert run.retry_attempt is None
+    def test_from_dict_missing_required_field_raises_key_error(self) -> None:
+        with pytest.raises(KeyError):
+            PipelineActivityRun.from_dict({})
 
     def test_from_dict_empty_error_message_normalized_to_none(self) -> None:
         run = PipelineActivityRun.from_dict(

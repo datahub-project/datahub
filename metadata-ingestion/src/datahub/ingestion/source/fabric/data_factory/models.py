@@ -150,6 +150,11 @@ class PipelineActivityRun:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PipelineActivityRun:
+        """Parse an activity run dict from the queryActivityRuns API.
+
+        Required fields use direct key access and will raise KeyError
+        if missing — callers should catch per-activity-run.
+        """
         error = data.get("error", {})
         error_message = error.get("message") if isinstance(error, dict) else None
         # Treat empty error messages as None
@@ -157,11 +162,11 @@ class PipelineActivityRun:
             error_message = None
 
         return cls(
-            activity_name=data.get("activityName", ""),
-            activity_type=data.get("activityType", ""),
-            activity_run_id=data.get("activityRunId", ""),
-            pipeline_run_id=data.get("pipelineRunId", ""),
-            status=data.get("status", ""),
+            activity_name=data["activityName"],
+            activity_type=data["activityType"],
+            activity_run_id=data["activityRunId"],
+            pipeline_run_id=data["pipelineRunId"],
+            status=data["status"],
             activity_run_start=data.get("activityRunStart"),
             activity_run_end=data.get("activityRunEnd"),
             duration_in_ms=data.get("durationInMs"),
