@@ -53,7 +53,7 @@ interface DomainContentProps {
     iconSize?: number;
 }
 
-export function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize, iconSize }: DomainContentProps) {
+function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize, iconSize }: DomainContentProps) {
     const entityRegistry = useEntityRegistry();
     const displayName = name || entityRegistry.getDisplayName(EntityType.Domain, domain);
 
@@ -70,7 +70,7 @@ export function DomainContent({ domain, name, closable, onClose, tagStyle, fontS
     );
 }
 
-export type Props = {
+type Props = {
     domain: DomainEntity;
     name?: string;
     closable?: boolean;

@@ -1,3 +1,5 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -19,25 +21,25 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-        border-color: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+ background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+ border-color: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
 
-        &:hover,
-        &:focus,
-        &:focus-within {
-            border-color: ${props.theme.styles['primary-color']} !important;
-        }
+ &:hover,
+ &:focus,
+ &:focus-within {
+ border-color: ${props.theme.styles['primary-color']} !important;
+ }
 
-        .ant-input, .ant-input-clear-icon {
-            color: ${colors.white};
-            background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-        }
-    `}
+ .ant-input, .ant-input-clear-icon {
+ color: ${colors.white};
+ background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+ }
+ `}
 `;
 
 const ViewSelectContainer = styled.div``;
 
-export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
+const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
     width: 100%;
     min-width: 500px;
@@ -45,18 +47,18 @@ export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boo
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: ${radius.md};
-        transition: all ${transition.easing['ease-in']} ${transition.duration.slow};
-        border-radius: ${radius.lg} ${radius.lg} ${radius.none} ${radius.none};
-    `}
+ padding: ${radius.md};
+ transition: all ${transition.easing['ease-in']} ${transition.duration.slow};
+ border-radius: ${radius.lg} ${radius.lg} ${radius.none} ${radius.none};
+ `}
 
     ${(props) =>
         props.$open &&
         props.$isShowNavBarRedesign &&
         `
-        background: ${colors.gray[1500]};
-        box-shadow: ${BOX_SHADOW};
-    `}
+ background: ${colors.gray[1500]};
+ box-shadow: ${BOX_SHADOW};
+ `}
 `;
 
 const SuffixWrapper = styled.div`
@@ -153,15 +155,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     onFocus={onFocusHandler}
                     onBlur={onBlurHandler}
                     allowClear={isDropdownOpened || isFocused}
-                    clearIcon={
-                        <Icon
-                            onClick={onClear}
-                            icon="XCircle"
-                            source="phosphor"
-                            size="2xl"
-                            data-testid="button-clear"
-                        />
-                    }
+                    clearIcon={<Icon onClick={onClear} icon={XCircle} size="2xl" data-testid="button-clear" />}
                     ref={ref}
                     suffix={
                         <SuffixWrapper>

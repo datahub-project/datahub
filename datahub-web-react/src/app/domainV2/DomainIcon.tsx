@@ -1,4 +1,4 @@
-import { Globe } from '@phosphor-icons/react';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import React from 'react';
 
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';

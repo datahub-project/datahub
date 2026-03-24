@@ -38,7 +38,7 @@
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
                 },
-                "native_column_type": "FLOAT"
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {

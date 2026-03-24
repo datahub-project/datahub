@@ -3628,7 +3628,7 @@
             },
             "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
             "type": "VIEW",
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a"
           }
         ],
         "fineGrainedLineages": [
@@ -3643,7 +3643,7 @@
             ],
             "transformOperation": "COPY: [persons].[id] AS [id]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a"
           },
           {
             "upstreamType": "FIELD_SET",
@@ -3656,7 +3656,7 @@
             ],
             "transformOperation": "COPY: [persons].[lastname] AS [lastname]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a"
           },
           {
             "upstreamType": "FIELD_SET",
@@ -3669,7 +3669,7 @@
             ],
             "transformOperation": "COPY: [persons].[firstname] AS [firstname]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a"
           },
           {
             "upstreamType": "FIELD_SET",
@@ -3682,7 +3682,7 @@
             ],
             "transformOperation": "COPY: [persons].[age] AS [age]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a"
           }
         ]
       }
@@ -3695,7 +3695,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -3724,7 +3724,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -3771,7 +3771,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3943,7 +3943,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_675d7f3addd89256e70900c3cb25d82532078b2f0dc3ac716a7f1da659ef133a",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

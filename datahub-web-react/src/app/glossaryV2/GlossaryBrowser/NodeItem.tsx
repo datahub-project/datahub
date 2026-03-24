@@ -7,7 +7,7 @@ import styled from 'styled-components/macro';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -44,32 +44,36 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     align-items: center;
     display: flex;
     font-size: 16px;
-    padding: 13px 0;
-    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
+    background-color: ${(props) => props.$isSelected && props.theme.colors.bgActive};
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
+
+    &:hover {
+        background-color: ${colors.gray[100]};
+        ${NameWrapper} {
+            color: ${(props) => props.theme.colors.textBrand};
+        }
+    }
 `;
 
 const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
-    color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+    color: ${(props) => (props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.borderFocused}`)};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+            props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.borderFocused}`};
     }
 `;
 
 const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
-    color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+    color: ${(props) => (props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.textActive}`)};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+            props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.textActive}`};
     }
 `;
 
@@ -104,7 +108,7 @@ const ChildrenCount = styled.div`
 const StyledDivider = styled.div<{ depth: number }>`
     width: calc(100% + 26px + ${(props) => props.depth * 18}px);
     margin-left: calc(-13px - ${(props) => props.depth * 18}px);
-    border-bottom: 1px solid #eae8fb;
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgActive};
 `;
 
 interface Props {
@@ -118,6 +122,7 @@ interface Props {
     selectNode?: (urn: string, displayName: string) => void;
     isChildNode?: boolean;
     depth: number;
+    selectedUrns?: string[];
 }
 
 function NodeItem(props: Props) {
@@ -132,6 +137,7 @@ function NodeItem(props: Props) {
         selectNode,
         isChildNode,
         depth,
+        selectedUrns,
     } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
@@ -174,6 +180,8 @@ function NodeItem(props: Props) {
         ?.filter((child) => child?.type === EntityType.GlossaryTerm)
         .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
 
+    const isSelected = isSelecting && selectedUrns?.includes(node.urn);
+
     if (shouldHideNode) return null;
 
     const glossaryColor = node.displayProperties?.colorHex || generateColor(node.urn);
@@ -213,6 +221,7 @@ function NodeItem(props: Props) {
                         {entityRegistry.getDisplayName(node.type, node)}
                     </NameWrapper>
                 )}
+                {isSelected && <SelectedMark />}
                 {!!noOfChildren && <ChildrenCount>{noOfChildren}</ChildrenCount>}
             </NodeWrapper>
             <StyledDivider depth={depth} />
@@ -237,6 +246,7 @@ function NodeItem(props: Props) {
                                     isChildNode
                                     key={child.urn}
                                     depth={depth + 1}
+                                    selectedUrns={selectedUrns}
                                 />
                             ))}
                             {!hideTerms &&
@@ -248,6 +258,7 @@ function NodeItem(props: Props) {
                                             selectTerm={selectTerm}
                                             includeActiveTabPath
                                             depth={depth + 1}
+                                            selectedUrns={selectedUrns}
                                         />
                                         <StyledDivider depth={depth + 1} />
                                     </span>

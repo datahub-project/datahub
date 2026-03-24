@@ -38,7 +38,7 @@ Watch the townhall demo to see this in action:
 ### Supported Events
 
 - `EntityChangeEvent_v1`
-- Currently, the `MetadataChangeLog_v1` event is **not** processed by the Action.
+- Currently, the `MetadataChangeLogEvent_v1` event is **not** processed by the Action.
 
 ## Action Quickstart
 

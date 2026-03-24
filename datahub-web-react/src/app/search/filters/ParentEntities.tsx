@@ -1,6 +1,6 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Tooltip, Typography } from 'antd';
-import { CaretRight } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -24,7 +24,7 @@ const ParentNode = styled(Typography.Text)<{ color?: string }>`
     color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
 `;
 
-export const ArrowWrapper = styled.span`
+const ArrowWrapper = styled.span`
     margin: 0 3px;
     display: flex;
     align-items: center;

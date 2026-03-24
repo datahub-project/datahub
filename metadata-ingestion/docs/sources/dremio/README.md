@@ -1,6 +1,10 @@
-### Concept Mapping
+## Overview
 
-Here's a table for **Concept Mapping** between Dremio and DataHub to provide a clear overview of how entities and concepts in Dremio are mapped to corresponding entities in DataHub:
+Dremio is a DataHub utility or metadata-focused integration.
+
+The DataHub integration for Dremio covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+
+## Concept Mapping
 
 | Source Concept             | DataHub Concept | Notes                                                      |
 | -------------------------- | --------------- | ---------------------------------------------------------- |

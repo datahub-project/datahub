@@ -1,4 +1,3 @@
-import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,6 +13,7 @@ import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 import { ActorWithDisplayNameFragment } from '@graphql/query.generated';
 import { CorpUser, Entity } from '@types';
@@ -121,7 +121,7 @@ export default function useQueryTableColumns({
         field: 'createdAt',
         sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.createdTime - queryB.createdTime,
         render: (date: number) => {
-            return <div>{moment(date).format('MM/DD/YYYY')}</div>;
+            return <div>{dayjs(date).format('MM/DD/YYYY')}</div>;
         },
     };
 

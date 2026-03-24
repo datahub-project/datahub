@@ -1,3 +1,4 @@
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -36,7 +37,7 @@ export default function SampleValueDetailed({ sample }: SampleValueDetailedProps
             </Sample>
 
             <Button
-                icon={{ icon: 'ContentCopy' }}
+                icon={{ icon: Copy }}
                 iconPosition="left"
                 isCircle
                 onClick={copySample}

@@ -1,4 +1,4 @@
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -48,7 +48,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             owners={owners}
-            logoComponent={<BookmarkSimple style={{ fontSize: '20px' }} />}
+            logoComponent={<BookmarkSimple size={20} color="currentColor" />}
             entityType={EntityType.GlossaryTerm}
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}
