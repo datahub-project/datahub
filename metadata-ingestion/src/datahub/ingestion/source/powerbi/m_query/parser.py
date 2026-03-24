@@ -90,6 +90,12 @@ def get_upstream_tables(
         reporter.m_query_native_query_skipped += 1
         return []
 
+    sibling_names: frozenset = frozenset(
+        t.name
+        for t in (table.dataset.tables if table.dataset else [])
+        if t.name != table.name
+    )
+
     reporter.m_query_parse_attempts += 1
 
     try:
@@ -145,6 +151,19 @@ def get_upstream_tables(
         )
 
         if not data_access_func_details:
+            if sibling_names:
+                table_refs = mquery_resolver.resolve_to_table_references(
+                    node_map, sibling_names
+                )
+                if table_refs:
+                    reporter.m_query_resolver_successes += 1
+                    return [
+                        Lineage(
+                            upstreams=[],
+                            column_lineage=[],
+                            powerbi_table_upstreams=table_refs,
+                        )
+                    ]
             logger.debug(
                 "No recognized data-access function found in expression for table %s."
                 " Expression may use an unsupported source (e.g. Web.Contents,"

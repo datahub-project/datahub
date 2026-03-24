@@ -1,0 +1,124 @@
+"""Tests for PowerBI table-to-table lineage (ING-1905)."""
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    ResolvePlatformInstanceFromDatasetTypeMapping,
+)
+from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    PowerBIDataset,
+    Table,
+)
+
+
+def _make_config() -> PowerBiDashboardSourceConfig:
+    return PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+    )
+
+
+def _make_table_with_siblings(
+    expression: str,
+    table_name: str,
+    sibling_names: list,
+) -> Table:
+    """Create a Table whose expression references sibling tables."""
+    subject = Table(name=table_name, full_name=f"Workspace.Dataset.{table_name}")
+    subject.expression = expression
+    siblings = [
+        Table(name=n, full_name=f"Workspace.Dataset.{n}") for n in sibling_names
+    ]
+    dataset = PowerBIDataset(
+        id="dataset-id",
+        name="Dataset",
+        description="",
+        webUrl=None,
+        workspace_id="workspace-id",
+        workspace_name="Workspace",
+        parameters={},
+        tables=[subject] + siblings,
+        tags=[],
+    )
+    subject.dataset = dataset
+    for s in siblings:
+        s.dataset = dataset
+    return subject
+
+
+def _upstream_tables(expression: str, table_name: str, sibling_names: list) -> list:
+    """Run get_upstream_tables() and return all powerbi_table_upstreams."""
+    table = _make_table_with_siblings(expression, table_name, sibling_names)
+    config = _make_config()
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        parameters={},
+    )
+    result = []
+    for lineage in lineages:
+        result.extend(lineage.powerbi_table_upstreams)
+    return result
+
+
+def test_bare_identifier_references_sibling_table():
+    """Bare identifier expression DimDate → references sibling table DimDate."""
+    refs = _upstream_tables("DimDate", "CalcTable", ["DimDate", "OtherTable"])
+    assert refs == ["DimDate"]
+
+
+def test_quoted_let_identifier_references_sibling_table():
+    """let source=#"tbl_PayrollHistory" in source → references tbl_PayrollHistory."""
+    expr = 'let\n    source = #"tbl_PayrollHistory"\nin\n    source'
+    refs = _upstream_tables(expr, "CalcTable", ["tbl_PayrollHistory"])
+    assert refs == ["tbl_PayrollHistory"]
+
+
+def test_table_combine_references_multiple_siblings():
+    """Table.Combine({tblA, tblB}) → references both sibling tables."""
+    expr = (
+        "let\n"
+        "    Source = Table.Combine({tblA, tblB}),\n"
+        '    #"Filtered Rows" = Table.SelectRows(Source, each [Active] = true)\n'
+        "in\n"
+        '    #"Filtered Rows"'
+    )
+    refs = _upstream_tables(expr, "CalcTable", ["tblA", "tblB"])
+    assert sorted(refs) == ["tblA", "tblB"]
+
+
+def test_external_source_expression_unchanged():
+    """M-Query with Sql.Database should produce upstreams, not powerbi_table_upstreams."""
+    expr = (
+        "let\n"
+        '    Source = Sql.Database("myserver", "mydb"),\n'
+        '    dbo_orders = Source{[Schema="dbo", Item="orders"]}[Data]\n'
+        "in\n"
+        "    dbo_orders"
+    )
+    table = _make_table_with_siblings(expr, "OrdersTable", ["OtherTable"])
+    config = _make_config()
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        parameters={},
+    )
+    pbi_refs = [ref for lin in lineages for ref in lin.powerbi_table_upstreams]
+    ext_upstreams = [u for lin in lineages for u in lin.upstreams]
+    assert pbi_refs == [], "External source should not produce powerbi_table_upstreams"
+    assert len(ext_upstreams) >= 1, "External source should produce upstreams"
