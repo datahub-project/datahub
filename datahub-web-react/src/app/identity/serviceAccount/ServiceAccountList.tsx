@@ -1,3 +1,4 @@
+import { ShieldWarning } from '@phosphor-icons/react/dist/csr/ShieldWarning';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -10,7 +11,6 @@ import {
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
 import { Message } from '@app/shared/Message';
 import { Button, Icon, Modal, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 const PageContainer = styled.div`
     display: flex;
@@ -27,7 +27,7 @@ const NoPermissionContainer = styled.div`
     padding: 60px 20px;
     text-align: center;
     gap: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type ServiceAccountListProps = {
@@ -95,7 +95,7 @@ export const ServiceAccountList = ({
     if (!canManageServiceAccounts) {
         return (
             <NoPermissionContainer>
-                <Icon icon="ShieldWarning" source="phosphor" size="4xl" color="gray" />
+                <Icon icon={ShieldWarning} size="4xl" color="gray" />
                 <Text size="lg" weight="semiBold">
                     Access Denied
                 </Text>
@@ -135,7 +135,6 @@ export const ServiceAccountList = ({
                 }}
                 onDelete={handleDelete}
                 onRoleChange={handleRoleChange}
-                refetch={refetch}
             />
 
             {isCreatingServiceAccount && (

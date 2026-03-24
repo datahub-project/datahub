@@ -25,6 +25,16 @@ from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
+
+@pytest.fixture(autouse=True)
+def mock_service_account_credentials():
+    """Mock from_service_account_info so tests with dummy private keys don't fail PEM validation."""
+    with mock.patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+    ):
+        yield
+
+
 default_connector_query_results = [
     {
         "connection_id": "calendar_elected",
@@ -198,9 +208,14 @@ def test_quoted_query_transpilation(schema):
     fivetran_log_query = FivetranLogQuery()
     fivetran_log_query.use_database("test_database")
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.fetchone.side_effect = ["test-project-id"]
 
@@ -338,9 +353,14 @@ def test_quoted_database_identifiers(db_name):
     # Test without platform (default behavior - always quote)
     fivetran_log_query = FivetranLogQuery()
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.fetchone.side_effect = ["test-project-id"]
 
@@ -524,9 +544,14 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     output_file = tmp_path / "fivetran_test_events.json"
     golden_file = test_resources_dir / "fivetran_snowflake_golden.json"
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.side_effect = default_query_results
 
@@ -609,9 +634,14 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
         test_resources_dir / "fivetran_snowflake_empty_connection_user_golden.json"
     )
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
 
         connector_query_results = [

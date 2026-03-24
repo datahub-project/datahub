@@ -114,6 +114,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+          // K8 scale-down and Kubernetes config (label selectors, KEDA, rollout, env JSON - not
+          // secrets)
+          "systemUpdate.kubernetesScaleDown.*",
 
           // Consistency checks configuration
           "consistencyChecks.checks.*.*",
@@ -121,8 +124,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Kafka topic Configs
           "kafka.topics.*.name",
+          "kafka.topics.*.displayName",
           "kafka.topics.*.partitions",
           "kafka.topics.*.enabled",
+          "kafka.topics.*.pollEnabled",
           "kafka.topics.*.replicationFactor",
           "kafka.topics.*.configProperties.max.message.bytes",
           "kafka.topics.*.configProperties.retention.ms",
@@ -188,6 +193,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "kubernetes.serviceHost",
+          "kubernetes.operationsApiEnabled",
           "tokenService",
           // Configuration keys and settings (not secret keys)
           "key",
@@ -420,6 +427,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "bootstrap.servlets.waitTimeout",
           "configEntityRegistry.path",
           "configEntityRegistry.resource",
+          "configEntityRegistry.useOptimizedLoading",
           "spring.application.name",
           "spring.application.pid",
           "spring.error.include-exception",
@@ -680,6 +688,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.introspectionEnabled",
           "graphQL.query.maxParentDepth",
           "graphQL.query.maxVisitedUrns",
+          "graphQL.query.slowQueryThresholdMs",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
