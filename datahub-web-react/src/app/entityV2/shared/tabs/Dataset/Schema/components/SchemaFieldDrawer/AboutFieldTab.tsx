@@ -1,4 +1,3 @@
-import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -16,6 +15,7 @@ import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import dayjs from '@utils/dayjs';
 
 import {
     DatasetFieldProfile,
@@ -77,7 +77,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
 
-    const notes = properties.notes?.sort((a, b) => moment(b.lastModified.time).diff(moment(a.lastModified.time))) || [];
+    const notes = properties.notes?.sort((a, b) => dayjs(b.lastModified.time).diff(dayjs(a.lastModified.time))) || [];
 
     const delayedRefetchNotes = () =>
         setTimeout(() => refetchNotes?.(), 2000) && setTimeout(() => refetchNotes?.(), 5000);
