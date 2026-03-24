@@ -605,15 +605,25 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 activity=activity,
                 workspace_id=pipeline_item.workspace_id,
             )
-            if input_urns or output_urns:
+            missing_source = not input_urns
+            missing_sink = not output_urns
+
+            if not missing_source and not missing_sink:
                 self.report.report_lineage_extracted()
-            else:
+            elif missing_source and missing_sink:
                 self.report.report_lineage_failed(activity_key)
                 self.report.report_warning(
                     title="Copy Activity Lineage Not Resolved",
-                    message="Could not resolve dataset lineage. "
-                    "Retrieve the pipeline definition JSON to "
-                    "identify the unsupported format.",
+                    message="Neither source nor destination could be resolved.",
+                    context=activity_key,
+                )
+            else:
+                self.report.report_lineage_extracted()
+                missing_side = "source (input)" if missing_source else "sink (output)"
+                self.report.report_warning(
+                    title="Copy Activity Lineage Partially Resolved",
+                    message=f"Missing {missing_side} dataset. "
+                    f"Check the activity's {missing_side} connection type and settings.",
                     context=activity_key,
                 )
             return input_urns, output_urns
