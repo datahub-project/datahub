@@ -1,6 +1,6 @@
 import logging
 import warnings
-from typing import Dict, List
+from typing import Any, Dict, FrozenSet, List, Optional
 
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _PYDAXLEXER_WARNING_ISSUED = False
 
 
-def _get_dax_expression(expression: str):  # type: ignore[return]
+def _get_dax_expression(expression: str) -> Optional[Any]:
     """Import DAXExpression lazily, warn once if PyDAXLexer is not installed."""
     global _PYDAXLEXER_WARNING_ISSUED
     try:
@@ -22,6 +22,7 @@ def _get_dax_expression(expression: str):  # type: ignore[return]
         return DAXExpression(expression)
     except ImportError:
         if not _PYDAXLEXER_WARNING_ISSUED:
+            # stacklevel=3: warn → _get_dax_expression → public caller (extract_dax_*)
             warnings.warn(
                 "PyDAXLexer is not installed; DAX lineage will not be extracted. "
                 "Install with: pip install 'acryl-datahub[powerbi]'",
@@ -33,7 +34,7 @@ def _get_dax_expression(expression: str):  # type: ignore[return]
 
 def extract_dax_table_references(
     expression: str,
-    sibling_names: frozenset,
+    sibling_names: FrozenSet[str],
 ) -> List[str]:
     """Extract table references from a DAX expression, filtered to known sibling tables.
 

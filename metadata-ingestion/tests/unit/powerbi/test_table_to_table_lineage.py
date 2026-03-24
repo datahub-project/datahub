@@ -93,7 +93,7 @@ def test_bare_identifier_references_sibling_table():
     refs = [r for lin in lineages for r in lin.powerbi_table_upstreams]
     assert refs == ["DimDate"]
     assert reporter.m_query_resolver_successes == 1, (
-        "Expected bridge parse path, not MQueryParseError path"
+        "Expected a resolver path to find the sibling reference"
     )
 
 
