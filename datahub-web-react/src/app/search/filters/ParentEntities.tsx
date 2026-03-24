@@ -1,6 +1,6 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Tooltip, Typography } from 'antd';
-import { CaretRight } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
