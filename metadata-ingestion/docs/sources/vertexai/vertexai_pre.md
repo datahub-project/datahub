@@ -98,7 +98,7 @@ Grant the following permissions to the service account on all target projects.
     client_id: "123456678890"
   ```
 
-### Integration Details
+#### Integration Details
 
 Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
 
@@ -126,7 +126,7 @@ For improved organization in the DataHub UI:
 - Model versions are organized under their respective model group folders
 - Pipeline tasks and task runs are nested under their parent pipeline folders
 
-#### New Features for CustomJob Lineage
+##### New Features for CustomJob Lineage
 
 The connector now supports extracting lineage and metrics from CustomJob training jobs using the **Vertex AI ML Metadata API**. This enables:
 
@@ -142,7 +142,7 @@ These features are controlled by new configuration options:
 
 **Note**: For CustomJob lineage to work, your training jobs must log to Vertex AI ML Metadata. This happens automatically when using Vertex AI Experiments SDK or manually logging artifacts/executions to ML Metadata.
 
-#### Concept Mapping
+##### Concept Mapping
 
 This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
 
@@ -166,7 +166,7 @@ Vertex AI Concept Diagram:
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-ingestion/vertexai/concept-mapping.png"/>
 </p>
 
-#### Lineage
+##### Lineage
 
 The connector captures comprehensive lineage relationships including cross-platform lineage to external data sources:
 
@@ -224,7 +224,7 @@ with aiplatform.start_execution(
     execution.assign_output_artifacts([model_artifact])
 ```
 
-#### Cross-Platform Lineage Configuration
+##### Cross-Platform Lineage Configuration
 
 To ensure external datasets are properly linked with correct platform instances and environments, configure `platform_instance_map`:
 
