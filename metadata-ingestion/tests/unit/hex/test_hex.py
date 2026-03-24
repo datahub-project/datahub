@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hex.hex import HexSource, HexSourceConfig
