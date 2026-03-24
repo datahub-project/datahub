@@ -377,6 +377,8 @@ mssql_common = {
 postgres_common = {
     "psycopg2-binary<3.0.0",
     "GeoAlchemy2<0.19.0",
+    # geoalchemy2/shape.py expects shapely available at import on some releases; without it imports can fail (see #16296).
+    "shapely>=1.8.0,<3.0.0",
 }
 
 s3_base = {

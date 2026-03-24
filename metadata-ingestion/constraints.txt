@@ -944,6 +944,7 @@ numpy==1.26.4
     #   pandas
     #   pydeequ
     #   scipy
+    #   shapely
     #   spacy
     #   thinc
     #   unstructured
@@ -1511,6 +1512,8 @@ setuptools==81.0.0
     #   redshift-connector
     #   spacy
     #   thinc
+shapely==2.1.2
+    # via acryl-datahub
 shellingham==1.5.4
     # via typer
 simple-salesforce==1.12.9
