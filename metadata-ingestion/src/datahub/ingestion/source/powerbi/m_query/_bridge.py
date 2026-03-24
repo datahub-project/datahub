@@ -103,7 +103,13 @@ class MQueryBridge:
                 result.get("error", "unknown error"), expression=expression
             )
 
-        return {int(node_id): node for node_id, node in result["nodeIdMap"]}
+        node_id_map = result.get("nodeIdMap")
+        if node_id_map is None:
+            raise MQueryBridgeError(
+                "M-Query bridge returned ok=true but 'nodeIdMap' is missing from response"
+            )
+
+        return {int(node_id): node for node_id, node in node_id_map}
 
 
 _bridge_instance: Optional[MQueryBridge] = None

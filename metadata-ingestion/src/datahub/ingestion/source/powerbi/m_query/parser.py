@@ -31,12 +31,18 @@ logger = logging.getLogger(__name__)
 
 def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
     """Call the bridge and return the NodeIdMap dict.
-    Clears the singleton on bridge crash so the next call gets a fresh process.
+    Clears the singleton on bridge crash or timeout so the next call gets a fresh context.
     """
     try:
         with threading_timeout(timeout):
             return get_bridge().parse(expression)
     except MQueryBridgeError:
+        _clear_bridge()
+        raise
+    except TimeoutException:
+        # The timeout interrupts the Python thread mid-V8-eval, leaving the MiniRacer
+        # context in an undefined state. Clear the singleton so the next call gets a
+        # fresh context rather than reusing the potentially-corrupted one.
         _clear_bridge()
         raise
 

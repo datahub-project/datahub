@@ -1,12 +1,12 @@
-import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from datahub.configuration.env_vars import get_trace_powerbi_mquery_parser
 from datahub.ingestion.source.powerbi.config import DataPlatformPair
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 
-TRACE_POWERBI_MQUERY_PARSER = os.getenv("DATAHUB_TRACE_POWERBI_MQUERY_PARSER", False)
+TRACE_POWERBI_MQUERY_PARSER: bool = get_trace_powerbi_mquery_parser()
 
 
 @dataclass
@@ -38,11 +38,7 @@ class DataAccessFunctionDetail:
     )
     identifier_accessor: Optional[IdentifierAccessor]
     node_map: Dict[int, dict]  # full NodeIdMap for ast_utils navigation
-    parameters: Dict[str, str] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.parameters is None:
-            self.parameters = {}
+    parameters: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
