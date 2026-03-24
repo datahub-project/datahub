@@ -67,6 +67,7 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
+    ForeignKeyConstraintClass,
     SchemaFieldClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -1263,6 +1264,19 @@ class SQLServerSource(SQLAlchemySource):
                 entityUrn=data_flow.urn,
                 aspect=data_flow.as_container_aspect,
             ).as_workunit()
+
+    def get_foreign_key_metadata(
+        self,
+        dataset_urn: str,
+        schema: str,
+        fk_dict: Dict[str, Any],
+        inspector: Inspector,
+    ) -> ForeignKeyConstraintClass:
+        fk_dict["constrained_columns"] = [
+            f.lower() for f in fk_dict["constrained_columns"]
+        ]
+        fk_dict["referred_columns"] = [f.lower() for f in fk_dict["referred_columns"]]
+        return super().get_foreign_key_metadata(dataset_urn, schema, fk_dict, inspector)
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically

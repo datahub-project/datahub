@@ -2311,10 +2311,10 @@
                             {
                                 "name": "FK_TempSales_SalesReason",
                                 "foreignFields": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),ID)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),id)"
                                 ],
                                 "sourceFields": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),TempID)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),tempid)"
                                 ],
                                 "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)"
                             }
