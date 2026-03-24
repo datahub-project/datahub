@@ -40,6 +40,8 @@ annotated-doc==0.0.4
     #   typer
 annotated-types==0.7.0
     # via pydantic
+antlr4-python3-runtime==4.13.2
+    # via pydaxlexer
 anyio==4.12.1
     # via
     #   google-genai
@@ -1182,6 +1184,8 @@ pydantic-core==2.33.2
     # via pydantic
 pydash==8.0.6
     # via okta
+pydaxlexer==0.3.0
+    # via acryl-datahub
 pydeequ==1.5.0
     # via acryl-datahub
 pydruid==0.6.9
