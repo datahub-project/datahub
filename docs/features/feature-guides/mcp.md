@@ -199,7 +199,7 @@ claude mcp add --transport http \
   "https://<tenant>.acryl.io/integrations/ai/mcp/"
 ```
 
-For a detailed walkthrough, see the [Claude Code integration guide](../../dev-guides/agent-context/claude-code.md).
+For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
 
 </details>
 
@@ -226,6 +226,20 @@ For a detailed walkthrough, see the [Claude Code integration guide](../../dev-gu
 4. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
 
 For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+
+</details>
+
+<details>
+  <summary>Gemini CLI</summary>
+
+```bash
+gemini mcp add --transport http \
+  --header "Authorization: Bearer <token>" \
+  datahub-cloud \
+  "https://<tenant>.acryl.io/integrations/ai/mcp/"
+```
+
+For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
 
 </details>
 
@@ -312,7 +326,7 @@ claude mcp add datahub \
   -- uvx mcp-server-datahub@latest
 ```
 
-For a detailed walkthrough, see the [Claude Code integration guide](../../dev-guides/agent-context/claude-code.md).
+For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
 
 </details>
 
@@ -340,6 +354,21 @@ For a detailed walkthrough, see the [Claude Code integration guide](../../dev-gu
 3. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
 
 For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+
+</details>
+
+<details>
+  <summary>Gemini CLI</summary>
+
+```bash
+gemini mcp add \
+  -e DATAHUB_GMS_URL="<your-datahub-url>" \
+  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
+  datahub \
+  uvx mcp-server-datahub@latest
+```
+
+For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
 
 </details>
 
