@@ -325,6 +325,13 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Sibling table reference resolution
+# Finds identifiers in the AST that are unresolved in the current let scope
+# and match known sibling PowerBI table names (table-to-table lineage).
+# ---------------------------------------------------------------------------
+
+
 def _resolve_identifier_for_table_refs(
     node_map: NodeIdMap,
     name: str,
@@ -336,6 +343,7 @@ def _resolve_identifier_for_table_refs(
     seen: Set[Tuple[Optional[int], str]],
 ) -> None:
     """Resolve a single identifier name and check if it maps to a sibling table."""
+    # None current_let_id means the identifier appears at root scope (no surrounding let)
     guard_key = (current_let_id, name.lower())
     if guard_key in seen:
         return
@@ -407,7 +415,7 @@ def _walk_for_table_refs(
             node_map,
             node.get("expression"),
             node,
-            id(node),
+            node.get("id", id(node)),  # prefer stable AST id; fall back to Python id
             sibling_names_lower,
             sibling_name_map,
             results,
@@ -468,6 +476,11 @@ def _walk_for_table_refs(
         return
 
     if kind == "RecursivePrimaryExpression":
+        # Walk head (e.g. the bare table name before any accessor) and any
+        # InvokeExpression arguments (e.g. Table.Combine({tblA, tblB})).
+        # ItemAccessExpression steps (e.g. Source{[Kind="Table"]}[Data]) are
+        # intentionally skipped — table references appear as the head, not inside
+        # accessor arguments.
         _walk_for_table_refs(
             node_map,
             node.get("head"),
@@ -563,7 +576,7 @@ def resolve_to_table_references(
             set(),
         )
 
-    return results
+    return list(dict.fromkeys(results))
 
 
 def _walk_identifier_name(

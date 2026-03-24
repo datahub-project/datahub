@@ -1,5 +1,7 @@
 """Tests for PowerBI table-to-table lineage (ING-1905)."""
 
+from typing import List
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -26,7 +28,7 @@ def _make_config() -> PowerBiDashboardSourceConfig:
 def _make_table_with_siblings(
     expression: str,
     table_name: str,
-    sibling_names: list,
+    sibling_names: List[str],
 ) -> Table:
     """Create a Table whose expression references sibling tables."""
     subject = Table(name=table_name, full_name=f"Workspace.Dataset.{table_name}")
@@ -51,7 +53,9 @@ def _make_table_with_siblings(
     return subject
 
 
-def _upstream_tables(expression: str, table_name: str, sibling_names: list) -> list:
+def _upstream_tables(
+    expression: str, table_name: str, sibling_names: List[str]
+) -> List[str]:
     """Run get_upstream_tables() and return all powerbi_table_upstreams."""
     table = _make_table_with_siblings(expression, table_name, sibling_names)
     config = _make_config()
@@ -73,8 +77,24 @@ def _upstream_tables(expression: str, table_name: str, sibling_names: list) -> l
 
 def test_bare_identifier_references_sibling_table():
     """Bare identifier expression DimDate → references sibling table DimDate."""
-    refs = _upstream_tables("DimDate", "CalcTable", ["DimDate", "OtherTable"])
+    table = _make_table_with_siblings("DimDate", "CalcTable", ["DimDate", "OtherTable"])
+    config = _make_config()
+    reporter = PowerBiDashboardSourceReport()
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        parameters={},
+    )
+    refs = [r for lin in lineages for r in lin.powerbi_table_upstreams]
     assert refs == ["DimDate"]
+    assert reporter.m_query_resolver_successes == 1, (
+        "Expected bridge parse path, not MQueryParseError path"
+    )
 
 
 def test_quoted_let_identifier_references_sibling_table():
