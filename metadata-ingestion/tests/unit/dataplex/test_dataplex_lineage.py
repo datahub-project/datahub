@@ -213,8 +213,7 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     )
 
     assert isinstance(lineage_by_full_dataset_id, dict)
-    # The map should have entries for entries that have lineage
-    assert lineage_extractor.report.num_lineage_entries_scanned >= 0
+    assert lineage_extractor.report.num_lineage_entries_scanned == 2
 
 
 def test_get_lineage_for_table_no_lineage(

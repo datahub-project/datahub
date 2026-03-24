@@ -14,7 +14,11 @@ class DataplexReport(StaleEntityRemovalSourceReport):
     """Report for Dataplex ingestion."""
 
     num_lineage_relationships_created: int = 0
+    num_lineage_entries_processed: int = 0
     num_lineage_entries_scanned: int = 0
+    num_lineage_entries_without_lineage: int = 0
+    num_lineage_entries_skipped_unsupported_type: int = 0
+    num_lineage_upstream_fqns_skipped: int = 0
     num_lineage_entries_failed: int = 0
 
     entries_report: DataplexEntriesReport = field(default_factory=DataplexEntriesReport)

@@ -294,21 +294,18 @@ class DataplexLineageExtractor:
         lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
             collections.defaultdict(set)
         )
-        entry_count = 0
-
         for entry in entry_data:
-            entry_count += 1
-            logger.debug(
-                f"Processing entry {entry_count}: {entry.datahub_dataset_name} (platform: {entry.datahub_platform})"
-            )
+            self.report.num_lineage_entries_processed += 1
             lineage_data = self.get_lineage_for_entry(project_id, entry)
 
             if not lineage_data:
+                self.report.num_lineage_entries_without_lineage += 1
                 continue
 
             if not is_supported_lineage_entry_type(
                 entry.dataplex_entry_type_short_name
             ):
+                self.report.num_lineage_entries_skipped_unsupported_type += 1
                 continue
 
             # Convert upstream FQNs to LineageEdge objects
@@ -330,6 +327,18 @@ class DataplexLineageExtractor:
                     logger.debug(
                         f"  Added lineage edge: {entry.datahub_dataset_name} <- {upstream_dataset_id}"
                     )
+                else:
+                    self.report.num_lineage_upstream_fqns_skipped += 1
+                    self.report.warning(
+                        "Unable to normalize upstream Dataplex lineage FQN. Skipping upstream edge.",
+                        title="Dataplex upstream lineage parse failed",
+                        context=(
+                            f"project_id={project_id}, "
+                            f"entry={entry.datahub_dataset_name}, "
+                            f"entry_type={entry.dataplex_entry_type_short_name}, "
+                            f"upstream_fqn={upstream_fqn}"
+                        ),
+                    )
 
         self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
 
@@ -337,7 +346,16 @@ class DataplexLineageExtractor:
         total_edges = sum(len(edges) for edges in lineage_by_full_dataset_id.values())
         entries_with_lineage = len(lineage_by_full_dataset_id)
         logger.info(
-            f"Lineage map complete: {entries_with_lineage} entries with lineage, {total_edges} total edges"
+            "Lineage map complete for project %s: entries_with_lineage=%s, total_edges=%s, "
+            "processed=%s, no_lineage=%s, unsupported=%s, failed=%s, upstream_parse_skipped=%s",
+            project_id,
+            entries_with_lineage,
+            total_edges,
+            self.report.num_lineage_entries_processed,
+            self.report.num_lineage_entries_without_lineage,
+            self.report.num_lineage_entries_skipped_unsupported_type,
+            self.report.num_lineage_entries_failed,
+            self.report.num_lineage_upstream_fqns_skipped,
         )
 
         return lineage_by_full_dataset_id
