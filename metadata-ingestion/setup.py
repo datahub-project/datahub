@@ -81,6 +81,8 @@ framework_common = {
 rest_common = {
     "requests<3.0.0",
     "requests_file<4.0.0",
+    # Required for GraphQL query adaptation and schema introspection
+    "graphql-core>=3.0.0,<4.0.0",
 }
 
 kafka_common = {
@@ -564,7 +566,7 @@ plugins: Dict[str, Set[str]] = {
     "azure-data-factory": azure_data_factory,
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
-        "pyodbc>=4.0,<5.0",
+        "pyodbc>=4.0,<6.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
