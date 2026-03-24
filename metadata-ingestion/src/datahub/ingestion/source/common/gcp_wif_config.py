@@ -106,28 +106,37 @@ def load_wif_credentials(
     Raises:
         ValueError: If no WIF configuration is provided or if credential loading fails.
     """
-    if wif_config.gcp_wif_configuration:
-        with open(wif_config.gcp_wif_configuration) as f:
-            wif_config_dict: Dict[str, Any] = json.load(f)
-        logger.info(
-            "Using Workload Identity Federation configuration from file: %s",
+    if not any(
+        [
             wif_config.gcp_wif_configuration,
-        )
-    elif wif_config.gcp_wif_configuration_json:
-        if isinstance(wif_config.gcp_wif_configuration_json, dict):
-            wif_config_dict = wif_config.gcp_wif_configuration_json
-        else:
-            wif_config_dict = json.loads(wif_config.gcp_wif_configuration_json)
-        logger.info(
-            "Using Workload Identity Federation configuration from JSON content"
-        )
-    elif wif_config.gcp_wif_configuration_json_string:
-        wif_config_dict = json.loads(wif_config.gcp_wif_configuration_json_string)
-        logger.info("Using Workload Identity Federation configuration from JSON string")
-    else:
+            wif_config.gcp_wif_configuration_json,
+            wif_config.gcp_wif_configuration_json_string,
+        ]
+    ):
         raise ValueError("No valid WIF configuration provided")
 
     try:
+        if wif_config.gcp_wif_configuration:
+            with open(wif_config.gcp_wif_configuration) as f:
+                wif_config_dict: Dict[str, Any] = json.load(f)
+            logger.info(
+                "Using Workload Identity Federation configuration from file: %s",
+                wif_config.gcp_wif_configuration,
+            )
+        elif wif_config.gcp_wif_configuration_json:
+            if isinstance(wif_config.gcp_wif_configuration_json, dict):
+                wif_config_dict = wif_config.gcp_wif_configuration_json
+            else:
+                wif_config_dict = json.loads(wif_config.gcp_wif_configuration_json)
+            logger.info(
+                "Using Workload Identity Federation configuration from JSON content"
+            )
+        else:
+            wif_config_dict = json.loads(wif_config.gcp_wif_configuration_json_string)  # type: ignore[arg-type]
+            logger.info(
+                "Using Workload Identity Federation configuration from JSON string"
+            )
+
         credentials, project_id = load_credentials_from_dict(wif_config_dict)
         # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
         credentials = credentials.with_scopes(

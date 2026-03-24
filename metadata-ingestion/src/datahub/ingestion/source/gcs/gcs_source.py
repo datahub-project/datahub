@@ -2,6 +2,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
+from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -97,24 +98,24 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
     Only used when auth_type is workload_identity_federation.
     """
 
+    def _apply_oauth(self, boto3_client: Any) -> None:
+        creds = getattr(self, "_gcs_oauth_credentials", None)
+        project_id = getattr(self, "_gcs_oauth_project_id", None)
+        if creds is not None:
+            _register_gcs_oauth_before_send(boto3_client, creds, project_id)
+
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
         client = super().get_s3_client(verify_ssl=verify_ssl)
-        creds = getattr(self, "_gcs_oauth_credentials", None)
-        project_id = getattr(self, "_gcs_oauth_project_id", None)
-        if creds is not None:
-            _register_gcs_oauth_before_send(client, creds, project_id)
+        self._apply_oauth(client)
         return client
 
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3ServiceResource":
         resource = super().get_s3_resource(verify_ssl=verify_ssl)
-        creds = getattr(self, "_gcs_oauth_credentials", None)
-        project_id = getattr(self, "_gcs_oauth_project_id", None)
-        if creds is not None:
-            _register_gcs_oauth_before_send(resource.meta.client, creds, project_id)
+        self._apply_oauth(resource.meta.client)
         return resource
 
 
@@ -230,7 +231,7 @@ class GCSSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
-        self._wif_credentials: Optional[Any] = None
+        self._wif_credentials: Optional[Credentials] = None
         self._wif_project_id: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
@@ -267,16 +268,6 @@ class GCSSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
             )
         else:  # workload_identity_federation
-            wif_options = [
-                self.config.gcp_wif_configuration,
-                self.config.gcp_wif_configuration_json,
-                self.config.gcp_wif_configuration_json_string,
-            ]
-            if not any(wif_options):
-                raise ValueError(
-                    "One of gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string is required when auth_type is 'workload_identity_federation'"
-                )
-
             # For workload identity federation, we don't use HMAC credentials.
             # Use a GCS OAuth config that injects Bearer token into boto3 requests.
             self._setup_wif_credentials()
@@ -287,6 +278,8 @@ class GCSSource(StatefulIngestionSourceBase):
                 aws_access_key_id="gcs-oauth",
                 aws_secret_access_key="not-used",
             )
+            # Pydantic v2 models freeze field assignment after __init__; object.__setattr__
+            # bypasses this to attach runtime-only state that is not part of the config schema.
             object.__setattr__(
                 aws_config, "_gcs_oauth_credentials", self._wif_credentials
             )
@@ -385,4 +378,5 @@ class GCSSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self) -> None:
+        self.s3_source.close()
         super().close()
