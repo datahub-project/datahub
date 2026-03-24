@@ -1,4 +1,4 @@
-import moment from 'moment';
+import dayjs from '@utils/dayjs';
 
 import { CorpUser } from '@types';
 
@@ -108,11 +108,11 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
 export type RelativeTimeStatus = 'green' | 'yellow' | 'red';
 
 export function getRelativeTimeStatus(time: number): RelativeTimeStatus {
-    const relativeTime = moment(time);
-    if (relativeTime.isAfter(moment().subtract(1, 'week'))) {
+    const relativeTime = dayjs(time);
+    if (relativeTime.isAfter(dayjs().subtract(1, 'week'))) {
         return 'green';
     }
-    if (relativeTime.isAfter(moment().subtract(1, 'month'))) {
+    if (relativeTime.isAfter(dayjs().subtract(1, 'month'))) {
         return 'yellow';
     }
     return 'red';
