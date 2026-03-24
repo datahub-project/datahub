@@ -32,11 +32,6 @@ class EntriesFilterConfig(ConfigModel):
         description="Regex patterns for Dataplex fully-qualified names to filter in ingestion.",
     )
 
-    @property
-    def dataset_pattern(self) -> AllowDenyPattern:
-        """Backward-compatible alias for the old entries dataset pattern field."""
-        return self.pattern
-
 
 class EntryGroupFilterConfig(ConfigModel):
     """Filter configuration for Dataplex entry groups."""

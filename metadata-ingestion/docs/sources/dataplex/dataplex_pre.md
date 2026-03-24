@@ -4,6 +4,10 @@ The `dataplex` module ingests metadata from Dataplex into DataHub. It is intende
 
 The Dataplex connector extracts metadata from Google Dataplex using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
 
+#### Spanner entry collection behavior
+
+Spanner entries are collected through an additional `search_entries` workaround after the entry-group traversal phase. Because those entries are not discovered through `list_entry_groups`, `filter_config.entry_groups.pattern` does not apply to them. Use entry-level filters (`filter_config.entries.pattern` and `filter_config.entries.fqn_pattern`) to control Spanner inclusion.
+
 #### Supported services
 
 - **BigQuery**: datasets, tables, models, routines, connections, and linked datasets

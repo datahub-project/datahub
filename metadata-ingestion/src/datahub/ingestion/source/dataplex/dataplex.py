@@ -154,6 +154,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             entry_data_by_project=self.entry_data_by_project,
             entry_data_lock=self._entry_data_lock,
+            source_report=self.report,
         )
 
     @staticmethod

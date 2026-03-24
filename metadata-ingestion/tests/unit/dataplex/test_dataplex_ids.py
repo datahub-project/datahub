@@ -22,6 +22,22 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
 )
 
 
+def test_schema_key_parent_chain_for_project_has_no_duplicate_step() -> None:
+    table_key = build_schema_key_from_fqn(
+        "cloudsql-mysql-table",
+        "cloudsql_mysql:harshal-playground-306419.us-west2.sergio-test.sergio-db.your_table",
+    )
+    assert table_key is not None
+    database_key = table_key.parent_key()
+    assert database_key is not None
+    instance_key = database_key.parent_key()
+    assert instance_key is not None
+    project_key = instance_key.parent_key()
+    assert project_key is not None
+    # Project key should terminate immediately after one parent_key() call.
+    assert project_key.parent_key() is None
+
+
 @pytest.mark.parametrize(
     "entry_type,expected_short_name",
     [

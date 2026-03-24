@@ -23,19 +23,19 @@ class TestDataplexFilterConfig:
         """Test that EntriesFilterConfig has correct defaults."""
         config = EntriesFilterConfig()
 
-        # Dataset pattern should allow everything by default
-        assert config.dataset_pattern.allowed("any-entry")
+        # Entry pattern should allow everything by default
+        assert config.pattern.allowed("any-entry")
 
     def test_entries_filter_config_with_patterns(self):
         """Test EntriesFilterConfig with custom patterns."""
         config = EntriesFilterConfig(
-            dataset_pattern={"allow": ["bq_.*"], "deny": [".*_test"]},
+            pattern={"allow": ["bq_.*"], "deny": [".*_test"]},
         )
 
-        # Dataset filtering
-        assert config.dataset_pattern.allowed("bq_customers")
-        assert not config.dataset_pattern.allowed("bq_customers_test")
-        assert not config.dataset_pattern.allowed("gcs_files")
+        # Entry filtering
+        assert config.pattern.allowed("bq_customers")
+        assert not config.pattern.allowed("bq_customers_test")
+        assert not config.pattern.allowed("gcs_files")
 
     def test_dataplex_filter_config_defaults(self):
         """Test that DataplexFilterConfig has correct defaults."""
@@ -49,19 +49,19 @@ class TestDataplexFilterConfig:
 
         # Entries sub-config should exist with defaults
         assert config.entries is not None
-        assert config.entries.dataset_pattern.allowed("any-entry")
+        assert config.entries.pattern.allowed("any-entry")
 
     def test_dataplex_filter_config_with_nested_patterns(self):
         """Test DataplexFilterConfig with nested entries patterns."""
         config = DataplexFilterConfig(
             entries={
-                "dataset_pattern": {"allow": ["entry_.*"]},
+                "pattern": {"allow": ["entry_.*"]},
             },
         )
 
         # Entries filtering
-        assert config.entries.dataset_pattern.allowed("entry_table")
-        assert not config.entries.dataset_pattern.allowed("entity_table")
+        assert config.entries.pattern.allowed("entry_table")
+        assert not config.entries.pattern.allowed("entity_table")
 
 
 class TestDataplexConfig:
@@ -80,13 +80,13 @@ class TestDataplexConfig:
             project_ids=["test-project"],
             filter_config={
                 "entries": {
-                    "dataset_pattern": {"allow": ["entry_.*"]},
+                    "pattern": {"allow": ["entry_.*"]},
                 },
             },
         )
 
         # Verify filter config is properly structured
-        assert config.filter_config.entries.dataset_pattern.allowed("entry_table")
+        assert config.filter_config.entries.pattern.allowed("entry_table")
 
     def test_config_entries_only(self):
         """Test configuration for entries-only mode."""
@@ -95,14 +95,14 @@ class TestDataplexConfig:
             entries_locations=["us"],
             filter_config={
                 "entries": {
-                    "dataset_pattern": {"allow": ["prod_.*"]},
+                    "pattern": {"allow": ["prod_.*"]},
                 }
             },
         )
 
         assert config.entries_locations == ["us"]
-        assert config.filter_config.entries.dataset_pattern.allowed("prod_table")
-        assert not config.filter_config.entries.dataset_pattern.allowed("dev_table")
+        assert config.filter_config.entries.pattern.allowed("prod_table")
+        assert not config.filter_config.entries.pattern.allowed("dev_table")
 
     def test_config_validation_requires_project_ids(self):
         """Test that configuration validation requires at least one project."""
@@ -138,22 +138,22 @@ class TestDataplexConfig:
         assert config.entries_locations == ["us", "eu", "asia", "global"]
 
         # Filter defaults (should allow all)
-        assert config.filter_config.entries.dataset_pattern.allowed("any-entry")
+        assert config.filter_config.entries.pattern.allowed("any-entry")
 
-    def test_filter_config_only_entries_dataset_pattern(self):
-        """Test configuration with only entries dataset_pattern (common case)."""
+    def test_filter_config_only_entries_pattern(self):
+        """Test configuration with only entries pattern (common case)."""
         config = DataplexConfig(
             project_ids=["test-project"],
             filter_config={
                 "entries": {
-                    "dataset_pattern": {"allow": ["analytics_.*"]},
+                    "pattern": {"allow": ["analytics_.*"]},
                 }
             },
         )
 
         # Entry dataset filtering works
-        assert config.filter_config.entries.dataset_pattern.allowed("analytics_table")
-        assert not config.filter_config.entries.dataset_pattern.allowed("prod_table")
+        assert config.filter_config.entries.pattern.allowed("analytics_table")
+        assert not config.filter_config.entries.pattern.allowed("prod_table")
 
     def test_multiple_projects(self):
         """Test configuration with multiple projects."""
@@ -161,7 +161,7 @@ class TestDataplexConfig:
             project_ids=["project-1", "project-2", "project-3"],
             filter_config={
                 "entries": {
-                    "dataset_pattern": {"allow": ["prod_.*"]},
+                    "pattern": {"allow": ["prod_.*"]},
                 }
             },
         )

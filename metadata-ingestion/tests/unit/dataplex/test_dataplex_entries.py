@@ -1,10 +1,12 @@
 """Unit tests for Dataplex entry processing."""
 
 from threading import Lock
+from typing import cast
 from unittest.mock import Mock, patch
 
 from google.cloud import dataplex_v1
 
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_entries import (
@@ -21,6 +23,7 @@ class TestDataplexEntriesProcessorDesign:
     def _build_processor(self) -> DataplexEntriesProcessor:
         config = DataplexConfig(project_ids=["test-project"], env="PROD")
         report = DataplexEntriesReport()
+        source_report = Mock()
         catalog_client = Mock(spec=dataplex_v1.CatalogServiceClient)
 
         return DataplexEntriesProcessor(
@@ -29,6 +32,7 @@ class TestDataplexEntriesProcessorDesign:
             report=report,
             entry_data_by_project={},
             entry_data_lock=Lock(),
+            source_report=source_report,
         )
 
     def test_entries_report_tracks_counts_and_default_sampling(self) -> None:
@@ -141,14 +145,12 @@ class TestDataplexEntriesProcessorDesign:
 
         # Unsupported/invalid entries should be skipped safely.
         assert processor.build_entity_for_entry(entry) is None
-        assert processor.build_entry_container_urn(entry) is None
+        assert processor.build_entry_container_key(entry) is None
 
     def test_should_process_entry_uses_full_entry_name_for_pattern(self) -> None:
         config = DataplexConfig(
             project_ids=["test-project"],
-            filter_config={
-                "entries": {"dataset_pattern": {"allow": [r"^projects/.*$"]}}
-            },
+            filter_config={"entries": {"pattern": {"allow": [r"^projects/.*$"]}}},
         )
         processor = DataplexEntriesProcessor(
             config=config,
@@ -156,6 +158,7 @@ class TestDataplexEntriesProcessorDesign:
             report=DataplexEntriesReport(),
             entry_data_by_project={},
             entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
         entry = Mock(spec=dataplex_v1.Entry)
@@ -185,6 +188,7 @@ class TestDataplexEntriesProcessorDesign:
             report=DataplexEntriesReport(),
             entry_data_by_project={},
             entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
         entry_group = Mock(spec=dataplex_v1.EntryGroup)
@@ -265,11 +269,12 @@ class TestDataplexEntriesProcessorDesign:
         ):
             entities = list(processor.process_location("project-1", "us"))
 
+        report = cast(DataplexEntriesReport, processor.report)
         assert entities == [entity]
-        assert processor.report.entries_seen == 3
-        assert processor.report.entries_filtered_by_missing_fqn == 1
-        assert processor.report.entries_filtered_by_pattern == 1
-        assert processor.report.entries_processed == 1
+        assert report.entries_seen == 3
+        assert report.entries_filtered_by_missing_fqn == 1
+        assert report.entries_filtered_by_pattern == 1
+        assert report.entries_processed == 1
         track_lineage_mock.assert_called_once_with(
             project_id="project-1", entry=accepted
         )
@@ -282,6 +287,7 @@ class TestDataplexEntriesProcessorDesign:
             report=DataplexEntriesReport(),
             entry_data_by_project={},
             entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
         skipped_group = Mock(spec=dataplex_v1.EntryGroup)
@@ -327,9 +333,10 @@ class TestDataplexEntriesProcessorDesign:
             get_entry_request_mock.return_value = Mock()
             entries = list(processor.collect_entries("p", "us"))
 
+        report = cast(DataplexEntriesReport, processor.report)
         assert entries == [detailed_ok, spanner_entry]
-        assert processor.report.entry_groups_seen == 2
-        assert processor.report.entry_groups_filtered == 1
+        assert report.entry_groups_seen == 2
+        assert report.entry_groups_filtered == 1
 
     def test_collect_spanner_entries_success_and_exception(self) -> None:
         catalog_client = Mock()
@@ -339,6 +346,7 @@ class TestDataplexEntriesProcessorDesign:
             report=DataplexEntriesReport(),
             entry_data_by_project={},
             entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
         with patch(
@@ -395,8 +403,14 @@ class TestDataplexEntriesProcessorDesign:
                 return_value=[],
             ),
             patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.build_parent_container_urn",
-                return_value="urn:li:container:test",
+                "datahub.ingestion.source.dataplex.dataplex_entries.build_parent_schema_key",
+                return_value=cast(
+                    ContainerKey,
+                    Mock(
+                        spec=ContainerKey,
+                        as_urn=Mock(return_value="urn:li:container:test"),
+                    ),
+                ),
             ),
         ):
             dataset_entity = processor.build_entity_for_entry(dataset_entry)
@@ -448,8 +462,11 @@ class TestDataplexEntriesProcessorDesign:
             ),
             patch.object(
                 processor,
-                "build_entry_container_urn",
-                return_value="urn:li:container:parent",
+                "build_entry_container_key",
+                return_value=cast(
+                    ContainerKey,
+                    Mock(as_urn=Mock(return_value="urn:li:container:parent")),
+                ),
             ),
         ):
             cloudsql_container_entity = processor.build_entity_for_entry(
@@ -546,13 +563,13 @@ class TestDataplexEntriesProcessorDesign:
         ):
             assert processor.build_entity_for_entry(invalid_dataset_fqn) is None
 
-    def test_build_entry_container_urn_and_lineage_tracking(self) -> None:
+    def test_build_entry_container_key_and_lineage_tracking(self) -> None:
         processor = self._build_processor()
 
         no_parent = Mock(spec=dataplex_v1.Entry)
         no_parent.entry_type = "projects/123/locations/global/entryTypes/bigquery-table"
         no_parent.parent_entry = ""
-        assert processor.build_entry_container_urn(no_parent) is None
+        assert processor.build_entry_container_key(no_parent) is None
 
         with_parent = Mock(spec=dataplex_v1.Entry)
         with_parent.entry_type = (
@@ -564,12 +581,14 @@ class TestDataplexEntriesProcessorDesign:
         )
         with patch(
             "datahub.ingestion.source.dataplex.dataplex_entries.build_parent_schema_key",
-            return_value=Mock(as_urn=Mock(return_value="urn:li:container:parent")),
+            return_value=cast(
+                ContainerKey,
+                Mock(as_urn=Mock(return_value="urn:li:container:parent")),
+            ),
         ):
-            assert (
-                processor.build_entry_container_urn(with_parent)
-                == "urn:li:container:parent"
-            )
+            parent_key = processor.build_entry_container_key(with_parent)
+            assert parent_key is not None
+            assert parent_key.as_urn() == "urn:li:container:parent"
 
         dataset_entry = Mock(spec=dataplex_v1.Entry)
         dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"

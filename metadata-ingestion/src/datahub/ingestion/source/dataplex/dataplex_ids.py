@@ -33,15 +33,25 @@ from dataclasses import dataclass
 from typing import Literal, Optional, Pattern
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.emitter.mcp_builder import ProjectIdKey
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
 
 
-class DataplexProjectId(ProjectIdKey):
+class DataplexProjectId(ContainerKey):
     """Base Dataplex key that carries ``project_id``."""
+
+    project_id: str
+
+    def parent_key(self) -> Optional[ContainerKey]:
+        if type(self) in PROJECT_KEY_CLASSES:
+            # Dataplex project is the root container for a platform-specific
+            # hierarchy.
+            return None
+        # Subclasses should keep standard class-hierarchy traversal.
+        return ContainerKey.parent_key(self)
 
 
 class DataplexBigQueryProject(DataplexProjectId):
@@ -96,6 +106,15 @@ class DataplexPubSubProject(DataplexProjectId):
 
 class DataplexPubSubTopic(DataplexPubSubProject):
     topic_id: str
+
+
+PROJECT_KEY_CLASSES: tuple[type[DataplexProjectId], ...] = (
+    DataplexProjectId,
+    DataplexBigQueryProject,
+    DataplexCloudSqlProject,
+    DataplexSpannerProject,
+    DataplexPubSubProject,
+)
 
 
 @dataclass(frozen=True)
