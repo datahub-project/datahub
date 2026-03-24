@@ -526,11 +526,8 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _get_project_id(self) -> str:
         if self._current_project_id:
             return self._current_project_id
-        # After migration, project_ids[0] holds the former project_id value
         if self.config.project_ids:
             return self.config.project_ids[0]
-        if self.config.project_id:
-            return self.config.project_id
         raise RuntimeError("No project ID configured")
 
     def _get_region(self) -> str:

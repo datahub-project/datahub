@@ -38,7 +38,7 @@ def get_resource_category_container_urn(source: VertexAISource, category: str) -
 def source() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
+        config=VertexAIConfig(project_ids=[PROJECT_ID], region=REGION),
     )
 
 
@@ -305,7 +305,7 @@ def test_parallelism_disabled_via_env_var(
 
 def test_multi_region_urls() -> None:
     config = VertexAIConfig(
-        project_id="test-project",
+        project_ids=["test-project"],
         region="us-west1",
         regions=["us-west1", "europe-west4"],
     )
