@@ -61,4 +61,18 @@ public class BuildIndicesConfiguration {
    * application.yaml.
    */
   private boolean createIndexRetryEnabled = true;
+
+  /**
+   * When true, enables non-blocking incremental reindex. Instead of blocking writes and swapping
+   * aliases in-place, creates 'next' indices, copies data via ES _reindex, and relies on dual-write
+   * from the MAE consumer to keep the next index current until alias swap.
+   */
+  private boolean incrementalReindexEnabled;
+
+  /**
+   * When true (and incrementalReindexEnabled is also true), automatically swaps the alias from the
+   * current index to the next index once document counts converge. When false, alias swap must be
+   * triggered manually via the operations API.
+   */
+  private boolean autoAliasSwapEnabled;
 }

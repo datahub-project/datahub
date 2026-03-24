@@ -52,14 +52,8 @@ public class BuildIndicesPreStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        final List<ReindexConfig> reindexConfigs =
-            getAllReindexConfigs(context.opContext(), services, structuredProperties);
-
-        // Get indices to update
         List<ReindexConfig> indexConfigs =
-            reindexConfigs.stream()
-                .filter(ReindexConfig::requiresReindex)
-                .collect(Collectors.toList());
+            IndexUtils.getIndicesNeedingReindex(context.opContext(), services, structuredProperties);
 
         for (ReindexConfig indexConfig : indexConfigs) {
           String indexName =
