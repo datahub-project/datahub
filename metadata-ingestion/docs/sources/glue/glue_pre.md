@@ -8,6 +8,7 @@ This plugin extracts the following:
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks
+- Upstream lineage from JDBC sources (e.g. PostgreSQL, MySQL, Redshift) referenced by Glue jobs
 
 ### Prerequisites
 
@@ -40,11 +41,14 @@ For ingesting jobs (extract_transforms: True), the following additional permissi
     "Action": [
         "glue:GetDataflowGraph",
         "glue:GetJobs",
+        "glue:GetConnection",
         "s3:GetObject",
     ],
     "Resource": "*"
 }
 ```
+
+The `glue:GetConnection` permission is required when Glue jobs reference named connections (e.g. JDBC connections configured in the Glue console). If your jobs only use inline connection parameters, this permission is not needed.
 
 For profiling datasets, the following additional permissions are required:
 
