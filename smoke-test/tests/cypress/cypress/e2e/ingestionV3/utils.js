@@ -13,6 +13,20 @@ export const setIngestionRedesignFlags = (isOn) => {
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
       });
     }
+    if (isOn && hasOperationName(req, "batchGetStepStates")) {
+      // Override the response to mark all requested step IDs as already seen,
+      // preventing education modals (e.g. CreateSourceEducationModal) from
+      // appearing during ingestion tests. These tests don't exercise the
+      // onboarding flow.
+      const ids = req.body?.variables?.input?.ids || [];
+      req.reply((res) => {
+        res.body.data = {
+          batchGetStepStates: {
+            results: ids.map((id) => ({ id, properties: [] })),
+          },
+        };
+      });
+    }
   });
 };
 
