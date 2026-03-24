@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Iterable, Optional, Protocol, cast
 
 from google.cloud import dataplex_v1
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
@@ -20,6 +21,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     build_parent_schema_key,
     build_project_schema_key_from_fqn,
     build_schema_key_from_fqn,
+    extract_datahub_dataset_name_from_fqn,
     extract_entry_type_short_name,
     parse_fully_qualified_name,
 )
@@ -287,8 +289,9 @@ class DataplexEntriesProcessor:
         )
 
         if mapping.datahub_entity_type == "Dataset":
-            dataset_name = self._extract_dataset_name_from_fqn(
-                entry.fully_qualified_name
+            dataset_name = extract_datahub_dataset_name_from_fqn(
+                entry_type_or_short_name=short_name,
+                fully_qualified_name=entry.fully_qualified_name,
             )
             if dataset_name is None:
                 return None
@@ -466,14 +469,6 @@ class DataplexEntriesProcessor:
             return None
         return datetime.fromtimestamp(value.timestamp(), tz=timezone.utc)
 
-    def _extract_dataset_name_from_fqn(
-        self, fully_qualified_name: str
-    ) -> Optional[str]:
-        if ":" not in fully_qualified_name:
-            return None
-        _, dataset_name = fully_qualified_name.split(":", 1)
-        return dataset_name
-
     def _track_entry_for_lineage(
         self, project_id: str, entry: dataplex_v1.Entry
     ) -> None:
@@ -492,19 +487,30 @@ class DataplexEntriesProcessor:
         if mapping is None or mapping.datahub_entity_type != "Dataset":
             return
 
-        dataset_name = self._extract_dataset_name_from_fqn(entry.fully_qualified_name)
+        dataset_name = extract_datahub_dataset_name_from_fqn(
+            entry_type_or_short_name=short_name,
+            fully_qualified_name=entry.fully_qualified_name,
+        )
         if dataset_name is None:
             return
 
-        entry_id = entry.name.split("/")[-1]
         with self.entry_data_lock:
             if project_id not in self.entry_data_by_project:
                 self.entry_data_by_project[project_id] = set()
             self.entry_data_by_project[project_id].add(
                 EntryDataTuple(
-                    entry_id=entry_id,
-                    source_platform=mapping.datahub_platform,
-                    dataset_id=dataset_name,
+                    dataplex_entry_short_name=entry.name.split("/")[-1],
+                    dataplex_entry_name=entry.name,
+                    dataplex_entry_fqn=entry.fully_qualified_name,
+                    dataplex_entry_type_short_name=short_name,
+                    datahub_platform=mapping.datahub_platform,
+                    datahub_dataset_name=dataset_name,
+                    datahub_dataset_urn=make_dataset_urn_with_platform_instance(
+                        platform=mapping.datahub_platform,
+                        name=dataset_name,
+                        platform_instance=None,
+                        env=self.config.env,
+                    ),
                 )
             )
 

@@ -220,9 +220,12 @@ def test_get_lineage_workunits_yields_from_extractor() -> None:
     source.entry_data_by_project = {
         "project-1": {
             EntryDataTuple(
-                entry_id="entry-1",
-                source_platform="bigquery",
-                dataset_id="project-1.ds.table",
+                dataplex_entry_short_name="entry-1",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
+                dataplex_entry_fqn="bigquery:project-1.ds.table",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="project-1.ds.table",
             )
         }
     }
@@ -240,9 +243,12 @@ def test_get_lineage_workunits_reports_failure_on_exception() -> None:
     source.entry_data_by_project = {
         "project-1": {
             EntryDataTuple(
-                entry_id="entry-1",
-                source_platform="bigquery",
-                dataset_id="project-1.ds.table",
+                dataplex_entry_short_name="entry-1",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
+                dataplex_entry_fqn="bigquery:project-1.ds.table",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="project-1.ds.table",
             )
         }
     }

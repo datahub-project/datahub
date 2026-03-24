@@ -17,6 +17,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     build_project_schema_key_from_fqn,
     build_schema_key_from_fqn,
     extract_entry_type_short_name,
+    is_supported_lineage_entry_type,
     parse_fully_qualified_name,
     parse_parent_entry,
 )
@@ -365,3 +366,13 @@ def test_identity_helpers_return_none_for_unsupported_or_invalid_inputs() -> Non
         is None
     )
     assert build_parent_container_urn("bigquery-dataset", "projects/p/...") is None
+
+
+def test_is_supported_lineage_entry_type_helper() -> None:
+    assert is_supported_lineage_entry_type("bigquery-table")
+    assert is_supported_lineage_entry_type("cloudsql-mysql-table")
+    assert is_supported_lineage_entry_type("cloud-spanner-table")
+    assert is_supported_lineage_entry_type("pubsub-topic")
+    assert not is_supported_lineage_entry_type("bigquery-dataset")
+    assert not is_supported_lineage_entry_type("cloudsql-mysql-database")
+    assert not is_supported_lineage_entry_type("unknown-entry-type")

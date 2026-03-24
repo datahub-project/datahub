@@ -6,13 +6,13 @@ from unittest.mock import Mock, patch
 
 from google.cloud import dataplex_v1
 
-from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
     DataplexEntriesReport,
 )
+from datahub.ingestion.source.dataplex.dataplex_ids import DataplexCloudSqlMySqlDatabase
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -402,21 +402,11 @@ class TestDataplexEntriesProcessorDesign:
                 "datahub.ingestion.source.dataplex.dataplex_entries.extract_schema_from_entry_aspects",
                 return_value=[],
             ),
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.build_parent_schema_key",
-                return_value=cast(
-                    ContainerKey,
-                    Mock(
-                        spec=ContainerKey,
-                        as_urn=Mock(return_value="urn:li:container:test"),
-                    ),
-                ),
-            ),
         ):
             dataset_entity = processor.build_entity_for_entry(dataset_entry)
 
         assert isinstance(dataset_entity, Dataset)
-        assert str(dataset_entity.parent_container) == "urn:li:container:test"
+        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
 
         container_entry = Mock(spec=dataplex_v1.Entry)
         container_entry.name = (
@@ -455,26 +445,16 @@ class TestDataplexEntriesProcessorDesign:
         )
         cloudsql_database_container.entry_source = None
 
-        with (
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-                return_value={"k": "v"},
-            ),
-            patch.object(
-                processor,
-                "build_entry_container_key",
-                return_value=cast(
-                    ContainerKey,
-                    Mock(as_urn=Mock(return_value="urn:li:container:parent")),
-                ),
-            ),
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
         ):
             cloudsql_container_entity = processor.build_entity_for_entry(
                 cloudsql_database_container
             )
         assert isinstance(cloudsql_container_entity, Container)
-        assert (
-            str(cloudsql_container_entity.parent_container) == "urn:li:container:parent"
+        assert str(cloudsql_container_entity.parent_container).startswith(
+            "urn:li:container:"
         )
 
     def test_build_project_container_for_entry(self) -> None:
@@ -658,16 +638,9 @@ class TestDataplexEntriesProcessorDesign:
             "projects/p/locations/us-west2/entryGroups/@cloudsql/entries/"
             "cloudsql.googleapis.com/projects/p/locations/us-west2/instances/i/databases/d"
         )
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.build_parent_schema_key",
-            return_value=cast(
-                ContainerKey,
-                Mock(as_urn=Mock(return_value="urn:li:container:parent")),
-            ),
-        ):
-            parent_key = processor.build_entry_container_key(with_parent)
-            assert parent_key is not None
-            assert parent_key.as_urn() == "urn:li:container:parent"
+        parent_key = processor.build_entry_container_key(with_parent)
+        assert isinstance(parent_key, DataplexCloudSqlMySqlDatabase)
+        assert parent_key.as_urn().startswith("urn:li:container:")
 
         dataset_entry = Mock(spec=dataplex_v1.Entry)
         dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
@@ -678,7 +651,9 @@ class TestDataplexEntriesProcessorDesign:
         processor._track_entry_for_lineage("project-1", dataset_entry)
         assert "project-1" in processor.entry_data_by_project
         tracked = next(iter(processor.entry_data_by_project["project-1"]))
-        assert tracked.dataset_id == "p.ds.table1"
+        assert tracked.datahub_dataset_name == "p.ds.table1"
+        assert tracked.datahub_platform == "bigquery"
+        assert tracked.dataplex_entry_fqn == "bigquery:p.ds.table1"
 
         non_dataset_entry = Mock(spec=dataplex_v1.Entry)
         non_dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e2"

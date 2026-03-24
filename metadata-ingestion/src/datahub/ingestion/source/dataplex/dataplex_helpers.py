@@ -12,14 +12,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class EntryDataTuple:
-    """Immutable data structure for tracking entry metadata.
+    """Immutable Dataplex/DataHub identity tuple for lineage tracking.
 
     Used in sets for lineage extraction, so must be hashable (frozen=True).
     """
 
-    entry_id: str
-    source_platform: str
-    dataset_id: str
+    dataplex_entry_short_name: str
+    dataplex_entry_name: str
+    dataplex_entry_type_short_name: str
+    dataplex_entry_fqn: str
+    datahub_platform: str
+    datahub_dataset_name: str
+    datahub_dataset_urn: str = ""
 
 
 def make_bigquery_dataset_container_key(

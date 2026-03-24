@@ -74,6 +74,11 @@ logger = logging.getLogger(__name__)
     "Enabled by default via stateful ingestion",
 )
 @capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Project containers are generated instead",
+    supported=False,
+)
+@capability(
     SourceCapability.TEST_CONNECTION,
     "Enabled by default",
 )

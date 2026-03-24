@@ -18,27 +18,42 @@ class TestEntryDataTuple:
     def test_create_entry_data_tuple(self):
         """Test creating EntryDataTuple."""
         entry_data = EntryDataTuple(
-            entry_id="test-entry",
-            source_platform="bigquery",
-            dataset_id="test-project.test-dataset.test-table",
+            dataplex_entry_short_name="test-entry",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-entry",
+            dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="test-project.test-dataset.test-table",
         )
 
-        assert entry_data.entry_id == "test-entry"
-        assert entry_data.source_platform == "bigquery"
-        assert entry_data.dataset_id == "test-project.test-dataset.test-table"
+        assert entry_data.dataplex_entry_short_name == "test-entry"
+        assert entry_data.dataplex_entry_name.endswith("/entries/test-entry")
+        assert (
+            entry_data.dataplex_entry_fqn
+            == "bigquery:test-project.test-dataset.test-table"
+        )
+        assert entry_data.dataplex_entry_type_short_name == "bigquery-table"
+        assert entry_data.datahub_platform == "bigquery"
+        assert entry_data.datahub_dataset_name == "test-project.test-dataset.test-table"
 
     def test_entry_data_tuple_hashable(self):
         """Test that EntryDataTuple is hashable (frozen)."""
         entry_data1 = EntryDataTuple(
-            entry_id="entry1",
-            source_platform="bigquery",
-            dataset_id="project.dataset.table",
+            dataplex_entry_short_name="entry1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_entry_fqn="bigquery:project.dataset.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project.dataset.table",
         )
 
         entry_data2 = EntryDataTuple(
-            entry_id="entry1",
-            source_platform="bigquery",
-            dataset_id="project.dataset.table",
+            dataplex_entry_short_name="entry1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_entry_fqn="bigquery:project.dataset.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project.dataset.table",
         )
 
         # Should be able to add to set

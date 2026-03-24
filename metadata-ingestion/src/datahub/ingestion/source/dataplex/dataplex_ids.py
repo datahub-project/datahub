@@ -390,22 +390,12 @@ def build_dataset_urn_from_fqn(
     mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None or mapping.datahub_entity_type != "Dataset":
         return None
-
-    # Validate FQN with the entry-type-specific regex contract first.
-    # This is where fqn_regex is used for URN building: we reject malformed FQNs
-    # before extracting the canonical dataset identifier.
-    if (
-        parse_fully_qualified_name(entry_type_or_short_name, fully_qualified_name)
-        is None
-    ):
+    dataset_name = extract_datahub_dataset_name_from_fqn(
+        entry_type_or_short_name=entry_type_or_short_name,
+        fully_qualified_name=fully_qualified_name,
+    )
+    if dataset_name is None:
         return None
-
-    # Keep dataset-name extraction as "everything after the first ':'" to
-    # preserve provider-specific suffixes exactly (for example, Pub/Sub keeps
-    # "topic:project.topic"), instead of reconstructing from parsed fields.
-    if ":" not in fully_qualified_name:
-        return None
-    _, dataset_name = fully_qualified_name.split(":", 1)
 
     return make_dataset_urn_with_platform_instance(
         platform=mapping.datahub_platform,
@@ -413,6 +403,30 @@ def build_dataset_urn_from_fqn(
         platform_instance=None,
         env=env,
     )
+
+
+def extract_datahub_dataset_name_from_fqn(
+    entry_type_or_short_name: str, fully_qualified_name: str
+) -> Optional[str]:
+    """Extract DataHub dataset name from Dataplex FQN with mapping validation."""
+    mapping = _get_mapping(entry_type_or_short_name)
+    if mapping is None or mapping.datahub_entity_type != "Dataset":
+        return None
+    # Validate FQN with the entry-type-specific regex contract first.
+    if (
+        parse_fully_qualified_name(entry_type_or_short_name, fully_qualified_name)
+        is None
+    ):
+        return None
+    if ":" not in fully_qualified_name:
+        return None
+    _, dataset_name = fully_qualified_name.split(":", 1)
+    return dataset_name
+
+
+def is_supported_lineage_entry_type(entry_type_short_name: str) -> bool:
+    mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(entry_type_short_name)
+    return bool(mapping and mapping.datahub_entity_type == "Dataset")
 
 
 def build_container_urn_from_fqn(
