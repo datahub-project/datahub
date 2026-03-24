@@ -1,10 +1,7 @@
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import moment from 'moment';
+import dayjs from '@utils/dayjs';
+import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
-
-dayjs.extend(relativeTime);
 
 const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
@@ -26,7 +23,7 @@ const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
-const INTERVAL_TO_MOMENT_INTERVAL: { [key: string]: moment.DurationInputArg2 } = {
+const INTERVAL_TO_DURATION_UNIT: { [key: string]: ManipulateType } = {
     [DateInterval.Second]: 'seconds',
     [DateInterval.Minute]: 'minutes',
     [DateInterval.Hour]: 'hours',
@@ -60,10 +57,7 @@ const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
 };
 
 export const addInterval = (interval_num: number, date: Date, interval: DateInterval): Date => {
-    return moment(date)
-        .utc()
-        .add(interval_num, INTERVAL_TO_MOMENT_INTERVAL[interval] as moment.DurationInputArg2)
-        .toDate();
+    return dayjs(date).utc().add(interval_num, INTERVAL_TO_DURATION_UNIT[interval]).toDate();
 };
 
 /**
@@ -84,9 +78,9 @@ export const getTimeWindowStart = (endTimeMillis: number, interval: DateInterval
  * @param windowSize the
  */
 export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow => {
-    const endTime = moment().valueOf();
-    const startTime = moment(endTime)
-        .subtract(windowSize.count, INTERVAL_TO_MOMENT_INTERVAL[windowSize.interval])
+    const endTime = dayjs().valueOf();
+    const startTime = dayjs(endTime)
+        .subtract(windowSize.count, INTERVAL_TO_DURATION_UNIT[windowSize.interval])
         .valueOf();
 
     return {
@@ -177,7 +171,7 @@ export function getTimeFromNow(timestampMillis) {
     return relativeTimeString;
 }
 
-export function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
         return 'All Time';
     }
@@ -191,8 +185,8 @@ export function getTimeRangeDescription(startDate: moment.Moment | null, endDate
     }
 
     if (startDate && endDate) {
-        if (endDate && endDate.isSame(moment(), 'day')) {
-            const startDateRelativeTime = moment().diff(startDate, 'days');
+        if (endDate && endDate.isSame(dayjs(), 'day')) {
+            const startDateRelativeTime = dayjs().diff(startDate, 'days');
             return `Last ${startDateRelativeTime} days`;
         }
 
@@ -206,7 +200,7 @@ export function getTimeRangeDescription(startDate: moment.Moment | null, endDate
 }
 
 export function formatDuration(durationMs: number): string {
-    const duration = moment.duration(durationMs);
+    const duration = dayjs.duration(durationMs);
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
     const seconds = duration.seconds();
@@ -224,7 +218,7 @@ export function formatDuration(durationMs: number): string {
 }
 
 export function formatDetailedDuration(durationMs: number): string {
-    const duration = moment.duration(durationMs);
+    const duration = dayjs.duration(durationMs);
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
     const seconds = duration.seconds();

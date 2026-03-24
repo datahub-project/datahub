@@ -31,6 +31,7 @@ dependencies = [
     { name = "deprecated" },
     { name = "docker" },
     { name = "expandvars" },
+    { name = "graphql-core" },
     { name = "humanfriendly" },
     { name = "ijson" },
     { name = "jsonref" },
@@ -122,7 +123,6 @@ all = [
     { name = "google-cloud-logging" },
     { name = "google-cloud-resource-manager" },
     { name = "gql", extra = ["requests"] },
-    { name = "graphql-core" },
     { name = "greenlet" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
@@ -462,7 +462,6 @@ datahub-lite = [
     { name = "uvicorn" },
 ]
 datahub-rest = [
-    { name = "graphql-core" },
     { name = "requests" },
 ]
 dataplex = [
@@ -2356,8 +2355,7 @@ requires-dist = [
     { name = "gql", extras = ["requests"], marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "gql", extras = ["requests"], marker = "extra == 'circuit-breaker'", specifier = ">=4.0.0" },
     { name = "gql", extras = ["requests"], marker = "extra == 'integration-tests'", specifier = ">=4.0.0" },
-    { name = "graphql-core", marker = "extra == 'all'", specifier = ">=3.0.0,<4.0.0" },
-    { name = "graphql-core", marker = "extra == 'datahub-rest'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'docs'", specifier = ">=3.0.0,<4.0.0" },
     { name = "greenlet", marker = "extra == 'all'", specifier = "<4.0.0" },

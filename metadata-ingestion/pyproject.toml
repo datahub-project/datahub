@@ -47,6 +47,7 @@ dependencies = [
     "Deprecated<2.0.0",
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
     "humanfriendly<11.0.0",
     "ijson<4.0.0",
     "jsonref<2.0.0",
@@ -375,7 +376,6 @@ datahub-lite = [
 ]
 
 datahub-rest = [
-    "graphql-core>=3.0.0,<4.0.0",
     "requests<3.0.0",
 ]
 
@@ -1454,7 +1454,6 @@ all = [
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "gql[requests]>=4.0.0",
-    "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
@@ -2060,6 +2059,7 @@ dynamodb = "datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource"
 elasticsearch = "datahub.ingestion.source.elastic_search:ElasticsearchSource"
 excel = "datahub.ingestion.source.excel.source:ExcelSource"
 feast = "datahub.ingestion.source.feast:FeastRepositorySource"
+flink = "datahub.ingestion.source.flink.source:FlinkSource"
 grafana = "datahub.ingestion.source.grafana.grafana_source:GrafanaSource"
 glue = "datahub.ingestion.source.aws.glue:GlueSource"
 sagemaker = "datahub.ingestion.source.aws.sagemaker:SagemakerSource"

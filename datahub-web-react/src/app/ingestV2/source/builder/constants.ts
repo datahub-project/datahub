@@ -19,6 +19,7 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
+import flinkLogo from '@images/flinklogo.svg';
 import glueLogo from '@images/gluelogo.png';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
@@ -87,6 +88,8 @@ const ELASTICSEARCH_URN = `urn:li:dataPlatform:${ELASTICSEARCH}`;
 const FEAST = 'feast';
 const FEAST_LEGACY = 'feast-legacy';
 const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
+const FLINK = 'flink';
+const FLINK_URN = `urn:li:dataPlatform:${FLINK}`;
 const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const GLUE = 'glue';
@@ -204,6 +207,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
+    [FLINK_URN]: flinkLogo,
     [GRAFANA_URN]: grafanaLogo,
     [GLUE_URN]: glueLogo,
     [HEX_URN]: hexLogo,

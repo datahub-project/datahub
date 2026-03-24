@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Typography } from 'antd';
-import { Info } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
