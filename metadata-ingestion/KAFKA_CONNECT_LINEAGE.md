@@ -81,7 +81,7 @@ def _extract_lineages_with_environment_awareness(self, parser: JdbcParser) -> Li
 
 **✅ NEW: Topic-to-Table Mapping from Connector Configuration**:
 
-- **Configuration Source**: Read from connector manifest's `topic2TableMap` property
+- **Configuration Source**: Read from connector manifest's `topic2TableMap` or `topic2table.map` property
 - **Format**: Comma-separated `topic:table` pairs in connector config (e.g., `orders:orders_table,users:user_records`)
 - **Priority**: Takes highest priority over `topicsToTables` regex patterns and default topic-based naming
 - **Scope**: Only specifies table names; dataset and project still determined by connector configuration
@@ -89,7 +89,7 @@ def _extract_lineages_with_environment_awareness(self, parser: JdbcParser) -> Li
 
 **Mapping Resolution Priority**:
 
-1. **`topic2TableMap`** (highest): Explicit topic-to-table mappings from connector manifest
+1. **`topic2TableMap` / `topic2table.map`** (highest): Explicit topic-to-table mappings from connector manifest
 2. **`topicsToTables`** (v1 only): Regex-based pattern matching from connector config
 3. **Topic name** (default): Uses transformed/sanitized topic name as table name
 
@@ -119,7 +119,7 @@ When DataHub reads this connector manifest, it will create lineages:
 
 **Implementation Details**:
 
-- DataHub reads `topic2TableMap` from the connector's configuration during lineage extraction
+- DataHub reads `topic2TableMap` or `topic2table.map` from the connector's configuration during lineage extraction
 - No additional DataHub configuration required - it automatically honors the connector's settings
 - Seamlessly integrates with existing BigQuery Sink Connector workflows
 
