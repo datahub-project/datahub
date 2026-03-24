@@ -70,7 +70,15 @@ def _warn_about_existing_cli_tokens(
         )
         response.raise_for_status()
         data = response.json()
-        tokens = data.get("data", {}).get("listAccessTokens", {}).get("tokens", [])
+        if data.get("errors"):
+          error_msg = data["errors"][0].get("message", str(data["errors"]))
+          raise click.ClickException(
+            f"Failed to create access token: {error_msg}\n"
+            "Check that personal access tokens are enabled and your account has permission."
+          )
+        access_token = data.get("data", {}).get("createAccessToken", {}).get("accessToken")
+        if not access_token:
+           raise click.ClickException("Server returned empty access token. Contact your DataHub administrator.")```
         cli_token_count = sum(
             1 for t in tokens if t.get("name", "").startswith(CLI_TOKEN_PREFIX)
         )
