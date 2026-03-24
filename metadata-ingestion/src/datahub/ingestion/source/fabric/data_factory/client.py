@@ -1,13 +1,14 @@
 """REST API client for Microsoft Fabric Data Factory items."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
 
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.core_client import FabricCoreClient
 from datahub.ingestion.source.fabric.common.models import FabricJobInstance
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
+from datahub.ingestion.source.fabric.common.utils import parse_iso_datetime
 from datahub.ingestion.source.fabric.data_factory.models import (
     PipelineActivity,
     PipelineActivityRun,
@@ -67,12 +68,7 @@ class FabricDataFactoryClient(FabricCoreClient):
         runs: List[FabricJobInstance] = []
         for job_instance in self.list_item_job_instances(workspace_id, pipeline_id):
             if job_instance.start_time_utc:
-                run_start = datetime.fromisoformat(
-                    job_instance.start_time_utc.replace("Z", "+00:00")
-                )
-                # Fabric API returns UTC timestamps without offset suffix
-                if run_start.tzinfo is None:
-                    run_start = run_start.replace(tzinfo=timezone.utc)
+                run_start = parse_iso_datetime(job_instance.start_time_utc)
                 if run_start < lookback_window_start:
                     logger.debug(
                         f"Reached lookback boundary for pipeline {pipeline_id}, "

@@ -29,8 +29,6 @@ from datahub.ingestion.source.fabric.common.models import (
     FabricWorkspace,
     ItemJobStatus,
     WorkspaceKey,
-    build_workspace_container,
-    make_workspace_key,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_activity_job_id,
@@ -39,6 +37,11 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
     make_pipeline_flow_id,
     make_pipeline_flow_urn,
     make_pipeline_run_id,
+)
+from datahub.ingestion.source.fabric.common.utils import (
+    build_workspace_container,
+    make_workspace_key,
+    parse_iso_datetime,
 )
 from datahub.ingestion.source.fabric.data_factory.client import (
     FabricDataFactoryClient,
@@ -148,10 +151,7 @@ _ACTIVITY_STATUS_TO_RESULT: dict[str, InstanceRunResult] = {
 
 def _parse_iso_to_millis(iso_str: str) -> int:
     """Convert an ISO 8601 timestamp string to epoch milliseconds."""
-    dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-    # Fabric API returns UTC timestamps without offset suffix
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+    dt = parse_iso_datetime(iso_str)
     return int(dt.timestamp() * 1000)
 
 
@@ -687,6 +687,40 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
+    @staticmethod
+    def _emit_dpi_workunits(
+        dpi: DataProcessInstance,
+        start_time_iso: Optional[str],
+        end_time_iso: Optional[str],
+        run_result: Optional[InstanceRunResult],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit generate/start/end MCPs for a DataProcessInstance.
+
+        Shared by pipeline-run and activity-run emission paths.
+        """
+        start_ts_millis = (
+            _parse_iso_to_millis(start_time_iso) if start_time_iso else None
+        )
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=start_ts_millis,
+            materialize_iolets=False,
+        ):
+            yield mcp.as_workunit()
+
+        if start_ts_millis:
+            for mcp in dpi.start_event_mcp(start_timestamp_millis=start_ts_millis):
+                yield mcp.as_workunit()
+
+        if run_result is not None and end_time_iso:
+            end_ts_millis = _parse_iso_to_millis(end_time_iso)
+            for mcp in dpi.end_event_mcp(
+                end_timestamp_millis=end_ts_millis,
+                result=run_result,
+                result_type=PLATFORM,
+                start_timestamp_millis=start_ts_millis,
+            ):
+                yield mcp.as_workunit()
+
     def _emit_pipeline_run(
         self,
         run: FabricJobInstance,
@@ -719,29 +753,12 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         # Cache the URN for parent_instance linkage in activity runs
         self._pipeline_run_urns[run.id] = dpi.urn
 
-        start_ts_millis = (
-            _parse_iso_to_millis(run.start_time_utc) if run.start_time_utc else None
+        yield from self._emit_dpi_workunits(
+            dpi=dpi,
+            start_time_iso=run.start_time_utc,
+            end_time_iso=run.end_time_utc,
+            run_result=_FABRIC_STATUS_TO_RESULT.get(run.status),
         )
-        for mcp in dpi.generate_mcp(
-            created_ts_millis=start_ts_millis,
-            materialize_iolets=False,
-        ):
-            yield mcp.as_workunit()
-
-        if start_ts_millis:
-            for mcp in dpi.start_event_mcp(start_timestamp_millis=start_ts_millis):
-                yield mcp.as_workunit()
-
-        result = _FABRIC_STATUS_TO_RESULT.get(run.status)
-        if result is not None and run.end_time_utc:
-            end_ts_millis = _parse_iso_to_millis(run.end_time_utc)
-            for mcp in dpi.end_event_mcp(
-                end_timestamp_millis=end_ts_millis,
-                result=result,
-                result_type=PLATFORM,
-                start_timestamp_millis=start_ts_millis,
-            ):
-                yield mcp.as_workunit()
 
     def _process_activity_runs(
         self,
@@ -829,28 +846,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             data_platform_instance=self.config.platform_instance,
         )
 
-        start_ts_millis = (
-            _parse_iso_to_millis(activity_run.activity_run_start)
-            if activity_run.activity_run_start
-            else None
+        yield from self._emit_dpi_workunits(
+            dpi=dpi,
+            start_time_iso=activity_run.activity_run_start,
+            end_time_iso=activity_run.activity_run_end,
+            run_result=_ACTIVITY_STATUS_TO_RESULT.get(activity_run.status),
         )
-        for mcp in dpi.generate_mcp(
-            created_ts_millis=start_ts_millis,
-            materialize_iolets=False,
-        ):
-            yield mcp.as_workunit()
-
-        if start_ts_millis:
-            for mcp in dpi.start_event_mcp(start_timestamp_millis=start_ts_millis):
-                yield mcp.as_workunit()
-
-        result = _ACTIVITY_STATUS_TO_RESULT.get(activity_run.status)
-        if result is not None and activity_run.activity_run_end:
-            end_ts_millis = _parse_iso_to_millis(activity_run.activity_run_end)
-            for mcp in dpi.end_event_mcp(
-                end_timestamp_millis=end_ts_millis,
-                result=result,
-                result_type=PLATFORM,
-                start_timestamp_millis=start_ts_millis,
-            ):
-                yield mcp.as_workunit()

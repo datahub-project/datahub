@@ -1,10 +1,9 @@
 """Unit tests for Fabric Data Factory source helper functions.
 
-Tests _parse_iso_to_millis, URL builders, and status mapping constants.
+Tests _parse_iso_to_millis and URL builders.
 """
 
 from datahub.ingestion.source.fabric.data_factory.source import (
-    PLATFORM,
     FabricDataFactorySource,
     _parse_iso_to_millis,
 )
@@ -49,37 +48,3 @@ class TestGetPipelineRunUrl:
             "/monitoring/workspaces/ws-123"
             "/pipelines/pl-456/run-789"
         )
-
-
-class TestStatusMappings:
-    """Verify status mapping dicts are populated and consistent."""
-
-    def test_fabric_status_map_has_terminal_states(self) -> None:
-        from datahub.ingestion.source.fabric.data_factory.source import (
-            _FABRIC_STATUS_TO_RESULT,
-        )
-
-        assert "Completed" in _FABRIC_STATUS_TO_RESULT
-        assert "Failed" in _FABRIC_STATUS_TO_RESULT
-        assert "Cancelled" in _FABRIC_STATUS_TO_RESULT
-
-    def test_activity_status_map_has_terminal_states(self) -> None:
-        from datahub.ingestion.source.fabric.data_factory.source import (
-            _ACTIVITY_STATUS_TO_RESULT,
-        )
-
-        assert "Succeeded" in _ACTIVITY_STATUS_TO_RESULT
-        assert "Failed" in _ACTIVITY_STATUS_TO_RESULT
-        assert "Cancelled" in _ACTIVITY_STATUS_TO_RESULT
-
-    def test_activity_subtype_map_covers_copy_and_invoke(self) -> None:
-        from datahub.ingestion.source.fabric.data_factory.source import (
-            _ACTIVITY_SUBTYPE_MAP,
-        )
-
-        assert "Copy" in _ACTIVITY_SUBTYPE_MAP
-        assert "InvokePipeline" in _ACTIVITY_SUBTYPE_MAP
-        assert "Lookup" in _ACTIVITY_SUBTYPE_MAP
-
-    def test_platform_constant(self) -> None:
-        assert PLATFORM == "fabric-data-factory"

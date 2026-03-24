@@ -12,7 +12,10 @@ from datahub.ingestion.source.fabric.data_factory.lineage import (
     CopyActivityLineageExtractor,
     InvokePipelineLineageExtractor,
 )
-from datahub.ingestion.source.fabric.data_factory.models import PipelineActivity
+from datahub.ingestion.source.fabric.data_factory.models import (
+    ActivityDependency,
+    PipelineActivity,
+)
 from datahub.ingestion.source.fabric.data_factory.report import (
     FabricDataFactorySourceReport,
 )
@@ -405,10 +408,7 @@ class TestFindRootActivity:
                 type="Copy",
                 type_properties={},
                 depends_on=[
-                    __import__(
-                        "datahub.ingestion.source.fabric.data_factory.models",
-                        fromlist=["ActivityDependency"],
-                    ).ActivityDependency(
+                    ActivityDependency(
                         activity="Root", dependency_conditions=["Succeeded"]
                     )
                 ],

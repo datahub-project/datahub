@@ -9,12 +9,11 @@ References:
 """
 
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Optional
+
+from pydantic import model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
-from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
-from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
-from datahub.sdk.container import Container
 from datahub.utilities.str_enum import StrEnum
 
 # Shared platform name for Fabric workspace containers.
@@ -29,54 +28,23 @@ class FabricItemType:
 
 
 class WorkspaceKey(ContainerKey):
-    """Container key for Microsoft Fabric workspaces.
+    """Container key for Fabric workspaces.
 
     Shared across all Fabric connectors so that workspaces produce the same
     URN regardless of which connector is running.
     """
 
+    platform: str = FABRIC_WORKSPACE_PLATFORM
     workspace_id: str
 
-
-def make_workspace_key(
-    workspace_id: str,
-    platform_instance: Optional[str],
-    env: Optional[str],
-) -> WorkspaceKey:
-    """Create the canonical WorkspaceKey for a Fabric workspace."""
-    return WorkspaceKey(
-        platform=FABRIC_WORKSPACE_PLATFORM,
-        instance=platform_instance,
-        env=env,
-        workspace_id=workspace_id,
-    )
-
-
-def build_workspace_container(
-    workspace: "FabricWorkspace",
-    platform_instance: Optional[str],
-    env: Optional[str],
-) -> Iterable[Container]:
-    """Yield the workspace Container for a Fabric workspace.
-
-    Shared by all Fabric connectors so that the same physical workspace
-    produces exactly one container node in DataHub regardless of which
-    connector ingested it.
-    """
-    container_key = make_workspace_key(
-        workspace_id=workspace.id,
-        platform_instance=platform_instance,
-        env=env,
-    )
-    yield Container(
-        container_key=container_key,
-        display_name=workspace.name,
-        description=workspace.description,
-        subtype=GenericContainerSubTypes.FABRIC_WORKSPACE,
-        external_url=f"{FABRIC_APP_BASE_URL}/groups/{workspace.id}/list",
-        parent_container=None,
-        qualified_name=workspace.id,
-    )
+    @model_validator(mode="after")
+    def _validate_workspace_platform(self) -> "WorkspaceKey":
+        if type(self) is WorkspaceKey and self.platform != FABRIC_WORKSPACE_PLATFORM:
+            raise ValueError(
+                f"WorkspaceKey platform must be '{FABRIC_WORKSPACE_PLATFORM}', "
+                f"got '{self.platform}'"
+            )
+        return self
 
 
 @dataclass

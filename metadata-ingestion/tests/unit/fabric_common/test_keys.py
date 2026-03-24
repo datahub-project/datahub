@@ -4,8 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import datahub_guid
-from datahub.ingestion.source.fabric.common.keys import (
-    WORKSPACE_PLATFORM,
+from datahub.ingestion.source.fabric.common.models import (
+    FABRIC_WORKSPACE_PLATFORM,
     WorkspaceKey,
 )
 
@@ -46,4 +46,4 @@ def test_workspace_key_rejects_non_fabric_platform() -> None:
         )
 
     key = WorkspaceKey(instance="instance-1", env="PROD", workspace_id="ws-123")
-    assert key.platform == WORKSPACE_PLATFORM
+    assert key.platform == FABRIC_WORKSPACE_PLATFORM
