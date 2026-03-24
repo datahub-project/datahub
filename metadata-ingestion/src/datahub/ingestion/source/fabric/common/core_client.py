@@ -132,24 +132,37 @@ class FabricCoreClient(BaseFabricClient):
 
         return result
 
-    def list_connections(self) -> Iterator[FabricConnection]:
-        """List all tenant-scoped connections accessible to the caller.
+    def list_item_connections(
+        self, workspace_id: str, item_id: str
+    ) -> Iterator[FabricConnection]:
+        """List connections for a specific item.
 
-        Connections are referenced by pipeline activities via
-        externalReferences.connection (the connection GUID).
+        Returns only connections bound to the given item.
 
-        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/connections/list-connections
+        Some connections (e.g. Automatic/SSO) may not have an id —
+        these are skipped since they cannot be referenced by activities.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/items/list-item-connections
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Item GUID
 
         Yields:
-            FabricConnection objects
+            FabricConnection objects (only those with an id)
         """
-        logger.info("Listing Fabric connections")
-        for raw in self._paginate("connections"):
+        endpoint = f"workspaces/{workspace_id}/items/{item_id}/connections"
+        logger.debug(f"Listing connections for item {item_id}")
+        for raw in self._paginate(endpoint):
+            # Skip connections without an id (e.g. Automatic/SSO)
+            if not raw.get("id"):
+                continue
             try:
                 yield FabricConnection.from_dict(raw)
             except KeyError as e:
                 self.report.report_parse_failure(
-                    f"Skipping malformed connection: missing required field {e}"
+                    f"Skipping malformed item connection for "
+                    f"item {item_id}: missing required field {e}"
                 )
 
     def list_item_job_instances(

@@ -56,7 +56,7 @@ def create_connection(
     connection_type: str,
     path: Optional[str] = None,
 ) -> FabricConnection:
-    """Create a FabricConnection matching list_connections() output."""
+    """Create a FabricConnection matching list_item_connections() output."""
     return FabricConnection(
         id=connection_id,
         display_name=display_name,

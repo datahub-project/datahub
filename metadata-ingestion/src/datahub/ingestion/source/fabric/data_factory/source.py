@@ -190,8 +190,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         self.report.client_report = self.client_report
 
         # Connection cache: connection GUID → FabricConnection
-        # Populated once before processing pipelines, used by lineage
-        # resolvers to map activity connection refs to DataHub platforms.
+        # Populated per-item via list_item_connections during pipeline
+        # fetching, used by lineage resolvers to map activity connection
+        # refs to DataHub platforms.
         self._connections_cache: dict[str, FabricConnection] = {}
 
         # Pipeline run ID → DPI URN, populated during pipeline run emission,
@@ -208,21 +209,6 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         # Built after pass 1 resolves all InvokePipeline activities, consumed in pass 2
         # when emitting the child activity's DataJobInputOutput to merge the edge in.
         self._cross_pipeline_edges: dict[str, list[str]] = {}
-
-    def _cache_connections(self) -> None:
-        """Fetch all tenant connections and cache them keyed by ID."""
-        try:
-            for conn in self.client.list_connections():
-                self._connections_cache[conn.id] = conn
-            logger.info(f"Cached {len(self._connections_cache)} Fabric connection(s)")
-        except Exception as e:
-            self.report.report_warning(
-                title="Failed to Cache Connections",
-                message="Could not retrieve tenant connections. "
-                "Copy activity lineage may be incomplete.",
-                context="",
-                exc=e,
-            )
 
     @classmethod
     def create(
@@ -251,9 +237,8 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         logger.info("Starting Fabric Data Factory ingestion")
 
         try:
-            # Lineage extractors and connection cache are only needed when lineage is enabled
+            # Lineage extractors are only needed when lineage is enabled
             if self.config.include_lineage:
-                self._cache_connections()
                 self._copy_lineage_extractor = CopyActivityLineageExtractor(
                     connections_cache=self._connections_cache,
                     report=self.report,
@@ -324,7 +309,8 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         """Fetch pipelines and their activities for a workspace into cache.
 
         Applies pipeline_pattern filter. Populates
-        ``self._pipeline_activities_cache``.
+        ``self._pipeline_activities_cache``. When lineage is enabled,
+        also fetches per-item connections into ``self._connections_cache``.
         """
         pipeline_items: list[FabricItem] = []
         for item in self.client.list_items(
@@ -349,7 +335,25 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     exc=e,
                 )
                 self._pipeline_activities_cache[(workspace_id, item.id)] = []
+
+            if self.config.include_lineage:
+                self._cache_item_connections(workspace_id, item)
         return pipeline_items
+
+    def _cache_item_connections(self, workspace_id: str, item: FabricItem) -> None:
+        """Fetch per-item connections and add to the connections cache."""
+        try:
+            for conn in self.client.list_item_connections(workspace_id, item.id):
+                if conn.id not in self._connections_cache:
+                    self._connections_cache[conn.id] = conn
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Fetch Item Connections",
+                message="Could not retrieve connections for item. "
+                "Lineage may be incomplete for this pipeline.",
+                context=f"pipeline={item.name}",
+                exc=e,
+            )
 
     def _create_workspace_container(
         self, workspace: FabricWorkspace

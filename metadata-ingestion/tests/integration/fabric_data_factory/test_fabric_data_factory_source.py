@@ -201,7 +201,7 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
         ),
         patch.object(
             FabricDataFactoryClient,
-            "list_connections",
+            "list_item_connections",
             return_value=iter(connections),
         ),
         patch.object(
@@ -266,7 +266,7 @@ def test_no_execution_history(pytestconfig: pytest.Config, tmp_path: Path) -> No
         ),
         patch.object(
             FabricDataFactoryClient,
-            "list_connections",
+            "list_item_connections",
             return_value=iter([]),
         ),
         patch.object(
