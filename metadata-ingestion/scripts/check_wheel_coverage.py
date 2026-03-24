@@ -4,9 +4,6 @@ Flag locked C-extension packages missing wheels for supported Python versions.
 
 Parses uv.lock wheel filenames. Handles abi3, py3-none-any, and standard cpXY tags.
 Exits non-zero if gaps are found (unless the package is in KNOWN_EXCEPTIONS).
-
-Background: pyodbc 4.0.39 had wheels for 3.10/3.11 but not 3.12. uv accepted it
-because an sdist existed, but Docker builds failed without unixODBC headers.
 """
 
 import re
@@ -22,7 +19,7 @@ KNOWN_EXCEPTIONS = {
     "kerberos",  # Unmaintained, source-only. Needs replacement with krb5/gssapi.
     "python-ldap",  # Source-only, requires OpenLDAP headers.
     "scipy",  # 1.17+ dropped 3.10; Docker uses 3.10.
-    "sqlalchemy",  # Pinned <2; no 3.12 wheels but builds from source with a C compiler.
+    "sqlalchemy",  # No 3.12 wheels but builds from source with a C compiler.
 }
 
 
