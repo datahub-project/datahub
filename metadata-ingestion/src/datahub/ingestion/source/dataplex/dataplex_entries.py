@@ -34,12 +34,15 @@ from datahub.ingestion.source.dataplex.dataplex_schema import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
     from datahub.sdk.entity import Entity
 
 
 class DataplexProcessorReport(Protocol):
+    catalog_api_timer: PerfTimer
+
     def report_entry_group(self, entry_group_name: str, filtered: bool) -> None: ...
 
     def report_entry(
@@ -77,6 +80,7 @@ class DataplexEntriesReport(Report):
 
     entries_processed: int = 0
     entries_processed_samples: LossyList[str] = field(default_factory=LossyList)
+    catalog_api_timer: PerfTimer = field(default_factory=PerfTimer)
 
     def report_entry_group(self, entry_group_name: str, filtered: bool) -> None:
         """Report one scanned entry group and its filtering outcome."""
@@ -190,7 +194,8 @@ class DataplexEntriesProcessor:
         """List entry groups for a ``(project_id, location)`` pair."""
         parent = f"projects/{project_id}/locations/{location}"
         request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
-        return self.catalog_client.list_entry_groups(request=request)
+        with self.report.catalog_api_timer:
+            return self.catalog_client.list_entry_groups(request=request)
 
     def collect_entries(
         self,
@@ -210,7 +215,9 @@ class DataplexEntriesProcessor:
                 continue
 
             request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
-            for entry in self.catalog_client.list_entries(request=request):
+            with self.report.catalog_api_timer:
+                entries = list(self.catalog_client.list_entries(request=request))
+            for entry in entries:
                 logger.info(f"Listing entry {entry.name} from group {entry_group.name}")
                 logger.info(f"ListEntries payload: {entry}")
                 try:
@@ -218,7 +225,11 @@ class DataplexEntriesProcessor:
                         name=entry.name,
                         view=dataplex_v1.EntryView.ALL,
                     )
-                    yield self.catalog_client.get_entry(request=entry_request)
+                    with self.report.catalog_api_timer:
+                        detailed_entry = self.catalog_client.get_entry(
+                            request=entry_request
+                        )
+                    yield detailed_entry
                 except Exception as exc:
                     self.source_report.warning(
                         title="Dataplex entry fetch failed",
@@ -239,7 +250,11 @@ class DataplexEntriesProcessor:
             query="system=cloud_spanner",
         )
         try:
-            for result in self.catalog_client.search_entries(request=request):
+            with self.report.catalog_api_timer:
+                search_results = list(
+                    self.catalog_client.search_entries(request=request)
+                )
+            for result in search_results:
                 logger.info(
                     f"SearchEntries result for project={project_id} location={location}"
                 )

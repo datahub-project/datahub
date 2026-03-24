@@ -32,6 +32,12 @@ def dataplex_report() -> DataplexReport:
 
 
 @pytest.fixture
+def source_report() -> Mock:
+    """Create a mock SourceReport-like object for warnings."""
+    return Mock()
+
+
+@pytest.fixture
 def mock_lineage_client() -> Mock:
     """Create a mock LineageClient."""
     return Mock()
@@ -41,12 +47,14 @@ def mock_lineage_client() -> Mock:
 def lineage_extractor(
     dataplex_config: DataplexConfig,
     dataplex_report: DataplexReport,
+    source_report: Mock,
     mock_lineage_client: Mock,
 ) -> DataplexLineageExtractor:
     """Create a lineage extractor with mocked client."""
     return DataplexLineageExtractor(
         config=dataplex_config,
-        report=dataplex_report,
+        report=dataplex_report.lineage_report,
+        source_report=source_report,
         lineage_client=mock_lineage_client,
     )
 
@@ -63,6 +71,7 @@ def test_lineage_extractor_initialization(
 
 def test_lineage_extraction_disabled(
     dataplex_report: DataplexReport,
+    source_report: Mock,
 ) -> None:
     """Test that lineage extraction is skipped when disabled."""
     config = DataplexConfig(
@@ -73,7 +82,8 @@ def test_lineage_extraction_disabled(
 
     extractor = DataplexLineageExtractor(
         config=config,
-        report=dataplex_report,
+        report=dataplex_report.lineage_report,
+        source_report=source_report,
         lineage_client=None,
     )
 
@@ -214,6 +224,10 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
 
     assert isinstance(lineage_by_full_dataset_id, dict)
     assert lineage_extractor.report.num_lineage_entries_scanned == 2
+    assert lineage_extractor.report.num_lineage_entries_processed == 2
+    assert lineage_extractor.report.num_lineage_entries_without_lineage == 0
+    assert lineage_extractor.report.num_lineage_upstream_fqns_skipped == 0
+    assert lineage_extractor.report.num_lineage_edges_added == 2
 
 
 def test_get_lineage_for_table_no_lineage(
@@ -336,7 +350,8 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
 
     extractor = DataplexLineageExtractor(
         config=config,
-        report=report,
+        report=report.lineage_report,
+        source_report=Mock(),
         lineage_client=mock_client,
     )
 
@@ -353,6 +368,9 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
 
     lineage_map = extractor.build_lineage_map("test-project", entries)
     assert lineage_map == {}
+    assert report.lineage_report.num_lineage_entries_without_lineage == 0
+    assert report.lineage_report.num_lineage_upstream_fqns_skipped == 1
+    assert report.lineage_report.num_lineage_edges_added == 0
 
 
 def test_workunit_urn_structure_validation(
@@ -526,7 +544,10 @@ def test_pagination_automatic_handling() -> None:
     mock_client.search_links.return_value = [mock_link1, mock_link2, mock_link3]
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     entry = EntryDataTuple(
@@ -569,7 +590,10 @@ def test_pagination_with_large_result_set() -> None:
     mock_client.search_links.return_value = mock_links
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     entry = EntryDataTuple(
@@ -646,7 +670,10 @@ def test_batched_lineage_processing() -> None:
     mock_client.search_links.side_effect = mock_search_links
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 5 test entries
@@ -688,7 +715,10 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
     mock_client.search_links.return_value = [mock_link]
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 3 test entries
@@ -729,7 +759,10 @@ def test_batched_lineage_with_batching_disabled() -> None:
     mock_client.search_links.return_value = [mock_link]
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 10 test entries
@@ -780,7 +813,10 @@ def test_batched_lineage_memory_cleanup() -> None:
     mock_client.search_links.side_effect = mock_search_links
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 6 entries (will be processed in 3 batches of 2)
@@ -853,7 +889,10 @@ class TestLineageMapKeyCollision:
         mock_client.search_links.side_effect = mock_search_links
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=mock_client
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=mock_client,
         )
 
         # Create entries with same table name but different datasets
@@ -944,7 +983,10 @@ class TestLineageMapKeyCollision:
         mock_client.search_links.side_effect = mock_search_links
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=mock_client
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=mock_client,
         )
 
         # Two tables with same name 'customers' in different datasets
@@ -1000,7 +1042,10 @@ class TestLineageMapKeyCollision:
         report = DataplexReport()
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=None
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=None,
         )
 
         # Manually populate lineage map with full dataset_id keys
@@ -1068,7 +1113,10 @@ class TestLineageMapKeyCollision:
         mock_client.search_links.side_effect = mock_search_links
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=mock_client
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=mock_client,
         )
 
         entries = [

@@ -124,7 +124,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         # Catalog client for Entry Groups and Entries extraction
         self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
-        # Initialize redundant lineage run skip handler for stateful lineage ingestion
+        # Initialize redundant lineage run skip handler for stateful lineage ingestion.
+        # TODO: Wire this into DataplexLineageExtractor execution flow so lineage API calls
+        # can be short-circuited for redundant runs.
         redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
             None
         )
@@ -143,7 +145,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_extractor: Optional[DataplexLineageExtractor] = (
                 DataplexLineageExtractor(
                     config=self.config,
-                    report=self.report,
+                    report=self.report.lineage_report,
+                    source_report=self.report,
                     lineage_client=self.lineage_client,
                     redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 )
@@ -156,7 +159,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self.entries_processor = DataplexEntriesProcessor(
             config=self.config,
             catalog_client=self.catalog_client,
-            report=self.report,
+            report=self.report.entries_report,
             entry_data_by_project=self.entry_data_by_project,
             entry_data_lock=self._entry_data_lock,
             source_report=self.report,
