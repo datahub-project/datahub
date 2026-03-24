@@ -1,4 +1,3 @@
-import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,6 +7,7 @@ import { getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils'
 import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value/utils';
 import { UNIT_SEPARATOR } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 const PathSeparator = styled.span`
     color: ${(props) => props.theme.colors.textSecondary};
@@ -55,7 +55,8 @@ export default function ValueName({ field, value }: Props) {
             );
         }
         case FieldType.BUCKETED_TIMESTAMP:
-            return <>{moment(value.value).format('YYYY-MM-DD')}</>;
+            // Note: Currently unused, as SelectedFilter.tsx renders DatePicker instead
+            return <>{dayjs(value.value).format('YYYY-MM-DD')}</>;
         default:
             console.error(`Unknown field type: ${field}`);
             return <>n/a</>;

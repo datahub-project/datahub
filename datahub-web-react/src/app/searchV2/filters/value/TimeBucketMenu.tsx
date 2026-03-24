@@ -1,9 +1,11 @@
-import moment from 'moment';
+import type { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import dayjs from '@utils/dayjs';
 
 const TimeBucketOption = styled.div<{ $isSelected: boolean }>`
     display: flex;
@@ -30,10 +32,10 @@ interface Props {
 export default function TimeBucketMenu({ field, values, onChangeValues, className }: Props) {
     const options = useMemo(
         () =>
-            field.options.map(({ label, startOffsetMillis }) => {
-                const timestamp = moment()
+            field.options.map(({ label, startOffsetMillis }): ItemType => {
+                const timestamp = dayjs()
                     .subtract(startOffsetMillis, 'milliseconds')
-                    .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
+                    .startOf('day')
                     .valueOf()
                     .toString();
                 return { key: timestamp, label, timestamp };

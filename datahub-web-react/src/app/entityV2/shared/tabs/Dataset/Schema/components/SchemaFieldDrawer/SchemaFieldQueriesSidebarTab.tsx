@@ -1,17 +1,16 @@
 import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
-import moment from 'moment';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import Loading from '@app/shared/Loading';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import dayjs from '@utils/dayjs';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
@@ -37,12 +36,12 @@ const StyledQueryContainer = styled.div`
 `;
 
 const StyledQueryCard = styled.div`
-    background: #f5f5f5;
+    background: ${(props) => props.theme.colors.bgHover};
     border-radius: 4px;
     margin-bottom: 10px;
     margin-left: 10px;
     margin-right: 10px;
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
 `;
@@ -89,11 +88,11 @@ const NoDataContainer = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: #fff;
+    color: ${(props) => props.theme.colors.bg};
 `;
 
 const Section = styled.div`
-    color: #56668e;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 700;
     font-size: 12px;
     line-height: 24px;
@@ -165,7 +164,7 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                                             <QueryCreatedBy createdBy={query.createdBy} />
                                         </StyledCreatedBy>
                                     )}
-                                    on {moment(query.lastRun).format('MM/DD/YYYY')}
+                                    on {dayjs(query.lastRun).format('MM/DD/YYYY')}
                                 </SubtitleSection>
                             </QuerySubtitleContainer>
                         </StyledQueryCard>

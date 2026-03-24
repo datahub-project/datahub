@@ -8165,7 +8165,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.customers,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4"
                 }
             ],
             "fineGrainedLineages": [
@@ -8180,7 +8180,7 @@
                     ],
                     "transformOperation": "COPY: \"customers\".\"priority\" AS \"priority\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8193,7 +8193,7 @@
                     ],
                     "transformOperation": "COPY: \"customers\".\"id\" AS \"id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8206,7 +8206,7 @@
                     ],
                     "transformOperation": "COPY: \"customers\".\"company\" AS \"company\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8219,7 +8219,7 @@
                     ],
                     "transformOperation": "COPY: \"customers\".\"last_name\" AS \"last_name\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8232,7 +8232,7 @@
                     ],
                     "transformOperation": "COPY: \"customers\".\"first_name\" AS \"first_name\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8245,7 +8245,7 @@
                     ],
                     "transformOperation": "COPY: \"customers\".\"email_address\" AS \"email_address\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4"
                 }
             ]
         }
@@ -8258,7 +8258,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -8287,7 +8287,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -8346,7 +8346,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -8379,7 +8379,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 }
             ],
             "fineGrainedLineages": [
@@ -8394,7 +8394,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect\".\"metadata\" AS \"metadata\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8407,7 +8407,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect\".\"createdfor\" AS \"createdfor\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8420,7 +8420,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect\".\"createdby\" AS \"createdby\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8433,7 +8433,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect\".\"createdon\" AS \"createdon\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8446,7 +8446,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect\".\"urn\" AS \"urn\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8459,7 +8459,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect\".\"aspect\" AS \"aspect\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8472,7 +8472,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect\".\"version\" AS \"version\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7"
                 }
             ]
         }
@@ -8485,7 +8485,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -8514,7 +8514,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -8579,7 +8579,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -8612,7 +8612,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 }
             ],
             "fineGrainedLineages": [
@@ -8627,7 +8627,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index\".\"longVal\" AS \"longVal\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8640,7 +8640,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index\".\"stringVal\" AS \"stringVal\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8653,7 +8653,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index\".\"doubleVal\" AS \"doubleVal\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8666,7 +8666,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index\".\"id\" AS \"id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8679,7 +8679,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index\".\"urn\" AS \"urn\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8692,7 +8692,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index\".\"aspect\" AS \"aspect\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8705,7 +8705,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index\".\"path\" AS \"path\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee"
                 }
             ]
         }
@@ -8718,7 +8718,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -8747,7 +8747,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -8812,7 +8812,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -8845,7 +8845,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index_view,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7"
                 }
             ],
             "fineGrainedLineages": [
@@ -8860,7 +8860,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index_view\".\"id\" AS \"id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8873,7 +8873,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index_view\".\"urn\" AS \"urn\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8886,7 +8886,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index_view\".\"path\" AS \"path\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -8899,7 +8899,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_index_view\".\"doubleVal\" AS \"doubleVal\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7"
                 }
             ]
         }
@@ -8912,7 +8912,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -8941,7 +8941,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -8988,7 +8988,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -9021,7 +9021,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.orders,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29"
+                    "query": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55"
                 }
             ],
             "fineGrainedLineages": [
@@ -9036,7 +9036,7 @@
                     ],
                     "transformOperation": "COPY: \"orders\".\"id\" AS \"id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29"
+                    "query": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9049,7 +9049,7 @@
                     ],
                     "transformOperation": "COPY: \"orders\".\"customer_id\" AS \"customer_id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29"
+                    "query": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9062,7 +9062,7 @@
                     ],
                     "transformOperation": "COPY: \"orders\".\"description\" AS \"description\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29"
+                    "query": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55"
                 }
             ]
         }
@@ -9075,7 +9075,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -9104,7 +9104,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -9145,7 +9145,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -9178,7 +9178,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.dremio.s3.warehouse,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.raw%2CPROD%29"
+                    "query": "urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414"
                 }
             ]
         }
@@ -9191,7 +9191,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -9220,7 +9220,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -9243,7 +9243,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -9276,7 +9276,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 }
             ],
             "fineGrainedLineages": [
@@ -9291,7 +9291,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"B\" AS \"B\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9304,7 +9304,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"C\" AS \"C\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9317,7 +9317,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"D\" AS \"D\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9330,7 +9330,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"E\" AS \"E\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9343,7 +9343,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"F\" AS \"F\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9356,7 +9356,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"G\" AS \"G\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9369,7 +9369,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"H\" AS \"H\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9382,7 +9382,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"I\" AS \"I\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -9395,7 +9395,7 @@
                     ],
                     "transformOperation": "COPY: \"NYC-weather.csv\".\"A\" AS \"A\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b"
                 }
             ]
         }
@@ -9408,7 +9408,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -9437,7 +9437,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -9514,7 +9514,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -10476,7 +10476,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7009cb396b6b6a30430e3d51cdc1e69915cf45fcab1abcb192ab83978e5dabe4",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -10492,7 +10492,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f99615d37911cd681a309f966e5b5b25261a395818a40e807da05284a3c8dda7",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -10508,7 +10508,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_ffbebbe5efa01999753dc7838c9cd3bc30f0ae87b9ddce1b4f9788331504adee",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -10524,7 +10524,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_b53479935b4e5643d1c74134b543a0adc743bd56849c3f514d89a6fae26c07a7",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -10540,7 +10540,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_578ffc818b6efed6be55eb1089c1593c9ce944c27f1fa90c28d2e639abbe7c55",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -10556,7 +10556,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -10572,7 +10572,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_d3d8c990adbdb25fba0c4e1970f9af741b91e7415375bb8ba59cf41769cfe97b",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
