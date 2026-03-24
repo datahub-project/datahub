@@ -696,8 +696,8 @@ class OracleLineage(AbstractLineage):
         if accessor is None or accessor.next is None:
             return Lineage.empty()
 
-        schema_name: str = accessor.items["Schema"]
-        table_name: str = accessor.next.items["Name"]
+        schema_name: Optional[str] = accessor.items.get("Schema")
+        table_name: Optional[str] = accessor.next.items.get("Name")
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -867,8 +867,8 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
             )
             return Lineage.empty()
 
-        schema_name: str = accessor.items["Schema"]
-        table_name: str = accessor.items["Item"]
+        schema_name: Optional[str] = accessor.items.get("Schema")
+        table_name: Optional[str] = accessor.items.get("Item")
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -929,8 +929,8 @@ class MySQLLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        schema_name: str = accessor.items["Schema"]
-        table_name: str = accessor.items["Item"]
+        schema_name: Optional[str] = accessor.items.get("Schema")
+        table_name: Optional[str] = accessor.items.get("Item")
 
         qualified_table_name: str = f"{schema_name}.{table_name}"
 

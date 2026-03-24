@@ -1,6 +1,7 @@
 import gzip
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -41,7 +42,13 @@ class MQueryBridge:
             ) from e
 
         # Decompress bundle.js.gz in memory — fast (~50ms for 500KB) and happens once per process.
-        bundle_js = gzip.decompress(_BUNDLE_PATH.read_bytes()).decode("utf-8")
+        try:
+            bundle_js = gzip.decompress(_BUNDLE_PATH.read_bytes()).decode("utf-8")
+        except (gzip.BadGzipFile, OSError, EOFError) as e:
+            raise ImportError(
+                f"M-Query bridge bundle at {_BUNDLE_PATH} appears to be corrupt: {e}. "
+                "Re-installing acryl-datahub[powerbi] may fix this."
+            ) from e
         self._ctx = MiniRacer()
         self._ctx.eval(bundle_js)
 
@@ -113,13 +120,16 @@ class MQueryBridge:
 
 
 _bridge_instance: Optional[MQueryBridge] = None
+_bridge_lock = threading.Lock()
 
 
 def get_bridge() -> MQueryBridge:
     """Return the process-wide MQueryBridge, creating it on first call."""
     global _bridge_instance
     if _bridge_instance is None:
-        _bridge_instance = MQueryBridge()
+        with _bridge_lock:
+            if _bridge_instance is None:
+                _bridge_instance = MQueryBridge()
     return _bridge_instance
 
 
@@ -130,4 +140,5 @@ def _clear_bridge() -> None:
     to ensure each test module gets an isolated bridge.
     """
     global _bridge_instance
-    _bridge_instance = None
+    with _bridge_lock:
+        _bridge_instance = None
