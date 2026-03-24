@@ -72,7 +72,7 @@ def _get_invoke_elements(invoke_node: dict) -> List[dict]:
 
 def _get_arg_values(
     invoke_node: dict,
-    parameters: Optional[Dict[str, str]] = None,
+    parameters: Dict[str, str],
 ) -> List[Optional[str]]:
     """Extract positional string arguments from an InvokeExpression node.
 
@@ -80,7 +80,6 @@ def _get_arg_values(
     RecordExpression arguments return None.
     IdentifierExpression arguments are resolved via parameters dict.
     """
-    parameters = parameters or {}
     values: List[Optional[str]] = []
     for inner in _get_invoke_elements(invoke_node):
         val = get_literal_value(inner)
@@ -270,7 +269,7 @@ class AbstractLineage(ABC):
     @staticmethod
     def get_db_detail_from_argument(
         arg_list: dict,
-        parameters: Optional[Dict[str, str]] = None,
+        parameters: Dict[str, str],
     ) -> Tuple[Optional[str], Optional[str]]:
         args = _get_arg_values(arg_list, parameters=parameters)
         logger.debug(f"DB Details: {args}")
@@ -284,8 +283,8 @@ class AbstractLineage(ABC):
     def create_reference_table(
         arg_list: dict,
         table_detail: Dict[str, str],
+        parameters: Dict[str, str],
         node_map: Optional[Dict[int, dict]] = None,
-        parameters: Optional[Dict[str, str]] = None,
     ) -> Optional[ReferencedTable]:
         node_map = node_map or {}
         args = _get_arg_values(arg_list, parameters=parameters)
