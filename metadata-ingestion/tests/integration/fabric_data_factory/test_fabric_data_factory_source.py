@@ -30,7 +30,7 @@ from tests.integration.fabric_data_factory.test_factories import (
     WORKSPACE_ID_1,
     WORKSPACE_ID_2,
     create_activity_run,
-    create_connection_dict,
+    create_connection,
     create_copy_activity,
     create_external_dataset_settings,
     create_invoke_pipeline_activity,
@@ -99,13 +99,13 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     test_pipeline = create_pipeline_item(PIPELINE_ID_B, "etl-child", WORKSPACE_ID_1)
 
     connections = [
-        create_connection_dict(
+        create_connection(
             CONNECTION_ID_SNOWFLAKE,
             "My Snowflake",
             "Snowflake",
             path="myaccount.snowflakecomputing.com;mydb",
         ),
-        create_connection_dict(
+        create_connection(
             CONNECTION_ID_LAKEHOUSE,
             "My Lakehouse",
             "Lakehouse",

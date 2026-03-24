@@ -251,22 +251,23 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         logger.info("Starting Fabric Data Factory ingestion")
 
         try:
-            # Tenant-wide caches
-            self._cache_connections()
-            self._copy_lineage_extractor = CopyActivityLineageExtractor(
-                connections_cache=self._connections_cache,
-                report=self.report,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-                platform_instance_map=self.config.platform_instance_map,
-            )
-            self._invoke_pipeline_extractor = InvokePipelineLineageExtractor(
-                pipeline_activities_cache=self._pipeline_activities_cache,
-                report=self.report,
-                platform=PLATFORM,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
+            # Lineage extractors and connection cache are only needed when lineage is enabled
+            if self.config.include_lineage:
+                self._cache_connections()
+                self._copy_lineage_extractor = CopyActivityLineageExtractor(
+                    connections_cache=self._connections_cache,
+                    report=self.report,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                    platform_instance_map=self.config.platform_instance_map,
+                )
+                self._invoke_pipeline_extractor = InvokePipelineLineageExtractor(
+                    pipeline_activities_cache=self._pipeline_activities_cache,
+                    report=self.report,
+                    platform=PLATFORM,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
 
             # Pass 1: fetch and cache all pipeline activities across all
             # workspaces so that cross-workspace InvokePipeline edges can be
@@ -431,6 +432,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         string. Also populates ``self._cross_pipeline_edges`` mapping
         child root activity URN → list of parent InvokePipeline URNs.
         """
+        if not self.config.include_lineage:
+            return {}
+
         invoke_pipeline_lineage: dict[str, InvokePipelineActivityLineage] = {}
 
         for item in pipeline_items:
@@ -580,6 +584,8 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
 
         Returns (input_urns, output_urns).
         """
+        if not self.config.include_lineage:
+            return [], []
         if activity.type == "Copy":
             return self._extract_copy_activity_lineage(activity, pipeline_item)
         return [], []

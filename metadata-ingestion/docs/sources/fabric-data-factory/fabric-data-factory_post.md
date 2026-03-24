@@ -2,22 +2,6 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-#### Authentication Methods
-
-The connector supports four authentication methods. See **Prerequisites > Authentication** above for detailed configuration and examples.
-
-| Method                     | Best For                                         | Configuration                                       |
-| -------------------------- | ------------------------------------------------ | --------------------------------------------------- |
-| **Service Principal**      | Production environments                          | `authentication_method: service_principal`          |
-| **Managed Identity**       | Azure-hosted deployments (VMs, AKS, App Service) | `authentication_method: managed_identity`           |
-| **Azure CLI**              | Local development                                | `authentication_method: cli` (run `az login` first) |
-| **DefaultAzureCredential** | Flexible auto-detection                          | `authentication_method: default`                    |
-
-Additional options:
-
-- **User-assigned managed identity**: Set `managed_identity_client_id` when using `managed_identity` method
-- **DefaultAzureCredential tuning**: Use `exclude_cli_credential`, `exclude_environment_credential`, or `exclude_managed_identity_credential` to skip specific credential sources
-
 #### Lineage Extraction
 
 ##### Which Activities Produce Lineage?

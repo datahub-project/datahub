@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.source.fabric.common.models import (
+    FabricConnection,
     FabricItem,
     FabricJobInstance,
     FabricWorkspace,
@@ -49,23 +50,19 @@ def create_pipeline_item(
     )
 
 
-def create_connection_dict(
+def create_connection(
     connection_id: str,
     display_name: str,
     connection_type: str,
     path: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Create a raw API response dict matching FabricConnection.from_dict() input."""
-    result: Dict[str, Any] = {
-        "id": connection_id,
-        "displayName": display_name,
-        "connectionDetails": {
-            "type": connection_type,
-        },
-    }
-    if path:
-        result["connectionDetails"]["path"] = path
-    return result
+) -> FabricConnection:
+    """Create a FabricConnection matching list_connections() output."""
+    return FabricConnection(
+        id=connection_id,
+        display_name=display_name,
+        connection_type=connection_type,
+        connection_path=path,
+    )
 
 
 def _make_depends_on(
