@@ -389,9 +389,11 @@ def test_wif_config_accepts_json_string():
     )
 
 
-@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_file")
+@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_dict")
 def test_wif_source_creation_from_file_path(mock_load_creds):
-    """GCSSource with WIF from file path loads credentials from that path."""
+    """GCSSource with WIF from file path reads the file and loads credentials from the dict."""
+    import json as json_module
+
     mock_creds = mock.MagicMock()
     mock_creds.with_scopes.return_value = mock_creds
     mock_load_creds.return_value = (mock_creds, "my-project")
@@ -403,9 +405,12 @@ def test_wif_source_creation_from_file_path(mock_load_creds):
         "auth_type": "workload_identity_federation",
         "gcp_wif_configuration": "/etc/gcp/wif.json",
     }
-    gcs_source = GCSSource.create(source, ctx)
+    with mock.patch(
+        "builtins.open", mock.mock_open(read_data=json_module.dumps(_VALID_WIF_JSON))
+    ):
+        gcs_source = GCSSource.create(source, ctx)
 
-    mock_load_creds.assert_called_once_with("/etc/gcp/wif.json")
+    mock_load_creds.assert_called_once_with(_VALID_WIF_JSON)
     assert gcs_source.s3_source.source_config.aws_config is not None
     assert (
         getattr(
@@ -423,13 +428,12 @@ def test_wif_source_creation_from_file_path(mock_load_creds):
         )
         == "my-project"
     )
-    assert gcs_source._wif_temp_file is None
     gcs_source.close()
 
 
-@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_file")
+@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_dict")
 def test_wif_source_creation_from_json_dict(mock_load_creds):
-    """GCSSource with gcp_wif_configuration_json (dict) writes temp file and loads creds."""
+    """GCSSource with gcp_wif_configuration_json (dict) loads creds directly from dict."""
     mock_creds = mock.MagicMock()
     mock_creds.with_scopes.return_value = mock_creds
     mock_load_creds.return_value = (mock_creds, "proj-123")
@@ -443,10 +447,7 @@ def test_wif_source_creation_from_json_dict(mock_load_creds):
     }
     gcs_source = GCSSource.create(source, ctx)
 
-    assert mock_load_creds.called
-    call_path = mock_load_creds.call_args[0][0]
-    assert call_path.endswith(".json")
-    assert gcs_source._wif_temp_file == call_path
+    mock_load_creds.assert_called_once_with(_VALID_WIF_JSON)
     assert (
         getattr(
             gcs_source.s3_source.source_config.aws_config,
@@ -456,12 +457,11 @@ def test_wif_source_creation_from_json_dict(mock_load_creds):
         is mock_creds
     )
     gcs_source.close()
-    assert gcs_source._wif_temp_file is None
 
 
-@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_file")
+@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_dict")
 def test_wif_source_creation_from_json_string(mock_load_creds):
-    """GCSSource with gcp_wif_configuration_json_string writes temp file and loads creds."""
+    """GCSSource with gcp_wif_configuration_json_string parses JSON and loads creds from dict."""
     import json as json_module
 
     mock_creds = mock.MagicMock()
@@ -477,12 +477,8 @@ def test_wif_source_creation_from_json_string(mock_load_creds):
     }
     gcs_source = GCSSource.create(source, ctx)
 
-    assert mock_load_creds.called
-    call_path = mock_load_creds.call_args[0][0]
-    assert call_path.endswith(".json")
-    assert gcs_source._wif_temp_file == call_path
+    mock_load_creds.assert_called_once_with(_VALID_WIF_JSON)
     gcs_source.close()
-    assert gcs_source._wif_temp_file is None
 
 
 def test_register_gcs_oauth_before_send_injects_bearer_and_registers_operations():

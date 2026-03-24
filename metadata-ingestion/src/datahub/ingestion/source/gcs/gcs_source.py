@@ -1,10 +1,9 @@
-import atexit
 import json
 import logging
-import os
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Union
+import time
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
 
-from google.auth import load_credentials_from_file
+from google.auth import load_credentials_from_dict
 from google.auth.transport.requests import Request
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -51,24 +50,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 GCS_ENDPOINT_URL = "https://storage.googleapis.com"
 
-# Temp files created for WIF config (JSON/string); cleaned in close() and at process exit
-_wif_temp_files_to_clean: Set[str] = set()
-
-
-def _cleanup_wif_temp_files() -> None:
-    """Remove any WIF config temp files that were not cleaned up in close()."""
-    for path in _wif_temp_files_to_clean:
-        try:
-            if os.path.exists(path):
-                os.unlink(path)
-                logger.debug("Removed WIF temp config file: %s", path)
-        except OSError as e:
-            logger.warning("Failed to remove WIF temp file %s: %s", path, e)
-    _wif_temp_files_to_clean.clear()
-
-
-atexit.register(_cleanup_wif_temp_files)
-
 # S3 API operations used by the S3 source when browsing/reading GCS
 _GCS_OAUTH_S3_OPERATIONS = (
     "ListBuckets",
@@ -93,8 +74,6 @@ def _register_gcs_oauth_before_send(
     """
 
     def inject_bearer(request: Any, **kwargs: Any) -> None:
-        import time
-
         need_refresh = not getattr(credentials, "token", None)
         if not need_refresh and getattr(credentials, "expiry", None) is not None:
             need_refresh = credentials.expiry.timestamp() < time.time()
@@ -294,68 +273,50 @@ class GCSSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
-        self._wif_temp_file: Optional[str] = None
+        self._wif_credentials: Optional[Any] = None
+        self._wif_project_id: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "GCSSource":
         config = GCSSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _setup_wif_credentials(self) -> None:
         """Set up Workload Identity Federation credentials using Google Auth library."""
-        import tempfile
-
-        # Convert all formats to a file path (load_credentials_from_file works reliably)
-        wif_config_file = None
-
         if self.config.gcp_wif_configuration:
-            wif_config_file = self.config.gcp_wif_configuration
+            with open(self.config.gcp_wif_configuration) as f:
+                wif_config_dict: Dict[str, Any] = json.load(f)
             logger.info(
                 "Using Workload Identity Federation configuration from file: %s",
-                wif_config_file,
+                self.config.gcp_wif_configuration,
             )
         elif self.config.gcp_wif_configuration_json:
-            # Write dict/string to temp file; path is tracked for cleanup in close()
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as f:
-                if isinstance(self.config.gcp_wif_configuration_json, dict):
-                    json.dump(self.config.gcp_wif_configuration_json, f)
-                else:
-                    f.write(self.config.gcp_wif_configuration_json)
-                wif_config_file = f.name
-            self._wif_temp_file = wif_config_file
-            _wif_temp_files_to_clean.add(wif_config_file)
+            if isinstance(self.config.gcp_wif_configuration_json, dict):
+                wif_config_dict = self.config.gcp_wif_configuration_json
+            else:
+                wif_config_dict = json.loads(self.config.gcp_wif_configuration_json)
             logger.info(
                 "Using Workload Identity Federation configuration from JSON content"
             )
         elif self.config.gcp_wif_configuration_json_string:
-            # Write string to temp file; path is tracked for cleanup in close()
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as f:
-                f.write(self.config.gcp_wif_configuration_json_string)
-                wif_config_file = f.name
-            self._wif_temp_file = wif_config_file
-            _wif_temp_files_to_clean.add(wif_config_file)
+            wif_config_dict = json.loads(self.config.gcp_wif_configuration_json_string)
             logger.info(
                 "Using Workload Identity Federation configuration from JSON string"
             )
         else:
             raise ValueError("No valid WIF configuration provided")
 
-        # Load credentials from file (this method works correctly)
         try:
-            credentials, project_id = load_credentials_from_file(wif_config_file)
+            credentials, project_id = load_credentials_from_dict(wif_config_dict)
             # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
             credentials = credentials.with_scopes(
                 ["https://www.googleapis.com/auth/cloud-platform"]
             )
 
-            # Try to refresh credentials to validate they work
-            # If refresh fails, log a warning but continue - the GCS client libraries
-            # will handle the refresh when they actually need to make API calls
+            # Try to refresh credentials to validate they work.
+            # If refresh fails, log a warning but continue — inject_bearer will
+            # refresh automatically on the first actual GCS API call.
             try:
                 credentials.refresh(Request())
                 logger.debug("Successfully refreshed WIF credentials")
@@ -364,16 +325,9 @@ class GCSSource(StatefulIngestionSourceBase):
                     "Failed to refresh WIF credentials during setup (this may be expected): %s",
                     refresh_error,
                 )
-                logger.info(
-                    "Credentials will be refreshed automatically when GCS client libraries need them"
-                )
-
-            # Set environment variable for GCS client libraries
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = wif_config_file
 
             self._wif_credentials = credentials
             self._wif_project_id = project_id
-
             logger.info("Successfully set up Workload Identity Federation credentials")
 
         except Exception as e:
@@ -381,7 +335,7 @@ class GCSSource(StatefulIngestionSourceBase):
                 f"Failed to setup Workload Identity Federation credentials: {e}"
             ) from e
 
-    def create_equivalent_s3_config(self):
+    def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
         s3_path_specs = self.create_equivalent_s3_path_specs()
 
         if self.config.auth_type == GCSAuthType.HMAC:
@@ -446,7 +400,7 @@ class GCSSource(StatefulIngestionSourceBase):
 
         return s3_config
 
-    def create_equivalent_s3_path_specs(self):
+    def create_equivalent_s3_path_specs(self) -> List[PathSpec]:
         s3_path_specs = []
         for path_spec in self.config.path_specs:
             # PathSpec modifies the passed-in include to add /** to the end if
@@ -524,29 +478,4 @@ class GCSSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self) -> None:
-        """Clean up resources when the source is closed."""
-        if self._wif_temp_file and os.path.exists(self._wif_temp_file):
-            try:
-                os.unlink(self._wif_temp_file)
-                logger.debug("Removed WIF temp config file: %s", self._wif_temp_file)
-            except OSError as e:
-                logger.warning(
-                    "Failed to remove WIF temp file %s: %s",
-                    self._wif_temp_file,
-                    e,
-                )
-            _wif_temp_files_to_clean.discard(self._wif_temp_file)
-            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == self._wif_temp_file:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
-            self._wif_temp_file = None
         super().close()
-
-    def __del__(self) -> None:
-        """Clean up WIF temp file if close() was not called (e.g. process exit)."""
-        wif_temp_file: Optional[str] = getattr(self, "_wif_temp_file", None)
-        if wif_temp_file is not None and os.path.exists(wif_temp_file):
-            try:
-                os.unlink(wif_temp_file)
-            except OSError:
-                pass
-            _wif_temp_files_to_clean.discard(wif_temp_file)
