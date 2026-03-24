@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -20,11 +21,10 @@ vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
 
 // Mock the Icon component
 vi.mock('@components', () => ({
-    Icon: React.forwardRef(({ icon, _source, _size, ...props }: any, ref: any) => (
-        <div ref={ref} data-testid="icon" data-icon={icon} {...props}>
-            {icon}
-        </div>
-    )),
+    Icon: React.forwardRef(({ icon, ...props }: any, ref: any) => {
+        const iconName = typeof icon === 'string' ? icon : icon?.displayName || icon?.name || '';
+        return <div ref={ref} data-testid="icon" data-icon={iconName} {...props} />;
+    }),
     Tooltip: (props: any) => <span {...props} />,
     Text: (props: any) => <p {...props} />,
     Button: (props: any) => <button type="button" data-testid="confirm" {...props} />,

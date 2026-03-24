@@ -107,7 +107,6 @@ const clearAndDelete = () => {
 
 describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
     cy.skipIntroducePage();
     cy.goToDomainList();
@@ -328,6 +327,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Baz Chart 2");
     cy.waitTextVisible("Dashboards");
     cy.reload();
+    cy.get("#entity-profile-tags", { timeout: 10000 }).should("be.visible");
     cy.ensureTextNotPresent("Cypress");
     cy.ensureTextNotPresent("Marketing");
 

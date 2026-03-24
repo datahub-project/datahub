@@ -31,7 +31,7 @@ def source_with_ml_metadata() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="ml-metadata-test"),
         config=VertexAIConfig(
-            project_id=PROJECT_ID,
+            project_ids=[PROJECT_ID],
             region=REGION,
             use_ml_metadata_for_lineage=True,
             extract_execution_metrics=True,
@@ -229,7 +229,7 @@ class TestMLMetadataIntegration:
         source = VertexAISource(
             ctx=PipelineContext(run_id="no-ml-metadata-test"),
             config=VertexAIConfig(
-                project_id=PROJECT_ID,
+                project_ids=[PROJECT_ID],
                 region=REGION,
                 use_ml_metadata_for_lineage=False,
                 extract_execution_metrics=False,

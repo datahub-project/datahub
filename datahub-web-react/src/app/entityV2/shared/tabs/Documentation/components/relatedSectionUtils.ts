@@ -1,3 +1,6 @@
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 import { Document, InstitutionalMemoryMetadata } from '@types';
@@ -69,7 +72,7 @@ export function createRelatedSectionMenuItems(options: {
         type: 'item',
         key: 'add-link',
         title: 'Add link',
-        icon: 'LinkSimple',
+        icon: LinkSimple,
         onClick: options.onAddLink,
         disabled: !options.hasLinkPermissions,
     });
@@ -80,7 +83,7 @@ export function createRelatedSectionMenuItems(options: {
             type: 'item',
             key: 'add-context',
             title: 'Add context',
-            icon: 'FileText',
+            icon: FileText,
             onClick: options.onAddContext,
             disabled: !options.canCreateDocuments,
         });

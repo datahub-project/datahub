@@ -1,4 +1,5 @@
 import { Icon, Text, Tooltip, colors } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -117,7 +118,7 @@ export default function ModuleMenu({ module, position }: Props) {
                     dropdownRender={(originNode) => <StyledDropdownContainer>{originNode}</StyledDropdownContainer>}
                     menu={menu}
                 >
-                    <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
+                    <StyledIcon icon={DotsThreeVertical} size="lg" />
                 </Dropdown>
             </DropdownWrapper>
 

@@ -6,7 +6,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 from boto3.session import Session
 from freezegun import freeze_time
-from moto import mock_s3
+from moto import mock_aws
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -26,7 +26,7 @@ logging.getLogger("s3transfer").setLevel(logging.INFO)
 
 @pytest.fixture(autouse=True)
 def s3():
-    with mock_s3():
+    with mock_aws():
         conn = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",

@@ -1,3 +1,6 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -235,7 +238,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
                   type: 'item' as const,
                   key: 'reset',
                   title: 'Reset Password',
-                  icon: 'Key' as const,
+                  icon: Key,
                   onClick: () => onResetPassword(user),
               }
             : null,
@@ -243,7 +246,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
             type: 'item' as const,
             key: 'delete',
             title: 'Delete User',
-            icon: 'Trash' as const,
+            icon: Trash,
             onClick: onDeleteEntity,
             danger: true,
         },
@@ -253,7 +256,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
         <Menu items={menuItems}>
             <Button
                 variant="text"
-                icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                 isCircle
                 style={ActionsButtonStyle}
             />

@@ -1,5 +1,5 @@
 import { AppstoreOutlined, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

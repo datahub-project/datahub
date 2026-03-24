@@ -106,7 +106,7 @@ export function TypeColumn({ type, record }: TypeColumnProps) {
     );
 }
 
-export function LastExecutionColumn({ time }: { time: number }) {
+function LastExecutionColumn({ time }: { time: number }) {
     const executionDate = time && new Date(time);
     const localTime = executionDate && `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
     return <Typography.Text type="secondary">{localTime ? `Last run ${localTime}` : 'Never run'}</Typography.Text>;

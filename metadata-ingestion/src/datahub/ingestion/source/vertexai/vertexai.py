@@ -16,6 +16,7 @@ from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import MetadataServiceClient
 from google.oauth2 import service_account
 
+from datahub.configuration.env_vars import get_vertexai_disable_parallelism
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -90,6 +91,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, VersionSetUrn
 from datahub.utilities.ratelimiter import RateLimiter
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -161,24 +163,18 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
     def _resolve_target_projects(self) -> List[str]:
-        """Resolve target GCP projects from config (single project or multi-project mode)."""
-        wants_multi_project = bool(
-            self.config.project_ids
-            or self.config.project_labels
-            or not self.config.project_id
+        """Resolve target GCP projects from config (single project or multi-project mode).
+
+        After config validation, project_id is always migrated to project_ids, so
+        project_id will be None in normal usage. Multi-project mode is always active.
+        """
+        filter_cfg = GcpProjectFilterConfig(
+            project_ids=self.config.project_ids,
+            project_labels=self.config.project_labels,
+            project_id_pattern=self.config.project_id_pattern,
         )
-        if wants_multi_project:
-            filter_cfg = GcpProjectFilterConfig(
-                project_ids=self.config.project_ids,
-                project_labels=self.config.project_labels,
-                project_id_pattern=self.config.project_id_pattern,
-            )
-            resolved_projects = resolve_gcp_projects(filter_cfg, self.report)
-            projects = [p.id for p in resolved_projects]
-            if not projects and self.config.project_id:
-                return [self.config.project_id]
-            return projects
-        return [self.config.project_id]
+        resolved_projects = resolve_gcp_projects(filter_cfg, self.report)
+        return [p.id for p in resolved_projects]
 
     def _resolve_project_regions(self) -> Dict[str, List[str]]:
         """Resolve regions for each project (either discover via API or use config)."""
@@ -404,22 +400,35 @@ class VertexAISource(StatefulIngestionSourceBase):
                         self._metadata_client = None
                         self._ml_metadata_helper = None
 
-                # Process jobs/pipelines/experiments FIRST to track model usage
-                # (for downstream lineage)
+                # Phase 1: Fetch training jobs, pipelines, and experiments first.
+                # These write to model_usage_tracker; models read from it in Phase 2.
+                phase1_resources = []
                 if self.config.include_training_jobs:
-                    yield from auto_workunit(self.training_extractor.get_workunits())
-
-                # Experiments are project-scoped, not region-scoped, so only extract once
+                    phase1_resources.append(("training_jobs",))
+                # experiments/experiment_runs are project-scoped, only extract once
                 if first_region and self.config.include_experiments:
-                    yield from self.experiment_extractor.get_experiment_workunits()
-                    yield from auto_workunit(
-                        self.experiment_extractor.get_experiment_run_workunits()
-                    )
-
+                    phase1_resources.append(("experiments",))
                 if self.config.include_pipelines:
-                    yield from auto_workunit(self.pipeline_extractor.get_workunits())
+                    phase1_resources.append(("pipelines",))
 
-                # Process models AFTER jobs so we can add downstream lineage
+                if not get_vertexai_disable_parallelism() and len(phase1_resources) > 1:
+                    max_workers = len(phase1_resources)
+                    logger.info(
+                        "Fetching resources for project=%s region=%s with %d threads",
+                        project_id,
+                        region,
+                        max_workers,
+                    )
+                    yield from ThreadedIteratorExecutor.process(
+                        worker_func=self._fetch_phase1_resource,
+                        args_list=phase1_resources,
+                        max_workers=max_workers,
+                    )
+                else:
+                    for (resource_type,) in phase1_resources:
+                        yield from self._fetch_phase1_resource(resource_type)
+
+                # Phase 2: Models must come AFTER Phase 1 (reads model_usage_tracker).
                 if self.config.include_models:
                     yield from auto_workunit(self.model_extractor.get_model_workunits())
 
@@ -437,6 +446,23 @@ class VertexAISource(StatefulIngestionSourceBase):
 
                 # Mark that we've processed the first region
                 first_region = False
+
+    def _fetch_phase1_resource(self, resource_type: str) -> Iterable[MetadataWorkUnit]:
+        """Fetch a single Phase 1 resource type (training jobs, experiments, or pipelines).
+
+        Experiments and experiment runs are combined into one call because
+        get_experiment_workunits() sets state that get_experiment_run_workunits() reads,
+        so they must run sequentially in the same thread.
+        """
+        if resource_type == "training_jobs":
+            yield from auto_workunit(self.training_extractor.get_workunits())
+        elif resource_type == "experiments":
+            yield from self.experiment_extractor.get_experiment_workunits()
+            yield from auto_workunit(
+                self.experiment_extractor.get_experiment_run_workunits()
+            )
+        elif resource_type == "pipelines":
+            yield from auto_workunit(self.pipeline_extractor.get_workunits())
 
     def _gen_project_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from gen_containers(
@@ -494,7 +520,11 @@ class VertexAISource(StatefulIngestionSourceBase):
             )
 
     def _get_project_id(self) -> str:
-        return self._current_project_id or self.config.project_id
+        if self._current_project_id:
+            return self._current_project_id
+        if self.config.project_ids:
+            return self.config.project_ids[0]
+        raise RuntimeError("No project ID configured")
 
     def _get_region(self) -> str:
         return self._current_region or self.config.region

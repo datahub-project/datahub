@@ -9,11 +9,10 @@ import {
 
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-const MFEConfigurableContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 16px;
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -26,12 +25,12 @@ const MFEConfigurableContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesi
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        margin-right: ${props.isV2 ? '24px' : '0'};
-        margin-bottom: ${props.isV2 ? '24px' : '0'};
+        margin-right: 24px;
+        margin-bottom: 24px;
     `}
     border-radius: ${(props) => {
-        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
-        return props.isV2 ? '8px' : '0';
+        if (props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return '8px';
     }};
 `;
 
@@ -160,7 +159,6 @@ async function mountMFE({
 }
 
 export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
-    const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const box = useRef<HTMLDivElement>(null);
     const history = useHistory();
@@ -197,18 +195,14 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
     }, [config, history]);
 
     if (hasError) {
-        return <ErrorComponent isV2={isV2} message={`${config.label} is not available at this time`} />;
+        return <ErrorComponent message={`${config.label} is not available at this time`} />;
     }
     if (!config.flags.enabled) {
-        return <ErrorComponent isV2={isV2} message={`${config.label} is disabled.`} />;
+        return <ErrorComponent message={`${config.label} is disabled.`} />;
     }
 
     return (
-        <MFEConfigurableContainer
-            isV2={isV2}
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            data-testid="mfe-configurable-container"
-        >
+        <MFEConfigurableContainer $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="mfe-configurable-container">
             <div ref={box} style={{ minHeight: 480 }} />
         </MFEConfigurableContainer>
     );

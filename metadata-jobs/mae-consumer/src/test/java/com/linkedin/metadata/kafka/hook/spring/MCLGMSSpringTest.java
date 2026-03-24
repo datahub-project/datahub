@@ -4,7 +4,7 @@ import static org.testng.AssertJUnit.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
-import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
+import com.linkedin.metadata.kafka.hook.event.PlatformEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
@@ -51,7 +51,7 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
             .anyMatch(hook -> hook instanceof SiblingAssociationHook));
     assertTrue(
         registrar.getEnabledHooks().stream()
-            .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
+            .anyMatch(hook -> hook instanceof PlatformEventGeneratorHook));
     assertEquals(
         1,
         registrar.getEnabledHooks().stream()

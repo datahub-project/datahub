@@ -1,5 +1,4 @@
 import { ErrorRounded } from '@mui/icons-material';
-import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -20,10 +19,6 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
 import { FilterOperator, LineageDirection } from '@types';
-
-export const StyledDivider = styled(Divider)`
-    margin: 16px 0;
-`;
 
 const Title = styled.div`
     font-size: 14px;

@@ -31,13 +31,11 @@ const downloadCsvFile = (filename) => {
 
 describe("download lineage results to .csv file", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
   it("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToDataset(test_dataset, "SampleCypressKafkaDataset");
     cy.get('[data-node-key="Lineage"]').first().should("be.visible").click();
 

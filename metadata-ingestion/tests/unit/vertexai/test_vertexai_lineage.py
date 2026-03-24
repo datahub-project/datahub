@@ -37,7 +37,7 @@ REGION = "us-west2"
 def source() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
+        config=VertexAIConfig(project_ids=[PROJECT_ID], region=REGION),
     )
 
 
@@ -74,7 +74,7 @@ def test_gen_run_execution_edges() -> None:
 
     source = VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id="p", region="r"),
+        config=VertexAIConfig(project_ids=["acryl-poc"], region="us-west2"),
     )
 
     mcps = list(
@@ -119,7 +119,7 @@ def test_training_job_external_lineage_edges() -> None:
 
     source = VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id="p", region="r"),
+        config=VertexAIConfig(project_ids=["acryl-poc"], region="us-west2"),
     )
 
     job = _Job()

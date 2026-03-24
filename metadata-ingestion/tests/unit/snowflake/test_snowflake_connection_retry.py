@@ -17,6 +17,13 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 
 
+@pytest.fixture(autouse=True)
+def no_retry_sleep():
+    """Suppress tenacity's sleep between retries so tests run fast."""
+    with patch("tenacity.nap.time.sleep"):
+        yield
+
+
 class MockSnowflakeError(Exception):
     """Mock Snowflake error for testing."""
 

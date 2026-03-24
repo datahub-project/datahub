@@ -1,9 +1,5 @@
 import { scaleLinear } from '@visx/scale';
 import * as d3interpolate from '@visx/vendor/d3-interpolate';
-import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import isoWeek from 'dayjs/plugin/isoWeek';
-import utc from 'dayjs/plugin/utc';
 
 import { CALENDAR_DATE_FORMAT } from '@components/components/CalendarChart/constants';
 import { DAYS_IN_WEEK, MIN_DAYS_IN_WEEK } from '@components/components/CalendarChart/private/constants';
@@ -16,9 +12,8 @@ import {
     WeekData,
 } from '@components/components/CalendarChart/types';
 
-dayjs.extend(isoWeek);
-dayjs.extend(utc);
-dayjs.extend(advancedFormat);
+import colors from '@src/conf/theme/colorThemes/color';
+import dayjs from '@utils/dayjs';
 
 export function prepareCalendarData<ValueType>(
     data: CalendarData<ValueType>[],
@@ -197,14 +192,14 @@ export function getMockedProps(
         {
             insertsAndUpdates: {
                 valueAccessor: (datum) => datum.inserts + datum.updates,
-                colors: ['#CAC3F1', '#705EE4', '#3E2F9D'],
+                colors: [colors.violet200, colors.violet500, colors.violet900],
             },
             deletes: {
                 valueAccessor: (datum) => datum.deletes,
-                colors: ['#f1c3ca', '#CF6D6D', '#ab4242'],
+                colors: [colors.wine200, colors.wine600, colors.wine800],
             },
         },
-        '#EBECF0',
+        colors.gray100,
     );
 
     return {

@@ -1,4 +1,5 @@
 import { Button } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -17,7 +18,7 @@ const MainContentWrapper = styled.div`
     flex-direction: column;
 `;
 
-export const HeaderWrapper = styled.div`
+const HeaderWrapper = styled.div`
     padding: 16px 20px 12px 20px;
     display: flex;
     align-items: center;
@@ -67,7 +68,7 @@ const GlossaryContentProvider = (props: Props) => {
                         data-testid="add-term-group-button-v2"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
                         size="md"
-                        icon={{ icon: 'Add', source: 'material' }}
+                        icon={{ icon: Plus }}
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateNodeModalVisible(true)}
                     >

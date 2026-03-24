@@ -1,4 +1,4 @@
-import { Database } from '@phosphor-icons/react';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

@@ -5296,7 +5296,7 @@
             },
             "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
             "type": "VIEW",
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71"
           }
         ],
         "fineGrainedLineages": [
@@ -5311,7 +5311,7 @@
             ],
             "transformOperation": "COPY: [persons].[id] AS [id]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71"
           },
           {
             "upstreamType": "FIELD_SET",
@@ -5324,7 +5324,7 @@
             ],
             "transformOperation": "COPY: [persons].[lastname] AS [lastname]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71"
           },
           {
             "upstreamType": "FIELD_SET",
@@ -5337,7 +5337,7 @@
             ],
             "transformOperation": "COPY: [persons].[firstname] AS [firstname]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71"
           },
           {
             "upstreamType": "FIELD_SET",
@@ -5350,7 +5350,7 @@
             ],
             "transformOperation": "COPY: [persons].[age] AS [age]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
+            "query": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71"
           }
         ]
       }
@@ -5363,7 +5363,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -5392,7 +5392,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -5439,7 +5439,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5472,7 +5472,7 @@
             },
             "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD)",
             "type": "VIEW",
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29"
+            "query": "urn:li:query:view_9d78d751427f300257650bcbc8ce5ea894dcd69589a94cc50df4b0156aa3b751"
           }
         ],
         "fineGrainedLineages": [
@@ -5487,7 +5487,7 @@
             ],
             "transformOperation": "COPY: [personsnew].[lastname] AS [lastname]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29"
+            "query": "urn:li:query:view_9d78d751427f300257650bcbc8ce5ea894dcd69589a94cc50df4b0156aa3b751"
           },
           {
             "upstreamType": "FIELD_SET",
@@ -5500,7 +5500,7 @@
             ],
             "transformOperation": "COPY: [personsnew].[firstname] AS [firstname]",
             "confidenceScore": 0.9,
-            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29"
+            "query": "urn:li:query:view_9d78d751427f300257650bcbc8ce5ea894dcd69589a94cc50df4b0156aa3b751"
           }
         ]
       }
@@ -5513,7 +5513,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d78d751427f300257650bcbc8ce5ea894dcd69589a94cc50df4b0156aa3b751",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -5542,7 +5542,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d78d751427f300257650bcbc8ce5ea894dcd69589a94cc50df4b0156aa3b751",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -5577,7 +5577,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d78d751427f300257650bcbc8ce5ea894dcd69589a94cc50df4b0156aa3b751",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5788,7 +5788,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29",
+    "entityUrn": "urn:li:query:view_31dedfe65188544cdc8d4f984052e3118ab3a35a52d7bb34733ab949bd411a71",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5804,7 +5804,7 @@
   },
   {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d78d751427f300257650bcbc8ce5ea894dcd69589a94cc50df4b0156aa3b751",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

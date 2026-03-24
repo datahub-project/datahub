@@ -1,7 +1,7 @@
-import { ArrowsClockwise, TreeStructure } from '@phosphor-icons/react';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React from 'react';
 
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import Preview from '@app/entityV2/dataProcessInstance/preview/Preview';
@@ -13,6 +13,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType, getDataProduct, getFirstSubType } from '@app/entityV2/shared/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
 
 import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';

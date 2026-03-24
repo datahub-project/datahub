@@ -1,6 +1,3 @@
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { SortingState } from '@components/components/Table/types';
@@ -58,10 +55,6 @@ const mockEntityRegistry = {
         'notebook',
     ],
 } as any;
-
-// Extend dayjs with required plugins
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
 // Mock the structuredReport property of ExecutionRequestResult
 const mockExecutionRequestResult = (structuredReportData: any): Partial<ExecutionRequestResult> => {

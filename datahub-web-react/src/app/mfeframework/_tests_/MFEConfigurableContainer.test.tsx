@@ -5,11 +5,9 @@ import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
-import * as themeHooks from '@app/useIsThemeV2';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
 
 // Mock theme and navbar hooks
-vi.spyOn(themeHooks, 'useIsThemeV2').mockReturnValue(true);
 vi.spyOn(navBarHooks, 'useShowNavBarRedesign').mockReturnValue(true);
 
 const validParsedYaml = {
@@ -38,7 +36,10 @@ const validParsedYaml = {
 const sampleTheme = {
     styles: {
         'border-radius-navbar-redesign': '16px',
-        'box-shadow-navbar-redesign': '0 2px 8px rgba(0,0,0,0.15)',
+        'box-shadow-navbar-redesign': 'none',
+    },
+    colors: {
+        bg: 'none',
     },
     assets: {},
     content: {},

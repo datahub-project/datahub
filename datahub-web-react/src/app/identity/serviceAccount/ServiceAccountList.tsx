@@ -1,3 +1,4 @@
+import { ShieldWarning } from '@phosphor-icons/react/dist/csr/ShieldWarning';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -94,7 +95,7 @@ export const ServiceAccountList = ({
     if (!canManageServiceAccounts) {
         return (
             <NoPermissionContainer>
-                <Icon icon="ShieldWarning" source="phosphor" size="4xl" color="gray" />
+                <Icon icon={ShieldWarning} size="4xl" color="gray" />
                 <Text size="lg" weight="semiBold">
                     Access Denied
                 </Text>

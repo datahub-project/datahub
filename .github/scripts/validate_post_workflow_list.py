@@ -25,7 +25,9 @@ IGNORED_WORKFLOWS = {
     "Create Linear Ticket for PR & Issue Review",
     "PR & Issue Routing (Linear Shadow Mode)",
     "PR Comment",
-    "Pull Request Labeler"
+    "Pull Request Labeler",
+    # docker-unified.yml uses workflow_dispatch only in this fork to prevent OSS publishing
+    "Docker Build, Scan, Test",
 }
 
 
@@ -118,7 +120,7 @@ def main() -> int:
                 print(f"WARNING: {workflow_file.name} has a push/PR trigger but no 'name' field")
 
     missing = expected - listed
-    extra = listed - expected
+    extra = (listed - expected) - IGNORED_WORKFLOWS
 
     if is_ci:
         markdown = _markdown_output(missing, extra, listed)
