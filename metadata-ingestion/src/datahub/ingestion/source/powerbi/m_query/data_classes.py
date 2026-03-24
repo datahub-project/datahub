@@ -60,6 +60,7 @@ class DataPlatformTable:
 class Lineage:
     upstreams: List[DataPlatformTable]
     column_lineage: List[ColumnLineageInfo]
+    powerbi_table_upstreams: List[str] = field(default_factory=list)
 
     @staticmethod
     def empty() -> "Lineage":
