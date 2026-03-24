@@ -461,13 +461,16 @@ class Mapper:
                             )
                         )
 
+        # upstreams may be empty when the table has only calculated-column CLL (no external sources)
         if upstream or cll_lineage:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
                 fineGrainedLineages=cll_lineage or None,
             )
 
-            logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
+            logger.debug(
+                f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage_class}"
+            )
 
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=ds_urn,

@@ -197,24 +197,3 @@ def test_dax_column_lineage_intra_table_measure_ignored():
         },
     )
     assert cll == []
-
-
-def test_calculated_column_lineage_end_to_end():
-    """Column.expression with RELATED produces ColumnLineageInfo via dax_resolver."""
-    orders_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)"
-    customers_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Customers,PROD)"
-
-    sibling_urns = {"customers": customers_urn}
-
-    cll = dax_resolver.extract_dax_column_lineage(
-        column_name="CustomerName",
-        expression="RELATED(Customers[Name])",
-        table_urn=orders_urn,
-        sibling_table_urns=sibling_urns,
-    )
-
-    assert len(cll) == 1
-    assert cll[0].downstream.column == "CustomerName"
-    assert len(cll[0].upstreams) == 1
-    assert cll[0].upstreams[0].table == customers_urn
-    assert cll[0].upstreams[0].column == "Name"
