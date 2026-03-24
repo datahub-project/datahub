@@ -327,6 +327,27 @@ class SnowflakeDatabase:
     tags: Optional[List[SnowflakeTag]] = None
 
 
+@dataclass(frozen=True)
+class SnowflakeShareObject:
+    """A single object (table or view) that has been granted to a share."""
+
+    # Fully qualified name in the form DATABASE.SCHEMA.OBJECT
+    database: str
+    schema: str
+    name: str
+
+
+@dataclass
+class SnowflakeOutboundShare:
+    """An outbound share owned by the current account."""
+
+    share_name: str
+    # The database whose objects are included in this share
+    database_name: str
+    # Objects explicitly granted to this share (populated via DESCRIBE SHARE)
+    granted_objects: FrozenSet[SnowflakeShareObject] = field(default_factory=frozenset)
+
+
 @dataclass
 class SnowflakeStream:
     name: str

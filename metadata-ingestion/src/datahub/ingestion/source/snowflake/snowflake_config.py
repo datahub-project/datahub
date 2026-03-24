@@ -455,6 +455,16 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    enumerate_share_objects: bool = Field(
+        default=False,
+        description="If enabled, uses SHOW SHARES and DESCRIBE SHARE to discover the exact objects "
+        "granted to each outbound share, suppressing sibling aspects for objects not included in any grant. "
+        "Requires ACCOUNTADMIN role or share ownership privileges; falls back to emitting siblings for all "
+        "objects in the shared database if the required privileges are unavailable. "
+        "Note: this prevents new ghost sibling nodes but does not remove sibling aspects already written "
+        "to DataHub in previous ingestion runs.",
+    )
+
     known_snowflake_edition: Optional[SnowflakeEdition] = Field(
         default=None,
         description="Explicitly specify the Snowflake edition (STANDARD or ENTERPRISE). If unset, the edition will be inferred automatically using 'SHOW TAGS'.",
