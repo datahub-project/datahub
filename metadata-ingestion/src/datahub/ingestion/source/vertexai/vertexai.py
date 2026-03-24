@@ -1,5 +1,4 @@
 import logging
-import os
 from contextlib import AbstractContextManager, nullcontext
 from typing import Dict, Iterable, List, Literal, Optional, Union
 
@@ -17,6 +16,7 @@ from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import MetadataServiceClient
 from google.oauth2 import service_account
 
+from datahub.configuration.env_vars import get_vertexai_disable_parallelism
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -411,11 +411,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                 if self.config.include_pipelines:
                     phase1_resources.append(("pipelines",))
 
-                disable_parallelism = os.environ.get(
-                    "DATAHUB_VERTEXAI_DISABLE_PARALLELISM", ""
-                ).lower() in ("1", "true")
-
-                if not disable_parallelism and len(phase1_resources) > 1:
+                if not get_vertexai_disable_parallelism() and len(phase1_resources) > 1:
                     max_workers = len(phase1_resources)
                     logger.info(
                         "Fetching resources for project=%s region=%s with %d threads",

@@ -263,6 +263,10 @@ def test_parallelism_enabled_automatically(
     assert kwargs["max_workers"] == 3
 
 
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai.get_vertexai_disable_parallelism",
+    return_value=True,
+)
 @patch("datahub.ingestion.source.vertexai.vertexai.MetadataServiceClient")
 @patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init")
 @patch("datahub.ingestion.source.vertexai.vertexai.ThreadedIteratorExecutor")
@@ -274,10 +278,9 @@ def test_parallelism_disabled_via_env_var(
     mock_executor: MagicMock,
     _mock_init: MagicMock,
     _mock_metadata_client: MagicMock,
-    monkeypatch: pytest.MonkeyPatch,
+    _mock_disable_parallelism: MagicMock,
 ) -> None:
     """DATAHUB_VERTEXAI_DISABLE_PARALLELISM=1 should skip ThreadedIteratorExecutor."""
-    monkeypatch.setenv("DATAHUB_VERTEXAI_DISABLE_PARALLELISM", "1")
     mock_projects.return_value = [PROJECT_ID]
 
     config = VertexAIConfig.model_validate(
