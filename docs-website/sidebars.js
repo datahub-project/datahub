@@ -114,6 +114,16 @@ module.exports = {
               id: "docs/dev-guides/agent-context/snowflake",
             },
             {
+              label: "Cursor",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/cursor",
+            },
+            {
+              label: "Claude Code",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/claude-code",
+            },
+            {
               label: "Microsoft Copilot Studio",
               type: "doc",
               id: "docs/dev-guides/agent-context/copilot-studio",
