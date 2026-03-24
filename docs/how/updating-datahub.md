@@ -66,6 +66,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #16176: Vertex AI Source - The `region` configuration field is deprecated in favor of `regions` (list type). The `region` field continues to work for backward compatibility.
 - #16176: Vertex AI Source - Partition handling behavior will change in a future major version. Currently, `normalize_external_dataset_paths` defaults to `false`, meaning partitioned paths like `gs://bucket/data/year=2024/month=01/` create separate dataset entities. In the next major version, this will default to `true`, normalizing paths to `gs://bucket/data/` for stable dataset URNs with lineage aggregation across partitions. To opt-in to the new behavior now, set `normalize_external_dataset_paths: true` in your configuration.
+- #16375: Vertex AI Source - The `project_id` (singular) configuration field is deprecated in favor of `project_ids` (list). The field is automatically migrated at startup — no immediate action required. Update your recipe to use `project_ids: ["my-project"]` to silence the deprecation warning. `project_id` will be removed in a future major release.
 
 ### Other Notable Changes
 
