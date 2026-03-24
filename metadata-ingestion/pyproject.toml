@@ -582,6 +582,11 @@ fivetran = [
     "wcmatch<11.0.0",
 ]
 
+flink = [
+    "requests<3.0.0",
+    "tenacity>=8.0.1,<9.0.0",
+]
+
 gcs = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
