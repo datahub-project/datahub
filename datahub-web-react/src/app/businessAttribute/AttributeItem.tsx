@@ -17,7 +17,7 @@ const nameStyles = `
     width: 100%;
 `;
 
-export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
+const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
     ${nameStyles}
 
     &:hover {

@@ -1,3 +1,11 @@
+import { CloudArrowUp } from '@phosphor-icons/react/dist/csr/CloudArrowUp';
+import { FunnelSimple } from '@phosphor-icons/react/dist/csr/FunnelSimple';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -106,7 +114,7 @@ interface OwnerOption {
     imageUrl: string | undefined;
 }
 
-export enum StatusType {
+enum StatusType {
     ALL,
     EXPIRED,
 }
@@ -326,7 +334,7 @@ export const AccessTokens = () => {
                 <div style={ACTION_CELL_STYLE}>
                     <Button
                         onClick={() => setTokenToBeRemoved(record)}
-                        icon={{ icon: 'Trash', source: 'phosphor', size: 'xl' }}
+                        icon={{ icon: Trash, size: 'xl' }}
                         variant="text"
                         color="red"
                         isCircle
@@ -358,7 +366,7 @@ export const AccessTokens = () => {
         if (!canGeneratePersonalAccessTokens) {
             return (
                 <EmptyState
-                    icon="Lock"
+                    icon={Lock}
                     title="No Access"
                     description="You don't have permission to manage access tokens."
                     style={{ flex: 1 }}
@@ -368,13 +376,13 @@ export const AccessTokens = () => {
         if (hasActiveFilters) {
             return (
                 <EmptyState
-                    icon="FunnelSimple"
+                    icon={FunnelSimple}
                     title="No Access Tokens Found"
                     description="No tokens match the current filters."
                     action={{
                         label: 'Clear filters',
                         onClick: clearFilters,
-                        icon: { icon: 'X', source: 'phosphor' },
+                        icon: { icon: X },
                         variant: 'secondary',
                     }}
                     style={{ flex: 1 }}
@@ -383,13 +391,13 @@ export const AccessTokens = () => {
         }
         return (
             <EmptyState
-                icon="Key"
+                icon={Key}
                 title="No Access Tokens"
                 description="Generate a new token to get started."
                 action={{
                     label: 'Generate new token',
                     onClick: () => setCreateTokenFor('personal'),
-                    icon: { icon: 'Plus', source: 'phosphor' },
+                    icon: { icon: Plus },
                 }}
                 style={{ flex: 1 }}
             />
@@ -415,14 +423,14 @@ export const AccessTokens = () => {
                             type: 'item',
                             key: 'personal',
                             title: 'Personal Token',
-                            icon: 'Key',
+                            icon: Key,
                             onClick: () => setCreateTokenFor('personal'),
                         },
                         {
                             type: 'item',
                             key: 'remote-executor',
                             title: 'Remote Executor',
-                            icon: 'CloudArrowUp',
+                            icon: CloudArrowUp,
                             onClick: () => setCreateTokenFor('remote-executor'),
                         },
                         ...(canManageServiceAccounts
@@ -431,7 +439,7 @@ export const AccessTokens = () => {
                                       type: 'item',
                                       key: 'service-account',
                                       title: 'Service Account',
-                                      icon: 'Robot',
+                                      icon: Robot,
                                       onClick: () => setShowSelectServiceAccountModal(true),
                                   },
                               ] as ItemType[])
@@ -440,7 +448,7 @@ export const AccessTokens = () => {
                 >
                     <Button
                         variant="filled"
-                        icon={{ icon: 'Plus', source: 'phosphor' }}
+                        icon={{ icon: Plus }}
                         data-testid="add-token-button"
                         disabled={!canGeneratePersonalAccessTokens}
                     >

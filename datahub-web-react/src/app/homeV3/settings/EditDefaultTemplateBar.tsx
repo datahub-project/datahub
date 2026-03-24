@@ -1,4 +1,5 @@
 import { Button, Icon, colors } from '@components';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -34,7 +35,7 @@ export default function EditDefaultTemplateBar() {
     return (
         <ActionsBar dataTestId="editing-default-template-bar">
             <Warning>
-                <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
+                <Icon icon={ExclamationMark} color="red" weight="fill" />
                 <span>Editing Organization Default Home</span>
             </Warning>
             <Button onClick={onClick} data-testid="finish-editing-default-template">

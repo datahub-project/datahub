@@ -1,4 +1,4 @@
-import { Icon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 

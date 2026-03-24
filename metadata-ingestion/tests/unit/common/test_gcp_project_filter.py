@@ -3,15 +3,22 @@
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import pytest
 from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
+from google.auth.exceptions import GoogleAuthError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.gcp_project_filter import (
+    GCP_LABEL_PATTERN,
+    GCP_PROJECT_ID_PATTERN,
     GcpProject,
     GcpProjectFilterConfig,
+    GCPValidationError,
     is_project_allowed,
     resolve_gcp_projects,
+    validate_project_id_list,
+    validate_project_label_list,
 )
 
 
@@ -330,3 +337,114 @@ class TestResolveGcpProjects:
 
         assert len(projects) == 1
         assert projects[0].id == "my-project-123"
+
+    @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
+    def test_auth_error_in_label_search(self, mock_client_class):
+        """Test GoogleAuthError is caught during label-based project search."""
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.search_projects.side_effect = GoogleAuthError("Invalid credentials")
+
+        config = GcpProjectFilterConfig(project_labels=["env:prod"])
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
+
+        assert len(projects) == 0
+        assert len(report.failures) > 0
+
+
+class TestGcpProjectIdPattern:
+    """Test GCP_PROJECT_ID_PATTERN regex."""
+
+    @pytest.mark.parametrize(
+        "project_id",
+        ["my-project", "a12345", "abcdef", "a-b-c-d-e-f", "project-123-abc"],
+    )
+    def test_valid_project_ids(self, project_id):
+        assert GCP_PROJECT_ID_PATTERN.match(project_id)
+
+    @pytest.mark.parametrize(
+        "project_id",
+        [
+            "UPPER",  # uppercase
+            "1start",  # starts with digit
+            "ab",  # too short (< 6)
+            "a" * 31,  # too long (> 30)
+            "has space",  # contains space
+            "end-",  # ends with hyphen
+        ],
+    )
+    def test_invalid_project_ids(self, project_id):
+        assert not GCP_PROJECT_ID_PATTERN.match(project_id)
+
+
+class TestGcpLabelPattern:
+    """Test GCP_LABEL_PATTERN regex."""
+
+    @pytest.mark.parametrize(
+        "label",
+        ["env:prod", "team:ml-ops", "cost_center:12345"],
+    )
+    def test_valid_labels(self, label):
+        assert GCP_LABEL_PATTERN.match(label)
+
+    @pytest.mark.parametrize(
+        "label",
+        [
+            "no-colon",  # missing colon separator
+            "Env:prod",  # uppercase key
+            ":value",  # empty key
+            "key:",  # empty value
+            "env=prod",  # wrong separator
+        ],
+    )
+    def test_invalid_labels(self, label):
+        assert not GCP_LABEL_PATTERN.match(label)
+
+
+class TestValidateProjectIdList:
+    """Test validate_project_id_list function."""
+
+    def test_valid_list(self):
+        validate_project_id_list(["my-project", "other-proj-1"])
+
+    def test_empty_list_allowed(self):
+        validate_project_id_list([])
+
+    def test_empty_list_disallowed(self):
+        with pytest.raises(GCPValidationError, match="cannot be an empty list"):
+            validate_project_id_list([], allow_empty=False)
+
+    def test_empty_string_rejected(self):
+        with pytest.raises(GCPValidationError, match="empty values"):
+            validate_project_id_list(["my-project", ""])
+
+    def test_duplicates_rejected(self):
+        with pytest.raises(GCPValidationError, match="duplicates"):
+            validate_project_id_list(["my-project", "my-project"])
+
+    def test_invalid_format_rejected(self):
+        with pytest.raises(GCPValidationError, match="Invalid project_ids format"):
+            validate_project_id_list(["UPPERCASE"])
+
+
+class TestValidateProjectLabelList:
+    """Test validate_project_label_list function."""
+
+    def test_valid_list(self):
+        validate_project_label_list(["env:prod", "team:ml"])
+
+    def test_empty_list_allowed(self):
+        validate_project_label_list([])
+
+    def test_empty_string_rejected(self):
+        with pytest.raises(GCPValidationError, match="empty values"):
+            validate_project_label_list(["env:prod", ""])
+
+    def test_duplicates_rejected(self):
+        with pytest.raises(GCPValidationError, match="duplicates"):
+            validate_project_label_list(["env:prod", "env:prod"])
+
+    def test_invalid_format_rejected(self):
+        with pytest.raises(GCPValidationError, match="Invalid project_labels format"):
+            validate_project_label_list(["env=prod"])

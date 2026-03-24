@@ -82,13 +82,14 @@ include ':datahub-agent-context'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');
+    def isCi = System.getenv('CI');
 
 
 
     remote(HttpBuildCache) {
         url = 'https://cache.depot.dev'
         enabled = depotSecret != null
-        push = true
+        push = isCi // Push only on CI. Local development only pulls
         credentials {
             username = ''
             password = depotSecret

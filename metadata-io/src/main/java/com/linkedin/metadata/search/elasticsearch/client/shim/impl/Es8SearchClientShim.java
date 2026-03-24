@@ -267,7 +267,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           // SSL configuration
           if (config.isUseSSL()) {
             try {
-              SSLContext sslContext = javax.net.ssl.SSLContext.getDefault();
+              SSLContext sslContext =
+                  config.getSSLContext() != null
+                      ? config.getSSLContext() // custom certs
+                      : SSLContexts.createDefault(); // fallback to JVM default
               httpAsyncClientBuilder
                   .setSSLContext(sslContext)
                   .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
@@ -327,7 +330,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
    */
   private NHttpClientConnectionManager createConnectionManager(ShimConfiguration config)
       throws IOReactorException {
-    SSLContext sslContext = SSLContexts.createDefault();
+    SSLContext sslContext =
+        config.getSSLContext() != null
+            ? config.getSSLContext() // custom certs
+            : SSLContexts.createDefault(); // fallback to JVM default
     javax.net.ssl.HostnameVerifier hostnameVerifier =
         new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
     SchemeIOSessionStrategy sslStrategy =

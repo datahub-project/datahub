@@ -1,6 +1,6 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { message } from 'antd';
+import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -71,7 +71,7 @@ export default function DataProductSection({ readOnly }: Props) {
                 },
             })
                 .then(() => {
-                    message.success({ content: 'Removed from Data Product.', duration: 2 });
+                    toast.success('Removed from Data Product.', { duration: 2 });
                     setDataProducts((prev) => prev.filter((dp) => dp.urn !== dataProductToRemove));
                     setShowRemoveModal(false);
                     setDataProductToRemove(null);
@@ -85,10 +85,9 @@ export default function DataProductSection({ readOnly }: Props) {
                     setTimeout(refetch, 3000);
                 })
                 .catch((e: unknown) => {
-                    message.destroy();
+                    toast.destroy();
                     if (e instanceof Error) {
-                        message.error({
-                            content: `Failed to remove from data product. An unknown error occurred.`,
+                        toast.error('Failed to remove from data product. An unknown error occurred.', {
                             duration: 3,
                         });
                     }
@@ -96,7 +95,7 @@ export default function DataProductSection({ readOnly }: Props) {
         } else {
             batchSetDataProductMutation({ variables: { input: { resourceUrns: [urn, ...siblingUrns] } } })
                 .then(() => {
-                    message.success({ content: 'Removed Data Product.', duration: 2 });
+                    toast.success('Removed Data Product.', { duration: 2 });
                     setDataProducts([]);
                     setShowRemoveModal(false);
                     setDataProductToRemove(null);
@@ -110,10 +109,9 @@ export default function DataProductSection({ readOnly }: Props) {
                     setTimeout(refetch, 3000);
                 })
                 .catch((e: unknown) => {
-                    message.destroy();
+                    toast.destroy();
                     if (e instanceof Error) {
-                        message.error({
-                            content: `Failed to remove data product. An unknown error occurred.`,
+                        toast.error('Failed to remove data product. An unknown error occurred.', {
                             duration: 3,
                         });
                     }
@@ -149,7 +147,7 @@ export default function DataProductSection({ readOnly }: Props) {
                 }
                 extra={
                     <SectionActionButton
-                        button={dataProducts.length > 0 ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                        icon={dataProducts.length > 0 ? PencilSimple : Plus}
                         onClick={(event) => {
                             setIsModalVisible(true);
                             event.stopPropagation();

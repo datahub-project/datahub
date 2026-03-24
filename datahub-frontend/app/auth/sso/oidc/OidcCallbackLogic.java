@@ -133,7 +133,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
     // Handle OIDC authentication errors.
     if (OidcResponseErrorHandler.isError(ctx)) {
-      return OidcResponseErrorHandler.handleError(ctx);
+      final OidcConfigs oidcConfigs = (OidcConfigs) ssoManager.getSsoProvider().configs();
+      return OidcResponseErrorHandler.handleError(ctx, oidcConfigs.getAccessDeniedRedirectUrl());
     }
 
     // By this point, we know that OIDC is the enabled provider.

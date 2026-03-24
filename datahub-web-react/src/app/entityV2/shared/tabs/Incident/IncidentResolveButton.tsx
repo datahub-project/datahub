@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Check } from '@phosphor-icons/react';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -69,6 +69,7 @@ export const IncidentResolveButton = ({
     };
 
     const checkIconRenderer = () => {
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once success color token is added
         return <Check color="#248F5B" height={9} width={12} />;
     };
 

@@ -1,4 +1,5 @@
 import { Button, colors } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Typography } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
@@ -108,8 +109,7 @@ export function FileNode({
                 {onClose && (
                     <CloseButton
                         icon={{
-                            icon: 'X',
-                            source: 'phosphor',
+                            icon: X,
                             color: 'gray',
                             colorLevel: 1800,
                             size: 'lg',

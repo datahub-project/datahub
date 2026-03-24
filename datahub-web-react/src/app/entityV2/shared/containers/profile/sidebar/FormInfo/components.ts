@@ -1,25 +1,10 @@
-import { ReadFilled, ReadOutlined } from '@ant-design/icons';
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { ReadOutlined } from '@ant-design/icons';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
-import { Divider } from 'antd';
 import styled from 'styled-components';
 
 export const FlexWrapper = styled.div`
     display: flex;
     line-height: 18px;
-`;
-
-export const StyledIcon = styled(Icon)<{ addLineHeight?: boolean }>`
-    font-size: 18px;
-    margin-right: 8px;
-    ${(props) => props.addLineHeight && `line-height: 24px;`}
-`;
-
-export const SubTitle = styled.div<{ addMargin?: boolean }>`
-    font-weight: 600;
-    margin-bottom: 4px;
-    ${(props) => props.addMargin && `margin-top: 8px;`}
-    text-wrap: wrap;
 `;
 
 export const Title = styled.div`
@@ -29,24 +14,11 @@ export const Title = styled.div`
     align-items: center;
 `;
 
-export const StyledDivider = styled(Divider)`
-    margin: 12px 0 0 0;
-`;
-
 export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string; addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 18px;
     width: 18px;
     color: #373d44;
-    ${(props) => props.addLineHeight && `line-height: 24px;`}
-    ${(props) => props.color && `color: ${props.color};`}
-`;
-
-export const StyledReadFilled = styled(ReadFilled)<{ color: string; addLineHeight?: boolean }>`
-    margin-right: 8px;
-    height: 18px;
-    width: 18px;
-    color: #7532a4;
     ${(props) => props.addLineHeight && `line-height: 24px;`}
     ${(props) => props.color && `color: ${props.color};`}
 `;

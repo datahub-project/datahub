@@ -1,4 +1,4 @@
-import { LinkSimpleHorizontal } from '@phosphor-icons/react';
+import { LinkSimpleHorizontal } from '@phosphor-icons/react/dist/csr/LinkSimpleHorizontal';
 import { useActive } from '@remirror/react';
 import React, { useState } from 'react';
 

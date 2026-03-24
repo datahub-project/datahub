@@ -1,3 +1,5 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { NodeViewComponentProps } from '@remirror/react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -183,7 +185,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                 onClick={clickHandler}
                 extraRightContent={
                     <Button
-                        icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretRight' }}
+                        icon={{ icon: isPreviewVisible ? CaretDown : CaretRight }}
                         variant="text"
                         onClick={() => setIsPreviewVisible(!isPreviewVisible)}
                     />

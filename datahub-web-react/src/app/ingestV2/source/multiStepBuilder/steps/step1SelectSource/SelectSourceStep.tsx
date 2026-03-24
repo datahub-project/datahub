@@ -1,4 +1,6 @@
 import { Badge, Icon, SearchBar, colors } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -177,8 +179,7 @@ export function SelectSourceStep() {
                                     {!searchQuery && (
                                         <RightSection>
                                             <Icon
-                                                icon={isOpen ? 'CaretDown' : 'CaretRight'}
-                                                source="phosphor"
+                                                icon={isOpen ? CaretDown : CaretRight}
                                                 color="gray"
                                                 size="2xl"
                                                 onClick={() =>

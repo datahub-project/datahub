@@ -890,7 +890,7 @@ class Dataset(
         try:
             dialect = sqlglot.Dialect.get_or_raise(dialect_str)
             # Type annotation uses string literal since sqlglot is lazily imported
-            parsed: "sqlglot.Expression" = sqlglot.maybe_parse(
+            parsed: "sqlglot.exp.Expression" = sqlglot.maybe_parse(
                 sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
             )
         except sqlglot.errors.ParseError as e:

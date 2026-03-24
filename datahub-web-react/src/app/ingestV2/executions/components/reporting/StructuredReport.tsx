@@ -1,4 +1,10 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Card, Icon, colors } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { WarningDiamond } from '@phosphor-icons/react/dist/csr/WarningDiamond';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -197,7 +203,7 @@ export function StructuredReport({ report }: Props) {
 
     const chevronButton = (
         <ChevronButton onClick={toggleExpanded}>
-            <ChevronIcon icon={isExpanded ? 'CaretUp' : 'CaretDown'} source="phosphor" size="md" />
+            <ChevronIcon icon={isExpanded ? CaretUp : CaretDown} size="md" />
         </ChevronButton>
     );
 
@@ -209,7 +215,7 @@ export function StructuredReport({ report }: Props) {
                         items={visibleErrors}
                         color={ERROR_COLOR}
                         textColor={ERROR_TEXT_COLOR}
-                        icon="WarningDiamond"
+                        icon={WarningDiamond}
                     />
                 ) : null}
                 {visibleWarnings.length ? (
@@ -217,7 +223,7 @@ export function StructuredReport({ report }: Props) {
                         items={visibleWarnings}
                         color={WARNING_COLOR}
                         textColor={WARNING_TEXT_COLOR}
-                        icon="WarningCircle"
+                        icon={WarningCircle}
                     />
                 ) : null}
                 {visibleInfos.length ? (
@@ -225,7 +231,7 @@ export function StructuredReport({ report }: Props) {
                         items={visibleInfos}
                         color={INFO_COLOR}
                         textColor={INFO_TEXT_COLOR}
-                        icon="Info"
+                        icon={Info}
                     />
                 ) : null}
             </Container>

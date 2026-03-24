@@ -137,11 +137,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 key: 'owners',
                 render: (record) => {
                     return (
-                        <ApplicationOwnersColumn
-                            key={`owners-${record.entity.urn}`}
-                            applicationUrn={record.entity.urn}
-                            owners={record.entity.ownership}
-                        />
+                        <ApplicationOwnersColumn key={`owners-${record.entity.urn}`} owners={record.entity.ownership} />
                     );
                 },
             },

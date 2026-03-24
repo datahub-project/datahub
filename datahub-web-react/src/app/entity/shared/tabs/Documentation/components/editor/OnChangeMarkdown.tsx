@@ -2,7 +2,7 @@ import { DocChangedExtension } from '@remirror/core';
 import { useExtensionEvent, useHelpers } from '@remirror/react';
 import { useCallback } from 'react';
 
-export interface OnChangeMarkdownProps {
+interface OnChangeMarkdownProps {
     onChange: (md: string) => void;
 }
 

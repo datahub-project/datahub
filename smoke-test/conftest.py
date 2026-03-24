@@ -44,6 +44,7 @@ def build_auth_session():
 @pytest.fixture(scope="session")
 def auth_session():
     auth_session = build_auth_session()
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     yield auth_session
     auth_session.destroy()
 

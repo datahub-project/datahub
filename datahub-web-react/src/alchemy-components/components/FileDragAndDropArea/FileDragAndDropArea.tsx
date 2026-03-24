@@ -1,4 +1,5 @@
 import { Button, Icon, Text, colors } from '@components';
+import { UploadSimple } from '@phosphor-icons/react/dist/csr/UploadSimple';
 import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -113,7 +114,7 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
             >
                 <InnerContainer>
                     <IconContainer onDragLeave={(e) => e.stopPropagation()}>
-                        <Icon icon="UploadSimple" source="phosphor" color="primary" size="2xl" />
+                        <Icon icon={UploadSimple} color="primary" size="2xl" />
                     </IconContainer>
                     <ActionTextContainer>
                         <Text size="sm" weight="semiBold">

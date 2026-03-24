@@ -68,6 +68,13 @@ class ConnectorConfigKeys:
 
     # MongoDB configuration
 
+    # ClickHouse configuration
+    CLICKHOUSE_HOSTNAME: Final[str] = "hostname"
+    CLICKHOUSE_PORT: Final[str] = "port"
+    CLICKHOUSE_DATABASE: Final[str] = "database"
+    CLICKHOUSE_PASSWORD: Final[str] = "password"
+    CLICKHOUSE_TOPIC2TABLE_MAP: Final[str] = "topic2TableMap"
+
     # Transform configuration
     TRANSFORMS: Final[str] = "transforms"
 

@@ -1,4 +1,5 @@
 import { Button, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -15,7 +16,7 @@ const Wrapper = styled.div`
 const DomainTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledButton = styled(Button)`
@@ -38,7 +39,7 @@ export default function DomainsSidebarHeader() {
                     variant="filled"
                     color="violet"
                     isCircle
-                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                    icon={{ icon: Plus }}
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="sidebar-create-domain-button"
                 />

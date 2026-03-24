@@ -13,17 +13,17 @@ export const PageContainer = styled.div`
     overflow: hidden;
 `;
 
-export const PageHeaderContainer = styled.div`
+const PageHeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
-export const HeaderLeft = styled.div`
+const HeaderLeft = styled.div`
     display: flex;
     flex-direction: column;
 `;
 
-export const HeaderRight = styled.div`
+const HeaderRight = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
@@ -67,6 +67,7 @@ type ManageUsersAndGroupsHeaderProps = {
     activeTab: string;
     onInviteUsers: () => void;
     onCreateServiceAccount: () => void;
+    onCreateGroup: () => void;
 };
 
 export const ManageUsersAndGroupsHeader = ({
@@ -76,8 +77,35 @@ export const ManageUsersAndGroupsHeader = ({
     activeTab,
     onInviteUsers,
     onCreateServiceAccount,
+    onCreateGroup,
 }: ManageUsersAndGroupsHeaderProps) => {
-    const isServiceAccountsTab = activeTab === 'service-accounts';
+    const renderActionButton = () => {
+        switch (activeTab) {
+            case 'service-accounts':
+                return (
+                    <Button
+                        variant="filled"
+                        disabled={!canManageServiceAccounts}
+                        onClick={onCreateServiceAccount}
+                        data-testid="create-service-account-button"
+                    >
+                        Create Service Account
+                    </Button>
+                );
+            case 'groups':
+                return (
+                    <Button variant="filled" onClick={onCreateGroup} data-testid="create-group-button">
+                        Create Group
+                    </Button>
+                );
+            default:
+                return (
+                    <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
+                        Invite Users
+                    </Button>
+                );
+        }
+    };
 
     return (
         <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
@@ -87,22 +115,7 @@ export const ManageUsersAndGroupsHeader = ({
                     subTitle="View your DataHub users &amp; groups. Take administrative actions."
                 />
             </HeaderLeft>
-            <HeaderRight>
-                {isServiceAccountsTab ? (
-                    <Button
-                        variant="filled"
-                        disabled={!canManageServiceAccounts}
-                        onClick={onCreateServiceAccount}
-                        data-testid="create-service-account-button"
-                    >
-                        Create Service Account
-                    </Button>
-                ) : (
-                    <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
-                        Invite Users
-                    </Button>
-                )}
-            </HeaderRight>
+            <HeaderRight>{renderActionButton()}</HeaderRight>
         </PageHeaderContainer>
     );
 };

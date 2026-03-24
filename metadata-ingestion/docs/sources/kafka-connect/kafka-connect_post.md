@@ -143,6 +143,7 @@ transforms.RegexRouter.replacement: "events.$1"
 | **Cloud MySQL Sink**<br/>`MySqlSink`                                           | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Cloud Snowflake Sink**<br/>`SnowflakeSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Debezium JDBC Sink**<br/>`io.debezium.connector.jdbc.JdbcSinkConnector`      | ✅ Full             | ✅ Partial              | Runtime API / Config-based | Topic → Table mapping     |
+| **ClickHouse Sink**<br/>`com.clickhouse.kafka.connect.ClickHouseSinkConnector` | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Confluent JDBC Sink**<br/>`io.confluent.connect.jdbc.JdbcSinkConnector`      | ✅ Full             | ✅ Partial              | Runtime API / Config-based | Topic → Table mapping     |
 
 **Legend:**
@@ -233,7 +234,7 @@ DataHub now provides intelligent topic resolution that works reliably across all
 - When Kafka API is available: Filter to only topics that exist in Kafka
 - When Kafka API is unavailable (Confluent Cloud): Create lineages for all configured tables without filtering
 
-**Sink Connectors** (S3, Snowflake, BigQuery, JDBC):
+**Sink Connectors** (S3, Snowflake, BigQuery, ClickHouse, JDBC):
 
 - Support both explicit topic lists (`topics` field) and regex patterns (`topics.regex` field)
 - When `topics.regex` is used:
