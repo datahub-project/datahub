@@ -1,9 +1,7 @@
-import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
-from google.auth import load_credentials_from_dict
 from google.auth.transport.requests import Request
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -23,6 +21,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.common.gcp_wif_config import (
+    GCPWIFConfig,
+    load_wif_credentials,
+)
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
@@ -129,6 +131,7 @@ class HMACKey(ConfigModel):
 class GCSSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
+    GCPWIFConfig,
     PathSpecsConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
@@ -140,21 +143,6 @@ class GCSSourceConfig(
     credential: Optional[HMACKey] = Field(
         default=None,
         description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys). Required when auth_type is 'hmac'.",
-    )
-
-    gcp_wif_configuration: Optional[str] = Field(
-        default=None,
-        description="Path to the Google Cloud Workload Identity Federation configuration JSON file. Required when auth_type is 'workload_identity_federation' and gcp_wif_configuration_json is not provided.",
-    )
-
-    gcp_wif_configuration_json: Optional[Union[str, Dict[str, Any]]] = Field(
-        default=None,
-        description="Google Cloud Workload Identity Federation configuration as JSON string or dict. Alternative to gcp_wif_configuration file path. Required when auth_type is 'workload_identity_federation' and gcp_wif_configuration is not provided.",
-    )
-
-    gcp_wif_configuration_json_string: Optional[str] = Field(
-        default=None,
-        description="Google Cloud Workload Identity Federation configuration as a JSON string (contents of the configuration file). Useful for copying configuration from files into secrets. Alternative to gcp_wif_configuration file path. Required when auth_type is 'workload_identity_federation' and other gcp_wif_configuration options are not provided.",
     )
 
     max_rows: int = Field(
@@ -171,7 +159,7 @@ class GCSSourceConfig(
 
     @model_validator(mode="before")
     @classmethod
-    def validate_credential(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_credential(cls, values: Any) -> Any:
         if isinstance(values, dict):
             auth_type = values.get("auth_type", GCSAuthType.HMAC)
             credential = values.get("credential")
@@ -181,22 +169,14 @@ class GCSSourceConfig(
 
     @model_validator(mode="before")
     @classmethod
-    def validate_gcp_wif_configuration_options(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def validate_gcp_wif_configuration_options(cls, values: Any) -> Any:
         if isinstance(values, dict):
             auth_type = values.get("auth_type", GCSAuthType.HMAC)
-            gcp_wif_configuration = values.get("gcp_wif_configuration")
-            gcp_wif_configuration_json = values.get("gcp_wif_configuration_json")
-            gcp_wif_configuration_json_string = values.get(
-                "gcp_wif_configuration_json_string"
-            )
-
             if auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
                 wif_options = [
-                    gcp_wif_configuration,
-                    gcp_wif_configuration_json,
-                    gcp_wif_configuration_json_string,
+                    values.get("gcp_wif_configuration"),
+                    values.get("gcp_wif_configuration_json"),
+                    values.get("gcp_wif_configuration_json_string"),
                 ]
                 provided_options = [opt for opt in wif_options if opt is not None]
 
@@ -210,29 +190,6 @@ class GCSSourceConfig(
                         "Cannot specify multiple WIF configuration options. Use only one of: "
                         "gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string."
                     )
-
-            # Validate JSON format for both JSON options
-            if gcp_wif_configuration_json:
-                if isinstance(gcp_wif_configuration_json, str):
-                    try:
-                        json.loads(gcp_wif_configuration_json)
-                    except json.JSONDecodeError as e:
-                        raise ValueError(
-                            f"gcp_wif_configuration_json must be valid JSON: {e}"
-                        ) from e
-                elif not isinstance(gcp_wif_configuration_json, dict):
-                    raise ValueError(
-                        "gcp_wif_configuration_json must be either a JSON string or a dictionary"
-                    )
-
-            if gcp_wif_configuration_json_string:
-                try:
-                    json.loads(gcp_wif_configuration_json_string)
-                except json.JSONDecodeError as e:
-                    raise ValueError(
-                        f"gcp_wif_configuration_json_string must be valid JSON: {e}"
-                    ) from e
-
         return values
 
     @field_validator("path_specs", mode="after")
@@ -283,57 +240,7 @@ class GCSSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def _setup_wif_credentials(self) -> None:
-        """Set up Workload Identity Federation credentials using Google Auth library."""
-        if self.config.gcp_wif_configuration:
-            with open(self.config.gcp_wif_configuration) as f:
-                wif_config_dict: Dict[str, Any] = json.load(f)
-            logger.info(
-                "Using Workload Identity Federation configuration from file: %s",
-                self.config.gcp_wif_configuration,
-            )
-        elif self.config.gcp_wif_configuration_json:
-            if isinstance(self.config.gcp_wif_configuration_json, dict):
-                wif_config_dict = self.config.gcp_wif_configuration_json
-            else:
-                wif_config_dict = json.loads(self.config.gcp_wif_configuration_json)
-            logger.info(
-                "Using Workload Identity Federation configuration from JSON content"
-            )
-        elif self.config.gcp_wif_configuration_json_string:
-            wif_config_dict = json.loads(self.config.gcp_wif_configuration_json_string)
-            logger.info(
-                "Using Workload Identity Federation configuration from JSON string"
-            )
-        else:
-            raise ValueError("No valid WIF configuration provided")
-
-        try:
-            credentials, project_id = load_credentials_from_dict(wif_config_dict)
-            # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
-            credentials = credentials.with_scopes(
-                ["https://www.googleapis.com/auth/cloud-platform"]
-            )
-
-            # Try to refresh credentials to validate they work.
-            # If refresh fails, log a warning but continue — inject_bearer will
-            # refresh automatically on the first actual GCS API call.
-            try:
-                credentials.refresh(Request())
-                logger.debug("Successfully refreshed WIF credentials")
-            except Exception as refresh_error:
-                logger.warning(
-                    "Failed to refresh WIF credentials during setup (this may be expected): %s",
-                    refresh_error,
-                )
-
-            self._wif_credentials = credentials
-            self._wif_project_id = project_id
-            logger.info("Successfully set up Workload Identity Federation credentials")
-
-        except Exception as e:
-            raise ValueError(
-                f"Failed to setup Workload Identity Federation credentials: {e}"
-            ) from e
+        self._wif_credentials, self._wif_project_id = load_wif_credentials(self.config)
 
     def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
         s3_path_specs = self.create_equivalent_s3_path_specs()

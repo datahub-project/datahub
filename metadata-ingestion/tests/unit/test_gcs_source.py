@@ -389,7 +389,7 @@ def test_wif_config_accepts_json_string():
     )
 
 
-@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_dict")
+@mock.patch("datahub.ingestion.source.common.gcp_wif_config.load_credentials_from_dict")
 def test_wif_source_creation_from_file_path(mock_load_creds):
     """GCSSource with WIF from file path reads the file and loads credentials from the dict."""
     import json as json_module
@@ -431,7 +431,7 @@ def test_wif_source_creation_from_file_path(mock_load_creds):
     gcs_source.close()
 
 
-@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_dict")
+@mock.patch("datahub.ingestion.source.common.gcp_wif_config.load_credentials_from_dict")
 def test_wif_source_creation_from_json_dict(mock_load_creds):
     """GCSSource with gcp_wif_configuration_json (dict) loads creds directly from dict."""
     mock_creds = mock.MagicMock()
@@ -459,7 +459,7 @@ def test_wif_source_creation_from_json_dict(mock_load_creds):
     gcs_source.close()
 
 
-@mock.patch("datahub.ingestion.source.gcs.gcs_source.load_credentials_from_dict")
+@mock.patch("datahub.ingestion.source.common.gcp_wif_config.load_credentials_from_dict")
 def test_wif_source_creation_from_json_string(mock_load_creds):
     """GCSSource with gcp_wif_configuration_json_string parses JSON and loads creds from dict."""
     import json as json_module
