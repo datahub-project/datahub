@@ -879,6 +879,252 @@ def test_kafka_connect_debezium_sqlserver(
     )
 
 
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_bigquery_sink_topic2tablemap_ingest(
+    pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Test BigQuery sink connector with topic2TableMap configuration.
+    Verifies that explicit topic-to-table mappings are honored.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["bigquery-sink-topic2tablemap"],
+        },
+        "http://localhost:28083/connectors/bigquery-sink-topic2tablemap": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "bigquery-sink-topic2tablemap",
+                "config": {
+                    "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+                    "project": "my-gcp-project",
+                    "defaultDataset": "analytics_dataset",
+                    "topic2TableMap": "orders:orders_table,payments:payment_records,users:user_data",
+                    "sanitizeTopics": "true",
+                    "topics": "orders,payments,users,products",
+                    "tasks.max": "1",
+                    "name": "bigquery-sink-topic2tablemap",
+                },
+                "tasks": [{"connector": "bigquery-sink-topic2tablemap", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/bigquery-sink-topic2tablemap/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "bigquery-sink-topic2tablemap": {
+                    "topics": ["orders", "payments", "users", "products"]
+                }
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "kafka-connect-bigquery-topic2tablemap-test",
+            "source": {
+                "type": "kafka-connect",
+                "config": {
+                    "platform_instance": "connect-instance-1",
+                    "connect_uri": KAFKA_CONNECT_SERVER,
+                    "connector_patterns": {
+                        "allow": [
+                            "bigquery-sink-topic2tablemap",
+                        ]
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/kafka_connect_bigquery_topic2tablemap_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "kafka_connect_bigquery_topic2tablemap_mces_golden.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_bigquery_topic2tablemap_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_bigquery_sink_topic2tablemap_v1_config(
+    pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Test BigQuery sink connector with topic2TableMap and v1 configuration (datasets regex).
+    Verifies that topic2TableMap works with legacy v1 configuration.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["bigquery-sink-v1-topic2tablemap"],
+        },
+        "http://localhost:28083/connectors/bigquery-sink-v1-topic2tablemap": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "bigquery-sink-v1-topic2tablemap",
+                "config": {
+                    "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+                    "project": "my-gcp-project",
+                    "datasets": ".*=my_dataset",
+                    "topic2TableMap": "events:event_table,logs:log_records",
+                    "sanitizeTopics": "false",
+                    "topics": "events,logs,metrics",
+                    "tasks.max": "1",
+                    "name": "bigquery-sink-v1-topic2tablemap",
+                },
+                "tasks": [{"connector": "bigquery-sink-v1-topic2tablemap", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/bigquery-sink-v1-topic2tablemap/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "bigquery-sink-v1-topic2tablemap": {
+                    "topics": ["events", "logs", "metrics"]
+                }
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "kafka-connect-bigquery-v1-topic2tablemap-test",
+            "source": {
+                "type": "kafka-connect",
+                "config": {
+                    "platform_instance": "connect-instance-1",
+                    "connect_uri": KAFKA_CONNECT_SERVER,
+                    "connector_patterns": {
+                        "allow": [
+                            "bigquery-sink-v1-topic2tablemap",
+                        ]
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/kafka_connect_bigquery_v1_topic2tablemap_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "kafka_connect_bigquery_v1_topic2tablemap_mces_golden.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_bigquery_v1_topic2tablemap_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_bigquery_sink_topic2tablemap_partial_mapping(
+    pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Test BigQuery sink connector with topic2TableMap having partial mappings.
+    Topics not in the map should fall back to default naming logic.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["bigquery-sink-partial-map"],
+        },
+        "http://localhost:28083/connectors/bigquery-sink-partial-map": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "bigquery-sink-partial-map",
+                "config": {
+                    "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+                    "project": "test-project",
+                    "defaultDataset": "default_dataset",
+                    "topic2TableMap": "special_topic:custom_table",
+                    "sanitizeTopics": "true",
+                    "topics": "special_topic,normal_topic,another-topic",
+                    "tasks.max": "1",
+                    "name": "bigquery-sink-partial-map",
+                },
+                "tasks": [{"connector": "bigquery-sink-partial-map", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/bigquery-sink-partial-map/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "bigquery-sink-partial-map": {
+                    "topics": ["special_topic", "normal_topic", "another-topic"]
+                }
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "kafka-connect-bigquery-partial-map-test",
+            "source": {
+                "type": "kafka-connect",
+                "config": {
+                    "platform_instance": "connect-instance-1",
+                    "connect_uri": KAFKA_CONNECT_SERVER,
+                    "connector_patterns": {
+                        "allow": [
+                            "bigquery-sink-partial-map",
+                        ]
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/kafka_connect_bigquery_partial_map_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "kafka_connect_bigquery_partial_map_mces_golden.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_bigquery_partial_map_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
 def test_filter_stale_topics_topics_list():
     """
     Test case for filter_stale_topics method when sink_config has 'topics' key.

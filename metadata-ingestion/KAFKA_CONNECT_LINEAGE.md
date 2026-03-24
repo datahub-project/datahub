@@ -79,6 +79,50 @@ def _extract_lineages_with_environment_awareness(self, parser: JdbcParser) -> Li
 - **Rules**: Invalid character replacement, digit handling, length limits
 - **✅ COMPREHENSIVE TESTING**: 15 test methods covering all edge cases
 
+**✅ NEW: Topic-to-Table Mapping from Connector Configuration**:
+
+- **Configuration Source**: Read from connector manifest's `topic2TableMap` property
+- **Format**: Comma-separated `topic:table` pairs in connector config (e.g., `orders:orders_table,users:user_records`)
+- **Priority**: Takes highest priority over `topicsToTables` regex patterns and default topic-based naming
+- **Scope**: Only specifies table names; dataset and project still determined by connector configuration
+- **Use Case**: Honors explicit topic-to-table mappings configured in the BigQuery Sink Connector
+
+**Mapping Resolution Priority**:
+
+1. **`topic2TableMap`** (highest): Explicit topic-to-table mappings from connector manifest
+2. **`topicsToTables`** (v1 only): Regex-based pattern matching from connector config
+3. **Topic name** (default): Uses transformed/sanitized topic name as table name
+
+**Example Connector Configuration**:
+
+```json
+{
+  "name": "bigquery-sink",
+  "config": {
+    "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+    "project": "my-project",
+    "defaultDataset": "analytics",
+    "topic2TableMap": "user_events:events,order_stream:orders,payment_logs:payments",
+    "sanitizeTopics": "true",
+    "topics": "user_events,order_stream,payment_logs"
+  }
+}
+```
+
+**DataHub Lineage Extraction**:
+
+When DataHub reads this connector manifest, it will create lineages:
+
+- `kafka:user_events` → `bigquery:my-project.analytics.events`
+- `kafka:order_stream` → `bigquery:my-project.analytics.orders`
+- `kafka:payment_logs` → `bigquery:my-project.analytics.payments`
+
+**Implementation Details**:
+
+- DataHub reads `topic2TableMap` from the connector's configuration during lineage extraction
+- No additional DataHub configuration required - it automatically honors the connector's settings
+- Seamlessly integrates with existing BigQuery Sink Connector workflows
+
 #### 6. Centralized Constants
 
 **✅ IMPLEMENTED**: `connector_constants.py` module
