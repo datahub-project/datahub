@@ -72,6 +72,7 @@ class FunctionName(Enum):
     ORACLE_DATA_ACCESS = "Oracle.Database"
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
+    MSSQL_MULTI_DATABASE_DATA_ACCESS = "Sql.Databases"
     DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
     AMAZON_ATHENA_DATA_ACCESS = "AmazonAthena.Databases"
