@@ -271,7 +271,7 @@ jobs:
           DESCRIPTION_EOF
           )
 
-          TITLE="[PR Review] $PR_TITLE"
+          TITLE="[PR Review][$CONTRIBUTOR_TYPE] $PR_TITLE"
 
           if ! TITLE_JSON=$(echo "$TITLE" | jq -Rs . 2>/dev/null) || [ -z "$TITLE_JSON" ]; then
             echo "❌ Failed to JSON-encode title"
@@ -283,25 +283,17 @@ jobs:
             exit 0
           fi
 
-          MUTATION=$(cat <<EOF
-          {
-            "query": "mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }",
-            "variables": {
-              "input": {
-                "teamId": "$TEAM_ID",
-                "title": $TITLE_JSON,
-                "description": $DESCRIPTION_JSON,
-                "assigneeId": "$ASSIGNEE_ID"
-              }
-            }
-          }
-          EOF
-          )
-
-          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-            -H "Authorization: $LINEAR_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$MUTATION")
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ]; then
+            RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+              -H "Authorization: $LINEAR_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\"}}}")
+          else
+            RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+              -H "Authorization: $LINEAR_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON}}}")
+          fi
 
           if [ -z "$RESPONSE" ]; then
             echo "❌ Empty response from Linear API"
@@ -502,25 +494,17 @@ jobs:
             exit 0
           fi
 
-          MUTATION=$(cat <<EOF
-          {
-            "query": "mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }",
-            "variables": {
-              "input": {
-                "teamId": "$TEAM_ID",
-                "title": $TITLE_JSON,
-                "description": $DESCRIPTION_JSON,
-                "assigneeId": "$ASSIGNEE_ID"
-              }
-            }
-          }
-          EOF
-          )
-
-          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-            -H "Authorization: $LINEAR_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$MUTATION")
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ]; then
+            RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+              -H "Authorization: $LINEAR_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\"}}}")
+          else
+            RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+              -H "Authorization: $LINEAR_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON}}}")
+          fi
 
           if [ -z "$RESPONSE" ]; then
             echo "❌ Empty response from Linear API"
