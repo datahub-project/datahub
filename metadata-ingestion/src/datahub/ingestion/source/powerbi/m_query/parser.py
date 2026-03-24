@@ -10,6 +10,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
 )
 from datahub.ingestion.source.powerbi.m_query import (
+    dax_resolver,
     pattern_handler,
     resolver as mquery_resolver,
 )
@@ -124,6 +125,19 @@ def get_upstream_tables(
                 expression,
                 e,
             )
+            if sibling_names:
+                table_refs = dax_resolver.extract_dax_table_references(
+                    expression, sibling_names
+                )
+                if table_refs:
+                    reporter.m_query_resolver_successes += 1
+                    return [
+                        Lineage(
+                            upstreams=[],
+                            column_lineage=[],
+                            powerbi_table_upstreams=table_refs,
+                        )
+                    ]
         else:
             reporter.m_query_parse_unknown_errors += 1
             reporter.warning(

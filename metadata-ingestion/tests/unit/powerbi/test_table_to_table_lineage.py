@@ -10,7 +10,7 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import dax_resolver, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PowerBIDataset,
     Table,
@@ -142,3 +142,58 @@ def test_external_source_expression_unchanged():
     ext_upstreams = [u for lin in lineages for u in lin.upstreams]
     assert pbi_refs == [], "External source should not produce powerbi_table_upstreams"
     assert len(ext_upstreams) >= 1, "External source should produce upstreams"
+
+
+def test_dax_summarize_references_sibling_table():
+    """DAX summarize expression references 'FMS Lookup' sibling table."""
+    expr = "summarize('FMS Lookup','FMS Lookup'[FMSID])"
+    refs = _upstream_tables(expr, "Summary", ["FMS Lookup", "OtherTable"])
+    assert refs == ["FMS Lookup"]
+
+
+def test_dax_builtin_does_not_match_absent_sibling():
+    """DAX built-in table name that is not a sibling should not produce refs."""
+    expr = "CALENDAR(DATE(2020,1,1), DATE(2025,1,1))"
+    refs = _upstream_tables(expr, "DateTable", ["Sales"])
+    assert refs == []
+
+
+def test_dax_column_lineage_related_lookup():
+    """RELATED(Customers[Name]) → upstream ColumnRef for Customers.Name."""
+    cll = dax_resolver.extract_dax_column_lineage(
+        column_name="CustomerName",
+        expression="RELATED(Customers[Name])",
+        table_urn="urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)",
+        sibling_table_urns={
+            "customers": "urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Customers,PROD)"
+        },
+    )
+    assert len(cll) == 1
+    assert cll[0].downstream.column == "CustomerName"
+    assert len(cll[0].upstreams) == 1
+    assert cll[0].upstreams[0].column == "Name"
+    assert "Customers" in cll[0].upstreams[0].table
+
+
+def test_dax_column_lineage_unknown_table_ignored():
+    """Reference to a table not in sibling_table_urns produces no lineage."""
+    cll = dax_resolver.extract_dax_column_lineage(
+        column_name="Col",
+        expression="RELATED(UnknownTable[Field])",
+        table_urn="urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)",
+        sibling_table_urns={},
+    )
+    assert cll == []
+
+
+def test_dax_column_lineage_intra_table_measure_ignored():
+    """[Total Sales] with no table prefix should produce no upstream refs."""
+    cll = dax_resolver.extract_dax_column_lineage(
+        column_name="Derived",
+        expression="[Total Sales] * 1.1",
+        table_urn="urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)",
+        sibling_table_urns={
+            "orders": "urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)"
+        },
+    )
+    assert cll == []
