@@ -185,7 +185,11 @@ class DataplexEntriesProcessor:
             entity = self.build_entity_for_entry(entry)
             if entity is None:
                 continue
-            self._track_entry_for_lineage(project_id=project_id, entry=entry)
+            self._track_entry_for_lineage(
+                project_id=project_id,
+                dataplex_location=location,
+                entry=entry,
+            )
             yield entity
 
     def list_entry_groups(
@@ -487,7 +491,7 @@ class DataplexEntriesProcessor:
         return datetime.fromtimestamp(value.timestamp(), tz=timezone.utc)
 
     def _track_entry_for_lineage(
-        self, project_id: str, entry: dataplex_v1.Entry
+        self, project_id: str, dataplex_location: str, entry: dataplex_v1.Entry
     ) -> None:
         if not entry.fully_qualified_name:
             return
@@ -518,6 +522,7 @@ class DataplexEntriesProcessor:
                 EntryDataTuple(
                     dataplex_entry_short_name=entry.name.split("/")[-1],
                     dataplex_entry_name=entry.name,
+                    dataplex_location=dataplex_location,
                     dataplex_entry_fqn=entry.fully_qualified_name,
                     dataplex_entry_type_short_name=short_name,
                     datahub_platform=mapping.datahub_platform,

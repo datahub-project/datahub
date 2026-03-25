@@ -19,6 +19,7 @@ class EntryDataTuple:
 
     dataplex_entry_short_name: str
     dataplex_entry_name: str
+    dataplex_location: str
     dataplex_entry_type_short_name: str
     dataplex_entry_fqn: str
     datahub_platform: str

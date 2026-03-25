@@ -90,6 +90,7 @@ def test_lineage_extraction_disabled(
     entry_data = EntryDataTuple(
         dataplex_entry_short_name="test-entry",
         dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-entry",
+        dataplex_location="us",
         dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
@@ -169,6 +170,7 @@ def test_get_lineage_for_entry_with_upstream(
     test_entry = EntryDataTuple(
         dataplex_entry_short_name="test-entry",
         dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-entry",
+        dataplex_location="us",
         dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
@@ -187,6 +189,29 @@ def test_get_lineage_for_entry_with_upstream(
     assert result["downstream"][0] == "bigquery:project.dataset.table2"
 
 
+def test_get_lineage_for_entry_uses_entry_location_in_parent(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    test_entry = EntryDataTuple(
+        dataplex_entry_short_name="entry-eu",
+        dataplex_entry_name="projects/p/locations/eu/entryGroups/g/entries/entry-eu",
+        dataplex_location="eu",
+        dataplex_entry_fqn="bigquery:test-project.ds.table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.ds.table",
+    )
+
+    lineage_extractor.get_lineage_for_entry("test-project", test_entry)
+
+    assert lineage_extractor.lineage_client is not None
+    calls = lineage_extractor.lineage_client.search_links.call_args_list  # type: ignore[union-attr]
+    assert len(calls) >= 2
+    for call in calls[:2]:
+        request = call.kwargs["request"]
+        assert request.parent == "projects/test-project/locations/eu"
+
+
 def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     """Test building lineage map for multiple entries."""
     # Mock lineage response
@@ -202,6 +227,7 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
         EntryDataTuple(
             dataplex_entry_short_name="entry1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_location="us",
             dataplex_entry_fqn="bigquery:test-project.dataset.table1",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -210,6 +236,7 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
         EntryDataTuple(
             dataplex_entry_short_name="entry2",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry2",
+            dataplex_location="us",
             dataplex_entry_fqn="bigquery:test-project.dataset.table2",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -320,6 +347,7 @@ def test_lineage_with_cross_platform_references(
     test_entry = EntryDataTuple(
         dataplex_entry_short_name="test-table",
         dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-table",
+        dataplex_location="us",
         dataplex_entry_fqn="bigquery:my-project.analytics.test-table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
@@ -359,6 +387,7 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
         EntryDataTuple(
             dataplex_entry_short_name="entry_1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry_1",
+            dataplex_location="us",
             dataplex_entry_type_short_name="bigquery-table",
             dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
             datahub_platform="bigquery",
@@ -553,6 +582,7 @@ def test_pagination_automatic_handling() -> None:
     entry = EntryDataTuple(
         dataplex_entry_short_name="test_table",
         dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test_table",
+        dataplex_location="us",
         dataplex_entry_fqn="bigquery:test-project.test_dataset.test_table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
@@ -599,6 +629,7 @@ def test_pagination_with_large_result_set() -> None:
     entry = EntryDataTuple(
         dataplex_entry_short_name="target_table",
         dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/target_table",
+        dataplex_location="us",
         dataplex_entry_fqn="bigquery:test-project.analytics.target_table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
@@ -681,6 +712,7 @@ def test_batched_lineage_processing() -> None:
         EntryDataTuple(
             dataplex_entry_short_name=f"entry_{i}",
             dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
             dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -726,6 +758,7 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
         EntryDataTuple(
             dataplex_entry_short_name=f"entry_{i}",
             dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
             dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -770,6 +803,7 @@ def test_batched_lineage_with_batching_disabled() -> None:
         EntryDataTuple(
             dataplex_entry_short_name=f"entry_{i}",
             dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
             dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -824,6 +858,7 @@ def test_batched_lineage_memory_cleanup() -> None:
         EntryDataTuple(
             dataplex_entry_short_name=f"entry_{i}",
             dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
             dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -900,6 +935,7 @@ class TestLineageMapKeyCollision:
             EntryDataTuple(
                 dataplex_entry_short_name="analytics_customers",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/analytics_customers",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:test-project.analytics.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
@@ -908,6 +944,7 @@ class TestLineageMapKeyCollision:
             EntryDataTuple(
                 dataplex_entry_short_name="sales_customers",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/sales_customers",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:test-project.sales.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
@@ -916,6 +953,7 @@ class TestLineageMapKeyCollision:
             EntryDataTuple(
                 dataplex_entry_short_name="abc_users",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/abc_users",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:test-project.abc.users",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
@@ -994,6 +1032,7 @@ class TestLineageMapKeyCollision:
             EntryDataTuple(
                 dataplex_entry_short_name="customers_analytics",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/customers_analytics",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:test-project.analytics.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
@@ -1002,6 +1041,7 @@ class TestLineageMapKeyCollision:
             EntryDataTuple(
                 dataplex_entry_short_name="customers_sales",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/customers_sales",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:test-project.sales.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
@@ -1123,6 +1163,7 @@ class TestLineageMapKeyCollision:
             EntryDataTuple(
                 dataplex_entry_short_name="analytics_customers",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/analytics_customers",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:test-project.analytics.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",

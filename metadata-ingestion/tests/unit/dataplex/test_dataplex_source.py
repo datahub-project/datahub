@@ -222,6 +222,7 @@ def test_get_lineage_workunits_yields_from_extractor() -> None:
             EntryDataTuple(
                 dataplex_entry_short_name="entry-1",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:project-1.ds.table",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
@@ -245,6 +246,7 @@ def test_get_lineage_workunits_reports_failure_on_exception() -> None:
             EntryDataTuple(
                 dataplex_entry_short_name="entry-1",
                 dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
+                dataplex_location="us",
                 dataplex_entry_fqn="bigquery:project-1.ds.table",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",

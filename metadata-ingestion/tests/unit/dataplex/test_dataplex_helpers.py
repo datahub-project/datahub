@@ -20,6 +20,7 @@ class TestEntryDataTuple:
         entry_data = EntryDataTuple(
             dataplex_entry_short_name="test-entry",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-entry",
+            dataplex_location="us",
             dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -41,6 +42,7 @@ class TestEntryDataTuple:
         entry_data1 = EntryDataTuple(
             dataplex_entry_short_name="entry1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_location="us",
             dataplex_entry_fqn="bigquery:project.dataset.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
@@ -50,6 +52,7 @@ class TestEntryDataTuple:
         entry_data2 = EntryDataTuple(
             dataplex_entry_short_name="entry1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_location="us",
             dataplex_entry_fqn="bigquery:project.dataset.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
