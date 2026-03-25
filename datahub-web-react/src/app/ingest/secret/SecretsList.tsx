@@ -1,6 +1,7 @@
 import { SearchBar } from '@components';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Empty, Modal, Typography, message } from 'antd';
-import { PencilSimpleLine, Trash } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';

@@ -48,6 +48,39 @@ export DATAHUB_GMS_TOKEN=<your-token>
 datahub init
 ```
 
+## SSO browser login
+
+For DataHub instances using SSO (OIDC/SAML), use `--sso` to authenticate via browser:
+
+```bash
+# Opens browser — complete SSO, CLI captures session and generates token
+datahub init --sso --host https://your-instance.example.com/gms
+
+# Custom token duration
+datahub init --sso --host https://your-instance.example.com/gms --token-duration ONE_MONTH
+```
+
+**Prerequisites** (one-time setup):
+
+```bash
+pip install 'acryl-datahub[sso]'   # or: uv pip install 'acryl-datahub[sso]'
+playwright install chromium
+```
+
+`--sso` is mutually exclusive with `--token`, `--username`, and `--password`.
+If Playwright is not installed, the command prints step-by-step install instructions and exits.
+
+### Support login (DataHub Cloud)
+
+For the support team debugging customer instances, add `--support` to use the
+`/support/authenticate` login path:
+
+```bash
+datahub init --sso --support --host https://customer.acryl.io/gms
+```
+
+`--support` requires `--sso`.
+
 ## Environment variables
 
 | Variable            | CLI equivalent |
