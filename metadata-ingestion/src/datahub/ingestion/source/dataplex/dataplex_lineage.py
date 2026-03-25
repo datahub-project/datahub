@@ -52,11 +52,13 @@ class LineageEdge:
     immutability and hashability.
 
     Attributes:
+        platform: The upstream entry's platform (bigquery, gcs, etc.)
         entry_id: The upstream entry ID in Dataplex format
         audit_stamp: When this lineage was observed
         lineage_type: Type of lineage (TRANSFORMED, COPY, etc.)
     """
 
+    platform: str
     entry_id: str
     audit_stamp: datetime
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED
@@ -340,11 +342,13 @@ class DataplexLineageExtractor:
 
             # Convert upstream FQNs to LineageEdge objects
             for upstream_fqn in lineage_data.get("upstream", []):
-                # Extract dataset ID from FQN (full path like project.dataset.table)
-                upstream_dataset_id = self._extract_entry_id_from_fqn(upstream_fqn)
+                # Extract platform and dataset ID from FQN
+                result = self._extract_platform_and_entry_id_from_fqn(upstream_fqn)
 
-                if upstream_dataset_id:
+                if result is not None:
+                    upstream_platform, upstream_dataset_id = result
                     edge = LineageEdge(
+                        platform=upstream_platform or entry.source_platform,
                         entry_id=upstream_dataset_id,
                         audit_stamp=datetime.now(timezone.utc),
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
@@ -366,20 +370,21 @@ class DataplexLineageExtractor:
 
         return lineage_by_full_dataset_id
 
-    def _extract_entry_id_from_fqn(self, fqn: str) -> Optional[str]:
+    def _extract_platform_and_entry_id_from_fqn(self, fqn: str) -> Optional[tuple]:
         """
-        Extract entry ID from a fully qualified name.
+        Extract platform and entry ID from a fully qualified name.
 
         Handles platform-specific FQN formats:
-        - BigQuery: bigquery:{project}.{dataset}.{table} -> {project}.{dataset}.{table}
-        - GCS: gcs:{bucket}/{path} -> {bucket}/{path}
-        - GCS: gcs:{bucket} -> {bucket}
+        - BigQuery: bigquery:{project}.{dataset}.{table} -> ("bigquery", "{project}.{dataset}.{table}")
+        - GCS: gcs:{bucket}/{path} -> ("gcs", "{bucket}/{path}")
+        - GCS: gcs:{bucket} -> ("gcs", "{bucket}")
 
         Args:
             fqn: Fully qualified name in format "{platform}:{identifier}"
 
         Returns:
-            Entry ID (everything after the platform prefix) or None if extraction fails
+            Tuple of (platform, entry_id) or None if extraction fails.
+            Platform may be None if the FQN has no platform prefix.
         """
         try:
             if ":" in fqn:
@@ -389,14 +394,21 @@ class DataplexLineageExtractor:
                 if platform not in ["bigquery", "gcs", "dataplex"]:
                     logger.warning(f"Unexpected platform '{platform}' in FQN: {fqn}")
 
-                return entry_part
+                return (platform, entry_part)
             else:
                 # No platform prefix, return as-is (shouldn't happen in practice)
                 logger.warning(f"FQN missing platform prefix: {fqn}")
-                return fqn
+                return (None, fqn)
         except Exception as e:
             logger.error(f"Failed to extract entry ID from FQN '{fqn}': {e}")
             return None
+
+    def _extract_entry_id_from_fqn(self, fqn: str) -> Optional[str]:
+        """Extract entry ID from a fully qualified name (backward-compatible wrapper)."""
+        result = self._extract_platform_and_entry_id_from_fqn(fqn)
+        if result is None:
+            return None
+        return result[1]
 
     def get_lineage_for_table(
         self, dataset_id: str, dataset_urn: str, platform: str
@@ -418,9 +430,9 @@ class DataplexLineageExtractor:
         upstream_list: list[UpstreamClass] = []
 
         for lineage_edge in self.lineage_by_full_dataset_id[dataset_id]:
-            # Generate URN for the upstream entry using the full dataset_id
+            # Generate URN for the upstream entry using its own platform
             upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=platform,
+                platform=lineage_edge.platform,
                 name=lineage_edge.entry_id,
                 platform_instance=None,
                 env=self.config.env,
