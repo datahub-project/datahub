@@ -418,7 +418,7 @@ When creating PRs, follow the template in `.github/pull_request_template.md`:
 <type>[optional scope]: <description>
 ```
 
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`, `chore`
 
 Example: `feat(parser): add ability to parse arrays`
 
