@@ -1,6 +1,6 @@
 import { Dropdown, Tooltip, colors } from '@components';
+import { FileArrowUp } from '@phosphor-icons/react/dist/csr/FileArrowUp';
 import { useRemirrorContext } from '@remirror/react';
-import { FileArrowUp } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

@@ -323,6 +323,7 @@ task cleanPythonCache(type: Exec) {
 task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, checkLockFile]) {
   commandLine 'bash', '-c',
     venv_activate_command +
+    "cp constraints.txt src/datahub/constraints.txt && " +
     "uv pip install ${uv_build_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
