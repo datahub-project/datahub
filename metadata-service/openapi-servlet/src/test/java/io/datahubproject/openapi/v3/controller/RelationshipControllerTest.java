@@ -18,13 +18,18 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
+import io.datahubproject.openapi.v3.models.ConjunctiveCriterion;
+import io.datahubproject.openapi.v3.models.Criterion;
+import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +64,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
   @Autowired private RelationshipController relationshipController;
   @Autowired private MockMvc mockMvc;
   @Autowired private GraphService mockGraphService;
+  @Autowired private ObjectMapper objectMapper;
 
   @BeforeMethod
   public void setup() {
@@ -805,6 +811,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
   // scrollRelationships tests
   // -------------------------------------------------------------------------
 
+  private static final ScrollRelationshipsRequestBody EMPTY_SCROLL_BODY =
+      ScrollRelationshipsRequestBody.builder().build();
+
   @Test
   public void testScrollRelationshipsDefaults() throws Exception {
     RelatedEntitiesScrollResult expectedResult =
@@ -834,7 +843,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("scroll-1"));
@@ -844,7 +855,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     // No sourceType / destinationType → null passed through
     assertNull(sourceTypesCaptor.getValue());
     assertNull(destTypesCaptor.getValue());
-    // No URN filters → EMPTY_FILTER (no criteria)
+    // No filters in body → EMPTY_FILTER (no criteria)
     assertTrue(
         sourceFilterCaptor.getValue().getOr().isEmpty()
             || sourceFilterCaptor.getValue().getOr().stream()
@@ -879,9 +890,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
                 .param("relationshipTypes", "DownstreamOf")
                 .param("relationshipTypes", "Consumes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
@@ -917,10 +930,12 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
                 .param("sourceTypes", "dataset")
                 .param("destinationTypes", "chart")
                 .param("destinationTypes", "dashboard")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
@@ -962,12 +977,46 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
             isNull()))
         .thenReturn(expectedResult);
 
+    io.datahubproject.openapi.v3.models.Filter sourceFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(sourceUrn))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+    io.datahubproject.openapi.v3.models.Filter destFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(destUrn1, destUrn2))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+
+    ScrollRelationshipsRequestBody body =
+        ScrollRelationshipsRequestBody.builder()
+            .sourceFilter(sourceFilter)
+            .destinationFilter(destFilter)
+            .build();
+
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
-                .param("sourceUrns", sourceUrn)
-                .param("destinationUrns", destUrn1)
-                .param("destinationUrns", destUrn2)
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
@@ -978,12 +1027,12 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     assertEquals("urn", capturedSrcFilter.getOr().get(0).getAnd().get(0).getField());
     assertFalse(capturedSrcFilter.getOr().get(0).getAnd().get(0).getValues().isEmpty());
 
-    // Destination filter should have a non-empty criterion on the "urn" field
+    // Destination filter should have a non-empty criterion on the "urn" field with both URNs
     Filter capturedDstFilter = destFilterCaptor.getValue();
     assertNotNull(capturedDstFilter);
     assertFalse(capturedDstFilter.getOr().isEmpty());
     assertEquals("urn", capturedDstFilter.getOr().get(0).getAnd().get(0).getField());
-    assertFalse(capturedDstFilter.getOr().get(0).getAnd().get(0).getValues().isEmpty());
+    assertEquals(2, capturedDstFilter.getOr().get(0).getAnd().get(0).getValues().size());
   }
 
   @Test
@@ -1012,9 +1061,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
                 .param("sliceId", "1")
                 .param("sliceMax", "4")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
@@ -1048,6 +1099,8 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
     ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
     ArgumentCaptor<Set> relTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
     ArgumentCaptor<String> scrollIdCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> pitCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<Integer> countCaptor = ArgumentCaptor.forClass(Integer.class);
@@ -1059,7 +1112,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
             destTypesCaptor.capture(),
             destFilterCaptor.capture(),
             relTypesCaptor.capture(),
-            any(),
+            relFilterCaptor.capture(),
             any(),
             scrollIdCaptor.capture(),
             pitCaptor.capture(),
@@ -1068,20 +1121,70 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
             isNull()))
         .thenReturn(expectedResult);
 
+    io.datahubproject.openapi.v3.models.Filter sourceFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(sourceUrn))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+    io.datahubproject.openapi.v3.models.Filter destFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(destUrn))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+    io.datahubproject.openapi.v3.models.Filter edgeFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("relationshipType")
+                                    .values(List.of("DownstreamOf"))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+
+    ScrollRelationshipsRequestBody body =
+        ScrollRelationshipsRequestBody.builder()
+            .sourceFilter(sourceFilter)
+            .destinationFilter(destFilter)
+            .edgeFilter(edgeFilter)
+            .build();
+
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
                 .param("relationshipTypes", "DownstreamOf")
                 .param("sourceTypes", "dataset")
                 .param("destinationTypes", "chart")
-                .param("sourceUrns", sourceUrn)
-                .param("destinationUrns", destUrn)
                 .param("count", "20")
                 .param("scrollId", "prev-scroll")
                 .param("pitKeepAlive", "10m")
                 .param("sliceId", "0")
                 .param("sliceMax", "3")
                 .param("includeSoftDelete", "true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("next-scroll"));
@@ -1096,9 +1199,15 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     assertEquals(1, destTypesCaptor.getValue().size());
     assertTrue(destTypesCaptor.getValue().contains("chart"));
 
-    // Verify URN filters
+    // Verify URN filters from request body
     assertFalse(sourceFilterCaptor.getValue().getOr().isEmpty());
     assertFalse(destFilterCaptor.getValue().getOr().isEmpty());
+
+    // Verify edge filter was embedded in the RelationshipFilter
+    RelationshipFilter capturedRelFilter = relFilterCaptor.getValue();
+    assertNotNull(capturedRelFilter);
+    assertFalse(capturedRelFilter.getOr().isEmpty());
+    assertEquals("relationshipType", capturedRelFilter.getOr().get(0).getAnd().get(0).getField());
 
     // Verify pagination parameters
     assertEquals("prev-scroll", scrollIdCaptor.getValue());

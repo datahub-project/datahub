@@ -16,7 +16,6 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SliceOptions;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,13 +23,16 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
+import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -271,28 +273,25 @@ public abstract class GenericRelationshipController {
   }
 
   /**
-   * Scrolls relationships with configurable filters on source/destination entity types and URNs.
+   * Scrolls relationships with configurable filters on source/destination entity types and edges.
    *
    * @param relationshipTypes relationship types to filter on (default all)
    * @param sourceTypes entity types to filter on for source
    * @param destinationTypes entity types to filter on for destination
-   * @param sourceUrns URNs to filter on for source (OR logic)
-   * @param destinationUrns URNs to filter on for destination (OR logic)
    * @param count number of results
    * @param scrollId scrolling id
+   * @param body request body containing sourceFilter, destinationFilter, and edgeFilter
    * @return list of relation edges
    */
-  @GetMapping(value = "/scroll", produces = MediaType.APPLICATION_JSON_VALUE)
+  @PostMapping(value = "/scroll", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       summary =
-          "Scroll relationships with configurable filters on source/destination types and URNs.")
+          "Scroll relationships with configurable filters on source/destination types and edges.")
   public ResponseEntity<GenericScrollResult<GenericRelationship>> scrollRelationships(
       HttpServletRequest request,
       @RequestParam(value = "relationshipTypes", required = false) String[] relationshipTypes,
       @RequestParam(value = "sourceTypes", required = false) String[] sourceTypes,
       @RequestParam(value = "destinationTypes", required = false) String[] destinationTypes,
-      @RequestParam(value = "sourceUrns", required = false) String[] sourceUrns,
-      @RequestParam(value = "destinationUrns", required = false) String[] destinationUrns,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
@@ -300,7 +299,8 @@ public abstract class GenericRelationshipController {
       @RequestParam(value = "sliceId", required = false) Integer sliceId,
       @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
       @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepAlive) {
+          String pitKeepAlive,
+      @RequestBody @Nonnull ScrollRelationshipsRequestBody body) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -342,14 +342,18 @@ public abstract class GenericRelationshipController {
             ? Arrays.stream(destinationTypes).collect(Collectors.toSet())
             : null;
 
-    Filter sourceEntityFilter =
-        sourceUrns != null && sourceUrns.length > 0
-            ? QueryUtils.newFilter(QueryUtils.newCriterion("urn", Arrays.asList(sourceUrns)))
-            : QueryUtils.EMPTY_FILTER;
-    Filter destinationEntityFilter =
-        destinationUrns != null && destinationUrns.length > 0
-            ? QueryUtils.newFilter(QueryUtils.newCriterion("urn", Arrays.asList(destinationUrns)))
-            : QueryUtils.EMPTY_FILTER;
+    com.linkedin.metadata.query.filter.Filter sourceEntityFilter =
+        Optional.ofNullable(body.getSourceFilter())
+            .map(io.datahubproject.openapi.v3.models.Filter::toRecordTemplate)
+            .orElse(QueryUtils.EMPTY_FILTER);
+    com.linkedin.metadata.query.filter.Filter destinationEntityFilter =
+        Optional.ofNullable(body.getDestinationFilter())
+            .map(io.datahubproject.openapi.v3.models.Filter::toRecordTemplate)
+            .orElse(QueryUtils.EMPTY_FILTER);
+    com.linkedin.metadata.query.filter.Filter edgeFilter =
+        Optional.ofNullable(body.getEdgeFilter())
+            .map(io.datahubproject.openapi.v3.models.Filter::toRecordTemplate)
+            .orElse(QueryUtils.EMPTY_FILTER);
 
     RelatedEntitiesScrollResult result =
         graphService.scrollRelatedEntities(
@@ -361,8 +365,7 @@ public abstract class GenericRelationshipController {
             relationshipTypes != null
                 ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                 : Set.of(),
-            QueryUtils.newRelationshipFilter(
-                QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
+            QueryUtils.newRelationshipFilter(edgeFilter, RelationshipDirection.UNDIRECTED),
             Edge.EDGE_SORT_CRITERION,
             scrollId,
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
