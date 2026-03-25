@@ -50,19 +50,20 @@ export function usePolicy(
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
     const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
-        console.log({ state });
         return {
-            criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
-                return {
-                    field: criterion.field,
-                    values: criterion.values.map((criterionValue) =>
-                        criterion.field === 'TAG' && state !== 'TOGGLE'
-                            ? (criterionValue as any)
-                            : criterionValue.value,
-                    ),
-                    condition: criterion.condition,
-                };
-            }),
+            criteria: filter.criteria
+                ?.filter((criterion) => criterion.values.length > 0)
+                .map((criterion): PolicyMatchCriterionInput => {
+                    return {
+                        field: criterion.field,
+                        values: criterion.values.map((criterionValue) =>
+                            criterion.field === 'TAG' && state !== 'TOGGLE'
+                                ? (criterionValue as any)
+                                : criterionValue.value,
+                        ),
+                        condition: criterion.condition,
+                    };
+                }),
         };
     };
 
@@ -80,6 +81,9 @@ export function usePolicy(
                 allGroups: policy.actors.allGroups,
                 resourceOwners: policy.actors.resourceOwners,
                 resourceOwnersTypes: policy.actors.resourceOwnersTypes,
+                excludedUsers: policy.actors.excludedUsers,
+                excludedGroups: policy.actors.excludedGroups,
+                excludedResourceOwnersTypes: policy.actors.excludedResourceOwnersTypes,
             },
         };
         if (policy.resources !== null && policy.resources !== undefined) {

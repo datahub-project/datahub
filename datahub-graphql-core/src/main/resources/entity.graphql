@@ -9956,6 +9956,31 @@ type ActorFilter {
   The list of roles on the Policy, resolved.
   """
   resolvedRoles: [DataHubRole!]
+
+  """
+  A set of users to exclude from this policy. Takes precedence over users/allUsers.
+  """
+  excludedUsers: [String!]
+
+  """
+  A set of groups to exclude from this policy. Takes precedence over groups/allGroups.
+  """
+  excludedGroups: [String!]
+
+  """
+  Set of OwnershipTypes to exclude from this policy (if resourceOwners is set to True). Takes precedence over resourceOwnersTypes.
+  """
+  excludedResourceOwnersTypes: [String!]
+
+  """
+  The list of excluded users on the Policy, resolved.
+  """
+  resolvedExcludedUsers: [CorpUser!]
+
+  """
+  The list of excluded groups on the Policy, resolved.
+  """
+  resolvedExcludedGroups: [CorpGroup!]
 }
 
 """
@@ -10090,6 +10115,21 @@ input ActorFilterInput {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+
+  """
+  A set of users to exclude from this policy. Takes precedence over users/allUsers.
+  """
+  excludedUsers: [String!]
+
+  """
+  A set of groups to exclude from this policy. Takes precedence over groups/allGroups.
+  """
+  excludedGroups: [String!]
+
+  """
+  Set of OwnershipTypes to exclude from this policy (if resourceOwners is set to True). Takes precedence over resourceOwnersTypes.
+  """
+  excludedResourceOwnersTypes: [String!]
 }
 
 """

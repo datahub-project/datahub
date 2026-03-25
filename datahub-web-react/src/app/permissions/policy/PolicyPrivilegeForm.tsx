@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
+import { Tag as CustomTag, Form, Radio, Select, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -12,11 +12,13 @@ import {
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
+    getFieldCondition,
     getFieldValues,
     getFieldValuesOfTags,
     mapResourceTypeToDisplayName,
     mapResourceTypeToEntityType,
     mapResourceTypeToPrivileges,
+    setFieldCondition,
     setFieldValues,
 } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -29,7 +31,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { Container, Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
+import { Container, Domain, Entity, EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -58,7 +60,8 @@ const PrivilegesForm = styled(Form)`
 `;
 
 const TagSelect = styled(Select)`
-    width: 480px;
+    flex: 1;
+    min-width: 0;
 `;
 
 const StyleTag = styled(CustomTag)`
@@ -70,6 +73,12 @@ const StyleTag = styled(CustomTag)`
     opacity: 1;
     color: ${(props) => props.theme.colors.borderDisabled};
     line-height: 16px;
+`;
+
+const SelectRow = styled.div`
+    display: flex;
+    gap: 8px;
+    align-items: center;
 `;
 
 /**
@@ -144,6 +153,31 @@ export default function PolicyPrivilegeForm({
     containers.forEach((containerEntity) => {
         containerUrnToDisplayName[containerEntity.value] = getDisplayName(containerEntity.entity);
     });
+
+    // Conditions for each filter field (EQUALS = include, NOT_EQUALS = exclude)
+    const resourceTypeCondition =
+        getFieldCondition(resources.filter, TYPE, RESOURCE_TYPE) || PolicyMatchCondition.Equals;
+    const resourceCondition = getFieldCondition(resources.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
+    const tagCondition = getFieldCondition(resources.filter, 'TAG') || PolicyMatchCondition.Equals;
+    const domainCondition = getFieldCondition(resources.filter, 'DOMAIN') || PolicyMatchCondition.Equals;
+    const containerCondition = getFieldCondition(resources.filter, 'CONTAINER') || PolicyMatchCondition.Equals;
+
+    const onChangeCondition = (field: string, condition: PolicyMatchCondition) => {
+        const filter = resources.filter || { criteria: [] };
+        setResources({ ...resources, filter: setFieldCondition(filter, field, condition) });
+    };
+
+    const conditionSelect = (field: string, currentCondition: PolicyMatchCondition) => (
+        <Radio.Group
+            size="small"
+            value={currentCondition}
+            buttonStyle="solid"
+            onChange={(e) => onChangeCondition(field, e.target.value as PolicyMatchCondition)}
+        >
+            <Radio.Button value={PolicyMatchCondition.Equals}>Include</Radio.Button>
+            <Radio.Button value={PolicyMatchCondition.NotEquals}>Exclude</Radio.Button>
+        </Radio.Group>
+    );
 
     // Whether to show the resource filter inputs including "resource type", "resource", and "domain"
     const showResourceFilterInput = policyType !== PolicyType.Platform;
@@ -537,33 +571,37 @@ export default function PolicyPrivilegeForm({
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Resource Type</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>Resource Type</Typography.Text>}>
                     <Typography.Paragraph>
                         Select the types of resources this policy should apply to. If <b>none</b> is selected, policy is
                         applied to <b>all</b> types of resources.
                     </Typography.Paragraph>
-                    <Select
-                        value={resourceTypeSelectValue}
-                        mode="multiple"
-                        placeholder="Apply to ALL resource types by default. Select types to apply to specific types of entities."
-                        onSelect={onSelectResourceType}
-                        onDeselect={onDeselectResourceType}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {mapResourceTypeToDisplayName(tagProps.value.toString(), resourcePrivileges)}
-                            </Tag>
-                        )}
-                    >
-                        {resourcePrivileges
-                            .filter((privs) => privs.resourceType !== 'all')
-                            .map((resPrivs) => {
-                                return (
-                                    <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
-                                        {resPrivs.resourceTypeDisplayName}
-                                    </Select.Option>
-                                );
-                            })}
-                    </Select>
+                    <SelectRow>
+                        {conditionSelect(TYPE, resourceTypeCondition)}
+                        <Select
+                            style={{ flex: 1 }}
+                            value={resourceTypeSelectValue}
+                            mode="multiple"
+                            placeholder="Apply to ALL resource types by default. Select types to apply to specific types of entities."
+                            onSelect={onSelectResourceType}
+                            onDeselect={onDeselectResourceType}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    {mapResourceTypeToDisplayName(tagProps.value.toString(), resourcePrivileges)}
+                                </Tag>
+                            )}
+                        >
+                            {resourcePrivileges
+                                .filter((privs) => privs.resourceType !== 'all')
+                                .map((resPrivs) => {
+                                    return (
+                                        <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
+                                            {resPrivs.resourceTypeDisplayName}
+                                        </Select.Option>
+                                    );
+                                })}
+                        </Select>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
@@ -572,33 +610,37 @@ export default function PolicyPrivilegeForm({
                         Search for specific resources the policy should apply to. If <b>none</b> is selected, policy is
                         applied to <b>all</b> resources of the given type.
                     </Typography.Paragraph>
-                    <Select
-                        notFoundContent="No search results found"
-                        value={resourceSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder="Apply to ALL resources by default. Select specific resources to apply to."
-                        onSelect={onSelectResource}
-                        onDeselect={onDeselectResource}
-                        onSearch={handleResourceSearch}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                <Tooltip title={tagProps.value.toString()}>
-                                    {displayStringWithMaxLength(
-                                        resourceUrnToDisplayName[tagProps.value.toString()] ||
-                                            tagProps.value.toString(),
-                                        75,
-                                    )}
-                                </Tooltip>
-                            </Tag>
-                        )}
-                    >
-                        {resourceSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
-                    </Select>
+                    <SelectRow>
+                        {conditionSelect(URN, resourceCondition)}
+                        <Select
+                            style={{ flex: 1 }}
+                            notFoundContent="No search results found"
+                            value={resourceSelectValue}
+                            mode="multiple"
+                            filterOption={false}
+                            placeholder="Apply to ALL resources by default. Select specific resources to apply to."
+                            onSelect={onSelectResource}
+                            onDeselect={onDeselectResource}
+                            onSearch={handleResourceSearch}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    <Tooltip title={tagProps.value.toString()}>
+                                        {displayStringWithMaxLength(
+                                            resourceUrnToDisplayName[tagProps.value.toString()] ||
+                                                tagProps.value.toString(),
+                                            75,
+                                        )}
+                                    </Tooltip>
+                                </Tag>
+                            )}
+                        >
+                            {resourceSearchResults?.map((result) => (
+                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
@@ -607,30 +649,33 @@ export default function PolicyPrivilegeForm({
                         The policy will apply to all entities containing all of the chosen tags. If no tags are
                         selected, the policy will not account for tags.
                     </Typography.Paragraph>
-                    <TagSelect
-                        data-testid="tag-term-modal-input"
-                        mode="multiple"
-                        ref={inputEl}
-                        filterOption={false}
-                        placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
-                        showSearch
-                        defaultActiveFirstOption={false}
-                        onSelect={(asset: any) => onSelectValue(asset)}
-                        onDeselect={(asset: any) => onDeselectValue(asset)}
-                        onSearch={(value: string) => {
-                            // eslint-disable-next-line react/prop-types
-                            handleSearch(value.trim());
-                            // eslint-disable-next-line react/prop-types
-                            setInputValue(value.trim());
-                        }}
-                        tagRender={tagRender}
-                        value={tags}
-                        onClear={clearInput}
-                        onBlur={handleBlurTag}
-                        onInputKeyDown={handleKeyDown}
-                    >
-                        {tagSearchOptions}
-                    </TagSelect>
+                    <SelectRow>
+                        {conditionSelect('TAG', tagCondition)}
+                        <TagSelect
+                            data-testid="tag-term-modal-input"
+                            mode="multiple"
+                            ref={inputEl}
+                            filterOption={false}
+                            placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                            showSearch
+                            defaultActiveFirstOption={false}
+                            onSelect={(asset: any) => onSelectValue(asset)}
+                            onDeselect={(asset: any) => onDeselectValue(asset)}
+                            onSearch={(value: string) => {
+                                // eslint-disable-next-line react/prop-types
+                                handleSearch(value.trim());
+                                // eslint-disable-next-line react/prop-types
+                                setInputValue(value.trim());
+                            }}
+                            tagRender={tagRender}
+                            value={tags}
+                            onClear={clearInput}
+                            onBlur={handleBlurTag}
+                            onInputKeyDown={handleKeyDown}
+                        >
+                            {tagSearchOptions}
+                        </TagSelect>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
@@ -639,38 +684,45 @@ export default function PolicyPrivilegeForm({
                         The policy will apply to any chosen domains and all their nested domains. If <b>none</b> are
                         selected, the policy is applied to <b>all</b> resources of in all domains.
                     </Typography.Paragraph>
-                    <ClickOutside onClickOutside={handleCLickOutside}>
-                        <Select
-                            showSearch
-                            value={domainSelectValue}
-                            mode="multiple"
-                            filterOption={false}
-                            placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
-                            onSelect={(value) => onSelectDomain(value)}
-                            onDeselect={onDeselectDomain}
-                            onSearch={handleDomainSearch}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            onBlur={handleBlur}
-                            tagRender={(tagProps) => (
-                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                    {displayStringWithMaxLength(
-                                        domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                        75,
+                    <SelectRow>
+                        {conditionSelect('DOMAIN', domainCondition)}
+                        <div style={{ flex: 1 }}>
+                            <ClickOutside onClickOutside={handleCLickOutside}>
+                                <Select
+                                    showSearch
+                                    style={{ width: '100%' }}
+                                    value={domainSelectValue}
+                                    mode="multiple"
+                                    filterOption={false}
+                                    placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
+                                    onSelect={(value) => onSelectDomain(value)}
+                                    onDeselect={onDeselectDomain}
+                                    onSearch={handleDomainSearch}
+                                    onFocus={() => setIsFocusedOnInput(true)}
+                                    onBlur={handleBlur}
+                                    tagRender={(tagProps) => (
+                                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                            {displayStringWithMaxLength(
+                                                domainUrnToDisplayName[tagProps.value.toString()] ||
+                                                    tagProps.value.toString(),
+                                                75,
+                                            )}
+                                        </Tag>
                                     )}
-                                </Tag>
-                            )}
-                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                        >
-                            {domainSearchResults?.map((result) => (
-                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                    {renderSearchResult(result)}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
+                                    dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+                                >
+                                    {domainSearchResults?.map((result) => (
+                                        <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                            {renderSearchResult(result)}
+                                        </Select.Option>
+                                    ))}
+                                </Select>
+                                <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
+                                    <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
+                                </BrowserWrapper>
+                            </ClickOutside>
+                        </div>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
@@ -679,32 +731,37 @@ export default function PolicyPrivilegeForm({
                         The policy will apply to resources only in the chosen containers. If <b>none</b> are selected,
                         the policy is applied to resources in <b>all</b> containers.
                     </Typography.Paragraph>
-                    <Select
-                        showSearch
-                        value={containerSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder="Apply to ALL containers by default. Select containers to apply to specific containers."
-                        onSelect={(value) => onSelectContainer(value)}
-                        onDeselect={onDeselectContainer}
-                        onSearch={handleContainerSearch}
-                        onBlur={handleBlurContainer}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {displayStringWithMaxLength(
-                                    containerUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                    75,
-                                )}
-                            </Tag>
-                        )}
-                        dropdownStyle={isShowingContainerNavigator ? { display: 'none' } : {}}
-                    >
-                        {containerSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
-                    </Select>
+                    <SelectRow>
+                        {conditionSelect('CONTAINER', containerCondition)}
+                        <Select
+                            showSearch
+                            style={{ flex: 1 }}
+                            value={containerSelectValue}
+                            mode="multiple"
+                            filterOption={false}
+                            placeholder="Apply to ALL containers by default. Select containers to apply to specific containers."
+                            onSelect={(value) => onSelectContainer(value)}
+                            onDeselect={onDeselectContainer}
+                            onSearch={handleContainerSearch}
+                            onBlur={handleBlurContainer}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    {displayStringWithMaxLength(
+                                        containerUrnToDisplayName[tagProps.value.toString()] ||
+                                            tagProps.value.toString(),
+                                        75,
+                                    )}
+                                </Tag>
+                            )}
+                            dropdownStyle={isShowingContainerNavigator ? { display: 'none' } : {}}
+                        >
+                            {containerSearchResults?.map((result) => (
+                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && isGlossaryBasedPoliciesEnabled && (
