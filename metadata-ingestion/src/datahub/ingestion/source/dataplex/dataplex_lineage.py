@@ -439,7 +439,7 @@ class DataplexLineageExtractor:
         lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
             collections.defaultdict(set)
         )
-        for entry in entry_data:
+        for entry_index, entry in enumerate(entry_data, start=1):
             self.report.report_lineage_entry_processed(entry.dataplex_entry_name)
             lineage_data = self.get_lineage_for_entry(project_id, entry)
 
@@ -514,6 +514,13 @@ class DataplexLineageExtractor:
                             f"upstream_fqn={upstream_fqn}"
                         ),
                     )
+            if entry_index % 1000 == 0:
+                logger.info(
+                    "Lineage map progress for project %s (entry_index=%s): report=%s",
+                    project_id,
+                    entry_index,
+                    self.report,
+                )
 
         self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
 
