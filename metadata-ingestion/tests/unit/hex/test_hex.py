@@ -1,19 +1,11 @@
-import json
-import os
 import unittest
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hex.hex import HexSource, HexSourceConfig
 
-
-def load_json_data(filename):
-    test_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-    file_path = test_dir / "test_data" / filename
-    with open(file_path, "r") as f:
-        return json.load(f)
+from .conftest import load_json_data
 
 
 def datetime_approx_equal(

@@ -1,8 +1,5 @@
-import json
-import os
 import unittest
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -18,13 +15,7 @@ from datahub.ingestion.source.hex.model import (
     Project,
 )
 
-
-# Helper to load test data from JSON files
-def load_json_data(filename):
-    test_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-    file_path = test_dir / "test_data" / filename
-    with open(file_path, "r") as f:
-        return json.load(f)
+from .conftest import load_json_data
 
 
 class TestHexAPI(unittest.TestCase):
