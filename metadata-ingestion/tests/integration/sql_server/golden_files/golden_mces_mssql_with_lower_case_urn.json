@@ -1343,7 +1343,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1355,7 +1355,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "productname",
+                                "fieldPath": "ProductName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1585,7 +1585,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "age",
+                                "fieldPath": "Age",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1597,7 +1597,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "count",
+                                "fieldPath": "Count",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1717,7 +1717,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1729,7 +1729,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "itemname",
+                                "fieldPath": "ItemName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1849,7 +1849,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1861,7 +1861,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "itemname",
+                                "fieldPath": "ItemName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1982,7 +1982,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1994,7 +1994,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "itemname",
+                                "fieldPath": "ItemName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -2114,7 +2114,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -2126,7 +2126,7 @@
                                 "isPartOfKey": true
                             },
                             {
-                                "fieldPath": "lastname",
+                                "fieldPath": "LastName",
                                 "nullable": false,
                                 "description": "Description for column LastName of table Persons of schema Foo.",
                                 "type": {
@@ -2139,7 +2139,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "firstname",
+                                "fieldPath": "FirstName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -2151,7 +2151,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "age",
+                                "fieldPath": "Age",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -2271,7 +2271,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "tempid",
+                                "fieldPath": "TempID",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -2283,7 +2283,7 @@
                                 "isPartOfKey": true
                             },
                             {
-                                "fieldPath": "someid",
+                                "fieldPath": "SomeId",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -2295,7 +2295,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "name",
+                                "fieldPath": "Name",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -2311,10 +2311,10 @@
                             {
                                 "name": "FK_TempSales_SalesReason",
                                 "foreignFields": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),id)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),ID)"
                                 ],
                                 "sourceFields": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),tempid)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),TempID)"
                                 ],
                                 "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)"
                             }
@@ -2430,7 +2430,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -2442,7 +2442,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "lastname",
+                                "fieldPath": "LastName",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -2454,7 +2454,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "firstname",
+                                "fieldPath": "FirstName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -2466,7 +2466,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "age",
+                                "fieldPath": "Age",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4294,7 +4294,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4306,7 +4306,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "productname",
+                                "fieldPath": "ProductName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4318,7 +4318,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "price",
+                                "fieldPath": "Price",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4548,7 +4548,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4560,7 +4560,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "itemname",
+                                "fieldPath": "ItemName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4572,7 +4572,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "price",
+                                "fieldPath": "Price",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4692,7 +4692,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "ID",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -4704,7 +4704,7 @@
                                 "isPartOfKey": true
                             },
                             {
-                                "fieldPath": "lastname",
+                                "fieldPath": "LastName",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -4716,7 +4716,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "firstname",
+                                "fieldPath": "FirstName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4728,7 +4728,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "age",
+                                "fieldPath": "Age",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -4851,7 +4851,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "lastname",
+                                "fieldPath": "LastName",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -4863,7 +4863,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "firstname",
+                                "fieldPath": "FirstName",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -5303,11 +5303,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),ID)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),ID)"
                     ],
                     "transformOperation": "COPY: [persons].[id] AS [id]",
                     "confidenceScore": 0.9,
@@ -5316,11 +5316,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),lastname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),LastName)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),lastname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),LastName)"
                     ],
                     "transformOperation": "COPY: [persons].[lastname] AS [lastname]",
                     "confidenceScore": 0.9,
@@ -5329,11 +5329,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),firstname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),FirstName)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),firstname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),FirstName)"
                     ],
                     "transformOperation": "COPY: [persons].[firstname] AS [firstname]",
                     "confidenceScore": 0.9,
@@ -5342,11 +5342,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),Age)"
                     ],
                     "transformOperation": "COPY: [persons].[age] AS [age]",
                     "confidenceScore": 0.9,
@@ -5402,31 +5402,31 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)"
                 },
                 {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),FirstName)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),ID)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),LastName)"
+                },
+                {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),age)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),ID)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),firstname)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),LastName)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),id)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),FirstName)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),lastname)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),id)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),lastname)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),firstname)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),age)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),Age)"
                 }
             ]
         }
@@ -5479,11 +5479,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),lastname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),LastName)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),lastname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),LastName)"
                     ],
                     "transformOperation": "COPY: [personsnew].[lastname] AS [lastname]",
                     "confidenceScore": 0.9,
@@ -5492,11 +5492,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),firstname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),FirstName)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),firstname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),FirstName)"
                     ],
                     "transformOperation": "COPY: [personsnew].[firstname] AS [firstname]",
                     "confidenceScore": 0.9,
@@ -5552,19 +5552,19 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD)"
                 },
                 {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),FirstName)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),LastName)"
+                },
+                {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),firstname)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),LastName)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),lastname)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),lastname)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),firstname)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),FirstName)"
                 }
             ]
         }
@@ -5617,11 +5617,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD),Age)"
                     ],
                     "transformOperation": "COPY: [persons].[age] AS [age]",
                     "confidenceScore": 0.9
@@ -5629,11 +5629,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),ID)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),ID)"
                     ],
                     "transformOperation": "COPY: [items].[id] AS [id]",
                     "confidenceScore": 0.9
@@ -5641,11 +5641,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),itemname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),ItemName)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),itemname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),ItemName)"
                     ],
                     "transformOperation": "COPY: [items].[itemname] AS [itemname]",
                     "confidenceScore": 0.9
@@ -5653,11 +5653,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),itemname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),ItemName)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.finalitems,PROD),itemname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.finalitems,PROD),ItemName)"
                     ],
                     "transformOperation": "COPY: [e].[itemname] AS [itemname]",
                     "confidenceScore": 0.9
@@ -5665,11 +5665,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),tempid)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),TempID)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),ID)"
                     ],
                     "transformOperation": "COPY: [salesreason].[tempid] AS [id]",
                     "confidenceScore": 0.9
@@ -5677,11 +5677,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),Name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),itemname)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),ItemName)"
                     ],
                     "transformOperation": "COPY: [salesreason].[name] AS [itemname]",
                     "confidenceScore": 0.9
@@ -5689,11 +5689,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),Age)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
                     ],
                     "confidenceScore": 0.35
                 }

@@ -66,10 +66,6 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata.schema_classes import (
-    ForeignKeyConstraintClass,
-    SchemaFieldClass,
-)
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
@@ -549,23 +545,6 @@ class SQLServerSource(SQLAlchemySource):
             if description:
                 column["comment"] = description
         return columns
-
-    def get_schema_fields(
-        self,
-        dataset_name: str,
-        columns: List[dict],
-        inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
-        partition_keys: Optional[List[str]] = None,
-        tags: Optional[Dict[str, List[str]]] = None,
-    ) -> List[SchemaFieldClass]:
-        schema_fields = super().get_schema_fields(
-            dataset_name, columns, inspector, pk_constraints, partition_keys, tags
-        )
-        if self.config.convert_urns_to_lowercase:
-            for field in schema_fields:
-                field.fieldPath = field.fieldPath.lower()
-        return schema_fields
 
     def get_database_level_workunits(
         self,
@@ -1264,22 +1243,6 @@ class SQLServerSource(SQLAlchemySource):
                 entityUrn=data_flow.urn,
                 aspect=data_flow.as_container_aspect,
             ).as_workunit()
-
-    def get_foreign_key_metadata(
-        self,
-        dataset_urn: str,
-        schema: str,
-        fk_dict: Dict[str, Any],
-        inspector: Inspector,
-    ) -> ForeignKeyConstraintClass:
-        if self.config.convert_urns_to_lowercase:
-            fk_dict["constrained_columns"] = [
-                f.lower() for f in fk_dict["constrained_columns"]
-            ]
-            fk_dict["referred_columns"] = [
-                f.lower() for f in fk_dict["referred_columns"]
-            ]
-        return super().get_foreign_key_metadata(dataset_urn, schema, fk_dict, inspector)
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically

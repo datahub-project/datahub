@@ -71,9 +71,8 @@ def _get_invoke_elements(invoke_node: dict) -> List[dict]:
 
 
 def _get_arg_values(
-    node_map: Dict[int, dict],
     invoke_node: dict,
-    parameters: Optional[Dict[str, str]] = None,
+    parameters: Dict[str, str],
 ) -> List[Optional[str]]:
     """Extract positional string arguments from an InvokeExpression node.
 
@@ -81,7 +80,6 @@ def _get_arg_values(
     RecordExpression arguments return None.
     IdentifierExpression arguments are resolved via parameters dict.
     """
-    parameters = parameters or {}
     values: List[Optional[str]] = []
     for inner in _get_invoke_elements(invoke_node):
         val = get_literal_value(inner)
@@ -271,11 +269,9 @@ class AbstractLineage(ABC):
     @staticmethod
     def get_db_detail_from_argument(
         arg_list: dict,
-        node_map: Optional[Dict[int, dict]] = None,
-        parameters: Optional[Dict[str, str]] = None,
+        parameters: Dict[str, str],
     ) -> Tuple[Optional[str], Optional[str]]:
-        node_map = node_map or {}
-        args = _get_arg_values(node_map, arg_list, parameters=parameters)
+        args = _get_arg_values(arg_list, parameters=parameters)
         logger.debug(f"DB Details: {args}")
 
         return (
@@ -287,11 +283,11 @@ class AbstractLineage(ABC):
     def create_reference_table(
         arg_list: dict,
         table_detail: Dict[str, str],
+        parameters: Dict[str, str],
         node_map: Optional[Dict[int, dict]] = None,
-        parameters: Optional[Dict[str, str]] = None,
     ) -> Optional[ReferencedTable]:
         node_map = node_map or {}
-        args = _get_arg_values(node_map, arg_list, parameters=parameters)
+        args = _get_arg_values(arg_list, parameters=parameters)
         record_fields = _get_record_args(node_map, arg_list)
 
         logger.debug(f"Processing arguments {args}, record_fields {record_fields}")
@@ -481,7 +477,6 @@ class AmazonAthenaLineage(AbstractLineage):
 
         server, _ = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
-            node_map=data_access_func_detail.node_map,
             parameters=data_access_func_detail.parameters,
         )
         if server is None:
@@ -604,7 +599,6 @@ class AmazonRedshiftLineage(AbstractLineage):
 
         server, db_name = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
-            node_map=data_access_func_detail.node_map,
             parameters=data_access_func_detail.parameters,
         )
         if db_name is None or server is None:
@@ -679,7 +673,6 @@ class OracleLineage(AbstractLineage):
         )
 
         args = _get_arg_values(
-            data_access_func_detail.node_map,
             data_access_func_detail.arg_list,
             parameters=data_access_func_detail.parameters,
         )
@@ -835,7 +828,6 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
 
         server, db_name = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
-            node_map=data_access_func_detail.node_map,
             parameters=data_access_func_detail.parameters,
         )
         if db_name is None:
@@ -907,7 +899,6 @@ class MySQLLineage(AbstractLineage):
 
         server, db_name = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
-            node_map=data_access_func_detail.node_map,
             parameters=data_access_func_detail.parameters,
         )
         if server is None or db_name is None:
@@ -1032,7 +1023,6 @@ class MSSqlLineage(TwoStepDataAccessPattern):
 
         server, database = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
-            node_map=node_map,
             parameters=data_access_func_detail.parameters,
         )
         if database is None:
@@ -1101,7 +1091,6 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
         # First is host name
         server, _ = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
-            node_map=data_access_func_detail.node_map,
             parameters=data_access_func_detail.parameters,
         )
         if server is None:
@@ -1153,7 +1142,6 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
         )
 
         args = _get_arg_values(
-            data_access_func_detail.node_map,
             data_access_func_detail.arg_list,
             parameters=data_access_func_detail.parameters,
         )
@@ -1372,7 +1360,6 @@ class OdbcLineage(AbstractLineage):
 
         connect_string, query = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list,
-            node_map=data_access_func_detail.node_map,
             parameters=data_access_func_detail.parameters,
         )
 
