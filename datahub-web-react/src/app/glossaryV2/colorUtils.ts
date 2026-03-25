@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule here till we add glossary palette colors in theme
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { useCustomTheme } from '@src/customThemeContext';
 
 export type ColorPalette = { [key: string]: string };

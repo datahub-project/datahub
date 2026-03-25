@@ -24,7 +24,7 @@ interface ColorStyles {
 }
 
 // Utility function to get color styles for button - does not generate CSS
-const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme?: Theme): ColorStyles => {
+const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme: Theme): ColorStyles => {
     const color500 = getColor(color, 500, theme); // value of 500 shade
     const isViolet = color === 'violet';
 
@@ -41,12 +41,12 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
         disabledBorderColor: theme?.colors?.borderDisabled ?? getColor('gray', 200, theme),
 
         // Text
-        textColor: theme?.colors?.textBrandOnBgFill ?? '#fff',
+        textColor: theme?.colors?.textBrandOnBgFill ?? 'white',
         disabledTextColor: theme?.colors?.textDisabled ?? getColor('gray', 300, theme),
     };
 
     if (color === 'white') {
-        base.textColor = theme?.colors?.text ?? '#000';
+        base.textColor = theme?.colors?.text ?? 'black';
         base.disabledTextColor = theme?.colors?.textDisabled ?? getColor('gray', 500, theme);
     }
 

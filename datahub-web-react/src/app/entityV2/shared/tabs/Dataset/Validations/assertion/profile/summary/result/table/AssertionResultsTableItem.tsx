@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
 import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
@@ -57,12 +57,13 @@ type Props = {
 };
 
 export const AssertionResultsTableItem = ({ assertion, run }: Props) => {
+    const theme = useTheme();
     const assertionRunTime = run.timestampMillis;
     const absoluteRunTime = getFormattedTimeString(assertionRunTime);
     const resultText = getFormattedResultText(run.result?.type);
-    const resultTextColor = getResultColor(run.result?.type) || undefined;
+    const resultTextColor = getResultColor(theme, run.result?.type) || undefined;
     const reasonText = getFormattedReasonText(assertion, run);
-    const highlightColor = getResultColor(run.result?.type);
+    const highlightColor = getResultColor(theme, run.result?.type);
     return (
         <Container
             highlightColor={(highlightColor && applyOpacityToHexColor(highlightColor, 0.035)) || resultTextColor}

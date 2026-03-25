@@ -1,5 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
+import { DefaultTheme } from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
@@ -14,9 +15,6 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 
 export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;
-
-export const HOVER_COLOR = '#1890FF';
-export const SELECT_COLOR = '#533FD1';
 
 type Urn = string;
 
@@ -350,12 +348,12 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     return true;
 }
 
-const DATA_STORE_COLOR = '#ffd279';
-const BI_TOOL_COLOR = '#8682a2';
-const ML_COLOR = '#206de8';
-const DEFAULT_COLOR = '#ff7979';
+export function getNodeColor(theme: DefaultTheme, type?: EntityType): [string, string] {
+    const DATA_STORE_COLOR = theme.colors.tagsTrueYellowIcon;
+    const BI_TOOL_COLOR = theme.colors.chartsBrandMedium;
+    const ML_COLOR = theme.colors.chartsInformationHigh;
+    const DEFAULT_COLOR = theme.colors.chartsWineMedium;
 
-export function getNodeColor(type?: EntityType): [string, string] {
     if (type === EntityType.Chart || type === EntityType.Dashboard) {
         return [BI_TOOL_COLOR, 'Field'];
     }

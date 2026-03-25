@@ -67,7 +67,7 @@ export class DataJobEntity implements Entity<DataJob> {
             return (
                 <ConsoleSqlOutlined
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon)' }}
                 />
             );
         }

@@ -1,3 +1,5 @@
+// Disabling no hardcoded colors rule in stories files
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';

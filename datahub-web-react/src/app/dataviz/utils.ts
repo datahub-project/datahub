@@ -1,7 +1,4 @@
-import { scaleOrdinal } from '@visx/scale';
 import dayjs from 'dayjs';
-
-import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
 
 // Mock Data Util
 export const generateDateSeries = (numOfDays) =>
@@ -11,12 +8,6 @@ export const generateDateSeries = (numOfDays) =>
             date: dayjs(new Date(Date.now() - 24 * 60 * 60 * 1000 * i)).format(),
             value: Math.round(Math.max(10, Math.random() * 100 || 0)),
         }));
-
-// Status Ordinal Scale
-export const statusOrdinalScale = scaleOrdinal({
-    domain: ['Not Started', 'In Progress', 'Completed'],
-    range: [NOT_STARTED_COLOR, IN_PROGRESS_COLOR, COMPLETED_COLOR],
-});
 
 // private utils to help with rounding y axis numbers
 const NUMERICAL_ABBREVIATIONS = ['k', 'm', 'b', 't'];

@@ -1,7 +1,7 @@
 import { ColorPicker, Input, Modal } from '@components';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
@@ -31,6 +31,8 @@ interface PendingOwner {
 
 const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
+
     const { data, loading, refetch } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
@@ -41,7 +43,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     const [updateTagMutation] = useUpdateTagMutation();
 
     // State to track values
-    const [colorValue, setColorValue] = useState('#1890ff');
+    const [colorValue, setColorValue] = useState(theme.colors.tagsAccentText);
     const [originalColor, setOriginalColor] = useState('');
 
     // Tag name state (editable)
@@ -67,7 +69,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     // When data loads, set the initial values
     useEffect(() => {
         if (data?.tag) {
-            const tagColor = data.tag.properties?.colorHex || '#1890ff';
+            const tagColor = data.tag.properties?.colorHex || theme.colors.tagsAccentText;
             setColorValue(tagColor);
             setOriginalColor(tagColor);
 
@@ -87,7 +89,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             const tagOwners = data.tag.ownership?.owners || [];
             setOwners(tagOwners);
         }
-    }, [data, entityRegistry]);
+    }, [data, entityRegistry, theme]);
 
     // Handler functions
     const handleColorChange = (color: string) => {

@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTheme } from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
@@ -23,7 +24,9 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     // Tag details state
     const [tagName, setTagName] = useState('');
     const [tagDescription, setTagDescription] = useState('');
-    const [tagColor, setTagColor] = useState('#1890ff');
+    const theme = useTheme();
+
+    const [tagColor, setTagColor] = useState(theme.colors.tagsAccentText);
 
     // Owners state
     const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
@@ -98,7 +101,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             onClose();
             setTagName('');
             setTagDescription('');
-            setTagColor('#1890ff');
+            setTagColor(theme.colors.tagsAccentText);
             setPendingOwners([]);
             setSelectedOwnerUrns([]);
         } catch (e: any) {

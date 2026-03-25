@@ -47,16 +47,14 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             return (
                 <BookmarksSimple
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon)' }}
                     weight="fill"
                 />
             );
         }
 
         if (styleType === IconStyleType.ACCENT) {
-            return (
-                <BookmarksSimple style={{ fontSize: fontSize || 10, color: color || 'var(--theme-icon, #6C6B88)' }} />
-            );
+            return <BookmarksSimple style={{ fontSize: fontSize || 10, color: color || 'var(--theme-icon)' }} />;
         }
 
         return (

@@ -59,16 +59,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             return (
                 <BookmarkSimple
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon)' }}
                     weight="fill"
                 />
             );
         }
 
         if (styleType === IconStyleType.ACCENT) {
-            return (
-                <BookmarkSimple style={{ fontSize: fontSize ?? 10, color: color || 'var(--theme-icon, #6C6B88)' }} />
-            );
+            return <BookmarkSimple style={{ fontSize: fontSize ?? 10, color: color || 'var(--theme-icon)' }} />;
         }
 
         return (

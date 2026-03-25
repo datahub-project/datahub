@@ -28,10 +28,7 @@ export class TagEntity implements Entity<Tag> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <TagFilled
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
-                />
+                <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || 'var(--theme-icon' }} />
             );
         }
 

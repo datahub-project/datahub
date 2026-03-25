@@ -68,8 +68,7 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
     max-height: 150px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 80%, rgba(255, 0, 0, 0.5) 85%, rgba(255, 0, 0, 0) 90%);
-
+    mask-image: linear-gradient(to bottom, black 80%, ${({ theme }) => theme.colors.overlayMask} 85%, transparent 90%);
     span {
         font-family: 'Roboto Mono', monospace;
     }

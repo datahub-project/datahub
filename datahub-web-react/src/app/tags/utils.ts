@@ -1,11 +1,12 @@
 import ColorHash from 'color-hash';
+import { DefaultTheme } from 'styled-components';
 
 // Color hash generator - consistent colors for same tag
 const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
-export const getTagColor = (entity: any): string => {
+export const getTagColor = (entity: any, theme: DefaultTheme): string => {
     try {
         // Check direct properties first
         if (entity.properties?.colorHex) {
@@ -34,5 +35,5 @@ export const getTagColor = (entity: any): string => {
     }
 
     // Default color if all else fails
-    return '#BFBFBF';
+    return theme.colors.icon;
 };

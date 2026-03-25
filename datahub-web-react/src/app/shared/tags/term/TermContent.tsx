@@ -2,15 +2,13 @@ import { BookOutlined } from '@ant-design/icons';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
-
-const highlightMatchStyle = { background: 'var(--theme-bgHighlight, #ffe58f)', padding: '0' };
 
 const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
     &&& {
@@ -56,6 +54,8 @@ export default function TermContent({
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
     const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
+    const theme = useTheme();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
 
     const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();

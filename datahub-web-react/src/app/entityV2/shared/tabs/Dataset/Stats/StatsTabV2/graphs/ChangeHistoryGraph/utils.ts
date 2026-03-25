@@ -1,8 +1,8 @@
+import { DefaultTheme } from 'styled-components';
+
 import {
     AGGREGATION_GROUPS,
-    AGGREGATION_GROUP_TO_COLORS_MAPPING,
     CUSTOM_KEY_PREFIX,
-    DEFAULT_COLOR,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/constants';
 import {
     AggregationGroup,
@@ -136,7 +136,19 @@ export function createColorAccessors(
     summary: OperationsData | undefined,
     data: CalendarData<OperationsData>[],
     types: AnyOperationType[],
+    theme: DefaultTheme,
 ) {
+    const DEFAULT_COLOR = theme.colors.bgSurfaceDarker;
+
+    const AGGREGATION_GROUP_TO_COLORS_MAPPING = {
+        [AggregationGroup.Purple]: [
+            theme.colors.chartsBrandBase,
+            theme.colors.chartsBrandMedium,
+            theme.colors.chartsHeatmapHigh,
+        ],
+        [AggregationGroup.Red]: [theme.colors.chartsRedLow, theme.colors.chartsRedMedium, theme.colors.chartsRedHigh],
+    };
+
     // Calculate max values for each group
     const maxValueMapping = AGGREGATION_GROUPS.reduce(
         (mapping, group) => ({

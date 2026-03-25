@@ -79,7 +79,7 @@ export class ChartEntity implements Entity<Chart> {
             return (
                 <LineChartOutlined
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'rgb(144 163 236)' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon' }}
                 />
             );
         }

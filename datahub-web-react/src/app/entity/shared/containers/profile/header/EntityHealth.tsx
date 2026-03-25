@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EntityHealthPopover } from '@app/entity/shared/containers/profile/header/EntityHealthPopover';
 import { HealthSummaryIconType, getHealthSummaryIcon, isUnhealthy } from '@app/shared/health/healthUtils';
@@ -21,8 +21,9 @@ type Props = {
 };
 
 export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement }: Props) => {
+    const theme = useTheme();
     const unhealthy = isUnhealthy(health);
-    const icon = getHealthSummaryIcon(health, HealthSummaryIconType.FILLED, fontSize);
+    const icon = getHealthSummaryIcon(health, theme, HealthSummaryIconType.FILLED, fontSize);
     return (
         <>
             {(unhealthy && (

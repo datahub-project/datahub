@@ -283,7 +283,8 @@ export const TagActionsColumn = React.memo(
 );
 
 export const TagColorColumn = React.memo(({ tag }: { tag: Entity }) => {
-    const colorHex = getTagColor(tag);
+    const theme = useTheme();
+    const colorHex = getTagColor(tag, theme);
     return (
         <ColumnContainer>
             <ColorDotContainer>

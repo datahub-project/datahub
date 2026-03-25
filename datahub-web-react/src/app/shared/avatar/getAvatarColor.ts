@@ -1,3 +1,5 @@
+import { DefaultTheme } from 'styled-components';
+
 import { lineColors } from '@app/analyticsDashboard/components/lineColors';
 
 export function hashString(str: string) {
@@ -15,9 +17,9 @@ export function hashString(str: string) {
     return Math.abs(hash);
 }
 
-export default function getAvatarColor(name?: string, fallbackColor?: string) {
+export default function getAvatarColor(theme: DefaultTheme, name?: string, fallbackColor?: string) {
     if (!name) {
-        return fallbackColor ?? '#8C8C8C';
+        return fallbackColor ?? theme.colors.icon;
     }
     return lineColors[hashString(name) % lineColors.length];
 }

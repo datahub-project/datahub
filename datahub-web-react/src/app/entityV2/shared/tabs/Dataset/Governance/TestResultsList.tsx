@@ -2,7 +2,7 @@ import { CopyOutlined, StopOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
 import { Divider, Empty, Tag, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import { getResultColor, getResultIcon, getResultText } from '@app/entityV2/shared/tabs/Dataset/Governance/testUtils';
@@ -49,6 +49,7 @@ type Props = {
 };
 
 export const TestResultsList = ({ title, results }: Props) => {
+    const theme = useTheme();
     const resultsTableData = results.map((result) => ({
         urn: result.test?.urn,
         name: result?.test?.name,
@@ -63,9 +64,9 @@ export const TestResultsList = ({ title, results }: Props) => {
             dataIndex: '',
             key: '',
             render: (_, record: any) => {
-                const resultColor = (record.resultType && getResultColor(record.resultType)) || 'default';
+                const resultColor = (record.resultType && getResultColor(record.resultType, theme)) || 'default';
                 const resultText = (record.resultType && getResultText(record.resultType)) || 'No Evaluations';
-                const resultIcon = (record.resultType && getResultIcon(record.resultType)) || <StopOutlined />;
+                const resultIcon = (record.resultType && getResultIcon(record.resultType, theme)) || <StopOutlined />;
                 return (
                     <ResultContainer>
                         <div>

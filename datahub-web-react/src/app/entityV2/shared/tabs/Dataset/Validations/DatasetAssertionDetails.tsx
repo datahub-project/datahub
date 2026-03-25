@@ -3,7 +3,7 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import { SelectValue } from 'antd/lib/select';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import PrefixedSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
 import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
@@ -93,6 +93,7 @@ type Props = {
 export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) => {
     const [getAssertionRuns, { data }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     /**
      * Set default window for fetching assertion history.
@@ -183,7 +184,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                     resultUrl,
                     title: (
                         <>
-                            <AssertionResultIcon>{getResultIcon(result.type)}</AssertionResultIcon>
+                            <AssertionResultIcon>{getResultIcon(result.type, theme)}</AssertionResultIcon>
                             <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
                         </>
                     ),
@@ -230,7 +231,10 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                             <div>
                                 <SucceededEvaluationsCount>
                                     <Typography.Text
-                                        style={{ color: getResultColor(AssertionResultType.Success), fontWeight: 600 }}
+                                        style={{
+                                            color: getResultColor(theme, AssertionResultType.Success),
+                                            fontWeight: 600,
+                                        }}
                                     >
                                         {formatNumber(succeededCount)}
                                     </Typography.Text>{' '}
@@ -238,7 +242,10 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                                 </SucceededEvaluationsCount>
                                 <FailedEvaluationsCount>
                                     <Typography.Text
-                                        style={{ color: getResultColor(AssertionResultType.Failure), fontWeight: 600 }}
+                                        style={{
+                                            color: getResultColor(theme, AssertionResultType.Failure),
+                                            fontWeight: 600,
+                                        }}
                                     >
                                         {formatNumber(failedCount)}
                                     </Typography.Text>{' '}

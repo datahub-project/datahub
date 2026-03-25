@@ -50,7 +50,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             return (
                 <CodeSandboxOutlined
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'var(--theme-icon, #9633b9)' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon)' }}
                 />
             );
         }

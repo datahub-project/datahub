@@ -3,7 +3,7 @@ import { curveMonotoneX } from '@visx/curve';
 import { ScaleConfig, scaleOrdinal } from '@visx/scale';
 import { Axis, GlyphSeries, LineSeries, Tooltip, XYChart } from '@visx/xychart';
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import Legend from '@app/analyticsDashboard/components/Legend';
 import { lineColors } from '@app/analyticsDashboard/components/lineColors';
@@ -133,6 +133,8 @@ export const TimeSeriesChart = ({
         range: lineColors.slice(0, chartData.lines.length),
     });
 
+    const theme = useTheme();
+
     const lines = useMemo(() => computeLines(chartData, insertBlankPoints || false), [chartData, insertBlankPoints]);
 
     return (
@@ -181,7 +183,7 @@ export const TimeSeriesChart = ({
                     snapTooltipToDatumX
                     showVerticalCrosshair
                     showDatumGlyph
-                    verticalCrosshairStyle={{ stroke: '#D8D8D8', strokeDasharray: '5,2', strokeWidth: 1 }}
+                    verticalCrosshairStyle={{ stroke: theme.colors.border, strokeDasharray: '5,2', strokeWidth: 1 }}
                     renderTooltip={({ tooltipData }) =>
                         tooltipData?.nearestDatum && (
                             <div>

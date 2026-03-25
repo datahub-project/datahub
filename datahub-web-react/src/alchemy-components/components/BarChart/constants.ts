@@ -29,12 +29,4 @@ export const COLOR_SCHEMES: ColorScheme[] = Object.values(ColorScheme);
 
 export const DEFAULT_COLOR_SCHEME = ColorScheme.Violet;
 
-export const COLOR_SCHEME_TO_PARAMS: Record<ColorScheme, ColorSchemeParams> = {
-    [ColorScheme.Violet]: { mainColor: '#705EE4', alternativeColor: '#917FFF99' },
-    [ColorScheme.Blue]: { mainColor: '#4897B4', alternativeColor: '#CCEBF6' },
-    [ColorScheme.Pink]: { mainColor: '#E99393', alternativeColor: '#F2C1C1' },
-    [ColorScheme.Orange]: { mainColor: '#FFD8B1', alternativeColor: '#FFF3E0' },
-    [ColorScheme.Green]: { mainColor: '#92C573', alternativeColor: '#C0DEAF' },
-};
-
 export const DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL = 7;

@@ -27,10 +27,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <TableIcon
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
-                />
+                <TableIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || 'var(--theme-icon)' }} />
             );
         }
 
@@ -39,7 +36,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
-                    color: color || 'var(--theme-icon, #BFBFBF)',
+                    color: color || 'var(--theme-icon)',
                 }}
             />
         );

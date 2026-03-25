@@ -21,7 +21,7 @@ export class DataContractEntity implements Entity<DataContract> {
             return (
                 <FileOutlined
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'var(--theme-icon, #d6246c)' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon)' }}
                 />
             );
         }

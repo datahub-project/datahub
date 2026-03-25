@@ -9,11 +9,9 @@ import {
     FineGrainedLineage,
     FineGrainedLineageMap,
     FineGrainedOperationRef,
-    HOVER_COLOR,
     HighlightedColumns,
     LineageNodesContext,
     NodeContext,
-    SELECT_COLOR,
     createLineageFilterNodeId,
     isTransformational,
     isUrnQuery,
@@ -111,12 +109,12 @@ function processColumnHighlights(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
     argumentBundle: ArgumentBundle,
-    theme?: { colors?: { textBrand?: string } },
+    theme: { colors: { textBrand: string } },
 ) {
     if (selectedColumn) {
-        return computeSingleColumnHighlights(selectedColumn, argumentBundle, theme?.colors?.textBrand || SELECT_COLOR);
+        return computeSingleColumnHighlights(selectedColumn, argumentBundle, theme.colors.textBrand);
     }
-    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, theme?.colors?.textBrand || HOVER_COLOR);
+    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, theme.colors.textBrand);
 }
 
 function computeSingleColumnHighlights(

@@ -34,7 +34,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <GlobalOutlined style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
+            return <GlobalOutlined style={{ fontSize, color: color || 'var(--theme-icon)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {

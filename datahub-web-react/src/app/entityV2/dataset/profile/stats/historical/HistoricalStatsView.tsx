@@ -24,7 +24,7 @@ const HeaderRow = styled(Row)`
 `;
 
 const SubHeaderText = styled(Typography.Text)`
-    color: gray;
+    color: ${({ theme }) => theme.colors.textTertiary};
     font-size: 16px;
 `;
 

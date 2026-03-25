@@ -3,6 +3,7 @@ import { Group } from '@visx/group';
 import { scaleBand, scaleLinear, scaleOrdinal } from '@visx/scale';
 import { BarStack } from '@visx/shape';
 import React, { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
 import Legend from '@app/analyticsDashboard/components/Legend';
 import { useAnalyticsChartColors } from '@app/analyticsDashboardV2/hooks/useAnalyticsChartColors';
@@ -47,6 +48,7 @@ function transformChartData(chartData: BarChartType) {
 }
 
 export const BarChart = ({ chartData, width, height }: Props) => {
+    const theme = useTheme();
     const keys = useMemo(
         () =>
             chartData.bars
@@ -60,7 +62,7 @@ export const BarChart = ({ chartData, width, height }: Props) => {
     );
 
     // Use smart color assignment for stacked bar charts
-    const { getColorByKey } = useAnalyticsChartColors(keys);
+    const { getColorByKey } = useAnalyticsChartColors(keys, theme);
 
     const segmentScale = scaleOrdinal<string, string>({
         domain: keys,

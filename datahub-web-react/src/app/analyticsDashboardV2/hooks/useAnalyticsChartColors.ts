@@ -5,6 +5,7 @@
  * for DataHub analytics charts
  */
 import { useCallback, useMemo, useState } from 'react';
+import { DefaultTheme } from 'styled-components';
 
 import {
     ColorAssignmentResult,
@@ -47,13 +48,14 @@ interface UseAnalyticsChartColorsReturn {
  */
 export function useAnalyticsChartColors(
     seriesKeys: string[],
+    theme: DefaultTheme,
     options: UseAnalyticsChartColorsOptions = {},
 ): UseAnalyticsChartColorsReturn {
     const [overrides, setOverrides] = useState<Record<string, string>>(options.initialOverrides || {});
 
     const colorResult: ColorAssignmentResult = useMemo(
-        () => assignAnalyticsChartColors(seriesKeys, overrides),
-        [seriesKeys, overrides],
+        () => assignAnalyticsChartColors(seriesKeys, theme, overrides),
+        [seriesKeys, theme, overrides],
     );
 
     const updateColor = useCallback((key: string, color: string) => {
@@ -68,7 +70,7 @@ export function useAnalyticsChartColors(
         });
     }, []);
 
-    const getColorByKey = useCallback((key: string) => colorResult.assignments[key]?.color || '#9CA3AF', [colorResult]);
+    const getColorByKey = useCallback((key: string) => colorResult.assignments[key]?.color, [colorResult]);
 
     const assignmentStats = useMemo(() => getColorAssignmentStats(colorResult), [colorResult]);
 

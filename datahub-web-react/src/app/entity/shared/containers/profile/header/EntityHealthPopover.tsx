@@ -58,7 +58,7 @@ export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, place
             content={
                 <>
                     <Header>
-                        <Icon>{getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
+                        <Icon>{getHealthSummaryIcon(health, theme, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
                         <Title>{getHealthSummaryMessage(health)}</Title>
                     </Header>
                     <StyledDivider />

@@ -2,6 +2,7 @@ import { TickLabelProps } from '@visx/axis';
 import { LinearGradient } from '@visx/gradient';
 import dayjs from 'dayjs';
 import React from 'react';
+import { DefaultTheme, useTheme } from 'styled-components';
 
 import { Glyph, TooltipGlyph } from '@components/components/LineChart/components';
 import { GLYPH_DROP_SHADOW_FILTER } from '@components/components/LineChart/constants';
@@ -9,16 +10,21 @@ import { Datum, LineChartProps } from '@components/components/LineChart/types';
 import { roundToEven } from '@components/components/LineChart/utils';
 import { abbreviateNumber } from '@components/components/dataviz/utils';
 
-function getCommonTickLabelProps(themeColors?: Record<string, string>): TickLabelProps<Datum> {
+export function useLineChartDefaults(): LineChartProps {
+    const theme = useTheme();
+    return getLineChartDefaults(theme);
+}
+
+function getCommonTickLabelProps(theme?: DefaultTheme): TickLabelProps<Datum> {
     return {
         fontSize: 10,
         fontFamily: 'Mulish',
-        fill: themeColors?.textSecondary ?? '#5F5E6C',
+        fill: theme?.colors.textSecondary,
     };
 }
 
-export function getLineChartDefaults(themeColors?: Record<string, string>): LineChartProps {
-    const commonTickLabelProps = getCommonTickLabelProps(themeColors);
+export function getLineChartDefaults(theme?: DefaultTheme): LineChartProps {
+    const commonTickLabelProps = getCommonTickLabelProps(theme);
 
     return {
         data: [],
@@ -28,7 +34,7 @@ export function getLineChartDefaults(themeColors?: Record<string, string>): Line
         yScale: { type: 'linear', nice: true, round: true, zero: true },
         shouldAdjustYZeroPoint: true,
 
-        lineColor: themeColors?.iconBrand ?? '#705EE4',
+        lineColor: theme?.colors.iconBrand,
         areaColor: 'url(#line-gradient)',
         margin: { top: 0, right: 0, bottom: 0, left: 0 },
 
@@ -65,7 +71,7 @@ export function getLineChartDefaults(themeColors?: Record<string, string>): Line
         gridProps: {
             rows: true,
             columns: false,
-            stroke: themeColors?.border ?? '#e0e0e0',
+            stroke: theme?.colors.border,
             computeNumTicks: () => 5,
             lineStyle: {},
         },
@@ -73,13 +79,13 @@ export function getLineChartDefaults(themeColors?: Record<string, string>): Line
         renderGradients: () => (
             <LinearGradient
                 id="line-gradient"
-                from={themeColors?.chartsBrandLow ?? '#CAC3F1'}
-                to={themeColors?.bg ?? '#FFFFFF'}
+                from={theme?.colors.chartsBrandLow}
+                to={theme?.colors.bg}
                 toOpacity={0.6}
             />
         ),
         toolbarVerticalCrosshairStyle: {
-            stroke: themeColors?.bg ?? '#FFFFFF',
+            stroke: theme?.colors.bg,
             strokeWidth: 2,
             filter: GLYPH_DROP_SHADOW_FILTER,
         },

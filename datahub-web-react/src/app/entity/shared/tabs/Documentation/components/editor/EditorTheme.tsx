@@ -45,36 +45,6 @@ export const getEditorTheme = (theme: DefaultTheme): RemirrorThemeType => ({
     },
 });
 
-/** @deprecated Use getEditorTheme(theme) instead */
-export const EditorTheme: RemirrorThemeType = {
-    ...defaultRemirrorTheme,
-    fontSize: {
-        default: '14px',
-    },
-    color: {
-        border: 'none',
-        outline: 'none',
-        primary: '#00B14F',
-        table: {
-            ...defaultRemirrorTheme.color.table,
-            mark: '#BFBFBF',
-            default: {
-                controller: '#F5F5F5',
-                border: '#E9E9E9',
-            },
-            selected: {
-                controller: '#F0F0F0',
-                border: '#E9E9E9',
-                cell: '#F8F8F8',
-            },
-            preselect: {
-                controller: '#D9D9D9',
-                border: '#BFBFBF',
-            },
-        },
-    },
-};
-
 export const EditorContainer = styled.div<{ editorStyle?: string }>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}

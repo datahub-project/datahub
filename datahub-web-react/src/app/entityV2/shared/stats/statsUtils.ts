@@ -1,3 +1,5 @@
+import { DefaultTheme } from 'styled-components';
+
 /**
  * Normalizes a percentile integer to a 3-tier
  * label system of 'High', 'Med', 'Low' for usability.
@@ -15,12 +17,12 @@ export const percentileToLabel = (pct: number) => {
 /**
  * Normalizes a percentile to a color.
  */
-export const percentileToColor = (pct: number, themeColors?: { bgSurface?: string; bgSurfaceSuccess?: string }) => {
+export const percentileToColor = (pct: number, theme: DefaultTheme) => {
     /* eslint-disable no-else-return */
     if (pct <= 30) {
-        return themeColors?.bgSurface ?? '#F5F5F5';
+        return theme.colors.bgSurface;
     } else if (pct > 30 && pct <= 80) {
-        return themeColors?.bgSurfaceSuccess ?? '#EBF3F2';
+        return theme.colors.bgSurfaceSuccess;
     }
-    return themeColors?.bgSurfaceSuccess ?? '#cef5f0';
+    return theme.colors.bgSurfaceSuccessHover;
 };

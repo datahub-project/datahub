@@ -1,6 +1,6 @@
 import { Avatar, Tooltip } from 'antd';
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
 import getAvatarColor from '@app/shared/avatar/getAvatarColor';
@@ -18,6 +18,7 @@ const AvatarStyled = styled(Avatar)<{ backgroundColor: string }>`
 `;
 
 export default function UsageFacepile({ users, maxNumberDisplayed }: Props) {
+    const theme = useTheme();
     const sortedUsers = useMemo(() => users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0)), [users]);
     let displayedUsers = sortedUsers;
     if (maxNumberDisplayed) {
@@ -28,7 +29,7 @@ export default function UsageFacepile({ users, maxNumberDisplayed }: Props) {
         <SpacedAvatarGroup maxCount={2}>
             {displayedUsers?.map((user) => (
                 <Tooltip title={user?.userEmail}>
-                    <AvatarStyled backgroundColor={getAvatarColor(user?.userEmail || undefined)}>
+                    <AvatarStyled backgroundColor={getAvatarColor(theme, user?.userEmail || undefined)}>
                         {user?.userEmail?.charAt(0).toUpperCase()}
                     </AvatarStyled>
                 </Tooltip>

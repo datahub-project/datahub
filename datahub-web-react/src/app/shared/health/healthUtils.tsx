@@ -4,13 +4,11 @@ import {
     CloseOutlined,
     ExclamationCircleOutlined,
     ExclamationCircleTwoTone,
-    WarningFilled,
     WarningOutlined,
 } from '@ant-design/icons';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { DefaultTheme } from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
@@ -57,11 +55,15 @@ export const isHealthy = (healths: Health[]) => {
 
 export const getHealthSummaryIcon = (
     healths: Health[],
+    theme: DefaultTheme,
     type: HealthSummaryIconType = HealthSummaryIconType.FILLED,
     fontSize = 16,
 ) => {
     const unhealthy = isUnhealthy(healths);
     const healthy = isHealthy(healths);
+
+    const SUCCESS_COLOR_HEX = theme.colors.iconSuccess;
+    const FAILURE_COLOR_HEX = theme.colors.iconError;
 
     if (unhealthy) {
         const iconComponent =
@@ -114,36 +116,6 @@ export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) 
         }
         default:
             throw new Error(`Unrecognized Health Status ${status} provided`);
-    }
-};
-
-export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
-    switch (status) {
-        case HealthStatus.Pass: {
-            // No "success" logo.
-            return null;
-        }
-        case HealthStatus.Fail: {
-            return <WarningFilled style={{ color: FAILURE_COLOR_HEX, fontSize }} />;
-        }
-        case HealthStatus.Warn: {
-            return <WarningFilled style={{ color: FAILURE_COLOR_HEX, fontSize }} />;
-        }
-        default:
-            throw new Error(`Unrecognized Health Status ${status} provided`);
-    }
-};
-
-export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, fontSize: number) => {
-    switch (type) {
-        case HealthStatusType.Assertions: {
-            return getAssertionsHealthIcon(status, fontSize);
-        }
-        case HealthStatusType.Incidents: {
-            return getIncidentsHealthIcon(status, fontSize);
-        }
-        default:
-            throw new Error(`Unrecognized Health Status Type ${type} provided`);
     }
 };
 

@@ -6,6 +6,7 @@ import { Bar } from '@visx/shape';
 import { BarProps } from '@visx/shape/lib/shapes/Bar';
 import { AddSVGProps } from '@visx/shape/lib/types';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 type DiamondProps = GlyphDiamondProps<any> & Omit<React.SVGProps<SVGPathElement>, keyof GlyphDiamondProps<any>>;
 type CircleProps = GlyphCircleProps<any> & Omit<React.SVGProps<SVGPathElement>, keyof GlyphCircleProps<any>>;
@@ -46,14 +47,15 @@ export const CandleStick = ({
     extraBarProps,
 }: Props) => {
     const yOffset = parentChartHeight - candleHeight;
+    const theme = useTheme();
 
     const shapeProps: DiamondProps | CircleProps = {
         top: yOffset,
         left: leftOffset,
         fill: color,
-        stroke: 'white',
+        stroke: theme.colors.bg,
         strokeWidth: (markerOverlapPx ?? 1) > 1 ? 1 / (markerOverlapPx ?? 1) : 1,
-        filter: markerOverlapPx ? undefined : 'drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))',
+        filter: markerOverlapPx ? undefined : `drop-shadow(0px 1px 2.5px ${theme.colors.overlayLight})`,
         size: shapeSize,
         ...shape.extraProps,
     };
