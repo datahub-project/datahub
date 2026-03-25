@@ -1,6 +1,7 @@
 """Unit tests for Dataplex lineage extraction."""
 
 import datetime
+from typing import cast
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -205,7 +206,8 @@ def test_get_lineage_for_entry_uses_entry_location_in_parent(
     lineage_extractor.get_lineage_for_entry("test-project", test_entry)
 
     assert lineage_extractor.lineage_client is not None
-    calls = lineage_extractor.lineage_client.search_links.call_args_list  # type: ignore[union-attr]
+    lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
+    calls = lineage_client_mock.search_links.call_args_list
     assert len(calls) >= 2
     for call in calls[:2]:
         request = call.kwargs["request"]

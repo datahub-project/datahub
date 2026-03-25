@@ -628,7 +628,7 @@ class TestDataplexEntriesProcessorDesign:
         entry.entry_type = "invalid-entry-type"
         entry.fully_qualified_name = "bigquery:p.ds.table"
 
-        processor._track_entry_for_lineage("project-1", entry)
+        processor._track_entry_for_lineage("project-1", "us", entry)
 
         source_report = cast(Mock, processor.source_report)
         source_report.warning.assert_called_once()
@@ -660,7 +660,7 @@ class TestDataplexEntriesProcessorDesign:
             "projects/123/locations/global/entryTypes/bigquery-table"
         )
         dataset_entry.fully_qualified_name = "bigquery:p.ds.table1"
-        processor._track_entry_for_lineage("project-1", dataset_entry)
+        processor._track_entry_for_lineage("project-1", "us", dataset_entry)
         assert "project-1" in processor.entry_data_by_project
         tracked = next(iter(processor.entry_data_by_project["project-1"]))
         assert tracked.datahub_dataset_name == "p.ds.table1"
@@ -673,5 +673,5 @@ class TestDataplexEntriesProcessorDesign:
             "projects/123/locations/global/entryTypes/bigquery-dataset"
         )
         non_dataset_entry.fully_qualified_name = "bigquery:p.ds"
-        processor._track_entry_for_lineage("project-2", non_dataset_entry)
+        processor._track_entry_for_lineage("project-2", "us", non_dataset_entry)
         assert "project-2" not in processor.entry_data_by_project
