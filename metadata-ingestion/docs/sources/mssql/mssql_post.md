@@ -28,6 +28,7 @@ source:
     username: datahub_user
     password: your_password
     convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Enable query-based lineage extraction
     include_query_lineage: true

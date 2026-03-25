@@ -11,6 +11,7 @@ source:
 
     # This is recommended to improve lineage quality. Ignores case-sensitivity when constructing internal identifiers.
     convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
     # Uncomment if you need to use encryption with pytds
@@ -37,6 +38,7 @@ source:
     username: user
     password: pass
     convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Query-based lineage extraction
     include_query_lineage: true
@@ -69,6 +71,7 @@ source:
     username: admin
     password: password
     convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
     uri_args:
