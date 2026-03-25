@@ -46,3 +46,9 @@ repos:
         pass_filenames: false
         files: ^datahub-web-react/.*\.(ts|tsx|js)$
         entry: ./gradlew :datahub-web-react:lintFix
+      - id: bump-schema-versions
+        name: Bump PDL schema versions
+        entry: python .github/scripts/bump_schema_versions.py
+        language: python
+        pass_filenames: false
+        stages: [manual]  # Delete this line to auto-run. For now run  `pre-commit run bump-schema-versions --hook-stage manual`
