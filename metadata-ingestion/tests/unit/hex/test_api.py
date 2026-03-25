@@ -15,8 +15,7 @@ from datahub.ingestion.source.hex.model import (
     Project,
 )
 
-from .conftest import load_json_data
-
+from tests.unit.hex.conftest import load_json_data
 
 class TestHexAPI(unittest.TestCase):
     def setUp(self):
@@ -45,7 +44,7 @@ class TestHexAPI(unittest.TestCase):
         with patch.object(
             hex_api.session,
             "get",
-            side_effect=[mock_response1, mock_response2, mock_response3],
+            side_effect=[mock_response1, mock_response2],
         ) as mock_get:
             results = list(hex_api.fetch_projects())
 
