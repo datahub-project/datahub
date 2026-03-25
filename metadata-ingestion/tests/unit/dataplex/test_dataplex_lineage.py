@@ -1210,3 +1210,110 @@ def test_cross_platform_lineage_preserves_upstream_platform() -> None:
         f"Upstream URN should NOT use 'bigquery' platform for GCS source, "
         f"but got: {upstream_urn}"
     )
+
+
+def test_normalize_gcs_entry_id(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test GCS entry ID normalization from Data Lineage API format to DataHub format.
+
+    The GCP Data Lineage API uses: bucket.`path/to/files/*.csv`
+    DataHub GCS source uses:       bucket/path/to/files
+    """
+    normalize = lineage_extractor._normalize_gcs_entry_id
+
+    # Standard case: backtick-wrapped path with glob
+    assert normalize("my-bucket.`raw/thelook/order_items/*.csv`") == (
+        "my-bucket/raw/thelook/order_items"
+    )
+
+    # Different glob extension
+    assert normalize("my-bucket.`data/files/*.parquet`") == ("my-bucket/data/files")
+
+    # Bare glob (no extension)
+    assert normalize("my-bucket.`data/files/*`") == "my-bucket/data/files"
+
+    # No glob - concrete file path with backticks
+    assert normalize("my-bucket.`raw/data/file.csv`") == ("my-bucket/raw/data/file.csv")
+
+    # No backticks (just dot separator)
+    assert normalize("my-bucket.raw/data") == "my-bucket/raw/data"
+
+    # Bucket only - no change
+    assert normalize("my-bucket") == "my-bucket"
+
+    # Already slash-separated - no change
+    assert normalize("my-bucket/raw/data") == "my-bucket/raw/data"
+
+
+def test_gcs_entry_id_normalized_to_datahub_format() -> None:
+    """End-to-end test: GCS upstream URN name matches DataHub GCS source format.
+
+    Verifies that the full pipeline (build_lineage_map -> get_lineage_for_table)
+    produces a GCS upstream URN with the normalized entry ID format that the
+    DataHub GCS ingestion source would create.
+
+    Data Lineage API FQN: gcs:my-bucket.`raw/thelook/order_items/*.csv`
+    Expected URN name:    my-bucket/raw/thelook/order_items
+    """
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        entries_location="us",
+        include_lineage=True,
+    )
+    report = DataplexReport()
+    mock_client = MagicMock()
+
+    def mock_search_links(request):
+        target_fqn = getattr(
+            getattr(request, "target", None), "fully_qualified_name", ""
+        )
+        if target_fqn and "ext_thelook_order_items" in target_fqn:
+            mock_link = MagicMock()
+            mock_link.source.fully_qualified_name = (
+                "gcs:my-bucket.`raw/thelook/order_items/*.csv`"
+            )
+            return [mock_link]
+        return []
+
+    mock_client.search_links.side_effect = mock_search_links
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    bq_entry = EntryDataTuple(
+        entry_id="ext_thelook_order_items",
+        source_platform="bigquery",
+        dataset_id="test-project.datahub_demo_raw.ext_thelook_order_items",
+    )
+
+    extractor.build_lineage_map("test-project", [bq_entry])
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "test-project.datahub_demo_raw.ext_thelook_order_items,PROD)"
+    )
+    result = extractor.get_lineage_for_table(
+        "test-project.datahub_demo_raw.ext_thelook_order_items",
+        dataset_urn,
+        "bigquery",
+    )
+
+    assert result is not None
+    assert len(result.upstreams) == 1
+
+    upstream_urn = result.upstreams[0].dataset
+
+    # URN should be: urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/raw/thelook/order_items,PROD)
+    expected_name = "my-bucket/raw/thelook/order_items"
+    assert expected_name in upstream_urn, (
+        f"Upstream URN name should be '{expected_name}' "
+        f"(slash-separated, no backticks, no glob), but got: {upstream_urn}"
+    )
+    assert "`" not in upstream_urn, (
+        f"Upstream URN should not contain backticks, but got: {upstream_urn}"
+    )
+    assert "*" not in upstream_urn, (
+        f"Upstream URN should not contain glob patterns, but got: {upstream_urn}"
+    )

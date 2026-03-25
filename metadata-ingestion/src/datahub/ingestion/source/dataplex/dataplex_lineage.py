@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import collections
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Set
@@ -394,6 +395,10 @@ class DataplexLineageExtractor:
                 if platform not in ["bigquery", "gcs", "dataplex"]:
                     logger.warning(f"Unexpected platform '{platform}' in FQN: {fqn}")
 
+                # Normalize GCS entry IDs to match DataHub GCS source URN format
+                if platform == "gcs":
+                    entry_part = self._normalize_gcs_entry_id(entry_part)
+
                 return (platform, entry_part)
             else:
                 # No platform prefix, return as-is (shouldn't happen in practice)
@@ -409,6 +414,31 @@ class DataplexLineageExtractor:
         if result is None:
             return None
         return result[1]
+
+    def _normalize_gcs_entry_id(self, entry_id: str) -> str:
+        """Normalize a GCS entry ID from Data Lineage API format to DataHub URN format.
+
+        The GCP Data Lineage API uses: bucket.`path/to/files/*.csv`
+        DataHub GCS source uses:       bucket/path/to/files
+
+        Transformations:
+        1. Strip backticks
+        2. Replace first dot (bucket.path separator) with slash
+        3. Remove trailing glob patterns (/*.csv, /*.parquet, etc.)
+        """
+        # Strip backticks
+        normalized = entry_id.replace("`", "")
+        # Replace first dot with slash (bucket.path -> bucket/path)
+        # The Data Lineage API uses dot as bucket/path separator.
+        # Only replace if the dot comes before the first slash (or there is no slash),
+        # to avoid double-normalizing already-slash-separated paths.
+        dot_pos = normalized.find(".")
+        slash_pos = normalized.find("/")
+        if dot_pos != -1 and (slash_pos == -1 or dot_pos < slash_pos):
+            normalized = normalized[:dot_pos] + "/" + normalized[dot_pos + 1 :]
+        # Remove trailing glob pattern (e.g. /*.csv, /*.parquet, /*)
+        normalized = re.sub(r"/\*(\.\w+)?$", "", normalized)
+        return normalized
 
     def get_lineage_for_table(
         self, dataset_id: str, dataset_urn: str, platform: str
