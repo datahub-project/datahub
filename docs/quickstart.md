@@ -5,9 +5,7 @@ import TabItem from '@theme/TabItem';
 
 :::tip DataHub Cloud
 
-This guide provides instructions on deploying the open source DataHub locally.
-If you're interested in a managed version, [DataHub](https://www.datahub.com) provides a fully managed, premium version of DataHub. <br />
-**[Get Started with DataHub Cloud](./managed-datahub/welcome-acryl.md)**
+Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/free-trial/)**.
 
 :::
 
