@@ -131,7 +131,9 @@ azure-storage-blob==12.28.0
 azure-storage-file-datalake==12.23.0
     # via acryl-datahub
 babel==2.18.0
-    # via jupyterlab-server
+    # via
+    #   jupyterlab-server
+    #   python-liquid
 backoff==2.2.1
     # via
     #   gql
@@ -637,10 +639,8 @@ importlib-metadata==8.7.1
     #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
-importlib-resources==6.5.2
-    # via
-    #   python-liquid
-    #   schwifty
+importlib-resources==6.5.2 ; python_full_version < '3.12'
+    # via schwifty
 iniconfig==2.3.0
     # via pytest
 ipaddress==1.0.23
@@ -824,6 +824,7 @@ markupsafe==3.0.3
     #   jinja2
     #   mako
     #   nbconvert
+    #   python-liquid
     #   werkzeug
 marshmallow==3.26.2
     # via
@@ -1295,7 +1296,7 @@ python-json-logger==4.0.0
     #   jupyter-events
 python-ldap==3.4.5
     # via acryl-datahub
-python-liquid==1.13.0
+python-liquid==2.1.0
     # via acryl-datahub
 python-magic==0.4.27
     # via unstructured
@@ -1320,6 +1321,7 @@ pytz==2026.1.post1
     #   croniter
     #   neo4j
     #   pandas
+    #   python-liquid
     #   redshift-connector
     #   snowflake-connector-python
     #   trino
@@ -1825,7 +1827,6 @@ typing-extensions==4.15.0
     #   pyopenssl
     #   pypdf
     #   pytest-asyncio
-    #   python-liquid
     #   python-oxmsg
     #   python-utils
     #   referencing
