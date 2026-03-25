@@ -800,4 +800,325 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     // Verify that empty pitKeepAlive is converted to null
     assertNotNull(pitKeepAliveCaptor.getValue());
   }
+
+  // -------------------------------------------------------------------------
+  // scrollRelationships tests
+  // -------------------------------------------------------------------------
+
+  @Test
+  public void testScrollRelationshipsDefaults() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-1", Arrays.asList());
+
+    ArgumentCaptor<Set> relationshipTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            sourceTypesCaptor.capture(),
+            sourceFilterCaptor.capture(),
+            destTypesCaptor.capture(),
+            destFilterCaptor.capture(),
+            relationshipTypesCaptor.capture(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-1"));
+
+    // No relationshipTypes param → null → empty set (all types)
+    assertTrue(relationshipTypesCaptor.getValue().isEmpty());
+    // No sourceType / destinationType → null passed through
+    assertNull(sourceTypesCaptor.getValue());
+    assertNull(destTypesCaptor.getValue());
+    // No URN filters → EMPTY_FILTER (no criteria)
+    assertTrue(
+        sourceFilterCaptor.getValue().getOr().isEmpty()
+            || sourceFilterCaptor.getValue().getOr().stream()
+                .allMatch(cc -> cc.getAnd().isEmpty()));
+    assertTrue(
+        destFilterCaptor.getValue().getOr().isEmpty()
+            || destFilterCaptor.getValue().getOr().stream().allMatch(cc -> cc.getAnd().isEmpty()));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithRelationshipTypes() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<Set> relationshipTypesCaptor = ArgumentCaptor.forClass(Set.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            relationshipTypesCaptor.capture(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+                .param("relationshipTypes", "DownstreamOf")
+                .param("relationshipTypes", "Consumes")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    Set capturedTypes = relationshipTypesCaptor.getValue();
+    assertEquals(2, capturedTypes.size());
+    assertTrue(capturedTypes.contains("DownstreamOf"));
+    assertTrue(capturedTypes.contains("Consumes"));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithEntityTypeFilters() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            sourceTypesCaptor.capture(),
+            any(),
+            destTypesCaptor.capture(),
+            any(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+                .param("sourceTypes", "dataset")
+                .param("destinationTypes", "chart")
+                .param("destinationTypes", "dashboard")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    Set capturedSrcTypes = sourceTypesCaptor.getValue();
+    assertEquals(1, capturedSrcTypes.size());
+    assertTrue(capturedSrcTypes.contains("dataset"));
+
+    Set capturedDstTypes = destTypesCaptor.getValue();
+    assertEquals(2, capturedDstTypes.size());
+    assertTrue(capturedDstTypes.contains("chart"));
+    assertTrue(capturedDstTypes.contains("dashboard"));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithUrnFilters() throws Exception {
+    String sourceUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,src,PROD)";
+    String destUrn1 = "urn:li:chart:(looker,chart1)";
+    String destUrn2 = "urn:li:chart:(looker,chart2)";
+
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            sourceFilterCaptor.capture(),
+            any(),
+            destFilterCaptor.capture(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+                .param("sourceUrns", sourceUrn)
+                .param("destinationUrns", destUrn1)
+                .param("destinationUrns", destUrn2)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Source filter should have a non-empty criterion on the "urn" field
+    Filter capturedSrcFilter = sourceFilterCaptor.getValue();
+    assertNotNull(capturedSrcFilter);
+    assertFalse(capturedSrcFilter.getOr().isEmpty());
+    assertEquals("urn", capturedSrcFilter.getOr().get(0).getAnd().get(0).getField());
+    assertFalse(capturedSrcFilter.getOr().get(0).getAnd().get(0).getValues().isEmpty());
+
+    // Destination filter should have a non-empty criterion on the "urn" field
+    Filter capturedDstFilter = destFilterCaptor.getValue();
+    assertNotNull(capturedDstFilter);
+    assertFalse(capturedDstFilter.getOr().isEmpty());
+    assertEquals("urn", capturedDstFilter.getOr().get(0).getAnd().get(0).getField());
+    assertFalse(capturedDstFilter.getOr().get(0).getAnd().get(0).getValues().isEmpty());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithSliceOptions() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            opContextCaptor.capture(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+                .param("sliceId", "1")
+                .param("sliceMax", "4")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+    assertEquals(
+        1,
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+    assertEquals(
+        4,
+        capturedOpContext
+            .getSearchContext()
+            .getSearchFlags()
+            .getSliceOptions()
+            .getMax()
+            .intValue());
+  }
+
+  @Test
+  public void testScrollRelationshipsAllParameters() throws Exception {
+    String sourceUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,src,PROD)";
+    String destUrn = "urn:li:chart:(looker,chart1)";
+
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(5, 20, "next-scroll", Arrays.asList());
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Set> relTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<String> scrollIdCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> pitCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Integer> countCaptor = ArgumentCaptor.forClass(Integer.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            opContextCaptor.capture(),
+            sourceTypesCaptor.capture(),
+            sourceFilterCaptor.capture(),
+            destTypesCaptor.capture(),
+            destFilterCaptor.capture(),
+            relTypesCaptor.capture(),
+            any(),
+            any(),
+            scrollIdCaptor.capture(),
+            pitCaptor.capture(),
+            countCaptor.capture(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/relationship/scroll")
+                .param("relationshipTypes", "DownstreamOf")
+                .param("sourceTypes", "dataset")
+                .param("destinationTypes", "chart")
+                .param("sourceUrns", sourceUrn)
+                .param("destinationUrns", destUrn)
+                .param("count", "20")
+                .param("scrollId", "prev-scroll")
+                .param("pitKeepAlive", "10m")
+                .param("sliceId", "0")
+                .param("sliceMax", "3")
+                .param("includeSoftDelete", "true")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("next-scroll"));
+
+    // Verify relationship types
+    assertEquals(1, relTypesCaptor.getValue().size());
+    assertTrue(relTypesCaptor.getValue().contains("DownstreamOf"));
+
+    // Verify entity type filters
+    assertEquals(1, sourceTypesCaptor.getValue().size());
+    assertTrue(sourceTypesCaptor.getValue().contains("dataset"));
+    assertEquals(1, destTypesCaptor.getValue().size());
+    assertTrue(destTypesCaptor.getValue().contains("chart"));
+
+    // Verify URN filters
+    assertFalse(sourceFilterCaptor.getValue().getOr().isEmpty());
+    assertFalse(destFilterCaptor.getValue().getOr().isEmpty());
+
+    // Verify pagination parameters
+    assertEquals("prev-scroll", scrollIdCaptor.getValue());
+    assertEquals("10m", pitCaptor.getValue());
+    assertEquals(20, countCaptor.getValue().intValue());
+
+    // Verify slice options and includeSoftDelete
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+    assertEquals(
+        0,
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+    assertEquals(
+        3,
+        capturedOpContext
+            .getSearchContext()
+            .getSearchFlags()
+            .getSliceOptions()
+            .getMax()
+            .intValue());
+    assertTrue(capturedOpContext.getSearchContext().getSearchFlags().isIncludeSoftDeleted());
+  }
 }
