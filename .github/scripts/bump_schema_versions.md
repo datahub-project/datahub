@@ -4,7 +4,7 @@ A pre-commit CLI tool that automatically bumps `schemaVersion` annotations on PD
 
 ## Why this exists
 
-DataHub's metadata model is defined in PDL files under `metadata-models/src/main/pegasus/`. Each **aspect** file carries a `schemaVersion` field inside its `@Aspect` annotation. This version must be incremented whenever the aspect's schema changes so that downstream consumers (schema registries, compatibility checks, migration tooling) can detect and react to the change.  The `schemaVersion` is optional and when
+DataHub's metadata model is defined in PDL files under `metadata-models/src/main/pegasus/`. Each **aspect** file carries a `schemaVersion` field inside its `@Aspect` annotation. This version must be incremented whenever the aspect's schema changes so that downstream consumers (schema registries, compatibility checks, migration tooling) can detect and react to the change. The `schemaVersion` is optional and when
 missing, defaults to 1.
 
 Without automation this is easy to forget, especially for **implicit** changes — where a shared base record (e.g. `TimeseriesAspectBase`) is modified and every aspect that includes it is silently affected.
@@ -19,19 +19,19 @@ python3 scripts/bump_schema_versions.py [OPTIONS]
 
 ### Options
 
-| Flag                   | Default       | Description                                                                                    |
-| ---------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| Flag                   | Default       | Description                                                                                                       |
+| ---------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `--base-branch BRANCH` | auto-detected | Branch to compare against. Auto-detected from `origin/HEAD`; falls back to `$MAIN_BRANCH` env var, then `master`. |
-| `--dry-run`            | off           | Preview changes without writing any files.                                                     |
-| `--verbose` / `-v`     | off           | Show per-file reasoning (why each file was skipped or bumped).                                 |
-| `-h` / `--help`        | —             | Show help and exit.                                                                            |
+| `--dry-run`            | off           | Preview changes without writing any files.                                                                        |
+| `--verbose` / `-v`     | off           | Show per-file reasoning (why each file was skipped or bumped).                                                    |
+| `-h` / `--help`        | —             | Show help and exit.                                                                                               |
 
 ### Environment variables
 
-| Variable       | Default                                    | Description                                                                                     |
-| -------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `PDL_ROOTS`    | `metadata-models/src/main/pegasus`         | Colon-separated list of PDL source roots to scan. Useful when PDL files live in multiple modules. |
-| `MAIN_BRANCH`  | `master`                                   | Base branch fallback when `origin/HEAD` is not configured locally.                              |
+| Variable      | Default                            | Description                                                                                       |
+| ------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `PDL_ROOTS`   | `metadata-models/src/main/pegasus` | Colon-separated list of PDL source roots to scan. Useful when PDL files live in multiple modules. |
+| `MAIN_BRANCH` | `master`                           | Base branch fallback when `origin/HEAD` is not configured locally.                                |
 
 **Example — multiple PDL roots:**
 
@@ -115,12 +115,12 @@ TimeseriesAspectBase.pdl  ← changed
 
 For each affected aspect:
 
-| Situation                                     | Action                                 |
-| --------------------------------------------- | -------------------------------------- |
+| Situation                                     | Action                                   |
+| --------------------------------------------- | ---------------------------------------- |
 | File is new (not on base branch)              | Already defaults to `1`; no write needed |
-| `schemaVersion` absent on base branch         | Treat base version as `1`; bump to `2` |
-| `schemaVersion` present on base branch        | Bump to `base_version + 1`             |
-| Current file already has the expected version | Skip (idempotent)                      |
+| `schemaVersion` absent on base branch         | Treat base version as `1`; bump to `2`   |
+| `schemaVersion` present on base branch        | Bump to `base_version + 1`               |
+| Current file already has the expected version | Skip (idempotent)                        |
 
 The annotation is updated in place, preserving existing formatting:
 
