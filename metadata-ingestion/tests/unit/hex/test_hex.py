@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hex.hex import HexSource, HexSourceConfig
 
-from .conftest import load_json_data
+from tests.unit.hex.conftest import load_json_data
 
 
 def datetime_approx_equal(
