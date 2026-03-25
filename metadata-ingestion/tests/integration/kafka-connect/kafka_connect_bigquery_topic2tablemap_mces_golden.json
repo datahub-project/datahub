@@ -27,6 +27,27 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-topic2tablemap,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-bigquery-topic2tablemap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-topic2tablemap,PROD),orders)",
     "changeType": "UPSERT",
@@ -58,6 +79,27 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-gcp-project.analytics_dataset.orders_table,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-bigquery-topic2tablemap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-topic2tablemap,PROD),orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
             ]
         }
     },
@@ -151,6 +193,48 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-topic2tablemap,PROD),payments)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-bigquery-topic2tablemap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-topic2tablemap,PROD),users)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-bigquery-topic2tablemap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-topic2tablemap,PROD),products)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
@@ -198,6 +282,27 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-bigquery-topic2tablemap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-topic2tablemap,PROD),products)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
         }
     },
     "systemMetadata": {
