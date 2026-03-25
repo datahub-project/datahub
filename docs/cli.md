@@ -517,8 +517,10 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
 - `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` (default `10`) - Maximum number of failure entries to include in the ingestion report. Increase to capture more failure samples when debugging.
 - `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` (default `10`) - Maximum number of warning entries to include in the ingestion report. Increase to capture more warning samples when debugging.
-- `DATAHUB_SINK_ERROR_LOG_LEVEL` (default `DEBUG`) - Log level for sink errors. Set to `ERROR` to see sink errors in real-time without enabling full debug logging. Valid values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+- `DATAHUB_SINK_ERROR_LOG_LEVEL` (default `DEBUG`) - Log level for sink errors (failed writes to DataHub). Set to `ERROR` to see sink errors in real-time without enabling full debug logging. Valid values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
 - `DATAHUB_SINK_WARNING_LOG_LEVEL` (default `DEBUG`) - Log level for sink warnings. Set to `WARNING` to see sink warnings in real-time without enabling full debug logging. Valid values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+- `DATAHUB_SOURCE_ERROR_LOG_LEVEL` (default `DEBUG`) - Log level for source errors (metadata extraction failures). Set to `ERROR` to see source errors in real-time without enabling full debug logging. Valid values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+- `DATAHUB_SOURCE_WARNING_LOG_LEVEL` (default `DEBUG`) - Log level for source warnings. Set to `WARNING` to see source warnings in real-time without enabling full debug logging. Valid values: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
 - `DATAHUB_CALLER` (default: auto-detected) - Override the caller label sent in the User-Agent header to GMS. The CLI auto-detects common callers (e.g. coding agents, CI systems), but you can set this explicitly for custom tools or to distinguish environments (e.g. `airflow-prod-etl`).
 
 ```shell

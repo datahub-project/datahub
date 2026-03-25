@@ -188,6 +188,32 @@ def get_sink_warning_log_level() -> int:
     return getattr(logging, level_str, logging.DEBUG)
 
 
+def get_source_error_log_level() -> int:
+    """Get the log level for source errors.
+
+    Controls the log level at which source errors (via SourceReport) are emitted.
+    By default, errors are logged at DEBUG level to avoid noise.
+
+    Valid values: DEBUG, INFO, WARNING, ERROR (case-insensitive)
+    Default: DEBUG
+    """
+    level_str = os.getenv("DATAHUB_SOURCE_ERROR_LOG_LEVEL", "DEBUG").upper()
+    return getattr(logging, level_str, logging.DEBUG)
+
+
+def get_source_warning_log_level() -> int:
+    """Get the log level for source warnings.
+
+    Controls the log level at which source warnings (via SourceReport) are emitted.
+    By default, warnings are logged at DEBUG level to avoid noise.
+
+    Valid values: DEBUG, INFO, WARNING, ERROR (case-insensitive)
+    Default: DEBUG
+    """
+    level_str = os.getenv("DATAHUB_SOURCE_WARNING_LOG_LEVEL", "DEBUG").upper()
+    return getattr(logging, level_str, logging.DEBUG)
+
+
 # ============================================================================
 # Logging & Debug Configuration
 # ============================================================================

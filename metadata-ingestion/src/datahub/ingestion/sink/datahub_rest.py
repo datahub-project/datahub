@@ -19,6 +19,8 @@ from datahub.configuration.common import (
 from datahub.configuration.env_vars import (
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
+    get_sink_error_log_level,
+    get_sink_warning_log_level,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -142,11 +144,6 @@ def _log_sink_failure_or_warning(
         message: The error or warning message
         is_error: True for errors, False for warnings
     """
-    from datahub.configuration.env_vars import (
-        get_sink_error_log_level,
-        get_sink_warning_log_level,
-    )
-
     # Extract aspect name if available
     aspect_name = None
     if isinstance(
@@ -155,17 +152,18 @@ def _log_sink_failure_or_warning(
     ):
         aspect_name = getattr(record_envelope.record, "aspectName", None)
 
-    # Build log message with context
-    prefix = "Sink error:" if is_error else "Sink warning:"
-    log_parts = [f"aspect={aspect_name}", prefix] if aspect_name else [prefix]
+    # Build log message with context (urn first for easier scanning)
+    tag = "[INGEST SINK ERROR]" if is_error else "[INGEST SINK WARNING]"
+    log_parts = [tag]
 
     if record_urn := _get_urn(record_envelope):
         log_parts.append(f"urn={record_urn}")
+    if aspect_name:
+        log_parts.append(f"aspect={aspect_name}")
     if workunit_id := record_envelope.metadata.get("workunit_id"):
         log_parts.append(f"workunit={workunit_id}")
 
-    error_prefix = "error=" if is_error else "warning="
-    log_parts.append(f"{error_prefix}{message}")
+    log_parts.append(f"{'error' if is_error else 'warning'}={message}")
 
     log_level = get_sink_error_log_level() if is_error else get_sink_warning_log_level()
     logger.log(log_level, " ".join(log_parts))

@@ -46,8 +46,8 @@ class TestDetailedSinkLogging:
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test SourceReport logs at DEBUG level by default."""
-        monkeypatch.delenv("DATAHUB_SINK_ERROR_LOG_LEVEL", raising=False)
-        monkeypatch.delenv("DATAHUB_SINK_WARNING_LOG_LEVEL", raising=False)
+        monkeypatch.delenv("DATAHUB_SOURCE_ERROR_LOG_LEVEL", raising=False)
+        monkeypatch.delenv("DATAHUB_SOURCE_WARNING_LOG_LEVEL", raising=False)
         report = SourceReport()
 
         with caplog.at_level(logging.DEBUG):
@@ -61,8 +61,8 @@ class TestDetailedSinkLogging:
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test SourceReport logs not visible at INFO level by default."""
-        monkeypatch.delenv("DATAHUB_SINK_ERROR_LOG_LEVEL", raising=False)
-        monkeypatch.delenv("DATAHUB_SINK_WARNING_LOG_LEVEL", raising=False)
+        monkeypatch.delenv("DATAHUB_SOURCE_ERROR_LOG_LEVEL", raising=False)
+        monkeypatch.delenv("DATAHUB_SOURCE_WARNING_LOG_LEVEL", raising=False)
         report = SourceReport()
 
         with caplog.at_level(logging.INFO):
@@ -80,7 +80,7 @@ class TestDetailedSinkLogging:
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test SourceReport errors logged at ERROR level when configured."""
-        monkeypatch.setenv("DATAHUB_SINK_ERROR_LOG_LEVEL", "ERROR")
+        monkeypatch.setenv("DATAHUB_SOURCE_ERROR_LOG_LEVEL", "ERROR")
         report = SourceReport()
 
         with caplog.at_level(logging.ERROR):
@@ -91,25 +91,9 @@ class TestDetailedSinkLogging:
     def test_source_warnings_at_warning_level(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test SourceReport warnings logged at WARNING level when configured.
-
-        Note: Need to reload the module to pick up the new env var value since
-        log levels are computed at module load time.
-        """
-        import importlib
-        import sys
-
-        monkeypatch.setenv("DATAHUB_SINK_WARNING_LOG_LEVEL", "WARNING")
-
-        # Reload modules to pick up new env var
-        if "datahub.configuration.env_vars" in sys.modules:
-            importlib.reload(sys.modules["datahub.configuration.env_vars"])
-        if "datahub.ingestion.api.source" in sys.modules:
-            importlib.reload(sys.modules["datahub.ingestion.api.source"])
-
-        from datahub.ingestion.api.source import SourceReport as ReloadedSourceReport
-
-        report = ReloadedSourceReport()
+        """Test SourceReport warnings logged at WARNING level when configured."""
+        monkeypatch.setenv("DATAHUB_SOURCE_WARNING_LOG_LEVEL", "WARNING")
+        report = SourceReport()
 
         with caplog.at_level(logging.WARNING):
             report.report_warning(title="Test Warning", message="warning message")
