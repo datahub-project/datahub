@@ -329,6 +329,6 @@ class KafkaEventSource(EventSource):
                 self._commit_offsets,
                 event,
             )
-        else:
-            # Otherwise store offset for periodic autocommit
+        elif self.source_config.async_commit_enabled:
+            # Store offset for periodic autocommit
             self._store_offsets(event)
