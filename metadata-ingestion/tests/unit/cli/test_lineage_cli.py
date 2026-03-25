@@ -205,3 +205,239 @@ class TestLineageCli:
             ],
         )
         assert result.exit_code != 0 or "only supported for dataset" in result.output
+
+    def test_no_urn_shows_help(self):
+        runner = CliRunner()
+        result = runner.invoke(lineage, [])
+        assert result.exit_code == 0
+        assert "Explore lineage" in result.output
+
+    @patch("datahub.cli.lineage_cli.get_default_graph")
+    @patch("datahub.cli.lineage_cli.DataHubClient")
+    def test_downstream_json_output(self, mock_client_cls, mock_graph):
+        mock_graph.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_graph.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_lineage = MagicMock()
+        mock_lineage.get_lineage.return_value = [
+            LineageResult(
+                urn="urn:li:dataset:(urn:li:dataPlatform:dbt,db.downstream,PROD)",
+                type="DATASET",
+                hops=1,
+                direction="downstream",
+                platform="dbt",
+                name="downstream",
+            ),
+            LineageResult(
+                urn="urn:li:dashboard:(looker,dashboards.1)",
+                type="DASHBOARD",
+                hops=2,
+                direction="downstream",
+                platform=None,
+                name=None,
+            ),
+        ]
+        mock_client_cls.return_value.lineage = mock_lineage
+
+        runner = CliRunner()
+        result = runner.invoke(
+            lineage,
+            [
+                "--urn",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                "--direction",
+                "downstream",
+                "--format",
+                "json",
+            ],
+        )
+        assert result.exit_code == 0
+        import json as json_mod
+
+        data = json_mod.loads(result.output)
+        assert data["metadata"]["direction"] == "downstream"
+        assert data["metadata"]["count"] == 2
+        assert len(data["results"]) == 2
+
+    @patch("datahub.cli.lineage_cli.get_default_graph")
+    @patch("datahub.cli.lineage_cli.DataHubClient")
+    def test_empty_lineage(self, mock_client_cls, mock_graph):
+        mock_graph.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_graph.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_lineage = MagicMock()
+        mock_lineage.get_lineage.return_value = []
+        mock_client_cls.return_value.lineage = mock_lineage
+
+        runner = CliRunner()
+        result = runner.invoke(
+            lineage,
+            [
+                "--urn",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                "--direction",
+                "upstream",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "No upstream lineage found" in result.output
+
+    @patch("datahub.cli.lineage_cli.get_default_graph")
+    @patch("datahub.cli.lineage_cli.DataHubClient")
+    def test_capped_results_summary(self, mock_client_cls, mock_graph):
+        mock_graph.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_graph.return_value.__exit__ = MagicMock(return_value=False)
+
+        # Return exactly count results to trigger capped message
+        mock_lineage = MagicMock()
+        mock_lineage.get_lineage.return_value = [
+            LineageResult(
+                urn=f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t{i},PROD)",
+                type="DATASET",
+                hops=1,
+                direction="downstream",
+                platform="snowflake",
+                name=f"t{i}",
+            )
+            for i in range(5)
+        ]
+        mock_client_cls.return_value.lineage = mock_lineage
+
+        runner = CliRunner()
+        result = runner.invoke(
+            lineage,
+            [
+                "--urn",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                "--direction",
+                "downstream",
+                "--count",
+                "5",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "capped at --count 5" in result.output
+
+    @patch("datahub.cli.lineage_cli.get_default_graph")
+    @patch("datahub.cli.lineage_cli.DataHubClient")
+    def test_hops_hint_in_summary(self, mock_client_cls, mock_graph):
+        mock_graph.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_graph.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_lineage = MagicMock()
+        mock_lineage.get_lineage.return_value = [
+            LineageResult(
+                urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t1,PROD)",
+                type="DATASET",
+                hops=1,
+                direction="upstream",
+                platform="snowflake",
+                name="t1",
+            )
+        ]
+        mock_client_cls.return_value.lineage = mock_lineage
+
+        runner = CliRunner()
+        result = runner.invoke(
+            lineage,
+            [
+                "--urn",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                "--direction",
+                "upstream",
+                "--hops",
+                "1",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "increase --hops" in result.output
+
+    def test_hops_warning(self):
+        runner = CliRunner()
+        # hops=5 should warn but we need to mock graph to avoid connection
+        # Just verify the warning text is in the code path
+        result = runner.invoke(
+            lineage,
+            [
+                "--urn",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                "--hops",
+                "5",
+            ],
+        )
+        # Will fail due to no graph, but warning should still appear
+        assert "will be treated as unlimited" in (result.output + (result.stderr or ""))
+
+    @patch("datahub.cli.lineage_cli.get_default_graph")
+    @patch("datahub.cli.lineage_cli.DataHubClient")
+    def test_path_subcommand(self, mock_client_cls, mock_graph):
+        mock_graph.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_graph.return_value.__exit__ = MagicMock(return_value=False)
+
+        target_urn = "urn:li:dashboard:(looker,dashboards.1)"
+        mock_lineage = MagicMock()
+        mock_lineage.get_lineage.return_value = [
+            LineageResult(
+                urn=target_urn,
+                type="DASHBOARD",
+                hops=3,
+                direction="downstream",
+                platform=None,
+                name=None,
+            )
+        ]
+        mock_client_cls.return_value.lineage = mock_lineage
+
+        runner = CliRunner()
+        result = runner.invoke(
+            lineage,
+            [
+                "path",
+                "--from",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                "--to",
+                target_urn,
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Path found" in result.output
+
+    @patch("datahub.cli.lineage_cli.get_default_graph")
+    @patch("datahub.cli.lineage_cli.DataHubClient")
+    def test_path_not_found(self, mock_client_cls, mock_graph):
+        mock_graph.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_graph.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_lineage = MagicMock()
+        mock_lineage.get_lineage.return_value = []
+        mock_client_cls.return_value.lineage = mock_lineage
+
+        runner = CliRunner()
+        result = runner.invoke(
+            lineage,
+            [
+                "path",
+                "--from",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.a,PROD)",
+                "--to",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.b,PROD)",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "No path found" in result.output
+
+    def test_path_column_with_non_dataset(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            lineage,
+            [
+                "path",
+                "--from",
+                "urn:li:chart:(looker,chart.1)",
+                "--from-column",
+                "col1",
+                "--to",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)",
+            ],
+        )
+        assert result.exit_code != 0
