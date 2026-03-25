@@ -148,7 +148,7 @@ FROM ingestion-base-slim AS bundled-venvs-full
 USER 0
 
 # Set up bundled venv configuration for FULL variant (with PySpark)
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
 ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -190,7 +190,7 @@ USER 0
 
 # Set up bundled venv configuration for SLIM variant (without PySpark)
 # Venv named s3-bundled but uses s3-slim package internally
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -232,7 +232,7 @@ USER 0
 
 # Set up bundled venv configuration for LOCKED variant (without PySpark, network blocked)
 # Same as slim but will have network access disabled in final stage
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -402,10 +402,12 @@ RUN chmod a+x /start_datahub_actions.sh && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
-# NO metadata-ingestion install in locked variant - only bundled venvs available
-# This ensures complete isolation and prevents any package installations
+# Bundled venvs under /opt/datahub/venvs are built with editable installs against
+# /metadata-ingestion. Ship that tree so subprocess ingestion can import datahub;
+# the default app venv still does not pip-install metadata-ingestion (PyPI blocked below).
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 
-# Copy only datahub-actions code (not metadata-ingestion)
+# Copy only datahub-actions code for the actions framework venv (not a pip install of metadata-ingestion)
 COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
@@ -423,13 +425,14 @@ USER datahub
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-# Install ONLY datahub-actions (not metadata-ingestion)
+# Install ONLY datahub-actions into the default venv (not metadata-ingestion)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/datahub-actions/[all]'
 
-# Block network access to PyPI - locked variant only uses bundled venvs
+# Block network access to PyPI - locked variant has no runtime pip installs for ingestion CLI
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 

@@ -1,4 +1,5 @@
 import { Input } from '@components';
+import { Calendar } from '@phosphor-icons/react/dist/csr/Calendar';
 import React from 'react';
 
 import { ExtendedInputRenderProps } from '@components/components/DatePicker/types';
@@ -12,7 +13,7 @@ export function DefaultDatePickerInput({ datePickerProps, ...props }: ExtendedIn
             value={props.value || ''}
             isDisabled={disabled}
             placeholder={props.placeholder || 'Select date'}
-            icon={{ icon: 'CalendarMonth' }}
+            icon={{ icon: Calendar }}
             isReadOnly
             style={{
                 cursor: disabled ? 'not-allowed' : 'pointer',

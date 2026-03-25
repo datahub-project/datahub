@@ -3246,7 +3246,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e"
                 }
             ],
             "fineGrainedLineages": [
@@ -3261,7 +3261,7 @@
                     ],
                     "transformOperation": "COPY: \"array_struct_test\".\"property_id\" AS \"property_id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -3274,7 +3274,7 @@
                     ],
                     "transformOperation": "COPY: \"array_struct_test\".\"service\" AS \"service\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e"
                 }
             ]
         }
@@ -3287,7 +3287,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -3316,7 +3316,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -3351,7 +3351,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3527,7 +3527,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

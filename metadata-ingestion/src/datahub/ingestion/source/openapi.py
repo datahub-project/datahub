@@ -252,31 +252,13 @@ class ApiWorkUnit(MetadataWorkUnit):
 )
 class APISource(Source, ABC):
     """
+    Source that extracts API endpoint metadata from OpenAPI v2/v3 specifications.
 
-    This plugin is meant to gather dataset-like information about OpenApi Endpoints.
-
-    The plugin focuses on extracting schemas from OpenAPI specifications for GET, POST, PUT, and PATCH
-    methods with 200 response codes. It prioritizes schema extraction from the OpenAPI spec over
-    making actual API calls.
-
-    API calls are only made for GET methods when credentials are provided (username/password, token,
-    bearer_token, or get_token configuration). This ensures safe and authenticated access to endpoints.
-
-    As example, if by calling GET at the endpoint at `https://test_endpoint.com/api/users/` you obtain as result:
-    ```JSON
-    [{"user": "albert_physics",
-      "name": "Albert Einstein",
-      "job": "nature declutterer",
-      "is_active": true},
-      {"user": "phytagoras",
-      "name": "Phytagoras of Kroton",
-      "job": "Phylosopher on steroids",
-      "is_active": true}
-    ]
-    ```
-
-    in Datahub you will see a dataset called `test_endpoint/users` which contains as fields `user`, `name` and `job`.
-
+    Implementation notes:
+    - Uses openapi_parser module for spec parsing and schema extraction
+    - Supports multi-step schema extraction: spec → examples → live API calls (GET only)
+    - Represents endpoints as datasets with API_ENDPOINT subtype
+    - Optional authenticated API calls controlled by enable_api_calls_for_schema_extraction
     """
 
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext, platform: str):

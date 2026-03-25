@@ -1,3 +1,5 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -5,27 +7,27 @@ import { Button } from '@components/components/Button';
 import { ActionButtonsContainer, StyledIcon } from '@components/components/Select/components';
 import { ActionButtonsProps } from '@components/components/Select/types';
 
-import { colors, shadows } from '@src/alchemy-components/theme';
+import { shadows } from '@src/alchemy-components/theme';
 
 export const StyledClearButton = styled(Button).attrs({
     variant: 'text',
-})({
-    color: colors.gray[1800],
+})(({ theme }) => ({
+    color: theme?.colors?.text,
     padding: '0px',
 
     '&:hover': {
         border: 'none',
-        backgroundColor: colors.transparent,
-        borderColor: colors.transparent,
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
         boxShadow: shadows.none,
     },
 
     '&:focus': {
         border: 'none',
-        backgroundColor: colors.transparent,
-        boxShadow: `0 0 0 2px ${colors.white}, 0 0 0 4px ${colors.violet[50]}`,
+        backgroundColor: 'transparent',
+        boxShadow: `0 0 0 2px ${theme?.colors?.bg}, 0 0 0 4px ${theme?.colors?.borderBrand}`,
     },
-});
+}));
 
 export default function SelectActionButtons({
     hasSelectedValues,
@@ -48,14 +50,14 @@ export default function SelectActionButtons({
         <ActionButtonsContainer>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
                 <StyledClearButton
-                    icon={{ icon: 'X', source: 'phosphor', size: 'md' }}
+                    icon={{ icon: X, size: 'md' }}
                     isCircle
                     size={fontSize}
                     onClick={onClearClickHandler}
                     data-testid="button-clear"
                 />
             )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
+            <StyledIcon icon={CaretDown} rotate={isOpen ? '180' : '0'} size="md" color="gray" />
         </ActionButtonsContainer>
     );
 }

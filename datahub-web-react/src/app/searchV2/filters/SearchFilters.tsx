@@ -1,4 +1,7 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Icon, Tooltip, colors } from '@components';
+import { List } from '@phosphor-icons/react/dist/csr/List';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -73,10 +76,10 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     ${(props) =>
         props.isActive &&
         `
-        background: ${colors.gray[100]};
-        border-radius: 100%;
-        color: ${colors.gray[1700]};
-    `}
+ background: ${colors.gray[100]};
+ border-radius: 100%;
+ color: ${colors.gray[1700]};
+ `}
 `;
 
 const SelectedFiltersContainer = styled.div`
@@ -177,12 +180,12 @@ export default function SearchFilters({
                     <CustomSwitch>
                         <IconContainer isActive={isFullViewCard} onClick={() => setIsFullViewCard(true)}>
                             <Tooltip showArrow={false} title="Full Card View">
-                                <Icon icon="Rows" source="phosphor" size="md" />
+                                <Icon icon={Rows} size="md" />
                             </Tooltip>
                         </IconContainer>
                         <IconContainer isActive={!isFullViewCard} onClick={() => setIsFullViewCard(false)}>
                             <Tooltip showArrow={false} title="Compact Card View">
-                                <Icon icon="List" source="phosphor" size="md" />
+                                <Icon icon={List} size="md" />
                             </Tooltip>
                         </IconContainer>
                     </CustomSwitch>

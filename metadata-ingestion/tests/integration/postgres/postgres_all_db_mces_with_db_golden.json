@@ -957,7 +957,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29"
+                    "query": "urn:li:query:view_47ced0e578054da48c91af296f31a4b50f6046d8a6c126187f7d5ce1e3d78f38"
                 }
             ],
             "fineGrainedLineages": [
@@ -972,7 +972,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect_v2\".\"urn\" AS \"urn\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29"
+                    "query": "urn:li:query:view_47ced0e578054da48c91af296f31a4b50f6046d8a6c126187f7d5ce1e3d78f38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -985,7 +985,7 @@
                     ],
                     "transformOperation": "COPY: \"metadata_aspect_v2\".\"aspect\" AS \"aspect\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29"
+                    "query": "urn:li:query:view_47ced0e578054da48c91af296f31a4b50f6046d8a6c126187f7d5ce1e3d78f38"
                 }
             ]
         }
@@ -998,7 +998,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_47ced0e578054da48c91af296f31a4b50f6046d8a6c126187f7d5ce1e3d78f38",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -1027,7 +1027,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_47ced0e578054da48c91af296f31a4b50f6046d8a6c126187f7d5ce1e3d78f38",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -1062,7 +1062,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_47ced0e578054da48c91af296f31a4b50f6046d8a6c126187f7d5ce1e3d78f38",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1110,7 +1110,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_47ced0e578054da48c91af296f31a4b50f6046d8a6c126187f7d5ce1e3d78f38",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

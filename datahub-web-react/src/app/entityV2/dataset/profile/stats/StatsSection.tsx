@@ -14,7 +14,7 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 8px;
 `;
 
-export type Props = {
+type Props = {
     children: React.ReactNode;
     title: string;
     rightFloatView?: React.ReactNode;

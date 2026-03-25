@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tabs as AntTabs, TabsProps } from 'antd';
 import React, { useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
@@ -293,7 +294,7 @@ function CloseButton({ onClose }: CloseButtonProps) {
                 }}
                 onClick={onClick}
             >
-                <Icon source="phosphor" icon="X" size="md" />
+                <Icon icon={X} size="md" />
             </CloseButtonAbsoluteContainer>
         </CloseButtonContainer>
     );

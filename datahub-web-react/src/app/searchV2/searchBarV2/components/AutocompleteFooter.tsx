@@ -1,4 +1,6 @@
-import { ArrowDown, ArrowElbowDownLeft, ArrowUp } from 'phosphor-react';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowElbowDownLeft } from '@phosphor-icons/react/dist/csr/ArrowElbowDownLeft';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import React from 'react';
 import styled from 'styled-components';
 
