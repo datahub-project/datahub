@@ -674,6 +674,7 @@ plugins: Dict[str, Set[str]] = {
         "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
+    "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
     "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
