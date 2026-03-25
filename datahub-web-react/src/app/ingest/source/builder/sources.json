@@ -157,7 +157,7 @@
         "displayName": "Microsoft SQL Server",
         "description": "Import Tables, Views, Databases, Schemas, and statistics from SQL Server.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mssql/",
-        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        convert_urns_to_lowercase: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        convert_urns_to_lowercase: true\n        convert_column_urns_to_lowercase: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mariadb",
