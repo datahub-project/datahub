@@ -468,23 +468,28 @@ class SnowflakeV2Config(
         description="Maps Snowflake account identifiers to DataHub platform_instance names "
         "for automatic cross-account share lineage. Keys can be account locators "
         "(e.g., 'xy12345') or org-qualified names (e.g., 'myorg.account1'). "
-        "If a producer/consumer account is not in the mapping, the account identifier "
-        "itself is used as the platform_instance.",
+        "Accounts not in the mapping are skipped during auto-discovery.",
     )
 
-    def resolve_account_to_platform_instance(self, account_identifier: str) -> str:
-        """Resolve a Snowflake account identifier to a DataHub platform_instance."""
+    def resolve_account_to_platform_instance(
+        self, account_identifier: str
+    ) -> Optional[str]:
+        """Resolve a Snowflake account identifier to a DataHub platform_instance.
+
+        Returns None if the account is not in account_mapping, signalling that
+        the caller should skip emitting siblings/lineage for this account.
+        """
         for key, value in self.account_mapping.items():
             if key.upper() == account_identifier.upper():
                 return value
-        return account_identifier
+        return None
 
     enumerate_share_objects: bool = Field(
         default=False,
         description="If enabled, uses SHOW SHARES and DESCRIBE SHARE to discover the exact objects "
         "granted to each outbound share, suppressing sibling aspects for objects not included in any grant. "
-        "Requires ACCOUNTADMIN role or share ownership privileges; falls back to emitting siblings for all "
-        "objects in the shared database if the required privileges are unavailable. "
+        "Requires share OWNERSHIP privileges (GRANT OWNERSHIP ON SHARE <name> TO ROLE datahub_role). "
+        "Falls back to emitting siblings for all objects if the required privileges are unavailable. "
         "Note: this prevents new ghost sibling nodes but does not remove sibling aspects already written "
         "to DataHub in previous ingestion runs.",
     )

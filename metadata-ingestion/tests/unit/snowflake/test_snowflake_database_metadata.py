@@ -97,19 +97,14 @@ def test_resolve_account_case_insensitive() -> None:
     assert config.resolve_account_to_platform_instance("MYORG.ACCOUNT2") == "instance2"
 
 
-def test_resolve_account_fallback_to_identifier() -> None:
+def test_resolve_account_returns_none_for_unknown() -> None:
     config = SnowflakeV2Config(
         account_id="abc12345",
         account_mapping={"myorg.account2": "instance2"},
     )
-    assert (
-        config.resolve_account_to_platform_instance("myorg.unknown") == "myorg.unknown"
-    )
+    assert config.resolve_account_to_platform_instance("myorg.unknown") is None
 
 
-def test_resolve_account_empty_mapping() -> None:
+def test_resolve_account_returns_none_for_empty_mapping() -> None:
     config = SnowflakeV2Config(account_id="abc12345")
-    assert (
-        config.resolve_account_to_platform_instance("myorg.account2")
-        == "myorg.account2"
-    )
+    assert config.resolve_account_to_platform_instance("myorg.account2") is None

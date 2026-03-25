@@ -120,7 +120,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         Queries SHOW SHARES and DESCRIBE SHARE to find the exact objects granted
         to each outbound share, keyed by uppercase database name.
 
-        Requires ACCOUNTADMIN role or share ownership. On failure, falls back to
+        Requires share OWNERSHIP privilege. On failure, falls back to
         config-only behavior (all objects in shared DBs get siblings).
 
         A database is only included in the result if ALL its shares were successfully
@@ -160,8 +160,9 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             self.report.shares_discovery_failed = True
             self.report.warning(
                 title="Share object enumeration failed — ghost sibling nodes may appear",
-                message="SHOW SHARES failed. The role used for ingestion may lack ACCOUNTADMIN "
-                "or share ownership privileges. All objects in shared databases will get siblings emitted. "
+                message="SHOW SHARES failed. The role used for ingestion may lack share OWNERSHIP "
+                "privileges. Grant ownership with: GRANT OWNERSHIP ON SHARE <name> TO ROLE datahub_role. "
+                "All objects in shared databases will get siblings emitted. "
                 "Disable enumerate_share_objects to suppress this warning.",
                 exc=e,
             )

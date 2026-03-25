@@ -714,15 +714,20 @@ class SnowflakeV2Source(
     def _gen_platform_instance_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.config.platform_instance:
             return
-        if not self.report.organization_name:
-            return
 
         platform_instance_urn = make_dataplatform_instance_urn(
             self.identifiers.platform, self.config.platform_instance
         )
-        custom_properties: dict = {
-            "organization_name": self.report.organization_name,
-        }
+        custom_properties: dict = {}
+        if self.report.organization_name:
+            custom_properties["organization_name"] = self.report.organization_name
+        if self.report.account_locator:
+            custom_properties["account_locator"] = self.report.account_locator
+            # org-qualified account name enables cross-account resolution via graph
+            if self.report.organization_name:
+                custom_properties["account_identifier"] = (
+                    f"{self.report.organization_name}.{self.report.account_locator}"
+                )
         yield MetadataChangeProposalWrapper(
             entityUrn=platform_instance_urn,
             aspect=DataPlatformInstancePropertiesClass(
@@ -795,6 +800,23 @@ class SnowflakeV2Source(
             )
 
         try:
+            logger.info("Checking current account")
+            for db_row in connection.query(SnowflakeQuery.current_account()):
+                self.report.account_locator = db_row["CURRENT_ACCOUNT()"]
+        except Exception:
+            logger.debug(
+                "Could not determine the current Snowflake account", exc_info=True
+            )
+        try:
+            logger.info("Checking current region")
+            for db_row in connection.query(SnowflakeQuery.current_region()):
+                self.report.region = db_row["CURRENT_REGION()"]
+        except Exception:
+            logger.debug(
+                "Could not determine the current Snowflake region", exc_info=True
+            )
+
+        try:
             logger.info("Checking current edition")
             if self.is_standard_edition():
                 self.report.edition = SnowflakeEdition.STANDARD
@@ -820,15 +842,15 @@ class SnowflakeV2Source(
 
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:
         try:
-            # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
-            for db_row in self.connection.query(SnowflakeQuery.current_account()):
-                account_locator = db_row["CURRENT_ACCOUNT()"]
+            # account_locator and region are already captured in inspect_session_metadata()
+            account_locator = self.report.account_locator
+            region = self.report.region
 
-            for db_row in self.connection.query(SnowflakeQuery.current_region()):
-                region = db_row["CURRENT_REGION()"]
-
-            self.report.account_locator = account_locator
-            self.report.region = region
+            if not account_locator or not region:
+                logger.info(
+                    "Account locator or region not available, skipping Snowsight URL builder."
+                )
+                return None
 
             # Returned region may be in the form <region_group>.<region>, see https://docs.snowflake.com/en/sql-reference/functions/current_region.html
             region = region.split(".")[-1].lower()

@@ -7,15 +7,17 @@ from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 
 
-def _default_session_rows(sql: str) -> List[Dict[str, str]]:
+def _default_session_rows(sql: str) -> List[Dict[str, Any]]:
     """Return sensible defaults for the session metadata queries."""
-    defaults: Dict[str, List[Dict[str, str]]] = {
+    defaults: Dict[str, List[Dict[str, Any]]] = {
         "CURRENT_VERSION": [{"CURRENT_VERSION()": "8.10.2"}],
         "CURRENT_ROLE": [{"CURRENT_ROLE()": "DATAHUB_ROLE"}],
         "CURRENT_WAREHOUSE": [{"CURRENT_WAREHOUSE()": "COMPUTE_WH"}],
+        "CURRENT_ACCOUNT": [{"CURRENT_ACCOUNT()": "XY12345"}],
+        "CURRENT_REGION": [{"CURRENT_REGION()": "AWS_US_EAST_1"}],
     }
     for key, rows in defaults.items():
-        if key in sql.upper():
+        if key in sql.upper().replace("()", ""):
             return rows
     return []
 
@@ -39,12 +41,7 @@ def _make_source_and_conn(
     org_name: Optional[str] = "ACME_ORG",
     org_query_fails: bool = False,
 ) -> Tuple[SnowflakeV2Source, MagicMock]:
-    """Create a partially-initialized SnowflakeV2Source for unit testing.
-
-    Uses object.__new__ to avoid the full __init__ which requires a PipelineContext
-    and real Snowflake connection. Only sets the attributes needed by
-    inspect_session_metadata and _gen_platform_instance_workunits.
-    """
+    """Create a partially-initialized SnowflakeV2Source for unit testing."""
     config = SnowflakeV2Config(
         account_id="abc12345",
         platform_instance=platform_instance,
@@ -86,6 +83,13 @@ def test_inspect_session_captures_org_name() -> None:
     assert source.report.organization_name == "ACME_ORG"
 
 
+def test_inspect_session_captures_account_locator() -> None:
+    source, conn = _make_source_and_conn()
+    _run_inspect(source, conn)
+    assert source.report.account_locator == "XY12345"
+    assert source.report.region == "AWS_US_EAST_1"
+
+
 def test_inspect_session_org_name_none_when_not_in_org() -> None:
     source, conn = _make_source_and_conn(org_name=None)
     _run_inspect(source, conn)
@@ -106,9 +110,9 @@ def test_inspect_session_org_name_skipped_when_disabled() -> None:
     assert source.report.organization_name is None
 
 
-def test_platform_instance_workunit_emitted() -> None:
-    source, _ = _make_source_and_conn(platform_instance="instance1")
-    source.report.organization_name = "ACME_ORG"
+def test_platform_instance_workunit_emitted_with_all_properties() -> None:
+    source, conn = _make_source_and_conn(platform_instance="instance1")
+    _run_inspect(source, conn)
 
     wus = list(source._gen_platform_instance_workunits())
 
@@ -117,21 +121,28 @@ def test_platform_instance_workunit_emitted() -> None:
     assert aspect is not None
     assert aspect.name == "instance1"
     assert aspect.customProperties["organization_name"] == "ACME_ORG"
-    assert "dataPlatformInstance" in wus[0].get_urn()
+    assert aspect.customProperties["account_locator"] == "XY12345"
+    assert aspect.customProperties["account_identifier"] == "ACME_ORG.XY12345"
+
+
+def test_platform_instance_workunit_emitted_without_org_name() -> None:
+    """Even without org name, account_locator is still emitted."""
+    source, conn = _make_source_and_conn(platform_instance="instance1", org_name=None)
+    _run_inspect(source, conn)
+
+    wus = list(source._gen_platform_instance_workunits())
+
+    assert len(wus) == 1
+    aspect = wus[0].get_aspect_of_type(DataPlatformInstancePropertiesClass)
+    assert aspect is not None
+    assert aspect.customProperties["account_locator"] == "XY12345"
+    assert "organization_name" not in aspect.customProperties
+    assert "account_identifier" not in aspect.customProperties
 
 
 def test_platform_instance_workunit_not_emitted_without_platform_instance() -> None:
     source, _ = _make_source_and_conn(platform_instance=None)
     source.report.organization_name = "ACME_ORG"
-
-    wus = list(source._gen_platform_instance_workunits())
-
-    assert len(wus) == 0
-
-
-def test_platform_instance_workunit_not_emitted_without_org_name() -> None:
-    source, _ = _make_source_and_conn(platform_instance="instance1")
-    source.report.organization_name = None
 
     wus = list(source._gen_platform_instance_workunits())
 

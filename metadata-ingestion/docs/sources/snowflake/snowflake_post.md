@@ -42,7 +42,7 @@ source:
             platform_instance: instance2
 ```
 
-This requires the ingestion role to have `ACCOUNTADMIN` privileges or ownership of the shares. If the required privileges are not available, DataHub logs a warning and falls back to emitting siblings for all objects in the shared database.
+This requires the ingestion role to have ownership of the shares (`GRANT OWNERSHIP ON SHARE <name> TO ROLE datahub_role`). If the required privileges are not available, DataHub logs a warning and falls back to emitting siblings for all objects in the shared database.
 
 > **Note:** Enabling `enumerate_share_objects` prevents new ghost nodes from being emitted but does not remove sibling aspects already written to DataHub in previous ingestion runs. If you enable this option after running without it, re-run ingestion with [stateful ingestion](https://datahubproject.io/docs/metadata-ingestion/docs/dev_guides/stateful_ingestion) enabled and then manually soft-delete any remaining stale sibling aspects, or use the DataHub CLI to clean them up.
 
