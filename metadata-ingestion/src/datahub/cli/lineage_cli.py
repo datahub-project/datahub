@@ -3,7 +3,7 @@
 import importlib.resources
 import json
 import sys
-from typing import Optional
+from typing import Literal, Optional, cast
 
 import click
 
@@ -208,10 +208,11 @@ def lineage(
 
     with get_default_graph(ClientMode.CLI) as graph:
         client = DataHubClient(graph=graph)
+        lineage_direction = cast(Literal["upstream", "downstream"], direction)
         results = client.lineage.get_lineage(
             source_urn=urn,
             source_column=column,
-            direction=direction,
+            direction=lineage_direction,
             max_hops=hops,
             count=count,
         )

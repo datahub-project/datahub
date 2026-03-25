@@ -49,17 +49,20 @@ class TestPlatformFromUrn:
 
 
 class TestFormatTable:
-    def _make_result(self, **kwargs):
-        defaults = {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
-            "type": "DATASET",
-            "hops": 1,
-            "direction": "upstream",
-            "platform": "snowflake",
-            "name": "my_table",
-        }
-        defaults.update(kwargs)
-        return LineageResult(**defaults)
+    def _make_result(self, **kwargs: object) -> LineageResult:
+        return LineageResult(
+            urn=str(
+                kwargs.get(
+                    "urn",
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                )
+            ),
+            type=str(kwargs.get("type", "DATASET")),
+            hops=int(kwargs.get("hops", 1)),
+            direction=kwargs.get("direction", "upstream"),  # type: ignore[arg-type]
+            platform=kwargs.get("platform", "snowflake"),  # type: ignore[arg-type]
+            name=kwargs.get("name", "my_table"),  # type: ignore[arg-type]
+        )
 
     def test_empty_results(self):
         assert "No upstream lineage found" in _format_table([], "upstream")
@@ -84,17 +87,20 @@ class TestFormatTable:
 
 
 class TestFormatJson:
-    def _make_result(self, **kwargs):
-        defaults = {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
-            "type": "DATASET",
-            "hops": 1,
-            "direction": "upstream",
-            "platform": "snowflake",
-            "name": "my_table",
-        }
-        defaults.update(kwargs)
-        return LineageResult(**defaults)
+    def _make_result(self, **kwargs: object) -> LineageResult:
+        return LineageResult(
+            urn=str(
+                kwargs.get(
+                    "urn",
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
+                )
+            ),
+            type=str(kwargs.get("type", "DATASET")),
+            hops=int(kwargs.get("hops", 1)),
+            direction=kwargs.get("direction", "upstream"),  # type: ignore[arg-type]
+            platform=kwargs.get("platform", "snowflake"),  # type: ignore[arg-type]
+            name=kwargs.get("name", "my_table"),  # type: ignore[arg-type]
+        )
 
     def test_json_output(self):
         import json
