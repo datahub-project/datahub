@@ -134,10 +134,10 @@ all = [
     { name = "jsonpath-ng" },
     { name = "jupyter-server" },
     { name = "kerberos" },
-    { name = "lark", extra = ["regex"] },
     { name = "litellm" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "mini-racer" },
     { name = "mlflow-skinny" },
     { name = "more-itertools" },
     { name = "moto", extra = ["s3"] },
@@ -596,10 +596,10 @@ dev = [
     { name = "jsonschema" },
     { name = "jupyter-server" },
     { name = "kerberos" },
-    { name = "lark", extra = ["regex"] },
     { name = "litellm" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "mini-racer" },
     { name = "mixpanel" },
     { name = "mlflow-skinny" },
     { name = "more-itertools" },
@@ -787,10 +787,10 @@ docs = [
     { name = "jsonschema" },
     { name = "jupyter-server" },
     { name = "kerberos" },
-    { name = "lark", extra = ["regex"] },
     { name = "litellm" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "mini-racer" },
     { name = "mixpanel" },
     { name = "mlflow-skinny" },
     { name = "more-itertools" },
@@ -1038,6 +1038,10 @@ fivetran = [
     { name = "sqlglot", extra = ["c"] },
     { name = "tenacity" },
     { name = "wcmatch" },
+]
+flink = [
+    { name = "requests" },
+    { name = "tenacity" },
 ]
 gcs = [
     { name = "boto3" },
@@ -1458,7 +1462,7 @@ postgres = [
     { name = "urllib3" },
 ]
 powerbi = [
-    { name = "lark", extra = ["regex"] },
+    { name = "mini-racer" },
     { name = "more-itertools" },
     { name = "msal" },
     { name = "patchy" },
@@ -2467,10 +2471,6 @@ requires-dist = [
     { name = "kerberos", marker = "extra == 'docs'", specifier = ">=1.3.0,<2.0.0" },
     { name = "kerberos", marker = "extra == 'hive-metastore'", specifier = ">=1.3.0,<2.0.0" },
     { name = "kerberos", marker = "extra == 'integration-tests'", specifier = ">=1.3.0,<2.0.0" },
-    { name = "lark", extras = ["regex"], marker = "extra == 'all'", specifier = "==1.1.4" },
-    { name = "lark", extras = ["regex"], marker = "extra == 'dev'", specifier = "==1.1.4" },
-    { name = "lark", extras = ["regex"], marker = "extra == 'docs'", specifier = "==1.1.4" },
-    { name = "lark", extras = ["regex"], marker = "extra == 'powerbi'", specifier = "==1.1.4" },
     { name = "litellm", marker = "extra == 'all'", specifier = "==1.80.5" },
     { name = "litellm", marker = "extra == 'confluence'", specifier = "==1.80.5" },
     { name = "litellm", marker = "extra == 'datahub-documents'", specifier = "==1.80.5" },
@@ -2489,6 +2489,10 @@ requires-dist = [
     { name = "looker-sdk", marker = "extra == 'looker'", specifier = ">=23.0.0,<26.0.0" },
     { name = "looker-sdk", marker = "extra == 'lookml'", specifier = ">=23.0.0,<26.0.0" },
     { name = "memray", marker = "extra == 'debug'", specifier = "<2.0.0" },
+    { name = "mini-racer", marker = "extra == 'all'", specifier = "==0.14.1" },
+    { name = "mini-racer", marker = "extra == 'dev'", specifier = "==0.14.1" },
+    { name = "mini-racer", marker = "extra == 'docs'", specifier = "==0.14.1" },
+    { name = "mini-racer", marker = "extra == 'powerbi'", specifier = "==0.14.1" },
     { name = "mixpanel", specifier = ">=4.9.0,<6.0.0" },
     { name = "mixpanel", marker = "extra == 'dev'", specifier = ">=4.9.0,<6.0.0" },
     { name = "mixpanel", marker = "extra == 'docs'", specifier = ">=4.9.0,<6.0.0" },
@@ -2870,12 +2874,12 @@ requires-dist = [
     { name = "python-ldap", marker = "extra == 'docs'", specifier = ">=2.4,<4.0.0" },
     { name = "python-ldap", marker = "extra == 'integration-tests'", specifier = ">=2.4,<4.0.0" },
     { name = "python-ldap", marker = "extra == 'ldap'", specifier = ">=2.4,<4.0.0" },
-    { name = "python-liquid", marker = "extra == 'all'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'dev'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'docs'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'looker'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'lookml'", specifier = "<2" },
-    { name = "python-liquid", marker = "extra == 'mode'", specifier = "<2" },
+    { name = "python-liquid", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'looker'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'lookml'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "python-liquid", marker = "extra == 'mode'", specifier = ">=2.0.0,<3.0.0" },
     { name = "pyyaml", specifier = "<7.0.0" },
     { name = "pyyaml", marker = "extra == 'dev'", specifier = "<7.0.0" },
     { name = "pyyaml", marker = "extra == 'docs'", specifier = "<7.0.0" },
@@ -2906,6 +2910,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'docs'", specifier = "==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'dremio'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'fabric-onelake'", specifier = ">=2.28.0,<3.0" },
+    { name = "requests", marker = "extra == 'flink'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'grafana'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'integration-tests'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'json-schema'", specifier = "<3.0.0" },
@@ -3269,6 +3274,7 @@ requires-dist = [
     { name = "tenacity", marker = "extra == 'dev'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'docs'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'fivetran'", specifier = ">=8.0.1,<9.0.0" },
+    { name = "tenacity", marker = "extra == 'flink'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'hive-metastore'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'integration-tests'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'mode'", specifier = ">=8.0.1,<9.0.0" },
@@ -3459,7 +3465,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-onelake", "feast", "fivetran", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-onelake", "feast", "fivetran", "flink", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -7762,20 +7768,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0e/72/a3add0e4eec4eb9e2569554f7c70f4a3c27712f40e3284d483e88094cc0e/langdetect-1.0.9.tar.gz", hash = "sha256:cbc1fef89f8d062739774bd51eda3da3274006b3661d199c2655f6b3f6d605a0", size = 981474, upload-time = "2021-05-07T07:54:13.562Z" }
 
 [[package]]
-name = "lark"
-version = "1.1.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1d/08/eb2590d4f824b5a947d866c603799fa70278f1372cbf8d15b7b4823dfb2b/lark-1.1.4.tar.gz", hash = "sha256:eee86062b149600ef62de0d8dfd38cf85ffc737e16911e7d8c18880f8c5b1333", size = 246520, upload-time = "2022-11-02T01:46:14.707Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/10/d95c9fe3d1c0d71c6fb46fee3ffa199febeeeb71094b03028ea4b264bfc4/lark-1.1.4-py3-none-any.whl", hash = "sha256:a42f9f18bdc9d5571a371ae658548e81e78d1642c2145cc3b663e0bf2e9e7eae", size = 107845, upload-time = "2022-11-02T01:46:12.486Z" },
-]
-
-[package.optional-dependencies]
-regex = [
-    { name = "regex" },
-]
-
-[[package]]
 name = "leb128"
 version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
@@ -8223,6 +8215,22 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/bf/0a/a23f7b893915bfb1536963d5923ec048f10c70ec83c2ba31843d357be4c5/memray-1.19.1-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:f7238113251d325da2d405b067ec180842b93a7fb10ff06fb3f7c261225b33ae", size = 9962696, upload-time = "2025-10-16T02:26:26.142Z" },
     { url = "https://files.pythonhosted.org/packages/37/28/c1a1fc6bdd2cf3f5241623c54ac66525b30c9c7bb16e2ad70046d9bd8db7/memray-1.19.1-cp314-cp314t-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:334754a0ad5664a703516307772a4555ffdc616586168b28efd31e8862a6cdb1", size = 9379408, upload-time = "2025-10-16T02:26:27.937Z" },
     { url = "https://files.pythonhosted.org/packages/ab/45/4bf72fff0070f1760e0ead5fc78b50e2bef35be702cb7c3cd5b33aa776d5/memray-1.19.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:6a193cc20bbe60eccee8c9b4d9eb78ccd69a3248f0291d5d1a7fdda62aa19b53", size = 12148593, upload-time = "2025-10-16T02:26:29.708Z" },
+]
+
+[[package]]
+name = "mini-racer"
+version = "0.14.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/71/b0/5b200bdf093433f1933f783fbc908c23349a1a575c28c81aff75b609c7c1/mini_racer-0.14.1.tar.gz", hash = "sha256:0df25889b7c4e753520324a1687d85e41f9f64984efa81963339ed400f004d49", size = 41771, upload-time = "2026-02-01T05:53:27.408Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/2c/5857ee4e1714db8956aa878dc90255557458c124f93163704e7de948be03/mini_racer-0.14.1-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:a401ecdf5f73d4714b76dc3a4c9b5780059cf4c59a5b64cff7497dc6c219d5a0", size = 19988474, upload-time = "2026-02-01T05:53:03.998Z" },
+    { url = "https://files.pythonhosted.org/packages/09/bf/ecaad0c208b9d8bd8f2141f7fa5e520b66915945a2ed56c520524df75fcb/mini_racer-0.14.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:56cc6965a1665a50d8d613bc43aa83b4cec6b1f09acc69dc4c2845dacb201463", size = 18511166, upload-time = "2026-02-01T05:53:07.059Z" },
+    { url = "https://files.pythonhosted.org/packages/56/0c/5260cc29908777c91391dd8b61be9042a3d1c089e6bfc798cd403e44e87d/mini_racer-0.14.1-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:7f93d91973ddb2da4e899e06ecb426bfe7ea103cd1c92687ec9c38f206f375eb", size = 21929528, upload-time = "2026-02-01T05:53:10.22Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/3c/c5bd479784826bbbc69f713aae2bcfd5ef353ba4e5e0e661666938474535/mini_racer-0.14.1-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:cdf3a088e1363f16a695288f882abf76b3705b8e1df21418208b87ed010037a4", size = 22178205, upload-time = "2026-02-01T05:53:13.407Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/d4/89905a4238be7ea9afec2f10533668f68898c82914ddd91b2729be547eca/mini_racer-0.14.1-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:6788f31608c6c5d0faac4e6b4f36fc5498885f951e510717e8825eaebae6a4c5", size = 21837359, upload-time = "2026-02-01T05:53:16.762Z" },
+    { url = "https://files.pythonhosted.org/packages/11/1d/735c5d74239bd0d7d3b271d7f3c91f337c7f937d748dadc2c1c9579df475/mini_racer-0.14.1-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:ad4b5c15993caab571fac3d67e0d55157b358bd439e629e0fef26c45a12c8bab", size = 22178200, upload-time = "2026-02-01T05:53:19.414Z" },
+    { url = "https://files.pythonhosted.org/packages/78/60/e0708ea8533e928f10f985be35af4c02dd2b61f4a7501dc88e8c927d85e5/mini_racer-0.14.1-py3-none-win_amd64.whl", hash = "sha256:4abd58c62c9955988dbc0cbf5a798914334fe570d2b192f8890bec20135ab6d1", size = 15515732, upload-time = "2026-02-01T05:53:22.276Z" },
+    { url = "https://files.pythonhosted.org/packages/99/fd/7fb43e269c44e5d44ef02fbd164fc11833d8293b47ddcd48e4fb1649f4d2/mini_racer-0.14.1-py3-none-win_arm64.whl", hash = "sha256:440bef1269655b1da94b550612b50669de9881c3d88b805c139f7f1b5ec8ae7b", size = 14829128, upload-time = "2026-02-01T05:53:24.983Z" },
 ]
 
 [[package]]
@@ -10654,16 +10662,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/0c/88/8d2797decc42e1c1c
 
 [[package]]
 name = "python-liquid"
-version = "1.13.0"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "importlib-resources" },
+    { name = "babel" },
+    { name = "markupsafe" },
     { name = "python-dateutil" },
-    { name = "typing-extensions" },
+    { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/75/0fed0ca920161b058806fa52d3e2ed82cf14beb2abe1afb114358ccc1413/python_liquid-1.13.0.tar.gz", hash = "sha256:c158fbaad6dd41c49de7cff34e3611bff7211326fb3049322d27673e1d66e166", size = 127389, upload-time = "2025-02-08T14:15:46.487Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cc/46/3b2731966bf24a1cab027eae3c87c41e379750a7dd8c7041c37b9a29d168/python_liquid-2.1.0.tar.gz", hash = "sha256:a4c2abb24ac40ded8c9ba844ebbfbe78a3e41c6fe10a7bbe94144582569b73d0", size = 93152, upload-time = "2025-08-15T07:33:26.019Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/b0/a795755aad1230c8d2f15c63c703204c351abd183deeff85941866a88a92/python_liquid-1.13.0-py3-none-any.whl", hash = "sha256:843ed7b8af00c1480d1bf402553ed07bdddce130ebbf4b1fefc84bb2e076f5d4", size = 210446, upload-time = "2025-02-08T14:15:44.935Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/0d/8c0cc6895ff2ec26b963f055ff2514596e71b509cde3b9ffbbf0f7f59995/python_liquid-2.1.0-py3-none-any.whl", hash = "sha256:d3bbcddff4e1a73287b59218df3471613598271e69ac3d17d97e000f4b984e3e", size = 137984, upload-time = "2025-08-15T07:33:24.274Z" },
 ]
 
 [[package]]
