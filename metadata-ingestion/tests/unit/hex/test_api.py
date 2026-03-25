@@ -16,6 +16,7 @@ from datahub.ingestion.source.hex.model import (
 )
 from tests.unit.hex.conftest import load_json_data
 
+
 class TestHexAPI(unittest.TestCase):
     def setUp(self):
         self.token = "test-token"
