@@ -1,5 +1,7 @@
 """Tests for config_constants module."""
 
+import pytest
+
 from datahub.ingestion.source.kafka_connect.config_constants import (
     parse_comma_separated_list,
     parse_topic_to_table_map,
@@ -102,47 +104,33 @@ class TestParseCommaSeparatedList:
 class TestParseTopicToTableMap:
     """Tests for parse_topic_to_table_map()."""
 
-    def test_empty_list(self) -> None:
-        assert parse_topic_to_table_map([]) == {}
-
-    def test_single_mapping(self) -> None:
-        assert parse_topic_to_table_map(["orders:orders_table"]) == {
-            "orders": "orders_table"
-        }
-
-    def test_multiple_mappings(self) -> None:
-        assert parse_topic_to_table_map(
-            ["orders:orders_table", "payments:payment_records", "users:user_data"]
-        ) == {
-            "orders": "orders_table",
-            "payments": "payment_records",
-            "users": "user_data",
-        }
-
-    def test_whitespace_stripped(self) -> None:
-        assert parse_topic_to_table_map([" orders : orders_table "]) == {
-            "orders": "orders_table"
-        }
-
-    def test_colon_in_table_name(self) -> None:
-        # Only the first ':' is used as delimiter
-        assert parse_topic_to_table_map(["topic:schema:table"]) == {
-            "topic": "schema:table"
-        }
-
-    def test_invalid_entry_skipped(self) -> None:
-        # Entry without ':' should be skipped
-        result = parse_topic_to_table_map(["invalid_entry", "orders:orders_table"])
-        assert result == {"orders": "orders_table"}
-
-    def test_all_invalid_entries(self) -> None:
-        result = parse_topic_to_table_map(["no_colon", "also_no_colon"])
-        assert result == {}
-
-    def test_later_entry_overwrites_earlier(self) -> None:
-        # Duplicate topic key: last write wins
-        result = parse_topic_to_table_map(["orders:first_table", "orders:second_table"])
-        assert result == {"orders": "second_table"}
+    @pytest.mark.parametrize(
+        "mappings, expected",
+        [
+            ([], {}),
+            (["orders:orders_table"], {"orders": "orders_table"}),
+            (
+                ["orders:orders_table", "payments:payment_records", "users:user_data"],
+                {
+                    "orders": "orders_table",
+                    "payments": "payment_records",
+                    "users": "user_data",
+                },
+            ),
+            ([" orders : orders_table "], {"orders": "orders_table"}),
+            # Only the first ':' is used as delimiter.
+            (["topic:schema:table"], {"topic": "schema:table"}),
+            # Entry without ':' should be skipped.
+            (["invalid_entry", "orders:orders_table"], {"orders": "orders_table"}),
+            (["no_colon", "also_no_colon"], {}),
+            # Duplicate topic key: last write wins.
+            (["orders:first_table", "orders:second_table"], {"orders": "second_table"}),
+        ],
+    )
+    def test_parse_topic_to_table_map(
+        self, mappings: list[str], expected: dict[str, str]
+    ) -> None:
+        assert parse_topic_to_table_map(mappings) == expected
 
 
 # TestConnectorConfigKeys class removed - testing string constant assignments
