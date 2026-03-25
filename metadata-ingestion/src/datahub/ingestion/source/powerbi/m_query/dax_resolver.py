@@ -90,27 +90,27 @@ def extract_dax_column_lineage(
     Returns: List with one ColumnLineageInfo if cross-table references were found,
              empty list otherwise.
 
-    Note: References with empty table_name (intra-table measure calls like [Total Sales])
-    are ignored — they reference measures in the same table, not columns in other tables.
+    Note: References with empty table_name (intra-table refs like [Total Sales]) are mapped
+    to table_urn itself, capturing same-table column dependencies. Cross-table refs to
+    tables not present in sibling_table_urns are silently skipped.
     """
-    if not sibling_table_urns:
-        return []
-
     parsed = _get_dax_expression(expression)
     if parsed is None:
         return []
 
     try:
-        upstreams = [
-            ColumnRef(
-                table=sibling_table_urns[ref.table_name.lower()],
-                column=ref.artifact_name,
-            )
-            for ref in parsed.table_column_references
-            if ref.table_name
-            and ref.table_name.lower() in sibling_table_urns
-            and ref.artifact_name
-        ]
+        upstreams = []
+        for ref in parsed.table_column_references:
+            if not ref.artifact_name:
+                continue
+            if ref.table_name:
+                urn = sibling_table_urns.get(ref.table_name.lower())
+                if urn is None:
+                    continue
+            else:
+                # No table qualifier → intra-table reference to the current table.
+                urn = table_urn
+            upstreams.append(ColumnRef(table=urn, column=ref.artifact_name))
         if not upstreams:
             return []
         return [

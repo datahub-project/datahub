@@ -230,14 +230,19 @@ def test_dax_column_lineage_unknown_table_ignored():
     assert cll == []
 
 
-def test_dax_column_lineage_intra_table_measure_ignored():
-    """[Total Sales] with no table prefix should produce no upstream refs."""
+def test_dax_column_lineage_intra_table_ref_maps_to_same_table():
+    """[Total Sales] with no table prefix → upstream ColumnRef in the same table."""
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)"
     cll = dax_resolver.extract_dax_column_lineage(
         column_name="Derived",
         expression="[Total Sales] * 1.1",
-        table_urn="urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)",
+        table_urn=table_urn,
         sibling_table_urns={
-            "orders": "urn:li:dataset:(urn:li:dataPlatform:powerbi,ws.ds.Orders,PROD)"
+            "orders": table_urn,
         },
     )
-    assert cll == []
+    assert len(cll) == 1
+    assert cll[0].downstream.column == "Derived"
+    assert len(cll[0].upstreams) == 1
+    assert cll[0].upstreams[0].column == "Total Sales"
+    assert cll[0].upstreams[0].table == table_urn
