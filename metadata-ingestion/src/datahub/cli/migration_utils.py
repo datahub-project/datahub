@@ -7,11 +7,8 @@ from avrogen.dict_wrapper import DictWrapper
 from datahub.cli import cli_utils
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import (
-    DataHubGraph,
-    RelatedEntity,
-    get_default_graph,
-)
+from datahub.ingestion.graph import RelatedEntity, RelationshipDirection
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -286,7 +283,7 @@ def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
             "DerivedFrom",
             "IsPartOf",
         ],
-        direction=DataHubGraph.RelationshipDirection.INCOMING,
+        direction=RelationshipDirection.INCOMING,
     )
 
 
@@ -302,5 +299,5 @@ def get_outgoing_relationships(urn: str) -> Iterable[RelatedEntity]:
             "DerivedFrom",
             "IsPartOf",
         ],
-        direction=DataHubGraph.RelationshipDirection.OUTGOING,
+        direction=RelationshipDirection.OUTGOING,
     )

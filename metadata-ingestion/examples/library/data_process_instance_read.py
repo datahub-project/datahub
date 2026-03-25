@@ -1,3 +1,4 @@
+from datahub.ingestion.graph import RelationshipDirection
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 # Create a graph client to query DataHub
@@ -14,7 +15,7 @@ print(f"Querying process instances for DataJob: {datajob_urn}")
 relationships = graph.get_related_entities(
     entity_urn=datajob_urn,
     relationship_types=["InstanceOf"],
-    direction=DataHubGraph.RelationshipDirection.INCOMING,
+    direction=RelationshipDirection.INCOMING,
 )
 
 relationships_list = list(relationships)
