@@ -1,8 +1,6 @@
-import { CaretRight } from '@phosphor-icons/react';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
-
-import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import FilterOption from '@app/searchV2/filters/FilterOption';
 import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
@@ -25,7 +23,6 @@ export default function BooleanMoreFilter({ title, option, count, initialSelecte
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSelected, setIsSelected] = useState<boolean>(initialSelected);
     const labelRef = useRef<HTMLDivElement>(null);
-    const wrapperRef = useRef<HTMLDivElement>(null);
     const { width, height, isElementOutsideWindow } = useElementDimensions(labelRef);
 
     function updateSelected() {
@@ -33,12 +30,8 @@ export default function BooleanMoreFilter({ title, option, count, initialSelecte
         setIsMenuOpen(false);
     }
 
-    const handleClickOutside = useCallback(() => setIsMenuOpen(false), []);
-    const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
-    useClickOutside(handleClickOutside, clickOutsideOptions);
-
     return (
-        <SubMenuWrapper ref={wrapperRef}>
+        <SubMenuWrapper>
             <MoreFilterOptionLabel
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 isOpen={isMenuOpen}

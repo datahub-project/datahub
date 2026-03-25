@@ -23,6 +23,7 @@ interface Props {
     includeCount?: boolean;
     className?: string;
     aggregationsEntityTypes?: Array<EntityType>;
+    isRenderedInSubMenu?: boolean;
 }
 
 export default function EntityTypeMenu({
@@ -34,6 +35,7 @@ export default function EntityTypeMenu({
     includeCount = false,
     className,
     aggregationsEntityTypes,
+    isRenderedInSubMenu,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -101,6 +103,7 @@ export default function EntityTypeMenu({
             isLoading={aggLoading}
             searchPlaceholder={displayName}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }

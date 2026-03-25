@@ -1,5 +1,5 @@
 import { Checkbox, Pill } from '@components';
-import { CaretUp } from '@phosphor-icons/react';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,7 +8,6 @@ import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { Label } from '@app/searchV2/filters/styledComponents';
 import { FilterOptionType } from '@app/searchV2/filters/types';
 import {
-    FilterEntityIcon,
     getFilterIconAndLabel,
     getParentEntities,
     isAnyOptionSelected,
@@ -22,6 +21,7 @@ import {
 } from '@app/searchV2/utils/constants';
 import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { EntitySelectOption } from '@app/sharedV2/select/EntitySelectOption';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';
@@ -34,7 +34,6 @@ const FilterOptionWrapper = styled.div<{ addPadding?: boolean }>`
     gap: 4px;
     cursor: pointer;
     font-size: 14px;
-    color: ${(props) => props.theme.colors.text};
 
     ${(props) => props.addPadding && 'padding-left: 24px;'}
 
@@ -61,7 +60,7 @@ export const TagColor = styled.span<{ color: string; colorHash?: string | null }
 
 const LabelCountWrapper = styled.div`
     display: flex;
-    align-items: baseline;
+    align-items: center;
 `;
 
 const ArrowButton = styled.button<{ $isOpen: boolean }>`
@@ -110,14 +109,7 @@ export default function FilterOption({
     const [areChildrenVisible, setAreChildrenVisible] = useState(true);
     const { field, value, count, entity } = filterOption;
     const entityRegistry = useEntityRegistry();
-    const { icon, label } = getFilterIconAndLabel(
-        field,
-        value,
-        entityRegistry,
-        entity || null,
-        14,
-        filterOption.displayName,
-    );
+    const { label } = getFilterIconAndLabel(field, value, entityRegistry, entity || null, 14, filterOption.displayName);
     const showParentEntityPath = field === DOMAINS_FILTER_NAME && entity?.type === EntityType.Domain;
     const isSubTypeFilter = field === TYPE_NAMES_FILTER_NAME;
     const parentEntities: Entity[] = getParentEntities(entity as Entity) || [];
@@ -145,15 +137,7 @@ export default function FilterOption({
     return (
         <>
             <FilterOptionWrapper addPadding={addPadding} onClick={updateFilterValues}>
-                <Checkbox
-                    isChecked={isSelected}
-                    isIntermediate={isIndeterminate}
-                    onCheckboxChange={() => updateFilterValues()}
-                    dataTestId={`filter-option-${label}`}
-                    size="xs"
-                />
                 <CheckboxContent>
-                    <FilterEntityIcon field={field} entity={entity} icon={icon} />
                     <LabelWrapper className="test-label">
                         {!showParentEntityPath && parentEntities.length > 0 && (
                             <ParentWrapper>
@@ -161,9 +145,13 @@ export default function FilterOption({
                             </ParentWrapper>
                         )}
                         <LabelCountWrapper>
-                            <Label style={{ maxWidth: 150 }}>
-                                {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
-                            </Label>
+                            {filterOption.entity ? (
+                                <EntitySelectOption entity={filterOption.entity} />
+                            ) : (
+                                <Label style={{ maxWidth: 150 }}>
+                                    {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
+                                </Label>
+                            )}
                             {nestedOptions && nestedOptions.length > 0 && (
                                 <ArrowButton
                                     $isOpen={areChildrenVisible}
@@ -172,13 +160,20 @@ export default function FilterOption({
                                         setAreChildrenVisible(!areChildrenVisible);
                                     }}
                                 >
-                                    <CaretUp size={12} />
+                                    <CaretUp size={18} />
                                 </ArrowButton>
                             )}
                         </LabelCountWrapper>
                     </LabelWrapper>
                 </CheckboxContent>
                 {includeCount && <Pill label={getCountText()} size="xs" variant="filled" color="gray" />}
+                <Checkbox
+                    isChecked={isSelected}
+                    isIntermediate={isIndeterminate}
+                    onCheckboxChange={() => updateFilterValues()}
+                    dataTestId={`filter-option-${label}`}
+                    size="xs"
+                />
             </FilterOptionWrapper>
             {areChildrenVisible && (
                 <>

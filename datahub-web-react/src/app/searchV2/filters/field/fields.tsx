@@ -1,23 +1,20 @@
-import {
-    BookmarkSimple,
-    Clock,
-    Database,
-    File,
-    FileText,
-    Folder,
-    GitFork,
-    Globe,
-    Layout,
-    ListDashes,
-    MapPin,
-    Storefront,
-    Tag,
-    Trash,
-    User,
-    Warning,
-    XCircle,
-} from '@phosphor-icons/react';
-import React from 'react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { File } from '@phosphor-icons/react/dist/csr/File';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { GitFork } from '@phosphor-icons/react/dist/csr/GitFork';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
+import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
+import { MapPin } from '@phosphor-icons/react/dist/csr/MapPin';
+import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { User } from '@phosphor-icons/react/dist/csr/User';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
@@ -54,21 +51,21 @@ const ENTITY_SUB_TYPE_FILTER: FilterField = {
     field: ENTITY_SUB_TYPE_FILTER_NAME,
     displayName: FIELD_TO_LABEL[ENTITY_SUB_TYPE_FILTER_NAME],
     type: FieldType.NESTED_ENTITY_TYPE,
-    icon: <File size={14} />,
+    icon: File,
 };
 
 const ENTITY_TYPE_FILTER: FilterField = {
     field: ENTITY_FILTER_NAME,
     displayName: FIELD_TO_LABEL[ENTITY_FILTER_NAME],
     type: FieldType.ENTITY_TYPE,
-    icon: <File size={14} />,
+    icon: File,
 };
 
 const TYPE_NAMES_FILTER: FilterField = {
     field: TYPE_NAMES_FILTER_NAME,
     displayName: FIELD_TO_LABEL[TYPE_NAMES_FILTER_NAME],
     type: FieldType.ENUM,
-    icon: <File size={14} />,
+    icon: File,
 };
 
 const PLATFORM_FILTER: FilterField = {
@@ -76,7 +73,7 @@ const PLATFORM_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[PLATFORM_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.DataPlatform],
-    icon: <Database size={14} />,
+    icon: Database,
 };
 
 const OWNERS_FILTER: FilterField = {
@@ -84,7 +81,7 @@ const OWNERS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[OWNERS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
-    icon: <User size={14} />,
+    icon: User,
 };
 
 const DOMAINS_FILTER: FilterField = {
@@ -92,7 +89,7 @@ const DOMAINS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[DOMAINS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Domain],
-    icon: <Globe size={14} />,
+    icon: Globe,
 };
 
 const TAGS_FILTER: FilterField = {
@@ -100,7 +97,7 @@ const TAGS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[TAGS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Tag],
-    icon: <Tag size={14} />,
+    icon: Tag,
 };
 
 const GLOSSARY_TERMS_FILTER: FilterField = {
@@ -108,7 +105,7 @@ const GLOSSARY_TERMS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[GLOSSARY_TERMS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
-    icon: <BookmarkSimple size={14} />,
+    icon: BookmarkSimple,
 };
 
 const CONTAINER_FILTER: FilterField = {
@@ -116,14 +113,14 @@ const CONTAINER_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[CONTAINER_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Container],
-    icon: <Folder size={14} />,
+    icon: Folder,
 };
 
 const FIELD_PATHS_FILTER: FilterField = {
     field: FIELD_PATHS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[FIELD_PATHS_FILTER_NAME],
     type: FieldType.TEXT,
-    icon: <Layout size={14} />,
+    icon: Layout,
 };
 
 const FIELD_TAGS_FILTER: FilterField = {
@@ -131,7 +128,7 @@ const FIELD_TAGS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[FIELD_TAGS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Tag],
-    icon: <Tag size={14} />,
+    icon: Tag,
 };
 
 const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
@@ -139,56 +136,56 @@ const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[FIELD_GLOSSARY_TERMS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
-    icon: <BookmarkSimple size={14} />,
+    icon: BookmarkSimple,
 };
 
 const DESCRIPTION_FILTER: FilterField = {
     field: DESCRIPTION_FILTER_NAME,
     displayName: FIELD_TO_LABEL[DESCRIPTION_FILTER_NAME],
     type: FieldType.TEXT,
-    icon: <FileText size={14} />,
+    icon: FileText,
 };
 
 const FIELD_DESCRIPTIONS_FILTER: FilterField = {
     field: FIELD_DESCRIPTIONS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[FIELD_DESCRIPTIONS_FILTER_NAME],
     type: FieldType.TEXT,
-    icon: <FileText size={14} />,
+    icon: FileText,
 };
 
 const REMOVED_FILTER: FilterField = {
     field: REMOVED_FILTER_NAME,
     displayName: FIELD_TO_LABEL[REMOVED_FILTER_NAME],
     type: FieldType.BOOLEAN,
-    icon: <Trash size={14} />,
+    icon: Trash,
 };
 
 const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
     field: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[HAS_ACTIVE_INCIDENTS_FILTER_NAME],
     type: FieldType.BOOLEAN,
-    icon: <Warning size={14} />,
+    icon: Warning,
 };
 
 const HAS_FAILING_ASSERTIONS_FILTER: FilterField = {
     field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[HAS_FAILING_ASSERTIONS_FILTER_NAME],
     type: FieldType.BOOLEAN,
-    icon: <XCircle size={14} />,
+    icon: XCircle,
 };
 
 const ORIGIN_FILTER: FilterField = {
     field: ORIGIN_FILTER_NAME,
     displayName: FIELD_TO_LABEL[ORIGIN_FILTER_NAME],
     type: FieldType.ENUM,
-    icon: <MapPin size={14} />,
+    icon: MapPin,
 };
 
 const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
     field: DATA_PLATFORM_INSTANCE_FILTER_NAME,
     displayName: FIELD_TO_LABEL[DATA_PLATFORM_INSTANCE_FILTER_NAME],
     type: FieldType.ENTITY,
-    icon: <Database size={14} />,
+    icon: Database,
     entityTypes: [EntityType.DataPlatformInstance],
 };
 
@@ -197,21 +194,21 @@ const DATA_PRODUCT_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[DATA_PRODUCT_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.DataProduct],
-    icon: <Storefront size={14} />,
+    icon: Storefront,
 };
 
 export const STRUCTURED_PROPERTY_FILTER: FilterField = {
     field: STRUCTURED_PROPERTIES_FILTER_NAME,
     displayName: FIELD_TO_LABEL[STRUCTURED_PROPERTIES_FILTER_NAME],
     type: FieldType.TEXT,
-    icon: <ListDashes size={14} />,
+    icon: ListDashes,
 };
 
 const HAS_SIBLINGS_FILTER: FilterField = {
     field: HAS_SIBLINGS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[HAS_SIBLINGS_FILTER_NAME],
     type: FieldType.BOOLEAN,
-    icon: <GitFork size={14} />,
+    icon: GitFork,
 };
 
 const DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
@@ -220,7 +217,7 @@ export const LAST_MODIFIED_FILTER: FilterField = {
     field: LAST_MODIFIED_FILTER_NAME,
     displayName: FIELD_TO_LABEL[LAST_MODIFIED_FILTER_NAME],
     type: FieldType.BUCKETED_TIMESTAMP,
-    icon: <Clock size={14} />,
+    icon: Clock,
     useDatePicker: true,
     options: [
         {
@@ -262,7 +259,7 @@ const BROWSE_FILTER: FilterField = {
     field: BROWSE_PATH_V2_FILTER_NAME,
     displayName: FIELD_TO_LABEL[BROWSE_PATH_V2_FILTER_NAME],
     type: FieldType.BROWSE_PATH,
-    icon: <Folder size={14} />,
+    icon: Folder,
 };
 
 export const DEFAULT_FILTER_FIELDS: FilterField[] = [

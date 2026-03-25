@@ -1,35 +1,38 @@
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import { FilterField, FilterValue } from '@app/searchV2/filters/types';
 import TextValueInput from '@app/searchV2/filters/value/TextValueInput';
 
-const Container = styled.div`
-    padding: 16px;
-    background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
-    border-radius: 12px;
+const Container = styled.div<{ $shouldAddWrapperStyles: boolean }>`
+    ${({ $shouldAddWrapperStyles, theme }) =>
+        $shouldAddWrapperStyles &&
+        `
+        padding: 16px;
+        background-color: ${theme.colors.bg};
+        box-shadow: ${theme.colors.shadowMd};
+        border-radius: 12px;
+    `}
 `;
 
-const Title = styled.div`
-    font-size: 16px;
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.text};
-    padding-bottom: 4px;
+const Title = styled(Text).attrs({ weight: 'semiBold' })`
+    color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 interface Props {
     field: FilterField;
     values: FilterValue[];
     onChangeValues: (newValues: FilterValue[]) => void;
+    isRenderedInSubMenu?: boolean;
 }
 
-export default function TextValueMenu({ field, values, onChangeValues }: Props) {
+export default function TextValueMenu({ field, values, onChangeValues, isRenderedInSubMenu }: Props) {
     const { displayName } = field;
     const value = values.length > 0 ? values[0].displayName || values[0].value : '';
 
     return (
-        <Container>
+        <Container $shouldAddWrapperStyles={!isRenderedInSubMenu}>
             <Title>{`Filter by ${displayName}`}</Title>
             <TextValueInput
                 name={displayName}

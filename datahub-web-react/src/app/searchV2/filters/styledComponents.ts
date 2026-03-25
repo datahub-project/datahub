@@ -1,10 +1,11 @@
 import styled from 'styled-components';
 
-export const SearchFilterLabel = styled.div<{ $isActive: boolean }>`
+export const SearchFilterLabel = styled.div<{ $isOpen?: boolean; $isActive: boolean }>`
     font-size: 14px;
     font-weight: 400;
     line-height: none;
-    border: 1px solid ${(props) => (props.$isActive ? props.theme.colors.borderSelected : props.theme.colors.border)};
+    border: 1px solid
+        ${(props) => (props.$isOpen || props.$isActive ? props.theme.colors.borderBrand : props.theme.colors.border)};
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -17,9 +18,9 @@ export const SearchFilterLabel = styled.div<{ $isActive: boolean }>`
     color: ${(props) => (props.$isActive ? props.theme.colors.textSelected : props.theme.colors.text)};
     background-color: ${(props) => (props.$isActive ? props.theme.colors.bgSelected : props.theme.colors.bg)};
     box-shadow: ${(props) => props.theme.colors.shadowXs};
-    transition:
-        box-shadow 0.15s ease,
-        border-color 0.15s ease;
+    transition: box-shadow 0.15s ease;
+
+    ${(props) => props.$isOpen && `outline: 1px solid ${props.theme.colors?.borderBrandFocused};`}
 
     svg {
         color: ${(props) => props.theme.colors.icon};
@@ -75,5 +76,5 @@ export const Label = styled.span`
     text-overflow: ellipsis;
     white-space: nowrap;
     display: inline-block;
-    color: inherit;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;

@@ -1,11 +1,15 @@
-import type { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
-import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
 import dayjs from '@utils/dayjs';
+
+interface TimeBucketOptionType {
+    key: string;
+    label: string;
+    timestamp: string;
+}
 
 const TimeBucketOption = styled.div<{ $isSelected: boolean }>`
     display: flex;
@@ -27,12 +31,13 @@ interface Props {
     values: FilterValue[];
     onChangeValues: (newValues: FilterValue[]) => void;
     className?: string;
+    isRenderedInSubMenu?: boolean;
 }
 
-export default function TimeBucketMenu({ field, values, onChangeValues, className }: Props) {
+export default function TimeBucketMenu({ field, values, onChangeValues, className, isRenderedInSubMenu }: Props) {
     const options = useMemo(
         () =>
-            field.options.map(({ label, startOffsetMillis }): ItemType => {
+            field.options.map(({ label, startOffsetMillis }): TimeBucketOptionType => {
                 const timestamp = dayjs()
                     .subtract(startOffsetMillis, 'milliseconds')
                     .startOf('day')
@@ -65,6 +70,7 @@ export default function TimeBucketMenu({ field, values, onChangeValues, classNam
             }
             showSearchBar={false}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }

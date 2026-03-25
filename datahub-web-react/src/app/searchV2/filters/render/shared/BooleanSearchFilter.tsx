@@ -1,27 +1,16 @@
-import { CaretDown } from '@phosphor-icons/react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Dropdown, Pill } from '@components';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
-
 import FilterOption from '@app/searchV2/filters/FilterOption';
+import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
-import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
-
-const DropdownWrapper = styled.div`
-    position: relative;
-`;
 
 const MenuContainer = styled.div`
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
     z-index: 1050;
-`;
-
-const CaretIcon = styled(CaretDown)<{ $isOpen?: boolean }>`
-    transition: transform 0.2s ease;
-    ${(props) => props.$isOpen && 'transform: rotate(180deg);'}
 `;
 
 interface Props {
@@ -35,7 +24,6 @@ interface Props {
 export default function BooleanSearchFilter({ title, option, count, initialSelected, onUpdate }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSelected, setIsSelected] = useState<boolean>(initialSelected);
-    const wrapperRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => setIsSelected(initialSelected), [initialSelected]);
 
@@ -44,21 +32,11 @@ export default function BooleanSearchFilter({ title, option, count, initialSelec
         setIsMenuOpen(false);
     }
 
-    const handleClickOutside = useCallback(() => setIsMenuOpen(false), []);
-    const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
-    useClickOutside(handleClickOutside, clickOutsideOptions);
-
     return (
-        <DropdownWrapper ref={wrapperRef}>
-            <SearchFilterLabel
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                $isActive={isSelected}
-                data-testid={`filter-dropdown-${title.replace(/\s/g, '-')}`}
-            >
-                {title} {isSelected ? `(1) ` : ''}
-                <CaretIcon size={12} $isOpen={isMenuOpen} />
-            </SearchFilterLabel>
-            {isMenuOpen && (
+        <Dropdown
+            open={isMenuOpen}
+            onOpenChange={(isOpen) => setIsMenuOpen(isOpen)}
+            dropdownRender={() => (
                 <MenuContainer>
                     <BooleanSearchFilterMenu
                         filterOption={
@@ -72,6 +50,17 @@ export default function BooleanSearchFilter({ title, option, count, initialSelec
                     />
                 </MenuContainer>
             )}
-        </DropdownWrapper>
+        >
+            <SearchFilterBase
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                isOpen={isMenuOpen}
+                isActive={isSelected}
+                data-testid={`filter-dropdown-${title.replace(/\s/g, '-')}`}
+                onClear={() => setIsSelected(false)}
+                showClear={isSelected}
+            >
+                {title} {isSelected ? <Pill label="1" size="sm" variant="filled" /> : ''}
+            </SearchFilterBase>
+        </Dropdown>
     );
 }

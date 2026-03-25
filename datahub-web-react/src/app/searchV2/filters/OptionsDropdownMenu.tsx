@@ -4,26 +4,30 @@ import styled from 'styled-components/macro';
 
 import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
 
-const DropdownCard = styled.div`
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 12px;
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
+const DropdownCard = styled.div<{ $shouldAddWrapperStyles: boolean }>`
+    ${(props) =>
+        props.$shouldAddWrapperStyles &&
+        `
+        background-color: ${props.theme.colors.bg};
+        border-radius: 12px;
+        box-shadow: ${props.theme.colors.shadowMd};
+    `}
     overflow: hidden;
     min-width: 200px;
 `;
 
-const ScrollableContent = styled.div`
+const ScrollableContent = styled.div<{ $shouldAddWrapperStyles: boolean }>`
     max-height: 360px;
     overflow: auto;
     min-width: 260px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 4px;
+    ${(props) => props.$shouldAddWrapperStyles && `padding: 4px;`}
 `;
 
-const SearchBarWrapper = styled.div`
-    padding: 8px 8px 4px 8px;
+const SearchBarWrapper = styled.div<{ $shouldAddWrapperStyles: boolean }>`
+    padding: ${(props) => (props.$shouldAddWrapperStyles ? '8px 8px 4px 8px' : '4px')};
 `;
 
 const LoadingWrapper = styled.div`
@@ -46,6 +50,7 @@ interface Props {
     searchPlaceholder?: string;
     showSearchBar?: boolean;
     className?: string;
+    isRenderedInSubMenu?: boolean;
 }
 
 export default function OptionsDropdownMenu({
@@ -56,11 +61,16 @@ export default function OptionsDropdownMenu({
     searchPlaceholder,
     showSearchBar = true,
     className,
+    isRenderedInSubMenu,
 }: Props) {
     return (
-        <DropdownCard data-testid="filter-dropdown" className={className}>
+        <DropdownCard
+            data-testid="filter-dropdown"
+            className={className}
+            $shouldAddWrapperStyles={!isRenderedInSubMenu}
+        >
             {showSearchBar && (
-                <SearchBarWrapper>
+                <SearchBarWrapper $shouldAddWrapperStyles={!isRenderedInSubMenu}>
                     <DropdownSearchBar
                         placeholder={searchPlaceholder || 'Search...'}
                         value={searchQuery}
@@ -68,7 +78,7 @@ export default function OptionsDropdownMenu({
                     />
                 </SearchBarWrapper>
             )}
-            <ScrollableContent>
+            <ScrollableContent $shouldAddWrapperStyles={!isRenderedInSubMenu}>
                 {menu}
                 {isLoading && (
                     <LoadingWrapper>

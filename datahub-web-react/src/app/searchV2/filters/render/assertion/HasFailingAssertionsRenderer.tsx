@@ -1,4 +1,4 @@
-import { XCircle } from '@phosphor-icons/react';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -7,6 +7,8 @@ import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 
 export class HasFailingAssertionsRenderer implements FilterRenderer {
     field = 'hasFailingAssertions';
+
+    name = 'Assertions';
 
     render = (props: FilterRenderProps) => <HasFailingAssertionsFilter {...props} />;
 

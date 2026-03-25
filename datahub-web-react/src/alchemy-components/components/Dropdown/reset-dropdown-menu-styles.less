@@ -3,6 +3,8 @@
         border-radius: 12px;
         padding: 8px;
         margin: 16px; // compensation of padding as it computes incorrect position of a submenu
+        max-height: 80vh;
+        overflow-y: auto;
     }
 
     & .ant-dropdown-menu-submenu,
@@ -16,7 +18,6 @@
 }
 
 .ant-dropdown-menu-submenu-popup ul {
-    max-height: 80vh;
     overflow-y: auto;
     background: white;
 }

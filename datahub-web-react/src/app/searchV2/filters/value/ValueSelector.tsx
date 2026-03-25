@@ -1,16 +1,11 @@
 /* eslint-disable import/no-cycle */
-import React, { CSSProperties, useCallback, useMemo, useRef, useState } from 'react';
+import { Dropdown } from '@components';
+import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-
-import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import { EntityType, FacetFilterInput } from '@src/types.generated';
-
-const Wrapper = styled.div`
-    position: relative;
-`;
 
 const MenuContainer = styled.div`
     position: absolute;
@@ -20,71 +15,94 @@ const MenuContainer = styled.div`
 `;
 
 interface Props {
+    isOpen?: boolean;
+    setIsOpen?: React.Dispatch<React.SetStateAction<boolean>>;
     field: FilterField;
     values: FilterValue[];
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
     children?: any;
-    className?: string;
     menuStyle?: CSSProperties;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
+    isRenderedInSubMenu?: boolean;
 }
 
 export default function ValueSelector({
+    isOpen,
+    setIsOpen,
     field,
     values,
     defaultOptions,
     onChangeValues,
     children,
-    className,
     menuStyle,
     manuallyUpdateFilters,
     aggregationsEntityTypes,
+    isRenderedInSubMenu,
 }: Props) {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState<boolean>(isOpen ?? false);
+
+    useEffect(() => {
+        if (isOpen !== undefined && isOpen !== isMenuOpen) setIsMenuOpen(isOpen);
+    }, [isOpen, isMenuOpen]);
+
+    const updateIsOpen = useCallback(
+        (newIsOpen: boolean) => {
+            setIsMenuOpen(newIsOpen);
+            setIsOpen?.(newIsOpen);
+        },
+        [setIsOpen],
+    );
+
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const onUpdateValues = (newValues: FilterValue[]) => {
-        setIsMenuOpen(false);
+        updateIsOpen(false);
         onChangeValues(newValues);
     };
 
     const onManuallyUpdateFilters = (newValues: FacetFilterInput[]) => {
-        setIsMenuOpen(false);
+        updateIsOpen(false);
         manuallyUpdateFilters?.(newValues);
     };
 
-    const handleClickOutside = useCallback(() => setIsMenuOpen(false), []);
-    const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
-    useClickOutside(handleClickOutside, clickOutsideOptions);
+    if (isRenderedInSubMenu) {
+        return (
+            <ValueMenu
+                field={field}
+                values={values}
+                defaultOptions={defaultOptions}
+                onChangeValues={onUpdateValues}
+                includeCount
+                manuallyUpdateFilters={onManuallyUpdateFilters}
+                aggregationsEntityTypes={aggregationsEntityTypes}
+                isRenderedInSubMenu
+            />
+        );
+    }
 
     return (
-        <Wrapper ref={wrapperRef} className={className}>
-            <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setIsMenuOpen((prev) => !prev)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') setIsMenuOpen((prev) => !prev);
-                }}
-            >
-                {children}
-            </div>
-            {isMenuOpen && (
-                <MenuContainer style={menuStyle}>
-                    <ValueMenu
-                        field={field}
-                        values={values}
-                        defaultOptions={defaultOptions}
-                        onChangeValues={onUpdateValues}
-                        visible={isMenuOpen}
-                        includeCount
-                        manuallyUpdateFilters={onManuallyUpdateFilters}
-                        aggregationsEntityTypes={aggregationsEntityTypes}
-                    />
-                </MenuContainer>
-            )}
-        </Wrapper>
+        <Dropdown
+            open={isMenuOpen}
+            onOpenChange={(newOpen) => updateIsOpen(newOpen)}
+            dropdownRender={() => {
+                return (
+                    <MenuContainer style={menuStyle} ref={wrapperRef}>
+                        <ValueMenu
+                            field={field}
+                            values={values}
+                            defaultOptions={defaultOptions}
+                            onChangeValues={onUpdateValues}
+                            includeCount
+                            manuallyUpdateFilters={onManuallyUpdateFilters}
+                            aggregationsEntityTypes={aggregationsEntityTypes}
+                        />
+                    </MenuContainer>
+                );
+            }}
+        >
+            {children}
+        </Dropdown>
     );
 }

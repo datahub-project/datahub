@@ -1,8 +1,8 @@
-import { CaretDown } from '@phosphor-icons/react';
-import React from 'react';
+import { Pill } from '@components';
+import React, { useState } from 'react';
 import styled, { CSSProperties } from 'styled-components';
 
-import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
+import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import { FilterPredicate, FilterValue } from '@app/searchV2/filters/types';
 import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
 import { AggregationMetadata, FacetFilterInput } from '@src/types.generated';
@@ -14,11 +14,6 @@ export const IconWrapper = styled.div`
         height: 14px;
         width: 14px;
     }
-`;
-
-const CaretIcon = styled(CaretDown)<{ $isOpen?: boolean }>`
-    transition: transform 0.2s ease;
-    ${(props) => props.$isOpen && 'transform: rotate(180deg);'}
 `;
 
 interface Props {
@@ -40,6 +35,10 @@ export default function SearchFilterView({
     filterOptions,
     manuallyUpdateFilters,
 }: Props) {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const onClear = () => onChangeValues([]);
+
     return (
         <ValueSelector
             field={filterPredicate?.field}
@@ -47,15 +46,20 @@ export default function SearchFilterView({
             defaultOptions={filterOptions}
             onChangeValues={onChangeValues}
             manuallyUpdateFilters={manuallyUpdateFilters}
+            isOpen={isMenuOpen}
+            setIsOpen={setIsMenuOpen}
         >
-            <SearchFilterLabel
-                $isActive={!!numActiveFilters}
+            <SearchFilterBase
+                isActive={!!numActiveFilters}
+                isOpen={isMenuOpen}
                 style={labelStyle}
                 data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
+                onClear={onClear}
+                showClear={!!numActiveFilters}
             >
-                {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                <CaretIcon size={12} />
-            </SearchFilterLabel>
+                {displayName}{' '}
+                {numActiveFilters ? <Pill label={`${numActiveFilters}`} size="sm" variant="filled" /> : null}
+            </SearchFilterBase>
         </ValueSelector>
     );
 }

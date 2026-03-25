@@ -1,42 +1,23 @@
-import { CaretDown } from '@phosphor-icons/react';
+import { Menu } from '@components';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
 
+import { ItemType } from '@components/components/Menu/types';
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
+import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
-import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
-import { getNumActiveFiltersForGroupOfFilters } from '@app/searchV2/filters/utils';
+import {
+    getFilterDropdownIcon,
+    getNumActiveFiltersForGroupOfFilters,
+    useGetFilterDisplayName,
+} from '@app/searchV2/filters/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
-
-const DropdownWrapper = styled.div`
-    position: relative;
-`;
-
-const DropdownPanel = styled.div`
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 1050;
-    background-color: ${(props) => props.theme.colors.bg};
-    border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 12px;
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
-    min-width: 200px;
-    max-width: 400px;
-    padding: 4px;
-`;
-
-const CaretIcon = styled(CaretDown)<{ $isOpen?: boolean }>`
-    transition: transform 0.2s ease;
-    ${(props) => props.$isOpen && 'transform: rotate(180deg);'}
-`;
 
 interface Props {
     filters: FacetMetadata[];
@@ -53,10 +34,13 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const { config } = useAppConfig();
     const wrapperRef = useRef<HTMLDivElement>(null);
 
-    function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
-        onChangeFilters(newFilters);
-        setIsMenuOpen(false);
-    }
+    const updateFiltersAndClose = useCallback(
+        (newFilters: FacetFilterInput[]) => {
+            onChangeFilters(newFilters);
+            setIsMenuOpen(false);
+        },
+        [onChangeFilters],
+    );
 
     function toggleMenu() {
         if (!isMenuOpen) trackShowMoreEvent(activeFilters.length, filters.length);
@@ -67,35 +51,75 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
     useClickOutside(handleClickOutside, clickOutsideOptions);
 
+    const getFilterDisplayName = useGetFilterDisplayName();
+
+    const filtersToRender = useMemo(
+        () =>
+            filters.filter((filter) => {
+                // All filters without specific renderers could be rendered
+                if (!filterRendererRegistry.hasRenderer(filter.field)) return true;
+
+                return filterRendererRegistry.canBeRendered(filter.field, config);
+            }),
+        [filters, config, filterRendererRegistry],
+    );
+
+    const menuItems: ItemType[] = useMemo(
+        () =>
+            filtersToRender.map((filter) => ({
+                key: filter.field,
+                title: filterRendererRegistry.hasRenderer(filter.field)
+                    ? filterRendererRegistry.getName(filter.field)
+                    : getFilterDisplayName(filter),
+                type: 'item',
+                icon: getFilterDropdownIcon(filter.field),
+                children: [
+                    {
+                        key: `${filter.field}-children`,
+                        type: 'custom',
+                        render: () => {
+                            return filterRendererRegistry.hasRenderer(filter.field) ? (
+                                filterRendererRegistry.render(filter.field, {
+                                    scenario: FilterScenarioType.SEARCH_V2_DROPDOWN_ONLY,
+                                    filter,
+                                    activeFilters,
+                                    onChangeFilters: updateFiltersAndClose,
+                                    config,
+                                })
+                            ) : (
+                                <MoreFilterOption
+                                    key={filter.field}
+                                    filter={filter}
+                                    activeFilters={activeFilters}
+                                    filterPredicates={filterPredicates}
+                                    onChangeFilters={updateFiltersAndClose}
+                                />
+                            );
+                        },
+                    },
+                ],
+            })),
+        [
+            filtersToRender,
+            filterRendererRegistry,
+            getFilterDisplayName,
+            activeFilters,
+            filterPredicates,
+            updateFiltersAndClose,
+            config,
+        ],
+    );
+
     return (
-        <DropdownWrapper ref={wrapperRef}>
-            <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters} onClick={toggleMenu}>
+        <Menu items={menuItems} onOpenChange={(isOpen) => setIsMenuOpen(isOpen)}>
+            <SearchFilterBase
+                data-testid="more-filters-dropdown"
+                isActive={!!numActiveFilters}
+                isOpen={isMenuOpen}
+                onClick={toggleMenu}
+            >
                 More {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                <CaretIcon size={12} $isOpen={isMenuOpen} />
-            </SearchFilterLabel>
-            {isMenuOpen && (
-                <DropdownPanel>
-                    {filters.map((filter) => {
-                        return filterRendererRegistry.hasRenderer(filter.field) ? (
-                            filterRendererRegistry.render(filter.field, {
-                                scenario: FilterScenarioType.SEARCH_V2_SECONDARY,
-                                filter,
-                                activeFilters,
-                                onChangeFilters: updateFiltersAndClose,
-                                config,
-                            })
-                        ) : (
-                            <MoreFilterOption
-                                key={filter.field}
-                                filter={filter}
-                                activeFilters={activeFilters}
-                                filterPredicates={filterPredicates}
-                                onChangeFilters={updateFiltersAndClose}
-                            />
-                        );
-                    })}
-                </DropdownPanel>
-            )}
-        </DropdownWrapper>
+            </SearchFilterBase>
+        </Menu>
     );
 }

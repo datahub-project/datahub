@@ -16,9 +16,10 @@ interface Props {
     values: FilterValue[];
     onChangeValues: (newValues: FilterValue[]) => void;
     className?: string;
+    isRenderedInSubMenu?: boolean;
 }
 
-export default function BooleanValueMenu({ field, values, onChangeValues, className }: Props) {
+export default function BooleanValueMenu({ field, values, onChangeValues, className, isRenderedInSubMenu }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const filterMenuOptions = OPTIONS.map((option) =>
@@ -53,6 +54,7 @@ export default function BooleanValueMenu({ field, values, onChangeValues, classN
             }
             showSearchBar={false}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }

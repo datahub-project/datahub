@@ -1,4 +1,4 @@
-import { CaretRight } from '@phosphor-icons/react';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo, useRef } from 'react';
 import styled from 'styled-components';
 
@@ -61,6 +61,7 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
             onChangeValues={(newValues) => onChangeFilterValues(currentFilterPredicate, newValues)}
             manuallyUpdateFilters={manuallyUpdateFilters}
             menuStyle={menuStyle}
+            isRenderedInSubMenu
         >
             <MoreFilterOptionLabel
                 $isActive={!!numActiveFilters}

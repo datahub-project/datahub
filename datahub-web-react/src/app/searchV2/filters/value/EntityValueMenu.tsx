@@ -18,6 +18,7 @@ interface Props {
     onChangeValues: (newValues: FilterValue[]) => void;
     includeCount?: boolean;
     className?: string;
+    isRenderedInSubMenu?: boolean;
 }
 
 export default function EntityValueMenu({
@@ -27,6 +28,7 @@ export default function EntityValueMenu({
     includeCount = false,
     onChangeValues,
     className,
+    isRenderedInSubMenu,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const isSearchable = !!field.entityTypes?.length;
@@ -80,6 +82,7 @@ export default function EntityValueMenu({
             isLoading={searchLoading}
             searchPlaceholder={`Search for ${displayName}`}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }

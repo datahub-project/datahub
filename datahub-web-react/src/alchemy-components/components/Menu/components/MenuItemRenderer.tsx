@@ -1,4 +1,4 @@
-import { Icon, Text, Tooltip } from '@components';
+import { Icon, OverflowText, Text, Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
@@ -19,6 +19,7 @@ const Container = styled.div`
     flex-direction: column;
     text-overflow: ellipsis;
     word-wrap: nowrap;
+    overflow: hidden;
 `;
 
 const IconWrapper = styled.div`
@@ -95,7 +96,7 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
 
             <Container>
                 <Text weight="semiBold" color={itemColors.titleColor} colorLevel={itemColors.titleColorLevel}>
-                    {item.title}
+                    <OverflowText text={item.title} />
                 </Text>
                 {item.description && (
                     <Text color={itemColors.descriptionColor} colorLevel={itemColors.descriptionColorLevel} size="sm">
@@ -106,7 +107,11 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
 
             <SpaceFiller />
 
-            {item.children && <Icon icon={CaretRight} color="gray" colorLevel={1800} size="lg" />}
+            {item.children && (
+                <IconWrapper>
+                    <Icon icon={CaretRight} color="gray" colorLevel={1800} size="lg" />
+                </IconWrapper>
+            )}
         </Wrapper>
     );
 

@@ -1,6 +1,6 @@
 import { FolderFilled } from '@ant-design/icons';
 import { Avatar } from '@components';
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -701,14 +701,24 @@ export function useElementDimensions(ref) {
     return dimensions;
 }
 
-export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
+export function useGetFilterDisplayName() {
     const entityRegistry = useEntityRegistryV2();
 
-    if (filter.entity) {
-        return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
-    }
+    return useCallback(
+        (filter: FacetMetadata | FilterField, predicateDisplayName?: string): string => {
+            if (filter.entity) {
+                return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
+            }
 
-    return predicateDisplayName || filter.displayName || filter.field;
+            return predicateDisplayName || filter.displayName || filter.field;
+        },
+        [entityRegistry],
+    );
+}
+
+export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
+    const getFilterDisplayNameFn = useGetFilterDisplayName();
+    return getFilterDisplayNameFn(filter, predicateDisplayName);
 }
 
 export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {

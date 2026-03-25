@@ -1,4 +1,4 @@
-import { Warning } from '@phosphor-icons/react';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -7,6 +7,8 @@ import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 
 export class HasActiveIncidentsRenderer implements FilterRenderer {
     field = 'hasActiveIncidents';
+
+    name = 'Incidents';
 
     render = (props: FilterRenderProps) => <HasActiveIncidentsFilter {...props} />;
 

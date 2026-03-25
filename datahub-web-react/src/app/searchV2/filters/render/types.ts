@@ -16,6 +16,8 @@ export enum FilterScenarioType {
      * The V2 search + browse experience, inside the "More" dropdown.
      */
     SEARCH_V2_SECONDARY,
+
+    SEARCH_V2_DROPDOWN_ONLY,
 }
 
 /**

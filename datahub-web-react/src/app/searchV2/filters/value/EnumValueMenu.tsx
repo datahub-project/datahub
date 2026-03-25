@@ -21,6 +21,7 @@ interface Props {
     includeCount?: boolean;
     className?: string;
     aggregationsEntityTypes?: Array<EntityType>;
+    isRenderedInSubMenu?: boolean;
 }
 
 export default function EnumValueMenu({
@@ -31,6 +32,7 @@ export default function EnumValueMenu({
     onChangeValues,
     className,
     aggregationsEntityTypes,
+    isRenderedInSubMenu,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = useFilterDisplayName(field);
@@ -97,6 +99,7 @@ export default function EnumValueMenu({
             isLoading={aggLoading || searchAggsLoading}
             searchPlaceholder={displayName}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }
