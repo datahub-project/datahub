@@ -84,9 +84,6 @@ class OpenAPIGraphProtocol(Protocol):
 
 
 class OpenApiAPI(OpenAPIGraphProtocol):
-    # Redefine for backwards compatibility
-    RelationshipDirection = RelationshipDirection
-
     def _deserialize_entities(
         self,
         entities: List[Dict[str, Any]],
