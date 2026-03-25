@@ -1090,6 +1090,8 @@ searchBar:
 
 searchCard:
   showDescription: ${SEARCH_CARD_SHOW_DESCRIPTION:false}
+  summarySourceUrn: ${SEARCH_CARD_SUMMARY_SOURCE_URN:}
+  summaryLabel: ${SEARCH_CARD_SUMMARY_LABEL:Summary}
 
 searchFlags:
   defaultSkipHighlighting: ${DEFAULT_SKIP_HIGHLIGHTING:false}

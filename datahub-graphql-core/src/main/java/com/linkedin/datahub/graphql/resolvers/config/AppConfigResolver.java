@@ -219,6 +219,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final SearchCardConfig searchCardConfig = new SearchCardConfig();
     searchCardConfig.setShowDescription(_searchCardConfig.getShowDescription());
+    searchCardConfig.setSummarySourceUrn(_searchCardConfig.getSummarySourceUrn());
+    searchCardConfig.setSummaryLabel(_searchCardConfig.getSummaryLabel());
     appConfig.setSearchCardConfig(searchCardConfig);
 
     final SearchFlagsConfig searchFlagsConfig = new SearchFlagsConfig();
