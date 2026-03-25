@@ -82,15 +82,34 @@ if sys.version_info >= (3, 12):
     default=None,
     help="Write debug-level logs to a file.",
 )
+@click.option(
+    "--context",
+    "-C",
+    "context_pairs",
+    multiple=True,
+    metavar="KEY=VALUE",
+    help="Additional context as key=value pairs (can be repeated).",
+)
 @click.version_option(
     version=datahub_version.nice_version_name(),
     prog_name=datahub_version.__package_name__,
 )
+@click.pass_context
 def datahub(
+    ctx: click.Context,
     debug: bool,
     log_file: Optional[str],
+    context_pairs: tuple,
 ) -> None:
     debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
+
+    # Parse --context key=value pairs and store on Click context for telemetry.
+    ctx.ensure_object(dict)
+    ctx.obj["context"] = {}
+    for pair in context_pairs:
+        if "=" in pair:
+            k, v = pair.split("=", 1)
+            ctx.obj["context"][k] = v
 
     # Note that we're purposely leaking the context manager here.
     # Technically we should wrap this with ctx.with_resource(). However, we have
