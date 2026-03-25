@@ -516,10 +516,17 @@ class DataplexLineageExtractor:
                     )
             if entry_index % 1000 == 0:
                 logger.info(
-                    "Lineage map progress for project %s (entry_index=%s): report=%s",
+                    "Lineage map progress for project %s: processed=%s, scanned=%s, "
+                    "no_lineage=%s, unsupported=%s, failed=%s, edges_added=%s, "
+                    "upstream_parse_skipped=%s",
                     project_id,
-                    entry_index,
-                    self.report,
+                    self.report.num_lineage_entries_processed,
+                    self.report.num_lineage_entries_scanned,
+                    self.report.num_lineage_entries_without_lineage,
+                    self.report.num_lineage_entries_skipped_unsupported_type,
+                    self.report.num_lineage_entries_failed,
+                    self.report.num_lineage_edges_added,
+                    self.report.num_lineage_upstream_fqns_skipped,
                 )
 
         self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
