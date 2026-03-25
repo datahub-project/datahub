@@ -145,6 +145,8 @@ class CSVEnricherSource(Source):
         self.report: CSVEnricherReport = CSVEnricherReport()
         # Map from entity urn to a list of SubResourceRow.
         self.editable_schema_metadata_map: Dict[str, List[SubResourceRow]] = {}
+        # Map from entity urn to a deduplicated list of resource owners.
+        self.resource_owners_map: Dict[str, List[OwnerClass]] = {}
         self.should_overwrite: bool = self.config.write_semantics == "OVERRIDE"
 
         if not self.should_overwrite:
@@ -622,6 +624,32 @@ class CSVEnricherSource(Source):
         ]
         return owners
 
+    def merge_resource_owners(self, entity_urn: str, owners: List[OwnerClass]) -> None:
+        if len(owners) <= 0:
+            return
+
+        current_owners = self.resource_owners_map.setdefault(entity_urn, [])
+        existing_owners = {
+            (owner.owner, owner.type, owner.typeUrn) for owner in current_owners
+        }
+        for owner in owners:
+            owner_key = (owner.owner, owner.type, owner.typeUrn)
+            if owner_key not in existing_owners:
+                current_owners.append(owner)
+                existing_owners.add(owner_key)
+
+    def get_resource_owners_work_units(self) -> Iterable[MetadataWorkUnit]:
+        for entity_urn, owners in self.resource_owners_map.items():
+            maybe_owners_wu: Optional[MetadataWorkUnit] = (
+                self.get_resource_owners_work_unit(
+                    entity_urn=entity_urn,
+                    owners=owners,
+                )
+            )
+            if maybe_owners_wu:
+                self.report.num_owners_workunits_produced += 1
+                yield maybe_owners_wu
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # As per https://stackoverflow.com/a/49150749/5004662, we want to use
         # the 'utf-8-sig' encoding to handle any BOM character that may be
@@ -674,11 +702,12 @@ class CSVEnricherSource(Source):
             )
 
             if is_resource_row:
+                self.merge_resource_owners(entity_urn=entity_urn, owners=owners)
                 yield from self.get_resource_workunits(
                     entity_urn=entity_urn,
                     term_associations=term_associations,
                     tag_associations=tag_associations,
-                    owners=owners,
+                    owners=[],
                     domain=domain,
                     description=description,
                 )
@@ -699,6 +728,7 @@ class CSVEnricherSource(Source):
                 )
 
         yield from self.get_sub_resource_work_units()
+        yield from self.get_resource_owners_work_units()
 
     def get_report(self):
         return self.report

@@ -2,11 +2,13 @@ from typing import Dict, List, Union
 from unittest import mock
 
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig, CSVEnricherSource
 from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     OwnerClass,
+    OwnershipClass,
     OwnershipSourceClass,
     OwnershipTypeClass,
     TagAssociationClass,
@@ -213,3 +215,41 @@ def test_get_resource_domain_work_unit_produced():
     new_domain = "domain"
     maybe_domain_wu = source.get_resource_domain_work_unit(DATASET_URN, new_domain)
     assert maybe_domain_wu
+
+
+def test_get_workunits_internal_merges_resource_owners(tmp_path):
+    csv_content = """resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain
+\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\",,,,[urn:li:corpuser:datahub],TECHNICAL_OWNER,,
+\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\",,,,[urn:li:corpuser:jdoe],BUSINESS_OWNER,,
+\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\",,,,[urn:li:corpuser:datahub],TECHNICAL_OWNER,,
+"""
+    csv_file = tmp_path / "owners.csv"
+    csv_file.write_text(csv_content)
+
+    source = CSVEnricherSource(
+        CSVEnricherConfig(
+            filename=str(csv_file),
+            write_semantics="OVERRIDE",
+            delimiter=",",
+            array_delimiter="|",
+        ),
+        PipelineContext("test-run-id"),
+    )
+
+    workunits = list(source.get_workunits_internal())
+    ownership_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, OwnershipClass)
+    ]
+
+    assert len(ownership_mcps) == 1
+    aspect = ownership_mcps[0].aspect
+    assert isinstance(aspect, OwnershipClass)
+    owners = aspect.owners
+    assert len(owners) == 2
+    assert {(owner.owner, owner.type) for owner in owners} == {
+        ("urn:li:corpuser:datahub", OwnershipTypeClass.TECHNICAL_OWNER),
+        ("urn:li:corpuser:jdoe", OwnershipTypeClass.BUSINESS_OWNER),
+    }
