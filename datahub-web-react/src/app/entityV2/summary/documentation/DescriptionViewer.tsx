@@ -15,15 +15,13 @@ const Wrapper = styled.div<{ expanded: boolean }>`
 
 const ContentContainer = styled.div<{ $expanded: boolean; $hasMore: boolean }>`
     overflow: ${({ $expanded }) => ($expanded ? 'visible' : 'hidden')};
-    ${({ $expanded, $hasMore }) =>
+    ${({ $expanded, $hasMore, theme }) =>
         !$expanded &&
         $hasMore &&
-        // TO-DO: Use closest matching color tokens or add new ones
-        // eslint-disable-next-line rulesdir/no-hardcoded-colors
         `
-            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 90%, rgba(0,0,0,0) 100%);
-            mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 90%, rgba(0,0,0,0) 100%);
-  `}
+            -webkit-mask-image: linear-gradient(to bottom, black 60%, ${theme.colors.overlayMask} 90%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 60%, ${theme.colors.overlayMask} 90%, transparent 100%);
+        `}
 `;
 
 const StyledButton = styled(Button)`

@@ -91,14 +91,12 @@ const ShowMoreButton = styled(Button)`
 
 const DetailsContainer = styled.div<DetailsContainerProps>`
     margin-bottom: -25px;
-    ${(props) =>
-        props.areDetailsExpandable &&
-        !props.showExpandedDetails &&
-        // TO-DO: Use closest matching color tokens or add new ones
-        // eslint-disable-next-line rulesdir/no-hardcoded-colors
+    ${({ areDetailsExpandable, showExpandedDetails, theme }) =>
+        areDetailsExpandable &&
+        !showExpandedDetails &&
         `
-        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
+        -webkit-mask-image: linear-gradient(to bottom, black 50%, ${theme.colors.overlayMask} 60%, transparent 90%);
+        mask-image: linear-gradient(to bottom, black 50%, ${theme.colors.overlayMask} 60%, transparent 90%);
     `}
 `;
 

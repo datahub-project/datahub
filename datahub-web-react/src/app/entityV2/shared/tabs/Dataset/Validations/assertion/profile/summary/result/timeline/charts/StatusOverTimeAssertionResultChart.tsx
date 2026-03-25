@@ -127,9 +127,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         stroke={theme.colors.bg}
                                         strokeWidth={2}
                                         size={100}
-                                        // TO-DO: Use closest token or add new one
-                                        // eslint-disable-next-line rulesdir/no-hardcoded-colors
-                                        filter="drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.05))"
+                                        filter={`drop-shadow(0px 1px 2.5px ${theme.colors.overlayLight})`}
                                     />
                                 </Popover>
                             </LinkWrapper>

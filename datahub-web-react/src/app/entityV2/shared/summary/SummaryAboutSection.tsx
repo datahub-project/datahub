@@ -31,12 +31,10 @@ const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
 const EditorWrapper = styled.div<{ mask?: boolean; maxHeight: string }>`
     max-height: ${({ maxHeight }) => maxHeight};
     overflow-y: hidden;
-    ${({ mask }) =>
+    ${({ mask, theme }) =>
         mask &&
-        // TO-DO: Use closest semantic color tokens or add new ones
-        // eslint-disable-next-line rulesdir/no-hardcoded-colors
-        `-webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
-         mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(255,0,0,0.5) 95%, rgba(255,0,0,0) 100%);`}
+        `-webkit-mask-image: linear-gradient(to bottom, black 50%, ${theme.colors.overlayMask} 60%, transparent 90%);
+         mask-image: linear-gradient(to bottom, black 80%, ${theme.colors.overlayMask} 95%, transparent 100%);`}
 `;
 
 const ExpandButton = styled(Button)`
