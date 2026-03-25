@@ -14,7 +14,6 @@ from datahub.ingestion.source.hex.model import (
     Component,
     Project,
 )
-
 from tests.unit.hex.conftest import load_json_data
 
 class TestHexAPI(unittest.TestCase):
