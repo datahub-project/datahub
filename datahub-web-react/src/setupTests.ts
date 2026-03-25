@@ -4,6 +4,8 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom/vitest';
 
+import '@utils/dayjs';
+
 // Mock window.matchMedia interface.
 // See https://jestjs.io/docs/en/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
 // and https://github.com/ant-design/ant-design/issues/21096.

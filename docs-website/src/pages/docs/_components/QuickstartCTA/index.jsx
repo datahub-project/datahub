@@ -20,8 +20,8 @@ const QuickstartCTA = () => {
         <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
           Quickstart With Open Source
         </Link>
-        <Link className="button button--secondary button--md" to="https://datahub.com/products/why-datahub-cloud/">
-          Learn About DataHub Cloud
+        <Link className="button button--secondary button--md" to="https://datahub.com/get-datahub-cloud/">
+          Get DataHub Cloud
         </Link>
     </div>  
   </div>

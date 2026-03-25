@@ -38,6 +38,7 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    SEMANTIC_MODEL = "Semantic Model"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

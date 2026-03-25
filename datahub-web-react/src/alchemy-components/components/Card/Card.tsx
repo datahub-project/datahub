@@ -1,4 +1,7 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Tooltip } from '@components';
+import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -89,7 +92,7 @@ export const Card = ({
                                             label={`${Math.abs(percent)}%`}
                                             size="sm"
                                             color={percent < 0 ? 'red' : 'green'}
-                                            leftIcon={percent < 0 ? 'TrendingDown' : 'TrendingUp'}
+                                            leftIcon={percent < 0 ? TrendDown : TrendUp}
                                             clickable={false}
                                         />
                                     )}

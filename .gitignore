@@ -44,6 +44,7 @@ fix-failing-tests/
 /config
 */i18n
 out/
+post-workflow-validation-summary.md
 
 # Mac OS
 **/.DS_Store
@@ -92,6 +93,9 @@ scripts/.venv/
 tmp*
 temp/**
 
+# Test result artifacts
+test-results/
+
 # frontend assets
 datahub-frontend/public/**
 
@@ -111,12 +115,12 @@ docker/profiles/my-settings.env
 .agents/
 skills-lock.json
 
-# Claude ignores
-.claude/
+# Claude ignores — ignore everything except committed config
+.claude/*
+!.claude/commands/
+!.claude/agents/
+!.claude/settings.json
 **/.claude/settings.local.json
-# Claude agent files (session-specific, not to be committed)
-**/.claude/agents/
-**/.claude/*.md
 
 # Environment files with credentials
 .env*
@@ -167,3 +171,4 @@ test-models/bin/
 
 # Git Worktree management (wtp)
 .wtp.yml
+.worktrees/

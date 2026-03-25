@@ -8,7 +8,7 @@ const TEST_DATA_PRODUCT_NAME = "Testing";
 
 describe("summary tab - domain", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     utils.openDomainByUrn(TEST_DOMAIN_URN);
     utils.goToSummaryTab();

@@ -55,14 +55,6 @@ export function findDataHubEntityColor(seriesKey: string): string | null {
 }
 
 /**
- * Check if a series key likely represents a DataHub entity
- * Useful for debugging and testing
- */
-export function isDataHubEntity(seriesKey: string): boolean {
-    return findDataHubEntityColor(seriesKey) !== null;
-}
-
-/**
  * Get all possible entity matches for a series key
  * Useful for debugging ambiguous matches
  */

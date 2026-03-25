@@ -140,6 +140,12 @@ class CSVEnricherSource(Source):
     :::note
     This source will not work on very large csv files that do not fit in memory.
     :::
+    Source that bulk uploads metadata from CSV files to enrich existing DataHub entities.
+
+    Implementation notes:
+    - Loads entire CSV into memory (pandas DataFrame)
+    - Supports entity-level and column-level metadata
+    - Uses MetadataChangeProposalWrapper for PATCH/OVERRIDE write modes
     """
 
     def __init__(self, config: CSVEnricherConfig, ctx: PipelineContext):

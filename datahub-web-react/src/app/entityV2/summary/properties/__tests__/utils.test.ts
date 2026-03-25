@@ -19,14 +19,14 @@ describe('assetPropertyToMenuItem', () => {
             key: 'testKey',
             type: SummaryElementType.Domain,
             name: 'Test Name',
-            icon: 'testIcon',
+            icon: undefined,
         };
 
         const menuItem = assetPropertyToMenuItem(assetProperty, mockOnMenuItemClick);
 
         expect(menuItem.key).toBe('testKey');
         expect(menuItem.title).toBe('Test Name');
-        expect(menuItem.icon).toBe('testIcon');
+        expect(menuItem.icon).toBeUndefined();
         expect(menuItem.type).toBe('item');
     });
 
@@ -34,7 +34,7 @@ describe('assetPropertyToMenuItem', () => {
         const assetProperty: AssetProperty = {
             type: SummaryElementType.Domain,
             name: 'Test Name',
-            icon: 'testIcon',
+            icon: undefined,
         };
 
         const menuItem = assetPropertyToMenuItem(assetProperty, mockOnMenuItemClick);
@@ -47,7 +47,7 @@ describe('assetPropertyToMenuItem', () => {
             key: 'testKey',
             type: SummaryElementType.Domain,
             name: 'Test Name',
-            icon: 'testIcon',
+            icon: undefined,
         };
 
         const menuItem = assetPropertyToMenuItem(assetProperty, mockOnMenuItemClick);

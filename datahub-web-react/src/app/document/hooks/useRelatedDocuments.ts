@@ -7,7 +7,7 @@ import {
 } from '@graphql/document.generated';
 import { Document, DocumentSourceType } from '@types';
 
-export interface RelatedDocumentsInput {
+interface RelatedDocumentsInput {
     start?: number;
     count?: number;
     parentDocuments?: string[];

@@ -1,6 +1,5 @@
-import { DatePicker, Form, Select, Skeleton, message } from 'antd';
+import { Form, Select, Skeleton, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
-import dayjs from 'dayjs';
 import React from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -14,6 +13,8 @@ import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Modal } from '@src/alchemy-components';
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
@@ -118,7 +119,6 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                     <TextArea placeholder="Add Reason" autoFocus rows={4} />
                 </Form.Item>
                 <Form.Item name="decommissionTime" label="Decommission Date" initialValue={dayjs()}>
-                    {/* @ts-expect-error dayjs type mismatch with DatePicker defaultValue */}
                     <DatePicker style={{ width: '100%' }} defaultValue={dayjs()} />
                 </Form.Item>
                 <Form.Item name="replacement" label="Replacement">
