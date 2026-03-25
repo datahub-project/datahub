@@ -51,4 +51,4 @@ repos:
         entry: python .github/scripts/bump_schema_versions.py
         language: python
         pass_filenames: false
-        stages: [manual]  # Delete this line to auto-run. For now run  `pre-commit run bump-schema-versions --hook-stage manual`
+        stages: [manual] # Delete this line to auto-run. For now run  `pre-commit run bump-schema-versions --hook-stage manual`
