@@ -1638,13 +1638,13 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def show_shares() -> str:
-        # Requires ACCOUNTADMIN role or share ownership.
+        # Requires share OWNERSHIP privilege.
         # Returns one row per share with columns: kind, name, database_name, owner, comment, ...
         return f"SHOW SHARES LIMIT {SHOW_SHARES_MAX_PAGE_SIZE}"
 
     @staticmethod
     def describe_share(share_name: str) -> str:
-        # Requires ACCOUNTADMIN role or share ownership.
+        # Requires share OWNERSHIP privilege.
         # Returns one row per object granted to the share with columns: kind, name
         # where kind is TABLE, VIEW, or SCHEMA and name is fully qualified.
         return f'DESCRIBE SHARE "{share_name}"'
