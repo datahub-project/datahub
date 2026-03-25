@@ -70,15 +70,7 @@ def _warn_about_existing_cli_tokens(
         )
         response.raise_for_status()
         data = response.json()
-        if data.get("errors"):
-          error_msg = data["errors"][0].get("message", str(data["errors"]))
-          raise click.ClickException(
-            f"Failed to create access token: {error_msg}\n"
-            "Check that personal access tokens are enabled and your account has permission."
-          )
-        access_token = data.get("data", {}).get("createAccessToken", {}).get("accessToken")
-        if not access_token:
-           raise click.ClickException("Server returned empty access token. Contact your DataHub administrator.")```
+        tokens = data.get("data", {}).get("listAccessTokens", {}).get("tokens", [])
         cli_token_count = sum(
             1 for t in tokens if t.get("name", "").startswith(CLI_TOKEN_PREFIX)
         )
@@ -126,29 +118,28 @@ def browser_sso_login(
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         try:
-        	context = browser.new_context()
-        	page = context.new_page()
+            context = browser.new_context()
+            page = context.new_page()
 
-        	page.goto(f"{frontend_url}{auth_path}")
+            page.goto(f"{frontend_url}{auth_path}")
 
-        	# Wait for the actor cookie, which signals successful SSO login.
-        	actor_urn = None
-        	try:
-            	page.wait_for_function(
-                		"""() => document.cookie.split('; ').some(c => c.startsWith('actor='))""",
-                		timeout=timeout_ms,
-            	)
-        	except Exception as e:
-            	browser.close()
-            	raise click.ClickException(
-                		f"SSO login timed out after {timeout_ms // 1000} seconds. "
-                		"Please try again."
-            	) from e
+            # Wait for the actor cookie, which signals successful SSO login.
+            actor_urn = None
+            try:
+                page.wait_for_function(
+                    """() => document.cookie.split('; ').some(c => c.startsWith('actor='))""",
+                    timeout=timeout_ms,
+                )
+            except Exception as e:
+                raise click.ClickException(
+                    f"SSO login timed out after {timeout_ms // 1000} seconds. "
+                    "Please try again."
+                ) from e
 
-        	# Extract cookies from the browser context
-        	cookies = context.cookies()
+            # Extract cookies from the browser context
+            cookies = context.cookies()
         finally:
-        	browser.close()
+            browser.close()
 
     # Build a requests.Session with the extracted cookies
     session = requests.Session()
@@ -204,15 +195,22 @@ def browser_sso_login(
         },
     }
 
-    response = session.post(f"{frontend_url}/api/v2/graphql", json=json_payload, timeout=30)
+    response = session.post(
+        f"{frontend_url}/api/v2/graphql", json=json_payload, timeout=30
+    )
     response.raise_for_status()
 
     data = response.json()
+    if data.get("errors"):
+        error_msg = data["errors"][0].get("message", str(data["errors"]))
+        raise click.ClickException(
+            f"Failed to create access token: {error_msg}\n"
+            "Check that personal access tokens are enabled and your account has permission."
+        )
     access_token = data.get("data", {}).get("createAccessToken", {}).get("accessToken")
-
     if not access_token:
-        errors = data.get("errors", [])
-        error_msg = errors[0]["message"] if errors else "Unknown error"
-        raise click.ClickException(f"Failed to generate access token: {error_msg}")
+        raise click.ClickException(
+            "Server returned empty access token. Contact your DataHub administrator."
+        )
 
     return token_name, access_token

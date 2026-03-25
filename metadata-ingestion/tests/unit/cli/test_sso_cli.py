@@ -154,7 +154,7 @@ class TestBrowserSsoLogin:
             }
             mock_session.post.return_value = mock_response
 
-            with pytest.raises(Exception, match="Failed to generate access token"):
+            with pytest.raises(Exception, match="Failed to create access token"):
                 browser_sso_login("http://localhost:9002", "ONE_HOUR")
 
 
