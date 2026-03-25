@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-DataHub's **Asset Summaries** enable organizations to create tailored, curated discovery experiences for their most important logical assets by customizing the Summary tab view that users see when browsing Domains, Data Products, Glossary Terms, and Glossary Term Groups.
+DataHub's **Asset Summaries** enable organizations to create tailored, curated discovery experiences for their most important assets by customizing the Summary tab view that users see when browsing Domains, Data Products, Glossary Terms, Glossary Term Groups, and Datasets.
 
 <p align="center">
   <img
@@ -18,8 +18,11 @@ DataHub's **Asset Summaries** enable organizations to create tailored, curated d
 </p>
 
 :::info Supported Asset Types
-Asset Summaries are currently supported for **Domains, Data Products, Glossary Terms, and Glossary Term Groups only**. These logical asset types help organize and group your physical data assets within DataHub.
-:::
+Asset Summaries are currently supported for:
+
+- **Logical Assets**: Domains, Data Products, Glossary Terms, and Glossary Term Groups - these help organize and group your physical data assets within DataHub
+- **Physical Assets**: Datasets - providing a comprehensive view of your actual data tables and collections
+  :::
 
 ## Why Use Asset Summaries?
 
@@ -30,7 +33,7 @@ Asset Summaries transform how your team discovers and navigates key organization
 - **Reduce Navigation Time**: Surface key details, documentation, and related assets without requiring users to click through multiple tabs
 - **Standardize Asset Presentation**: Ensure consistent, professional presentation of your most important organizational constructs
 
-Whether you're a domain owner wanting to highlight key data products, a data product manager showcasing important assets, or a data steward organizing glossary terms, Asset Summaries put the most relevant information front and center.
+Whether you're a domain owner wanting to highlight key data products, a data product manager showcasing important assets, a data steward organizing glossary terms, or a data owner presenting dataset details, Asset Summaries put the most relevant information front and center.
 
 ## What's Included
 
@@ -70,6 +73,8 @@ Each asset type includes relevant default modules:
 - **Data Products Module** (Domains only): Lists all data products contained within this domain
 - **Contents Module** (Glossary Term Groups only): Shows child glossary terms and term groups for easy hierarchy navigation
 - **Related Terms Module** (Glossary Terms only): Lists all terms that share relationships with the current term
+- **Lineage Module** (Datasets only): Provides a preview of the dataset's lineage graph, showing upstream and downstream dependencies
+- **Columns Module** (Datasets only): Displays the dataset's column schema in a table format, giving quick access to column details without navigating to the Schema tab
 
 #### Custom Modules
 
@@ -85,6 +90,25 @@ You can also add the same custom modules available on the home page:
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/summary/summary-modules.png"
        alt="Summary page module examples"/>
 </p>
+
+## Enabling Asset Summaries
+
+Asset Summaries are controlled by feature flags that need to be set on the GMS (Generalized Metadata Service) container:
+
+- **`ASSET_SUMMARY_PAGE_V1`**: Controls Asset Summaries for Domains, Data Products, Glossary Terms, and Glossary Term Groups
+- **`DATASET_SUMMARY_PAGE_V1`**: Controls Asset Summaries specifically for Datasets
+
+To enable Asset Summaries in your DataHub instance, set the appropriate environment variable(s) to `true` on the GMS container:
+
+```bash
+# For logical assets (Domains, Data Products, Glossary Terms, Glossary Term Groups)
+ASSET_SUMMARY_PAGE_V1=true
+
+# For physical assets (Datasets)
+DATASET_SUMMARY_PAGE_V1=true
+```
+
+You can enable one or both feature flags depending on which asset types you want to provide summary pages for.
 
 ## Customizing Asset Summaries
 
@@ -139,7 +163,7 @@ Customize the module section to highlight the most important information:
 </p>
 
 :::note Global Changes
-Changes you make to an asset's Summary page are **visible to all users** who view that asset. Your customizations become the default experience for everyone accessing that domain, data product, or glossary term.
+Changes you make to an asset's Summary page are **visible to all users** who view that asset. Your customizations become the default experience for everyone accessing that domain, data product, glossary term, or dataset.
 :::
 
 ## Permissions and Access Control
@@ -169,9 +193,11 @@ When customizing your Asset Summaries:
 
 Now that you understand Asset Summaries:
 
-1. **Start with high-traffic assets**: Begin by customizing the Summary pages for your most frequently accessed domains and data products
-2. **Gather feedback**: Ask users what information would be most helpful to see on Summary pages
-3. **Iterate based on usage**: Monitor how users interact with your customized summaries and adjust accordingly
-4. **Scale thoughtfully**: Apply learnings from your initial customizations to other assets in your organization
+1. **Enable the feature**: Set the appropriate feature flags (`ASSET_SUMMARY_PAGE_V1` and/or `DATASET_SUMMARY_PAGE_V1`) on your GMS container
+2. **Start with high-traffic assets**: Begin by customizing the Summary pages for your most frequently accessed domains, data products, and datasets
+3. **Leverage dataset-specific modules**: For datasets, take advantage of the Lineage and Columns modules to provide users with immediate visibility into data dependencies and schema
+4. **Gather feedback**: Ask users what information would be most helpful to see on Summary pages
+5. **Iterate based on usage**: Monitor how users interact with your customized summaries and adjust accordingly
+6. **Scale thoughtfully**: Apply learnings from your initial customizations to other assets in your organization
 
 Asset Summaries are designed to evolve with your organization's needs, providing the flexibility to create discovery experiences that truly serve your users while maintaining the structure that makes DataHub powerful.
