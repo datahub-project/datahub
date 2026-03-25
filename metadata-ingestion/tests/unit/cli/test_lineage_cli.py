@@ -1,3 +1,4 @@
+from typing import Literal, Optional
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
@@ -10,6 +11,26 @@ from datahub.cli.lineage_cli import (
     lineage,
 )
 from datahub.sdk.lineage_client import LineageResult
+
+_DEFAULT_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)"
+
+
+def _make_result(
+    urn: str = _DEFAULT_URN,
+    type: str = "DATASET",
+    hops: int = 1,
+    direction: Literal["upstream", "downstream"] = "upstream",
+    platform: Optional[str] = "snowflake",
+    name: Optional[str] = "my_table",
+) -> LineageResult:
+    return LineageResult(
+        urn=urn,
+        type=type,
+        hops=hops,
+        direction=direction,
+        platform=platform,
+        name=name,
+    )
 
 
 class TestNameFromUrn:
@@ -49,63 +70,33 @@ class TestPlatformFromUrn:
 
 
 class TestFormatTable:
-    def _make_result(self, **kwargs: object) -> LineageResult:
-        return LineageResult(
-            urn=str(
-                kwargs.get(
-                    "urn",
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
-                )
-            ),
-            type=str(kwargs.get("type", "DATASET")),
-            hops=int(kwargs.get("hops", 1)),
-            direction=kwargs.get("direction", "upstream"),  # type: ignore[arg-type]
-            platform=kwargs.get("platform", "snowflake"),  # type: ignore[arg-type]
-            name=kwargs.get("name", "my_table"),  # type: ignore[arg-type]
-        )
-
     def test_empty_results(self):
         assert "No upstream lineage found" in _format_table([], "upstream")
 
     def test_single_result(self):
-        result = self._make_result()
+        result = _make_result()
         output = _format_table([result], "upstream")
         assert "my_table" in output
         assert "snowflake" in output
         assert "DATASET" in output
 
     def test_sorts_by_hops(self):
-        r1 = self._make_result(hops=2, name="second")
-        r2 = self._make_result(hops=1, name="first")
+        r1 = _make_result(hops=2, name="second")
+        r2 = _make_result(hops=1, name="first")
         output = _format_table([r1, r2], "upstream")
         assert output.index("first") < output.index("second")
 
     def test_name_fallback_to_urn(self):
-        result = self._make_result(name="")
+        result = _make_result(name="")
         output = _format_table([result], "upstream")
         assert "db.table" in output
 
 
 class TestFormatJson:
-    def _make_result(self, **kwargs: object) -> LineageResult:
-        return LineageResult(
-            urn=str(
-                kwargs.get(
-                    "urn",
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)",
-                )
-            ),
-            type=str(kwargs.get("type", "DATASET")),
-            hops=int(kwargs.get("hops", 1)),
-            direction=kwargs.get("direction", "upstream"),  # type: ignore[arg-type]
-            platform=kwargs.get("platform", "snowflake"),  # type: ignore[arg-type]
-            name=kwargs.get("name", "my_table"),  # type: ignore[arg-type]
-        )
-
     def test_json_output(self):
         import json
 
-        result = self._make_result()
+        result = _make_result()
         output = json.loads(_format_json([result], "upstream", 3, 100))
         assert output["metadata"]["direction"] == "upstream"
         assert output["metadata"]["count"] == 1
@@ -116,7 +107,7 @@ class TestFormatJson:
     def test_json_capped_hint(self):
         import json
 
-        results = [self._make_result() for _ in range(5)]
+        results = [_make_result() for _ in range(5)]
         output = json.loads(_format_json(results, "downstream", 3, 5))
         assert output["metadata"]["capped"] is True
         assert "hint" in output["metadata"]
@@ -125,7 +116,7 @@ class TestFormatJson:
     def test_json_hops_hint(self):
         import json
 
-        result = self._make_result()
+        result = _make_result()
         output = json.loads(_format_json([result], "upstream", 1, 100))
         assert output["metadata"]["capped"] is False
         assert "hint" in output["metadata"]
@@ -134,14 +125,14 @@ class TestFormatJson:
     def test_name_fallback_in_json(self):
         import json
 
-        result = self._make_result(name="")
+        result = _make_result(name="")
         output = json.loads(_format_json([result], "upstream", 3, 100))
         assert output["results"][0]["name"] == "db.table"
 
     def test_platform_fallback_for_chart(self):
         import json
 
-        result = self._make_result(
+        result = _make_result(
             urn="urn:li:chart:(looker,elements.1)",
             type="CHART",
             platform=None,
