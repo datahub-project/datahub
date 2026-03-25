@@ -5,7 +5,6 @@ from typing import Optional, Union
 
 from confluent_kafka import KafkaError, Message
 
-from datahub.configuration.env_vars import get_sink_error_log_level
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -61,12 +60,6 @@ class _KafkaCallback:
             error_str = str(err)
             _log_enhanced_error(error_str)
 
-            logger.log(
-                get_sink_error_log_level(),
-                "[INGEST SINK ERROR] error=%s",
-                error_str,
-            )
-
             error_exception = Exception(error_str)
             self.reporter.report_failure(error_exception)
             self.write_callback.on_failure(
@@ -88,12 +81,6 @@ class _KafkaCallback:
         """
         error_str = str(err)
         _log_enhanced_error(error_str)
-
-        logger.log(
-            get_sink_error_log_level(),
-            "[INGEST SINK ERROR] error=%s",
-            error_str,
-        )
 
         self.reporter.report_failure(err)
         self.write_callback.on_failure(

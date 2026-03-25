@@ -2,10 +2,6 @@ import logging
 import os
 from typing import Union
 
-from datahub.configuration.env_vars import (
-    get_sink_error_log_level,
-    get_sink_warning_log_level,
-)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
@@ -41,11 +37,6 @@ class DataHubLiteSink(Sink[DataHubLiteSinkConfig, SinkReport]):
         record = record_envelope.record
         if not isinstance(record, (MetadataChangeEvent, MetadataChangeProposalWrapper)):
             self.report.report_warning(f"datahub-local does not support {type(record)}")
-            logger.log(
-                get_sink_warning_log_level(),
-                "[INGEST SINK WARNING] warning=datahub-local does not support %s",
-                type(record),
-            )
             return
 
         try:
@@ -53,12 +44,6 @@ class DataHubLiteSink(Sink[DataHubLiteSinkConfig, SinkReport]):
             self.report.report_record_written(record_envelope)
         except Exception as e:
             self.report.report_failure(f"{record_envelope.metadata}: {type(e)}: {e}")
-            logger.log(
-                get_sink_error_log_level(),
-                "[INGEST SINK ERROR] error=%s: %s",
-                type(e).__name__,
-                e,
-            )
             if write_callback:
                 write_callback.on_failure(record_envelope, e, {})
         else:
