@@ -1,25 +1,27 @@
-### Concept Mapping
+### Overview
 
-| Source Concept              | DataHub Concept                                           | Notes                                                                    |
-| --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `"grafana"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md) |                                                                          |
-| Grafana Folder              | [Container](../../metamodel/entities/container.md)        | Subtype `Folder`                                                         |
-| Grafana Dashboard           | [Container](../../metamodel/entities/container.md)        | Subtype `Dashboard`                                                      |
-| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md)                | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE) |
-| Grafana Data Source         | [Dataset](../../metamodel/entities/dataset.md)            | Created for each panel's data source                                     |
-| Dashboard Owner             | [Corp User](../../metamodel/entities/corpuser.md)         | Derived from dashboard UID and creator                                   |
-| Dashboard Tags              | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags                             |
+The `grafana` module ingests metadata from Grafana into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Compatibility
+#### Compatibility
 
-The connector supports extracting metadata from any Grafana instance accessible via API. For SQL-based data sources, column-level lineage can be extracted when the queries are parseable. The connector supports various panel types and their transformations, and can work with both standalone Grafana instances and those integrated with other platforms.
+Supports any Grafana instance accessible via API. Extracts column-level lineage from parseable SQL queries in data sources.
 
-For optimal lineage extraction from SQL-based data sources:
+For optimal SQL lineage extraction:
 
-- Database/schema information should be properly configured in the connection settings
-- The platform mapping (`connection_to_platform_map`) should be configured to match your data sources
+- Configure database/schema information in data source connection settings
+- Set `connection_to_platform_map` to match your data sources
 
-### Prerequisites:
+#### Extracted Metadata Scope
+
+The connector extracts metadata from Grafana APIs with support for:
+
+- Folder and dashboard container hierarchy
+- Panel and visualization entities (chart modeling)
+- Data source references for dataset linking
+- Dashboard ownership and tags
+- Optional table/column lineage from parseable SQL-based panels
+
+### Prerequisites
 
 The Grafana source supports two extraction modes based on your permission level:
 
@@ -71,40 +73,3 @@ source:
     service_account_token: "your_viewer_token"
     basic_mode: true # Enable basic mode for limited permissions
 ```
-
-#### Lineage Configuration
-
-The Grafana source can extract lineage information between charts and their data sources. You can control lineage extraction using these configuration options:
-
-```yaml
-source:
-  type: grafana
-  config:
-    url: "https://grafana.company.com"
-    service_account_token: "your_token"
-
-    # Lineage extraction (default: true)
-    include_lineage: true
-
-    # Column-level lineage from SQL queries (default: true)
-    # Only applicable when include_lineage is true
-    include_column_lineage: true
-
-    # Platform mappings for lineage extraction
-    connection_to_platform_map:
-      postgres_datasource_uid:
-        platform: postgres
-        platform_instance: my_postgres
-        env: PROD
-        database: analytics
-        database_schema: public
-```
-
-**Lineage Features:**
-
-- **Dataset-level lineage**: Links charts to their underlying data sources
-- **Column-level lineage**: Extracts field-to-field relationships from SQL queries
-- **Platform mapping**: Maps Grafana data sources to their actual platforms for accurate lineage
-- **SQL parsing**: Supports parsing of SQL queries for detailed lineage extraction
-
-**Performance Note:** Lineage extraction can be disabled (`include_lineage: false`) to improve ingestion performance when lineage information is not needed.

@@ -253,6 +253,7 @@ class DagsterEnvironment:
     is_branch_deployment: bool = False
     branch: Optional[str] = "prod"
     module: Optional[str] = None
+    location_name: Optional[str] = None
 
 
 def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment) -> str:
@@ -261,8 +262,8 @@ def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment)
     else:
         base_url = dagster_url
 
-    if dagster_environment.module:
-        base_url = f"{base_url}/locations/{dagster_environment.module}"
+    if dagster_environment.location_name:
+        base_url = f"{base_url}/locations/{dagster_environment.location_name}"
 
     return base_url
 
@@ -626,12 +627,14 @@ class DagsterGenerator:
         graph: DataHubGraph,
         datajob: DataJob,
         run_step_stats: RunStepKeyStatsSnapshot,
+        emit_template: bool = True,
     ) -> None:
         """
         Emit an op run
         :param graph: DataHubGraph
         :param datajob: DataJob - DataJob object
         :param run_step_stats: RunStepKeyStatsSnapshot - step(op) run stats
+        :param emit_template: Whether to emit the parent DataJob template from the process instance
         """
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
@@ -678,6 +681,7 @@ class DagsterGenerator:
             dpi.emit_process_start(
                 emitter=graph,
                 start_timestamp_millis=int(run_step_stats.start_time * 1000),
+                emit_template=emit_template,
             )
 
         if run_step_stats.end_time is not None:

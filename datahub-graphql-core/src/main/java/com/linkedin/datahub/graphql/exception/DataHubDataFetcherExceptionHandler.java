@@ -30,7 +30,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (illException != null) {
       log.error("Failed to execute", illException);
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
-      message = illException.getMessage();
+      message = extractErrorMessage(illException);
     }
 
     DataHubGraphQLException graphQLException =
@@ -38,7 +38,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (graphQLException != null) {
       log.error("Failed to execute", graphQLException);
       errorCode = graphQLException.errorCode();
-      message = graphQLException.getMessage();
+      message = extractErrorMessage(graphQLException);
     }
 
     ValidationException validationException =
@@ -46,15 +46,15 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (validationException != null) {
       log.error("Failed to execute", validationException);
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
-      message = validationException.getMessage();
+      message = extractErrorMessage(validationException);
     }
 
     IllegalStateException illegalStateException =
         findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
-    if (validationException == null && illegalStateException != null) {
+    if (message.equals(DEFAULT_ERROR_MESSAGE) && illegalStateException != null) {
       log.error("Failed to execute", illegalStateException);
       errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
-      message = illegalStateException.getMessage();
+      message = extractErrorMessage(illegalStateException);
     }
 
     RuntimeException runtimeException =
@@ -62,7 +62,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (message.equals(DEFAULT_ERROR_MESSAGE) && runtimeException != null) {
       log.error("Failed to execute", runtimeException);
       errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
-      message = runtimeException.getMessage();
+      message = extractErrorMessage(runtimeException);
     }
 
     if (illException == null
@@ -86,5 +86,48 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       }
     }
     return null;
+  }
+
+  /**
+   * Extracts a comprehensive error message including root cause information. Walks the exception
+   * chain to find the deepest cause with a meaningful message.
+   *
+   * @param exception The exception to extract messages from
+   * @return A message containing both the exception message and root cause messages
+   */
+  private String extractErrorMessage(Throwable exception) {
+    StringBuilder message = new StringBuilder();
+
+    // Start with the top-level message
+    String topLevelMessage = exception.getMessage();
+    if (topLevelMessage != null && !topLevelMessage.isEmpty()) {
+      message.append(topLevelMessage);
+    }
+
+    // Walk the exception chain to find root causes
+    Throwable cause = exception.getCause();
+    java.util.List<String> causeMessages = new java.util.ArrayList<>();
+
+    while (cause != null && cause != cause.getCause()) {
+      String causeMessage = cause.getMessage();
+      if (causeMessage != null
+          && !causeMessage.isEmpty()
+          && !causeMessage.equals(topLevelMessage)
+          && !causeMessages.contains(causeMessage)) {
+        causeMessages.add(causeMessage);
+      }
+      cause = cause.getCause();
+    }
+
+    // Append root cause messages
+    if (!causeMessages.isEmpty()) {
+      if (message.length() > 0) {
+        message.append(". ");
+      }
+      message.append("Root cause: ");
+      message.append(String.join(". ", causeMessages));
+    }
+
+    return message.length() > 0 ? message.toString() : DEFAULT_ERROR_MESSAGE;
   }
 }

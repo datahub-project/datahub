@@ -8,6 +8,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import cached_property
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pydantic
@@ -78,6 +79,7 @@ from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedList,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -146,6 +148,13 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
     query_dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD
 
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
+
 
 class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
@@ -169,6 +178,10 @@ class SnowflakeQueriesExtractorReport(Report):
     num_stream_queries_observed: int = 0
     num_create_temp_view_queries_observed: int = 0
     num_users: int = 0
+    num_queries_with_empty_column_name: int = 0
+    queries_with_empty_column_name: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
 
 
 @dataclass
@@ -279,8 +292,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def is_temp_table(self, name: str) -> bool:
         if any(
-            re.match(pattern, name, flags=re.IGNORECASE)
-            for pattern in self.config.temporary_tables_pattern
+            pattern.match(name)
+            for pattern in self.config._compiled_temporary_tables_pattern
         ):
             return True
 
@@ -531,7 +544,22 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         objects_modified = res["objects_modified"]
         object_modified_by_ddl = res["object_modified_by_ddl"]
 
-        if object_modified_by_ddl and not objects_modified:
+        if (
+            object_modified_by_ddl
+            and not isinstance(object_modified_by_ddl, dict)
+            and not objects_modified
+        ):
+            self.report.num_ddl_queries_dropped += 1
+            if direct_objects_accessed:
+                pass  # Fall through to normal query processing for usage tracking
+            else:
+                return None
+
+        if (
+            isinstance(object_modified_by_ddl, dict)
+            and object_modified_by_ddl
+            and not objects_modified
+        ):
             known_ddl_entry: Optional[Union[TableRename, TableSwap]] = None
             with self.structured_reporter.report_exc(
                 "Error fetching ddl lineage from Snowflake"
@@ -626,9 +654,28 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             columns = set()
             for modified_column in obj["columns"]:
-                columns.add(
-                    self.identifiers.snowflake_identifier(modified_column["columnName"])
-                )
+                column_name = modified_column["columnName"]
+                # An empty column name in the audit log would cause an error when creating column URNs.
+                # To avoid this and still extract lineage, the raw query text is parsed as a fallback.
+                if not column_name or not column_name.strip():
+                    query_id = res["query_id"]
+                    self.report.num_queries_with_empty_column_name += 1
+                    self.report.queries_with_empty_column_name.append(query_id)
+                    logger.info(f"Query {query_id} has empty column name in audit log.")
+
+                    return ObservedQuery(
+                        query=query_text,
+                        session_id=res["session_id"],
+                        timestamp=timestamp,
+                        user=user,
+                        default_db=res["default_db"],
+                        default_schema=res["default_schema"],
+                        query_hash=get_query_fingerprint(
+                            query_text, self.identifiers.platform, fast=True
+                        ),
+                        extra_info=extra_info,
+                    )
+                columns.add(self.identifiers.snowflake_identifier(column_name))
 
             upstreams.append(dataset)
             column_usage[dataset] = columns
@@ -702,14 +749,29 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         )
         return entry
 
+    @staticmethod
+    def _get_ddl_property(properties: dict, key: str) -> str:
+        """Extract a property value from object_modified_by_ddl properties,
+        handling both pre-2026_01 BCR ({"key": {"value": "..."}}) and
+        post-2026_01 BCR ({"key": "..."}) formats.
+
+        Callers must ensure properties[key] exists and is truthy before calling."""
+        val = properties[key]
+        if isinstance(val, dict):
+            return val["value"]
+        return val
+
     def parse_ddl_query(
         self,
         query: str,
         session_id: str,
         timestamp: datetime,
-        object_modified_by_ddl: dict,
+        object_modified_by_ddl: object,
         query_type: str,
     ) -> Optional[Union[TableRename, TableSwap]]:
+        if not isinstance(object_modified_by_ddl, dict):
+            self.report.num_ddl_queries_dropped += 1
+            return None
         if (
             object_modified_by_ddl["operationType"] == "ALTER"
             and query_type == "RENAME_TABLE"
@@ -723,7 +785,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             new_urn = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["objectName"]["value"]
+                    self._get_ddl_property(
+                        object_modified_by_ddl["properties"], "objectName"
+                    )
                 )
             )
             return TableRename(original_un, new_urn, query, session_id, timestamp)
@@ -738,7 +802,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             urn2 = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["swapTargetName"]["value"]
+                    self._get_ddl_property(
+                        object_modified_by_ddl["properties"], "swapTargetName"
+                    )
                 )
             )
 
@@ -782,7 +848,7 @@ class SnowflakeQueriesSource(Source):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
-        config = SnowflakeQueriesSourceConfig.parse_obj(config_dict)
+        config = SnowflakeQueriesSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -1153,6 +1219,6 @@ SNOWFLAKE_QUERY_TYPE_MAPPING = {
     "CREATE_VIEW": QueryType.CREATE_VIEW,
     "CREATE_TABLE_AS_SELECT": QueryType.CREATE_TABLE_AS_SELECT,
     "MERGE": QueryType.MERGE,
-    "COPY": QueryType.UNKNOWN,
+    "COPY": QueryType.INSERT,
     "TRUNCATE_TABLE": QueryType.UNKNOWN,
 }

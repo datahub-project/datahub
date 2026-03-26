@@ -87,7 +87,6 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
-from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -105,6 +104,7 @@ if TYPE_CHECKING:
         SchemaResolverReport,
     )
     from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+    from datahub.utilities.graphql_query_adapter import QueryProjector
 
 
 logger = logging.getLogger(__name__)
@@ -181,6 +181,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
+        self._query_projector: Optional["QueryProjector"] = None
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -291,7 +292,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        return DatahubRestSinkConfig(**self.config.dict(), **(extra_config or {}))
+        return DatahubRestSinkConfig(**self.config.model_dump(), **(extra_config or {}))
 
     @contextlib.contextmanager
     def make_rest_sink(
@@ -775,7 +776,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """
 
         if isinstance(config, (ConfigModel, BaseModel)):
-            blob = config.json()
+            blob = config.model_dump_json()
         else:
             blob = json.dumps(config)
 
@@ -1234,7 +1235,62 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         variables: Optional[Dict] = None,
         operation_name: Optional[str] = None,
         format_exception: bool = True,
+        strip_unsupported_fields: bool = False,
+        required_fields: Optional[List[str]] = None,
     ) -> Dict:
+        """Execute a GraphQL query against the DataHub server.
+
+        Args:
+            query: The GraphQL query string.
+            variables: Optional variables for the query.
+            operation_name: Optional GraphQL operation name.
+            format_exception: If True, format GraphQL errors into a readable message.
+            strip_unsupported_fields: Controls schema-compatibility projection.
+                When True, fields and types not present in the server's schema are
+                automatically removed so the query succeeds. Callers should treat
+                projected-away fields as absent in the response rather than assuming
+                they will always be returned. Recommended for agentic / exploratory
+                callers (MCP tools, CLI) that can tolerate missing fields.
+                When False (default), the query is sent as-is and the server will
+                return a GraphQL error if it references unknown fields. Use this
+                when the caller requires specific fields and needs a hard failure
+                if they are unavailable.
+            required_fields: Optional list of dot-separated field paths that must
+                survive projection. Only meaningful when strip_unsupported_fields
+                is True. If any required path would be removed, raises
+                RequiredFieldUnsupportedError instead of silently stripping.
+                Paths can be type-anchored (``Dataset.properties``) or
+                root-anchored (``searchAcrossEntities``). See
+                :class:`~datahub.utilities.graphql_query_adapter.RequiredFieldUnsupportedError`.
+        """
+        if strip_unsupported_fields:
+            try:
+                if self._query_projector is None:
+                    from datahub.utilities.graphql_query_adapter import QueryProjector
+
+                    self._query_projector = QueryProjector()
+                query, removed = self._query_projector.adapt_query(
+                    query, self, required_fields=required_fields
+                )
+                if removed:
+                    logger.info(f"Stripped unsupported fields from query: {removed}")
+            except Exception as e:
+                # Let RequiredFieldUnsupportedError propagate — the caller
+                # explicitly declared these fields as mandatory.
+                try:
+                    from datahub.utilities.graphql_query_adapter import (
+                        RequiredFieldUnsupportedError,
+                    )
+
+                    if isinstance(e, RequiredFieldUnsupportedError):
+                        raise
+                except ImportError:
+                    pass
+                logger.warning(
+                    f"Failed to adapt query for schema compatibility, "
+                    f"falling back to original query: {e}"
+                )
+
         url = f"{self._gms_server}/api/graphql"
 
         body: Dict = {
@@ -1556,45 +1612,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             report=report,
         )
 
-    def initialize_schema_resolver_from_datahub(
-        self,
-        platform: str,
-        platform_instance: Optional[str],
-        env: str,
-        batch_size: int = 100,
-        report: Optional["SchemaResolverReport"] = None,
-    ) -> "SchemaResolver":
-        logger.info("Initializing schema resolver")
-        schema_resolver = self._make_schema_resolver(
-            platform, platform_instance, env, include_graph=False, report=report
-        )
-
-        logger.info(f"Fetching schemas for platform {platform}, env {env}")
-        count = 0
-        with PerfTimer() as timer:
-            for urn, schema_info in self._bulk_fetch_schema_info_by_filter(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                batch_size=batch_size,
-            ):
-                try:
-                    schema_resolver.add_graphql_schema_metadata(urn, schema_info)
-                    count += 1
-                except Exception:
-                    logger.warning("Failed to add schema info", exc_info=True)
-
-                if count % 1000 == 0:
-                    logger.debug(
-                        f"Loaded {count} schema info in {timer.elapsed_seconds()} seconds"
-                    )
-            logger.info(
-                f"Finished loading total {count} schema info in {timer.elapsed_seconds()} seconds"
-            )
-
-        logger.info("Finished initializing schema resolver")
-        return schema_resolver
-
     def parse_sql_lineage(
         self,
         sql: str,
@@ -1711,28 +1728,44 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertion(
         self,
         urn: str,
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run a DataHub assertion on-demand.
+
+        Args:
+            urn: The URN of the assertion to run.
+            save_result: Whether to save the result to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertion's SQL fragment.
+            async_flag: Whether to run the assertion asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing the assertion result with type (SUCCESS/FAILURE/ERROR) and details.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
-            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertion(urn: $assertionUrn, saveResult: $saveResult, parameters: $parameters, async: $async) {
                     ... assertionResult
                 }
             }
         """ % (self._assertion_result_shared())
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrn": urn,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1744,17 +1777,29 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertions(
         self,
         urns: List[str],
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run multiple DataHub assertions on-demand.
+
+        Args:
+            urns: List of assertion URNs to run.
+            save_result: Whether to save the results to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertions(urns: $assertionUrns, saveResults: $saveResult, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1769,12 +1814,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrns": urns,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1788,17 +1837,31 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         urn: str,
         tag_urns: Optional[List[str]] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if tag_urns is None:
-            tag_urns = []
-        if parameters is None:
-            parameters = {}
+        """
+        Run all assertions (or tagged subset) for a data asset on-demand.
+
+        Args:
+            urn: The URN of the data asset (e.g., dataset) whose assertions to run.
+            tag_urns: Optional list of tag URNs to filter which assertions to run.
+                If not specified, all assertions for the asset will be run.
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+
+        Note:
+            This method does not support the save_result parameter. Results are always
+            saved to DataHub's backend (equivalent to save_result=True).
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertionsForAsset(urn: $assetUrn, tagUrns: $tagUrns, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1813,12 +1876,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assetUrn": urn,
-            "tagUrns": tag_urns,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if tag_urns is not None:
+            variables["tagUrns"] = tag_urns
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,

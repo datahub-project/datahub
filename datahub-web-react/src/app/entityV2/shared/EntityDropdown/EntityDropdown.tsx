@@ -1,10 +1,23 @@
 import { Menu } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
+import { FolderPlus } from '@phosphor-icons/react/dist/csr/FolderPlus';
+import { GitCommit } from '@phosphor-icons/react/dist/csr/GitCommit';
+import { Link } from '@phosphor-icons/react/dist/csr/Link';
+import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
+import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
+import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Share } from '@phosphor-icons/react/dist/csr/Share';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { message } from 'antd';
 import qs from 'query-string';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -73,6 +86,7 @@ interface Props {
 
 const EntityDropdown = (props: Props) => {
     const history = useHistory();
+    const theme = useTheme();
 
     const {
         urn,
@@ -108,6 +122,7 @@ const EntityDropdown = (props: Props) => {
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
@@ -163,7 +178,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '0',
             title: 'Copy Url',
-            icon: 'Link',
+            icon: Link,
             onClick: () => {
                 navigator.clipboard.writeText(pageUrl);
                 message.info('Copied URL!', 1.2);
@@ -200,7 +215,7 @@ const EntityDropdown = (props: Props) => {
                             style={{
                                 width: '16px',
                                 height: '16px',
-                                color: '#8088A3',
+                                color: theme.colors.icon,
                             }}
                         />
                     </div>
@@ -216,7 +231,7 @@ const EntityDropdown = (props: Props) => {
                             style={{
                                 fontFamily: 'Mulish',
                                 fontWeight: 600,
-                                color: '#374066',
+                                color: theme.colors.text,
                                 fontSize: '14px',
                             }}
                         >
@@ -240,7 +255,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '1-1',
             title: 'Add Note',
-            icon: 'MegaphoneSimple',
+            icon: MegaphoneSimple,
             onClick: () => setIsEntityAnnouncementModalVisible(true),
         });
     }
@@ -250,7 +265,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '2',
             title: 'Add Term',
-            icon: 'Plus',
+            icon: Plus,
             onClick: () => setIsCreateTermModalVisible(true),
             'data-testid': 'entity-menu-add-term-button',
         });
@@ -261,7 +276,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '3',
             title: 'Add Term Group',
-            icon: 'FolderPlus',
+            icon: FolderPlus,
             onClick: () => setIsCreateNodeModalVisible(true),
         });
     }
@@ -271,7 +286,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '4',
             title: 'Move',
-            icon: 'FolderOpen',
+            icon: FolderOpen,
             disabled: isMoveDisabled(entityType, entityData, me.platformPrivileges),
             onClick: () => setIsMoveModalVisible(true),
             'data-testid': 'entity-menu-move-button',
@@ -283,8 +298,20 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '9',
             title: 'Edit',
-            icon: 'Pencil',
+            icon: Pencil,
             onClick: onEdit,
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.CLONE)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '10',
+            title: 'Clone',
+            icon: Copy,
+            disabled: !entityData?.privileges?.canManageEntity,
+            onClick: () => setIsCloneEntityModalVisible(true),
+            'data-testid': 'entity-menu-clone-button',
         });
     }
 
@@ -293,7 +320,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '6',
             title: 'Raise Incident',
-            icon: 'Warning',
+            icon: Warning,
             onClick: () => setIsRaiseIncidentModalVisible(true),
         });
     }
@@ -308,7 +335,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: 'link',
             title: 'Link a Newer Version',
-            icon: 'Link',
+            icon: Link,
             onClick: () => setIsLinkAssetVersionModalVisible(true),
         });
     }
@@ -318,7 +345,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: 'unlink',
             title: 'Unlink from Previous Version',
-            icon: 'LinkBreak',
+            icon: LinkBreak,
             onClick: () => setIsUnlinkAssetVersionModalVisible(true),
         });
     }
@@ -328,7 +355,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: 'showVersions',
             title: 'Show Versions',
-            icon: 'GitCommit',
+            icon: GitCommit,
             onClick: () => {
                 analytics.event({
                     type: EventType.ShowAllVersionsEvent,
@@ -351,7 +378,7 @@ const EntityDropdown = (props: Props) => {
                 type: 'item' as const,
                 key: 'copy-link',
                 title: 'Copy Link',
-                icon: 'Link',
+                icon: Link,
                 onClick: () => {
                     const { origin } = window.location;
                     const copyUrl = `${origin}${resolveRuntimePath(entityRegistryV2.getEntityUrl(entityType, urn))}/`;
@@ -366,7 +393,7 @@ const EntityDropdown = (props: Props) => {
                 type: 'item' as const,
                 key: 'copy-urn',
                 title: 'Copy URN',
-                icon: 'Copy',
+                icon: Copy,
                 onClick: () => {
                     navigator.clipboard.writeText(urn);
                 },
@@ -380,7 +407,7 @@ const EntityDropdown = (props: Props) => {
                 type: 'item' as const,
                 key: 'copy-name',
                 title: 'Copy Name',
-                icon: 'Copy',
+                icon: Copy,
                 onClick: () => {
                     const qualifiedName = entityData?.properties?.qualifiedName;
                     if (qualifiedName) {
@@ -397,7 +424,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: 'email',
             title: 'Email',
-            icon: 'Envelope',
+            icon: Envelope,
             onClick: () => {
                 const displayName = entityData?.name || urn;
                 const displayType =
@@ -418,7 +445,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: '8',
             title: 'Share',
-            icon: 'Share',
+            icon: Share,
             children: shareChildren,
         });
     }
@@ -429,7 +456,7 @@ const EntityDropdown = (props: Props) => {
             type: 'item' as const,
             key: 'delete',
             title: 'Delete',
-            icon: 'Trash',
+            icon: Trash,
             danger: true,
             disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
             tooltip: shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
@@ -461,6 +488,15 @@ const EntityDropdown = (props: Props) => {
                     canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                />
+            )}
+            {isCloneEntityModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={entityType}
+                    canCreateGlossaryEntity
+                    onClose={() => setIsCloneEntityModalVisible(false)}
+                    refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
+                    isCloning
                 />
             )}
             {isDeprecationModalVisible && (

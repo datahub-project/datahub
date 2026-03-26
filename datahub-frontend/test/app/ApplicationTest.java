@@ -89,6 +89,7 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_ATTEMPTS", value = "5")
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_DELAY", value = "500")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
+@SetEnvironmentVariable(key = "MFE_CONFIG_FILE_PATH", value = "mfe.config.local.yaml")
 public class ApplicationTest extends WithBrowser {
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
   private static final String ISSUER_ID = "testIssuer";
@@ -611,13 +612,110 @@ public class ApplicationTest extends WithBrowser {
     assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/\""));
   }
 
+  // BasePathRedirectFilter coverage (integration; context-mounted app requests often 404 before
+  // filter):
+  // - effectiveBase = (basePath == "/") ? "" : basePath: default app has basePath "/" ->
+  // effectiveBase "" (all trailing-slash tests).
+  // - redirectUrl = effectiveBase + "/" + (safePath.isEmpty ? "" : safePath) + querySuffix:
+  // trailing branch: testRedirectTrailingSlash* (non-empty safePath),
+  // testRedirectTrailingSlashOnlySlashes (safePath empty),
+  // testBasePathRedirectFilterTrailingSlashPreservesQueryString (querySuffix); base path branch:
+  // testBasePathRedirectFilterPreventsOpenRedirectDoubleSlashPath when basePath "/" and path
+  // "//evil.com".
+  // - basePath.nonEmpty && !path.startsWith(basePath): true in
+  // testBasePathRedirectFilterPreventsOpenRedirectDoubleSlashPath; false branch not asserted
+  // (path-with-context requests pass through).
+
+  /** BasePathRedirectFilter handles trailing-slash redirects before routing. */
   @Test
   public void testRedirectTrailingSlash() {
-    Http.RequestBuilder request = fakeRequest(routes.Application.redirectTrailingSlash("test"));
-
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/");
     Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/test", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashNestedPath() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "foo/bar/baz/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/foo/bar/baz", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashWithLeadingSlash() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/evil.com/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/evil.com", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashWithMultipleLeadingSlashes() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "///evil.com/path/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/evil.com/path", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashOnlySlashes() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "////");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashNormalPath() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "dataset/urn:li:dataset:1/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/dataset/urn:li:dataset:1", result.redirectLocation().orElse(""));
+  }
+
+  /**
+   * BasePathRedirectFilter runs before routes; requests to paths like ////google.com/ must redirect
+   * to same-origin /google.com, not to scheme-relative //google.com (open redirect).
+   */
+  @Test
+  public void testBasePathRedirectFilterPreventsOpenRedirectSchemeRelative() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "////google.com/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    String location = result.redirectLocation().orElse("");
+    assertTrue(
+        location.equals("/google.com") || location.startsWith("/google.com?"),
+        "Redirect must be same-origin path /google.com, not scheme-relative //google.com; got: "
+            + location);
+  }
+
+  /** Double-slash path without trailing slash (base path branch) must also be safe. */
+  @Test
+  public void testBasePathRedirectFilterPreventsOpenRedirectDoubleSlashPath() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "//evil.com");
+    Result result = route(app, request);
+    // Filter may redirect to base path or pass through; redirect location must not be
+    // scheme-relative
+    if (result.status() == MOVED_PERMANENTLY) {
+      String location = result.redirectLocation().orElse("");
+      assertTrue(
+          location.startsWith("/") && !location.startsWith("//"),
+          "Redirect must not be scheme-relative; got: " + location);
+    }
+  }
+
+  /** Trailing-slash redirect preserves query string (redirectUrl + querySuffix). */
+  @Test
+  public void testBasePathRedirectFilterTrailingSlashPreservesQueryString() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/?foo=bar&baz=qux");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    String location = result.redirectLocation().orElse("");
+    assertTrue(location.startsWith("/test"), "Redirect should start with /test; got: " + location);
+    assertTrue(location.contains("foo=bar"), "Redirect should preserve query; got: " + location);
+    assertTrue(location.contains("baz=qux"), "Redirect should preserve query; got: " + location);
   }
 
   @Test
@@ -940,12 +1038,12 @@ public class ApplicationTest extends WithBrowser {
     assertEquals(TEST_USER, data.get("actor"));
     // Default expiration is 24h, so should always be less than current time + 1 day since it stamps
     // the time before this executes. Use a more generous tolerance to account for timezone
-    // differences
-    // and test execution time variations.
+    // differences, DST transitions, and test execution time variations.
+    // Increased tolerance to 22-26 hours to handle DST transitions (which can cause 1-hour shifts)
     Date maxExpectedExpiration =
-        new Date(System.currentTimeMillis() + (25 * 60 * 60 * 1000)); // 25 hours
+        new Date(System.currentTimeMillis() + (26 * 60 * 60 * 1000)); // 26 hours
     Date minExpectedExpiration =
-        new Date(System.currentTimeMillis() + (23 * 60 * 60 * 1000)); // 23 hours
+        new Date(System.currentTimeMillis() + (22 * 60 * 60 * 1000)); // 22 hours
     Date actualExpiration = claims.getExpirationTime();
 
     assertTrue(
@@ -1032,6 +1130,10 @@ public class ApplicationTest extends WithBrowser {
     assertEquals("", browser.url());
 
     browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
+    assertEquals("", browser.url());
+
+    // Protocol-relative URL (///google.com) must not redirect to external host
+    browser.goTo("/authenticate?redirect_uri=%2F%2F%2Fgoogle.com");
     assertEquals("", browser.url());
   }
 

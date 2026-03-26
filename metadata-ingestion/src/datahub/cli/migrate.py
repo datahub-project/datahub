@@ -146,6 +146,10 @@ def dataplatform2instance_func(
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, force={force}, dry-run={dry_run}"
     )
+    click.echo(
+        "This command will migrate DATASETS and CONTAINERS only. "
+        "Other entity types (charts, dashboards, datajobs) are not supported."
+    )
     run_id: str = f"migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
@@ -155,7 +159,9 @@ def dataplatform2instance_func(
     urns_to_migrate: List[str] = []
 
     # we first calculate all the urns we will be migrating
-    for src_entity_urn in graph.get_urns_by_filter(platform=platform, env=env):
+    for src_entity_urn in graph.get_urns_by_filter(
+        platform=platform, env=env, entity_types=["dataset"]
+    ):
         key = dataset_urn_to_key(src_entity_urn)
         assert key
         # Does this urn already have a platform instance associated with it?
@@ -318,13 +324,13 @@ def migrate_containers(
         try:
             newKey: Union[SchemaKey, DatabaseKey, ProjectIdKey, BigQueryDatasetKey]
             if subType == "Schema":
-                newKey = SchemaKey.parse_obj(customProperties)
+                newKey = SchemaKey.model_validate(customProperties)
             elif subType == "Database":
-                newKey = DatabaseKey.parse_obj(customProperties)
+                newKey = DatabaseKey.model_validate(customProperties)
             elif subType == "Project":
-                newKey = ProjectIdKey.parse_obj(customProperties)
+                newKey = ProjectIdKey.model_validate(customProperties)
             elif subType == "Dataset":
-                newKey = BigQueryDatasetKey.parse_obj(customProperties)
+                newKey = BigQueryDatasetKey.model_validate(customProperties)
             else:
                 log.warning(f"Invalid subtype {subType}. Skipping")
                 continue
@@ -356,7 +362,7 @@ def migrate_containers(
             if mcp.aspectName == "containerProperties":
                 assert isinstance(mcp.aspect, ContainerPropertiesClass)
                 containerProperties: ContainerPropertiesClass = mcp.aspect
-                containerProperties.customProperties = newKey.dict(
+                containerProperties.customProperties = newKey.model_dump(
                     by_alias=True, exclude_none=True
                 )
                 mcp.aspect = containerProperties

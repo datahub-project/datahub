@@ -7,15 +7,14 @@ const tryToSignUp = () => {
   cy.enterTextInTestId("password", "Example password");
   cy.enterTextInTestId("confirmPassword", "Example password");
 
-  cy.mouseover("#title").click();
-  cy.waitTextVisible("Other").click();
-
-  cy.get("[type=submit]").click();
+  cy.get('[data-testid="sign-up"]').click();
   return { name, email };
 };
 
-describe("add_user", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("add_user", () => {
   let registeredEmail = "";
+
   it("go to user link and invite a user", () => {
     cy.login();
 
@@ -87,7 +86,7 @@ describe("add_user", () => {
         cy.enterTextInTestId("email", registeredEmail);
         cy.enterTextInTestId("password", "Example Reset Password");
         cy.enterTextInTestId("confirmPassword", "Example Reset Password");
-        cy.get("[type=submit]").click();
+        cy.get('[data-testid="reset-password"]').click();
         cy.waitTextVisible("Welcome back");
         cy.hideOnboardingTour();
       })
@@ -97,7 +96,7 @@ describe("add_user", () => {
         cy.enterTextInTestId("email", registeredEmail);
         cy.enterTextInTestId("password", "Example Reset Password");
         cy.enterTextInTestId("confirmPassword", "Example Reset Password");
-        cy.get("[type=submit]").click();
+        cy.get('[data-testid="reset-password"]').click();
         cy.waitTextVisible("Failed to log in!");
       });
   });

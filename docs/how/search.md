@@ -10,7 +10,7 @@ The **search bar** is an important mechanism for discovering data assets in Data
 <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true" />
 </p>
 
-**Advanced queries** and the **filter sidebar** helps fine tuning queries. For programmatic users Datahub provides a **GraphQL API** as well.
+**Advanced queries** and the **filter sidebar** helps fine tuning queries. For programmatic users DataHub provides a **GraphQL API** as well.
 
 ## Search Setup, Prerequisites, and Permissions
 
@@ -166,10 +166,12 @@ If you want to:
   - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
   - Note that it does not check whether the field is zero. It just checks for whether the metadata was emitted or not.
 
-- Find the number of upstreams or downstreams a dataset has.
+- Find the number of upstreams via `upstreamCountFeature` field or downstreams via `downstreamCountFeature` field. Only 1 hop lineage is considered.
 
-  - `/q upstreamCountFeature:>2`
-  - `/q downstreamCountFeature:<3`
+  - `/q upstreamCountFeature:>2` -> Greater than 2 upstreams at 1 hop
+  - `/q downstreamCountFeature:<3` -> Less than 3 downstreams at 1 hop
+  - `/q upstreamCountFeature:<=10` -> Less than or equal to 10 upstreams at 1 hop
+  - `/q upstreamCountFeature:[5 TO *]` -> To find out where at 1 hop an asset has Greater than or equal to 5 upstream lineage
   - The advantage of `upstreamCountFeature` over `hasUpstreams` is that it considers whether the upstreams and downstreams are valid URNs.
   - The disadvantage of `upstreamCountFeature` over `hasUpstreams` is that these are updated once a day and are not real-time like `hasUpstreams`.
   - The reason `upstreamCountFeature` is useful is that after lineage is emitted once it will probably not change drastically for most of the tables. So this information will be almost up-to-date for all tables with a lag of around 24 hours.
@@ -644,11 +646,11 @@ fieldConfigurations:
 
 **How are the results ordered?**
 
-The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elasticsearch.
+The order of the search results is based on the weight what DataHub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elasticsearch.
 
 **Where to find more information?**
 
-The sample queries here are non exhaustive. [The link here](https://demo.datahub.com/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
+The sample queries here are non exhaustive. [The link here](https://demo.datahub.com/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside DataHub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
 `curl http://localhost:9200/_cat/indices` returns all the ES indices in the ElasticSearch container.
 

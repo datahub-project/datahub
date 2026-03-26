@@ -1,9 +1,12 @@
+### Overview
+
+The `snowflake` module ingests metadata from Snowflake into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
-In order to execute this source, your Snowflake user will need to have specific privileges granted to it for reading metadata
-from your warehouse.
+Requires specific privileges to read metadata from your Snowflake warehouse.
 
-A Snowflake system admin can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
+Execute the following commands as `ACCOUNTADMIN` or a user with `MANAGE GRANTS` privilege to create a DataHub-specific role:
 
 ```sql
 create or replace role datahub_role;
@@ -25,8 +28,9 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
+-- Note: Semantic views are covered by the above view grants
 
-// Grant monitor privileges for dynamic tables (Enterprise Edition feature)
+-- Grant monitor privileges for dynamic tables
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
@@ -46,6 +50,10 @@ grant role datahub_role to user datahub_user;
 
 // Optional - required if extracting lineage, usage or tags (without lineage)
 grant imported privileges on database snowflake to role datahub_role;
+
+// Optional - required if extracting Streamlit Apps
+grant usage on all streamlits in database "<your-database>" to role datahub_role;
+grant usage on future streamlits in database "<your-database>" to role datahub_role;
 ```
 
 The details of each granted privilege can be viewed in the [Snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summary of each privilege and why it is required for this connector:
@@ -62,10 +70,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
 
 - `select` on `streams` is required for stream definitions to be available. This does not allow selecting the data (not required) unless the underlying dataset has select access as well.
-
-```sql
-grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
-```
+- `usage` on `streamlit` is required to show streamlits in a database. See the schema-level `usage` example above.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 
@@ -75,13 +80,35 @@ If you plan to enable extraction of table lineage via the `include_table_lineage
 grant imported privileges on database snowflake to role datahub_role;
 ```
 
-### Authentication
+Note that `imported privileges` grants access to all schemas and views in the shared `SNOWFLAKE` database, primarily:
+
+- `SNOWFLAKE.ACCOUNT_USAGE.*` (all views: `QUERY_HISTORY`, `ACCESS_HISTORY`, `USERS`, etc.)
+- `SNOWFLAKE.ORGANIZATION_USAGE.*` (requires separate enablement by Snowflake support at the organization level)
+
+The `SNOWFLAKE` database is a shared database owned by Snowflake. Unlike regular databases where you can grant granular `SELECT` privileges on individual tables, shared databases require granting `IMPORTED PRIVILEGES` which provides all-or-nothing access to all objects in the database.
+
+#### Which ACCOUNT_USAGE Tables Does DataHub Access?
+
+When you grant `IMPORTED PRIVILEGES`, DataHub will specifically access the following `ACCOUNT_USAGE` tables:
+
+| Table            | Purpose                                                      | Required For                                                      |
+| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage | `include_table_lineage`, `include_usage_stats`, `include_queries` |
+| `ACCESS_HISTORY` | Table/view lineage and access patterns                       | `include_table_lineage`, `include_usage_stats`                    |
+| `USERS`          | User email mapping for corp user entities                    | `include_usage_stats` (for user attribution)                      |
+| `TAG_REFERENCES` | Tag metadata extraction                                      | `extract_tags`                                                    |
+| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views           | Always (when views exist)                                         |
+| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)     | `include_table_lineage`                                           |
+
+If you cannot grant `IMPORTED PRIVILEGES` due to security policies, the related features (lineage, usage, tags) will not work, and you'll see permission errors in the ingestion logs.
+
+#### Authentication
 
 Authentication is most simply done via a Snowflake user and password.
 
 Alternatively, other authentication methods are supported via the `authentication_type` config option.
 
-#### Key Pair Authentication
+##### Key Pair Authentication
 
 To set up Key Pair authentication, follow the three steps in [this guide](https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-authentication):
 
@@ -99,7 +126,7 @@ private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key
 private_key_password: <Password for your private key>
 ```
 
-#### Okta OAuth
+##### Okta OAuth
 
 To set up Okta OAuth authentication, roughly follow the four steps in [this guide](https://docs.snowflake.com/en/user-guide/oauth-okta).
 
@@ -135,57 +162,3 @@ The steps slightly differ based on which you decide to use.
 - When running ingestion, provide the required `oauth_config` fields,
   including `client_id` and `client_secret`, plus your Okta user's `Username` and `Password`
   - Note: the `username` and `password` config options are not nested under `oauth_config`
-
-### Snowflake Shares
-
-If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/data-sharing-provider) to share data across different Snowflake accounts, and you have set up DataHub recipes for ingesting metadata from all these accounts, you may end up having multiple similar dataset entities corresponding to virtual versions of the same table in different Snowflake accounts. The DataHub Snowflake connector can automatically link such tables together through Siblings and Lineage relationships if the user provides information necessary to establish the relationship using the `shares` configuration in the recipe.
-
-#### Example
-
-- Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it.
-- Now, `X` is shared with Snowflake account `account2` (ingested as platform_instance `instance2`). A database `db1_from_X` is created from inbound share `X` in `account2`. In this case, all tables and views included in share `X` will also be present in `instance2.db1_from_X`.
-- This can be represented in `shares` configuration section as
-  ```yaml
-  shares:
-    X: # name of the share
-      database: db1
-      platform_instance: instance1
-      consumers: # list of all databases created from share X
-        - database: db1_from_X
-          platform_instance: instance2
-  ```
-- If share `X` is shared with more Snowflake accounts and a database is created from share `X` in those accounts, then additional entries need to be added to the `consumers` list for share `X`, one per Snowflake account. The same `shares` config can then be copied across recipes for all accounts.
-
-### Lineage and Usage
-
-DataHub supports two strategies for extracting lineage and usage information from Snowflake:
-
-#### New Strategy (Default - `use_queries_v2: true`)
-
-The default and recommended approach uses an optimized query extraction method that:
-
-- **Better Performance**: Fetches query logs in a single optimized query instead of multiple separate queries
-- **Enhanced Features**:
-  - Query entities generation (`include_queries`)
-  - Query popularity statistics (`include_query_usage_statistics`)
-  - User filtering with patterns (`pushdown_deny_usernames`, `pushdown_allow_usernames`)
-  - Database pattern pushdown for performance (`push_down_database_pattern_access_history`)
-  - Query deduplication strategies (`query_dedup_strategy`)
-
-#### Legacy Strategy (`use_queries_v2: false`)
-
-The older approach that will be deprecated in future versions:
-
-- Uses separate extractors for lineage and usage
-- Less performant due to multiple query executions
-- Limited feature support compared to the new strategy
-
-Both strategies access the same Snowflake system tables (`account_usage.query_history`, `account_usage.access_history`), but the new strategy provides significant performance improvements and additional functionality.
-
-### Caveats
-
-- Some of the features are only available in the Snowflake Enterprise Edition. This includes dynamic tables, advanced lineage features, and tags. This doc has notes mentioning where this applies.
-- Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
-- The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
-- If there is any [ongoing Snowflake incident](https://status.snowflake.com/), we will not be able to get the metadata until that incident is resolved.
-- Lineage extraction, when got directly from Snowflake access history, has some limitations, as documented [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes), [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-column-lineage), and [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-object-modified-by-ddl-column).

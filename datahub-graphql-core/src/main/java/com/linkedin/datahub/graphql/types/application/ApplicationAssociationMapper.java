@@ -6,6 +6,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Application;
 import com.linkedin.datahub.graphql.generated.ApplicationAssociation;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -25,6 +27,13 @@ public class ApplicationAssociationMapper {
     return INSTANCE.apply(context, applications, entityUrn);
   }
 
+  public static List<ApplicationAssociation> mapList(
+      @Nullable final QueryContext context,
+      @Nonnull final com.linkedin.application.Applications applications,
+      @Nonnull final String entityUrn) {
+    return INSTANCE.applyList(context, applications, entityUrn);
+  }
+
   public ApplicationAssociation apply(
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.application.Applications applications,
@@ -42,5 +51,27 @@ public class ApplicationAssociationMapper {
       return association;
     }
     return null;
+  }
+
+  public List<ApplicationAssociation> applyList(
+      @Nullable final QueryContext context,
+      @Nonnull final com.linkedin.application.Applications applications,
+      @Nonnull final String entityUrn) {
+    return applications.getApplications().stream()
+        .filter(
+            applicationUrn ->
+                context == null || canView(context.getOperationContext(), applicationUrn))
+        .map(
+            applicationUrn -> {
+              ApplicationAssociation association = new ApplicationAssociation();
+              association.setApplication(
+                  Application.builder()
+                      .setType(EntityType.APPLICATION)
+                      .setUrn(applicationUrn.toString())
+                      .build());
+              association.setAssociatedUrn(entityUrn);
+              return association;
+            })
+        .collect(Collectors.toList());
   }
 }

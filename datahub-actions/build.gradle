@@ -13,10 +13,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-plugins {
-  id 'scala'
-  id 'org.gradle.playframework'
-}
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
@@ -28,7 +24,7 @@ ext {
   docker_registry = 'acryldata'
   docker_repo = 'datahub-actions'
   docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
-  
+
   python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
 }
 
@@ -104,10 +100,13 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
 task testFull(type: Exec, dependsOn: installDevTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   outputs.dir("${venv_name}")
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
-          "pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors --junit-xml=junit.full.xml"
+          "pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors"
 }
 
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
@@ -144,10 +143,20 @@ docker {
   additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   defaultVariant = "slim"
-  variants = [
-    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]],
-    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]]
+
+  // Base variants (Ubuntu-based)
+  def baseVariants = [
+    "full": [suffix: "", target: "final-full", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "false"]],
+    "slim": [suffix: "-slim", target: "final-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]],
+    "locked": [suffix: "-locked", target: "final-locked", args: [APP_ENV: "locked", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]]
   ]
+
+  variants = baseVariants
+
+  // Set build args for non-bake builds based on dockerTarget property
+  def targetVariant = docker_target ?: defaultVariant.get()
+  def variantArgs = variants.get()[targetVariant]?.args ?: variants.get()[defaultVariant.get()].args
+  buildArgs(variantArgs)
 }
 
 build.dependsOn install

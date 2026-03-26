@@ -1,11 +1,11 @@
-import { AVAILABLE_ICONS } from '@components';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { ButtonVariantValues } from '@components/components/Button/types';
-import { MATERIAL_UI_ICONS, PHOSPHOR_ICONS } from '@components/components/Icon/constants';
+import { MATERIAL_UI_ICONS } from '@components/components/Icon/constants';
 import { SizeValues } from '@components/theme/config';
 
 import { Button, buttonDefaults } from '.';
@@ -66,11 +66,10 @@ const meta = {
         icon: {
             description: 'The icon to display in the Button.',
             type: 'string',
-            options: AVAILABLE_ICONS,
-            mapping: Object.fromEntries([
-                ...MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material', size: '2xl' }]),
-                ...PHOSPHOR_ICONS.map((icon) => [icon, { icon, source: 'phosphor', size: '2xl' }]),
-            ]),
+            options: MATERIAL_UI_ICONS,
+            mapping: Object.fromEntries(
+                MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material', size: '2xl' }]),
+            ),
             table: {
                 defaultValue: { summary: 'undefined' },
             },
@@ -107,10 +106,10 @@ const meta = {
                 type: 'boolean',
             },
         },
-        isDisabled: {
+        disabled: {
             description: 'Whether the Button is disabled.',
             table: {
-                defaultValue: { summary: buttonDefaults?.isDisabled?.toString() },
+                defaultValue: { summary: 'false' },
             },
             control: {
                 type: 'boolean',
@@ -144,7 +143,7 @@ const meta = {
         iconPosition: buttonDefaults.iconPosition,
         isCircle: buttonDefaults.isCircle,
         isLoading: buttonDefaults.isLoading,
-        isDisabled: buttonDefaults.isDisabled,
+        disabled: false,
         isActive: buttonDefaults.isActive,
         onClick: () => console.log('Button clicked'),
     },
@@ -168,7 +167,7 @@ export const states = () => (
         <Button>Default</Button>
         <Button isLoading>Loading State</Button>
         <Button isActive>Active/Focus State</Button>
-        <Button isDisabled>Disabled State</Button>
+        <Button disabled>Disabled State</Button>
     </GridList>
 );
 
@@ -194,8 +193,8 @@ export const sizes = () => (
 
 export const withIcon = () => (
     <GridList>
-        <Button icon={{ icon: 'Add', source: 'material' }}>Icon Left</Button>
-        <Button icon={{ icon: 'Add', source: 'material' }} iconPosition="right">
+        <Button icon={{ icon: Plus }}>Icon Left</Button>
+        <Button icon={{ icon: Plus }} iconPosition="right">
             Icon Right
         </Button>
     </GridList>
@@ -203,8 +202,8 @@ export const withIcon = () => (
 
 export const circleShape = () => (
     <GridList>
-        <Button icon={{ icon: 'Add', source: 'material' }} size="sm" isCircle />
-        <Button icon={{ icon: 'Add', source: 'material' }} isCircle />
-        <Button icon={{ icon: 'Add', source: 'material' }} size="lg" isCircle />
+        <Button icon={{ icon: Plus }} size="sm" isCircle />
+        <Button icon={{ icon: Plus }} isCircle />
+        <Button icon={{ icon: Plus }} size="lg" isCircle />
     </GridList>
 );

@@ -1,15 +1,10 @@
-import { Icon, Tooltip } from '@components';
-import { Typography } from 'antd';
+import { Icon, Text, Tooltip } from '@components';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
 import styled from 'styled-components';
 
 import { DataHubViewType } from '@types';
-
-const StyledText = styled(Typography.Text)<{ color }>`
-    && {
-        color: ${(props) => props.color};
-    }
-`;
 
 type Props = {
     type: DataHubViewType;
@@ -34,11 +29,11 @@ export const ViewTypeLabel = ({ type, color, onClick }: Props) => {
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions
         <Tooltip title={isPersonal ? 'Only visible to you' : 'Visible to everyone'}>
             <ViewNameContainer onClick={onClick}>
-                {!isPersonal && <Icon source="phosphor" icon="Globe" size="md" />}
-                {isPersonal && <Icon source="phosphor" icon="Lock" size="md" />}
-                <StyledText color={color} type="secondary">
+                {!isPersonal && <Icon icon={Globe} size="md" />}
+                {isPersonal && <Icon icon={Lock} size="md" />}
+                <Text type="span" color="gray" style={{ color }}>
                     {!isPersonal ? 'Public' : 'Private'}
-                </StyledText>
+                </Text>
             </ViewNameContainer>
         </Tooltip>
     );

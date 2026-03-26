@@ -33,6 +33,11 @@ record SqlAssertionInfo {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]
     }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "dataset" ]
+    }
     entity: Urn
 
     /**

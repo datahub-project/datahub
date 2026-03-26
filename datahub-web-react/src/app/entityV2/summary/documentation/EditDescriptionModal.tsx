@@ -58,6 +58,7 @@ export default function EditDescriptionModal({
             onCancel={closeModal}
             width="80vw"
             style={{ maxWidth: '1200px' }}
+            maskClosable={false}
             buttons={[
                 {
                     text: 'Cancel',
@@ -89,8 +90,10 @@ export default function EditDescriptionModal({
                 onChange={(description) => setUpdatedDescription(description)}
                 toolbarStyles={toolbarStyles}
                 dataTestId="description-editor"
-                uploadFile={uploadFile}
-                {...uploadFileAnalyticsCallbacks}
+                uploadFileProps={{
+                    onFileUpload: uploadFile,
+                    ...uploadFileAnalyticsCallbacks,
+                }}
             />
         </Modal>
     );

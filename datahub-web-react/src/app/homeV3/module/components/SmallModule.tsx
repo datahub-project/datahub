@@ -1,5 +1,7 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Icon } from '@components';
 import { useDraggable } from '@dnd-kit/core';
+import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -68,17 +70,10 @@ export default function SmallModule({
     });
 
     return (
-        <StyledModuleContainer ref={setNodeRef} {...attributes} data-testId={dataTestId}>
+        <StyledModuleContainer ref={setNodeRef} {...attributes} data-testid={dataTestId}>
             <ContainerWithHover>
                 {isTemplateEditable && (
-                    <DragIcon
-                        {...listeners}
-                        size="lg"
-                        color="gray"
-                        icon="DotsSixVertical"
-                        source="phosphor"
-                        isDragging={isDragging}
-                    />
+                    <DragIcon {...listeners} size="lg" color="gray" icon={DotsSixVertical} isDragging={isDragging} />
                 )}
                 <Content $clickable={!!onClick} onClick={onClick}>
                     {children}

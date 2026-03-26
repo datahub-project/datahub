@@ -9,7 +9,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import pydantic
 import requests
-from pydantic import Field, root_validator, validator
+from pydantic import Field, field_validator, model_validator
 from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
@@ -115,16 +115,16 @@ class MetabaseConfig(
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator(skip_on_failure=True)
-    def default_display_uri_to_connect_uri(cls, values):
-        base = values.get("display_uri")
-        if base is None:
-            values["display_uri"] = values.get("connect_uri")
-        return values
+    @model_validator(mode="after")
+    def default_display_uri_to_connect_uri(self) -> "MetabaseConfig":
+        if self.display_uri is None:
+            self.display_uri = self.connect_uri
+        return self
 
 
 @dataclass
@@ -139,46 +139,13 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class MetabaseSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
-    on PostgreSQL and H2 database.
+    Source that extracts dashboards, charts, and collections from Metabase via REST API.
 
-    ### Collection
-
-    [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to
-    retrieve the available collections.
-
-    [/api/collection/<COLLECTION_ID>/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems) endpoint is used to retrieve a given collection and list their dashboards.
-
-     ### Dashboard
-
-    [/api/dashboard/<DASHBOARD_ID>](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to retrieve a given Dashboard and grab its information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the dashboard in Metabase
-    - Associated charts
-
-    ### Chart
-
-    [/api/card](https://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
-    retrieve the following information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the chart in Metabase
-    - Datasource and lineage
-
-    The following properties for a chart are ingested in DataHub.
-
-    | Name          | Description                                     |
-    | ------------- | ----------------------------------------------- |
-    | `Dimensions`  | Column names                                    |
-    | `Filters`     | Any filters applied to the chart                |
-    | `Metrics`     | All columns that are being used for aggregation |
-
-
+    Implementation notes:
+    - Uses Metabase API for metadata extraction
+    - Parses native SQL queries for lineage extraction
+    - Maps Metabase database engines to DataHub platforms via engine_platform_map
+    - Only tested with PostgreSQL and H2; other databases may work but are not validated
     """
 
     config: MetabaseConfig
@@ -443,7 +410,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
-            card_response = self.session.get(card_url)
+            # Use legacy-mbql=true to get MBQL 4 format for compatibility.
+            # Metabase 0.57+ returns MBQL 5 by default which has a different structure.
+            card_response = self.session.get(card_url, params={"legacy-mbql": "true"})
             card_response.raise_for_status()
             return card_response.json()
         except HTTPError as http_error:

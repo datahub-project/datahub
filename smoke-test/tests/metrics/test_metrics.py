@@ -9,6 +9,7 @@ This test verifies that:
 
 import logging
 
+import pytest
 import requests
 
 from tests.utils import get_gms_url
@@ -16,6 +17,7 @@ from tests.utils import get_gms_url
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.read_only
 def test_datahub_request_count_metric_present():
     """Test that the new datahub_request_count metric is present in Prometheus output."""
     gms_url = get_gms_url()

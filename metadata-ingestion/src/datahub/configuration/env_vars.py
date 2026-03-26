@@ -34,6 +34,16 @@ def get_gms_token() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_TOKEN")
 
 
+def get_username() -> Optional[str]:
+    """Username for generating access tokens."""
+    return os.getenv("DATAHUB_USERNAME")
+
+
+def get_password() -> Optional[str]:
+    """Password for generating access tokens."""
+    return os.getenv("DATAHUB_PASSWORD")
+
+
 def get_system_client_id() -> Optional[str]:
     """System client ID for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_ID")
@@ -62,6 +72,14 @@ def get_gms_base_path() -> str:
 def get_rest_emitter_default_retry_max_times() -> str:
     """Max retry attempts for failed requests."""
     return os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
+
+
+def get_rest_emitter_429_retry_multiplier() -> int:
+    """Multiplier for 429 retry backoff.
+
+    Number of retries will effectively be this value * get_rest_emitter_default_retry_max_times().
+    """
+    return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
 
 
 def get_rest_emitter_batch_max_payload_bytes() -> int:
@@ -127,6 +145,21 @@ def get_sentry_environment() -> str:
 
 
 # ============================================================================
+# Report Configuration
+# ============================================================================
+
+
+def get_report_failure_sample_size() -> int:
+    """Maximum number of failure entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "10"))
+
+
+def get_report_warning_sample_size() -> int:
+    """Maximum number of warning entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+# ============================================================================
 # Logging & Debug Configuration
 # ============================================================================
 
@@ -151,6 +184,16 @@ def get_debug() -> bool:
     return os.getenv("DATAHUB_DEBUG", "").lower() == "true"
 
 
+def get_disable_secret_masking() -> bool:
+    """
+    Disable secret masking for debugging purposes.
+
+    WARNING: Only use this in development/debugging scenarios.
+    Disabling secret masking will expose sensitive information in logs.
+    """
+    return os.getenv("DATAHUB_DISABLE_SECRET_MASKING", "").lower() in ("true", "1")
+
+
 # ============================================================================
 # Data Processing Configuration
 # ============================================================================
@@ -159,6 +202,16 @@ def get_debug() -> bool:
 def get_sql_agg_query_log() -> str:
     """SQL aggregator query logging level."""
     return os.getenv("DATAHUB_SQL_AGG_QUERY_LOG", "DISABLED")
+
+
+def get_sql_agg_skip_joins() -> bool:
+    """Skip join processing in SQL aggregator (default: False)."""
+    return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
+
+
+def get_sql_parse_cache_size() -> int:
+    """SQL parse result cache size (number of entries)."""
+    return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
 
 
 def get_dataset_urn_to_lower() -> str:
@@ -179,6 +232,14 @@ def get_kafka_schema_registry_url() -> Optional[str]:
 def get_spark_version() -> Optional[str]:
     """Spark version (for S3 source)."""
     return os.getenv("SPARK_VERSION")
+
+
+def get_vertexai_disable_parallelism() -> bool:
+    """Disable parallel resource fetching in Vertex AI connector."""
+    return os.getenv("DATAHUB_VERTEXAI_DISABLE_PARALLELISM", "").lower() in (
+        "1",
+        "true",
+    )
 
 
 def get_bigquery_schema_parallelism() -> int:
@@ -329,3 +390,26 @@ def get_update_entity_registry() -> str:
 def get_ci() -> Optional[str]:
     """Indicates running in CI environment."""
     return os.getenv("CI")
+
+
+def is_ci() -> bool:
+    """Check if running in a CI environment.
+
+    Returns True if running in a CI environment.
+
+    Checks multiple indicators:
+    - CI environment variable (set by most CI systems like GitHub Actions, GitLab CI, Travis CI, CircleCI, etc.)
+    - GITHUB_ACTIONS (GitHub Actions specific, always set even on custom runners)
+
+    This handles various CI value formats (true, 1, yes) and provides fallback
+    detection for GitHub Actions workflows using custom runners that might not set
+    the standard CI variable.
+    """
+    # Check standard CI variable (set by most CI systems)
+    ci_value = os.getenv("CI", "").lower()
+    if ci_value in ("true", "1", "yes"):
+        return True
+
+    # Fallback: GitHub Actions always sets GITHUB_ACTIONS=true
+    # This handles Depot runners and other custom GitHub Actions runners
+    return os.getenv("GITHUB_ACTIONS") == "true"

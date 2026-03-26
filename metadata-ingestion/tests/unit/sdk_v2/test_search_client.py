@@ -7,15 +7,12 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from datahub.configuration.pydantic_migration_helpers import (
-    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-)
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
     generate_filter,
 )
-from datahub.metadata.urns import DataPlatformUrn, QueryUrn, Urn
+from datahub.metadata.urns import DataPlatformUrn, DocumentUrn, QueryUrn, Urn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters, compute_entity_types
 from datahub.sdk.search_filters import (
@@ -312,37 +309,28 @@ def test_filter_discriminator() -> None:
     )
 
 
-@pytest.mark.skipif(
-    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
-)
 def test_tagged_union_error_messages() -> None:
-    # With pydantic v1, we'd get 10+ validation errors and it'd be hard to
-    # understand what went wrong. With v2, we get a single simple error message.
+    # With pydantic v2, we get validation errors for each union member
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*entity_type\.entity_type.*Input should be a valid list",
+            r"validation error.*entity_type.*Input should be a valid list",
             re.DOTALL,
         ),
     ):
         load_filters({"entity_type": 6})
 
-    # Even when within an "and" clause, we get a single error message.
+    # Without discriminators, we get verbose union errors for unknown fields
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*Input tag 'unknown_field' found using .+ does not match any of the expected tags:.+union_tag_invalid",
+            r"validation error.*unknown_field.*Extra inputs are not permitted",
             re.DOTALL,
         ),
     ):
         load_filters({"and": [{"unknown_field": 6}]})
 
 
-@pytest.mark.skipif(
-    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
-)
 def test_filter_before_validators() -> None:
     # Test that we can load a filter from a string.
     # Sometimes we get filters encoded as JSON, and we want to handle those gracefully.
@@ -355,7 +343,7 @@ def test_filter_before_validators() -> None:
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.+Unable to extract tag using discriminator", re.DOTALL
+            r"validation error.*Input should be a valid dictionary", re.DOTALL
         ),
     ):
         load_filters("this is invalid json but should not raise a json error")
@@ -379,7 +367,7 @@ def test_filter_before_validators() -> None:
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*container\.entity_type.*Extra inputs are not permitted.*",
+            r"validation error.*Extra inputs are not permitted.*",
             re.DOTALL,
         ),
     ):
@@ -785,3 +773,40 @@ def test_get_urns_with_skip_cache() -> None:
                 "includeSoftDeleted": None,
             },
         )
+
+
+def test_get_document_urns() -> None:
+    """Test searching for Document entities."""
+    graph = MockDataHubGraph()
+
+    with unittest.mock.patch.object(graph, "execute_graphql") as mock_execute_graphql:
+        result_urns = ["urn:li:document:tutorial-1", "urn:li:document:faq-2"]
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": urn}} for urn in result_urns],
+            }
+        }
+
+        client = DataHubClient(graph=graph)
+        urns = client.search.get_urns(
+            query="getting started",
+            filter=F.entity_type("document"),
+        )
+        urns_list = list(urns)
+
+        # Verify we get DocumentUrn instances back
+        assert len(urns_list) == 2
+        assert all(isinstance(urn, DocumentUrn) for urn in urns_list)
+        assert str(urns_list[0]) == "urn:li:document:tutorial-1"
+        assert str(urns_list[1]) == "urn:li:document:faq-2"
+
+        # Verify the GraphQL call used correct entity type
+        assert mock_execute_graphql.call_count == 1
+        call_vars = mock_execute_graphql.call_args.kwargs.get(
+            "variables"
+        ) or mock_execute_graphql.call_args[1].get("variables")
+        if call_vars is None:
+            call_vars = mock_execute_graphql.call_args[0][1]
+        assert call_vars["types"] == ["DOCUMENT"]
+        assert call_vars["query"] == "getting started"

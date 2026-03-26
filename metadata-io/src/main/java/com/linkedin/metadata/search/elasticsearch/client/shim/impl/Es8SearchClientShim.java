@@ -31,6 +31,7 @@ import co.elastic.clients.elasticsearch.core.OpenPointInTimeResponse;
 import co.elastic.clients.elasticsearch.core.ReindexResponse;
 import co.elastic.clients.elasticsearch.core.UpdateByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
 import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateAction;
@@ -194,13 +195,13 @@ import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.Index;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.BulkByScrollTask;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
@@ -266,7 +267,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           // SSL configuration
           if (config.isUseSSL()) {
             try {
-              SSLContext sslContext = javax.net.ssl.SSLContext.getDefault();
+              SSLContext sslContext =
+                  config.getSSLContext() != null
+                      ? config.getSSLContext() // custom certs
+                      : SSLContexts.createDefault(); // fallback to JVM default
               httpAsyncClientBuilder
                   .setSSLContext(sslContext)
                   .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
@@ -313,7 +317,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
     builder.setRequestConfigCallback(
         requestConfigBuilder ->
-            requestConfigBuilder.setConnectionRequestTimeout(config.getConnectionRequestTimeout()));
+            requestConfigBuilder
+                .setConnectionRequestTimeout(config.getConnectionRequestTimeout())
+                .setSocketTimeout(config.getSocketTimeout()));
 
     return builder;
   }
@@ -324,15 +330,24 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
    */
   private NHttpClientConnectionManager createConnectionManager(ShimConfiguration config)
       throws IOReactorException {
-    SSLContext sslContext = SSLContexts.createDefault();
+    SSLContext sslContext =
+        config.getSSLContext() != null
+            ? config.getSSLContext() // custom certs
+            : SSLContexts.createDefault(); // fallback to JVM default
     javax.net.ssl.HostnameVerifier hostnameVerifier =
         new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
-    log.info("Creating IOReactorConfig with threadCount: {}", config.getThreadCount());
+    log.info(
+        "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
+        config.getThreadCount(),
+        config.getSocketTimeout());
     IOReactorConfig ioReactorConfig =
-        IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build();
+        IOReactorConfig.custom()
+            .setIoThreadCount(config.getThreadCount())
+            .setSoTimeout(config.getSocketTimeout())
+            .build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
     IOReactorExceptionHandler ioReactorExceptionHandler =
         new IOReactorExceptionHandler() {
@@ -1253,17 +1268,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private Action convertAliasAction(IndicesAliasesRequest.AliasActions aliasAction) {
-    try {
-      String jsonString =
-          aliasAction.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).toString();
-      return Action.of(
-          q ->
-              q.withJson(
-                  jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                  jacksonJsonpMapper));
-    } catch (IOException ie) {
-      throw new RuntimeException(ie);
-    }
+    String jsonString = Strings.toString(MediaTypeRegistry.JSON, aliasAction, true, true);
+    return Action.of(
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 
   @Nonnull
@@ -1448,6 +1458,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     org.elasticsearch.client.Request esRequest =
         new org.elasticsearch.client.Request(request.getMethod(), request.getEndpoint());
     esRequest.addParameters(request.getParameters());
+    esRequest.setEntity(request.getEntity());
     org.elasticsearch.client.Response esResponse =
         ((RestClientTransport) client._transport()).restClient().performRequest(esRequest);
 
@@ -1561,6 +1572,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .conflicts(Conflicts.Proceed)
             .slices(slices)
             .timeout(time)
+            .waitForCompletion(false)
             .build();
     ReindexResponse esReindexResponse = withTransportOptions(options).reindex(esReindexRequest);
 
@@ -1641,6 +1653,21 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
       Script script = convertScript(update.script());
+
+      @SuppressWarnings("rawtypes")
+      UpdateAction.Builder actionBuilder =
+          new UpdateAction.Builder()
+              .detectNoop(update.detectNoop())
+              .docAsUpsert(update.docAsUpsert())
+              .script(script)
+              .upsert(update.upsert());
+
+      // Only set doc if it exists (not present for script-only updates)
+      if (update.doc() != null) {
+        actionBuilder.doc(
+            XContentHelper.convertToMap(update.doc().source(), true, XContentType.JSON).v2());
+      }
+
       operation =
           new BulkOperation(
               new UpdateOperation.Builder<>()
@@ -1651,17 +1678,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .requireAlias(writeRequest.isRequireAlias())
                   .index(writeRequest.index())
                   .routing(writeRequest.routing())
-                  .action(
-                      new UpdateAction.Builder<>()
-                          .doc(
-                              XContentHelper.convertToMap(
-                                      update.doc().source(), true, XContentType.JSON)
-                                  .v2())
-                          .detectNoop(update.detectNoop())
-                          .docAsUpsert(update.docAsUpsert())
-                          .script(script)
-                          .upsert(update.upsert())
-                          .build())
+                  .action(actionBuilder.build())
                   .build());
     } else if (writeRequest instanceof DeleteRequest) {
       DeleteRequest deleteRequest = (DeleteRequest) writeRequest;
@@ -1676,19 +1693,34 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .build());
     } else { // writeRequest instanceof IndexRequest
       IndexRequest indexRequest = (IndexRequest) writeRequest;
-      operation =
-          new BulkOperation(
-              new IndexOperation.Builder<>()
-                  .ifSeqNo(writeRequest.ifSeqNo())
-                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                  .requireAlias(writeRequest.isRequireAlias())
-                  .index(writeRequest.index())
-                  .routing(writeRequest.routing())
-                  .id(indexRequest.id())
-                  .document(
-                      XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON)
-                          .v2())
-                  .build());
+      Map<String, Object> document =
+          XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON).v2();
+      if (indexRequest.opType() == DocWriteRequest.OpType.CREATE) {
+        // Data streams only allow create (append-only); use CreateOperation
+        operation =
+            new BulkOperation(
+                new CreateOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
+      } else {
+        operation =
+            new BulkOperation(
+                new IndexOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
+      }
     }
     processor.add(operation);
   }
@@ -1750,7 +1782,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private FieldSuggester convertSuggestion(SuggestionBuilder<?> suggestionBuilder) {
-    String jsonString = suggestionBuilder.toString();
+    String jsonString = Strings.toString(MediaTypeRegistry.JSON, suggestionBuilder, true, true);
     return FieldSuggester.of(
         q ->
             q.withJson(

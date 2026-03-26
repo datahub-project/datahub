@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.cassandra.CassandraContainer;
@@ -33,9 +34,18 @@ public class CassandraTestUtils {
   public static CassandraContainer setupContainer() {
     final DockerImageName imageName = DockerImageName.parse(IMAGE_NAME);
 
+    // Read heap size from system property, default to 128m for backwards compatibility
+    // System property is set by build.gradle based on GRADLE_MEMORY_PROFILE
+    String cassandraHeap = System.getProperty("testcontainers.cassandra.heap", "128m");
     CassandraContainer container =
         new CassandraContainer(imageName)
-            .withEnv("JVM_OPTS", "-Xms128M -Xmx128M -Djava.net.preferIPv4Stack=true")
+            .withEnv(
+                "JVM_OPTS",
+                "-Xms"
+                    + cassandraHeap
+                    + " -Xmx"
+                    + cassandraHeap
+                    + " -Djava.net.preferIPv4Stack=true")
             .withStartupTimeout(Duration.ofMinutes(2))
             .withReuse(true);
 
@@ -183,6 +193,23 @@ public class CassandraTestUtils {
                   String.format("SELECT * FROM %s.%s;", KEYSPACE_NAME, CassandraAspect.TABLE_NAME))
               .all();
       assertEquals(rs.size(), 0);
+    }
+  }
+
+  /**
+   * Close a CqlSession to prevent Netty thread leaks (e.g., "s15-admin-0" threads). Each CqlSession
+   * creates Netty event loop threads that must be closed.
+   *
+   * @param session The CqlSession instance to close, or null if none
+   */
+  public static void closeSession(@Nullable CqlSession session) {
+    if (session != null && !session.isClosed()) {
+      try {
+        session.close();
+      } catch (Exception e) {
+        // Log but don't fail - this is called from test cleanup
+        System.err.println("Failed to close CqlSession: " + e.getMessage());
+      }
     }
   }
 }

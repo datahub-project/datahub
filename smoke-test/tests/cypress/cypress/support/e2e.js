@@ -20,6 +20,10 @@ import "./commands";
 import "@testing-library/cypress/add-commands";
 import "cypress-real-events/support";
 
+// Attaches screenshots of failed tests to the mochawesome JSON via addContext,
+// so they get embedded when the unified HTML report is generated post-matrix.
+import "cypress-mochawesome-reporter/register";
+
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
 
@@ -38,4 +42,25 @@ beforeEach(function () {
       this.currentTest.title = `${testPath}`;
     }
   }
+
+  const HOME_PAGE_REDESIGN_KEY = "showHomePageRedesign";
+
+  cy.on("window:before:load", (win) => {
+    win.localStorage.setItem(HOME_PAGE_REDESIGN_KEY, "false");
+  });
+
+  // Skip the introduce page for all tests
+  cy.skipIntroducePage();
+});
+
+afterEach(() => {
+  cy.window().then((win) => {
+    const browserMemoryUsage = {
+      usedJSHeapSize: win.performance?.memory?.usedJSHeapSize,
+      totalJSHeapSize: win.performance?.memory?.totalJSHeapSize,
+      jsHeapSizeLimit: win.performance?.memory?.jsHeapSizeLimit,
+    };
+
+    cy.task("logMemoryUsage", browserMemoryUsage);
+  });
 });

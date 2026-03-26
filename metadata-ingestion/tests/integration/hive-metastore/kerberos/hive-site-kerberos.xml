@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Hive configuration with Kerberos authentication enabled.
+  This file overrides the default hive-site.xml when using docker-compose.kerberos.yml
+-->
+<configuration>
+    <!-- Metastore connection -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:postgresql://hive-metastore-postgresql/metastore</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>org.postgresql.Driver</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>hive</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>hive</value>
+    </property>
+    <property>
+        <name>datanucleus.autoCreateSchema</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>hive.metastore.uris</name>
+        <value>thrift://hive-metastore:9083</value>
+    </property>
+
+    <!-- Hive Metastore Kerberos Authentication -->
+    <property>
+        <name>hive.metastore.sasl.enabled</name>
+        <value>true</value>
+        <description>Enable SASL authentication for Hive Metastore</description>
+    </property>
+    <property>
+        <name>hive.metastore.kerberos.keytab.file</name>
+        <value>/keytabs/hive.keytab</value>
+    </property>
+    <property>
+        <name>hive.metastore.kerberos.principal</name>
+        <!-- Use FQDN to match Python/MIT Kerberos canonicalization -->
+        <value>hive/hive-metastore.test.local@TEST.LOCAL</value>
+    </property>
+
+    <!-- HiveServer2 Authentication - use NONE for easy test data loading -->
+    <!-- In customer's environment, HiveServer2 is NOT available anyway. -->
+    <!-- The important Kerberos testing is on HMS (port 9083). -->
+    <property>
+        <name>hive.server2.authentication</name>
+        <value>NONE</value>
+    </property>
+    <!-- Kerberos settings commented out since we're using NONE auth for HS2 -->
+    <!--
+    <property>
+        <name>hive.server2.authentication.kerberos.keytab</name>
+        <value>/keytabs/hive.keytab</value>
+    </property>
+    <property>
+        <name>hive.server2.authentication.kerberos.principal</name>
+        <value>hive/_HOST@TEST.LOCAL</value>
+    </property>
+    -->
+
+    <!-- General settings -->
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>/user/hive/warehouse</value>
+    </property>
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+</configuration>

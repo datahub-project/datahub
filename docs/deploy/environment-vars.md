@@ -31,8 +31,8 @@ Reference Links:
 | `METADATA_SERVICE_AUTH_ENABLED`                     | `true`     | Enable if you want all requests to the Metadata Service to be authenticated | GMS, MAE Consumer, MCE Consumer, PE Consumer, Frontend          |
 | `DATAHUB_SYSTEM_CLIENT_SECRET`                      |            | System client secret used by AuthServiceController                          | GMS, MAE Consumer, MCE Consumer, PE Consumer, Actions, Frontend |
 | `METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED` | `false`    | Normally failures are only warnings, enable this to throw them              | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 |            | Key used to validate incoming tokens and sign new tokens                    | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SALT`                        |            | Salt used for token validation and signing                                  | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 | `Empty`    | Key used to validate incoming tokens and sign new tokens                    | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SALT`                        | `Empty`    | Salt used for token validation and signing                                  | GMS                                                             |
 | `DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM`           | `HS256`    | Signing algorithm for DataHub tokens                                        | GMS                                                             |
 | `SESSION_TOKEN_DURATION_MS`                         | `86400000` | The max duration of a UI session in milliseconds (defaults to 1 day)        | GMS                                                             |
 | `GUEST_AUTHENTICATION_USER`                         | `guest`    | Guest user for unauthenticated access                                       | GMS                                                             |
@@ -107,6 +107,35 @@ Reference Links:
 | `ENTITY_SERVICE_IMPL`                      | `ebean` | Entity service implementation | GMS, MCE Consumer |
 | `ENTITY_SERVICE_ENABLE_RETENTION`          | `true`  | Enable entity retention       | GMS, MCE Consumer |
 | `ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP` | `false` | Apply retention on bootstrap  | GMS, MCE Consumer |
+
+### Aspect Size Validation
+
+Protects against aspects exceeding deserialization limits. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
+
+| Environment Variable                                              | Default  | Description                                                                                                                   | Components |
+| ----------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`  | Enable pre-patch validation - checks existing aspects from DB before patch application                                        | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES`        | `null`   | Optional warning threshold in bytes. Logs warning when exceeded but allows write. Should be lower than maxSizeBytes.          | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 16000000 | Max size in bytes for pre-patch aspects (16MB, matches `INGESTION_MAX_SERIALIZED_STRING_LENGTH`). Skips write when exceeded.  | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `IGNORE` | Remediation for oversized pre-patch aspects: `IGNORE` (skip write), `DELETE` (skip write and delete aspect)                   | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`  | Enable post-patch validation - checks aspects after patch application, before DB write                                        | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARN_SIZE_BYTES`       | `null`   | Optional warning threshold in bytes. Logs warning when exceeded but allows write. Should be lower than maxSizeBytes.          | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 16000000 | Max size in bytes for post-patch aspects (16MB, matches `INGESTION_MAX_SERIALIZED_STRING_LENGTH`). Skips write when exceeded. | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION` | `IGNORE` | Remediation for oversized post-patch aspects: `IGNORE` (skip write), `DELETE` (skip write and delete aspect)                  | GMS        |
+
+**Validation points:**
+
+- **Pre-patch:** Validates existing aspect from database before applying patches. Zero overhead (uses JSON already fetched from DB).
+- **Post-patch:** Validates aspect after patch application, before DB write. Zero overhead (uses JSON already created for DB write).
+
+**Remediation strategies:**
+
+- `IGNORE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic. Pre-patch: existing oversized aspect remains in database.
+- `DELETE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic, and deletes the aspect.
+
+**When to enable:** Use temporarily when investigating GMS crashes, debugging memory pressure, or cleaning up pre-existing oversized data. Prefer fixing the root cause at ingestion time.
+
+See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size-validation) for configuration examples and troubleshooting.
 
 ## Graph Service Configuration
 
@@ -218,6 +247,8 @@ Reference Links:
 | `EBEAN_USE_IAM_AUTH`              | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP) | GMS, MCE Consumer, System Update |
 | `EBEAN_CLOUD_PROVIDER`            | `auto`                                | Cloud provider (auto/aws/gcp/traditional)       | GMS, MCE Consumer, System Update |
 | `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
+| `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
+| `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
 
 #### Cross-Cloud IAM Authentication
 
@@ -258,33 +289,72 @@ export EBEAN_CLOUD_PROVIDER=auto
 
 **Required Cloud-Specific Environment Variables:**
 
-| Cloud Provider | Required Variables               | Description                              |
-| -------------- | -------------------------------- | ---------------------------------------- |
-| **AWS**        | `AWS_REGION`                     | AWS region for RDS instances             |
-| **AWS**        | `AWS_ACCESS_KEY_ID`              | AWS access key (or use instance profile) |
-| **AWS**        | `AWS_SECRET_ACCESS_KEY`          | AWS secret key (or use instance profile) |
-| **GCP**        | `INSTANCE_CONNECTION_NAME`       | Cloud SQL instance connection name       |
-| **GCP**        | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON file        |
+| Cloud Provider | Required Variables               | Description                                             |
+| -------------- | -------------------------------- | ------------------------------------------------------- |
+| **AWS**        | `AWS_REGION`                     | AWS region for RDS instances                            |
+| **AWS**        | `AWS_ACCESS_KEY_ID`              | AWS access key (or use instance profile)                |
+| **AWS**        | `AWS_SECRET_ACCESS_KEY`          | AWS secret key (or use instance profile)                |
+| **AWS**        | `AWS_SESSION_TOKEN`              | AWS session token (optional, for temporary credentials) |
+| **GCP**        | `INSTANCE_CONNECTION_NAME`       | Cloud SQL instance connection name                      |
+| **GCP**        | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON file                       |
+| **GCP**        | `GCP_PROJECT`                    | GCP project ID (optional, for auto-detection)           |
 
 ### SQL Setup Configuration
 
 The SQL Setup system provides automated database initialization and user management capabilities. These environment variables control the behavior of the `SqlSetup` upgrade step.
 
-| Environment Variable         | Default       | Description                                                                 | Components    |
-| ---------------------------- | ------------- | --------------------------------------------------------------------------- | ------------- |
-| `CREATE_TABLES`              | `true`        | Whether to create database tables                                           | System Update |
-| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                            | System Update |
-| `CREATE_USER`                | `false`       | Whether to create a new database user                                       | System Update |
-| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true) | System Update |
-| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required if CREATE_USER=true) | System Update |
-| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                          | System Update |
-| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                   | System Update |
-| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                   | System Update |
-| `IAM_ROLE`                   | _none_        | IAM role for new user creation (required if IAM auth enabled)               | System Update |
+| Environment Variable         | Default       | Description                                                                  | Components    |
+| ---------------------------- | ------------- | ---------------------------------------------------------------------------- | ------------- |
+| `DATAHUB_SQL_SETUP_ENABLED`  | `false`       | Enable SQL setup functionality (alternative to passing SqlSetup upgrade arg) | System Update |
+| `CREATE_TABLES`              | `true`        | Whether to create database tables                                            | System Update |
+| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                             | System Update |
+| `CREATE_USER`                | `false`       | Whether to create a new database user                                        | System Update |
+| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true)  | System Update |
+| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required for traditional auth) | System Update |
+| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                           | System Update |
+| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                    | System Update |
+| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                    | System Update |
 
-**Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` and `CREATE_USER_PASSWORD` environment variables. The system will not fall back to Ebean connection credentials for security reasons.
+**Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` environment variable. The system will not fall back to Ebean connection credentials for security reasons.
 
-**IAM Authentication:** When using IAM authentication (by setting `IAM_ROLE`), the system will only use `CREATE_USER_USERNAME` and ignore `CREATE_USER_PASSWORD` for security reasons. Traditional username/password authentication and IAM authentication are mutually exclusive.
+### Kubernetes scale-down (system update)
+
+When the system-update job runs in a Kubernetes cluster, it can optionally prepare for blocking upgrades (e.g. reindex) by scaling down selected deployments and updating environment variables on others. Scale-down is conditional: it runs only when a blocking upgrade (such as BuildIndices when reindex is needed) requires it.
+
+- **Scale-to-zero:** Deployments matched by label selectors (e.g. MAE/MCE consumers) are scaled to zero; their KEDA ScaledObjects are removed. Deployments that do not exist are skipped.
+- **Deployment env updates:** A JSON array configures which deployments (by label selector) receive which env vars when scaling down (e.g. GMS: disable embedded consumers). Previous env values are stored and restored on failure or when retries are exceeded.
+- **Parallel execution:** Rollout and scale-down operations run in parallel across deployments to reduce total wait time.
+- **Retries and restore:** State (replica counts and env per deployment) is stored in a ConfigMap. If the step runs again (e.g. job restart), the attempt count increments. When attempts exceed `maxRetries`, the step restores all saved state, deletes the ConfigMap, and fails so the next run is not blocked.
+
+These variables are typically set by the Helm chart for the system-update job; they are only used when the job runs in-cluster.
+
+| Environment Variable                            | Default | Description                                                                                             | Components    |
+| ----------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------- | ------------- |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED`         | `true`  | Master switch for K8 scale-down (must be true for scale-down to run)                                    | System Update |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED`    | `false` | Use the Java-based scale-down step (opt-in; set true to enable)                                         | System Update |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_MAX_RETRIES`     | `3`     | Max scale-down attempts across job restarts before restoring state, deleting the ConfigMap, failing     | System Update |
+| `DATAHUB_UPGRADE_K8_SCALE_DOWN_LABEL_SELECTORS` | (Helm)  | Comma-separated label selectors for deployments to scale to zero (e.g. MAE, MCE)                        | System Update |
+| `DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES`     | (Helm)  | JSON array of `{"labelSelector":"...","env":{...}}` for deployments that get env vars when scaling down | System Update |
+| `DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS`   | `1800`  | Max seconds to wait per deployment rollout (scale or env change); default 30 min                        | System Update |
+| `DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS`       | `5`     | Seconds between polls when waiting for rollout                                                          | System Update |
+| `NAMESPACE`                                     | (pod)   | Kubernetes namespace (set via downward API in Helm)                                                     | System Update |
+| `HELM_RELEASE_NAME`                             | (Helm)  | Helm release name (used for state ConfigMap name)                                                       | System Update |
+
+### Kubernetes Operations API (OpenAPI)
+
+When GMS runs inside a Kubernetes cluster, the OpenAPI service can expose a Kubernetes operations controller that allows listing and modifying cluster resources (deployments, pods, config maps, cron jobs) in the current namespace. This is disabled when not in a K8 environment or when the flag below is false.
+
+| Environment Variable                | Default | Description                                                                                           | Components |
+| ----------------------------------- | ------- | ----------------------------------------------------------------------------------------------------- | ---------- |
+| `KUBERNETES_OPERATIONS_API_ENABLED` | `true`  | Enable the OpenAPI Kubernetes operations controller. Set to `false` to disable the K8 operations API. | GMS        |
+
+**IAM Authentication:** IAM authentication is automatically detected when `CREATE_USER=true` and `CREATE_USER_PASSWORD` is not set or is empty. The system will create users with IAM authentication for supported cloud databases:
+
+- **AWS RDS MySQL**: Creates user with AWSAuthenticationPlugin
+- **AWS RDS PostgreSQL**: Creates user and grants `rds_iam` role
+- **GCP Cloud SQL**: IAM authentication is managed through Cloud SQL IAM database users
+
+When using traditional username/password authentication, both `CREATE_USER_USERNAME` and `CREATE_USER_PASSWORD` must be set.
 
 ### Cassandra Configuration
 
@@ -300,21 +370,22 @@ The SQL Setup system provides automated database initialization and user managem
 
 ### Elasticsearch Configuration
 
-| Environment Variable                       | Default         | Description                                  | Components                                     |
-| ------------------------------------------ | --------------- | -------------------------------------------- | ---------------------------------------------- |
-| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `AWS_REGION`                               | `null`          | AWS region                                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch) | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                            | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes           | GMS, MAE Consumer, MCE Consumer, System Update |
+| Environment Variable                       | Default         | Description                                                  | Components                                     |
+| ------------------------------------------ | --------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout (in milliseconds)                 | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_SOCKET_TIMEOUT`             | `30000`         | Socket timeout for established connections (in milliseconds) | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                                       | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                                       | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `AWS_REGION`                               | `null`          | AWS region                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch)                 | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                                            | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes                           | GMS, MAE Consumer, MCE Consumer, System Update |
 
 #### SSL Context Configuration
 
@@ -358,27 +429,30 @@ The SQL Setup system provides automated database initialization and user managem
 
 #### Build Indices Configuration
 
-| Environment Variable                                       | Default                          | Description                                                 | Components    |
-| ---------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------- | ------------- |
-| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`     | `false`                          | Allow document count mismatch when clone indices is enabled | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                | `true`                           | Clone indices                                               | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`               | `DAYS`                           | Retention unit for indices                                  | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`              | `60`                             | Retention value for indices                                 | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED` | `true`                           | Enable reindex optimization                                 | System Update |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                       | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount       | System Update |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                     | `1`                              | Number of replicas per index                                | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                  | `3`                              | Index builder number of retries                             | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`     | `3`                              | Index builder refresh interval                              | System Update |
-| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                         | `1000`                           | Maximum array length in search documents                    | System Update |
-| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                          | `1000`                           | Maximum object keys in search documents                     | System Update |
-| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                         | `4096`                           | Maximum value length in search documents                    | System Update |
-| `ELASTICSEARCH_MAIN_TOKENIZER`                             | `null`                           | Main tokenizer                                              | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`             | `false`                          | Enable mappings reindex                                     | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`             | `false`                          | Enable settings reindex                                     | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`            | `0`                              | Maximum reindex hours (0 = no timeout)                      | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`           | `null`                           | Index builder settings overrides                            | System Update |
-| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                   | `3`                              | Minimum search filter length                                | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`    | `null`                           | Entity settings overrides                                   | System Update |
+| Environment Variable                                            | Default                          | Description                                                          | Components    |
+| --------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ------------- |
+| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                          | Allow document count mismatch when clone indices is enabled          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                           | Clone indices                                                        | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                           | Retention unit for indices                                           | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                             | Retention value for indices                                          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                           | Enable reindex optimization                                          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                           | Documents per scroll batch during reindex                            | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                            | Maximum parallel reindex slices (capped from target shards)          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                              | Minutes without document-count progress before re-triggering reindex | System Update |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount                | System Update |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                              | Number of replicas per index                                         | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                              | Index builder number of retries                                      | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                              | Index builder refresh interval                                       | System Update |
+| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                           | Maximum array length in search documents                             | System Update |
+| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                           | Maximum object keys in search documents                              | System Update |
+| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                           | Maximum value length in search documents                             | System Update |
+| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                           | Main tokenizer                                                       | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                          | Enable mappings reindex                                              | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                          | Enable settings reindex                                              | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                              | Maximum reindex hours (0 = no timeout)                               | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                           | Index builder settings overrides                                     | System Update |
+| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                              | Minimum search filter length                                         | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                           | Entity settings overrides                                            | System Update |
 
 #### Search Configuration
 
@@ -415,6 +489,7 @@ The SQL Setup system provides automated database initialization and user managem
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000`                          | Maximum number of relationships for impact analysis (impact.maxRelations)                             | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `${elasticsearch.dataNodeCount}` | Number of slices for parallel search operations (impact.slices), defaults to dataNodeCount, minimum 2 | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`                             | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive)                       | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_PARTIAL_RESULTS`         | `false`                          | If true, return partial results when maxRelations is reached; if false (default), throw an error      | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`                             | Maximum parallel lineage graph queries                                                                | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`                           | Reduce query nesting if possible                                                                      | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`                           | Enable creation of point in time snapshots for graph queries                                          | GMS        |
@@ -483,10 +558,12 @@ Reference Links:
 
 ### Consumer Pool Configuration
 
-| Environment Variable               | Default | Description                | Components |
-| ---------------------------------- | ------- | -------------------------- | ---------- |
-| `KAFKA_CONSUMER_POOL_INITIAL_SIZE` | `1`     | Consumer pool initial size | GMS        |
-| `KAFKA_CONSUMER_POOL_MAX_SIZE`     | `5`     | Consumer pool maximum size | GMS        |
+| Environment Variable                                    | Default | Description                                                 | Components |
+| ------------------------------------------------------- | ------- | ----------------------------------------------------------- | ---------- |
+| `KAFKA_CONSUMER_POOL_INITIAL_SIZE`                      | `1`     | Consumer pool initial size                                  | GMS        |
+| `KAFKA_CONSUMER_POOL_MAX_SIZE`                          | `5`     | Consumer pool maximum size                                  | GMS        |
+| `KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS`        | `5`     | Timeout in seconds for validating consumer health           | GMS        |
+| `KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES` | `5`     | Interval in minutes for caching consumer validation results | GMS        |
 
 ### Schema Registry Configuration
 
@@ -541,59 +618,64 @@ Reference Links:
 Reference Links:
 
 - **Access Management**: [Access Management Feature](../features/feature-guides/access-roles.md)
+- **Asset Summaries**: [Asset Summaries](../features/feature-guides/custom-asset-summaries.md)
+- **Data Products**: [Data Products](../dataproducts.md)
 - **Structured Properties**: [Structured Properties Overview](../features/feature-guides/properties/overview.md)
 - **Lineage Features**: [Data Lineage](../features/feature-guides/lineage.md), [UI Lineage Management](../features/feature-guides/ui-lineage.md)
 - **Compliance Forms**: [Compliance Forms Overview](../features/feature-guides/compliance-forms/overview.md)
 - **Dataset Usage**: [Dataset Usage & Query History](../features/dataset-usage-and-query-history.md)
 - **MCP Server**: [DataHub MCP Server](../features/feature-guides/mcp.md)
 
-| Environment Variable                    | Default | Description                                                        | Components |
-| --------------------------------------- | ------- | ------------------------------------------------------------------ | ---------- |
-| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards | GMS        |
-| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query               | GMS        |
-| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                  | GMS        |
-| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API          | GMS        |
-| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                      | GMS        |
-| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                        | GMS        |
-| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                 | GMS        |
-| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                    | GMS        |
-| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                  | GMS        |
-| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                  | GMS        |
-| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                  | GMS        |
-| `LINEAGE_GRAPH_V2`                      | `true`  | Enable new lineage visualization                                   | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                    | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                         | GMS        |
-| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                           | GMS        |
-| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                         | GMS        |
-| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                      | GMS        |
-| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                              | GMS        |
-| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                   | GMS        |
-| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                      | GMS        |
-| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                               | GMS        |
-| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                     | GMS        |
-| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                        | GMS        |
-| `THEME_V2_TOGGLEABLE`                   | `true`  | Allow theme v2 to be toggled (Acryl only)                          | GMS        |
-| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                            | GMS        |
-| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                              | GMS        |
-| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                            | GMS        |
-| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                  | GMS        |
-| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                           | GMS        |
-| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                        | GMS        |
-| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                        | GMS        |
-| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                           | GMS        |
-| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                      | GMS        |
-| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                               | GMS        |
-| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                            | GMS        |
-| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                   | GMS        |
-| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                       | GMS        |
-| `SHOW_INGESTION_PAGE_REDESIGN`          | `false` | Show re-designed Ingestion page                                    | GMS        |
-| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                           | GMS        |
-| `SHOW_HOME_PAGE_REDESIGN`               | `false` | Show re-designed home page                                         | GMS        |
-| `LINEAGE_GRAPH_V3`                      | `false` | Enable redesign of lineage v2 graph                                | GMS        |
-| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                     | GMS        |
-| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                      | GMS        |
-| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                         | GMS        |
-| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                               | GMS        |
+| Environment Variable                    | Default | Description                                                                                     | Components |
+| --------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- | ---------- |
+| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards                              | GMS        |
+| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query                                            | GMS        |
+| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                                               | GMS        |
+| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API                                       | GMS        |
+| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                                                   | GMS        |
+| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                                                     | GMS        |
+| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                                              | GMS        |
+| `ASSET_SUMMARY_PAGE_V1`                 | `false` | Enable Asset Summary pages for Domains, Data Products, Glossary Terms, and Glossary Term Groups | GMS        |
+| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                                                 | GMS        |
+| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                                               | GMS        |
+| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                                               | GMS        |
+| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                                               | GMS        |
+| `LINEAGE_GRAPH_V2`                      | `true`  | Enable new lineage visualization                                                                | GMS        |
+| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                                                 | GMS        |
+| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                                                      | GMS        |
+| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                                                        | GMS        |
+| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                                                      | GMS        |
+| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                   | GMS        |
+| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                           | GMS        |
+| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                | GMS        |
+| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                   | GMS        |
+| `DATASET_SUMMARY_PAGE_V1`               | `false` | Enable Asset Summary pages for Datasets                                                         | GMS        |
+| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                            | GMS        |
+| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                  | GMS        |
+| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                                                     | GMS        |
+| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                                                       | GMS        |
+| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                                                         | GMS        |
+| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                                                           | GMS        |
+| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                                                         | GMS        |
+| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                                               | GMS        |
+| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                                                        | GMS        |
+| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                                                     | GMS        |
+| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                                                     | GMS        |
+| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                                                        | GMS        |
+| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                                                   | GMS        |
+| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                                                            | GMS        |
+| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                         | GMS        |
+| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                | GMS        |
+| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                                                    | GMS        |
+| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                 | GMS        |
+| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                        | GMS        |
+| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                      | GMS        |
+| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                                             | GMS        |
+| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                  | GMS        |
+| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                   | GMS        |
+| `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                 | GMS        |
+| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                      | GMS        |
+| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                            | GMS        |
 
 ## System Updates
 
@@ -749,9 +831,10 @@ The following environment variables are used in the codebase but may not be expl
 
 ### System and Version Information
 
-| Environment Variable   | Default | Description               | Components |
-| ---------------------- | ------- | ------------------------- | ---------- |
-| `DATAHUB_GMS_PROTOCOL` | `http`  | GMS protocol (http/https) | GMS        |
+| Environment Variable   | Default | Description               | Components    |
+| ---------------------- | ------- | ------------------------- | ------------- |
+| `DATAHUB_GMS_PROTOCOL` | `http`  | GMS protocol (http/https) | GMS           |
+| `DATAHUB_REVISION`     | `0`     | DataHub revision version  | System Update |
 
 ### Upgrade and Migration
 
@@ -761,6 +844,7 @@ The following environment variables are used in the codebase but may not be expl
 | `SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT`               | `false` | Skip reindexing data job input/output              | System Update |
 | `SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA` | `false` | Skip generating schema fields from schema metadata | System Update |
 | `SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID`                | `false` | Skip migrating schema fields doc IDs               | System Update |
+| `SKIP_CREATE_USAGE_EVENT_INDICES_STEP`             | `false` | Skip creating usage event indices/data streams     | System Update |
 | `BACKFILL_BROWSE_PATHS_V2`                         | `false` | Enable backfilling browse paths V2                 | System Update |
 | `READER_POOL_SIZE`                                 | `null`  | Reader pool size for restore operations            | System Update |
 | `WRITER_POOL_SIZE`                                 | `null`  | Writer pool size for restore operations            | System Update |

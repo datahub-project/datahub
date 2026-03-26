@@ -1,136 +1,106 @@
 import { Editor } from '@components';
-import { Form, FormInstance, Input, Radio, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
-import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
-import {
-    DESCRIPTION_FIELD_NAME,
-    LINK_FIELD_NAME,
-    LOCATION_FIELD_NAME,
-    TITLE_FIELD_NAME,
-    TYPE_FIELD_NAME,
-} from '@app/settingsV2/posts/constants';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
+import { Input } from '@src/alchemy-components';
+import { Label } from '@src/alchemy-components/components/Input/components';
 
 import { PostContentType } from '@types';
 
-const TopFormItem = styled(Form.Item)`
+export type PostFormData = {
+    type: PostContentType;
+    title: string;
+    description: string;
+    link: string;
+    location: string;
+};
+
+const FormField = styled.div`
     margin-bottom: 24px;
 `;
 
-const SubFormItem = styled(Form.Item)`
-    margin-bottom: 0;
-`;
-
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    margin-top: 8px;
 `;
 
 type Props = {
-    setCreateButtonEnabled: (isEnabled: boolean) => void;
-    form: FormInstance;
-    contentType: PostContentType;
-    editData?: PostEntry;
+    formData: PostFormData;
+    onChange: (field: keyof PostFormData, value: string | PostContentType) => void;
 };
 
-export default function CreatePostForm({ setCreateButtonEnabled, form, editData, contentType }: Props) {
-    const [postType, setPostType] = useState<PostContentType>(PostContentType.Text);
-
-    useEffect(() => {
-        if (contentType) {
-            setPostType(contentType);
-        }
-    }, [contentType]);
-
+export default function CreatePostForm({ formData, onChange }: Props) {
     return (
-        <Form
-            form={form}
-            initialValues={{}}
-            layout="vertical"
-            onFieldsChange={() => {
-                setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
-            }}
-        >
-            <TopFormItem name={TYPE_FIELD_NAME} label={<Typography.Text strong>Content Type</Typography.Text>}>
-                <Radio.Group
-                    onChange={(e) => setPostType(e.target.value)}
-                    value={postType}
-                    defaultValue={postType}
-                    optionType="button"
-                    buttonStyle="solid"
-                >
-                    <Radio value={PostContentType.Text}>Announcement</Radio>
-                    <Radio value={PostContentType.Link}>Pinned Link</Radio>
-                </Radio.Group>
-            </TopFormItem>
+        <form onSubmit={(e) => e.preventDefault()}>
+            <FormField>
+                <Label>Content Type</Label>
+                <TabButtons
+                    tabs={[
+                        { key: PostContentType.Text, label: 'Announcement', content: null },
+                        { key: PostContentType.Link, label: 'Pinned Link', content: null },
+                    ]}
+                    activeTab={formData.type}
+                    onTabClick={(key) => onChange('type', key as PostContentType)}
+                />
+            </FormField>
 
-            <TopFormItem label={<Typography.Text strong>Title</Typography.Text>}>
-                <Typography.Paragraph>The title for your announcement or link.</Typography.Paragraph>
-                <SubFormItem name={TITLE_FIELD_NAME} rules={[{ required: true }]} hasFeedback>
-                    <Input data-testid="create-post-title" placeholder="Your title" />
-                </SubFormItem>
-            </TopFormItem>
-            {postType === PostContentType.Text && (
-                <TopFormItem label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>The main content for your announcement.</Typography.Paragraph>
-                    <SubFormItem name={DESCRIPTION_FIELD_NAME} rules={[{ min: 0, max: 500 }]} hasFeedback>
-                        <StyledEditor
-                            className="create-post-description"
-                            doNotFocus
-                            content={editData?.description || undefined}
-                            onKeyDown={(e) => {
-                                // Preventing the modal from closing when the Enter key is pressed
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }
-                            }}
-                        />
-                    </SubFormItem>
-                </TopFormItem>
+            <FormField>
+                <Input
+                    label="Title"
+                    inputTestId="create-post-title"
+                    placeholder="Your title"
+                    value={formData.title}
+                    setValue={(val) => onChange('title', val)}
+                    isRequired
+                />
+            </FormField>
+
+            {formData.type === PostContentType.Text && (
+                <FormField>
+                    <Label>Description</Label>
+                    <StyledEditor
+                        className="create-post-description"
+                        doNotFocus
+                        content={formData.description || undefined}
+                        onChange={(val) => onChange('description', val)}
+                    />
+                </FormField>
             )}
-            {postType === PostContentType.Link && (
+
+            {formData.type === PostContentType.Link && (
                 <>
-                    <TopFormItem label={<Typography.Text strong>Link URL</Typography.Text>}>
-                        <Typography.Paragraph>
-                            Where users will be redirected when they click the link.
-                        </Typography.Paragraph>
-                        <SubFormItem name={LINK_FIELD_NAME} rules={[{ type: 'url', warningOnly: true }]} hasFeedback>
-                            <Input data-testid="create-post-link" placeholder="Your link URL" />
-                        </SubFormItem>
-                    </TopFormItem>
-                    <TopFormItem label={<Typography.Text strong>Image URL (Optional)</Typography.Text>}>
-                        <Typography.Paragraph>
-                            An optional URL to an image you want to display on your link.
-                        </Typography.Paragraph>
-                        <SubFormItem
-                            name={LOCATION_FIELD_NAME}
-                            rules={[{ type: 'url', warningOnly: true }]}
-                            hasFeedback
-                        >
-                            <Input data-testid="create-post-media-location" placeholder="Your image URL" />
-                        </SubFormItem>
-                    </TopFormItem>
-                    <SubFormItem label={<Typography.Text strong>Description</Typography.Text>}>
-                        <Typography.Paragraph>A description for your link.</Typography.Paragraph>
-                        <SubFormItem name={DESCRIPTION_FIELD_NAME} rules={[{ min: 0, max: 500 }]} hasFeedback>
-                            <StyledEditor
-                                doNotFocus
-                                content={editData?.description || undefined}
-                                className="create-post-description"
-                                onKeyDown={(e) => {
-                                    // Preventing the modal from closing when the Enter key is pressed
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }
-                                }}
-                            />
-                        </SubFormItem>
-                    </SubFormItem>
+                    <FormField>
+                        <Input
+                            label="Link URL"
+                            inputTestId="create-post-link"
+                            placeholder="Your link URL"
+                            value={formData.link}
+                            setValue={(val) => onChange('link', val)}
+                        />
+                    </FormField>
+
+                    <FormField>
+                        <Input
+                            label="Image URL"
+                            inputTestId="create-post-media-location"
+                            placeholder="Your image URL"
+                            value={formData.location}
+                            setValue={(val) => onChange('location', val)}
+                        />
+                    </FormField>
+
+                    <FormField>
+                        <Label>Description</Label>
+                        <StyledEditor
+                            doNotFocus
+                            content={formData.description || undefined}
+                            onChange={(val) => onChange('description', val)}
+                            className="create-post-description"
+                        />
+                    </FormField>
                 </>
             )}
-        </Form>
+        </form>
     );
 }

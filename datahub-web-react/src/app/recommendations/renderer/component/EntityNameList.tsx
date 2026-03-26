@@ -1,14 +1,5 @@
 import { Divider, List } from 'antd';
-import React from 'react';
 import styled from 'styled-components';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { getPlatformName } from '@app/entity/shared/utils';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { Entity } from '@types';
 
 export const StyledList = styled(List)`
     overflow-y: auto;
@@ -54,56 +45,3 @@ export const ThinDivider = styled(Divider)`
     padding: 0px;
     margin: 0px;
 `;
-
-type Props = {
-    entities: Array<Entity>;
-    onClick?: (index: number) => void;
-};
-
-export const EntityNameList = ({ entities, onClick }: Props) => {
-    const entityRegistry = useEntityRegistry();
-
-    return (
-        <StyledList
-            dataSource={entities}
-            renderItem={(entity, index) => {
-                const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
-                const platformName = getPlatformName(genericProps);
-                const entityTypeName = entityRegistry.getEntityName(entity.type);
-                const displayName = entityRegistry.getDisplayName(entity.type, entity);
-                const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
-                const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
-                const subType = capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]);
-                const entityCount = genericProps?.entityCount;
-                const deprecation = genericProps?.deprecation;
-                const health = genericProps?.health;
-
-                return (
-                    <>
-                        <ListItem isSelectMode={false}>
-                            <DefaultPreviewCard
-                                name={displayName}
-                                urn={entity.urn}
-                                logoUrl={platformLogoUrl || undefined}
-                                logoComponent={fallbackIcon}
-                                url={url}
-                                platform={platformName}
-                                type={subType || entityTypeName}
-                                titleSizePx={14}
-                                tags={genericProps?.globalTags || undefined}
-                                glossaryTerms={genericProps?.glossaryTerms || undefined}
-                                domain={genericProps?.domain?.domain}
-                                onClick={() => onClick?.(index)}
-                                entityCount={entityCount}
-                                deprecation={deprecation}
-                                health={health || undefined}
-                            />
-                        </ListItem>
-                        <ThinDivider />
-                    </>
-                );
-            }}
-        />
-    );
-};

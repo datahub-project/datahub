@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from simple_salesforce import Salesforce
 from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
@@ -16,6 +16,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
@@ -111,14 +112,16 @@ class SalesforceConfig(
 
     # Username, Password Auth
     username: Optional[str] = Field(None, description="Salesforce username")
-    password: Optional[str] = Field(None, description="Password for Salesforce user")
-    consumer_key: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
+        None, description="Password for Salesforce user"
+    )
+    consumer_key: Optional[TransparentSecretStr] = Field(
         None, description="Consumer key for Salesforce JSON web token access"
     )
-    private_key: Optional[str] = Field(
+    private_key: Optional[TransparentSecretStr] = Field(
         None, description="Private key as a string for Salesforce JSON web token access"
     )
-    security_token: Optional[str] = Field(
+    security_token: Optional[TransparentSecretStr] = Field(
         None, description="Security token for Salesforce username"
     )
     # client_id, client_secret not required
@@ -132,7 +135,7 @@ class SalesforceConfig(
     is_sandbox: bool = Field(
         default=False, description="Connect to Sandbox instance of your Salesforce"
     )
-    access_token: Optional[str] = Field(
+    access_token: Optional[TransparentSecretStr] = Field(
         None, description="Access token for instance url"
     )
 
@@ -172,7 +175,8 @@ class SalesforceConfig(
             self.profiling.operation_config
         )
 
-    @validator("instance_url")
+    @field_validator("instance_url", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
@@ -335,7 +339,7 @@ class SalesforceApi:
 
             sf = Salesforce(
                 instance_url=config.instance_url,
-                session_id=config.access_token,
+                session_id=config.access_token.get_secret_value(),
                 **common_args,
             )
         elif config.auth is SalesforceAuthType.USERNAME_PASSWORD:
@@ -352,8 +356,8 @@ class SalesforceApi:
 
             sf = Salesforce(
                 username=config.username,
-                password=config.password,
-                security_token=config.security_token,
+                password=config.password.get_secret_value(),
+                security_token=config.security_token.get_secret_value(),
                 **common_args,
             )
 
@@ -371,8 +375,8 @@ class SalesforceApi:
 
             sf = Salesforce(
                 username=config.username,
-                consumer_key=config.consumer_key,
-                privatekey=config.private_key,
+                consumer_key=config.consumer_key.get_secret_value(),
+                privatekey=config.private_key.get_secret_value(),
                 **common_args,
             )
 

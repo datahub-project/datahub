@@ -1,16 +1,17 @@
 import dataclasses
 import logging
 import warnings
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import Field, root_validator
+from pydantic import Field, field_validator, model_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationWarning,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -34,6 +35,11 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+
+# Default safeguards to prevent fetching massive amounts of data.
+MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT = 120
+MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT = 1000
+MAX_JOBS_PER_CONNECTOR_DEFAULT = 500
 
 
 class Constant:
@@ -98,7 +104,8 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
     catalog: str = Field(description="The fivetran connector log catalog.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 
-    @pydantic.validator("warehouse_id")
+    @field_validator("warehouse_id", mode="after")
+    @classmethod
     def warehouse_id_should_not_be_empty(cls, warehouse_id: Optional[str]) -> str:
         if warehouse_id is None or (warehouse_id and warehouse_id.strip() == ""):
             raise ValueError("Fivetran requires warehouse_id to be set")
@@ -106,8 +113,8 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
 
 
 class FivetranAPIConfig(ConfigModel):
-    api_key: str = Field(description="Fivetran API key")
-    api_secret: str = Field(description="Fivetran API secret")
+    api_key: TransparentSecretStr = Field(description="Fivetran API key")
+    api_secret: TransparentSecretStr = Field(description="Fivetran API secret")
     base_url: str = Field(
         default="https://api.fivetran.com", description="Fivetran API base URL"
     )
@@ -141,29 +148,46 @@ class FivetranLogConfig(ConfigModel):
         "destination_config", "snowflake_destination_config"
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
-        destination_platform = values["destination_platform"]
-        if destination_platform == "snowflake":
-            if "snowflake_destination_config" not in values:
+    max_jobs_per_connector: int = pydantic.Field(
+        default=MAX_JOBS_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of sync jobs to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. Increase cautiously if you need to see more historical sync runs.",
+    )
+
+    max_table_lineage_per_connector: int = pydantic.Field(
+        default=MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of table lineage entries to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. When this limit is exceeded, only the most recent entries are ingested.",
+    )
+
+    max_column_lineage_per_connector: int = pydantic.Field(
+        default=MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of column lineage entries to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. When this limit is exceeded, only the most recent entries are ingested.",
+    )
+
+    @model_validator(mode="after")
+    def validate_destination_platform_and_config(self) -> "FivetranLogConfig":
+        if self.destination_platform == "snowflake":
+            if self.snowflake_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
                 )
-        elif destination_platform == "bigquery":
-            if "bigquery_destination_config" not in values:
+        elif self.destination_platform == "bigquery":
+            if self.bigquery_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
                 )
-        elif destination_platform == "databricks":
-            if "databricks_destination_config" not in values:
+        elif self.destination_platform == "databricks":
+            if self.databricks_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'databricks', user must provide databricks destination configuration in the recipe."
                 )
         else:
             raise ValueError(
-                f"Destination platform '{destination_platform}' is not yet supported."
+                f"Destination platform '{self.destination_platform}' is not yet supported."
             )
-        return values
+        return self
 
 
 @dataclasses.dataclass
@@ -267,8 +291,9 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="Fivetran REST API configuration, used to provide wider support for connections.",
     )
 
-    @pydantic.root_validator(pre=True)
-    def compat_sources_to_database(cls, values: Dict) -> Dict:
+    @model_validator(mode="before")
+    @classmethod
+    def compat_sources_to_database(cls, values: Any) -> Any:
         if "sources_to_database" in values:
             warnings.warn(
                 "The sources_to_database field is deprecated, please use sources_to_platform_instance instead.",

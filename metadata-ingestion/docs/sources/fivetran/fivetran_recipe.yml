@@ -47,6 +47,12 @@ source:
     # sources_to_database:
     #   connector_id: source_db
 
+    # Optional - Fivetran REST API configuration (required for Google Sheets connectors)
+    # api_config:
+    #   api_key: "your_api_key"
+    #   api_secret: "your_api_secret"
+    #   base_url: "https://api.fivetran.com"  # Optional
+    #   request_timeout_sec: 30  # Optional
     # Optional -- This mapping is optional and only required to configure platform-instance for source
     # A mapping of Fivetran connector id to data platform instance
     # sources_to_platform_instance:

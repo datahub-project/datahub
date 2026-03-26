@@ -1,28 +1,46 @@
 import json
+import logging
 import urllib
+import uuid
 
 import pytest
 
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.sink.file import FileSink
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionStdAggregation
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionNoteClass,
     AssertionResultClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
+    AuditStampClass,
+    ChangeTypeClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
+    GenericAspectClass,
+    MetadataChangeProposalClass,
     PartitionSpecClass,
     PartitionTypeClass,
 )
-from tests.utils import delete_urns_from_file, ingest_file_via_rest, with_test_retry
+from datahub.utilities.urns.urn import guess_entity_type
+from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utils import (
+    delete_urn,
+    delete_urns_from_file,
+    ingest_file_via_rest,
+    with_test_retry,
+)
+
+logger = logging.getLogger(__name__)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -219,12 +237,12 @@ def create_test_data(test_file):
 @pytest.fixture(scope="module")
 def generate_test_data(graph_client, tmp_path_factory):
     """Generates metadata events data and stores into a test file"""
-    print("generating assertions test data")
+    logger.info("generating assertions test data")
     dir_name = tmp_path_factory.mktemp("test_dq_events")
     file_name = dir_name / "test_dq_events.json"
     create_test_data(test_file=str(file_name))
     yield str(file_name)
-    print("removing assertions test data")
+    logger.info("removing assertions test data")
     delete_urns_from_file(graph_client, str(file_name))
 
 
@@ -345,3 +363,91 @@ def test_gms_get_assertion_info(auth_session, test_run_ingestion):
     assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["datasetAssertion"][
         "scope"
     ]
+
+
+def test_assertion_info_patch_preserves_note(graph_client):
+    assertion_urn = f"urn:li:assertion:{uuid.uuid4()}"
+    dataset_urn = make_dataset_urn(
+        platform="postgres", name=f"assertion_patch_{uuid.uuid4()}"
+    )
+    try:
+        note = AssertionNoteClass(
+            content="keep me",
+            lastModified=AuditStampClass(time=1, actor="urn:li:corpuser:test-user"),
+        )
+        initial_info = AssertionInfoClass(
+            type=AssertionTypeClass.DATASET,
+            note=note,
+            customProperties={"expectation_suite_name": "initial"},
+            datasetAssertion=DatasetAssertionInfoClass(
+                dataset=dataset_urn,
+                scope=DatasetAssertionScopeClass.DATASET_ROWS,
+                operator=AssertionStdOperatorClass.BETWEEN,
+            ),
+        )
+        graph_client.emit(
+            MetadataChangeProposalWrapper(
+                entityType="assertion",
+                changeType="UPSERT",
+                entityUrn=assertion_urn,
+                aspectName="assertionInfo",
+                aspect=initial_info,
+            )
+        )
+        wait_for_writes_to_sync()
+
+        patch_ops = [
+            {
+                "op": "add",
+                "path": "/type",
+                "value": AssertionTypeClass.DATASET,
+            },
+            {
+                "op": "add",
+                "path": "/datasetAssertion",
+                "value": DatasetAssertionInfoClass(
+                    dataset=dataset_urn,
+                    scope=DatasetAssertionScopeClass.DATASET_SCHEMA,
+                    operator=AssertionStdOperatorClass.EQUAL_TO,
+                ).to_obj(),
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/expectation_suite_name",
+                "value": "updated",
+            },
+        ]
+        patch_payload = {
+            "patch": pre_json_transform(patch_ops),
+            "forceGenericPatch": True,
+        }
+        patch_mcp = MetadataChangeProposalClass(
+            entityUrn=assertion_urn,
+            entityType=guess_entity_type(assertion_urn),
+            changeType=ChangeTypeClass.PATCH,
+            aspectName="assertionInfo",
+            aspect=GenericAspectClass(
+                value=json.dumps(pre_json_transform(patch_payload)).encode(),
+                contentType=JSON_PATCH_CONTENT_TYPE,
+            ),
+        )
+
+        graph_client.emit_mcp(patch_mcp)
+        wait_for_writes_to_sync()
+
+        patched_info = graph_client.get_aspect(assertion_urn, AssertionInfoClass)
+        assert patched_info is not None
+        assert patched_info.note is not None
+        assert patched_info.note.content == "keep me"
+        assert patched_info.customProperties["expectation_suite_name"] == "updated"
+        assert (
+            patched_info.datasetAssertion.scope
+            == DatasetAssertionScopeClass.DATASET_SCHEMA
+        )
+        assert (
+            patched_info.datasetAssertion.operator == AssertionStdOperatorClass.EQUAL_TO
+        )
+    finally:
+        delete_urn(graph_client, assertion_urn)
+        delete_urn(graph_client, dataset_urn)
+        wait_for_writes_to_sync()

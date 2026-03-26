@@ -2,6 +2,12 @@
 # It can also be used to override the defaults if master is broken, and to
 # map broken releases to fixed ones.
 #
+# Setup containers (elasticsearch-setup, mysql-setup, postgres-setup) were removed in v1.5.0 / head.
+# Pre-v1.5.0: when users pass e.g. --version v1.4.0, the CLI downloads the compose file from that
+# version's git tag, which still includes those setup containers. No code changes needed.
+# v1.5.0 / head: compose from master (or that tag) uses system-update only; no separate setup containers.
+# Default must be v1.4.0.3 or later so system-update runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.
+#
 # If --version is specified during CLI run:
 # - If the version exists in this file, the details will be used.
 # - The handling of `stable` is special. See below.
@@ -19,10 +25,10 @@
 # As such, the mapping for stable is not required, but can be used to override the latest release.
 quickstart_version_map:
   # The "default" key is mandatory and is used if no version is specified.
-  # In case of a broken release or broken master branch, specify a working version here.
+  # Must be v1.4.0.3+ so datahub-upgrade runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.
   default:
-    composefile_git_ref: v1.2.0
-    docker_tag: v1.2.0
+    composefile_git_ref: v1.4.0
+    docker_tag: v1.4.0.3
     mysql_tag: "8.2"
   # default:  # Use this to pin default to a specific version.
   #   composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
@@ -31,6 +37,12 @@ quickstart_version_map:
   head:
     composefile_git_ref: master
     docker_tag: head
+    mysql_tag: "8.2"
+
+  # Locked for previous-release testing (compatibility/regression). Default is v1.4.0.3+.
+  v1.3.0:
+    composefile_git_ref: v1.3.0.1
+    docker_tag: v1.3.0.1
     mysql_tag: "8.2"
 
   # v0.13.0 we upgraded MySQL image for EOL

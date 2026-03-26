@@ -36,9 +36,6 @@ query getGroup($urn: String!, $membersCount: Int!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ownership {
             ...ownershipFields
         }
@@ -224,6 +221,7 @@ query listGroups($input: ListGroupsInput!) {
                 email
             }
             editableProperties {
+                description
                 pictureLink
             }
             memberCount: relationships(

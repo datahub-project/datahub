@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-import pydantic
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -9,6 +9,7 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.abs.datalake_profiler_config import DataLakeProfilerConfig
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
@@ -105,57 +106,101 @@ class DataLakeSourceConfig(
             self.profiling.operation_config
         )
 
-    @pydantic.validator("path_specs", always=True)
-    def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
-    ) -> List[PathSpec]:
+    # NOTE: We keep this validator in mode="before" so we can inspect raw dict
+    # path_specs before PathSpec validation runs. That prevents existing configs
+    # that rely on inferred fields (like allow_double_stars) from failing early.
+    @field_validator("path_specs", mode="before")
+    @classmethod
+    def check_path_specs_not_empty(
+        cls, path_specs: List[Union[Dict[str, Any], PathSpec]], info: ValidationInfo
+    ) -> List[Union[Dict[str, Any], PathSpec]]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
-
-        # Check that all path specs have the same platform.
-        guessed_platforms = set(
-            "abs" if path_spec.is_abs else "file" for path_spec in path_specs
-        )
-        if len(guessed_platforms) > 1:
-            raise ValueError(
-                f"Cannot have multiple platforms in path_specs: {guessed_platforms}"
-            )
-        guessed_platform = guessed_platforms.pop()
-
-        # Ensure abs configs aren't used for file sources.
-        if guessed_platform != "abs" and (
-            values.get("use_abs_container_properties")
-            or values.get("use_abs_blob_tags")
-            or values.get("use_abs_blob_properties")
-        ):
-            raise ValueError(
-                "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs."
-            )
-
-        # Infer platform if not specified.
-        if values.get("platform") and values["platform"] != guessed_platform:
-            raise ValueError(
-                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}"
-            )
-        else:
-            logger.debug(f'Setting config "platform": {guessed_platform}')
-            values["platform"] = guessed_platform
-
         return path_specs
 
-    @pydantic.validator("platform", always=True)
-    def platform_not_empty(cls, platform: Any, values: dict) -> str:
-        inferred_platform = values.get("platform")  # we may have inferred it above
-        platform = platform or inferred_platform
-        if not platform:
-            raise ValueError("platform must not be empty")
-        return platform
+    @staticmethod
+    def _infer_platform_from_path_spec(
+        path_spec: Optional[Union[Dict, PathSpec]],
+    ) -> str:
+        """
+        Determine the platform represented by a PathSpec or its raw dict form.
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        profiling: Optional[DataLakeProfilerConfig] = values.get("profiling")
+        Validators running in `mode="before"` receive the raw dictionary input, so
+        we need to gracefully handle both dicts and already-instantiated PathSpec
+        objects.
+        """
+        if isinstance(path_spec, PathSpec):
+            return "abs" if path_spec.is_abs else "file"
+
+        include = None
+        if isinstance(path_spec, dict):
+            include = path_spec.get("include")
+
+        if not include:
+            raise ValueError("Each path_spec must specify a non-empty include path.")
+
+        return "abs" if is_abs_uri(include) else "file"
+
+    @model_validator(mode="after")
+    def ensure_profiling_pattern_is_passed_to_profiling(self) -> "DataLakeSourceConfig":
+        profiling = self.profiling
         if profiling is not None and profiling.enabled:
-            profiling._allow_deny_patterns = values["profile_patterns"]
-        return values
+            profiling._allow_deny_patterns = self.profile_patterns
+        return self
+
+    @model_validator(mode="after")
+    def validate_platform_and_config_consistency(self) -> "DataLakeSourceConfig":
+        """Infer platform from path_specs and validate config consistency."""
+        # Track whether platform was explicitly provided
+        platform_was_explicit = bool(self.platform)
+
+        # Infer platform from path_specs if not explicitly set
+        if not self.platform and self.path_specs:
+            guessed_platforms = set()
+            for path_spec in self.path_specs:
+                guessed_platforms.add(self._infer_platform_from_path_spec(path_spec))
+
+            # Ensure all path specs belong to the same platform
+            if len(guessed_platforms) > 1:
+                raise ValueError(
+                    f"Cannot have multiple platforms in path_specs: {guessed_platforms}"
+                )
+
+            if guessed_platforms:
+                guessed_platform = guessed_platforms.pop()
+                logger.debug(f"Inferred platform: {guessed_platform}")
+                self.platform = guessed_platform
+            else:
+                self.platform = "file"
+        elif not self.platform:
+            self.platform = "file"
+
+        # Validate platform consistency when platform was explicitly set
+        if platform_was_explicit and self.platform and self.path_specs:
+            expected_platforms = set()
+            for path_spec in self.path_specs:
+                expected_platforms.add(self._infer_platform_from_path_spec(path_spec))
+
+            if len(expected_platforms) == 1:
+                expected_platform = expected_platforms.pop()
+                if self.platform != expected_platform:
+                    raise ValueError(
+                        f"All path_specs belong to {expected_platform} platform, but platform is set to {self.platform}"
+                    )
+
+        # Validate ABS-specific configurations
+        if self.platform != "abs":
+            if self.use_abs_container_properties:
+                raise ValueError(
+                    "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs."
+                )
+            if self.use_abs_blob_tags:
+                raise ValueError(
+                    "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs."
+                )
+            if self.use_abs_blob_properties:
+                raise ValueError(
+                    "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs."
+                )
+
+        return self

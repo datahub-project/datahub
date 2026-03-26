@@ -1,16 +1,13 @@
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import type { IconProps } from '@components/components/Icon/types';
 
 export const ActionButton = styled.div<{ privilege: boolean }>`
-    color: ${(props) =>
-        props.privilege ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
-    border: ${(props) =>
-        props.privilege
-            ? `1px solid ${props.theme.styles['primary-color']}`
-            : `1px solid ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+    color: ${(props) => (props.privilege ? props.theme.colors.textBrand : props.theme.colors.textDisabled)};
+    border: 1px solid
+        ${(props) => (props.privilege ? props.theme.colors.borderBrand : props.theme.colors.borderDisabled)};
     ${(props) => (props.privilege ? 'cursor: pointer;' : 'pointer-events: none;')}
     height: 20px;
     width: 20px;
@@ -25,28 +22,45 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
         ${(props) =>
             props.privilege &&
             `
-        color: ${REDESIGN_COLORS.WHITE};
-        background: ${props.theme.styles['primary-color']};
+        color: ${props.theme.colors.textOnFillBrand};
+        background: ${props.theme.colors.buttonFillBrand};
         `}
     
 `;
 
 type Props = {
     tip?: string;
-    button: React.ReactNode;
+    icon?: IconProps['icon'];
+    button?: React.ReactNode;
     onClick: any;
     actionPrivilege?: boolean;
     dataTestId?: string;
 };
 
-const SectionActionButton = ({ tip, button, onClick, actionPrivilege = true, dataTestId }: Props) => {
+const SectionActionButton = ({ tip, icon, button, onClick, actionPrivilege = true, dataTestId }: Props) => {
     return (
-        <Tooltip placement="top" title={!actionPrivilege ? 'No access' : tip} showArrow={false}>
-            <>
+        <Tooltip
+            placement="top"
+            title={!actionPrivilege ? 'You do not have permission to change this.' : tip}
+            showArrow={false}
+        >
+            {icon ? (
+                <span>
+                    <Button
+                        variant="text"
+                        color="violet"
+                        size="md"
+                        icon={{ icon }}
+                        onClick={onClick}
+                        disabled={!actionPrivilege}
+                        data-testid={dataTestId}
+                    />
+                </span>
+            ) : (
                 <ActionButton onClick={onClick} privilege={actionPrivilege} data-testid={dataTestId}>
                     {button}
                 </ActionButton>
-            </>
+            )}
         </Tooltip>
     );
 };

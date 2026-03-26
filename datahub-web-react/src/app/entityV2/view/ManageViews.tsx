@@ -1,13 +1,14 @@
 import { Button, PageTitle, Tabs, colors } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
 
-import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
-import { ViewBuilderMode } from '@app/entity/view/builder/types';
 import { ViewsList } from '@app/entityV2/view/ViewsList';
+import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 
 import { DataHubViewType } from '@types';
 
@@ -113,7 +114,7 @@ export const ManageViews = () => {
                         id="create-new-view-button"
                         onClick={() => setShowViewBuilder(true)}
                         data-testid="create-new-view-button"
-                        icon={{ icon: 'Plus', source: 'phosphor' }}
+                        icon={{ icon: Plus }}
                         disabled={false}
                     >
                         Create View

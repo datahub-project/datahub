@@ -12,15 +12,10 @@ export const aliasQuery = (req, operationName) => {
   }
 };
 
-export const getThemeV2Interceptor = (isEnabled) => (req, res) => {
-  if (hasOperationName(req, "appConfig")) {
-    res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
-    res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
-    res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
-  }
-
-  if (hasOperationName(req, "getMe")) {
-    res.body.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
+// Alias graphql operation (query or mutation)
+export const aliasGraphQLOperation = (req, operationName) => {
+  if (hasOperationName(req, operationName)) {
+    req.alias = `gql${operationName}`;
   }
 };
 
@@ -76,3 +71,5 @@ export const patchObject = (obj, pathValueMap) => {
 
   return copyOfObject;
 };
+
+export const getUniqueTestId = () => `${new Date().getTime()}`;

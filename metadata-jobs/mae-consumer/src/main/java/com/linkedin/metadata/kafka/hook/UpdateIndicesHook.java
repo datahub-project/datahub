@@ -11,6 +11,10 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +34,8 @@ import org.springframework.stereotype.Component;
   SearchDocumentTransformerFactory.class
 })
 public class UpdateIndicesHook implements MetadataChangeLogHook {
+
+  private static final int LARGE_BATCH_THRESHOLD = 500;
 
   protected final UpdateIndicesService updateIndicesService;
   private final boolean isEnabled;
@@ -71,6 +77,32 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
+    invokeBatch(Collections.singletonList(event));
+  }
+
+  @Override
+  public void invokeBatch(@Nonnull final Collection<MetadataChangeLog> events) {
+    // Filter events that should be processed
+    List<MetadataChangeLog> eventsToProcess =
+        events.stream().filter(this::shouldProcessEvent).collect(Collectors.toList());
+
+    if (!eventsToProcess.isEmpty()) {
+      if (eventsToProcess.size() >= LARGE_BATCH_THRESHOLD) {
+        log.info(
+            "Processing large batch of {} MCL events with UpdateIndicesService",
+            eventsToProcess.size());
+      } else {
+        log.debug(
+            "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
+      }
+      updateIndicesService.handleChangeEvents(systemOperationContext, eventsToProcess);
+    } else {
+      log.debug("No MCL events to process in batch of {} events", events.size());
+    }
+  }
+
+  /** Determines if an event should be processed based on UI source and reprocessing flags */
+  private boolean shouldProcessEvent(MetadataChangeLog event) {
     if (event.getSystemMetadata() != null) {
       if (event.getSystemMetadata().getProperties() != null) {
         if (!Boolean.parseBoolean(event.getSystemMetadata().getProperties().get(FORCE_INDEXING_KEY))
@@ -78,10 +110,10 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
             && !reprocessUIEvents) {
           // If coming from the UI, we pre-process the Update Indices hook as a fast path to avoid
           // Kafka lag
-          return;
+          return false;
         }
       }
     }
-    updateIndicesService.handleChangeEvent(systemOperationContext, event);
+    return true;
   }
 }

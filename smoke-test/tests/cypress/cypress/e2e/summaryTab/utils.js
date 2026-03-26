@@ -6,12 +6,10 @@ import { hasOperationName } from "../utils";
 
 // Common
 
-export function setThemeV2AndSummaryTabFlags(isOn) {
+export function setSummaryTabFlags(isOn) {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
-        res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
         res.body.data.appConfig.featureFlags.assetSummaryPageV1 = isOn;
       });
@@ -80,6 +78,7 @@ export function setTagToOpenedEntity(tagName) {
   openSummaryTabOnSidebar();
 
   cy.get('[id="entity-profile-tags"]').within(() => {
+    cy.get('[data-testid="add-tags-button"]').should("not.be.disabled");
     cy.clickOptionWithTestId("add-tags-button");
   });
 
@@ -150,6 +149,10 @@ export function openDomain(name) {
       cy.clickOptionWithText(name);
     });
   });
+}
+
+export function openDomainByUrn(urn) {
+  cy.visit(`/domain/${urn}`);
 }
 
 export function deleteOpenedDomain() {
@@ -224,8 +227,7 @@ export function addRelatedTerm(termName) {
 
 // Data product
 
-export function createDataProduct(domainName, name) {
-  openDomain(domainName);
+export function createDataProductForOpenedDomain(name) {
   cy.clickOptionWithTestId("Data Products-entity-tab-header");
   cy.clickOptionWithTestId("create-data-product-button");
   cy.getWithTestId("create-data-product-modal").within(() => {
@@ -234,17 +236,32 @@ export function createDataProduct(domainName, name) {
   });
 }
 
-export function openDataProduct(domainName, name) {
+export function createDataProduct(domainName, name) {
   openDomain(domainName);
+  createDataProductForOpenedDomain(name);
+}
+
+export function openDataProductOnOpenedDomain(name) {
   cy.clickOptionWithTestId("Data Products-entity-tab-header");
   cy.getWithTestId("entity-title")
     .filter(`:contains("${name}")`)
     .click({ force: true });
 }
+export function openDataProduct(domainName, name) {
+  openDomain(domainName);
+  openDataProductOnOpenedDomain(name);
+}
 
 export function deleteOpenedDataProduct() {
   deleteOpenedEntity();
   cy.waitTextVisible("Deleted Data Product!");
+}
+
+export function reloadPageWithMemoryManagement() {
+  cy.window().then((win) => {
+    win.location.reload();
+  });
+  cy.wait(2000);
 }
 
 // Summary tab
@@ -271,12 +288,15 @@ export function ensurePropertiesAreVisible(propertyTypes) {
 
 export function ensurePropertyExist(property) {
   cy.getWithTestId(`property-${property.type}`).within(() => {
-    cy.getWithTestId("property-title").contains(property.name);
+    cy.getWithTestId("property-title").should("contain", property.name);
     if (property.value !== undefined) {
-      // RegExp is used to make `contains` case insensitive
-      cy.getWithTestId("property-value").contains(
-        new RegExp(property.value, "i"),
-      );
+      cy.getWithTestId("property-value").should(($el) => {
+        const text = $el.text();
+        expect(text).to.match(new RegExp(property.value, "i"));
+      });
+    }
+    if (property.dataTestId !== undefined) {
+      cy.getWithTestId(property.dataTestId).should("exist");
     }
   });
 }
@@ -425,7 +445,9 @@ export function ensureDescriptionContainsText(description) {
 }
 
 export function addLink(url, label) {
-  cy.clickOptionWithTestId("add-link-button");
+  // Click the "+" button to open the menu, then click "Add link" menu item
+  cy.clickOptionWithTestId("add-related-button").wait(500);
+  cy.contains("Add link").click().wait(500);
   cy.getWithTestId("url-input").clear().type(url);
   cy.getWithTestId("label-input").clear().type(label);
   cy.clickOptionWithTestId("link-form-modal-submit-button");
@@ -514,4 +536,40 @@ export function addModule(module) {
     `[data-testid="add-${module.addType ?? module.type}-module"]`,
     module.name,
   ).click();
+}
+
+// Tests
+
+export function testPropertiesSection(properties) {
+  const propertyTypes = properties.map((property) => property.type);
+  ensurePropertiesSectionIsVisible();
+  ensurePropertiesAreVisible(propertyTypes); // default properties
+
+  properties.forEach((property) => ensurePropertyExist(property));
+}
+
+export function testAboutSection() {
+  ensureAboutSectionIsVisible();
+  updateDescription("description");
+  ensureDescriptionContainsText("description");
+  updateDescription("updated description");
+  ensureDescriptionContainsText("updated description");
+  addLink("https://test.com", "testLink");
+  ensureLinkExists("https://test.com", "testLink");
+  updateLink(
+    "https://test.com",
+    "testLink",
+    "https://test-updated.com",
+    "testLinkUpdated",
+  );
+  ensureLinkExists("https://test-updated.com", "testLinkUpdated");
+  removeLink("https://test-updated.com", "testLinkUpdated");
+  ensureLinkDoesNotExist("https://test-updated.com", "testLinkUpdated");
+}
+
+export function testTemplateSection(defaultModules) {
+  ensureTemplateSectionIsVisible();
+
+  // Check default modules
+  defaultModules.forEach((module) => ensureModuleExist(module));
 }

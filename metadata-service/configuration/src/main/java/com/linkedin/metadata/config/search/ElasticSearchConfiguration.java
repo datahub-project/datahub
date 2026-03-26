@@ -16,10 +16,13 @@ public class ElasticSearchConfiguration {
   private SearchConfiguration search;
   private String idHashAlgo;
   private IndexConfiguration index;
+  private ScrollConfiguration scroll;
+  private EntityIndexConfiguration entityIndex;
   private String host;
   private int port;
   private int threadCount;
   private int connectionRequestTimeout;
+  private int socketTimeout;
   private String username;
   private String password;
   private String pathPrefix;

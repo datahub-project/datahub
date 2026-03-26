@@ -1,4 +1,5 @@
 import { Text } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import ViewAdvancedOptions from '@app/govern/structuredProperties/ViewAdvancedOptions';
@@ -17,13 +18,13 @@ import {
 } from '@app/govern/structuredProperties/styledComponents';
 import { getDisplayName, getValueTypeLabel } from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
     isViewDrawerOpen: boolean;
     setIsViewDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    selectedProperty: SearchResult;
-    setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
+    selectedProperty: StructuredPropertyEntity;
+    setSelectedProperty: React.Dispatch<React.SetStateAction<StructuredPropertyEntity | undefined>>;
 }
 
 const ViewStructuredPropsDrawer = ({
@@ -39,7 +40,7 @@ const ViewStructuredPropsDrawer = ({
         setSelectedProperty(undefined);
     };
 
-    const selectedPropEntity = selectedProperty && (selectedProperty?.entity as StructuredPropertyEntity);
+    const selectedPropEntity = selectedProperty;
 
     const allowedValues = selectedPropEntity?.definition?.allowedValues;
 
@@ -60,10 +61,10 @@ const ViewStructuredPropsDrawer = ({
                     {selectedProperty && (
                         <DrawerHeader>
                             <Text color="gray" weight="bold" size="2xl">
-                                {getDisplayName(selectedProperty?.entity as StructuredPropertyEntity)}
+                                {getDisplayName(selectedProperty)}
                             </Text>
 
-                            <StyledIcon icon="Close" color="gray" onClick={handleClose} />
+                            <StyledIcon icon={X} color="gray" onClick={handleClose} />
                         </DrawerHeader>
                     )}
                 </>

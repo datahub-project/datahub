@@ -4,8 +4,10 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -48,6 +50,11 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.retention.DataHubRetentionConfig;
+import com.linkedin.retention.Retention;
+import com.linkedin.retention.TimeBasedRetention;
+import com.linkedin.retention.VersionBasedRetention;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.DataGenerator;
@@ -71,6 +78,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -87,6 +95,9 @@ import org.testng.annotations.Test;
  */
 public class EbeanEntityServiceTest
     extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
+
+  /** Real retention service used to test policy resolution without spy stubbing. */
+  private EbeanRetentionService<ChangeItemImpl> _realRetentionService;
 
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
@@ -121,14 +132,18 @@ public class EbeanEntityServiceTest
         EbeanTestUtils.createTestServer(
             EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
 
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
         new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
+    _realRetentionService = new EbeanRetentionService<>(_entityServiceImpl, server, 1000);
+    _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
+    doReturn(20)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
     _entityServiceImpl.setRetentionService(_retentionService);
 
     opContext =
@@ -158,6 +173,59 @@ public class EbeanEntityServiceTest
   }
 
   @Test
+  public void testGetMaxVersionsToKeepForWrite_ResolvesPolicy() {
+    _realRetentionService.setRetention(
+        opContext,
+        null,
+        null,
+        new DataHubRetentionConfig()
+            .setRetention(
+                new Retention().setVersion(new VersionBasedRetention().setMaxVersions(20))));
+    _realRetentionService.setRetention(
+        opContext,
+        CORP_USER_ENTITY_NAME,
+        STATUS_ASPECT_NAME,
+        new DataHubRetentionConfig()
+            .setRetention(
+                new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))));
+
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(
+            opContext, CORP_USER_ENTITY_NAME, STATUS_ASPECT_NAME),
+        1);
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(
+            opContext, CORP_USER_ENTITY_NAME, "corpUserInfo"),
+        20);
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(opContext, "dataset", "schemaMetadata"),
+        20);
+  }
+
+  @Test
+  public void testApplyRetentionWithPolicyDefaults_VersionAndTimePolicies() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:retentionApplyTest");
+    List<RetentionService.RetentionContext> contexts =
+        List.of(
+            RetentionService.RetentionContext.builder()
+                .urn(urn)
+                .aspectName(STATUS_ASPECT_NAME)
+                .retentionPolicy(
+                    Optional.of(
+                        new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))))
+                .maxVersion(Optional.of(2L))
+                .build(),
+            RetentionService.RetentionContext.builder()
+                .urn(urn)
+                .aspectName("corpUserInfo")
+                .retentionPolicy(
+                    Optional.of(
+                        new Retention().setTime(new TimeBasedRetention().setMaxAgeInSeconds(3600))))
+                .build());
+    _realRetentionService.applyRetentionWithPolicyDefaults(opContext, contexts);
+  }
+
+  @Test
   public void testNoRowsUpdatedErrorHandling() throws Exception {
     // Setup test data
     Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testUser");
@@ -165,10 +233,8 @@ public class EbeanEntityServiceTest
     CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
     String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect.schema());
 
-    // Create database and spy on aspectDao
-    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
-    EbeanAspectDao aspectDao =
-        spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault, null));
+    // No database needed since all methods are stubbed
+    EbeanAspectDao aspectDao = mock(EbeanAspectDao.class);
 
     // Prevent actual saves
     EntityAspect mockEntityAspect = mock(EntityAspect.class);
@@ -176,7 +242,16 @@ public class EbeanEntityServiceTest
     doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any());
     doReturn(Optional.of(mockEntityAspect)).when(aspectDao).insertAspect(any(), any(), anyLong());
 
-    // Create spied transaction context that throws on commitAndContinue
+    // Stub methods that the transaction block will call
+    // Use mutable maps because the code calls computeIfAbsent() on them
+    when(aspectDao.getLatestAspects(any(), any(), anyBoolean()))
+        .thenReturn(new java.util.HashMap<>());
+    when(aspectDao.getNextVersions(any())).thenReturn(new java.util.HashMap<>());
+    // Stub saveLatestAspect to return a Pair with the mocked entity aspects
+    when(aspectDao.saveLatestAspect(any(), any(), any(), any(), anyInt()))
+        .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
+
+    // Create mocked transaction context that throws on commitAndContinue
     AtomicReference<TransactionContext> capturedTxContext = new AtomicReference<>();
     AtomicReference<TransactionResult<?>> capturedResult = new AtomicReference<>();
 
@@ -185,7 +260,14 @@ public class EbeanEntityServiceTest
               Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(0);
               Integer maxTransactionRetry = invocation.getArgument(2);
 
-              TransactionContext txContext = spy(TransactionContext.empty(maxTransactionRetry));
+              // Use mock instead of spy to avoid Mockito global interceptor
+              TransactionContext txContext = mock(TransactionContext.class);
+              // Stub other methods that might be called
+              when(txContext.getFailedAttempts()).thenReturn(0);
+              when(txContext.shouldAttemptRetry()).thenReturn(true);
+              when(txContext.lastException()).thenReturn(null);
+              when(txContext.lastExceptionIsDuplicateKey()).thenReturn(false);
+
               capturedTxContext.set(txContext);
 
               doThrow(new EntityNotFoundException("No rows updated"))
@@ -199,7 +281,7 @@ public class EbeanEntityServiceTest
         .when(aspectDao)
         .runInTransactionWithRetry(any(), any(), anyInt());
 
-    // Create the service with our spied dao
+    // Create the service with our mocked dao
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(false);
     EntityServiceImpl entityService =
@@ -765,5 +847,12 @@ public class EbeanEntityServiceTest
         throw new RuntimeException(ie);
       }
     }
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown all Database instances to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabaseFromAspectDao(_aspectDao);
   }
 }

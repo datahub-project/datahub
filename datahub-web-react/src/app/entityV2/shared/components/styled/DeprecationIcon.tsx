@@ -1,18 +1,18 @@
 import { Tooltip, colors } from '@components';
-import { Divider, Modal, Typography, message } from 'antd';
+import { Divider, Typography, message } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import moment from 'moment';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
+import dayjs from '@utils/dayjs';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation, SubResourceType } from '@types';
@@ -32,14 +32,14 @@ const DeprecatedTitle = styled(Typography.Text)`
     font-size: 16px;
     margin-bottom: 5px;
     font-weight: bold;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const DeprecatedSubTitle = styled(Typography.Text)`
     display: block;
     margin-bottom: 5px;
     font-size: 12px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     max-width: 100%;
 `;
 
@@ -68,7 +68,7 @@ const ThinDivider = styled(Divider)`
 const IconGroup = styled.div`
     padding-top: 10px;
     font-size: 12px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 
     &:hover {
         color: ${(props) => props.theme.styles['primary-color']};
@@ -100,6 +100,7 @@ export const DeprecationIcon = ({
     popoverPlacement = 'bottom',
 }: Props) => {
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
+    const [showUndeprecateModal, setShowUndeprecateModal] = useState(false);
 
     let decommissionTimeSeconds;
     if (deprecation.decommissionTime) {
@@ -115,7 +116,7 @@ export const DeprecationIcon = ({
             `Scheduled to be decommissioned on ${toLocalDateString(decommissionTimeSeconds * 1000)}`) ||
         undefined;
     const decommissionTimeGMT =
-        decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
+        decommissionTimeSeconds && dayjs.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;
@@ -140,6 +141,7 @@ export const DeprecationIcon = ({
                         resources: subResource ? [{ resourceUrn: urn, subResource, subResourceType }] : undefined,
                     });
                 }
+                setShowUndeprecateModal(false);
             })
             .catch((e) => {
                 message.destroy();
@@ -190,21 +192,7 @@ export const DeprecationIcon = ({
                         )}
                         {isDividerNeeded && showUndeprecate ? <ThinDivider /> : null}
                         {showUndeprecate && (
-                            <IconGroup
-                                onClick={() =>
-                                    Modal.confirm({
-                                        title: `Confirm Mark as un-deprecated`,
-                                        content: `Are you sure you want to mark this asset as un-deprecated?`,
-                                        onOk() {
-                                            batchUndeprecate();
-                                        },
-                                        onCancel() {},
-                                        okText: 'Yes',
-                                        maskClosable: true,
-                                        closable: true,
-                                    })
-                                }
-                            >
+                            <IconGroup onClick={() => setShowUndeprecateModal(true)}>
                                 <MarkAsDeprecatedButton internalText="Mark as un-deprecated" />
                             </IconGroup>
                         )}
@@ -217,6 +205,13 @@ export const DeprecationIcon = ({
             <DeprecatedContainer>
                 <DeprecatedIcon />
                 {showText ? 'Deprecated' : null}
+                <ConfirmationModal
+                    isOpen={showUndeprecateModal}
+                    handleClose={() => setShowUndeprecateModal(false)}
+                    handleConfirm={batchUndeprecate}
+                    modalTitle="Confirm Mark as un-deprecated"
+                    modalText="Are you sure you want to mark these assets as un-deprecated?"
+                />
             </DeprecatedContainer>
         </StructuredPopover>
     );

@@ -119,7 +119,7 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        hex_api_project = HexApiProjectApiResource.parse_obj(project_data)
+        hex_api_project = HexApiProjectApiResource.model_validate(project_data)
         result = hex_api._map_data_from_model(hex_api_project)
 
         # Verify the result
@@ -182,7 +182,7 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        hex_api_component = HexApiProjectApiResource.parse_obj(component_data)
+        hex_api_component = HexApiProjectApiResource.model_validate(component_data)
         result = hex_api._map_data_from_model(hex_api_component)
 
         # Verify the result
@@ -247,13 +247,13 @@ class TestHexAPI(unittest.TestCase):
         )
         assert failures[0].context
 
-    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
+    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.model_validate")
     def test_fetch_projects_failure_response_validation(self, mock_parse_obj):
         # Create a dummy http response
         mock_response = MagicMock()
         mock_response.json.return_value = {"whatever": "json"}
         # and simulate ValidationError when parsing the response
-        mock_parse_obj.side_effect = lambda _: HexApiProjectApiResource.parse_obj(
+        mock_parse_obj.side_effect = lambda _: HexApiProjectApiResource.model_validate(
             {}
         )  # will raise ValidationError
 
@@ -285,7 +285,7 @@ class TestHexAPI(unittest.TestCase):
         )
         assert failures[0].context
 
-    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
+    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.model_validate")
     @patch("datahub.ingestion.source.hex.api.HexApi._map_data_from_model")
     def test_fetch_projects_warning_model_mapping(
         self, mock_map_data_from_model, mock_parse_obj

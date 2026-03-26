@@ -1,7 +1,17 @@
 import random
-from typing import Dict, Generic, Iterable, Iterator, List, Set, TypeVar, Union
-
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Set,
+    SupportsIndex,
+    TypeVar,
+    Union,
+    overload,
+)
 
 T = TypeVar("T")
 _KT = TypeVar("_KT")
@@ -35,6 +45,27 @@ class LossyList(List[T], Generic[T]):
         for item in __iterable:
             self.append(item)
 
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> T: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> List[T]: ...
+
+    def __getitem__(self, index: Union[SupportsIndex, slice]) -> Union[T, List[T]]:
+        """
+        Override to unwrap stored tuples when accessing by index.
+
+        Internally, items are stored as (index, item) tuples for reservoir sampling.
+        This method unwraps them to return just the item, maintaining the List[T] abstraction.
+        """
+        result: Any = super().__getitem__(index)
+        if isinstance(index, slice):
+            # For slices, unwrap each tuple in the slice
+            return [item[1] for item in result]
+        else:
+            # For single index, unwrap the tuple
+            return result[1]
+
     def __len__(self) -> int:
         return self.total_elements
 
@@ -47,15 +78,11 @@ class LossyList(List[T], Generic[T]):
     def __str__(self) -> str:
         return repr(self)
 
-    if PYDANTIC_VERSION_2:
-        # With pydantic 2, it doesn't recognize that this is a list subclass,
-        # so we need to make it explicit.
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):  # type: ignore
+        from pydantic_core import core_schema
 
-        @classmethod
-        def __get_pydantic_core_schema__(cls, source_type, handler):  # type: ignore
-            from pydantic_core import core_schema
-
-            return core_schema.no_info_after_validator_function(cls, handler(list))
+        return core_schema.no_info_after_validator_function(cls, handler(list))
 
     def as_obj(self) -> List[Union[T, str]]:
         from datahub.ingestion.api.report import Report

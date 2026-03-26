@@ -35,14 +35,12 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
 
   @Override
   public String createIamUserSql(String username, String iamRole) {
-    // MySQL - IAM authentication with configurable role
+    // The iamRole parameter is not used for MySQL (unlike PostgreSQL)
+    // The actual IAM permissions are managed by AWS IAM policies, not stored in MySQL
     String escapedUser = escapeMysqlStringLiteral(username);
-    String escapedRole = escapeMysqlStringLiteral(iamRole);
-    return "CREATE USER "
+    return "CREATE USER IF NOT EXISTS "
         + escapedUser
-        + "@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS "
-        + escapedRole
-        + ";";
+        + "@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS';";
   }
 
   @Override
@@ -50,7 +48,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
     // MySQL - traditional authentication
     String escapedUser = escapeMysqlStringLiteral(username);
     String escapedPassword = escapeMysqlStringLiteral(password);
-    return "CREATE USER " + escapedUser + "@'%' IDENTIFIED BY " + escapedPassword + ";";
+    return "CREATE USER IF NOT EXISTS "
+        + escapedUser
+        + "@'%' IDENTIFIED BY "
+        + escapedPassword
+        + ";";
   }
 
   @Override
@@ -76,17 +78,18 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public String grantCdcPrivilegesSql(String cdcUser, String databaseName) {
+  public java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName) {
     // MySQL - comprehensive CDC privileges (matching original init-cdc.sql)
-    return String.format(
-        """
-        GRANT SELECT ON `%s`.* TO '%s'@'%%';
-        GRANT RELOAD ON *.* TO '%s'@'%%';
-        GRANT REPLICATION CLIENT ON *.* TO '%s'@'%%';
-        GRANT REPLICATION SLAVE ON *.* TO '%s'@'%%';
-        FLUSH PRIVILEGES;
-        """,
-        databaseName, cdcUser, cdcUser, cdcUser, cdcUser);
+    // Return as separate statements since JDBC doesn't support multiple statements in one execution
+    String escapedUser = escapeMysqlStringLiteral(cdcUser);
+    String escapedDatabase = escapeMysqlIdentifier(databaseName);
+
+    return java.util.Arrays.asList(
+        String.format("GRANT SELECT ON %s.* TO %s@'%%'", escapedDatabase, escapedUser),
+        String.format("GRANT RELOAD ON *.* TO %s@'%%'", escapedUser),
+        String.format("GRANT REPLICATION CLIENT ON *.* TO %s@'%%'", escapedUser),
+        String.format("GRANT REPLICATION SLAVE ON *.* TO %s@'%%'", escapedUser),
+        "FLUSH PRIVILEGES");
   }
 
   @Override
@@ -107,7 +110,7 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
           INDEX urnIndex (urn),
           INDEX aspectIndex (aspect),
           INDEX versionIndex (version)
-        );
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
         """);
   }
 
@@ -121,8 +124,13 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
       stmt.setString(1, databaseName);
       try (ResultSet result = stmt.executeQuery()) {
         if (!result.next()) {
-          // Create database using PreparedStatement
-          String createDbSql = "CREATE DATABASE `" + databaseName + "`";
+          // Create database with charset/collation matching docker/mysql-setup/init.sql to avoid
+          // case/encoding mismatches (e.g. utf8mb4_ci vs utf8mb4_bin) that can cause NPE in
+          // EbeanAspectDao.getNextVersions when DB-returned URN strings don't match request keys.
+          String createDbSql =
+              "CREATE DATABASE "
+                  + escapeMysqlIdentifier(databaseName)
+                  + " CHARACTER SET utf8mb4 COLLATE utf8mb4_bin";
           try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
             createStmt.executeUpdate();
             log.info("Created MySQL database: {}", databaseName);
@@ -134,8 +142,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
     } catch (Exception e) {
       log.debug("MySQL database check failed, attempting to create: {}", e.getMessage());
       // Fallback: try to create database directly
-      try (PreparedStatement createStmt =
-          connection.prepareStatement("CREATE DATABASE `" + databaseName + "`")) {
+      String createDbSql =
+          "CREATE DATABASE "
+              + escapeMysqlIdentifier(databaseName)
+              + " CHARACTER SET utf8mb4 COLLATE utf8mb4_bin";
+      try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
         createStmt.executeUpdate();
         log.info("Created MySQL database: {}", databaseName);
       }

@@ -2,9 +2,14 @@ import os
 from typing import List, Literal, Optional
 
 import certifi
-from pydantic import Field, validator
+from pydantic import Field, ValidationInfo, field_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    HiddenFromDocs,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -42,7 +47,7 @@ class DremioConnectionConfig(ConfigModel):
         description="Authentication method: 'password' or 'PAT' (Personal Access Token)",
     )
 
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Dremio password or Personal Access Token",
     )
@@ -78,8 +83,9 @@ class DremioConnectionConfig(ConfigModel):
         description="ID of Dremio Cloud Project. Found in Project Settings in the Dremio Cloud UI",
     )
 
-    @validator("authentication_method")
-    def validate_auth_method(cls, value):
+    @field_validator("authentication_method", mode="after")
+    @classmethod
+    def validate_auth_method(cls, value: str) -> str:
         allowed_methods = ["password", "PAT"]
         if value not in allowed_methods:
             raise ValueError(
@@ -87,9 +93,12 @@ class DremioConnectionConfig(ConfigModel):
             )
         return value
 
-    @validator("password")
-    def validate_password(cls, value, values):
-        if values.get("authentication_method") == "PAT" and not value:
+    @field_validator("password", mode="after")
+    @classmethod
+    def validate_password(
+        cls, value: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        if info.data.get("authentication_method") == "PAT" and not value:
             raise ValueError(
                 "Password (Personal Access Token) is required when using PAT authentication",
             )

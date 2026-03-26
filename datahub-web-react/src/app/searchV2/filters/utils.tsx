@@ -1,10 +1,8 @@
 import { FolderFilled } from '@ant-design/icons';
-import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { TagColor } from '@app/searchV2/filters/FilterOption';
@@ -53,12 +51,14 @@ import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMa
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
+import dayjs from '@utils/dayjs';
 
 import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
     AggregationMetadata,
     DataPlatform,
     DataPlatformInstance,
+    Document,
     Domain,
     Entity,
     EntityType,
@@ -132,7 +132,7 @@ function getDataPlatformInstanceIconAndLabel(
     icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
-        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
+        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT)
     );
     label = (filterEntity as DataPlatformInstance).instanceId
         ? (filterEntity as DataPlatformInstance).instanceId
@@ -146,10 +146,9 @@ export function getLastBrowseEntryFromFilterValue(filterValue: string) {
     return browseEntries[browseEntries.length - 1] || '';
 }
 
-const SubTypeIcon = styled.span<{ $fontSize?: number }>`
+const SubTypeIcon = styled.span`
     display: inline-flex;
-    color: ${ANTD_GRAY[9]};
-    font-size: ${({ $fontSize }) => $fontSize || 12}px;
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry: EntityRegistry, size?: number) {
@@ -160,9 +159,9 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
         label = capitalizeFirstLetterOnly(pluralizeIfIrregular(subType));
-        icon = <SubTypeIcon $fontSize={size}>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
+        icon = <SubTypeIcon>{getTypeIcon(entityRegistry, type as EntityType, subType, false, size || 12)}</SubTypeIcon>;
     } else {
-        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     }
 
@@ -187,7 +186,7 @@ function getFilterWithEntityIconAndLabel(
         icon = newIcon;
         label = newLabel;
     } else if (entityRegistry.hasEntity(filterEntity.type)) {
-        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT);
         label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
     } else {
         label = filterValue;
@@ -208,7 +207,7 @@ export function getFilterIconAndLabel(
     let label: string | undefined;
 
     if (filterField === ENTITY_FILTER_NAME || filterField === LEGACY_ENTITY_FILTER_NAME) {
-        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     } else if (filterField === ENTITY_SUB_TYPE_FILTER_NAME) {
         const { icon: newIcon, label: newLabel } = getEntitySubtypeFilterIconAndLabel(
@@ -226,11 +225,11 @@ export function getFilterIconAndLabel(
         icon = logoUrl ? (
             <PlatformIcon src={logoUrl} size={size} />
         ) : (
-            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
+            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT)
         );
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
-        icon = <FolderFilled size={size} color="black" />;
+        icon = <FolderFilled style={{ fontSize: size }} />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
         const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
@@ -342,12 +341,12 @@ export function getFilterOptions(
     return filterOptions;
 }
 
+const normalize = (str) => str.replace(/[_␞\s]/g, '').toLowerCase();
+
 export function filterOptionsWithSearch(searchQuery: string, name: string, nestedOptions: FilterOptionType[] = []) {
     if (searchQuery) {
-        return (
-            name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()) ||
-            !!nestedOptions.find((option) => option.value.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()))
-        );
+        const query = normalize(searchQuery);
+        return normalize(name).includes(query) || nestedOptions.some((o) => normalize(o.value).includes(query));
     }
     return true;
 }
@@ -376,6 +375,10 @@ export function getParentEntities(entity: Entity): Entity[] | null {
     }
     if (entity.type === EntityType.Domain) {
         return (entity as Domain).parentDomains?.domains || [];
+    }
+    if (entity.type === EntityType.Document) {
+        // Document type is generated and includes parentDocuments field
+        return (entity as Document).parentDocuments?.documents || [];
     }
     return null;
 }
@@ -528,7 +531,7 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
 
     // check for structured prop date values
     if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN) {
-        return moment(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
+        return dayjs(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
     }
 
     // check for structured prop number values
@@ -546,7 +549,7 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
  * @param availableFilters - An array of available facet filters metadata.
  * @returns The resulting FilterPredicate.
  */
-export function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
+function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
     // First, check whether this is a well-supported filter field.
     const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
     const operator =

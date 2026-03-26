@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 import pytest
@@ -51,7 +52,7 @@ def test_postgres_ingest_with_db(
     config_file = (
         test_resources_dir / "postgres_to_file_with_db_estimate_row_count.yml"
     ).resolve()
-    print("Config file: {config_file}")
+    print(f"Config file: {config_file}")
 
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
@@ -72,7 +73,7 @@ def test_postgres_ingest_with_all_db(
     config_file = (
         test_resources_dir / "postgres_all_db_to_file_with_db_estimate_row_count.yml"
     ).resolve()
-    print("Config file: {config_file}")
+    print(f"Config file: {config_file}")
 
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
@@ -82,3 +83,27 @@ def test_postgres_ingest_with_all_db(
         output_path=tmp_path / "postgres_all_db_mces.json",
         golden_path=test_resources_dir / "postgres_all_db_mces_with_db_golden.json",
     )
+
+
+@time_machine.travel(FROZEN_TIME)
+@pytest.mark.integration
+def test_postgres_test_connection(
+    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (test_resources_dir / "postgres_test_connection.yml").resolve()
+
+    run_datahub_cmd(
+        [
+            "ingest",
+            "-c",
+            f"{config_file}",
+            "--test-source-connection",
+            "--report-to",
+            "postgres_test_connection.json",
+        ],
+        tmp_path=tmp_path,
+    )
+    with open(tmp_path / "postgres_test_connection.json") as f:
+        expected = json.load(f)
+    assert expected == {"basic_connectivity": {"capable": True}}

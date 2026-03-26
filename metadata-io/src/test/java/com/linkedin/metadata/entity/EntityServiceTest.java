@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -10,6 +11,12 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
+import com.linkedin.assertion.AssertionStdOperator;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
@@ -93,10 +100,12 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -1237,6 +1246,92 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readNewRecentAspect =
         _entityServiceImpl.getAspect(opContext, entityUrn1, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+  }
+
+  @Test
+  public void testIngestWithMaxVersionsOne_NoVersionHistory() throws AssertionError {
+    doReturn(1)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:maxVersionsOne");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserInfo first = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    CorpUserInfo second = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(first)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(second)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+
+    assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0), second);
+    assertNull(
+        _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1),
+        "No version history when maxVersionsToKeep=1");
+  }
+
+  @Test
+  public void testIngestWhenGetMaxVersionsToKeepForWriteThrows_FallbackToOne() throws Exception {
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> mockRetention = mock(RetentionService.class);
+    when(mockRetention.getMaxVersionsToKeepForWrite(any(), anyString(), anyString()))
+        .thenThrow(new RuntimeException("retention unavailable"));
+
+    _entityServiceImpl.setRetentionService(mockRetention);
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:retentionThrows");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserInfo aspect = AspectGenerationUtils.createCorpUserInfo("fallback@test.com");
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(aspect)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+
+    assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0), aspect);
+    assertNull(
+        _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1),
+        "Fallback to 1 when getMaxVersionsToKeepForWrite throws");
   }
 
   @Test
@@ -2620,7 +2715,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
                     .build()
                     .getJsonPatch())
@@ -2638,7 +2733,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tagOther)))
                     .build()
                     .getJsonPatch())
@@ -2719,7 +2814,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag3)))
                     .build()
                     .getJsonPatch())
@@ -2737,7 +2832,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
                     .build()
                     .getJsonPatch())
@@ -2755,7 +2850,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
                     .build()
                     .getJsonPatch())
@@ -2793,7 +2888,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     EnvelopedAspect envelopedAspect =
         _entityServiceImpl.getLatestEnvelopedAspect(
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
-    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "3", "Expected version 3");
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "4", "Expected version 4");
     assertEquals(
         new GlobalTags(envelopedAspect.getValue().data())
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
@@ -2843,7 +2938,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
                     .build()
                     .getJsonPatch())
@@ -2909,7 +3004,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tag1)))
                     .build()
                     .getJsonPatch())
@@ -2966,7 +3061,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
                     .build()
                     .getJsonPatch())
@@ -3187,6 +3282,188 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
   }
 
+  @Test
+  public void testAssertionInfoPatchPreservesNote() throws Exception {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:testAssertionInfoPatch");
+    Urn datasetUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:testPlatform,assertionInfoPatch,PROD)");
+
+    AssertionNote note =
+        new AssertionNote()
+            .setContent("keep me")
+            .setLastModified(new AuditStamp().setTime(1).setActor(new CorpuserUrn("test-user")));
+
+    DatasetAssertionInfo initialDatasetAssertion =
+        new DatasetAssertionInfo()
+            .setDataset(datasetUrn)
+            .setScope(DatasetAssertionScope.DATASET_ROWS)
+            .setOperator(AssertionStdOperator.BETWEEN);
+
+    AssertionInfo initialInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setDatasetAssertion(initialDatasetAssertion)
+            .setNote(note)
+            .setCustomProperties(new StringMap(Map.of("expectation_suite_name", "initial")));
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    ChangeItemImpl initialAspect =
+        ChangeItemImpl.builder()
+            .urn(assertionUrn)
+            .aspectName(ASSERTION_INFO_ASPECT_NAME)
+            .recordTemplate(initialInfo)
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+
+    GenericJsonPatch.PatchOp typePatch = new GenericJsonPatch.PatchOp();
+    typePatch.setOp(PatchOperationType.ADD.getValue());
+    typePatch.setPath("/type");
+    typePatch.setValue("DATASET");
+
+    GenericJsonPatch.PatchOp datasetAssertionPatch = new GenericJsonPatch.PatchOp();
+    datasetAssertionPatch.setOp(PatchOperationType.ADD.getValue());
+    datasetAssertionPatch.setPath("/datasetAssertion");
+    datasetAssertionPatch.setValue(
+        Map.of(
+            "dataset",
+            datasetUrn.toString(),
+            "scope",
+            DatasetAssertionScope.DATASET_SCHEMA.toString(),
+            "operator",
+            AssertionStdOperator.EQUAL_TO.toString()));
+
+    GenericJsonPatch.PatchOp expectationSuitePatch = new GenericJsonPatch.PatchOp();
+    expectationSuitePatch.setOp(PatchOperationType.ADD.getValue());
+    expectationSuitePatch.setPath("/customProperties/expectation_suite_name");
+    expectationSuitePatch.setValue("updated");
+
+    GenericJsonPatch genericPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(typePatch, datasetAssertionPatch, expectationSuitePatch))
+            .forceGenericPatch(true)
+            .build();
+    ObjectMapper objectMapper = new ObjectMapper();
+    GenericAspect patchAspect =
+        new GenericAspect()
+            .setValue(
+                ByteString.copyString(
+                    objectMapper.writeValueAsString(genericPatch), StandardCharsets.UTF_8));
+    MetadataChangeProposal patchProposal =
+        new MetadataChangeProposal()
+            .setEntityType(ASSERTION_ENTITY_NAME)
+            .setEntityUrn(assertionUrn)
+            .setAspectName(ASSERTION_INFO_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(patchAspect);
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .build(patchProposal, AuditStampUtils.createDefaultAuditStamp(), _testEntityRegistry);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(initialAspect))
+            .build(opContext),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(patchItem))
+            .build(opContext),
+        false,
+        true);
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, ASSERTION_ENTITY_NAME, assertionUrn, ASSERTION_INFO_ASPECT_NAME);
+    AssertionInfo patchedInfo = new AssertionInfo(envelopedAspect.getValue().data());
+
+    assertEquals(patchedInfo.getNote().getContent(), "keep me");
+    assertEquals(patchedInfo.getCustomProperties().get("expectation_suite_name"), "updated");
+    assertEquals(
+        patchedInfo.getDatasetAssertion().getScope(), DatasetAssertionScope.DATASET_SCHEMA);
+    assertEquals(patchedInfo.getDatasetAssertion().getOperator(), AssertionStdOperator.EQUAL_TO);
+  }
+
+  @Test
+  public void testCountAspect() throws Exception {
+    if (!(this instanceof EbeanEntityServiceTest)) {
+      return;
+    }
+
+    // Setup: Create test data with different URNs and aspects
+    Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:testCountAspect1");
+    Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:testCountAspect2");
+    Urn entityUrn3 =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testCountAspect3,PROD)");
+
+    CorpUserInfo userInfo1 = AspectGenerationUtils.createCorpUserInfo("test1@test.com");
+    CorpUserInfo userInfo2 = AspectGenerationUtils.createCorpUserInfo("test2@test.com");
+    DatasetProperties datasetProperties = new DatasetProperties();
+    datasetProperties.setDescription("Test dataset");
+
+    SystemMetadata metadata = AspectGenerationUtils.createSystemMetadata();
+
+    // Ingest test aspects
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn1,
+        List.of(new Pair<>(AspectGenerationUtils.getAspectName(userInfo1), userInfo1)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn2,
+        List.of(new Pair<>(AspectGenerationUtils.getAspectName(userInfo2), userInfo2)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn3,
+        List.of(
+            new Pair<>(AspectGenerationUtils.getAspectName(datasetProperties), datasetProperties)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    List<String> logMessages = new ArrayList<>();
+
+    // Test case 1: No filter - should return count of all aspects
+    RestoreIndicesArgs args1 = new RestoreIndicesArgs();
+    int count1 = _entityServiceImpl.countAspect(args1, logMessages::add);
+    assertTrue(count1 >= 3, "Should have at least 3 aspects (corpUserInfo x2 + datasetProperties)");
+
+    // Test case 2: urnLike filter - should return count of aspects matching the URN pattern
+    RestoreIndicesArgs args2 = new RestoreIndicesArgs();
+    args2.urnLike = "%corpuser:testCountAspect%";
+    int count2 = _entityServiceImpl.countAspect(args2, logMessages::add);
+    assertTrue(count2 >= 2, "Should have at least 2 corpuser aspects");
+
+    // Test case 3: urnLike + aspectName filter - should return count of matching aspects
+    RestoreIndicesArgs args3 = new RestoreIndicesArgs();
+    args3.urnLike = "%corpuser:testCountAspect%";
+    args3.aspectName = "corpUserInfo";
+    int count3 = _entityServiceImpl.countAspect(args3, logMessages::add);
+    assertEquals(count3, 2, "Should have exactly 2 corpUserInfo aspects for testCountAspect users");
+
+    // Test case 4: aspectName filter only
+    RestoreIndicesArgs args4 = new RestoreIndicesArgs();
+    args4.aspectName = "datasetProperties";
+    int count4 = _entityServiceImpl.countAspect(args4, logMessages::add);
+    assertTrue(count4 >= 1, "Should have at least 1 datasetProperties aspect");
+
+    // Verify logger was called
+    assertFalse(logMessages.isEmpty(), "Logger should have been called");
+  }
+
   @Nonnull
   protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email)
       throws Exception {
@@ -3224,7 +3501,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     patchOp.setOp(op.getValue());
     patchOp.setPath(String.format("/tags/%s", tagUrn));
     if (PatchOperationType.ADD.equals(op)) {
-      patchOp.setValue(Map.of("tag", tagUrn.toString()));
+      // Create a proper TagAssociation structure
+      Map<String, Object> tagAssociation = new HashMap<>();
+      tagAssociation.put("tag", tagUrn.toString());
+      // Add optional context field with a non-null value to avoid coercion issues
+      tagAssociation.put("context", "test-context");
+      patchOp.setValue(tagAssociation);
     }
     return patchOp;
   }

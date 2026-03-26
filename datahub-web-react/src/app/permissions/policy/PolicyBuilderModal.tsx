@@ -1,4 +1,4 @@
-import { Modal, Steps } from 'antd';
+import { Steps } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -8,7 +8,8 @@ import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
 
@@ -21,10 +22,21 @@ type Props = {
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
 
-const StepsContainer = styled.div`
+const StepsWrapper = styled.div`
+    padding: 0px 20px;
+`;
+
+const StepContent = styled.div`
+    padding: 0px 20px;
+    max-height: 75vh;
+    overflow-y: auto;
+`;
+
+const StepsControls = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
+    padding: 0px 20px;
 `;
 
 const PrevButtonContainer = styled.div`
@@ -48,6 +60,8 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [selectedTags, setSelectedTags] = useState<any[]>([]);
     const [isEditState, setEditState] = useState(true);
+
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     // Go to next step
     const next = () => {
@@ -151,23 +165,8 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
         querySelectorToExecuteClick: '#saveButton',
     });
 
-    // modalClosePopup for outside policy modal click
-    const modalClosePopup = () => {
-        Modal.confirm({
-            title: 'Exit Policy Editor',
-            content: `Are you sure you want to exit policy editor? All changes will be lost`,
-            onOk() {
-                onClose();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="PolicyBuilderModal">
+        <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
                 title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
@@ -175,15 +174,21 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 onCancel={onClose}
                 closable
                 width={750}
-                footer={null}
+                buttons={[]}
+                bodyStyle={{
+                    paddingLeft: '0px',
+                    paddingRight: '0px',
+                }}
             >
-                <Steps current={activeStepIndex}>
-                    {policySteps.map((item) => (
-                        <Steps.Step key={item.title} title={item.title} />
-                    ))}
-                </Steps>
-                <div className="steps-content">{activeStep.content}</div>
-                <StepsContainer>
+                <StepsWrapper>
+                    <Steps current={activeStepIndex}>
+                        {policySteps.map((item) => (
+                            <Steps.Step key={item.title} title={item.title} />
+                        ))}
+                    </Steps>
+                </StepsWrapper>
+                <StepContent>{activeStep.content}</StepContent>
+                <StepsControls>
                     <PrevButtonContainer>
                         {activeStepIndex > 0 && (
                             <Button variant="outline" color="gray" onClick={() => prev()}>
@@ -203,8 +208,21 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                             </Button>
                         )}
                     </NextButtonContainer>
-                </StepsContainer>
+                </StepsControls>
             </Modal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => {
+                    setShowConfirmationModal(false);
+                }}
+                handleConfirm={() => {
+                    setShowConfirmationModal(false);
+                    onClose();
+                }}
+                modalTitle="Exit Policy Editor"
+                modalText="Are you sure you want to exit policy editor? All changes will be lost"
+                confirmButtonText="Yes"
+            />
         </ClickOutside>
     );
 }

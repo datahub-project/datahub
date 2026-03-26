@@ -52,8 +52,7 @@ public class CreateTablesStepTest {
             null, // createUserPassword
             "localhost", // host
             3306, // port
-            "testdb", // databaseName
-            null // createUserIamRole
+            "testdb" // databaseName
             );
     createTablesStep = new CreateTablesStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
@@ -116,8 +115,7 @@ public class CreateTablesStepTest {
             null, // createUserPassword
             "localhost", // host
             5432, // port
-            "testdb", // databaseName
-            null // createUserIamRole
+            "testdb" // databaseName
             );
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresSetupArgs);
     when(mockDatabase.dataSource()).thenReturn(mockDataSource);
@@ -315,8 +313,7 @@ public class CreateTablesStepTest {
             null,
             "localhost",
             5432,
-            "testdb",
-            null);
+            "testdb");
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
 
     // Mock that database exists (ResultSet.next() returns true)
@@ -364,8 +361,7 @@ public class CreateTablesStepTest {
             null,
             "localhost",
             5432,
-            "testdb",
-            null);
+            "testdb");
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
 
     // Mock database check failure - PreparedStatement throws exception

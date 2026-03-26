@@ -1,0 +1,10 @@
+{
+    "hosts": [],
+    "users": [],
+    "backend_roles": [
+        "IAM_ROLE_ARN"
+    ],
+    "and_backend_roles": [],
+    "description": "DataHub access via IAM authentication"
+}
+

@@ -8,11 +8,17 @@ spring.application.name: ${APPLICATION_NAME:datahub-gms}
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
+# Kubernetes environment (global). When the process runs in a K8 pod, the cluster sets KUBERNETES_SERVICE_HOST.
+kubernetes:
+  serviceHost: ${KUBERNETES_SERVICE_HOST:}
+  # Enable the OpenAPI K8 operations controller (deployments, pods, config maps, cron jobs). Default true.
+  operationsApiEnabled: ${KUBERNETES_OPERATIONS_API_ENABLED:true}
+
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/health/live,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
+  excludedPaths: /schema-registry/*,/health,/health/live,/health/detailed,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus,/openapi/operations/dev/featureFlags,/openapi/operations/dev/featureFlags/*
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
@@ -21,10 +27,6 @@ authentication:
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
-      configs:
-        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
-        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-        salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
     # OAuth/OIDC JWT token authenticator for service accounts
@@ -45,10 +47,10 @@ authentication:
 
         # Option 2: Discovery URI to auto-derive JWKS URI (alternative to jwksUri)
         discoveryUri: ${EXTERNAL_OAUTH_DISCOVERY_URI:}
-        
+
         # JWT claim to use as user identifier (defaults to 'sub')
         userIdClaim: ${EXTERNAL_OAUTH_USER_ID_CLAIM:sub}
-        
+
         # JWT signing algorithm (defaults to 'RS256')
         algorithm: ${EXTERNAL_OAUTH_ALGORITHM:RS256}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
@@ -67,13 +69,16 @@ authentication:
   # Configurations for DataHub token service
   tokenService:
     # Key used to sign new tokens.
-    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-    salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:}
+    salt: ${DATAHUB_TOKEN_SERVICE_SALT:}
     issuer: ${DATAHUB_TOKEN_SERVICE_ISSUER:datahub-metadata-service}
     signingAlgorithm: ${DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM:HS256}
 
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
+
+  # The max duration of a password reset token in milliseconds. Defaults to 1 day.
+  passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
 
 # Authorization-related configurations.
 authorization:
@@ -115,6 +120,8 @@ datahub:
   serverEnv: ${DATAHUB_SERVER_ENV:core}
   # The base path for the URL where DataHub will be deployed
   basePath: ${DATAHUB_BASE_PATH:}
+  # For special deployment modes intended to point at read replicas. WARNING: THIS WILL DROP WRITE OPERATIONS WITHOUT ERRORS, intended for analytics based deploys to offload work from user serving deploys
+  readOnly: ${DATAHUB_READ_ONLY:false}
 
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
@@ -162,7 +169,24 @@ datahub:
     roleArn: ${DATAHUB_ROLE_ARN:} # The AWS IAM role ARN to assume for S3 access
     presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
-    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product-assets}
+    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
+
+  validation:
+    aspectSize:
+      prePatch:
+        enabled: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED:false}
+        warnSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES:}
+        maxSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES:16000000}
+        oversizedRemediation: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION:IGNORE}
+      postPatch:
+        enabled: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED:false}
+        warnSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARN_SIZE_BYTES:}
+        maxSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES:16000000}
+        oversizedRemediation: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION:IGNORE}
+      metrics:
+        # Size bucket boundaries for distribution tracking (in bytes)
+        # Default: 1MB, 5MB, 10MB, 15MB creates buckets: 0-1MB, 1-5MB, 5-10MB, 10-15MB, 15MB+
+        sizeBuckets: ${DATAHUB_ASPECT_SIZE_METRICS_BUCKETS:1048576,5242880,10485760,15728640}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -183,6 +207,7 @@ searchService:
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
+  semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
@@ -226,6 +251,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
   # Priority is given to the `path` setting above (outside jar)
   resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
+  useOptimizedLoading: ${CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING:true}
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
@@ -239,7 +265,7 @@ mclProcessing:
   cdcSource:
     enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
     configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
-    type: debezium-kafka-connector  # Only supported type for now.
+    type: debezium-kafka-connector # Only supported type for now.
     debeziumConfig: # Debezium-specific configuration
       type: ${CDC_DB_TYPE:mysql} # Set to one of mysql or postgres to load additional db specific config.
       name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
@@ -293,7 +319,7 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:assets/platforms/datahublogo.png}
+    logoUrl: ${REACT_APP_LOGO_URL:assets/logos/datahublogo.svg} # we rely on this default constant in frontend - change in datahub-web-react/src/app/homeV2/layout/NavSidebar.tsx if updating
     faviconUrl: ${REACT_APP_FAVICON_URL:assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
@@ -342,6 +368,7 @@ elasticsearch:
   port: ${ELASTICSEARCH_PORT:9200}
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
+  socketTimeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
@@ -350,6 +377,68 @@ elasticsearch:
   region: ${AWS_REGION:#{null}}
   idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
   dataNodeCount: ${ELASTICSEARCH_DATA_NODE_COUNT:1}
+  entityIndex:
+    v2:
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:true}
+    v3:
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
+      analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
+      mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
+      maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
+    semanticSearch:
+      enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
+      enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
+      # Multi-model configuration: map of model name to embedding config
+      # Example with multiple models:
+      # models:
+      #   text_embedding_3_large:
+      #     vectorDimension: 3072
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      #   cohere_embed_v3:
+      #     vectorDimension: 1024
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      models:
+        text_embedding_3_large:
+          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:3072}
+          knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
+          spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
+          efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
+          m: ${ELASTICSEARCH_SEMANTIC_M:16}
+      # Embedding provider configuration for generating query embeddings
+      # Supports three providers: "aws-bedrock", "openai", "cohere"
+      embeddingProvider:
+        # Provider type: "aws-bedrock", "openai", or "cohere"
+        type: ${EMBEDDING_PROVIDER_TYPE:openai}
+
+        # Maximum text length before truncation (Cohere enforces 2048 character limit)
+        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+
+        # AWS Bedrock configuration (used when type is "aws-bedrock")
+        bedrock:
+          # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
+          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:us-west-2}
+          # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
+          model: ${BEDROCK_EMBEDDING_MODEL:cohere.embed-english-v3}
+
+        # OpenAI configuration (used when type is "openai")
+        openai:
+          apiKey: ${OPENAI_API_KEY:}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
+          endpoint: ${OPENAI_EMBEDDING_ENDPOINT:https://api.openai.com/v1/embeddings}
+
+        # Cohere configuration (used when type is "cohere")
+        cohere:
+          apiKey: ${COHERE_API_KEY:}
+          model: ${COHERE_EMBEDDING_MODEL:embed-english-v3.0}
+          endpoint: ${COHERE_EMBEDDING_ENDPOINT:https://api.cohere.ai/v1/embed}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -393,7 +482,7 @@ elasticsearch:
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
-    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
+    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
@@ -409,6 +498,13 @@ elasticsearch:
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
     reindexOptimizationEnabled: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED:true} # Disable when Multi-AZ zone replication is set to required, will prevent index from setting zero replicas during reindexing
+    reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
+    reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
+    reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    slowOperationTimeoutSeconds: ${ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS:180} # socket timeout for count, refresh, createIndex, reindex, listTasks
+    countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
+    countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
+    createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -444,16 +540,24 @@ elasticsearch:
       # Impact analysis configuration
       impact:
         maxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
-        maxRelations: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS:40000} # maximum number of relationships
+        maxRelations: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS:40000} # maximum number of relationships; use -1 or 0 for unlimited (only bound by time limit)
         slices: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES:${elasticsearch.dataNodeCount}} # number of slices for parallel search operations
         keepAlive: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE:55s} # Point-in-Time keepAlive duration for impact analysis queries
+        partialResults: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_PARTIAL_RESULTS:false} # if true, return partial results when maxRelations is reached; if false (default), throw an error
+        searchQueryTimeReservation: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SEARCH_QUERY_TIME_RESERVATION:0.2} # fraction (0.0-1.0) of total timeout to reserve for second query phase when partialResults is enabled. Default: 0.2 (20%)
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
+    validation:
+      enabled: ${SEARCH_VALIDATION_ENABLED:true}
+      maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
+      maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
+      regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
 
 # TODO: Kafka topic convention
 kafka:
   setup:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
+    autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:false}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
 
   # Topic defaults applied when individual topic configuration is missing
@@ -468,35 +572,66 @@ kafka:
     # Each topic can be created by iterating through this dictionary
     # The key name matches the programmatic identifier used in code
     metadataChangeProposal:
+      displayName: MetadataChangeProposal_v1
       name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}
+      partitions: ${METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     failedMetadataChangeProposal:
+      displayName: FailedMetadataChangeProposal_v1
       name: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:FailedMetadataChangeProposal_v1}
+      partitions: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogVersioned:
       name: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:MetadataChangeLog_Versioned_v1}
+      displayName: MetadataChangeLog_Versioned_v1
+      pollEnabled: true
+      partitions: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogTimeseries:
       name: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:MetadataChangeLog_Timeseries_v1}
+      displayName: MetadataChangeLog_Timeseries_v1
+      partitions: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+      pollEnabled: true
       configProperties:
         retention.ms: 7776000000
 
     platformEvent:
       name: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
+      displayName: PlatformEvent_v1
+      pollEnabled: true
+      partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     datahubUpgradeHistory:
       name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      partitions: 1
+      displayName: DataHubUpgradeHistory_v1
+      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
+      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
       configProperties:
         retention.ms: -1
 
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
+      displayName: DataHubUsageEvent_v1
       enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+      partitions: ${DATAHUB_USAGE_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${DATAHUB_USAGE_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+
+    workEvent:
+      name: ${WORK_EVENT_TOPIC_NAME:WorkEvent_v1}
+      displayName: WorkEvent_v1
+      enabled: ${WORK_EVENT_TOPIC_ENABLED:false}
+      pollEnabled: ${WORK_EVENT_TOPIC_POLL_ENABLED:false}
 
     cdcTopic:
       name: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
       enabled: ${CDC_MCL_PROCESSING_ENABLED:false}
+      partitions: ${CDC_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${CDC_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:
@@ -542,6 +677,9 @@ kafka:
         delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
 
   producer:
+    bootstrapServers: ${KAFKA_PRODUCER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
+    securityProtocol: ${KAFKA_PRODUCER_SECURITY_PROTOCOL:} # Used as an override for the base security protocol setting for when split producer/consumer is desired
+    schemaRegistryUrl: ${KAFKA_PRODUCER_SCHEMAREGISTRY_URL:} # Used as an override for the base schema registry URL for when split producer/consumer is desired
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
@@ -549,6 +687,9 @@ kafka:
     compressionType: ${KAFKA_PRODUCER_COMPRESSION_TYPE:snappy} # producer's compression algorithm
     maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
   consumer:
+    bootstrapServers: ${KAFKA_CONSUMER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
+    securityProtocol: ${KAFKA_CONSUMER_SECURITY_PROTOCOL:} # Used as an override for the base security protocol setting for when split producer/consumer is desired
+    schemaRegistryUrl: ${KAFKA_CONSUMER_SCHEMAREGISTRY_URL:} # Used as an override for the base schema registry URL for when split producer/consumer is desired
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
@@ -569,6 +710,8 @@ kafka:
   consumerPool:
     initialSize: ${KAFKA_CONSUMER_POOL_INITIAL_SIZE:1}
     maxSize: ${KAFKA_CONSUMER_POOL_MAX_SIZE:5}
+    validationTimeoutSeconds: ${KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS:5}
+    validationCacheIntervalMinutes: ${KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES:5}
 
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
@@ -580,7 +723,6 @@ kafka:
     registry:
       security:
         protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
-
 
 # Only required if GraphService type is neo4j
 neo4j:
@@ -615,6 +757,10 @@ spring:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
   autoconfigure:
     exclude:
+      # hazelcast-spring 5.6+ registers HazelcastObjectExtractionConfiguration which requires a
+      # HazelcastInstance bean. We only create one when searchService.cacheImplementation=hazelcast
+      # (default is caffeine). Excluding this avoids context failure when Hazelcast cache is not used.
+      - com.hazelcast.spring.HazelcastObjectExtractionConfiguration
       # We don't use these
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraHealthContributorAutoConfiguration
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraReactiveHealthContributorAutoConfiguration
@@ -693,6 +839,9 @@ springdoc:
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
 
+devTooling:
+  enabled: ${DEV_TOOLING_ENABLED:false}
+
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
   consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
@@ -734,6 +883,21 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_CLL_LIMIT:0}
+  chartInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_CLL_LIMIT:0}
+  mlModel:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_CLL_LIMIT:0}
+  mlModelGroup:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_CLL_LIMIT:0}
   dashboardInfo:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
@@ -762,6 +926,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_REPROCESS:false}
+  lineageIndexFields:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
@@ -793,11 +962,53 @@ systemUpdate:
   removeQueryEdges:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
     numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
+  entityConsistency:
+    enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED:true}
+    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:true}  # Set to false to apply fixes
+    batchSize: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_BATCH_SIZE:100}
+    delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
+    gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
+    limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
+    entityTypes: []  # Entity types to check. Empty = all types with registered checks.
+    checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_REPROCESS:false}
+    systemMetadataFilterConfig:  # Optional filtering via system metadata index
+      gePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GE_PIT_EPOCH_MS:}  # Only entities modified >= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
+      lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
+      aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
+      includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+  kubernetesScaleDown:
+    enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
+    useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
+    maxRetries: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_MAX_RETRIES:3}
+    stateConfigMapName: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_STATE_CONFIG_MAP:}
+    # Comma-separated label selectors for deployments to scale to zero (e.g. MAE, MCE). Set via Helm.
+    scaleDownDeploymentLabelSelectors: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_LABEL_SELECTORS:}
+    # JSON array: [{"labelSelector":"...","env":{"KEY":"value",...}}]. Deployments matched by each
+    # label selector get env set when scaling down; state stores previous env per deployment for restore.
+    # Override via DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES (e.g. from Helm).
+    deploymentEnvUpdates: '[{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false","MCE_CONSUMER_ENABLED":"false","MAE_CONSUMER_ENABLED":"false","PE_CONSUMER_ENABLED":"false","MCP_CONSUMER_ENABLED":"false"}}]'
+    kedaGroup: ${DATAHUB_UPGRADE_K8_KEDA_GROUP:keda.sh}
+    kedaVersion: ${DATAHUB_UPGRADE_K8_KEDA_VERSION:v1alpha1}
+    kedaScaledObjectsPlural: ${DATAHUB_UPGRADE_K8_KEDA_SCALED_OBJECTS_PLURAL:scaledobjects}
+    rolloutPollSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS:5}
+    # Max wait for each deployment rollout (scale down or rolling restart). Default 30m; increase for many pods or slow strategies.
+    rolloutMaxWaitSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS:1800}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+
+# Consistency check configuration (shared by upgrade job and API endpoints)
+consistencyChecks:
+  gracePeriodSeconds: ${CONSISTENCY_CHECKS_GRACE_PERIOD_SECONDS:300}  # 5 minutes - default for API endpoints
+  checks:
+    # Per-check configuration, keyed by check ID
+    assertion-monitor-missing:
+      defaultCronSchedule: ${CONSISTENCY_CHECK_ASSERTION_MONITOR_MISSING_CRON:0 0 0 * * ?}
+      defaultCronTimezone: ${CONSISTENCY_CHECK_ASSERTION_MONITOR_MISSING_TIMEZONE:UTC}
 
 healthCheck:
   cacheDurationSeconds: ${HEALTH_CHECK_CACHE_DURATION_SECONDS:5}
@@ -827,36 +1038,44 @@ featureFlags:
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
-  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
+  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:false} # Acryl only! Allows theme v2 to be toggled on / off by users.
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
+  hideLineageInSearchCards: ${HIDE_LINEAGE_IN_SEARCH_CARDS:false} # If turned on, hides lineage information in search result cards
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
   showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
-  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
+  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:true} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
   showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
-  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
+  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:true} # If turned on, show the re-designed Ingestion page
+  ingestionOnboardingRedesignV1: ${INGESTION_ONBOARDING_REDESIGN_V1:false} # If turned on, show the redesigned ingestion onboarding experience
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
-  showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
-  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
+  showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:true} # If turned on, show the re-designed home page
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:true} # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
-  productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core} # URL to fetch product updates JSON from remote source.
-  # for Saas:
-  #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud} # URL to fetch product updates JSON from remote source.
+  # product updates for OSS (master):
+  productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core/} # URL to fetch product updates JSON from remote source.
   productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update.json} # Classpath resource to use as fallback when remote fetch fails.
-  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
-  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
+  # product updates for Saas (acryl-main):
+  #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
+  #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
-  assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
+  assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
+  datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
+  contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
+  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -867,7 +1086,7 @@ views:
   enabled: ${VIEWS_ENABLED:true}
 
 searchBar:
-  apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
+  apiVariant: ${SEARCH_BAR_API_VARIANT:SEARCH_ACROSS_ENTITIES}
 
 searchCard:
   showDescription: ${SEARCH_CARD_SHOW_DESCRIPTION:false}
@@ -956,6 +1175,9 @@ cache:
           telemetryClientId: 86400 # 1 day
 
 graphQL:
+  graphiql:
+    # Enable/disable the GraphiQL interactive query interface at /api/graphiql
+    enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
   concurrency:
     separateThreadPool: ${GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL:false} # Enable the separate thread pool, the following configurations only apply if enabled
     stackSize: ${GRAPHQL_CONCURRENCY_STACK_SIZE:256000} # Default to JVM default of 256 KB
@@ -966,6 +1188,11 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
+    # Parent chain traversal (glossary, domains, containers, documents)
+    maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
+    # Relationship resolution cap per request (cycle/unbounded protection)
+    maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
+    slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
@@ -1067,7 +1294,13 @@ metadataChangeProposal:
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
-      maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+      maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+metadataChangeLog:
+  consumer:
+    batch:
+      enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
+      size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}

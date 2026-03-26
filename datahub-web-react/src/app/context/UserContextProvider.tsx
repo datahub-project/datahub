@@ -41,7 +41,9 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
      * Retrieve the current user details once on component mount.
      */
     const [getMe, { data: meData, refetch }] = useGetMeLazyQuery({ fetchPolicy: 'cache-first' });
-    useEffect(() => getMe(), [getMe]);
+    useEffect(() => {
+        getMe();
+    }, [getMe]);
 
     /**
      * Retrieve the Global View settings once on component mount.
@@ -49,7 +51,9 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     const [getGlobalViewSettings, { data: settingsData }] = useGetGlobalViewsSettingsLazyQuery({
         fetchPolicy: 'cache-first',
     });
-    useEffect(() => getGlobalViewSettings(), [getGlobalViewSettings]);
+    useEffect(() => {
+        getGlobalViewSettings();
+    }, [getGlobalViewSettings]);
 
     const updateLocalState = useCallback((newState: LocalState) => {
         saveLocalState(newState);

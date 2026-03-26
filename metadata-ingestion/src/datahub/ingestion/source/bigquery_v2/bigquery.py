@@ -21,7 +21,9 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    BigQueryShardPatternMatcher,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -60,6 +62,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_report.ingestion_stage import QUERIES_EXTRACTION
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -123,7 +126,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+        self.shard_matcher = BigQueryShardPatternMatcher(
             self.config.sharded_table_pattern
         )
 
@@ -163,6 +166,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
             identifiers=self.identifiers,
+            filters=self.filters,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -203,6 +207,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.filters,
+            self.shard_matcher,
             self.ctx.graph,
         )
 
@@ -211,7 +217,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":
-        config = BigQueryV2Config.parse_obj(config_dict)
+        config = BigQueryV2Config.model_validate(config_dict)
         return cls(ctx, config)
 
     @staticmethod
@@ -219,6 +225,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return BigQueryTestConnection.test_connection(config_dict)
 
     def _init_schema_resolver(self) -> SchemaResolver:
+        """
+        The ininitialization of SchemaResolver prefetches all existing urns and schemas in the env/platform/instance.
+        Because of that, it's important all classes requiring a SchemaResolver use this instance, as it has an already pre-populated cache.
+        An alternative strategy would be to do an on-demand resolution of the urns/schemas.
+
+        TODO: prove pre-fetch is better strategy than on-demand resolution or make this behaviour configurable.
+        """
         schema_resolution_required = (
             self.config.use_queries_v2 or self.config.lineage_use_sql_parser
         )
@@ -231,12 +244,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if schema_resolution_required and not schema_ingestion_enabled:
             if self.ctx.graph:
-                return self.ctx.graph.initialize_schema_resolver_from_datahub(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                    batch_size=self.config.schema_resolution_batch_size,
-                )
+                try:
+                    return provide_schema_resolver(
+                        graph=self.ctx.graph,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                        batch_size=self.config.schema_resolution_batch_size,
+                    )
+                except Exception as e:
+                    self.report.report_warning(
+                        message="Failed to bulk-load schemas from DataHub for SQL lineage. "
+                        "Lineage resolution will proceed with an empty schema resolver.",
+                        context=str(e),
+                        exc=e,
+                    )
             else:
                 logger.warning(
                     "Failed to load schema info from DataHub as DataHubGraph is missing. "
@@ -319,6 +341,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     config=BigQueryQueriesExtractorConfig(
                         window=self.config,
                         user_email_pattern=self.config.usage.user_email_pattern,
+                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
                         include_lineage=self.config.include_table_lineage,
                         include_usage_statistics=self.config.include_usage_statistics,
                         include_operations=self.config.usage.include_operational_stats,

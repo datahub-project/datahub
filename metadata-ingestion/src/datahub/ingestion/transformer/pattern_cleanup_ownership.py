@@ -37,7 +37,7 @@ class PatternCleanUpOwnership(OwnershipTransformer):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternCleanUpOwnership":
-        config = PatternCleanUpOwnershipConfig.parse_obj(config_dict)
+        config = PatternCleanUpOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _get_current_owner_urns(self, entity_urn: str) -> Set[str]:

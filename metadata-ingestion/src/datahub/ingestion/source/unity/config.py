@@ -1,10 +1,10 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pydantic
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import (
@@ -59,9 +59,10 @@ class UnityCatalogProfilerConfig(ConfigModel):
     method: str = Field(
         description=(
             "Profiling method to use."
-            " Options supported are `ge` and `analyze`."
+            " Options supported are `ge`, `analyze`, and `sqlalchemy`."
             " `ge` uses Great Expectations and runs SELECT SQL queries on profiled tables."
             " `analyze` calls ANALYZE TABLE on profiled tables. Only works for delta tables."
+            " `sqlalchemy` uses the custom SQLAlchemy-based profiler (no GE dependency)."
         ),
     )
 
@@ -127,8 +128,20 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
         return not self.profile_table_level_only
 
 
+# TODO: should this max_wait_secs had been implemented as a global profiler feature instead of keeping it specific to Unity Catalog?
 class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
     method: Literal["ge"] = "ge"
+
+    max_wait_secs: Optional[int] = Field(
+        default=None,
+        description="Maximum time to wait for a table to be profiled.",
+    )
+
+
+class UnityCatalogSQLAlchemyProfilerConfig(
+    UnityCatalogProfilerConfig, GEProfilingConfig
+):
+    method: Literal["sqlalchemy"] = "sqlalchemy"
 
     max_wait_secs: Optional[int] = Field(
         default=None,
@@ -304,7 +317,9 @@ class UnityCatalogSourceConfig(
 
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
-        UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
+        UnityCatalogGEProfilerConfig,
+        UnityCatalogAnalyzeProfilerConfig,
+        UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",
@@ -397,13 +412,15 @@ class UnityCatalogSourceConfig(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @pydantic.validator("start_time")
+    @field_validator("start_time", mode="after")
+    @classmethod
     def within_thirty_days(cls, v: datetime) -> datetime:
         if (datetime.now(timezone.utc) - v).days > 30:
             raise ValueError("Query history is only maintained for 30 days.")
         return v
 
-    @pydantic.validator("workspace_url")
+    @field_validator("workspace_url", mode="after")
+    @classmethod
     def workspace_url_should_start_with_http_scheme(cls, workspace_url: str) -> str:
         if not workspace_url.lower().startswith(("http://", "https://")):
             raise ValueError(
@@ -411,7 +428,8 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
-    @pydantic.validator("include_metastore")
+    @field_validator("include_metastore", mode="after")
+    @classmethod
     def include_metastore_warning(cls, v: bool) -> bool:
         if v:
             msg = (
@@ -424,60 +442,56 @@ class UnityCatalogSourceConfig(
             add_global_warning(msg)
         return v
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def set_warehouse_id_from_profiling(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        profiling: Optional[
-            Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig]
-        ] = values.get("profiling")
-        if not values.get("warehouse_id") and profiling and profiling.warehouse_id:
-            values["warehouse_id"] = profiling.warehouse_id
+    @model_validator(mode="after")
+    def set_warehouse_id_from_profiling(self):
+        profiling = self.profiling
+        if not self.warehouse_id and profiling and profiling.warehouse_id:
+            self.warehouse_id = profiling.warehouse_id
         if (
-            values.get("warehouse_id")
+            self.warehouse_id
             and profiling
             and profiling.warehouse_id
-            and values["warehouse_id"] != profiling.warehouse_id
+            and self.warehouse_id != profiling.warehouse_id
         ):
             raise ValueError(
                 "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`."
             )
 
-        if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
-            profiling.warehouse_id = values["warehouse_id"]
+        if self.warehouse_id and profiling and not profiling.warehouse_id:
+            profiling.warehouse_id = self.warehouse_id
 
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
 
-        return values
+        return self
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_lineage_data_source_with_warehouse(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        lineage_data_source = values.get("lineage_data_source", LineageDataSource.AUTO)
-        warehouse_id = values.get("warehouse_id")
+    @model_validator(mode="after")
+    def validate_lineage_data_source_with_warehouse(self):
+        lineage_data_source = self.lineage_data_source or LineageDataSource.AUTO
 
-        if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
+        if (
+            lineage_data_source == LineageDataSource.SYSTEM_TABLES
+            and not self.warehouse_id
+        ):
             raise ValueError(
                 f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
 
-        return values
+        return self
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_usage_data_source_with_warehouse(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        usage_data_source = values.get("usage_data_source", UsageDataSource.AUTO)
-        warehouse_id = values.get("warehouse_id")
+    @model_validator(mode="after")
+    def validate_usage_data_source_with_warehouse(self):
+        usage_data_source = self.usage_data_source or UsageDataSource.AUTO
 
-        if usage_data_source == UsageDataSource.SYSTEM_TABLES and not warehouse_id:
+        if usage_data_source == UsageDataSource.SYSTEM_TABLES and not self.warehouse_id:
             raise ValueError(
                 f"usage_data_source='{UsageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
 
-        return values
+        return self
 
-    @pydantic.validator("schema_pattern", always=True)
+    @field_validator("schema_pattern", mode="after")
+    @classmethod
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:

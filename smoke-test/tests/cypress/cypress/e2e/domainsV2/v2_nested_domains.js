@@ -1,3 +1,5 @@
+import DatasetHelper from "../manage_tagsV2/helpers/dataset_helper";
+
 const domainName = "CypressNestedDomain";
 const chartUrn = "urn:li:chart:(looker,cypress_baz2)";
 
@@ -56,7 +58,7 @@ const moveDomaintoParent = () => {
 
 const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
-    .parent('[data-testid="domain-list-item"]')
+    .parent('[data-testid="domain-options-list"]')
     .find('[aria-label="right"]')
     .click();
 };
@@ -84,7 +86,9 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
   cy.get('[data-testid="tag-term-option"]').contains(text).click();
   cy.clickOptionWithText(body);
   cy.get('[data-testid="add-tag-term-from-modal-btn"]').click();
-  cy.waitTextVisible(text);
+  cy.get('[id$="-panel-Assets"]').within(() => {
+    cy.waitTextVisible(text);
+  });
 };
 
 const clearAndType = (text) => {
@@ -103,8 +107,7 @@ const clearAndDelete = () => {
 
 describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     cy.goToDomainList();
     cy.wait(2000);
@@ -204,7 +207,7 @@ describe("Verify nested domains test functionalities", () => {
       .click();
 
     // Add an owner
-    cy.clickOptionWithTestId("addOwner");
+    cy.clickOptionWithTestId("add-owners-button");
     cy.enterTextInTestId(
       "edit-owners-modal-find-actors-input",
       Cypress.env("ADMIN_DISPLAYNAME") || "DataHub",
@@ -302,7 +305,9 @@ describe("Verify nested domains test functionalities", () => {
       "Add Tags",
     );
     cy.wait(3000); // give time for elastic to update before going to page
-    cy.clickOptionWithText("Baz Chart 2");
+    cy.get('[id$="-panel-Assets"]').within(() => {
+      cy.clickOptionWithText("Baz Chart 2");
+    });
     cy.waitTextVisible("Cypress");
     cy.waitTextVisible("Marketing");
     cy.go("back");
@@ -322,7 +327,11 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Baz Chart 2");
     cy.waitTextVisible("Dashboards");
     cy.reload();
+    cy.get("#entity-profile-tags", { timeout: 10000 }).should("be.visible");
     cy.ensureTextNotPresent("Cypress");
     cy.ensureTextNotPresent("Marketing");
+
+    // Reassign Cypress tag to Baz Chart 2 as some test could rely on it (e.g. v2_glossaryTerm)
+    DatasetHelper.assignTag("Cypress");
   });
 });

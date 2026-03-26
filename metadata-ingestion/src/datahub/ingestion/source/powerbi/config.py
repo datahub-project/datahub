@@ -4,10 +4,16 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigEnum,
+    ConfigModel,
+    HiddenFromDocs,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -137,6 +143,20 @@ class Constant:
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
 
+    # DirectLake / Fabric artifact constants
+    RELATIONS = "relations"
+    DEPENDENT_ON_ARTIFACT_ID = "dependentOnArtifactId"
+    SCHEMA_NAME = "schemaName"
+    STORAGE_MODE = "storageMode"
+
+    # Fabric artifact API keys (for parsing workspace metadata)
+    PARSING_KEY_LAKEHOUSE = "Lakehouse"
+    PARSING_KEY_WAREHOUSES = "warehouses"  # API key is lowercase
+    PARSING_KEY_SQL_ANALYTICS_ENDPOINT = "SQLAnalyticsEndpoint"
+
+    # Storage mode values
+    DIRECT_LAKE = "DirectLake"
+
 
 @dataclass
 class DataPlatformPair:
@@ -172,6 +192,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="bigquery",
     )
 
+    AMAZON_ATHENA = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
     AMAZON_REDSHIFT = DataPlatformPair(
         powerbi_data_platform_name="AmazonRedshift",
         datahub_data_platform_name="redshift",
@@ -196,6 +221,12 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="odbc",
     )
 
+    # Fabric OneLake for DirectLake lineage (Lakehouse/Warehouse tables)
+    FABRIC_ONELAKE = DataPlatformPair(
+        powerbi_data_platform_name="FabricOneLake",
+        datahub_data_platform_name="fabric-onelake",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
@@ -216,8 +247,14 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_parse_attempts: int = 0
     m_query_parse_successes: int = 0
     m_query_parse_timeouts: int = 0
+    m_query_native_query_skipped: int = 0
+    # Expressions that reached the parser but are not M-Query at all
+    # (e.g. DAX computed-table expressions, empty strings, label rows).
+    # These fail with MQueryParseError but are expected and logged at INFO.
+    m_query_non_mquery_expressions: int = 0
     m_query_parse_validation_errors: int = 0
     m_query_parse_unexpected_character_errors: int = 0
+    # Genuine M-Query expressions that the parser could not handle.
     m_query_parse_unknown_errors: int = 0
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
@@ -258,7 +295,15 @@ class DataBricksPlatformDetail(PlatformDetail):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
+        default=False,
+        description=(
+            "Whether to create user entities from PowerBI data. "
+            "When False (RECOMMENDED): PowerBI emits ownership URNs only (soft references). "
+            "User profiles must come from LDAP/SCIM/Okta. "
+            "When True (OPT-IN): PowerBI creates users with displayName and email from PowerBI. "
+            "WARNING: May overwrite existing user profiles from other sources. Use only if "
+            "PowerBI is your authoritative user source."
+        ),
     )
     use_powerbi_email: bool = pydantic.Field(
         # TODO: Deprecate and remove this config, since the non-email format
@@ -287,10 +332,58 @@ class PowerBiProfilingConfig(ConfigModel):
     )
 
 
+class AthenaPlatformOverride(ConfigModel):
+    """
+    Configuration for overriding the platform of Athena federated tables.
+
+    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
+    and you want the lineage to point to the actual source platform instead of Athena.
+    """
+
+    database: str = pydantic.Field(
+        min_length=1,
+        description="The database name in the Athena query (after catalog stripping).",
+    )
+    table: str = pydantic.Field(
+        min_length=1,
+        description="The table name in the Athena query.",
+    )
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
+    )
+    dsn: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional DSN to scope this override to a specific data source. "
+        "If specified, this override only applies when the query comes from this DSN.",
+    )
+
+
+class PowerBiEnvironment(ConfigEnum):
+    COMMERCIAL = "COMMERCIAL"
+    GOVERNMENT = "GOVERNMENT"
+
+    @property
+    def web_app_base_url(self) -> str:
+        if self == PowerBiEnvironment.GOVERNMENT:
+            return "https://app.powerbigov.us"
+        return "https://app.powerbi.com"
+
+
+class PowerBiAppUrlPattern(ConfigEnum):
+    WORKSPACE_BASED = "WORKSPACE_BASED"
+    REDIRECT_BASED = "REDIRECT_BASED"
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
+
+    environment: PowerBiEnvironment = pydantic.Field(
+        default=PowerBiEnvironment.COMMERCIAL,
+        description="PowerBI environment to connect to. Options: 'commercial' (default) for commercial PowerBI, 'government' for PowerBI Government Community Cloud (GCC)",
+    )
 
     platform_urn: HiddenFromDocs[str] = pydantic.Field(
         default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
@@ -360,6 +453,17 @@ class PowerBiDashboardSourceConfig(
         "is 'prod' you would configure the mapping as 'database: prod'. "
         "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
     )
+    # Athena federated table platform override
+    athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
+        default=[],
+        description="List of platform overrides for Athena federated queries. "
+        "Use this to override the platform when Athena queries data from federated sources "
+        "(e.g., MySQL, PostgreSQL) via ODBC. The lineage will point to the actual source "
+        "platform instead of Athena. "
+        "This override is applied AFTER catalog stripping, so use 2-part names "
+        "(database.table), not 3-part names (catalog.database.table). "
+        "Overrides with a DSN specified take precedence over those without.",
+    )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
         "dataset_type_mapping",
@@ -368,7 +472,9 @@ class PowerBiDashboardSourceConfig(
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: str = pydantic.Field(description="Azure app client secret")
+    client_secret: TransparentSecretStr = pydantic.Field(
+        description="Azure app client secret"
+    )
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
         default=60, description="timeout for PowerBI metadata scanning"
@@ -488,10 +594,10 @@ class PowerBiDashboardSourceConfig(
 
     # Enable CLL extraction
     extract_column_level_lineage: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to extract column level lineage. "
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
-        "enabled."
+        "enabled. "
         "Works for M-Query where native SQL is used for transformation.",
     )
 
@@ -529,6 +635,13 @@ class PowerBiDashboardSourceConfig(
         description="Whether to ingest workspace app. Requires DataHub server 0.14.2+.",
     )
 
+    app_url_pattern: PowerBiAppUrlPattern = pydantic.Field(
+        default=PowerBiAppUrlPattern.WORKSPACE_BASED,
+        description="URL pattern for Power BI App external links. "
+        "'workspace_based' uses /groups/{workspace-id}/apps/{app-id} (default). "
+        "'redirect_based' uses /Redirect?action=OpenApp&appId={app-id}.",
+    )
+
     m_query_parse_timeout: int = pydantic.Field(
         default=70,
         description="Timeout for PowerBI M-query parsing in seconds. Table-level lineage is determined by analyzing the M-query expression. "
@@ -540,8 +653,8 @@ class PowerBiDashboardSourceConfig(
         description="timeout in seconds for Metadata Rest Api.",
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
+    @model_validator(mode="after")
+    def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":
         flags = [
             "native_query_parsing",
             "enable_advance_lineage_sql_construct",
@@ -549,26 +662,23 @@ class PowerBiDashboardSourceConfig(
             "extract_dataset_schema",
         ]
 
-        if (
-            "extract_column_level_lineage" in values
-            and values["extract_column_level_lineage"] is False
-        ):
+        if self.extract_column_level_lineage is False:
             # Flag is not set. skip validation
-            return values
+            return self
 
         logger.debug(f"Validating additional flags: {flags}")
 
         is_flag_enabled: bool = True
         for flag in flags:
-            if flag not in values or values[flag] is False:
+            if not getattr(self, flag, True):
                 is_flag_enabled = False
 
         if not is_flag_enabled:
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
-        return values
+        return self
 
-    @validator("dataset_type_mapping")
+    @field_validator("dataset_type_mapping", mode="after")
     @classmethod
     def map_data_platform(cls, value):
         # For backward compatibility convert input PostgreSql to PostgreSQL
@@ -580,28 +690,32 @@ class PowerBiDashboardSourceConfig(
 
         return value
 
-    @root_validator(skip_on_failure=True)
-    def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
-        workspace_id = values.get("workspace_id")
-        workspace_id_pattern = values.get("workspace_id_pattern")
-
-        if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
+    @model_validator(mode="after")
+    def workspace_id_backward_compatibility(self) -> "PowerBiDashboardSourceConfig":
+        if (
+            self.workspace_id_pattern == AllowDenyPattern.allow_all()
+            and self.workspace_id
+        ):
             logger.warning(
                 "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as "
                 "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
             )
-            values["workspace_id_pattern"] = AllowDenyPattern(
-                allow=[f"^{workspace_id}$"]
+            self.workspace_id_pattern = AllowDenyPattern(
+                allow=[f"^{self.workspace_id}$"]
             )
-        elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
+        elif (
+            self.workspace_id_pattern != AllowDenyPattern.allow_all()
+            and self.workspace_id
+        ):
             logger.warning(
                 "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, "
                 "please use workspace_id_pattern only."
             )
-            values.pop("workspace_id")
-        return values
+            self.workspace_id = None
+        return self
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def raise_error_for_dataset_type_mapping(cls, values: Dict) -> Dict:
         if (
             values.get("dataset_type_mapping") is not None
@@ -613,18 +727,18 @@ class PowerBiDashboardSourceConfig(
 
         return values
 
-    @root_validator(skip_on_failure=True)
-    def validate_extract_dataset_schema(cls, values: Dict) -> Dict:
-        if values.get("extract_dataset_schema") is False:
+    @model_validator(mode="after")
+    def validate_extract_dataset_schema(self) -> "PowerBiDashboardSourceConfig":
+        if self.extract_dataset_schema is False:
             add_global_warning(
                 "Please use `extract_dataset_schema: true`, otherwise dataset schema extraction will be skipped."
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def validate_dsn_to_database_schema(cls, values: Dict) -> Dict:
-        if values.get("dsn_to_database_schema") is not None:
-            dsn_mapping = values.get("dsn_to_database_schema")
+    @model_validator(mode="after")
+    def validate_dsn_to_database_schema(self) -> "PowerBiDashboardSourceConfig":
+        if self.dsn_to_database_schema is not None:
+            dsn_mapping = self.dsn_to_database_schema
             if not isinstance(dsn_mapping, dict):
                 raise ValueError("dsn_to_database_schema must contain key-value pairs")
 
@@ -639,4 +753,65 @@ class PowerBiDashboardSourceConfig(
                         f"dsn_to_database_schema invalid mapping value: {value}"
                     )
 
-        return values
+        return self
+
+    def get_from_dataset_type_mapping(
+        self, platform_name: str
+    ) -> Optional[Union[str, PlatformDetail]]:
+        """
+        Get a value from dataset_type_mapping using normalized lookup.
+
+        Handles naming mismatches by normalizing platform names (removing spaces).
+        For example, "Amazon Redshift" (from ODBC) will match "AmazonRedshift" (in enum).
+
+        Args:
+            platform_name: The PowerBI platform name to look up
+
+        Returns:
+            The value from dataset_type_mapping if found, None otherwise
+        """
+        # Try exact match first
+        if platform_name in self.dataset_type_mapping:
+            return self.dataset_type_mapping[platform_name]
+
+        # Try normalized version (removes spaces)
+        # This handles cases like "Amazon Redshift" -> "AmazonRedshift"
+        normalized_name = platform_name.replace(" ", "")
+        if normalized_name != platform_name:
+            return self.dataset_type_mapping.get(normalized_name)
+
+        return None
+
+    def is_platform_in_dataset_type_mapping(self, platform_name: str) -> bool:
+        """
+        Check if a platform name exists in dataset_type_mapping using normalized lookup.
+
+        Args:
+            platform_name: The PowerBI platform name to check
+
+        Returns:
+            True if the platform (or its normalized version) exists in the mapping
+        """
+        return self.get_from_dataset_type_mapping(platform_name) is not None
+
+    @model_validator(mode="after")
+    def validate_athena_table_platform_override(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        if not self.athena_table_platform_override:
+            return self
+
+        # Build set of known DataHub platform names for validation
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+
+        for override in self.athena_table_platform_override:
+            if override.platform not in known_platforms:
+                raise ValueError(
+                    f"athena_table_platform_override: platform '{override.platform}' "
+                    f"for {override.database}.{override.table} is not a recognized DataHub platform. "
+                    f"Known platforms: {sorted(known_platforms)}."
+                )
+
+        return self

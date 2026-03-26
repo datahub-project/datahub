@@ -41,6 +41,7 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
+  testImplementation externalDependency.assertJ
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
   testImplementation externalDependency.classGraph
@@ -56,5 +57,3 @@ dependencies {
   testFixturesAnnotationProcessor externalDependency.lombok
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
-
-spotlessJava.dependsOn generateTestDataTemplate

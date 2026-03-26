@@ -46,16 +46,14 @@ can run the following in this directory:
 which will start a forwarding server at `localhost:3000`. Note that to fetch real data, `datahub-frontend` server will also
 need to be deployed, still at `http://localhost:9002`, to service GraphQL API requests.
 
-Optionally you could also start the app with the mock server without running the docker containers by executing `yarn start:mock`. See [here](src/graphql-mock/fixtures/searchResult/userSearchResult.ts#L6) for available login users.
-
 ### Testing your customizations
 
 There is two options to test your customizations:
 
 - **Option 1**: Initialize the docker containers with the `quickstart.sh` script (or if any custom docker-compose file) and then run `yarn start` in this directory. This will start a forwarding server at `localhost:3000` that will use the `datahub-frontend` server at `http://localhost:9002` to fetch real data.
-- **Option 2**: Change the environment variable `REACT_APP_PROXY_TARGET` in the `.env` file to point to your `datahub-frontend` server (ex: https://my_datahub_host.com) and then run `yarn start` in this directory. This will start a forwarding server at `localhost:3000` that will use the `datahub-frontend` server at some domain to fetch real data.
+- **Option 2**: Change the environment variable `REACT_APP_PROXY_TARGET` in the `.env` file to point to your `datahub-frontend` server (ex: https://my_datahub_host.com) and then run `yarn start` in this directory. This will start a forwarding server at `localhost:3000` that will use the `datahub-frontend` server at some domain to fetch real data. To test in Safari, you need to run over https because Safari drops the Secure cookies over http that manage user session. You can do this by running `yarn start:https` and ignoring Safari's security warning.
 
-The option 2 is useful if you want to test your React customizations without having to run the hole DataHub stack locally. However, if you changed other components of the DataHub stack, you will need to run the hole stack locally (building the docker images) and use the option 1.
+The option 2 is useful if you want to test your React customizations without having to run the whole DataHub stack locally. However, if you changed other components of the DataHub stack, you will need to run the hole stack locally (building the docker images) and use the option 1.
 
 ### Functional testing
 
@@ -82,16 +80,20 @@ you can change two things without rebuilding.
 
 #### Selecting a theme
 
-Theme configurations are stored in `./src/conf/theme`. To select a theme, choose one and update the `REACT_APP_THEME_CONFIG` env variable stored in `.env`.
-To change the selected theme, update the `.env` file and re-run `yarn start` from `datahub/datahub-web-react`.
+Theme configurations are defined in `./src/conf/theme/themes.ts`. By default, the theme is chosen based on the `REACT_APP_CUSTOM_THEME_ID` env variable in GMS. If no theme is specified, the default themes `themeV2` or `themeV1` are used based on whether the V2 UI is enabled, which is controlled by environment variables `THEME_V2_ENABLED`, `THEME_V2_DEFAULT`, and `THEME_V2_TOGGLEABLE` in GMS. See `metadata-service/configuration/src/main/resources/application.yaml` for more details.
+
+For quick local development, you can set env variable `REACT_APP_THEME` in `.env` to any of the themes defined in `themes.ts`.
+
+We are transitioning away from Ant theming, but still depend on it for some styling. The Ant theme is stored in json files, in `./src/conf/theme`. To select the Ant theme, choose a json file and set env variable `ANT_THEME_CONFIG` in `.env` to the theme's filename, including `.json`, then re-run `yarn start` from `datahub/datahub-web-react`.
 
 #### Editing a theme
 
-To edit an existing theme, the recommendation is to clone one of the existing themes into a new file with the name `<your_themes_name>.config.json`,
-and then update the env variable as descibed above. The theme files have three sections, `styles`, `assets` and `content`. The type of the theme configs is specified
-in `./src/conf/theme/types.ts`.
+To edit an existing theme, the recommendation is to clone one of the existing themes into a new file with the name `<your_themes_name>.ts`, then update `themes.ts` by importing your theme and adding it to the `themes` object. You can also create a json theme by creating a new file in `./src/conf/theme` with the name `<your_themes_name>.config.json`. The theme interface is defined in `./src/conf/theme/types.ts` and has four sections:
 
-`styles` configure overrides for the apps theming variables.
+`colors` configures semantic color tokens.
+These are not yet widely used but will be the primary way to configure colors in the app going forward.
+
+`styles` configures overrides for the app's deprecated theming variables and for Ant components.
 
 `assets` configures the logo url.
 

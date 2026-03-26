@@ -25,7 +25,7 @@ from urllib.parse import quote, urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from tableauserverclient import (
@@ -48,6 +48,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
@@ -219,7 +220,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau username, must be set if authenticating using username/password.",
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau password, must be set if authenticating using username/password.",
     )
@@ -227,7 +228,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau token name, must be set if authenticating using a personal access token.",
     )
-    token_value: Optional[str] = Field(
+    token_value: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau token value, must be set if authenticating using a personal access token.",
     )
@@ -257,8 +258,9 @@ class TableauConnectionConfig(ConfigModel):
         description="When enabled, extracts column-level lineage from Tableau Datasources",
     )
 
-    @validator("connect_uri")
-    def remove_trailing_slash(cls, v):
+    @field_validator("connect_uri", mode="after")
+    @classmethod
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)
 
     def get_tableau_auth(
@@ -269,12 +271,12 @@ class TableauConnectionConfig(ConfigModel):
         if self.username and self.password:
             authentication = TableauAuth(
                 username=self.username,
-                password=self.password,
+                password=self.password.get_secret_value(),
                 site_id=site,
             )
         elif self.token_name and self.token_value:
             authentication = PersonalAccessTokenAuth(
-                self.token_name, self.token_value, site
+                self.token_name, self.token_value.get_secret_value(), site
             )
         else:
             raise ConfigurationError(
@@ -652,8 +654,9 @@ class TableauConfig(
         "fetch_size",
     )
 
-    # pre = True because we want to take some decision before pydantic initialize the configuration to default values
-    @root_validator(pre=True)
+    # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values
+    @model_validator(mode="before")
+    @classmethod
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         # In-place update of the input dict would cause state contamination. This was discovered through test failures
         # in test_hex.py where the same dict is reused.
@@ -683,27 +686,23 @@ class TableauConfig(
 
         return values
 
-    @root_validator(skip_on_failure=True)
-    def validate_config_values(cls, values: Dict) -> Dict:
-        tags_for_hidden_assets = values.get("tags_for_hidden_assets")
-        ingest_tags = values.get("ingest_tags")
+    @model_validator(mode="after")
+    def validate_config_values(self) -> "TableauConfig":
         if (
-            not ingest_tags
-            and tags_for_hidden_assets
-            and len(tags_for_hidden_assets) > 0
+            not self.ingest_tags
+            and self.tags_for_hidden_assets
+            and len(self.tags_for_hidden_assets) > 0
         ):
             raise ValueError(
                 "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
             )
 
-        use_email_as_username = values.get("use_email_as_username")
-        ingest_owner = values.get("ingest_owner")
-        if use_email_as_username and not ingest_owner:
+        if self.use_email_as_username and not self.ingest_owner:
             raise ValueError(
                 "use_email_as_username requires ingest_owner to be enabled."
             )
 
-        return values
+        return self
 
 
 class WorkbookKey(ContainerKey):
@@ -831,7 +830,7 @@ class TableauSourceReport(
     num_upstream_table_lineage: int = 0
     num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
-    num_upstream_table_skipped_no_columns: int = 0
+    num_upstream_table_processed_without_columns: int = 0
     num_upstream_table_failed_generate_reference: int = 0
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
@@ -1481,6 +1480,16 @@ class TableauSiteSource:
                 # will be thrown, and we need to re-authenticate and retry.
                 self._re_authenticate()
 
+            # Add exponential backoff to avoid hammering the server
+            backoff_time = min(
+                (self.config.max_retries - retries_remaining + 1) ** 2, 60
+            )
+            logger.info(
+                f"Retrying query due to {e.__class__.__name__} with {retries_remaining} retries remaining, "
+                f"will retry in {backoff_time} seconds"
+            )
+            time.sleep(backoff_time)
+
             return self.get_connection_object_page(
                 query=query,
                 connection_type=connection_type,
@@ -1498,7 +1507,17 @@ class TableauSiteSource:
             if ise.code in RETRIABLE_ERROR_CODES:
                 if retries_remaining <= 0:
                     raise ise
-                logger.info(f"Retrying query due to error {ise.code}")
+
+                # Add exponential backoff to avoid hammering the server
+                backoff_time = min(
+                    (self.config.max_retries - retries_remaining + 1) ** 2, 60
+                )
+                logger.info(
+                    f"Retrying query due to error {ise.code} with {retries_remaining} retries remaining, "
+                    f"will retry in {backoff_time} seconds"
+                )
+                time.sleep(backoff_time)
+
                 return self.get_connection_object_page(
                     query=query,
                     connection_type=connection_type,
@@ -1521,6 +1540,17 @@ class TableauSiteSource:
             # retry logic is basically a bandaid for that.
             if retries_remaining <= 0:
                 raise
+
+            # Add exponential backoff to avoid hammering the server
+            backoff_time = min(
+                (self.config.max_retries - retries_remaining + 1) ** 2, 60
+            )
+            logger.info(
+                f"Retrying query due to OSError with {retries_remaining} retries remaining, "
+                f"will retry in {backoff_time} seconds"
+            )
+            time.sleep(backoff_time)
+
             return self.get_connection_object_page(
                 query=query,
                 connection_type=connection_type,
@@ -1813,6 +1843,18 @@ class TableauSiteSource:
                 for table_urn in table_id_to_urn.values()
             ]
 
+            # If still no upstream tables after fallback attempt, report a warning
+            if not upstream_tables:
+                self.report.warning(
+                    title="No upstream table lineage found",
+                    message=(
+                        "No upstream tables lineage found for this datasource."
+                        "If lineage is expected, this may be due to known limitations in the Tableau Metadata API not returning complete information;"
+                        "else, this warning can be ignored."
+                    ),
+                    context=f"{datasource.get(c.NAME)} (ID: {datasource.get(c.ID)})",
+                )
+
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:
                 # Find fine grained lineage for datasource column to datasource column edge,
@@ -1898,18 +1940,21 @@ class TableauSiteSource:
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
         for table in tables:
-            # skip upstream tables when there is no column info when retrieving datasource
-            # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
+            # Extract column count if available
             num_tbl_cols: Optional[int] = table.get(c.COLUMNS_CONNECTION) and table[
                 c.COLUMNS_CONNECTION
-            ].get("totalCount")
+            ].get(c.TOTAL_COUNT)
+
+            # Tables without column metadata: create table-level lineage only
             if not is_custom_sql and not num_tbl_cols:
-                self.report.num_upstream_table_skipped_no_columns += 1
-                logger.warning(
-                    f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
+                self.report.num_upstream_table_processed_without_columns += 1
+                logger.info(
+                    f"Table {table[c.ID]} has no column metadata from Tableau API. "
+                    f"Creating table-level lineage only (column-level lineage will be skipped). "
+                    f"Table details: {table}"
                 )
-                continue
-            elif table[c.NAME] is None:
+
+            if table[c.NAME] is None:
                 self.report.num_upstream_table_skipped_no_name += 1
                 logger.warning(
                     f"Skipping upstream table {table[c.ID]} from lineage since its name is none: {table}"
@@ -2170,8 +2215,9 @@ class TableauSiteSource:
             )
             logger.debug(f"Processing custom sql = {csql}")
 
-            datasource_name = None
-            project = None
+            datasource_name: Optional[str] = None
+            browse_path_name: Optional[str] = None
+            project: Optional[str] = None
             columns: List[Dict[Any, Any]] = []
             if len(csql[c.DATA_SOURCES]) > 0:
                 # CustomSQLTable id owned by exactly one tableau data source
@@ -2181,17 +2227,18 @@ class TableauSiteSource:
 
                 datasource = csql[c.DATA_SOURCES][0]
                 datasource_name = datasource.get(c.NAME)
+                browse_path_name = datasource_name
                 if datasource.get(
                     c.TYPE_NAME
                 ) == c.EMBEDDED_DATA_SOURCE and datasource.get(c.WORKBOOK):
                     workbook = datasource.get(c.WORKBOOK)
-                    datasource_name = (
+                    browse_path_name = (
                         f"{workbook.get(c.NAME)}/{datasource_name}"
                         if datasource_name and workbook.get(c.NAME)
                         else None
                     )
                     logger.debug(
-                        f"Adding datasource {datasource_name}({datasource.get('id')}) to workbook container"
+                        f"Adding datasource {browse_path_name}({datasource.get('id')}) to workbook container"
                     )
                     yield from add_entity_to_container(
                         self.gen_workbook_key(workbook[c.ID]),
@@ -2253,26 +2300,27 @@ class TableauSiteSource:
                         csql_urn, tableau_table_list, datasource
                     )
 
-            #  Schema Metadata
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
 
-            # Browse path
-            if project and datasource_name:
-                browse_paths = BrowsePathsClass(
-                    paths=[f"{self.dataset_browse_prefix}/{project}/{datasource_name}"]
+            if not (project and browse_path_name and datasource_name):
+                logger.debug(
+                    f"Skipping Custom SQL table {csql_id}: "
+                    f"project={project}, browse_path={browse_path_name}, datasource_name={datasource_name}"
                 )
-                dataset_snapshot.aspects.append(browse_paths)
-            else:
-                logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
                 logger.warning(
-                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                    f"Skipping Custom SQL table {csql_id} due to missing project, browse path, or datasource name"
                 )
                 continue
 
+            browse_paths = BrowsePathsClass(
+                paths=[f"{self.dataset_browse_prefix}/{project}/{browse_path_name}"]
+            )
+            dataset_snapshot.aspects.append(browse_paths)
+
             dataset_properties = DatasetPropertiesClass(
-                name=csql.get(c.NAME),
+                name=datasource_name,
                 description=csql.get(c.DESCRIPTION),
             )
 
@@ -2696,26 +2744,27 @@ class TableauSiteSource:
         workbook: Optional[dict] = None,
         is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
+        is_not_allowed = self._get_datasource_project_luid(datasource) is None
+
+        if is_not_allowed:
+            ds_type = "embedded" if is_embedded_ds else "published"
+            logger.warning(
+                f"Skip ingesting {ds_type} datasource {datasource.get(c.NAME)} because of filtered project"
+            )
+            return
+
         datasource_info = workbook
         if not is_embedded_ds:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
-        if (
-            not is_embedded_ds
-            and self._get_published_datasource_project_luid(datasource) is None
-        ):
-            logger.warning(
-                f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
-            )
-            return
 
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
             self.platform, datasource_id, self.config.platform_instance, self.config.env
         )
-        if datasource_id not in self.datasource_ids_being_used:
+        if not is_embedded_ds and datasource_id not in self.datasource_ids_being_used:
             self.datasource_ids_being_used.append(datasource_id)
 
         dataset_snapshot = DatasetSnapshot(
@@ -2927,7 +2976,9 @@ class TableauSiteSource:
             c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
         }
 
-        # Emitting tables that came from Tableau metadata
+        emitted_urns: Set[str] = set()
+
+        # Phase 1: Emitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
             query=database_tables_graphql_query,
             connection_type=c.DATABASE_TABLES_CONNECTION,
@@ -2951,23 +3002,15 @@ class TableauSiteSource:
                 continue
 
             yield from self.emit_table(database_table, tableau_columns)
+            emitted_urns.add(database_table.urn)
 
-        # Emitting tables that were purely parsed from SQL queries
-        for database_table in self.database_tables.values():
-            # Only tables purely parsed from SQL queries don't have ID
-            if database_table.id:
-                logger.debug(
-                    f"Skipping external table {database_table.urn} should have already been ingested from Tableau metadata"
-                )
-                continue
-
-            if not self.config.ingest_tables_external:
-                logger.debug(
-                    f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
-                )
-                continue
-
-            yield from self.emit_table(database_table, None)
+        # Phase 2: Emit remaining tables: SQL-parsed (no Tableau ID) and
+        # tables not returned by Tableau re-query (no column metadata)
+        if self.config.ingest_tables_external:
+            for database_table in self.database_tables.values():
+                if database_table.urn not in emitted_urns:
+                    yield from self.emit_table(database_table, None)
+                    emitted_urns.add(database_table.urn)
 
     def emit_table(
         self,
@@ -2992,8 +3035,10 @@ class TableauSiteSource:
             )
             dataset_snapshot.aspects.append(browse_paths)
         else:
-            logger.debug(f"Browse path not set for table {database_table.urn}")
-            return
+            logger.debug(
+                f"Table {database_table.urn} has no browse path (likely external upstream table)"
+            )
+            # Continue to emit entity with other aspects
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns
@@ -3182,7 +3227,6 @@ class TableauSiteSource:
         if sheet.get(c.DATA_SOURCE_FIELDS):
             self.populate_sheet_upstream_fields(sheet, input_fields)
 
-        # datasource urn
         datasource_urn = []
         data_sources = self.get_sheetwise_upstream_datasources(sheet)
 

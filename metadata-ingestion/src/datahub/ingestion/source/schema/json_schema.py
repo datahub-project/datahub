@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import jsonref
 import requests
-from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
+from pydantic import AnyHttpUrl, DirectoryPath, FilePath, field_validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
@@ -90,7 +90,7 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         description="Use this if URI-s need to be modified during reference resolution. Simple string match - replace capabilities are supported.",
     )
 
-    @validator("path")
+    @field_validator("path", mode="after")
     def download_http_url_to_temp_file(cls, v):
         if isinstance(v, AnyHttpUrl):
             try:
@@ -149,13 +149,14 @@ class JsonSchemaCheckpointState(GenericCheckpointState):
 @dataclass
 class JsonSchemaSource(StatefulIngestionSourceBase):
     """
-    This source extracts metadata from a single JSON Schema or multiple JSON Schemas rooted at a particular path.
-    It performs reference resolution based on the `$ref` keyword.
+    Source that extracts metadata from JSON Schema files with reference resolution.
 
-    Metadata mapping:
-    - Schemas are mapped to Datasets with sub-type Schema
-    - The name of the Schema (Dataset) is inferred from the `$id` property and if that is missing, the file name.
-    - Browse paths are minted based on the path
+    Implementation notes:
+    - Uses jsonref library for $ref resolution
+    - Supports file paths, directories (recursive), and HTTP URLs
+    - Uses JsonSchemaTranslator to convert JSON Schema to DataHub SchemaMetadata
+    - Dataset names inferred from $id field or file name
+    - Implements stateful ingestion for stale entity removal
     """
 
     @staticmethod

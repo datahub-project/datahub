@@ -12,7 +12,6 @@ export const buttonDefaults: ButtonPropsDefaults = {
     iconPosition: 'left',
     isCircle: false,
     isLoading: false,
-    isDisabled: false,
     isActive: false,
 };
 
@@ -24,7 +23,6 @@ export const Button = ({
     iconPosition = buttonDefaults.iconPosition,
     isCircle = buttonDefaults.isCircle,
     isLoading = buttonDefaults.isLoading,
-    isDisabled = buttonDefaults.isDisabled,
     isActive = buttonDefaults.isActive,
     children,
     ...props
@@ -36,7 +34,6 @@ export const Button = ({
         isCircle,
         isLoading,
         isActive,
-        isDisabled,
         hasChildren: !!children,
     };
 

@@ -14,6 +14,7 @@ import {
     GenericEntityProperties,
     GenericEntityUpdate,
 } from '@app/entity/shared/types';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { EntityHeader } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
 import { EntityTabs } from '@app/entityV2/shared/containers/profile/header/EntityTabs';
@@ -22,8 +23,8 @@ import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGet
 import {
     defaultTabDisplayConfig,
     getEntityPath,
-    getFinalSidebarTabs,
     getOnboardingStepIdsForEntityType,
+    useFinalSidebarTabs,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
 } from '@app/entityV2/shared/containers/profile/utils';
@@ -52,6 +53,7 @@ import { PageRoutes } from '@conf/Global';
 import useEntityState from '@src/app/entity/shared/useEntityState';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
+import { useGetFormsForEntityQuery } from '@graphql/form.generated';
 import { EntityType, Exact } from '@types';
 
 type Props<T, U> = {
@@ -244,8 +246,14 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
+    const { data: formsData } = useGetFormsForEntityQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+        skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
+    });
+
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
@@ -293,11 +301,20 @@ export const EntityProfile = <T, U>({
         }
     }, [routedTab?.supportsFullsize, setTabFullsize]);
 
+    // Different contexts require different sidebar behaviors (e.g., search results need compact views,
+    // lineage views have space constraints, profile sidebars support full feature sets)
+    let contextType = TabContextType.PROFILE_SIDEBAR;
+    if (isInSearch) {
+        contextType = TabContextType.SEARCH_SIDEBAR;
+    } else if (isCompact) {
+        contextType = TabContextType.LINEAGE_SIDEBAR;
+    }
+
+    const finalTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections || [], contextType);
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
-
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
 
     if (isCompact) {
         return (
@@ -324,7 +341,7 @@ export const EntityProfile = <T, U>({
                             type={isInSearch ? 'card' : undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
+                            contextType={contextType}
                             width={width}
                             headerDropdownItems={headerDropdownItems}
                         />

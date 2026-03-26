@@ -77,13 +77,14 @@ def run_ingest(
 
 
 def test_okta_config():
-    config = OktaConfig.parse_obj(
+    config = OktaConfig.model_validate(
         dict(okta_domain="test.okta.com", okta_api_token="test-token")
     )
 
     # Sanity on required configurations
     assert config.okta_domain == "test.okta.com"
-    assert config.okta_api_token == "test-token"
+    assert config.okta_api_token is not None
+    assert config.okta_api_token.get_secret_value() == "test-token"
 
     # Assert on default configurations
     assert config.ingest_users is True

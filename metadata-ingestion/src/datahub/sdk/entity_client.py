@@ -16,6 +16,7 @@ from datahub.metadata.urns import (
     DataFlowUrn,
     DataJobUrn,
     DatasetUrn,
+    DocumentUrn,
     MlModelGroupUrn,
     MlModelUrn,
     Urn,
@@ -28,6 +29,7 @@ from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.document import Document
 from datahub.sdk.entity import Entity
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
@@ -61,6 +63,8 @@ class EntityClient:
     def get(self, urn: ContainerUrn) -> Container: ...
     @overload
     def get(self, urn: DatasetUrn) -> Dataset: ...
+    @overload
+    def get(self, urn: DocumentUrn) -> Document: ...
     @overload
     def get(self, urn: MlModelUrn) -> MLModel: ...
     @overload

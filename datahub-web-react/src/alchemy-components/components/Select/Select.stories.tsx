@@ -1,9 +1,10 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
 import { Select, selectDefaults } from '@components/components/Select/Select';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 import { SelectSizeOptions } from '@components/components/Select/types';
@@ -106,6 +107,12 @@ const meta: Meta = {
                 defaultValue: { summary: `${selectDefaults.width}` },
             },
         },
+        minWidth: {
+            description: 'Minimal width of the Select component.',
+            control: {
+                type: 'number',
+            },
+        },
         isMultiSelect: {
             description: 'Whether the Select component allows multiple values to be selected.',
             control: {
@@ -121,7 +128,12 @@ const meta: Meta = {
                 type: 'text',
             },
             table: {
-                defaultValue: { summary: selectDefaults.placeholder },
+                defaultValue: {
+                    summary:
+                        typeof selectDefaults.placeholder === 'string'
+                            ? selectDefaults.placeholder
+                            : 'Select an option',
+                },
             },
         },
         disabledValues: {
@@ -163,7 +175,7 @@ const meta: Meta = {
         icon: {
             description: `The name of the icon to display.`,
             type: 'string',
-            options: AVAILABLE_ICONS,
+            options: ['Info', 'Star', 'Globe'],
             table: {
                 defaultValue: { summary: 'undefined' },
             },
@@ -192,6 +204,9 @@ const meta: Meta = {
             table: {
                 defaultValue: { summary: 'undefined' },
             },
+        },
+        visibilityDeps: {
+            description: 'Additional dependencies to trigger computing of visibility state',
         },
     },
 
@@ -365,7 +380,7 @@ export const simpleSelectWithIcon = () => (
             { label: 'Option 3', value: '3' },
         ]}
         label="Simple Select with icon"
-        icon="Search"
+        icon={MagnifyingGlass}
     />
 );
 
@@ -489,6 +504,6 @@ export const withIcon = () => (
         ]}
         label="Select with icon"
         values={['2']}
-        icon="Search"
+        icon={MagnifyingGlass}
     />
 );

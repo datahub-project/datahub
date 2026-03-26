@@ -12,6 +12,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.client.RequestOptions;
@@ -69,7 +70,8 @@ public class LoadIndicesIndexManagerTest {
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPattern()).thenReturn("datahub_*index_v2");
+    when(mockIndexConvention.getAllEntityIndicesPatterns())
+        .thenReturn(List.of("datahub_*index_v2"));
     when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
         .thenReturn("datahub_graph_service_v1");
     when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
@@ -137,6 +139,10 @@ public class LoadIndicesIndexManagerTest {
 
   @Test
   public void testDiscoverDataHubIndexConfigsWithIOException() throws IOException {
+    // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
+    when(mockIndexConvention.getAllEntityIndicesPatterns())
+        .thenReturn(List.of("datahub_*index_v2"));
+
     // Mock IOException
     when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Connection failed"));
@@ -176,6 +182,10 @@ public class LoadIndicesIndexManagerTest {
 
   @Test
   public void testOptimizeForBulkOperationsWithIOException() throws IOException {
+    // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
+    when(mockIndexConvention.getAllEntityIndicesPatterns())
+        .thenReturn(List.of("datahub_*index_v2"));
+
     // Mock IOException during discovery
     when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Discovery failed"));
@@ -273,7 +283,8 @@ public class LoadIndicesIndexManagerTest {
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPattern()).thenReturn("datahub_*index_v2");
+    when(mockIndexConvention.getAllEntityIndicesPatterns())
+        .thenReturn(List.of("datahub_*index_v2"));
     when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
         .thenReturn("datahub_graph_service_v1");
     when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
@@ -327,7 +338,8 @@ public class LoadIndicesIndexManagerTest {
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPattern()).thenReturn("datahub_*index_v2");
+    when(mockIndexConvention.getAllEntityIndicesPatterns())
+        .thenReturn(List.of("datahub_*index_v2"));
     when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
         .thenReturn("datahub_graph_service_v1");
     when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))

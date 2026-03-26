@@ -194,7 +194,7 @@ def overwrite_group_in_mocked_data(
 
 
 def test_azure_ad_config():
-    config = AzureADConfig.parse_obj(
+    config = AzureADConfig.model_validate(
         dict(
             client_id="00000000-0000-0000-0000-000000000000",
             tenant_id="00000000-0000-0000-0000-000000000000",
@@ -212,7 +212,10 @@ def test_azure_ad_config():
     # Sanity on required configurations
     assert config.client_id == "00000000-0000-0000-0000-000000000000"
     assert config.tenant_id == "00000000-0000-0000-0000-000000000000"
-    assert config.client_secret == "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    assert config.client_secret is not None
+    assert (
+        config.client_secret.get_secret_value() == "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    )
     assert (
         config.redirect
         == "https://login.microsoftonline.com/common/oauth2/nativeclient"

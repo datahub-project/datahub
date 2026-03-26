@@ -106,6 +106,7 @@ public class ESSearchDAO {
             .query(
                 SearchRequestHandler.getFilterQuery(
                     opContext,
+                    List.of(entityName),
                     filter,
                     entitySpec.getSearchableFieldTypes(),
                     queryFilterRewriteChain));
@@ -347,6 +348,7 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entityNames.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .distinct()
             .collect(Collectors.toList());
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
@@ -459,6 +461,7 @@ public class ESSearchDAO {
     SearchRequest req =
         builder.getSearchRequest(
             opContext,
+            entityName,
             query,
             field,
             transformFilterForEntities(requestParams, indexConvention),
@@ -517,6 +520,7 @@ public class ESSearchDAO {
       entitySpecs =
           entityNames.stream()
               .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+              .distinct()
               .collect(Collectors.toList());
     }
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
@@ -534,8 +538,8 @@ public class ESSearchDAO {
                 transformFilterForEntities(requestParams, indexConvention),
                 limit);
     if (entityNames == null) {
-      String indexName = indexConvention.getAllEntityIndicesPattern();
-      searchRequest.indices(indexName);
+      List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
+      searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {
       Stream<String> stream =
           entityNames.stream()
@@ -625,6 +629,7 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entities.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .distinct()
             .collect(Collectors.toList());
 
     String[] indexArray =

@@ -1,413 +1,358 @@
+"""
+M-Query resolver: walks a powerquery-parser NodeIdMap to find DataAccessFunctionDetail
+entries (recognized data-source function calls with their navigation chain).
+"""
+
 import logging
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
-from lark import Tree
-
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.powerbi.config import (
-    PowerBiDashboardSourceConfig,
-    PowerBiDashboardSourceReport,
+from datahub.ingestion.source.powerbi.m_query.ast_utils import (
+    NodeIdMap,
+    get_record_field_values,
+    resolve_identifier,
 )
-from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
-    AbstractDataPlatformInstanceResolver,
-)
-from datahub.ingestion.source.powerbi.m_query import tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    TRACE_POWERBI_MQUERY_PARSER,
     DataAccessFunctionDetail,
+    FunctionName,
     IdentifierAccessor,
-    Lineage,
 )
-from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
-    AbstractLineage,
-    SupportedPattern,
-)
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
 
-
-class AbstractDataAccessMQueryResolver(ABC):
-    table: Table
-    parse_tree: Tree
-    parameters: Dict[str, str]
-    reporter: PowerBiDashboardSourceReport
-    data_access_functions: List[str]
-
-    def __init__(
-        self,
-        table: Table,
-        parse_tree: Tree,
-        reporter: PowerBiDashboardSourceReport,
-        parameters: Dict[str, str],
-    ):
-        self.table = table
-        self.parse_tree = parse_tree
-        self.reporter = reporter
-        self.parameters = parameters
-        self.data_access_functions = SupportedPattern.get_function_names()
-
-    @abstractmethod
-    def resolve_to_lineage(
-        self,
-        ctx: PipelineContext,
-        config: PowerBiDashboardSourceConfig,
-        platform_instance_resolver: AbstractDataPlatformInstanceResolver,
-    ) -> List[Lineage]:
-        pass
+_RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
 
 
-class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
+def resolve_to_data_access_functions(
+    node_map: NodeIdMap,
+    parameters: Optional[Dict[str, str]] = None,
+) -> List[DataAccessFunctionDetail]:
     """
-    This class parses the M-Query recursively to generate DataAccessFunctionDetail (see method create_data_access_functional_detail).
-
-    This class has generic code to process M-Query tokens and create instance of DataAccessFunctionDetail.
-
-    Once DataAccessFunctionDetail instance is initialized thereafter MQueryResolver generates the DataPlatformTable with the help of AbstractDataPlatformTableCreator
-    (see method resolve_to_lineage).
-
-    Classes which extended from AbstractDataPlatformTableCreator know how to convert generated DataAccessFunctionDetail instance
-     to the respective DataPlatformTable instance as per dataplatform.
-
+    Entry point: walk the NodeIdMap and return all DataAccessFunctionDetail entries
+    for recognized data-access function calls in the expression.
     """
+    parameters = parameters or {}
+    let_nodes = [
+        (k, v) for k, v in node_map.items() if v.get("kind") == "LetExpression"
+    ]
+    if not let_nodes:
+        logger.debug("No LetExpression found in node map")
+        return []
 
-    def get_item_selector_tokens(
-        self,
-        expression_tree: Tree,
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
-        item_selector: Optional[Tree] = tree_function.first_item_selector_func(
-            expression_tree
+    # Use the outermost let (smallest id = parsed first / outermost scope)
+    root_let_id, root_let = min(let_nodes, key=lambda kv: kv[0])
+
+    # LetExpression.expression is embedded -- not an ID
+    output_node = root_let.get("expression")
+    if output_node is None:
+        logger.debug(
+            "LetExpression (id=%d) has no output expression — cannot resolve lineage",
+            root_let_id,
         )
-        if item_selector is None:
-            logger.debug("Item Selector not found in tree")
-            logger.debug(expression_tree.pretty())
-            return None, None
+        return []
 
-        identifier_tree: Optional[Tree] = tree_function.first_identifier_func(
-            expression_tree
+    results: List[DataAccessFunctionDetail] = []
+    seen: Set[Tuple[int, str]] = set()
+
+    _walk(
+        node_map=node_map,
+        node=output_node,
+        current_let=root_let,
+        current_let_id=root_let_id,
+        accessor_chain=None,
+        results=results,
+        seen=seen,
+        parameters=parameters,
+    )
+    return results
+
+
+def _walk(
+    node_map: NodeIdMap,
+    node: Optional[dict],
+    current_let: dict,
+    current_let_id: int,
+    accessor_chain: Optional[IdentifierAccessor],
+    results: List[DataAccessFunctionDetail],
+    seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
+) -> None:
+    if node is None:
+        return
+
+    kind = node.get("kind", "")
+
+    # -- IdentifierExpression (wraps Identifier) --
+    if kind == "IdentifierExpression":
+        identifier = node.get("identifier", {})
+        name = identifier.get("literal", "")
+        # Strip quoted identifier prefix/suffix (#"name" → name)
+        if name.startswith('#"') and name.endswith('"'):
+            name = name[2:-1]
+        _walk_identifier_name(
+            node_map,
+            name,
+            current_let,
+            current_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
         )
-        if identifier_tree is None:
-            logger.debug("Identifier not found in tree")
-            logger.debug(item_selector.pretty())
-            return None, None
+        return
 
-        # remove whitespaces and quotes from token
-        tokens: List[str] = tree_function.strip_char_from_list(
-            tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(item_selector, parameters=self.parameters)
-            ),
+    # -- Identifier --
+    if kind == "Identifier":
+        name = node.get("literal", "")
+        if name.startswith('#"') and name.endswith('"'):
+            name = name[2:-1]
+        _walk_identifier_name(
+            node_map,
+            name,
+            current_let,
+            current_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
         )
-        identifier: List[str] = tree_function.token_values(
-            identifier_tree, parameters={}
+        return
+
+    # -- LetExpression (nested let scope) --
+    if kind == "LetExpression":
+        inner_let_id = node.get("id", -1)
+        inner_output = node.get("expression")  # embedded node
+        _walk(
+            node_map,
+            inner_output,
+            node,
+            inner_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
         )
+        return
 
-        # convert tokens to dict
-        iterator = iter(tokens)
-
-        return "".join(identifier), dict(zip(iterator, iterator))
-
-    @staticmethod
-    def get_argument_list(invoke_expression: Tree) -> Optional[Tree]:
-        argument_list: Optional[Tree] = tree_function.first_arg_list_func(
-            invoke_expression
+    # -- RecursivePrimaryExpression --
+    # Covers both function calls (head + InvokeExpression) and
+    # accessor chains (head + ItemAccessExpression + FieldSelector)
+    if kind == "RecursivePrimaryExpression":
+        _walk_recursive_primary(
+            node_map,
+            node,
+            current_let,
+            current_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
         )
-        if argument_list is None:
-            logger.debug("First argument-list rule not found in input tree")
-            return None
+        return
 
-        return argument_list
-
-    def take_first_argument(self, expression: Tree) -> Optional[Tree]:
-        # function is not data-access function, lets process function argument
-        first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(expression)
-
-        if first_arg_tree is None:
-            logger.debug(
-                f"Function invocation without argument in expression = {expression.pretty()}"
-            )
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "Function invocation without argument",
-            )
-            return None
-        return first_arg_tree
-
-    def _process_invoke_expression(
-        self, invoke_expression: Tree
-    ) -> Union[DataAccessFunctionDetail, List[str], None]:
-        letter_tree: Tree = invoke_expression.children[0]
-        data_access_func: str = tree_function.make_function_name(letter_tree)
-        # The invoke function is either DataAccess function like PostgreSQL.Database(<argument-list>) or
-        # some other function like Table.AddColumn or Table.Combine and so on
-
-        logger.debug(f"function-name: {data_access_func}")
-
-        if data_access_func in self.data_access_functions:
-            arg_list: Optional[Tree] = MQueryResolver.get_argument_list(
-                invoke_expression
-            )
-            if arg_list is None:
-                self.reporter.report_warning(
-                    title="M-Query Resolver Error",
-                    message="Unable to extract lineage from parsed M-Query expression (missing argument list)",
-                    context=f"{self.table.full_name}: argument list not found for data-access-function {data_access_func}",
+    # -- ListExpression (Table.Combine sources) --
+    if kind == "ListExpression":
+        content = node.get("content", {})
+        if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
+            for elem in content.get("elements", []):
+                inner = _unwrap_csv(elem)
+                # Use a copy of seen for each list element so sibling paths
+                # sharing common ancestors don't trigger false circular refs
+                _walk(
+                    node_map,
+                    inner,
+                    current_let,
+                    current_let_id,
+                    accessor_chain,
+                    results,
+                    seen.copy(),
+                    parameters,
                 )
-                return None
+        return
 
-            return DataAccessFunctionDetail(
-                arg_list=arg_list,
-                data_access_function_name=data_access_func,
-                identifier_accessor=None,
+    # -- FunctionExpression (each / anonymous function body) --
+    if kind == "FunctionExpression":
+        body = node.get("expression")
+        if body is not None:
+            _walk(
+                node_map,
+                body,
+                current_let,
+                current_let_id,
+                accessor_chain,
+                results,
+                seen,
+                parameters,
             )
+        return
 
-        first_arg_tree: Optional[Tree] = self.take_first_argument(invoke_expression)
-        if first_arg_tree is None:
-            return None
+    logger.debug("Unhandled node kind '%s', returning empty for this branch", kind)
 
-        flat_arg_list: List[Tree] = tree_function.flat_argument_list(first_arg_tree)
-        if len(flat_arg_list) == 0:
-            logger.debug("flat_arg_list is zero")
-            return None
 
-        first_argument: Tree = flat_arg_list[0]  # take first argument only
+def _walk_recursive_primary(
+    node_map: NodeIdMap,
+    node: dict,
+    current_let: dict,
+    current_let_id: int,
+    accessor_chain: Optional[IdentifierAccessor],
+    results: List[DataAccessFunctionDetail],
+    seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
+) -> None:
+    head = node.get("head")  # embedded IdentifierExpression
+    rec_exprs = node.get("recursiveExpressions", {})
+    elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
 
-        # Detect nested function calls in the first argument
-        # M-Query's data transformation pipeline:
-        # 1. Functions typically operate on tables/columns
-        # 2. First argument must be either:
-        #    - A table variable name (referencing data source)
-        #    - Another function that eventually leads to a table
-        #
-        # Example of nested functions:
-        #   #"Split Column by Delimiter2" = Table.SplitColumn(
-        #       Table.TransformColumnTypes(#"Removed Columns1", "KB")
-        #   )
-        #
-        # In this example:
-        # - The inner function Table.TransformColumnTypes takes #"Removed Columns1"
-        #   (a table reference) as its first argument
-        # - Its result is then passed as the first argument to Table.SplitColumn
-        second_invoke_expression: Optional[Tree] = (
-            tree_function.first_invoke_expression_func(first_argument)
+    if not elements:
+        _walk(
+            node_map,
+            head,
+            current_let,
+            current_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
         )
-        if second_invoke_expression:
-            # 1. The First argument is function call
-            # 2. That function's first argument references next table variable
-            first_arg_tree = self.take_first_argument(second_invoke_expression)
-            if first_arg_tree is None:
-                return None
+        return
 
-            flat_arg_list = tree_function.flat_argument_list(first_arg_tree)
-            if len(flat_arg_list) == 0:
-                logger.debug("flat_arg_list is zero")
-                return None
+    first = elements[0]
 
-            first_argument = flat_arg_list[0]  # take first argument only
-
-        expression: Optional[Tree] = tree_function.first_list_expression_func(
-            first_argument
+    # Function call: Snowflake.Databases(...), Table.RenameColumns(...), etc.
+    if first.get("kind") == "InvokeExpression":
+        _walk_invoke(
+            node_map,
+            head,
+            first,
+            current_let,
+            current_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
         )
+        return
 
-        if TRACE_POWERBI_MQUERY_PARSER:
-            logger.debug(f"Extracting token from tree {first_argument.pretty()}")
-        else:
-            logger.debug(f"Extracting token from tree {first_argument}")
-        if expression is None:
-            expression = tree_function.first_type_expression_func(first_argument)
-            if expression is None:
-                logger.debug(
-                    f"Either list_expression or type_expression is not found = {invoke_expression.pretty()}"
-                )
-                self.reporter.report_warning(
-                    title="M-Query Resolver Error",
-                    message="Unable to extract lineage from parsed M-Query expression (function argument expression is not supported)",
-                    context=f"{self.table.full_name}: function argument expression is not supported",
-                )
-                return None
+    # Accessor chain step: Source{[Name="mydb", Kind="Database"]}[Data]
+    if first.get("kind") == "ItemAccessExpression":
+        content = first.get("content", {})  # RecordExpression
+        kv: Dict[str, str] = {}
+        if isinstance(content, dict):
+            kv = get_record_field_values(node_map, content, parameters=parameters)
 
-        tokens: List[str] = tree_function.remove_whitespaces_from_list(
-            tree_function.token_values(expression)
+        new_accessor = IdentifierAccessor(
+            identifier=kv.get("Name", ""),
+            items=kv,
+            next=accessor_chain,
         )
-
-        logger.debug(f"Tokens in invoke expression are {tokens}")
-        return tokens
-
-    def _process_item_selector_expression(
-        self, rh_tree: Tree
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
-        first_expression: Optional[Tree] = tree_function.first_expression_func(rh_tree)
-        assert first_expression is not None
-
-        new_identifier, key_vs_value = self.get_item_selector_tokens(first_expression)
-        return new_identifier, key_vs_value
-
-    @staticmethod
-    def _create_or_update_identifier_accessor(
-        identifier_accessor: Optional[IdentifierAccessor],
-        new_identifier: str,
-        key_vs_value: Dict[str, Any],
-    ) -> IdentifierAccessor:
-        # It is first identifier_accessor
-        if identifier_accessor is None:
-            return IdentifierAccessor(
-                identifier=new_identifier, items=key_vs_value, next=None
-            )
-
-        new_identifier_accessor: IdentifierAccessor = IdentifierAccessor(
-            identifier=new_identifier, items=key_vs_value, next=identifier_accessor
+        _walk(
+            node_map,
+            head,
+            current_let,
+            current_let_id,
+            new_accessor,
+            results,
+            seen,
+            parameters,
         )
+        return
 
-        return new_identifier_accessor
+    # FieldSelector or other -- just walk the head
+    _walk(
+        node_map,
+        head,
+        current_let,
+        current_let_id,
+        accessor_chain,
+        results,
+        seen,
+        parameters,
+    )
 
-    def create_data_access_functional_detail(
-        self, identifier: str
-    ) -> List[DataAccessFunctionDetail]:
-        table_links: List[DataAccessFunctionDetail] = []
 
-        def internal(
-            current_identifier: str,
-            identifier_accessor: Optional[IdentifierAccessor],
-        ) -> None:
-            """
-            1) Find statement where identifier appear in the left-hand side i.e. identifier  = expression
-            2) Check expression is function invocation i.e. invoke_expression or item_selector
-            3) if it is function invocation and this function is not the data-access function then take first argument
-               i.e. identifier and call the function recursively
-            4) if it is item_selector then take identifier and key-value pair,
-               add identifier and key-value pair in current_selector and call the function recursively
-            5) This recursion will continue till we reach to data-access function and during recursion we will fill
-               token_dict dictionary for all item_selector we find during traversal.
+def _walk_invoke(
+    node_map: NodeIdMap,
+    head: Optional[dict],
+    invoke_node: dict,
+    current_let: dict,
+    current_let_id: int,
+    accessor_chain: Optional[IdentifierAccessor],
+    results: List[DataAccessFunctionDetail],
+    seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
+) -> None:
+    callee = None
+    if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
+        callee = head.get("identifier", {}).get("literal")
 
-            :param current_identifier: variable to look for
-            :param identifier_accessor:
-            :return: None
-            """
-            # Grammar of variable_statement is <variable-name> = <expression>
-            # Examples: Source = PostgreSql.Database(<arg-list>)
-            #           public_order_date = Source{[Schema="public",Item="order_date"]}[Data]
-            v_statement: Optional[Tree] = tree_function.get_variable_statement(
-                self.parse_tree, current_identifier
+    if callee and callee in _RECOGNIZED_FUNCTIONS:
+        results.append(
+            DataAccessFunctionDetail(
+                arg_list=invoke_node,
+                data_access_function_name=callee,
+                identifier_accessor=accessor_chain,
+                node_map=node_map,
+                parameters=parameters or {},
             )
-            if v_statement is None:
-                self.reporter.report_warning(
-                    title="Unable to extract lineage from M-Query expression",
-                    message="Lineage will be incomplete.",
-                    context=f"table-full-name={self.table.full_name}, expression = {self.table.expression}, output-variable={current_identifier} not found in table expression",
-                )
-                return None
-
-            # Any expression after "=" sign of variable-statement
-            rh_tree: Optional[Tree] = tree_function.first_expression_func(v_statement)
-            if rh_tree is None:
-                logger.debug("Expression tree not found")
-                logger.debug(v_statement.pretty())
-                return None
-
-            invoke_expression: Optional[Tree] = (
-                tree_function.first_invoke_expression_func(rh_tree)
-            )
-
-            if invoke_expression is not None:
-                result: Union[DataAccessFunctionDetail, List[str], None] = (
-                    self._process_invoke_expression(invoke_expression)
-                )
-                if result is None:
-                    return None  # No need to process some un-expected grammar found while processing invoke_expression
-                if isinstance(result, DataAccessFunctionDetail):
-                    result.identifier_accessor = identifier_accessor
-                    table_links.append(result)  # Link of a table is completed
-                    identifier_accessor = (
-                        None  # reset the identifier_accessor for other table
-                    )
-                    return None
-                # Process first argument of the function.
-                # The first argument can be a single table argument or list of table.
-                # For example Table.Combine({t1,t2},....), here first argument is list of table.
-                # Table.AddColumn(t1,....), here first argument is single table.
-                for token in result:
-                    internal(token, identifier_accessor)
-
-            else:
-                new_identifier, key_vs_value = self._process_item_selector_expression(
-                    rh_tree
-                )
-                if new_identifier is None or key_vs_value is None:
-                    logger.debug("Required information not found in rh_tree")
-                    return None
-                new_identifier_accessor: IdentifierAccessor = (
-                    self._create_or_update_identifier_accessor(
-                        identifier_accessor, new_identifier, key_vs_value
-                    )
-                )
-
-                return internal(new_identifier, new_identifier_accessor)
-
-        internal(identifier, None)
-
-        return table_links
-
-    def resolve_to_lineage(
-        self,
-        ctx: PipelineContext,
-        config: PowerBiDashboardSourceConfig,
-        platform_instance_resolver: AbstractDataPlatformInstanceResolver,
-    ) -> List[Lineage]:
-        lineage: List[Lineage] = []
-
-        # Find out output variable as we are doing backtracking in M-Query
-        output_variable: Optional[str] = tree_function.get_output_variable(
-            self.parse_tree
         )
+        return
 
-        if output_variable is None:
-            logger.debug(
-                f"Table: {self.table.full_name}: output-variable not found in tree"
-            )
-            self.reporter.report_warning(
-                f"{self.table.full_name}-output-variable",
-                "output-variable not found in table expression",
-            )
-            return lineage
-
-        # Parse M-Query and use output_variable as root of tree and create instance of DataAccessFunctionDetail
-        table_links: List[DataAccessFunctionDetail] = (
-            self.create_data_access_functional_detail(output_variable)
-        )
-
-        # Each item is data-access function
-        for f_detail in table_links:
-            logger.debug(
-                f"Processing data-access-function {f_detail.data_access_function_name}"
-            )
-            # Get & Check if we support data-access-function available in M-Query
-            supported_resolver = SupportedPattern.get_pattern_handler(
-                f_detail.data_access_function_name
-            )
-            if supported_resolver is None:
-                logger.debug(
-                    f"Resolver not found for the data-access-function {f_detail.data_access_function_name}"
+    # Unrecognized wrapper (Table.RenameColumns, Table.AddColumn, etc.)
+    # Recurse into first argument
+    if callee:
+        content = invoke_node.get("content", {})
+        if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
+            for elem in content.get("elements", []):
+                inner = _unwrap_csv(elem)
+                _walk(
+                    node_map,
+                    inner,
+                    current_let,
+                    current_let_id,
+                    accessor_chain,
+                    results,
+                    seen,
+                    parameters,
                 )
-                self.reporter.report_warning(
-                    f"{self.table.full_name}-data-access-function",
-                    f"Resolver not found for data-access-function = {f_detail.data_access_function_name}",
-                )
-                continue
+                return  # only first arg
 
-            # From supported_resolver enum get respective handler like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
-            # & also pass additional information that will be need to generate lineage
-            logger.debug(
-                f"Creating instance of {supported_resolver.handler().__name__} "
-                f"for data-access-function {f_detail.data_access_function_name}"
-            )
-            pattern_handler: AbstractLineage = supported_resolver.handler()(
-                ctx=ctx,
-                table=self.table,
-                config=config,
-                reporter=self.reporter,
-                platform_instance_resolver=platform_instance_resolver,
-            )
 
-            lineage.append(pattern_handler.create_lineage(f_detail))
+def _unwrap_csv(elem: object) -> Optional[dict]:
+    """Unwrap a Csv wrapper node, returning the inner node."""
+    if isinstance(elem, dict) and elem.get("kind") == "Csv":
+        return elem.get("node")
+    if isinstance(elem, dict):
+        return elem
+    return None
 
-        return lineage
+
+def _walk_identifier_name(
+    node_map: NodeIdMap,
+    name: str,
+    current_let: dict,
+    current_let_id: int,
+    accessor_chain: Optional[IdentifierAccessor],
+    results: List[DataAccessFunctionDetail],
+    seen: Set[Tuple[int, str]],
+    parameters: Optional[Dict[str, str]] = None,
+) -> None:
+    """Resolve a variable name in the current let scope and continue walking."""
+    if not name:
+        return
+    # Circular reference guard: (let_id, variable_name) pair
+    guard_key = (current_let_id, name)
+    if guard_key in seen:
+        logger.warning("Circular reference detected for variable '%s', stopping", name)
+        return
+    seen.add(guard_key)
+
+    resolved = resolve_identifier(node_map, current_let, name)
+    _walk(
+        node_map,
+        resolved,
+        current_let,
+        current_let_id,
+        accessor_chain,
+        results,
+        seen,
+        parameters,
+    )

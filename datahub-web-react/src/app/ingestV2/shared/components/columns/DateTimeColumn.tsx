@@ -1,19 +1,10 @@
 import { CellHoverWrapper, Text, Tooltip } from '@components';
-import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import isPresent from '@app/utils/isPresent';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(advancedFormat);
-dayjs.extend(localizedFormat);
+import dayjs from '@utils/dayjs';
 
 /**
  * l - M/D/YYYY
@@ -76,4 +67,11 @@ export function wrapDateTimeColumnWithHover(
             <DateTimeCellWrapper>{content}</DateTimeCellWrapper>
         </Tooltip>
     );
+}
+
+export function formatDateTime(time?: number) {
+    if (!isPresent(time) || time === 0) {
+        return undefined;
+    }
+    return dayjs(time).format(DEFAULT_DATETIME_FORMAT);
 }

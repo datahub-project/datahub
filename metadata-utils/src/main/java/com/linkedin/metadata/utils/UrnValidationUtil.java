@@ -221,6 +221,14 @@ public class UrnValidationUtil {
       // Recursively traverse nested DataMaps
       if (value instanceof DataMap) {
         traverseDataMap((DataMap) value, fieldPath, urnValidationSpecs, result);
+      } else if (value instanceof DataList) {
+        // Recursively traverse DataMaps within arrays (e.g., array[RecordType])
+        DataList list = (DataList) value;
+        for (Object item : list) {
+          if (item instanceof DataMap) {
+            traverseDataMap((DataMap) item, fieldPath + "/*", urnValidationSpecs, result);
+          }
+        }
       }
     }
   }

@@ -1,4 +1,5 @@
 import { Input } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -25,11 +26,12 @@ export default function DropdownSearchBar({ placeholder, value, size, onChange, 
             <Input
                 label=""
                 type="text"
-                icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
+                icon={{ icon: MagnifyingGlass }}
                 placeholder={placeholder || 'Search...'}
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}
                 style={{ fontSize: size || 'md' }}
+                inputTestId="dropdown-search-input"
                 onClear={onClear}
                 data-testid="dropdown-search-bar"
             />

@@ -3,45 +3,59 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import functools
 import logging
 import re
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
 
+from datahub.configuration.env_vars import get_sql_parse_cache_size
 from datahub.sql_parsing.fingerprint_utils import generate_hash
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str as _get_dialect_str
 
 assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-SQL_PARSE_CACHE_SIZE = 1000
+SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
+FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
 
-FORMAT_QUERY_CACHE_SIZE = 1000
+# Snowflake governance DDL syntax that sqlglot does not support. When sqlglot
+# encounters any of these it silently falls back to parsing the whole statement
+# as a Command node, causing DataHub to lose all lineage for that statement.
+# None of these constructs carry table-reference information, so stripping them
+# before parsing is safe for lineage purposes.
+# Limitation: parenthesised content is matched with [^)]* and will break if a
+# string literal inside the parens contains a literal ')'. This is not a
+# realistic concern for policy names or column identifiers.
+#
+# TODO: If other dialects accumulate similar pre-parse fixups, consider
+# extracting this into a dialect preprocessor registry:
+#   Dict[str, Callable[[str], str]] mapping dialect name → sanitizer function,
+# housed in a sql_parsing/dialect_preprocessors/ subpackage. For now a single
+# dialect-specific block in parse_statement() is simpler and easier to follow.
+_SNOWFLAKE_UNSUPPORTED_DDL_PATTERNS: List[re.Pattern] = [
+    # col WITH TAG (schema.tag_name = 'value')
+    re.compile(r"\s+WITH\s+TAG\s*\([^)]*\)", re.IGNORECASE),
+    # col WITH MASKING POLICY db.schema.policy [USING (col1, col2)]
+    re.compile(
+        r"\s+WITH\s+MASKING\s+POLICY\s+[^\s,)(]+(?:\s+USING\s*\([^)]*\))?",
+        re.IGNORECASE,
+    ),
+    # col WITH PROJECTION POLICY db.schema.policy
+    re.compile(r"\s+WITH\s+PROJECTION\s+POLICY\s+[^\s,)(]+", re.IGNORECASE),
+    # CREATE TABLE/VIEW ... WITH ROW ACCESS POLICY db.schema.policy ON (col_list)
+    re.compile(
+        r"\s+WITH\s+ROW\s+ACCESS\s+POLICY\s+[^\s,)(]+\s+ON\s*\([^)]*\)", re.IGNORECASE
+    ),
+]
 
 
-def _get_dialect_str(platform: str) -> str:
-    if platform == "presto-on-hive":
-        return "hive"
-    elif platform == "mssql":
-        return "tsql"
-    elif platform == "athena":
-        return "trino"
-    # TODO: define SalesForce SOQL dialect
-    # Temporary workaround is to treat SOQL as databricks dialect
-    # At least it allows to parse simple SQL queries and built linage for them
-    elif platform == "salesforce":
-        return "databricks"
-    elif platform in {"mysql", "mariadb"}:
-        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
-        # default behavior on Linux. However, MySQL's default case sensitivity
-        # actually depends on the underlying OS.
-        # For us, it's simpler to just assume that it's case-insensitive, and
-        # let the fuzzy resolution logic handle it.
-        # MariaDB is a fork of MySQL, so we reuse the same dialect.
-        return "mysql, normalization_strategy = lowercase"
-    else:
-        return platform
+def _sanitize_snowflake_ddl(sql: str) -> str:
+    """Strip Snowflake governance DDL constructs unsupported by sqlglot (see patterns above)."""
+    for pattern in _SNOWFLAKE_UNSUPPORTED_DDL_PATTERNS:
+        sql = pattern.sub("", sql)
+    return sql
 
 
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
@@ -66,24 +80,66 @@ def is_dialect_instance(
 @functools.lru_cache(maxsize=SQL_PARSE_CACHE_SIZE)
 def _parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
-    statement: sqlglot.Expression = sqlglot.maybe_parse(
+) -> sqlglot.exp.Expression:
+    statement = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
+    if not isinstance(statement, sqlglot.exp.Expression):
+        raise TypeError(
+            f"Expected Expression from maybe_parse(), got {type(statement)}"
+        )
+
+    # Handle Block statements from sqlglot v29+
+    # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
+    # Block([stmt1, None, ...]) where None represents empty statements between semicolons.
+    # We only process the non None statement, if there is 1 and only 1.
+    if isinstance(statement, sqlglot.exp.Block):
+        if not statement.expressions:
+            raise sqlglot.errors.ParseError(
+                "Block statement must have at least one expression"
+            )
+
+        # Filter out None expressions (empty statements from double semicolons)
+        non_none_expressions = [e for e in statement.expressions if e is not None]
+
+        if not non_none_expressions:
+            raise sqlglot.errors.ParseError(
+                "Block contains only None expressions - no valid SQL statement found"
+            )
+
+        if len(non_none_expressions) > 1:
+            # parse_statement expects a single statement, not multiple
+            raise sqlglot.errors.ParseError(
+                f"Block contains {len(non_none_expressions)} statements: "
+                f"{[type(e).__name__ for e in non_none_expressions]}. "
+                f"Use parse_statements_and_pick() for multi-statement SQL."
+            )
+
+        # Return the single non-None statement
+        statement = non_none_expressions[0]
+
     return statement
 
 
 def parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
+) -> sqlglot.exp.Expression:
     # Parsing is significantly more expensive than copying the expression.
     # Because the expressions are mutable, we don't want to allow the caller
     # to modify the parsed expression that sits in the cache. We keep
     # the cached versions pristine by returning a copy on each call.
+    if isinstance(sql, str) and is_dialect_instance(dialect, "snowflake"):
+        sanitized = _sanitize_snowflake_ddl(sql)
+        if sanitized != sql:
+            logger.debug("Sanitized Snowflake DDL: %s -> %s", sql, sanitized)
+        sql = sanitized
     return _parse_statement(sql, dialect).copy()
 
 
-def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.Expr:
+    # Note: does not go through parse_statement, so _sanitize_snowflake_ddl is
+    # not applied here. This is intentional — callers (e.g. dbt) pass compiled
+    # SELECT SQL, never raw DDL with governance metadata.
     logger.debug("Parsing SQL query: %s", sql)
 
     dialect = get_dialect(platform)
@@ -107,9 +163,9 @@ def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expre
 def _expression_to_string(
     expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> str:
-    if isinstance(expression, str):
-        return expression
-    return expression.sql(dialect=get_dialect(platform))
+    if isinstance(expression, sqlglot.exp.Expr):
+        return expression.sql(dialect=get_dialect(platform))
+    return str(expression)
 
 
 PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION = re.compile(r"(%s|\$\d|\?)")
@@ -185,9 +241,11 @@ def generalize_query_fast(
         The generalized SQL query.
     """
 
-    if isinstance(expression, sqlglot.exp.Expression):
-        expression = expression.sql(dialect=get_dialect(dialect))
-    query_text = expression
+    query_text: str
+    if isinstance(expression, sqlglot.exp.Expr):
+        query_text = expression.sql(dialect=get_dialect(dialect))
+    else:
+        query_text = str(expression)
 
     REGEX_REPLACEMENTS = {
         **_BASIC_NORMALIZATION_RULES,

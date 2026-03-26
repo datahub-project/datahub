@@ -16,7 +16,7 @@ import { useAddBusinessAttributeMutation, useRemoveBusinessAttributeMutation } f
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, ResourceRefInput } from '@types';
 
-export enum OperationType {
+enum OperationType {
     ADD,
     REMOVE,
 }
@@ -42,7 +42,7 @@ const StyleTag = styled(CustomTag)`
     word-break: break-all;
 `;
 
-export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
+const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
     background-color: white;
     border-radius: 5px;
     box-shadow:
@@ -158,7 +158,7 @@ export default function EditBusinessAttributeModal({
         };
         /* eslint-disable-next-line react/prop-types */
         const selectedItem = selectedAttribute
-            ? selectedAttribute?.props?.component
+            ? selectedAttribute?.component
             : displayedAttributes.find((attribute) => attribute.urn === value)?.component;
         return (
             <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>

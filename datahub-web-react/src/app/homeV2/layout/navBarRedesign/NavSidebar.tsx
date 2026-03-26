@@ -1,18 +1,18 @@
-import {
-    AppWindow,
-    BookBookmark,
-    Gear,
-    Globe,
-    HardDrives,
-    Plugs,
-    Question,
-    SignOut,
-    SquaresFour,
-    Tag,
-    TextColumns,
-    TrendUp,
-    UserCircle,
-} from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import { BookBookmark } from '@phosphor-icons/react/dist/csr/BookBookmark';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -24,16 +24,20 @@ import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
 import {
+    NavBarMenuDropdownItem,
     NavBarMenuDropdownItemElement,
+    NavBarMenuGroup,
     NavBarMenuItemTypes,
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
+import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -45,7 +49,7 @@ import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-import AcrylIcon from '@images/acryl-light-mark.svg?react';
+import AcrylIcon from '@images/datahublogo.svg?react';
 
 const Container = styled.div`
     height: 100vh;
@@ -58,11 +62,51 @@ const Container = styled.div`
 const Content = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
-    padding: 17px 8px 17px 16px;
     height: 100%;
     width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
     transition: width 250ms ease-in-out;
     overflow-x: hidden;
+`;
+
+const Header = styled.div`
+    padding: 17px 8px 8px 16px;
+    border-bottom: 1px solid ${colors.gray[100]};
+`;
+
+const ScrollableContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    padding: 0px 8px 0px 16px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+
+    /* Custom scrollbar styling */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg};
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg} transparent;
+`;
+
+const Footer = styled.div`
+    padding: 8px 8px 17px 16px;
+    border-top: 1px solid ${colors.gray[100]};
 `;
 
 const CustomLogo = styled.img`
@@ -73,15 +117,12 @@ const CustomLogo = styled.img`
     min-width: 20px;
 `;
 
-const Spacer = styled.div`
-    flex: 1;
-`;
-
-const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/datahublogo.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
 `;
 
 export const NavSidebar = () => {
@@ -95,6 +136,7 @@ export const NavSidebar = () => {
     const isHomePage = useIsHomePage();
     const location = useLocation();
     const showHomepageRedesign = useShowHomePageRedesign();
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
@@ -133,13 +175,40 @@ export const NavSidebar = () => {
         key: `helpMenu${value.label}`,
     })) as NavBarMenuDropdownItemElement[];
 
+    // --- MFE YAML CONFIG ---
+    const mfeConfig: any = useMFEConfigFromBackend();
+
+    // MFE section (dropdown or spread)
+    let mfeSection: any[] = [];
+    if (mfeConfig) {
+        if (mfeConfig.subNavigationMode) {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Dropdown,
+                    title: 'MFE Apps',
+                    icon: <AppWindow />,
+                    key: 'mfe-dropdown',
+                    items: getMfeMenuDropdownItems(mfeConfig),
+                } as NavBarMenuDropdownItem,
+            ];
+        } else {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Group,
+                    key: 'mfe-group',
+                    title: 'MFE Apps',
+                    items: getMfeMenuItems(mfeConfig),
+                } as NavBarMenuGroup,
+            ];
+        }
+    }
     function handleHomeclick() {
         if (isHomePage && showHomepageRedesign) {
             toggle();
         }
     }
 
-    const mainMenu: NavBarMenuItems = {
+    const headerMenu: NavBarMenuItems = {
         items: [
             {
                 type: NavBarMenuItemTypes.Item,
@@ -150,6 +219,35 @@ export const NavSidebar = () => {
                 link: PageRoutes.ROOT,
                 onlyExactPathMapping: true,
                 onClick: () => handleHomeclick(),
+                dataTestId: 'nav-bar-item-home',
+            },
+        ],
+    };
+
+    const mainContentMenu: NavBarMenuItems = {
+        items: [
+            ...mfeSection,
+            {
+                type: NavBarMenuItemTypes.Group,
+                key: 'context',
+                title: 'Context',
+                isHidden: !isContextDocumentsEnabled,
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Documents',
+                        key: 'contextDocuments',
+                        icon: <FileText />,
+                        selectedIcon: <FileText weight="fill" />,
+                        link: PageRoutes.CONTEXT_DOCUMENTS,
+                        additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Document)}/:urn`],
+                        badge: {
+                            label: 'BETA',
+                            show: true,
+                            showDot: false,
+                        },
+                    },
+                ],
             },
             {
                 type: NavBarMenuItemTypes.Group,
@@ -239,11 +337,11 @@ export const NavSidebar = () => {
                     },
                 ],
             },
-            {
-                type: NavBarMenuItemTypes.Custom,
-                key: 'spacer',
-                render: () => <Spacer />,
-            },
+        ],
+    };
+
+    const footerMenu: NavBarMenuItems = {
+        items: [
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Profile',
@@ -323,7 +421,12 @@ export const NavSidebar = () => {
             },
         ],
     };
-    const sk = useSelectedKey(mainMenu);
+
+    // Combine all menus for selected key calculation
+    const allMenuItems: NavBarMenuItems = {
+        items: [...headerMenu.items, ...mainContentMenu.items, ...footerMenu.items],
+    };
+    const sk = useSelectedKey(allMenuItems);
 
     useEffect(() => setSelectedKey(sk), [sk, setSelectedKey]);
 
@@ -347,15 +450,29 @@ export const NavSidebar = () => {
     return (
         <Container>
             {renderSvgSelectedGradientForReusingInIcons()}
-            <Content isCollapsed={isCollapsed}>
+            <Content id="nav-sidebar" data-collapsed={isCollapsed} isCollapsed={isCollapsed}>
                 {showSkeleton ? (
                     <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (
                     <>
-                        <NavBarHeader logotype={logoComponent} />
-                        <MenuWrapper>
-                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={mainMenu} />
-                        </MenuWrapper>
+                        <Header>
+                            <NavBarHeader logotype={logoComponent} />
+                            <MenuWrapper>
+                                <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={headerMenu} />
+                            </MenuWrapper>
+                        </Header>
+                        <ScrollableContent>
+                            <MenuWrapper>
+                                <NavBarMenu
+                                    selectedKey={selectedKey}
+                                    isCollapsed={isCollapsed}
+                                    menu={mainContentMenu}
+                                />
+                            </MenuWrapper>
+                        </ScrollableContent>
+                        <Footer>
+                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={footerMenu} />
+                        </Footer>
                     </>
                 )}
             </Content>

@@ -1,11 +1,15 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
+import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
+import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -42,8 +46,17 @@ public class MaeConsumerApplicationTestConfiguration {
 
   @MockBean public ElasticSearchService elasticSearchService;
 
+  @MockBean public EntitySearchService entitySearchService;
+
   @MockBean public MetricUtils metricUtils;
 
   @MockBean(answer = Answers.RETURNS_MOCKS)
   public SearchClientShim<?> searchClientShim;
+
+  // Mock semantic search factories to avoid needing full configuration
+  @MockBean public EmbeddingProviderFactory embeddingProviderFactory;
+
+  @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+
+  @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 }

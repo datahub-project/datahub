@@ -1,4 +1,5 @@
-import { Sidebar } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { Sidebar } from '@phosphor-icons/react/dist/csr/Sidebar';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -37,7 +38,7 @@ export default function NavBarToggler() {
     }
 
     return (
-        <Toggler onClick={handleToggle} aria-label="Navbar toggler">
+        <Toggler onClick={handleToggle} aria-label="Navbar toggler" data-testid="nav-bar-toggler">
             <Sidebar />
         </Toggler>
     );

@@ -1,13 +1,16 @@
+import { Avatar } from '@components';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, Typography, message } from 'antd';
+import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
 
@@ -80,12 +83,7 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
 
     return (
         <div>
-            <ActorAvatar
-                size={26}
-                name={userName}
-                url={`/${entityRegistry.getPathName(createdBy.type)}/${createdBy.urn}`}
-                photoUrl={photoUrl}
-            />
+            <Avatar name={userName || ''} imageUrl={photoUrl} type={AvatarType.user} size="lg" />
         </div>
     );
 };
@@ -111,6 +109,7 @@ interface EditDeleteProps {
 
 export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }: EditDeleteProps) => {
     const [editingQuery, setEditingQuery] = useState<Query | null>(null);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [deleteQueryMutation] = useDeleteQueryMutation();
     const urn = query.urn as string;
 
@@ -131,20 +130,6 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
             });
     };
 
-    const confirmDeleteQuery = () => {
-        Modal.confirm({
-            title: `Delete Query`,
-            content: `Are you sure you want to delete this query?`,
-            onOk() {
-                deleteQuery();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     const onEditSubmitted = (newQuery) => {
         setEditingQuery(null);
         onEdited?.(newQuery);
@@ -156,7 +141,7 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                 <ActionButton privilege onClick={() => setEditingQuery(query)} data-testid="edit-query">
                     <EditOutlinedIcon />
                 </ActionButton>
-                <ActionButton privilege onClick={confirmDeleteQuery} data-testid="delete-query">
+                <ActionButton privilege onClick={() => setShowConfirmationModal(true)} data-testid="delete-query">
                     <DeleteOutlinedIcon />
                 </ActionButton>
             </ButtonsWrapper>
@@ -172,6 +157,13 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                     onClose={() => setEditingQuery(null)}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={deleteQuery}
+                modalTitle="Delete Query"
+                modalText="Are you sure you want to delete this query?"
+            />
         </>
     );
 };

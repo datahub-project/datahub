@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
@@ -51,7 +51,8 @@ class EntityConfig(EnvConfigMixin):
     platform: str
     platform_instance: Optional[str] = None
 
-    @validator("type")
+    @field_validator("type", mode="after")
+    @classmethod
     def type_must_be_supported(cls, v: str) -> str:
         allowed_types = ["dataset"]
         if v not in allowed_types:
@@ -60,7 +61,8 @@ class EntityConfig(EnvConfigMixin):
             )
         return v
 
-    @validator("name")
+    @field_validator("name", mode="after")
+    @classmethod
     def validate_name(cls, v: str) -> str:
         if v.startswith("urn:li:"):
             raise ValueError(
@@ -77,7 +79,8 @@ class FineGrainedLineageConfig(ConfigModel):
     transformOperation: Optional[str]
     confidenceScore: Optional[float] = 1.0
 
-    @validator("upstreamType")
+    @field_validator("upstreamType", mode="after")
+    @classmethod
     def upstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
             FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -90,7 +93,8 @@ class FineGrainedLineageConfig(ConfigModel):
             )
         return v
 
-    @validator("downstreamType")
+    @field_validator("downstreamType", mode="after")
+    @classmethod
     def downstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
             FineGrainedLineageDownstreamTypeClass.FIELD_SET,
@@ -110,7 +114,7 @@ class EntityNodeConfig(ConfigModel):
 
 
 # https://pydantic-docs.helpmanual.io/usage/postponed_annotations/ required for when you reference a model within itself
-EntityNodeConfig.update_forward_refs()
+EntityNodeConfig.model_rebuild()
 
 
 class LineageFileSourceConfig(ConfigModel):
@@ -124,7 +128,8 @@ class LineageFileSourceConfig(ConfigModel):
 class LineageConfig(VersionedConfig):
     lineage: List[EntityNodeConfig]
 
-    @validator("version")
+    @field_validator("version", mode="after")
+    @classmethod
     def version_must_be_1(cls, v):
         if v != "1":
             raise ValueError("Only version 1 is supported")
@@ -148,13 +153,13 @@ class LineageFileSource(Source):
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "LineageFileSource":
-        config = LineageFileSourceConfig.parse_obj(config_dict)
+        config = LineageFileSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     @staticmethod
     def load_lineage_config(file_name: str) -> LineageConfig:
         config = load_config_file(file_name, resolve_env_vars=True)
-        lineage_config = LineageConfig.parse_obj(config)
+        lineage_config = LineageConfig.model_validate(config)
         return lineage_config
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

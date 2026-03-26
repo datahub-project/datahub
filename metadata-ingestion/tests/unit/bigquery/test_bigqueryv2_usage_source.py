@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import patch
 
 from freezegun import freeze_time
 
@@ -19,7 +20,10 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 FROZEN_TIME = "2021-07-20 00:00:00"
 
 
-def test_bigqueryv2_uri_with_credential():
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+)
+def test_bigqueryv2_uri_with_credential(mock_from_sa_info):
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -33,7 +37,7 @@ def test_bigqueryv2_uri_with_credential():
         "type": "service_account",
     }
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "stateful_ingestion": {"enabled": False},
@@ -64,9 +68,12 @@ def test_bigqueryv2_uri_with_credential():
         raise e
 
 
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+)
 @freeze_time(FROZEN_TIME)
-def test_bigqueryv2_filters():
-    config = BigQueryV2Config.parse_obj(
+def test_bigqueryv2_filters(mock_from_sa_info):
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "credential": {

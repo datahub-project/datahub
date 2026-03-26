@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from datahub.emitter.mce_builder import (
@@ -25,13 +26,15 @@ from datahub.metadata.schema_classes import (
 )
 from tests.setup.lineage.helper_classes import Dataset, Pipeline
 
+logger = logging.getLogger(__name__)
+
 
 def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
     mcps: List[MetadataChangeProposalWrapper] = []
     dataset_urn = make_dataset_urn(platform=dataset.platform, name=dataset.id)
     data_platform_urn = make_data_platform_urn(dataset.platform)
-    print(dataset)
-    print(dataset_urn)
+    logger.info(dataset)
+    logger.info(dataset_urn)
 
     dataset_properties = DatasetPropertiesClass(
         name=dataset.id.split(".")[-1],
@@ -159,7 +162,7 @@ def create_upstream_mcp(
     timestamp_millis: int,
     run_id: str = "",
 ) -> MetadataChangeProposalWrapper:
-    print(f"Creating upstreamLineage aspect for {entity_urn}")
+    logger.info(f"Creating upstreamLineage aspect for {entity_urn}")
     mcp = MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
         aspect=UpstreamLineage(upstreams=upstreams),

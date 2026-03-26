@@ -1,24 +1,13 @@
-## Integration Details
+## Overview
 
-This plugin extracts the following:
+Kafka Connect is a streaming or integration platform. Learn more in the [official Kafka Connect documentation](https://kafka.apache.org/documentation/#connect).
 
-- Source and Sink Connectors in Kafka Connect as Data Pipelines
-- For Source connectors - Data Jobs to represent lineage information between source dataset to Kafka topic per `{connector_name}:{source_dataset}` combination
-- For Sink connectors - Data Jobs to represent lineage information between Kafka topic to destination dataset per `{connector_name}:{topic}` combination
+The DataHub integration for Kafka Connect covers streaming/integration entities such as topics, connectors, pipelines, or jobs. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
-### Concept Mapping
-
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
+## Concept Mapping
 
 | Source Concept                                                                  | DataHub Concept                                                                           | Notes |
 | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----- |
 | `"kafka-connect"`                                                               | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |       |
 | [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks) | [DataFlow](https://docs.datahub.com/docs/generated/metamodel/entities/dataflow/)          |       |
 | Kafka Topic                                                                     | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |       |
-
-## Current limitations
-
-Works only for
-
-- Source connectors: JDBC, Debezium, Mongo and Generic connectors with user-defined lineage graph
-- Sink connectors: BigQuery, Confluent, S3, Snowflake

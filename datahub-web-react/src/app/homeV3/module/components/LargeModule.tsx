@@ -1,5 +1,7 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
 import { useDraggable } from '@dnd-kit/core';
+import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import React, { memo, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -67,6 +69,7 @@ const ViewAllButton = styled(Button)`
 interface Props extends ModuleProps {
     loading?: boolean;
     onClickViewAll?: () => void;
+    viewAllText?: string;
     dataTestId?: string;
 }
 
@@ -76,6 +79,7 @@ function LargeModule({
     position,
     loading,
     onClickViewAll,
+    viewAllText,
     dataTestId,
 }: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
@@ -116,8 +120,7 @@ function LargeModule({
                             {...listeners}
                             size="lg"
                             color="gray"
-                            icon="DotsSixVertical"
-                            source="phosphor"
+                            icon={DotsSixVertical}
                             isDragging={isDragging}
                         />
                     )}
@@ -148,7 +151,7 @@ function LargeModule({
                     onClick={onClickViewAllHandler}
                     data-testid="view-all"
                 >
-                    View all
+                    {viewAllText || 'View all'}
                 </ViewAllButton>
             )}
         </ModuleContainer>

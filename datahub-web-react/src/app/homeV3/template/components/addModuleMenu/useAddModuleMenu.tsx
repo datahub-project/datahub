@@ -1,3 +1,11 @@
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { MenuProps } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 
@@ -93,6 +101,27 @@ export const RELATED_TERMS_MODULE: PageModuleFragment = {
     },
 };
 
+export const LINEAGE_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:lineage',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Lineage',
+        type: DataHubPageModuleType.Lineage,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+export const COLUMNS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:columns',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Columns',
+        type: DataHubPageModuleType.Columns,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const { entityType } = useEntityData();
     const {
@@ -131,7 +160,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="Choose links that are important"
                     title="Quick Link"
-                    icon="LinkSimple"
+                    icon={LinkSimple}
                     isSmallModule
                 />
             ),
@@ -148,7 +177,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="Pin docs for your DataHub users"
                     title="Documentation"
-                    icon="TextT"
+                    icon={TextT}
                     isSmallModule={false}
                 />
             ),
@@ -165,7 +194,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="A curated list of assets of your choosing"
                     title="Collection"
-                    icon="Stack"
+                    icon={Stack}
                     isSmallModule={false}
                 />
             ),
@@ -178,7 +207,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         const hierarchyView = {
             title: 'Hierarchy',
             key: 'hierarchyView',
-            label: <MenuItem description="Top down view of assets" title="Hierarchy" icon="Globe" />,
+            label: <MenuItem description="Top down view of assets" title="Hierarchy" icon={Globe} />,
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
             },
@@ -205,7 +234,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="Assets the current user owns"
                     title="Your Assets"
-                    icon="Database"
+                    icon={Database}
                     isSmallModule={false}
                 />
             ),
@@ -222,7 +251,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="Most used domains in your organization"
                     title="Domains"
-                    icon="Globe"
+                    icon={Globe}
                     isSmallModule={false}
                 />
             ),
@@ -239,7 +268,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="Most used platforms in your organization"
                     title="Platforms"
-                    icon="Database"
+                    icon={Database}
                     isSmallModule={false}
                 />
             ),
@@ -256,7 +285,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="Related Assets tagged with the parent entity"
                     title="Assets"
-                    icon="Database"
+                    icon={Database}
                     isSmallModule={false}
                 />
             ),
@@ -273,7 +302,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="View the hierarchy of this asset's children"
                     title={entityType === EntityType.Domain ? 'Domains' : 'Contents'}
-                    icon="Globe"
+                    icon={Globe}
                     isSmallModule={false}
                 />
             ),
@@ -290,7 +319,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="View the data products inside of this domain"
                     title="Data Products"
-                    icon="FileText"
+                    icon={FileText}
                     isSmallModule={false}
                 />
             ),
@@ -307,7 +336,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 <MenuItem
                     description="View the related terms inside of this glossary term"
                     title="Related Terms"
-                    icon="FileText"
+                    icon={FileText}
                     isSmallModule={false}
                 />
             ),
@@ -315,6 +344,39 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 handleAddExistingModule(RELATED_TERMS_MODULE);
             },
             'data-testid': 'add-related-terms-module',
+        };
+
+        const lineage = {
+            name: 'Lineage',
+            key: 'lineage',
+            label: (
+                <MenuItem
+                    description="View the lineage of an asset"
+                    title="Lineage"
+                    icon={TreeStructure}
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(LINEAGE_MODULE);
+            },
+            'data-testid': 'add-lineage-module',
+        };
+        const schemaTable = {
+            name: 'Columns',
+            key: 'columns',
+            label: (
+                <MenuItem
+                    description="View the columns of this dataset"
+                    title="Columns"
+                    icon={Table}
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(COLUMNS_MODULE);
+            },
+            'data-testid': 'add-columns-module',
         };
 
         const defaultHomeModules = [yourAssets, domains, platforms];
@@ -326,6 +388,8 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             defaultSummaryModules = [childHierarchy];
         } else if (entityType === EntityType.GlossaryTerm) {
             defaultSummaryModules = [...defaultSummaryModules, relatedTerms];
+        } else if (entityType === EntityType.Dataset) {
+            defaultSummaryModules = [schemaTable, lineage];
         }
 
         const finalDefaultModules =
@@ -359,7 +423,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 name: 'Home Defaults',
                 label: (
                     <MenuItem
-                        icon="Database"
+                        icon={Database}
                         title="Home Defaults"
                         description="Modules created for your organization"
                         hasChildren

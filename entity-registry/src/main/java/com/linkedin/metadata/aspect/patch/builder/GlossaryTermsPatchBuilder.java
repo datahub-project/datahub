@@ -13,7 +13,7 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 public class GlossaryTermsPatchBuilder
     extends AbstractMultiFieldPatchBuilder<GlossaryTermsPatchBuilder> {
 
-  private static final String BASE_PATH = "/glossaryTerms/";
+  private static final String BASE_PATH = "/terms/";
   private static final String URN_KEY = "urn";
   private static final String CONTEXT_KEY = "context";
 

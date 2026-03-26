@@ -17,6 +17,7 @@ record EditableERModelRelationshipProperties includes ChangeAuditStamps {
   @Searchable = {
     "fieldType": "TEXT",
     "fieldName": "editedDescription",
+    "searchTier": 2
   }
   description: optional string
 

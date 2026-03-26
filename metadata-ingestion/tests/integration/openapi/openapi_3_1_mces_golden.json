@@ -7,13 +7,14 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "name": "board",
             "description": "Retrieves the current state of the board and the winner.",
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -27,31 +28,6 @@
             "tags": [
                 {
                     "tag": "urn:li:tag:Gameplay"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "institutionalMemory",
-    "aspect": {
-        "json": {
-            "elements": [
-                {
-                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/board",
-                    "description": "Link to call for the dataset.",
-                    "createStamp": {
-                        "time": 1586847600,
-                        "actor": "urn:li:corpuser:etl"
-                    }
                 }
             ]
         }
@@ -82,82 +58,133 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "board",
+            "platform": "urn:li:dataPlatform:OpenApi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "ea3f8b030194e96fd99b39aaf0e3bc1a",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"winner\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \".\",\n        \"X\",\n        \"O\"\n      ],\n      \"description\": \"Winner of the game. `.` means nobody has won yet.\",\n      \"example\": \".\"\n    },\n    \"board\": {\n      \"type\": \"array\",\n      \"maxItems\": 3,\n      \"minItems\": 3,\n      \"items\": {\n        \"type\": \"array\",\n        \"maxItems\": 3,\n        \"minItems\": 3,\n        \"items\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \".\",\n            \"X\",\n            \"O\"\n          ],\n          \"description\": \"Possible values for a board square. `.` means empty square.\",\n          \"example\": \".\"\n        }\n      }\n    }\n  }\n}"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=enum].winner",
+                    "nullable": false,
+                    "description": "One of: \".\", \"X\", \"O\"",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "Enum",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "array",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].array",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "array",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].array.[type=enum].enum",
+                    "nullable": false,
+                    "description": "One of: \".\", \"X\", \"O\"",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "Enum",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-eg5nkk",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_openapi"
+                },
+                {
+                    "id": "board"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-eg5nkk",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.row.column,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {},
-            "description": "Places a mark on the board and retrieves the whole board and the winner (if any).",
+            "name": "board.{row}.{column}",
+            "description": "Retrieves the requested square.",
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:Gameplay"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "institutionalMemory",
-    "aspect": {
-        "json": {
-            "elements": [
-                {
-                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/board/{row}/{column}",
-                    "description": "Link to call for the dataset.",
-                    "createStamp": {
-                        "time": 1586847600,
-                        "actor": "urn:li:corpuser:etl"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "API Endpoint"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "runId": "openapi-2020_04_14-07_00_00-j55d9h",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -179,17 +206,21 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.row.column,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "globalTags",
     "aspect": {
         "json": {
-            "removed": false
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Gameplay"
+                }
+            ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -206,6 +237,117 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.row.column,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "API Endpoint"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.row.column,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_openapi"
+                },
+                {
+                    "id": "board"
+                },
+                {
+                    "id": "row"
+                },
+                {
+                    "id": "column"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-eg5nkk",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.row.column,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.row.column,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "board.row.column",
+            "platform": "urn:li:dataPlatform:OpenApi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "01c0b066b7f3a68bf921f796cb480c74",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "{\n  \"type\": \"string\",\n  \"enum\": [\n    \".\",\n    \"X\",\n    \"O\"\n  ],\n  \"description\": \"Possible values for a board square. `.` means empty square.\",\n  \"example\": \".\"\n}"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=enum]",
+                    "nullable": false,
+                    "description": "One of: \".\", \"X\", \"O\"",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "Enum",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
         "lastRunId": "no-run-id-provided"
     }
 }

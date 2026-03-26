@@ -1,37 +1,8 @@
-### Prerequisites
+### Overview
 
-#### [Recommended] Create a GitHub Deploy Key
+The `lookml` module ingests metadata from Looker into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-To use LookML ingestion through the UI, or automate github checkout through the cli, you must set up a GitHub deploy key for your Looker GitHub repository. Read [this](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) document for how to set up deploy keys for your Looker git repo.
-
-In a nutshell, there are three steps:
-
-1. Generate a private-public ssh key pair. This will typically generate two files, e.g. looker_datahub_deploy_key (this is the private key) and looker_datahub_deploy_key.pub (this is the public key). Do not add a passphrase.
-   ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/ssh-key-generation.png)
-
-2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
-   ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/git-deploy-key.png)
-
-3. Make note of the private key file, you will need to paste the contents of the file into the **GitHub Deploy Key** field later while setting up [ingestion using the UI](#ui-based-ingestion-recommended-for-ease-of-use).
-
-### Setup your connection mapping
-
-The connection mapping enables DataHub to accurately generate lineage to your upstream warehouse.
-It maps Looker connection names to the platform and database that they're pointing to.
-
-There's two ways to configure this:
-
-1. Provide Looker **admin** API credentials, and we'll automatically map lineage correctly. Details on how to do this are below.
-2. Manually populate the `connection_to_platform_map` and `project_name` configuration fields. See the starter recipe for an example of what this should look like.
-
-#### [Optional] Create an API key with admin privileges
-
-See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
-You need to ensure that the API key is attached to a user that has Admin privileges.
-
-If you don't want to provide admin API credentials, you can manually populate the `connection_to_platform_map` and `project_name` in the ingestion configuration.
-
-### Ingestion Options
+#### Ingestion Options
 
 You have 3 options for controlling where your ingestion of LookML is run.
 
@@ -41,7 +12,7 @@ You have 3 options for controlling where your ingestion of LookML is run.
 
 Read on to learn more about these options.
 
-### UI-based Ingestion [Recommended for ease of use]
+#### UI-based Ingestion [Recommended for ease of use]
 
 To ingest LookML metadata through the UI, you must set up a GitHub deploy key using the instructions in the section [above](#recommended-create-a-github-deploy-key). Once that is complete, you can follow the on-screen instructions to set up a LookML source using the Ingestion page.
 The following video shows you how to ingest LookML metadata through the UI and find the relevant information from your Looker account.
@@ -63,12 +34,12 @@ The following video shows you how to ingest LookML metadata through the UI and f
   />
 </div>
 
-### GitHub Action based Ingestion [Recommended for push-based integration]
+#### GitHub Action based Ingestion [Recommended for push-based integration]
 
 You can set up ingestion using a GitHub Action to push metadata whenever your main Looker GitHub repo changes.
 The following sample GitHub action file can be modified to emit LookML metadata whenever there is a change to your repository. This ensures that metadata is already fresh and up to date.
 
-#### Sample GitHub Action
+##### Sample GitHub Action
 
 Drop this file into your `.github/workflows` directory inside your Looker GitHub repo.
 You need to set up the following secrets in your GitHub repository to get this workflow to work:
@@ -122,6 +93,13 @@ jobs:
                 client_id: ${LOOKER_CLIENT_ID}
                 client_secret: ${LOOKER_CLIENT_SECRET}
                 base_url: ${LOOKER_BASE_URL}
+              # Enable API-based lineage extraction (required for field splitting features)
+              use_api_for_view_lineage: true
+              # Optional: Large view handling configuration
+              # field_threshold_for_splitting: 100
+              # allow_partial_lineage_results: true
+              # enable_individual_field_fallback: true
+              # max_workers_for_parallel_processing: 10
           sink:
             type: datahub-rest
             config:
@@ -138,3 +116,34 @@ jobs:
 ```
 
 If you want to ingest lookml using the **datahub** cli directly, read on for instructions and configuration details.
+
+### Prerequisites
+
+#### [Recommended] Create a GitHub Deploy Key
+
+To use LookML ingestion through the UI, or automate github checkout through the cli, you must set up a GitHub deploy key for your Looker GitHub repository. Read [this](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) document for how to set up deploy keys for your Looker git repo.
+
+**Three steps:**
+
+1. **Generate SSH key pair** without passphrase (creates `looker_datahub_deploy_key` and `looker_datahub_deploy_key.pub`):
+   ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/ssh-key-generation.png)
+
+2. **Add public key** to Looker git repo as read-only deploy key ([guide](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys)):
+   ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/git-deploy-key.png)
+
+3. **Save private key** file contents for the **GitHub Deploy Key** field in [UI-based ingestion](#ui-based-ingestion-recommended-for-ease-of-use)
+
+#### Setup your connection mapping
+
+Connection mapping enables accurate lineage to upstream warehouses by mapping Looker connection names to platforms and databases.
+
+**Two configuration options:**
+
+1. **Automatic** (recommended): Provide Looker **admin** API credentials for automatic mapping (details below)
+2. **Manual**: Populate `connection_to_platform_map` and `project_name` fields (see starter recipe)
+
+##### [Optional] Create an API key with admin privileges
+
+Create a client ID and secret following [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk). Ensure the API key has Admin privileges.
+
+Without admin API credentials, manually populate `connection_to_platform_map` and `project_name` in your recipe.

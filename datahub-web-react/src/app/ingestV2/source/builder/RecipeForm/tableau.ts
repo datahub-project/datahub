@@ -3,6 +3,7 @@ import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/sou
 export const TABLEAU_CONNECTION_URI: RecipeField = {
     name: 'connect_uri',
     label: 'Host URL',
+    helper: 'URL where Tableau instance hosted',
     tooltip: 'The URL where the Tableau instance is hosted.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.connect_uri',
@@ -15,6 +16,7 @@ const tableauProjectFieldPath = 'source.config.projects';
 export const TABLEAU_PROJECT: RecipeField = {
     name: 'projects',
     label: 'Projects',
+    helper: 'List of Projects to extract',
     tooltip: 'The list of Projects to extract metadata for.',
     type: FieldType.LIST,
     buttonLabel: 'Add project',
@@ -27,6 +29,7 @@ export const TABLEAU_PROJECT: RecipeField = {
 export const TABLEAU_SITE: RecipeField = {
     name: 'site',
     label: 'Tableau Site',
+    helper: 'Tableau Site for extraction',
     tooltip:
         'The Tableau Site. Required for Tableau Online. Leave this blank to extract from the default site on Tableau Server.',
     type: FieldType.TEXT,
@@ -38,6 +41,7 @@ export const TABLEAU_SITE: RecipeField = {
 export const TABLEAU_TOKEN_NAME: RecipeField = {
     name: 'tableau.token_name',
     label: 'Token Name',
+    helper: 'Personal Access Token name',
     tooltip:
         'The name of the Personal Access Token used to extract metadata. Required if authenticating using a Personal Access Token.',
     type: FieldType.TEXT,
@@ -49,6 +53,7 @@ export const TABLEAU_TOKEN_NAME: RecipeField = {
 export const TABLEAU_TOKEN_VALUE: RecipeField = {
     name: 'tableau.token_value',
     label: 'Token Value',
+    helper: 'Personal Access Token value',
     tooltip:
         'The value of the Personal Access Token used to extract metadata. Required if authenticating using a Personal Access Token.',
     type: FieldType.SECRET,
@@ -60,6 +65,7 @@ export const TABLEAU_TOKEN_VALUE: RecipeField = {
 export const TABLEAU_USERNAME: RecipeField = {
     name: 'tableau.username',
     label: 'Username',
+    helper: 'Tableau username for metadata',
     tooltip: 'Tableau username. Only required if Token is not provided.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
@@ -70,6 +76,7 @@ export const TABLEAU_USERNAME: RecipeField = {
 export const TABLEAU_PASSWORD: RecipeField = {
     name: 'tableau.password',
     label: 'Password',
+    helper: 'Tableau password for user',
     tooltip: 'Tableau password. Only required if Token is not provided.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',

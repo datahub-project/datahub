@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
+from pydantic import ConfigDict
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_user_urn
@@ -52,8 +53,8 @@ OPERATION_STATEMENT_TYPES = {
     "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
-    "MERGE": OperationTypeClass.CUSTOM,
-    "COPY": OperationTypeClass.CUSTOM,
+    "MERGE": OperationTypeClass.UPDATE,  # Upsert semantics - aligns with BigQuery
+    "COPY": OperationTypeClass.INSERT,  # Bulk load semantics
     "TRUNCATE_TABLE": OperationTypeClass.CUSTOM,
     # TODO: Dataset for below query types are not detected by snowflake in snowflake.access_history.objects_modified.
     # However it seems possible to support these using sql parsing in future.
@@ -70,8 +71,7 @@ OPERATION_STATEMENT_TYPES = {
 
 
 class PermissiveModel(pydantic.BaseModel):
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class SnowflakeColumnReference(PermissiveModel):

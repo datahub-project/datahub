@@ -15,6 +15,9 @@ public class ConsumerConfiguration {
   private ConsumerOptions pe;
 
   private MetricsOptions metrics;
+  private String bootstrapServers;
+  private String securityProtocol;
+  private String schemaRegistryUrl;
 
   @Data
   public static class ConsumerOptions {

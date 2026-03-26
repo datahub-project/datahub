@@ -74,7 +74,7 @@ class TestAwsAssumeRoleConfig:
             RoleArn="arn:aws:iam::123456789012:role/TestRole",
             ExternalId="external-id-123",
         )
-        config_dict = config.dict()
+        config_dict = config.model_dump()
         assert config_dict["RoleArn"] == "arn:aws:iam::123456789012:role/TestRole"
         assert config_dict["ExternalId"] == "external-id-123"
 
@@ -467,4 +467,5 @@ class TestAwsSourceConfig:
 
         # Should have access to connection config fields
         assert config.aws_access_key_id == "AKIA123456789"
-        assert config.aws_secret_access_key == "secret123"
+        assert config.aws_secret_access_key is not None
+        assert config.aws_secret_access_key.get_secret_value() == "secret123"

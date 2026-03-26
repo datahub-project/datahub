@@ -60,7 +60,9 @@ function accounted_for_in_sidebar(filepath: string): boolean {
 }
 
 function list_markdown_files(): string[] {
-  let all_markdown_files = execSync("git ls-files --full-name .. | grep '.md$'")
+  let all_markdown_files = execSync(
+    "git ls-files --full-name .. | grep '\\.md$'"
+  )
     .toString()
     .trim()
     .split("\n");
@@ -76,7 +78,7 @@ function list_markdown_files(): string[] {
   if (!process.env.CI) {
     // If not in CI, we also include "untracked" files.
     const untracked_files = execSync(
-      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --others --exclude-standard .. | grep '\\.md$') || true"
     )
       .toString()
       .trim()
@@ -92,7 +94,7 @@ function list_markdown_files(): string[] {
 
     // But we should also exclude any files that have been deleted.
     const deleted_files = execSync(
-      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --deleted --exclude-standard .. | grep '\\.md$') || true"
     )
       .toString()
       .trim()
@@ -109,8 +111,13 @@ function list_markdown_files(): string[] {
   const filter_patterns = [
     // We don't need our issue and pull request templates.
     /^\.github\//,
+    // Ignore hidden/dot directories at the repo root (e.g. .claude, .agent-skills, .cursor).
+    /^\.[^/]+\//,
     // Ignore everything within this directory.
     /^docs-website\//,
+    // Ignore third-party dependencies and library documentation.
+    /^node_modules\//,
+    /^vendor\//,
     // Don't want hosted docs for these.
     /^contrib\//,
     // Keep main docs for kubernetes, but skip the inner docs.
@@ -124,6 +131,7 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
     /^\s*$/, //Empty string
   ];
 
@@ -258,8 +266,55 @@ function markdown_add_edit_url(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
-  const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
-  contents.data.custom_edit_url = editUrl;
+  // 1. Intercept auto-generated files (Ingestion, Metamodel, Lineage, etc.) OR metadata-integration docs
+  if (
+    filepath.startsWith("docs/generated/") ||
+    filepath.includes("metadata-integration")
+  ) {
+    // Hide the default broken Docusaurus edit button
+    contents.data.custom_edit_url = null;
+
+    // Set up default routing for the DevRel note
+    let sourceLink = "https://github.com/datahub-project/datahub";
+    let guideLink = "https://docs.datahub.com/docs/contributing";
+    let folderName = "DataHub repository";
+
+    // Route specifically for ingestion docs
+    if (filepath.startsWith("docs/generated/ingestion")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-ingestion";
+      folderName = "metadata-ingestion";
+    }
+    // Route specifically for metamodel docs
+    else if (filepath.startsWith("docs/generated/metamodel")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-models";
+      folderName = "metadata-models";
+    }
+
+    // Route for Java/Spark/Protobuf integrations
+    else if (filepath.includes("metadata-integration")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-integration";
+      folderName = "metadata-integration";
+    }
+
+    // Create the DevRel bridge (A clean note at the bottom of the page)
+    const devRelNote = `\n\n
+:::note 💡 **Contributing to this documentation**
+This page is auto-generated from the underlying source code. To make changes, please edit the relevant source files in the [${folderName}](${sourceLink}) directory. 
+
+**Tip:** For quick typo fixes or documentation updates, you can click the ✏️ **Edit** icon directly in the GitHub UI to open a Pull Request. For larger changes and PR naming conventions, please refer to our [Contributing Guide](${guideLink}).
+:::\n`;
+
+    // Append the note to the bottom of the markdown content
+    contents.content = contents.content + devRelNote;
+  }
+  // 2. Standard behavior for manually written, Git-tracked docs
+  else {
+    const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
+    contents.data.custom_edit_url = editUrl;
+  }
 }
 
 function markdown_add_slug(

@@ -131,7 +131,10 @@ public class TweakReplicasStepTest {
 
     // Verify that tweakReplicasAll was called with the correct parameters
     Mockito.verify(mockService)
-        .tweakReplicasAll(ArgumentMatchers.eq(structuredProperties), ArgumentMatchers.eq(true));
+        .tweakReplicasAll(
+            ArgumentMatchers.eq(mockOpContext),
+            ArgumentMatchers.eq(structuredProperties),
+            ArgumentMatchers.eq(true));
   }
 
   @Test
@@ -142,7 +145,10 @@ public class TweakReplicasStepTest {
     Mockito.when(mockContext.opContext()).thenReturn(mockOpContext);
     Mockito.doThrow(new RuntimeException("Test exception"))
         .when(mockService)
-        .tweakReplicasAll(ArgumentMatchers.any(), ArgumentMatchers.anyBoolean());
+        .tweakReplicasAll(
+            ArgumentMatchers.any(OperationContext.class),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.anyBoolean());
 
     UpgradeStepResult result = tweakReplicasStep.executable().apply(mockContext);
 
@@ -169,8 +175,14 @@ public class TweakReplicasStepTest {
 
     // Verify that tweakReplicasAll was called on both services
     Mockito.verify(mockService)
-        .tweakReplicasAll(ArgumentMatchers.eq(structuredProperties), ArgumentMatchers.eq(false));
+        .tweakReplicasAll(
+            ArgumentMatchers.eq(mockOpContext),
+            ArgumentMatchers.eq(structuredProperties),
+            ArgumentMatchers.eq(false));
     Mockito.verify(mockService2)
-        .tweakReplicasAll(ArgumentMatchers.eq(structuredProperties), ArgumentMatchers.eq(false));
+        .tweakReplicasAll(
+            ArgumentMatchers.eq(mockOpContext),
+            ArgumentMatchers.eq(structuredProperties),
+            ArgumentMatchers.eq(false));
   }
 }

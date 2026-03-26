@@ -15,6 +15,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.config.DebeziumConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -63,6 +64,7 @@ public class ConfigureDebeziumConnectorStepTest {
       ebeanConfig.setPassword("testpass");
 
       kafkaConfig = new KafkaConfiguration();
+      kafkaConfig.setProducer(new ProducerConfiguration());
       kafkaConfig.setBootstrapServers("localhost:9092");
 
       kafkaProperties = new KafkaProperties();

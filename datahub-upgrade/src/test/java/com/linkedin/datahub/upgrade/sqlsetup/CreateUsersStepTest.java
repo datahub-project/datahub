@@ -52,8 +52,7 @@ public class CreateUsersStepTest {
             "testpass", // createUserPassword
             "localhost", // host
             3306, // port
-            "testdb", // databaseName
-            null // createUserIamRole
+            "testdb" // databaseName
             );
     createUsersStep = new CreateUsersStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
@@ -115,8 +114,7 @@ public class CreateUsersStepTest {
             null,
             "localhost",
             3306,
-            "testdb",
-            null);
+            "testdb");
     CreateUsersStep disabledUserStep = new CreateUsersStep(mockDatabase, disabledUserArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = disabledUserStep.executable();
@@ -252,15 +250,15 @@ public class CreateUsersStepTest {
             null,
             "localhost",
             3306,
-            "testdb",
-            "arn:aws:iam::123456789012:role/datahub-role");
+            "testdb");
     createUsersStep.createIamUser(testArgs, result);
 
     assertEquals(result.getUsersCreated(), 1);
     // Verify PreparedStatement approach - should call dataSource() and prepareStatement()
+    // Three statements: CREATE USER, GRANT PRIVILEGES, FLUSH PRIVILEGES (for MySQL)
     verify(mockDatabase).dataSource();
-    verify(mockConnection, times(2)).prepareStatement(anyString());
-    verify(mockPreparedStatement, times(2)).executeUpdate();
+    verify(mockConnection, times(3)).prepareStatement(anyString());
+    verify(mockPreparedStatement, times(3)).executeUpdate();
   }
 
   @Test
@@ -281,15 +279,15 @@ public class CreateUsersStepTest {
             "testpass",
             "localhost",
             3306,
-            "testdb",
-            null);
+            "testdb");
     createUsersStep.createTraditionalUser(testArgs, result);
 
     assertEquals(result.getUsersCreated(), 1);
     // Verify PreparedStatement approach - should call dataSource() and prepareStatement()
+    // Three statements: CREATE USER, GRANT PRIVILEGES, FLUSH PRIVILEGES (for MySQL)
     verify(mockDatabase).dataSource();
-    verify(mockConnection, times(2)).prepareStatement(anyString());
-    verify(mockPreparedStatement, times(2)).executeUpdate();
+    verify(mockConnection, times(3)).prepareStatement(anyString());
+    verify(mockPreparedStatement, times(3)).executeUpdate();
   }
 
   @Test
@@ -368,8 +366,7 @@ public class CreateUsersStepTest {
             "testpass",
             "localhost",
             3306,
-            "testdb",
-            null);
+            "testdb");
     SqlSetupResult result = createUsersStep.createUsers(testArgs);
 
     assertNotNull(result);
@@ -394,8 +391,7 @@ public class CreateUsersStepTest {
             "testpass",
             "localhost",
             3306,
-            "testdb",
-            null);
+            "testdb");
     SqlSetupResult result = createUsersStep.createUsers(testArgs);
 
     assertNotNull(result);
@@ -420,8 +416,7 @@ public class CreateUsersStepTest {
             "testpass",
             "localhost",
             3306,
-            "testdb",
-            null);
+            "testdb");
     SqlSetupResult result = createUsersStep.createUsers(testArgs);
 
     assertNotNull(result);
@@ -451,8 +446,7 @@ public class CreateUsersStepTest {
               null,
               "localhost",
               3306,
-              "testdb",
-              "arn:aws:iam::123456789012:role/datahub-role");
+              "testdb");
       createUsersStep.createIamUser(testArgs, result);
       assertTrue(false, "Expected SQLException to be thrown");
     } catch (Exception e) {
@@ -482,8 +476,7 @@ public class CreateUsersStepTest {
               "testpass",
               "localhost",
               3306,
-              "testdb",
-              null);
+              "testdb");
       createUsersStep.createTraditionalUser(testArgs, result);
       assertTrue(false, "Expected SQLException to be thrown");
     } catch (Exception e) {

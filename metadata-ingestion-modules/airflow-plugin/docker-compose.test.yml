@@ -1,0 +1,34 @@
+services:
+  airflow-plugin-test:
+    build:
+      context: ../..
+      dockerfile: metadata-ingestion-modules/airflow-plugin/Dockerfile.test
+      args:
+        PYTHON_VERSION: "3.11"
+    image: airflow-plugin-test:latest
+    volumes:
+      # Auto-mount source code (read-write needed for egg-info during build)
+      - ../../metadata-ingestion:/app/metadata-ingestion
+      - ../../metadata-ingestion-modules/airflow-plugin:/app/metadata-ingestion-modules/airflow-plugin
+      # Auto-mount golden files for easy updates
+      - ./tests/integration/goldens:/app/metadata-ingestion-modules/airflow-plugin/tests/integration/goldens
+      # Mount tox directory to cache environments between runs
+      - airflow-plugin-tox:/app/metadata-ingestion-modules/airflow-plugin/.tox
+    working_dir: /app/metadata-ingestion-modules/airflow-plugin
+    environment:
+      - TOX_ENV=${TOX_ENV:-py311-airflow31}
+      # Pass current user ID/GID for Airflow 3.x compatibility
+      # (entrypoint will create a user with these IDs)
+      # Users can override these by setting USER_ID/GROUP_ID in their shell before running docker compose
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+      # Set HOME to /tmp so all cache directories are writable
+      - HOME=/tmp
+      # Set UV cache directory to a writable location
+      - UV_CACHE_DIR=/tmp/.uv-cache
+    # Default command can be overridden
+    command: []
+
+volumes:
+  airflow-plugin-tox:
+    driver: local

@@ -14,10 +14,9 @@ const addGlossaryTermToDataset = () => {
   cy.visit(urn);
   cy.waitTextVisible(datasetName);
   cy.get("body").click();
-  cy.contains(".ant-collapse-header-text", "Terms")
-    .parent()
-    .find('[data-testid="AddRoundedIcon"]')
-    .click();
+  cy.get('[id="entity-profile-glossary-terms"]').within(() => {
+    cy.clickOptionWithTestId("add-terms-button");
+  });
   cy.selectOptionInTagTermModal(glossaryTerm);
   cy.contains(glossaryTerm);
 };
@@ -33,11 +32,10 @@ const deleteGlossary = (message) => {
 
 describe("glossary", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });
   it("go to glossary page, create terms, term group", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     nevigateGlossaryPage();
     cy.clickOptionWithTestId("add-term-group-button-v2");
@@ -50,6 +48,7 @@ describe("glossary", () => {
     cy.wait(2000);
     nevigateGlossaryPage();
     cy.clickOptionWithText(glossaryTermGroup);
+    cy.clickOptionWithTestId("Contents-entity-tab-header");
     cy.clickOptionWithTestId("add-term-button");
     cy.addViaModal(
       glossaryTerm,

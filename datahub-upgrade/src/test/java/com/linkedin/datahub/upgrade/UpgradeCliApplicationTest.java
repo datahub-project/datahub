@@ -73,11 +73,10 @@ public class UpgradeCliApplicationTest extends AbstractTestNGSpringContextTests 
   public void testBuildIndicesInit() {
     assertEquals("BuildIndices", buildIndices.id());
     assertTrue(buildIndices.steps().size() >= 3);
-    assertNotNull(esIndexBuilder.getElasticSearchConfiguration());
-    assertNotNull(esIndexBuilder.getElasticSearchConfiguration().getBuildIndices());
-    assertTrue(esIndexBuilder.getElasticSearchConfiguration().getBuildIndices().isCloneIndices());
-    assertFalse(
-        esIndexBuilder.getElasticSearchConfiguration().getBuildIndices().isAllowDocCountMismatch());
+    assertNotNull(esIndexBuilder.getConfig());
+    assertNotNull(esIndexBuilder.getConfig().getBuildIndices());
+    assertTrue(esIndexBuilder.getConfig().getBuildIndices().isCloneIndices());
+    assertFalse(esIndexBuilder.getConfig().getBuildIndices().isAllowDocCountMismatch());
   }
 
   @Test

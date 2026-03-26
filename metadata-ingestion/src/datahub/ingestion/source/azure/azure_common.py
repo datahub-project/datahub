@@ -1,12 +1,12 @@
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from azure.identity import ClientSecretCredential
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
-from pydantic import Field, root_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 
 
 class AzureConnectionConfig(ConfigModel):
@@ -26,15 +26,15 @@ class AzureConnectionConfig(ConfigModel):
     account_name: str = Field(
         description="Name of the Azure storage account.  See [Microsoft official documentation on how to create a storage account.](https://docs.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account)",
     )
-    account_key: Optional[str] = Field(
+    account_key: Optional[TransparentSecretStr] = Field(
         description="Azure storage account access key that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
         default=None,
     )
-    sas_token: Optional[str] = Field(
+    sas_token: Optional[TransparentSecretStr] = Field(
         description="Azure storage account Shared Access Signature (SAS) token that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
         default=None,
     )
-    client_secret: Optional[str] = Field(
+    client_secret: Optional[TransparentSecretStr] = Field(
         description="Azure client secret that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
         default=None,
     )
@@ -77,22 +77,22 @@ class AzureConnectionConfig(ConfigModel):
             return ClientSecretCredential(
                 tenant_id=self.tenant_id,
                 client_id=self.client_id,
-                client_secret=self.client_secret,
+                client_secret=self.client_secret.get_secret_value(),
             )
-        return self.sas_token if self.sas_token is not None else self.account_key
+        if self.sas_token is not None:
+            return self.sas_token.get_secret_value()
+        if self.account_key is not None:
+            return self.account_key.get_secret_value()
+        return None
 
-    @root_validator(skip_on_failure=True)
-    def _check_credential_values(cls, values: Dict) -> Dict:
+    @model_validator(mode="after")
+    def _check_credential_values(self) -> "AzureConnectionConfig":
         if (
-            values.get("account_key")
-            or values.get("sas_token")
-            or (
-                values.get("client_id")
-                and values.get("client_secret")
-                and values.get("tenant_id")
-            )
+            self.account_key
+            or self.sas_token
+            or (self.client_id and self.client_secret and self.tenant_id)
         ):
-            return values
+            return self
         raise ConfigurationError(
             "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)"
         )

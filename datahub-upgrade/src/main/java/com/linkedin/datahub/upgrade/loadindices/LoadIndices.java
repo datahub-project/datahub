@@ -8,7 +8,6 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.shared.ElasticSearchUpgradeUtils;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -36,7 +35,6 @@ public class LoadIndices implements Upgrade {
 
   public LoadIndices(
       @Nullable final Database server,
-      final EntityService<?> entityService,
       final UpdateIndicesService updateIndicesService,
       @Nullable final LoadIndicesIndexManager indexManager,
       @Nullable final SystemMetadataService systemMetadataService,
@@ -48,7 +46,6 @@ public class LoadIndices implements Upgrade {
       _steps =
           buildSteps(
               server,
-              entityService,
               updateIndicesService,
               indexManager,
               systemMetadataService,
@@ -73,7 +70,6 @@ public class LoadIndices implements Upgrade {
 
   private List<UpgradeStep> buildSteps(
       final Database server,
-      final EntityService<?> entityService,
       final UpdateIndicesService updateIndicesService,
       final LoadIndicesIndexManager indexManager,
       final SystemMetadataService systemMetadataService,
@@ -99,7 +95,7 @@ public class LoadIndices implements Upgrade {
       steps.add(new BuildIndicesStep(indexedServices, structuredProperties));
     }
 
-    steps.add(new LoadIndicesStep(server, entityService, updateIndicesService, indexManager));
+    steps.add(new LoadIndicesStep(server, updateIndicesService, indexManager));
     return steps;
   }
 

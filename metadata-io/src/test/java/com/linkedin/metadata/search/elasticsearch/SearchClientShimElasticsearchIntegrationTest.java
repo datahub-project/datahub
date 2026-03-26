@@ -5,6 +5,7 @@ import static org.testng.Assert.*;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
@@ -38,6 +39,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.GetAliasesResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
@@ -838,10 +840,27 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     request.addParameter("wait_for_status", "yellow");
     request.addParameter("timeout", "5s");
 
-    com.linkedin.metadata.utils.elasticsearch.responses.RawResponse response =
-        searchClientShim.performLowLevelRequest(request);
+    RawResponse response = searchClientShim.performLowLevelRequest(request);
     assertNotNull(response);
     assertNotNull(response.getEntity());
+
+    String endpoint = "/_security/role/my_role";
+    Request request2 = new Request("PUT", endpoint);
+    String jsonBody =
+        "{\n"
+            + "    \"cluster\":[ \"monitor\" ],\n"
+            + "    \"indices\":[\n"
+            + "       {\n"
+            + "          \"names\":[\"PREFIX*\"],\n"
+            + "          \"privileges\":[\"all\"]\n"
+            + "       }\n"
+            + "    ]\n"
+            + " }";
+    request2.setJsonEntity(jsonBody);
+    RawResponse response2 = searchClientShim.performLowLevelRequest(request2);
+
+    assertNotNull(response2);
+    assertEquals(response.getStatusLine().getStatusCode(), 200);
   }
 
   @Test(dependsOnMethods = "testIndexOperations")

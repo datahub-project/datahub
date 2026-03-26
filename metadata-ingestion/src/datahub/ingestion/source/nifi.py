@@ -13,7 +13,7 @@ import requests
 from cached_property import cached_property
 from dateutil import parser
 from packaging import version
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from requests import Response
 from requests.adapters import HTTPAdapter
@@ -21,7 +21,7 @@ from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -128,7 +128,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description='Nifi username, must be set for auth = "SINGLE_USER"'
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description='Nifi password, must be set for auth = "SINGLE_USER"'
     )
 
@@ -140,7 +140,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     client_key_file: Optional[str] = Field(
         default=None, description="Path to PEM file containing the client’s secret key"
     )
-    client_key_password: Optional[str] = Field(
+    client_key_password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password to decrypt the client_key_file"
     )
 
@@ -165,39 +165,33 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         " When disabled, re-states lineage on each run.",
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_auth_params(cls, values):
-        if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
-            "client_cert_file"
-        ):
+    @model_validator(mode="after")
+    def validate_auth_params(self) -> "NifiSourceConfig":
+        if self.auth is NifiAuthType.CLIENT_CERT and not self.client_cert_file:
             raise ValueError(
                 "Config `client_cert_file` is required for CLIENT_CERT auth"
             )
-        elif values.get("auth") in (
+        elif self.auth in (
             NifiAuthType.SINGLE_USER,
             NifiAuthType.BASIC_AUTH,
-        ) and (not values.get("username") or not values.get("password")):
+        ) and (not self.username or not self.password):
             raise ValueError(
-                f"Config `username` and `password` is required for {values.get('auth').value} auth"
+                f"Config `username` and `password` is required for {self.auth.value} auth"
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def validator_site_url_to_site_name(cls, values):
-        site_url_to_site_name = values.get("site_url_to_site_name")
-        site_url = values.get("site_url")
-        site_name = values.get("site_name")
+    @model_validator(mode="after")
+    def validator_site_url_to_site_name(self) -> "NifiSourceConfig":
+        if self.site_url_to_site_name is None:
+            self.site_url_to_site_name = {}
 
-        if site_url_to_site_name is None:
-            site_url_to_site_name = {}
-            values["site_url_to_site_name"] = site_url_to_site_name
+        if self.site_url not in self.site_url_to_site_name:
+            self.site_url_to_site_name[self.site_url] = self.site_name
 
-        if site_url not in site_url_to_site_name:
-            site_url_to_site_name[site_url] = site_name
+        return self
 
-        return values
-
-    @validator("site_url")
+    @field_validator("site_url", mode="after")
+    @classmethod
     def validator_site_url(cls, site_url: str) -> str:
         assert site_url.startswith(("http://", "https://")), (
             "site_url must start with http:// or https://"
@@ -1125,7 +1119,7 @@ class NifiSource(StatefulIngestionSourceBase):
             assert self.config.username is not None
             assert self.config.password is not None
             self.session.auth = HTTPBasicAuth(
-                self.config.username, self.config.password
+                self.config.username, self.config.password.get_secret_value()
             )
             self.session.headers.update(
                 {
@@ -1140,7 +1134,9 @@ class NifiSource(StatefulIngestionSourceBase):
                 SSLAdapter(
                     certfile=self.config.client_cert_file,
                     keyfile=self.config.client_key_file,
-                    password=self.config.client_key_password,
+                    password=self.config.client_key_password.get_secret_value()
+                    if self.config.client_key_password
+                    else None,
                 ),
             )
             return
@@ -1152,7 +1148,9 @@ class NifiSource(StatefulIngestionSourceBase):
                 url=urljoin(self.rest_api_base_url, TOKEN_ENDPOINT),
                 data={
                     "username": self.config.username,
-                    "password": self.config.password,
+                    "password": self.config.password.get_secret_value()
+                    if self.config.password
+                    else None,
                 },
             )
         elif self.config.auth is NifiAuthType.KERBEROS:

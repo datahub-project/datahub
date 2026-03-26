@@ -1,4 +1,6 @@
 import { Icon, Pagination, SearchBar, Table, colors } from '@components';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
@@ -7,6 +9,7 @@ import styled from 'styled-components';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import EmptySources from '@app/ingestV2/EmptySources';
+import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
 import {
     addSecretToListSecretsCache,
@@ -85,8 +88,6 @@ type TableDataType = {
     name: string;
     description: string | null;
 };
-
-const DEFAULT_PAGE_SIZE = 25;
 
 interface Props {
     showCreateModal: boolean;
@@ -292,7 +293,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 <>
                     <ButtonsContainer>
                         <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
-                            <Icon icon="PencilSimpleLine" source="phosphor" />
+                            <Icon icon={PencilSimpleLine} />
                         </button>
                         <button
                             type="button"
@@ -302,7 +303,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             data-test-id="delete-secret-action"
                             data-icon="delete"
                         >
-                            <Icon icon="Trash" source="phosphor" color="red" />
+                            <Icon icon={Trash} color="red" />
                         </button>
                     </ButtonsContainer>
                     <ConfirmationModal

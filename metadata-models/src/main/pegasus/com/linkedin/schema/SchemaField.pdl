@@ -38,7 +38,8 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldDescriptions",
     "fieldType": "TEXT",
-    "boostScore": 0.1
+    "boostScore": 0.1,
+    "sanitizeRichText": true
   }
   description: optional string
 

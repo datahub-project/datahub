@@ -303,6 +303,7 @@
             },
             "rowCount": 5,
             "columnCount": 6,
+            "sizeInBytes": 7451,
             "fieldProfiles": [
                 {
                     "fieldPath": "vendor_id",

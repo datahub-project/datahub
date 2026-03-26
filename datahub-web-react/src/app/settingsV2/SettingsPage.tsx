@@ -1,15 +1,14 @@
-import {
-    Bank,
-    Bell,
-    Funnel,
-    House,
-    ShieldCheck,
-    Star,
-    ToggleRight,
-    Users,
-    UsersThree,
-    Wrench,
-} from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { Bank } from '@phosphor-icons/react/dist/csr/Bank';
+import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { House } from '@phosphor-icons/react/dist/csr/House';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
+import { Star } from '@phosphor-icons/react/dist/csr/Star';
+import { ToggleRight } from '@phosphor-icons/react/dist/csr/ToggleRight';
+import { Users } from '@phosphor-icons/react/dist/csr/Users';
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
+import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import React from 'react';
 import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
@@ -20,7 +19,6 @@ import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
 import { useAppConfig } from '@app/useAppConfig';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button, colors } from '@src/alchemy-components';
 
@@ -35,7 +33,7 @@ const PageContainer = styled.div`
 
 const NavBarContainer = styled.div`
     padding: 20px 20px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
@@ -76,7 +74,7 @@ const ContentContainer = styled.div`
     flex: 1;
     display: flex;
     overflow: auto;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
 `;
 
@@ -86,7 +84,6 @@ export const SettingsPage = () => {
     const history = useHistory();
     const subscriptionsEnabled = false;
     const me = useUserContext();
-    const isThemeV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { config } = useAppConfig();
 
@@ -246,7 +243,7 @@ export const SettingsPage = () => {
                         <NavBarTitle>Settings</NavBarTitle>
                         <NavBarSubTitle>Manage your settings</NavBarSubTitle>
                     </div>
-                    {isThemeV2 && !isShowNavBarRedesign && (
+                    {!isShowNavBarRedesign && (
                         <a href="/logOut">
                             <Button
                                 variant="outline"

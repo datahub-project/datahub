@@ -7,6 +7,10 @@ from typing import Any, Callable, Generic, List, Optional, Type, TypeVar, cast
 from typing_extensions import Self
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.env_vars import (
+    get_report_failure_sample_size,
+    get_report_warning_sample_size,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -20,8 +24,12 @@ logger = logging.getLogger(__name__)
 class SinkReport(Report):
     total_records_written: int = 0
     records_written_per_second: int = 0
-    warnings: LossyList[Any] = field(default_factory=LossyList)
-    failures: LossyList[Any] = field(default_factory=LossyList)
+    warnings: LossyList[Any] = field(
+        default_factory=lambda: LossyList(max_elements=get_report_warning_sample_size())
+    )
+    failures: LossyList[Any] = field(
+        default_factory=lambda: LossyList(max_elements=get_report_failure_sample_size())
+    )
     start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
     current_time: Optional[datetime.datetime] = None
     total_duration_in_seconds: Optional[float] = None
@@ -123,7 +131,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Self":
-        return cls(ctx, cls.get_config_class().parse_obj(config_dict))
+        return cls(ctx, cls.get_config_class().model_validate(config_dict))
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         """Called at the start of each new workunit.

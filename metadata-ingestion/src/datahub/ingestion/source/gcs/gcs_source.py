@@ -1,10 +1,13 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, model_validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -46,7 +49,10 @@ class HMACKey(ConfigModel):
 
 
 class GCSSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    PathSpecsConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     credential: HMACKey = Field(
         description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",
@@ -64,18 +70,16 @@ class GCSSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("path_specs", always=True)
-    def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
-    ) -> List[PathSpec]:
-        if len(path_specs) == 0:
+    @model_validator(mode="after")
+    def check_path_specs_and_infer_platform(self) -> "GCSSourceConfig":
+        if len(self.path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the gs:// prefix.
-        if any([not is_gcs_uri(path_spec.include) for path_spec in path_specs]):
+        if any([not is_gcs_uri(path_spec.include) for path_spec in self.path_specs]):
             raise ValueError("All path_spec.include should start with gs://")
 
-        return path_specs
+        return self
 
 
 class GCSSourceReport(DataLakeSourceReport):
@@ -105,7 +109,7 @@ class GCSSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = GCSSourceConfig.parse_obj(config_dict)
+        config = GCSSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def create_equivalent_s3_config(self):
@@ -120,6 +124,7 @@ class GCSSource(StatefulIngestionSourceBase):
                 aws_region="auto",
             ),
             env=self.config.env,
+            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
             platform=PLATFORM_GCS,  # Ensure GCS platform is used for correct container subtypes

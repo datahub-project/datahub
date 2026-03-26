@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 from requests.adapters import HTTPAdapter
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class TransportOptionsConfig(ConfigModel):
 
 class LookerAPIConfig(ConfigModel):
     client_id: str = Field(description="Looker API client id.")
-    client_secret: str = Field(description="Looker API client secret.")
+    client_secret: TransparentSecretStr = Field(description="Looker API client secret.")
     base_url: str = Field(
         description="Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls."
     )
@@ -86,9 +86,9 @@ class LookerAPI:
 
     def __init__(self, config: LookerAPIConfig) -> None:
         self.config = config
-        # The Looker SDK looks wants these as environment variables
+        # The Looker SDK wants these as environment variables
         os.environ["LOOKERSDK_CLIENT_ID"] = config.client_id
-        os.environ["LOOKERSDK_CLIENT_SECRET"] = config.client_secret
+        os.environ["LOOKERSDK_CLIENT_SECRET"] = config.client_secret.get_secret_value()
         os.environ["LOOKERSDK_BASE_URL"] = config.base_url
 
         self.client = looker_sdk.init40()
@@ -228,10 +228,18 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def lookml_model_explore(self, model: str, explore_name: str) -> LookmlModelExplore:
+    def lookml_model_explore(
+        self,
+        model: str,
+        explore_name: str,
+        fields: Optional[List[str]] = None,
+    ) -> LookmlModelExplore:
         self.client_stats.explore_calls += 1
         return self.client.lookml_model_explore(
-            model, explore_name, transport_options=self.transport_options
+            model,
+            explore_name,
+            fields=self.__fields_mapper(fields) if fields else None,
+            transport_options=self.transport_options,
         )
 
     @lru_cache(maxsize=1000)

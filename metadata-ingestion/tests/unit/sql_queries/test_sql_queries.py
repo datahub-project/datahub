@@ -447,7 +447,7 @@ class TestSqlQueriesSourceConfig:
     def test_incremental_lineage_default(self):
         """Test that incremental_lineage defaults to False."""
         config_dict = {"query_file": "test.jsonl", "platform": "snowflake"}
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         assert config.incremental_lineage is False
 
     def test_incremental_lineage_enabled(self):
@@ -457,7 +457,7 @@ class TestSqlQueriesSourceConfig:
             "platform": "snowflake",
             "incremental_lineage": True,
         }
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         assert config.incremental_lineage is True
 
     def test_incremental_lineage_disabled_explicitly(self):
@@ -467,7 +467,7 @@ class TestSqlQueriesSourceConfig:
             "platform": "snowflake",
             "incremental_lineage": False,
         }
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         assert config.incremental_lineage is False
 
 
@@ -480,7 +480,6 @@ class TestSqlQueriesSource:
         from datahub.sql_parsing.schema_resolver import SchemaResolver
 
         mock_graph = Mock(spec=DataHubGraph)
-        mock_graph.initialize_schema_resolver_from_datahub.return_value = None
 
         # Mock _make_schema_resolver to return a real SchemaResolver
         def mock_make_schema_resolver(
@@ -612,7 +611,7 @@ class TestSqlQueriesSource:
             "usage": {"bucket_duration": "DAY"},
         }
 
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         source = SqlQueriesSource(pipeline_context, config)
 
         # Should default to False

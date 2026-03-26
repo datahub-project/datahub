@@ -3,8 +3,6 @@ title: Configuring Remote Executor
 description: Learn how to set up, deploy, and configure Remote Executors in your environment
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Configuring Remote Executor
@@ -46,7 +44,16 @@ Before deploying a Remote Executor, ensure you have the following:
    - Access to your deployment platform (AWS ECS or Kubernetes)
    - Necessary permissions to create resources
 
-3. **Registry Access**
+3. **Network Connectivity**
+
+   The Remote Executor requires **outbound** HTTPS (port 443) connectivity only — no inbound connectivity is needed. Ensure the following endpoints are reachable from your deployment environment:
+
+   - `https://<your-company>.acryl.io/*` — DataHub GMS API
+   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
+   - A Python package index (e.g., `https://pypi.org`) or an alternate internal mirror, to download pip packages required by ingestion sources
+   - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
+
+4. **Registry Access**
    - For AWS: Provide your AWS account ID to DataHub Cloud
    - For Kubernetes: Work with DataHub team to set up access to the Remote Executor Docker Image Registry
 
@@ -80,9 +87,6 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
 
-<Tabs>
-<TabItem value="ecs" label="Amazon ECS">
-
 ### Deploy on Amazon ECS
 
 1. **AWS Account Configuration**
@@ -101,6 +105,7 @@ The DataHub Team will provide a [Cloudformation Template](https://raw.githubuser
 - Deployment Location (VPC and subnet)
 - DataHub Personal Access Token
 - DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
+- Executor Pool ID you set in the DataHub UI
 - Optional: DataHub Cloud Remote Executor Version; defaults to latest
 
 Optional parameters:
@@ -115,18 +120,28 @@ Configuring Secrets enables you to manage ingestion sources from the DataHub UI 
 3. **Deploy Stack**
 
    ```bash
+
    # Using AWS CLI
-   aws cloudformation create-stack \
-     --stack-name datahub-remote-executor \
-     --template-body file://datahub-executor.ecs.template.yaml \
-     --parameters ParameterKey=... ParameterValue=...
+
+    aws --region us-east-1 cloudformation create-stack \
+      --stack-name datahub-remote-executor \
+      --template-body file://datahub-executor.ecs.template.yaml \
+      --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
+      --parameters ParameterKey=ExecutorPoolId,ParameterValue="remote" \
+      ParameterKey=VPCID,ParameterValue="<your-vpc>" \
+      ParameterKey=SubnetID,ParameterValue="<your-subnet>" \
+      ParameterKey=DataHubBaseUrl,ParameterValue="https://<your-company>.acryl.io/gms" \
+      ParameterKey=DataHubAccessToken,ParameterValue="<your-remote-executor-access-token>"
    ```
 
    Or use the [CloudFormation Console](https://console.aws.amazon.com/cloudformation)
 
 4. **Configure Secrets (Optional)**
+
    ```bash
+
    # Create a secret in AWS Secrets Manager
+
    aws secretsmanager create-secret \
      --name my-source-secret \
      --secret-string '{"username":"user","password":"pass"}'
@@ -145,7 +160,7 @@ To update your Remote Executor deployment (e.g., to deploy a new container versi
 2. **Update Template**
    - Select **Replace current template**
    - Choose **Upload a template file**
-   - Download the latest DataHub Cloud Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/Ingestion/templates/python.ecs.template.yaml)
+   - Download the latest DataHub Cloud Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml)
    - Upload the template file
 
 <p align="center">
@@ -169,9 +184,6 @@ To update your Remote Executor deployment (e.g., to deploy a new container versi
 The update process will maintain your existing resources (e.g., secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track the update progress.
 :::
 
-</TabItem>
-<TabItem value="k8s" label="Kubernetes">
-
 ### Deploy on Kubernetes
 
 The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm chart provides a streamlined way to deploy Remote Executors on any Kubernetes cluster, including Amazon EKS and Google GKE.
@@ -185,20 +197,15 @@ For AWS EKS: Provide the IAM principal that will pull from the ECR repository
 - For Google Cloud: Provide the cluster's IAM service account
 - For other platforms: Contact DataHub team for specific requirements
 
-2. **Configure Secrets**
+2. **Configure Access Token Secret**
 
-Create the required secrets in your Kubernetes cluster:
+Create the required secret in your Kubernetes cluster:
 
 ```bash
 # Create DataHub PAT secret (required)
 # Generate token from Settings > Access Tokens in DataHub UI
 kubectl create secret generic datahub-access-token-secret \
   --from-literal=datahub-access-token-secret-key=<DATAHUB-ACCESS-TOKEN>
-
-# Create source credentials (optional)
-kubectl create secret generic datahub-secret-store \
-  --from-literal=REDSHIFT_PASSWORD=password \
-  --from-literal=SNOWFLAKE_PASSWORD=password
 ```
 
 3. **Install Helm Chart**
@@ -214,15 +221,13 @@ helm repo update
 helm install \
   --set global.datahub.executor.pool_id="remote" \
   --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
-  --set image.tag=v0.3.10.2-acryl \
-  acryl acryl-executor-worker/datahub-executor-worker
+  acryl-executor-worker acryl/datahub-executor-worker
 ```
 
 Required parameters:
 
 - `global.datahub.executor.pool_id`: Your Executor Pool ID
 - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
-- `image.tag`: DataHub Cloud Remote Executor version
 
 4. **Configure Secret Mounting (Optional)**
 
@@ -230,15 +235,11 @@ Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Se
 
 Create a Kubernetes secret:
 
-```yaml
-# secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: datahub-secret-store
-data:
-  REDSHIFT_PASSWORD: <base64-encoded-password>
-  SNOWFLAKE_PASSWORD: <base64-encoded-password>
+```bash
+# Create source credentials (optional)
+kubectl create secret generic datahub-secret-store \
+  --from-literal=REDSHIFT_PASSWORD=password \
+  --from-literal=SNOWFLAKE_PASSWORD=password
 ```
 
 Mount the secret in your `values.yaml`:
@@ -276,8 +277,27 @@ source:
 
 For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
-</TabItem>
-</Tabs>
+### Update Kubernetes Deployment
+
+To update your Kubernetes deployment (e.g., to deploy a new image version or modify configuration), you'll need to upgrade your existing Helm release. This process involves upgrading the Helm release with any new parameters while preserving your existing parameters.
+
+1. **Upgrade Helm release**
+
+```bash
+# Update Helm repository
+helm repo update acryl
+
+# Upgrade your existing Helm release
+# See https://helm.sh/docs/helm/helm_upgrade/ for more options
+helm upgrade \
+  --reuse-values \
+  --set <key>="<value>" \ # if any new options need to be set
+  acryl-executor-worker acryl/datahub-executor-worker
+```
+
+For configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
+
+## Checking Remote Executor status
 
 Once you have successfully deployed the Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
 
@@ -337,6 +357,7 @@ The following environment variables can be configured to manage memory-intensive
 
    - Verify network connectivity
    - Check DataHub URL configuration
+   - Validate Executor Pool ID
    - Validate access token
 
 2. **Secret Access Failed**

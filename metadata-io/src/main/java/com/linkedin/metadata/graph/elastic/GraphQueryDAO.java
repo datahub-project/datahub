@@ -47,4 +47,6 @@ public interface GraphQueryDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       @Nullable Integer count);
+
+  void cleanupPointInTime(String pitId);
 }

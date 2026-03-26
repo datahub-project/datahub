@@ -3,7 +3,22 @@ export type FileUploadSource = 'drag-and-drop' | 'button';
 export enum FileUploadFailureType {
     FILE_SIZE = 'file_size',
     FILE_TYPE = 'file_type',
+    UPLOADING_NOT_SUPPORTED = 'uploading_not_supported',
     UNKNOWN = 'unknown',
+}
+
+export interface FileUploadProps {
+    onFileUpload?: (file: File) => Promise<string>;
+    onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileUploadFailed?: (
+        fileType: string,
+        fileSize: number,
+        source: FileUploadSource,
+        failureType: FileUploadFailureType,
+        comment?: string,
+    ) => void;
+    onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileDownloadView?: (fileType: string, fileSize: number) => void;
 }
 
 export type EditorProps = {
@@ -16,17 +31,15 @@ export type EditorProps = {
     hideHighlightToolbar?: boolean;
     toolbarStyles?: React.CSSProperties;
     dataTestId?: string;
+    /** Key down handler - fires in capture phase to allow intercepting before ProseMirror */
     onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+    /** Paste handler - fires in capture phase to allow intercepting before ProseMirror */
+    onPaste?: (event: React.ClipboardEvent<HTMLDivElement>) => void;
     hideBorder?: boolean;
-    uploadFile?: (file: File) => Promise<string>;
-    onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
-    onFileUploadFailed?: (
-        fileType: string,
-        fileSize: number,
-        source: FileUploadSource,
-        failureType: FileUploadFailureType,
-        comment?: string,
-    ) => void;
-    onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
-    onFileDownloadView?: (fileType: string, fileSize: number) => void;
+    uploadFileProps?: FileUploadProps;
+    fixedBottomToolbar?: boolean;
+    /** Hide the formatting toolbar completely (for chat input use case) */
+    hideToolbar?: boolean;
+    /** Enable compact mode with smaller min-height and adjusted padding */
+    compact?: boolean;
 };

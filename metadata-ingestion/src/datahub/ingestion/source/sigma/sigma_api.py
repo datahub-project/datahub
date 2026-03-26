@@ -4,6 +4,8 @@ import sys
 from typing import Any, Dict, List, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.sigma.config import (
     Constant,
@@ -30,6 +32,18 @@ class SigmaAPI:
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
         self.session = requests.Session()
+
+        # Configure retry strategy for 429/503 with exponential backoff
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 503],
+            backoff_factor=2,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
         self.refresh_token: Optional[str] = None
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self.config.api_url}")
@@ -39,7 +53,7 @@ class SigmaAPI:
         data = {
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
-            "client_secret": self.config.client_secret,
+            "client_secret": self.config.client_secret.get_secret_value(),
         }
         response = self.session.post(f"{self.config.api_url}/auth/token", data=data)
         response.raise_for_status()
@@ -65,7 +79,7 @@ class SigmaAPI:
                 "grant_type": Constant.REFRESH_TOKEN,
                 "refresh_token": self.refresh_token,
                 "client_id": self.config.client_id,
-                "client_secret": self.config.client_secret,
+                "client_secret": self.config.client_secret.get_secret_value(),
             }
             post_response = self.session.post(
                 f"{self.config.api_url}/auth/token",
@@ -87,11 +101,15 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
+        """Make an API call with automatic retry on 429/503 and token refresh on 401."""
         get_response = self.session.get(url)
+
+        # Handle token refresh on 401
         if get_response.status_code == 401 and self.refresh_token:
             logger.debug("Access token might expired. Refreshing access token.")
             self._refresh_access_token()
             get_response = self.session.get(url)
+
         return get_response
 
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
@@ -108,7 +126,7 @@ class SigmaAPI:
                 self.report.non_accessible_workspaces_count += 1
                 return None
             response.raise_for_status()
-            workspace = Workspace.parse_obj(response.json())
+            workspace = Workspace.model_validate(response.json())
             self.workspaces[workspace.workspaceId] = workspace
             return workspace
         except Exception as e:
@@ -127,7 +145,7 @@ class SigmaAPI:
                 response_dict = response.json()
                 for workspace_dict in response_dict[Constant.ENTRIES]:
                     self.workspaces[workspace_dict[Constant.WORKSPACEID]] = (
-                        Workspace.parse_obj(workspace_dict)
+                        Workspace.model_validate(workspace_dict)
                     )
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{workspace_url}&page={response_dict[Constant.NEXTPAGE]}"
@@ -197,7 +215,7 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for file_dict in response_dict[Constant.ENTRIES]:
-                    file = File.parse_obj(file_dict)
+                    file = File.model_validate(file_dict)
                     file.workspaceId = self.get_workspace_id_from_file_path(
                         file.parentId, file.path
                     )
@@ -225,7 +243,7 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for dataset_dict in response_dict[Constant.ENTRIES]:
-                    dataset = SigmaDataset.parse_obj(dataset_dict)
+                    dataset = SigmaDataset.model_validate(dataset_dict)
 
                     if dataset.datasetId not in dataset_files_metadata:
                         self.report.datasets.dropped(
@@ -299,6 +317,11 @@ class SigmaAPI:
                     f"Lineage metadata not accessible for element {element.name} of workbook '{workbook.name}'"
                 )
                 return upstream_sources
+            if response.status_code == 400:
+                logger.debug(
+                    f"Lineage not supported for element {element.name} of workbook '{workbook.name}' (400 Bad Request)"
+                )
+                return upstream_sources
 
             response.raise_for_status()
             response_dict = response.json()
@@ -347,6 +370,13 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
+                # only element of table and visualization type have lineage and sql query supported
+                if element_dict.get("type") not in ["table", "visualization"]:
+                    logger.debug(
+                        f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'"
+                    )
+                    continue
+
                 if not element_dict.get(Constant.NAME):
                     element_dict[Constant.NAME] = (
                         f"Element {i + 1} of Page '{page.name}'"
@@ -354,7 +384,7 @@ class SigmaAPI:
                 element_dict[Constant.URL] = (
                     f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 )
-                element = Element.parse_obj(element_dict)
+                element = Element.model_validate(element_dict)
                 if (
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
@@ -379,7 +409,7 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for page_dict in response.json()[Constant.ENTRIES]:
-                page = Page.parse_obj(page_dict)
+                page = Page.model_validate(page_dict)
                 page.elements = self.get_page_elements(workbook, page)
                 pages.append(page)
             return pages
@@ -400,7 +430,14 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for workbook_dict in response_dict[Constant.ENTRIES]:
-                    workbook = Workbook.parse_obj(workbook_dict)
+                    workbook = Workbook.model_validate(workbook_dict)
+
+                    # Skip workbook if workbook name filtered out by config
+                    if not self.config.workbook_pattern.allowed(workbook.name):
+                        self.report.workbooks.dropped(
+                            f"{workbook.name} ({workbook.workbookId})"
+                        )
+                        continue
 
                     if workbook.workbookId not in workbook_files_metadata:
                         # Due to a bug in the Sigma API, it seems like the /files endpoint does not

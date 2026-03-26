@@ -64,6 +64,9 @@ public class DataHubAppConfiguration {
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
 
+  /** Global Kubernetes environment (e.g. serviceHost set when pod runs in K8). */
+  private com.linkedin.metadata.config.kubernetes.KubernetesConfiguration kubernetes;
+
   /** The base URL where DataHub is hosted. */
   private String baseUrl;
 
@@ -82,6 +85,9 @@ public class DataHubAppConfiguration {
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
 
+  /** MCL Processing configurations */
+  private MetadataChangeLogConfig metadataChangeLog;
+
   /** Timeseries Aspect Service configuration */
   private TimeseriesAspectServiceConfig timeseriesAspectService;
 
@@ -96,4 +102,7 @@ public class DataHubAppConfiguration {
 
   /** Structured properties related configurations */
   private StructuredPropertiesConfiguration structuredProperties;
+
+  /** Consistency checks configuration */
+  private ConsistencyChecksConfiguration consistencyChecks;
 }

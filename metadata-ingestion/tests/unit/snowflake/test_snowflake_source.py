@@ -58,7 +58,7 @@ def test_snowflake_source_throws_error_on_account_id_missing():
     with pytest.raises(
         ValidationError, match=re.compile(r"account_id.*Field required", re.DOTALL)
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "username": "user",
                 "password": "password",
@@ -72,19 +72,19 @@ def test_no_client_id_invalid_oauth_config():
     with pytest.raises(
         ValueError, match=re.compile(r"client_id.*Field required", re.DOTALL)
     ):
-        OAuthConfiguration.parse_obj(oauth_dict)
+        OAuthConfiguration.model_validate(oauth_dict)
 
 
 def test_snowflake_throws_error_on_client_secret_missing_if_use_certificate_is_false():
     oauth_dict = default_oauth_dict.copy()
     del oauth_dict["client_secret"]
-    OAuthConfiguration.parse_obj(oauth_dict)
+    OAuthConfiguration.model_validate(oauth_dict)
 
     with pytest.raises(
         ValueError,
         match="'oauth_config.client_secret' was none but should be set when using use_certificate false for oauth_config",
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR",
@@ -96,12 +96,12 @@ def test_snowflake_throws_error_on_client_secret_missing_if_use_certificate_is_f
 def test_snowflake_throws_error_on_encoded_oauth_private_key_missing_if_use_certificate_is_true():
     oauth_dict = default_oauth_dict.copy()
     oauth_dict["use_certificate"] = True
-    OAuthConfiguration.parse_obj(oauth_dict)
+    OAuthConfiguration.model_validate(oauth_dict)
     with pytest.raises(
         ValueError,
         match="'base64_encoded_oauth_private_key' was none but should be set when using certificate for oauth_config",
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR",
@@ -114,11 +114,11 @@ def test_snowflake_oauth_okta_does_not_support_certificate():
     oauth_dict = default_oauth_dict.copy()
     oauth_dict["use_certificate"] = True
     oauth_dict["provider"] = "okta"
-    OAuthConfiguration.parse_obj(oauth_dict)
+    OAuthConfiguration.model_validate(oauth_dict)
     with pytest.raises(
         ValueError, match="Certificate authentication is not supported for Okta."
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR",
@@ -130,7 +130,7 @@ def test_snowflake_oauth_okta_does_not_support_certificate():
 def test_snowflake_oauth_happy_paths():
     oauth_dict = default_oauth_dict.copy()
     oauth_dict["provider"] = "okta"
-    assert SnowflakeV2Config.parse_obj(
+    assert SnowflakeV2Config.model_validate(
         {
             "account_id": "test",
             "authentication_type": "OAUTH_AUTHENTICATOR",
@@ -141,7 +141,7 @@ def test_snowflake_oauth_happy_paths():
     oauth_dict["provider"] = "microsoft"
     oauth_dict["encoded_oauth_public_key"] = "publickey"
     oauth_dict["encoded_oauth_private_key"] = "privatekey"
-    assert SnowflakeV2Config.parse_obj(
+    assert SnowflakeV2Config.model_validate(
         {
             "account_id": "test",
             "authentication_type": "OAUTH_AUTHENTICATOR",
@@ -151,7 +151,7 @@ def test_snowflake_oauth_happy_paths():
 
 
 def test_snowflake_oauth_token_happy_path():
-    assert SnowflakeV2Config.parse_obj(
+    assert SnowflakeV2Config.model_validate(
         {
             "account_id": "test",
             "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
@@ -166,7 +166,7 @@ def test_snowflake_oauth_token_without_token():
     with pytest.raises(
         ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
@@ -180,7 +180,7 @@ def test_snowflake_oauth_token_with_wrong_auth_type():
         ValueError,
         match="Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN.",
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR",
@@ -194,7 +194,7 @@ def test_snowflake_oauth_token_with_empty_token():
     with pytest.raises(
         ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
@@ -212,17 +212,17 @@ def test_config_fetch_views_from_information_schema():
         "username": "test_user",
         "password": "test_pass",
     }
-    config = SnowflakeV2Config.parse_obj(config_dict)
+    config = SnowflakeV2Config.model_validate(config_dict)
     assert config.fetch_views_from_information_schema is False
 
     # Test explicitly set to True
     config_dict_true = {**config_dict, "fetch_views_from_information_schema": True}
-    config = SnowflakeV2Config.parse_obj(config_dict_true)
+    config = SnowflakeV2Config.model_validate(config_dict_true)
     assert config.fetch_views_from_information_schema is True
 
     # Test explicitly set to False
     config_dict_false = {**config_dict, "fetch_views_from_information_schema": False}
-    config = SnowflakeV2Config.parse_obj(config_dict_false)
+    config = SnowflakeV2Config.model_validate(config_dict_false)
     assert config.fetch_views_from_information_schema is False
 
 
@@ -239,17 +239,17 @@ def test_account_id_is_added_when_host_port_is_present():
     config_dict = default_config_dict.copy()
     del config_dict["account_id"]
     config_dict["host_port"] = "acctname"
-    config = SnowflakeV2Config.parse_obj(config_dict)
+    config = SnowflakeV2Config.model_validate(config_dict)
     assert config.account_id == "acctname"
 
 
 def test_account_id_with_snowflake_host_suffix():
-    config = SnowflakeV2Config.parse_obj(default_config_dict)
+    config = SnowflakeV2Config.model_validate(default_config_dict)
     assert config.account_id == "acctname"
 
 
 def test_snowflake_uri_default_authentication():
-    config = SnowflakeV2Config.parse_obj(default_config_dict)
+    config = SnowflakeV2Config.model_validate(default_config_dict)
     assert config.get_sql_alchemy_url() == (
         "snowflake://user:password@acctname"
         "?application=acryl_datahub"
@@ -263,7 +263,7 @@ def test_snowflake_uri_external_browser_authentication():
     config_dict = default_config_dict.copy()
     del config_dict["password"]
     config_dict["authentication_type"] = "EXTERNAL_BROWSER_AUTHENTICATOR"
-    config = SnowflakeV2Config.parse_obj(config_dict)
+    config = SnowflakeV2Config.model_validate(config_dict)
     assert config.get_sql_alchemy_url() == (
         "snowflake://user@acctname"
         "?application=acryl_datahub"
@@ -279,7 +279,7 @@ def test_snowflake_uri_key_pair_authentication():
     config_dict["authentication_type"] = "KEY_PAIR_AUTHENTICATOR"
     config_dict["private_key_path"] = "/a/random/path"
     config_dict["private_key_password"] = "a_random_password"
-    config = SnowflakeV2Config.parse_obj(config_dict)
+    config = SnowflakeV2Config.model_validate(config_dict)
 
     assert config.get_sql_alchemy_url() == (
         "snowflake://user@acctname"
@@ -291,7 +291,7 @@ def test_snowflake_uri_key_pair_authentication():
 
 
 def test_options_contain_connect_args():
-    config = SnowflakeV2Config.parse_obj(default_config_dict)
+    config = SnowflakeV2Config.model_validate(default_config_dict)
     connect_args = config.get_options().get("connect_args")
     assert connect_args is not None
 
@@ -302,7 +302,7 @@ def test_options_contain_connect_args():
 def test_snowflake_connection_with_default_domain(mock_connect):
     """Test that connection uses default .com domain when not specified"""
     config_dict = default_config_dict.copy()
-    config = SnowflakeV2Config.parse_obj(config_dict)
+    config = SnowflakeV2Config.model_validate(config_dict)
 
     mock_connect.return_value = MagicMock()
     try:
@@ -323,7 +323,7 @@ def test_snowflake_connection_with_china_domain(mock_connect):
     config_dict = default_config_dict.copy()
     config_dict["account_id"] = "test-account_cn"
     config_dict["snowflake_domain"] = "snowflakecomputing.cn"
-    config = SnowflakeV2Config.parse_obj(config_dict)
+    config = SnowflakeV2Config.model_validate(config_dict)
 
     mock_connect.return_value = MagicMock()
     try:
@@ -344,11 +344,11 @@ def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
         ValidationError,
         match="include_table_lineage must be True for include_column_lineage to be set",
     ):
-        SnowflakeV2Config.parse_obj(config_dict)
+        SnowflakeV2Config.model_validate(config_dict)
 
 
 def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
-    config: SnowflakeV2Config = SnowflakeV2Config.parse_obj(default_config_dict)
+    config: SnowflakeV2Config = SnowflakeV2Config.model_validate(default_config_dict)
     assert config.get_options()["connect_args"] is not None
     assert config.get_options()["connect_args"] == {
         CLIENT_PREFETCH_THREADS: 10,
@@ -361,7 +361,7 @@ def test_private_key_set_but_auth_not_changed():
         ValidationError,
         match="Either `private_key` and `private_key_path` is set but `authentication_type` is DEFAULT_AUTHENTICATOR. Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication",
     ):
-        SnowflakeV2Config.parse_obj(
+        SnowflakeV2Config.model_validate(
             {
                 "account_id": "acctname",
                 "private_key_path": "/a/random/path",
@@ -369,12 +369,37 @@ def test_private_key_set_but_auth_not_changed():
         )
 
 
+def test_snowflake_connection_config_excludes_secrets_from_serialization():
+    """Ensure secret fields are excluded from model_dump() to prevent leaking
+    credentials in logs, reports, or the system info endpoint."""
+    from datahub.ingestion.source.snowflake.snowflake_connection import (
+        SnowflakeConnectionConfig,
+    )
+
+    config = SnowflakeConnectionConfig.model_validate(
+        {
+            "account_id": "acctname",
+            "username": "user",
+            "password": "hunter2",
+            "private_key": "-----BEGIN PRIVATE KEY-----\nfakekey\n-----END PRIVATE KEY-----\n",
+            "private_key_password": "keypassword",
+            "authentication_type": "KEY_PAIR_AUTHENTICATOR",
+        }
+    )
+
+    dumped = config.model_dump()
+    assert "password" not in dumped
+    assert "private_key" not in dumped
+    assert "private_key_password" not in dumped
+    assert dumped["username"] == "user"  # non-secret field still present
+
+
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():
     config_dict = default_config_dict.copy()
     config_dict["connect_args"] = {
         CLIENT_PREFETCH_THREADS: 5,
     }
-    config: SnowflakeV2Config = SnowflakeV2Config.parse_obj(config_dict)
+    config: SnowflakeV2Config = SnowflakeV2Config.model_validate(config_dict)
     assert config.get_options()["connect_args"] is not None
     assert config.get_options()["connect_args"][CLIENT_PREFETCH_THREADS] == 5
     assert config.get_options()["connect_args"][CLIENT_SESSION_KEEP_ALIVE] is True
@@ -643,29 +668,29 @@ def test_snowflake_query_create_deny_regex_sql():
     assert create_deny_regex_sql_filter([], ["col"]) == ""
     assert (
         create_deny_regex_sql_filter([".*tmp.*"], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i')"
+        == "UPPER(col) NOT RLIKE '.*TMP.*'"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i') AND NOT RLIKE(col,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "(UPPER(col) NOT RLIKE '.*TMP.*' AND UPPER(col) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col1", "col2"])
-        == "NOT RLIKE(col1,'.*tmp.*','i') AND NOT RLIKE(col1,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(col2,'.*tmp.*','i') AND NOT RLIKE(col2,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "(UPPER(col1) NOT RLIKE '.*TMP.*' AND UPPER(col1) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}') AND (UPPER(col2) NOT RLIKE '.*TMP.*' AND UPPER(col2) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
     )
 
     assert (
         create_deny_regex_sql_filter(
             DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
         )
-        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}','i') AND NOT RLIKE(upstream_table_name,'.*\.SNOWPARK_TEMP_TABLE_.+','i')"
+        == r"(UPPER(upstream_table_name) NOT RLIKE '.*\\.FIVETRAN_.*_STAGING\\..*' AND UPPER(upstream_table_name) NOT RLIKE '.*__DBT_TMP$' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SEGMENT_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.STAGING_.*_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SNOWPARK_TEMP_TABLE_.+')"
     )
 
 
 def test_snowflake_temporary_patterns_config_rename():
-    conf = SnowflakeV2Config.parse_obj(
+    conf = SnowflakeV2Config.model_validate(
         {
             "account_id": "test",
             "username": "user",
@@ -792,7 +817,7 @@ def test_snowflake_utils() -> None:
 
 
 def test_using_removed_fields_causes_no_error() -> None:
-    assert SnowflakeV2Config.parse_obj(
+    assert SnowflakeV2Config.model_validate(
         {
             "account_id": "test",
             "username": "snowflake",
@@ -823,7 +848,7 @@ def test_snowflake_query_result_parsing():
             }
         ],
     }
-    assert UpstreamLineageEdge.parse_obj(db_row)
+    assert UpstreamLineageEdge.model_validate(db_row)
 
 
 class TestDDLProcessing:
@@ -1055,7 +1080,7 @@ def test_process_upstream_lineage_row_dynamic_table_moved(mock_extractor_class):
 
     def side_effect(self, row):
         # Create a new UpstreamLineageEdge with the updated table name
-        result = UpstreamLineageEdge.parse_obj(row)
+        result = UpstreamLineageEdge.model_validate(row)
         result.DOWNSTREAM_TABLE_NAME = "NEW_DB.NEW_SCHEMA.DYNAMIC_TABLE"
         return result
 
@@ -1073,3 +1098,52 @@ def test_process_upstream_lineage_row_dynamic_table_moved(mock_extractor_class):
 
     # Restore the original method (cleanup)
     mock_extractor_class._process_upstream_lineage_row = original_method
+
+
+class TestSnowflakeIdentifierQuoting:
+    """Tests for proper escaping of embedded double-quotes in Snowflake identifiers."""
+
+    def test_get_quoted_identifier_for_table_simple(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", "MONTHLY_SALES"
+        )
+        assert result == '"WAREHOUSE_DB"."REPORTING"."MONTHLY_SALES"'
+
+    def test_get_quoted_identifier_for_table_with_embedded_quotes(self):
+        # Table name contains embedded double-quotes (e.g. from information_schema)
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", '"Sales.Q1"."Summary"'
+        )
+        # Each embedded " becomes "" inside the outer quotes
+        assert result == '"WAREHOUSE_DB"."REPORTING"."""Sales.Q1"".""Summary"""'
+
+    def test_get_quoted_identifier_for_table_with_dots_only(self):
+        # Table name has dots but no embedded quotes
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", "sales.q1.summary"
+        )
+        assert result == '"WAREHOUSE_DB"."REPORTING"."sales.q1.summary"'
+
+    def test_get_quoted_identifier_for_database_with_embedded_quote(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_database('MY"DB')
+        assert result == '"MY""DB"'
+
+    def test_get_quoted_identifier_for_schema_with_embedded_quotes(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_schema(
+            'MY"DB', 'TEST"SCHEMA'
+        )
+        assert result == '"MY""DB"."TEST""SCHEMA"'
+
+    def test_escape_identifier_no_quotes(self):
+        assert (
+            SnowflakeIdentifierBuilder._escape_identifier("NORMAL_NAME")
+            == "NORMAL_NAME"
+        )
+
+    def test_escape_identifier_with_quotes(self):
+        assert (
+            SnowflakeIdentifierBuilder._escape_identifier('has"quote') == 'has""quote'
+        )
+
+    def test_escape_identifier_multiple_quotes(self):
+        assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'

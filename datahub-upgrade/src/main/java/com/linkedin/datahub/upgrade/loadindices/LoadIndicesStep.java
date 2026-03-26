@@ -12,7 +12,6 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.EbeanConfiguration;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
@@ -41,17 +40,14 @@ import lombok.extern.slf4j.Slf4j;
 public class LoadIndicesStep implements UpgradeStep {
 
   private final Database server;
-  private final EntityService<?> entityService;
   private final UpdateIndicesService updateIndicesService;
   private final LoadIndicesIndexManager indexManager;
 
   public LoadIndicesStep(
       final Database server,
-      final EntityService<?> entityService,
       final UpdateIndicesService updateIndicesService,
       final LoadIndicesIndexManager indexManager) {
     this.server = server;
-    this.entityService = entityService;
     this.updateIndicesService = updateIndicesService;
     this.indexManager = indexManager;
   }
@@ -180,7 +176,13 @@ public class LoadIndicesStep implements UpgradeStep {
 
     try {
       // Create EbeanAspectDao for streaming
-      EbeanAspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+      EbeanAspectDao aspectDao =
+          new EbeanAspectDao(
+              server,
+              EbeanConfiguration.testDefault,
+              null,
+              java.util.Collections.emptyList(),
+              null);
       aspectDao.setConnectionValidated(true);
 
       // Process data using streaming approach (no cursor pagination needed!)

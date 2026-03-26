@@ -1,4 +1,11 @@
-import { IconNames } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
+import React from 'react';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
@@ -11,18 +18,20 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.Link, 'Choose links that are important'],
     [DataHubPageModuleType.OwnedAssets, 'Assets the current user owns'],
     [DataHubPageModuleType.RichText, 'Pin docs for your DataHub users'],
+    [DataHubPageModuleType.Columns, 'View the columns of this dataset'],
 ]);
 
-export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Map([
-    [DataHubPageModuleType.AssetCollection, 'Stack'],
-    [DataHubPageModuleType.Domains, 'Globe'],
-    [DataHubPageModuleType.Hierarchy, 'SortAscending'],
-    [DataHubPageModuleType.Link, 'LinkSimple'],
-    [DataHubPageModuleType.OwnedAssets, 'Database'],
-    [DataHubPageModuleType.RichText, 'TextT'],
+export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType<any>> = new Map([
+    [DataHubPageModuleType.AssetCollection, Stack],
+    [DataHubPageModuleType.Domains, Globe],
+    [DataHubPageModuleType.Hierarchy, SortAscending],
+    [DataHubPageModuleType.Link, LinkSimple],
+    [DataHubPageModuleType.OwnedAssets, Database],
+    [DataHubPageModuleType.RichText, TextT],
+    [DataHubPageModuleType.Columns, Table],
 ]);
 
-export const DEFAULT_MODULE_ICON = 'Database';
+export const DEFAULT_MODULE_ICON = Database;
 
 // keep this in sync with PageModuleService.java
 export const DEFAULT_MODULE_URNS = [
@@ -34,6 +43,8 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:data_products',
     'urn:li:dataHubPageModule:related_terms',
     'urn:li:dataHubPageModule:platforms',
+    'urn:li:dataHubPageModule:lineage',
+    'urn:li:dataHubPageModule:columns',
 ];
 
 export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
@@ -55,6 +66,7 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.ChildHierarchy,
     DataHubPageModuleType.RelatedTerms,
     DataHubPageModuleType.DataProducts,
+    DataHubPageModuleType.Columns,
 ];
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];

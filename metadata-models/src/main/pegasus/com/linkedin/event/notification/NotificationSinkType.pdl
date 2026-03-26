@@ -12,5 +12,10 @@ enum NotificationSinkType {
   /**
   * Email target type.
   */
-  EMAIL
+  EMAIL,
+
+  /**
+  * Microsoft Teams target type.
+  */
+  TEAMS
 }

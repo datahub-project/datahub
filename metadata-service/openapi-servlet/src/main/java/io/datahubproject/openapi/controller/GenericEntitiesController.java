@@ -39,6 +39,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -117,11 +118,13 @@ public abstract class GenericEntitiesController<
   protected abstract S buildScrollResult(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
+      SearchResultMetadata searchResultMetadata,
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
       boolean expandEmpty,
-      int totalCount)
+      int totalCount,
+      boolean includeScrollIdPerEntity)
       throws URISyntaxException;
 
   protected List<E> buildEntityList(
@@ -262,16 +265,18 @@ public abstract class GenericEntitiesController<
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    DEFAULT_SEARCH_FLAGS
-                        .setSkipCache(skipCache)
-                        .setIncludeSoftDeleted(includeSoftDelete)
-                        .setSliceOptions(
-                            sliceId != null && sliceMax != null
-                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                : null,
-                            SetMode.IGNORE_NULL)),
+            opContext
+                .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setSkipCache(skipCache)
+                            .setIncludeSoftDeleted(includeSoftDelete)
+                            .setSliceOptions(
+                                sliceId != null && sliceMax != null
+                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                    : null,
+                                SetMode.IGNORE_NULL)),
             List.of(entitySpec.getName()),
             query,
             null,
@@ -292,11 +297,13 @@ public abstract class GenericEntitiesController<
         buildScrollResult(
             opContext,
             result.getEntities(),
+            null,
             mergedAspects,
             withSystemMetadata,
             result.getScrollId(),
             true,
-            result.getNumEntities()));
+            result.getNumEntities(),
+            false));
   }
 
   @Tag(name = "Generic Entities")

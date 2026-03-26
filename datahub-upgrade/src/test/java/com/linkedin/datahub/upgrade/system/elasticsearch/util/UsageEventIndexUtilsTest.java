@@ -9,34 +9,48 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.ResponseException;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.core.rest.RestStatus;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UsageEventIndexUtilsTest {
 
+  private AutoCloseable mocks;
+
   @Mock private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
   @Mock private SearchClientShim searchClient;
   @Mock private RawResponse rawResponse;
   @Mock private CreateIndexResponse createIndexResponse;
+  @Mock private GetAliasesResponse getAliasesResponse;
   @Mock private ResponseException responseException;
   @Mock private OpenSearchStatusException openSearchStatusException;
   @Mock private OperationContext operationContext;
 
   @BeforeMethod
   public void setUp() {
-    MockitoAnnotations.openMocks(this);
+    mocks = MockitoAnnotations.openMocks(this);
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
     // Mock OperationContext to return a real ObjectMapper for JSON parsing
     Mockito.when(operationContext.getObjectMapper())
         .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper());
+  }
+
+  @AfterMethod
+  public void tearDown() throws Exception {
+    if (mocks != null) {
+      mocks.close();
+    }
   }
 
   @Test
@@ -249,6 +263,7 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String policyName = "test_policy";
     String prefix = "test_";
+    // FIX: Mock GET returning 404 (doesn't exist), then PUT returning 201 (created)
     Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
@@ -256,7 +271,24 @@ public class UsageEventIndexUtilsTest {
             new org.apache.http.StatusLine() {
               @Override
               public int getStatusCode() {
-                return 201;
+                return 404; // GET: policy doesn't exist
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            })
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 201; // PUT: created
               }
 
               @Override
@@ -271,11 +303,12 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
 
     // Assert
-    // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
-    Mockito.verify(searchClient, Mockito.atLeast(1))
+    Assert.assertTrue(result);
+    Mockito.verify(searchClient, Mockito.times(2))
         .performLowLevelRequest(Mockito.any(Request.class));
   }
 
@@ -380,7 +413,9 @@ public class UsageEventIndexUtilsTest {
         .performLowLevelRequest(Mockito.any(Request.class));
   }
 
-  @Test
+  @Test(
+      timeOut =
+          30000) // Note: This test takes ~10 seconds due to retry logic (5 retries × 2s delay)
   public void testCreateIsmPolicy_IOException() throws IOException {
     // Arrange
     String policyName = "test_policy";
@@ -400,7 +435,9 @@ public class UsageEventIndexUtilsTest {
         .performLowLevelRequest(Mockito.any(Request.class));
   }
 
-  @Test
+  @Test(
+      timeOut =
+          30000) // Note: This test takes ~10 seconds due to retry logic (5 retries × 2s delay)
   public void testCreateIsmPolicy_UnexpectedException() throws IOException {
     // Arrange
     String policyName = "test_policy";
@@ -506,7 +543,9 @@ public class UsageEventIndexUtilsTest {
         .performLowLevelRequest(Mockito.any(Request.class));
   }
 
-  @Test
+  @Test(
+      timeOut =
+          30000) // Note: This test takes ~10 seconds due to retry logic (5 retries × 2s delay)
   public void testCreateIsmPolicy_ResponseExceptionRetryableError() throws IOException {
     // Arrange
     String policyName = "test_policy";
@@ -557,12 +596,15 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock ResponseException with 200 status (policy already exists)
-    // This will trigger handleExistingPolicy, but we'll mock updateIsmPolicy to throw an exception
+    // This will trigger handleExistingPolicy, but updateIsmPolicy will throw an exception
     // This covers the code path: } catch (Exception updateException) { log.warn("Failed to update
     // existing ISM policy {} (non-fatal): {}", policyName, updateException.getMessage()); return
     // true; }
+    // FIX: Set up mock sequence correctly - first call 200, second call throws RuntimeException
     Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
-        .thenThrow(responseException);
+        .thenThrow(responseException) // First call throws 200 ResponseException
+        .thenThrow(new RuntimeException("Update failed")); // Second call throws exception
+
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
     Mockito.when(responseException.getResponse().getStatusLine())
@@ -584,21 +626,13 @@ public class UsageEventIndexUtilsTest {
               }
             });
 
-    // Mock the updateIsmPolicy call to throw an exception
-    // This simulates the scenario where the policy exists but updating it fails
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
-        .thenThrow(responseException) // First call throws 200 ResponseException
-        .thenThrow(
-            new RuntimeException(
-                "Update failed")); // Second call (from updateIsmPolicy) throws exception
-
     // Act
     boolean result =
         UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
 
     // Assert - Should return true even though update failed (non-fatal)
     Assert.assertTrue(result);
-    // Should make 2 calls: first GET (200), then PUT (throws exception)
+    // Should make 2 calls: first GET (200), then GET inside updateIsmPolicy (throws exception)
     Mockito.verify(searchClient, Mockito.times(2))
         .performLowLevelRequest(Mockito.any(Request.class));
   }
@@ -767,7 +801,9 @@ public class UsageEventIndexUtilsTest {
         .performLowLevelRequest(Mockito.any(Request.class));
   }
 
-  @Test
+  @Test(
+      timeOut =
+          30000) // Note: This test takes ~10 seconds due to retry logic (5 retries × 2s delay)
   public void testCreateIsmPolicy_ExtractResponseBodyIOException() throws IOException {
     // Arrange
     String policyName = "test_policy";
@@ -825,85 +861,453 @@ public class UsageEventIndexUtilsTest {
   public void testCreateDataStream_Success() throws IOException {
     // Arrange
     String dataStreamName = "test_datastream";
-    Mockito.when(
-            searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
-        .thenReturn(false);
-    Mockito.when(
-            searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
-        .thenReturn(createIndexResponse);
-    Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
+
+    // Mock GET request returning 404 (data stream doesn't exist)
+    // Then mock PUT request returning 200 (successful creation)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException) // First call: GET returns 404
+        .thenReturn(rawResponse); // Second call: PUT returns 200
+
+    // Mock 404 for GET (data stream doesn't exist)
+    // FIX: Production code checks e.getMessage().contains("404")
+    Mockito.when(responseException.getMessage()).thenReturn("404 Not Found");
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Mock 200 for PUT (successful creation)
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 200;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "OK";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
 
     // Act
     UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
 
-    // Assert
-    Mockito.verify(searchClient)
-        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
-    Mockito.verify(searchClient)
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+    // Assert - Should make 2 calls: GET (404) then PUT (200)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
   }
 
   @Test
   public void testCreateDataStream_AlreadyExists() throws IOException {
     // Arrange
     String dataStreamName = "test_datastream";
-    Mockito.when(
-            searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
-        .thenReturn(true);
+
+    // Mock GET request returning 200 (data stream already exists)
+    // Should return early without attempting PUT
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 200;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "OK";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
 
     // Act
     UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
 
-    // Assert
-    Mockito.verify(searchClient)
-        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
-    Mockito.verify(searchClient, Mockito.never())
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+    // Assert - Should make only 1 call: GET (200) and return early
+    Mockito.verify(searchClient, Mockito.times(1))
+        .performLowLevelRequest(Mockito.any(Request.class));
   }
 
   @Test
-  public void testCreateDataStream_AlreadyExistsException() throws IOException {
+  public void testCreateDataStream_Created201() throws IOException {
     // Arrange
     String dataStreamName = "test_datastream";
-    Mockito.when(
-            searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
-        .thenReturn(false);
-    Mockito.when(
-            searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
-        .thenThrow(openSearchStatusException);
-    Mockito.when(openSearchStatusException.getMessage())
-        .thenReturn("resource_already_exists_exception");
+
+    // Mock GET request returning 404 (data stream doesn't exist)
+    // Then mock PUT request returning 201 (successful creation)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException) // First call: GET returns 404
+        .thenReturn(rawResponse); // Second call: PUT returns 201
+
+    // Mock 404 for GET (data stream doesn't exist)
+    // FIX: Production code checks e.getMessage().contains("404"), so mock getMessage()
+    Mockito.when(responseException.getMessage()).thenReturn("404 Not Found");
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Mock 201 for PUT (successful creation)
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 201;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Created";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
 
     // Act
     UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
 
-    // Assert - Should not throw exception
-    Mockito.verify(searchClient)
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+    // Assert - Should make 2 calls: GET (404) then PUT (201)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
   }
 
-  @Test(expectedExceptions = OpenSearchStatusException.class)
+  @Test
+  public void testCreateDataStream_GetReturnsUnexpectedStatus_ProceedsToCreate()
+      throws IOException {
+    // Arrange
+    String dataStreamName = "test_datastream";
+
+    // Mock GET request returning 204 (unexpected non-200 status without exception)
+    // This should fall through and proceed to create the data stream
+    RawResponse getResponse = Mockito.mock(RawResponse.class);
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(getResponse) // First call: GET returns 204
+        .thenReturn(rawResponse); // Second call: PUT returns 200
+
+    // Mock 204 for GET (unexpected status - not 200, so doesn't return early)
+    Mockito.when(getResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 204;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "No Content";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Mock 200 for PUT (successful creation)
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 200;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "OK";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Act - Should proceed to create since GET didn't return 200
+    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+
+    // Assert - Should make 2 calls: GET (204) then PUT (200)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateDataStream_UnexpectedStatusCode() throws IOException {
+    // Arrange
+    String dataStreamName = "test_datastream";
+
+    // Mock GET request returning 404 (data stream doesn't exist)
+    // Then mock PUT request returning 202 (unexpected but non-error status)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException) // First call: GET returns 404
+        .thenReturn(rawResponse); // Second call: PUT returns 202
+
+    // Mock 404 for GET (data stream doesn't exist)
+    Mockito.when(responseException.getMessage()).thenReturn("404 Not Found");
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Mock 202 for PUT (unexpected status - triggers warning log)
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 202;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Accepted";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Act - Should complete without exception but log a warning
+    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+
+    // Assert - Should make 2 calls: GET (404) then PUT (202)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test(expectedExceptions = ResponseException.class)
   public void testCreateDataStream_OtherError() throws IOException {
     // Arrange
     String dataStreamName = "test_datastream";
-    Mockito.when(
-            searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
-        .thenReturn(false);
-    Mockito.when(
-            searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
-        .thenThrow(openSearchStatusException);
-    Mockito.when(openSearchStatusException.getMessage()).thenReturn("Some other error");
-    Mockito.when(openSearchStatusException.status()).thenReturn(RestStatus.INTERNAL_SERVER_ERROR);
+
+    // Mock GET request returning 404 (data stream doesn't exist)
+    // Create a separate ResponseException for the GET 404
+    ResponseException getException = Mockito.mock(ResponseException.class);
+    // FIX: Production code checks e.getMessage().contains("404")
+    Mockito.when(getException.getMessage()).thenReturn("404 Not Found");
+    org.opensearch.client.Response getResponse = Mockito.mock(org.opensearch.client.Response.class);
+    Mockito.when(getException.getResponse()).thenReturn(getResponse);
+    Mockito.when(getResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Then mock PUT request throwing ResponseException with 500
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(getException) // First call: GET returns 404
+        .thenThrow(responseException); // Second call: PUT returns 500
+
+    // Mock 500 for PUT (error)
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 500;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Internal Server Error";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+    Mockito.when(responseException.getMessage()).thenReturn("Some other error");
 
     // Act
     UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+  }
+
+  @Test(expectedExceptions = ResponseException.class)
+  public void testCreateDataStream_ExistenceCheckError() throws IOException {
+    // Arrange
+    String dataStreamName = "test_datastream";
+
+    // Mock GET request returning 500 (error checking existence)
+    // This should propagate the error and not attempt creation
+    // FIX: getMessage() must NOT contain "404" so the exception is re-thrown
+    Mockito.when(responseException.getMessage()).thenReturn("500 Internal Server Error");
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException);
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 500;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Internal Server Error";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+    Mockito.when(responseException.getMessage()).thenReturn("Error checking existence");
+
+    // Act
+    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+  }
+
+  @Test
+  public void testCreateDataStream_RaceCondition() throws IOException {
+    // Arrange
+    String dataStreamName = "test_datastream";
+
+    // Mock GET request returning 404 (doesn't exist)
+    // Create a separate ResponseException for the GET 404
+    ResponseException getException = Mockito.mock(ResponseException.class);
+    // FIX: Production code checks e.getMessage().contains("404")
+    Mockito.when(getException.getMessage()).thenReturn("404 Not Found");
+    org.opensearch.client.Response getResponse = Mockito.mock(org.opensearch.client.Response.class);
+    Mockito.when(getException.getResponse()).thenReturn(getResponse);
+    Mockito.when(getResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Then mock PUT returning resource_already_exists_exception (race condition - created between
+    // GET and PUT)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(getException) // First call: GET returns 404
+        .thenThrow(responseException); // Second call: PUT returns resource_already_exists_exception
+
+    // Mock resource_already_exists_exception for PUT
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 400;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Bad Request";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+    Mockito.when(responseException.getMessage()).thenReturn("resource_already_exists_exception");
+
+    // Act
+    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+
+    // Assert - Should handle already exists gracefully (race condition)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
   }
 
   @Test
@@ -916,17 +1320,25 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
         .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
         .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
   }
@@ -941,17 +1353,25 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(false); // Not acknowledged
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
         .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
         .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
     // The method should complete without throwing an exception, but log a warning
@@ -968,7 +1388,8 @@ public class UsageEventIndexUtilsTest {
         .thenReturn(true);
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
@@ -987,6 +1408,11 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenThrow(openSearchStatusException);
@@ -994,11 +1420,14 @@ public class UsageEventIndexUtilsTest {
         .thenReturn("resource_already_exists_exception");
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert - Should not throw exception
     Mockito.verify(searchClient)
         .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
         .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
   }
@@ -1013,6 +1442,11 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenThrow(openSearchStatusException);
@@ -1020,10 +1454,50 @@ public class UsageEventIndexUtilsTest {
     Mockito.when(openSearchStatusException.status()).thenReturn(RestStatus.INTERNAL_SERVER_ERROR);
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
   }
 
   @Test
+  public void testCreateOpenSearchUsageEventIndex_AliasExistsButIndexDoesNot() throws IOException {
+    // Arrange
+    String indexName = "test_index-000001";
+    String aliasName = "test_datahub_usage_event";
+    String existingIndexName = "test_index-000002";
+
+    // Index doesn't exist
+    Mockito.when(
+            searchClient.indexExists(
+                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(false);
+
+    // But alias exists pointing to a different index
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, java.util.Set<AliasMetadata>> aliasMap =
+        Mockito.mock(java.util.Map.class);
+    Mockito.when(aliasMap.isEmpty()).thenReturn(false);
+    Mockito.when(aliasMap.keySet()).thenReturn(java.util.Collections.singleton(existingIndexName));
+    Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(aliasMap);
+
+    // Act
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+
+    // Assert - Should skip creation because alias already exists (map is not empty)
+    Mockito.verify(searchClient)
+        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient, Mockito.never())
+        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+  }
+
+  @Test(
+      timeOut =
+          30000) // Note: This test takes ~10 seconds due to retry logic (5 retries × 2s delay)
   public void testAwsOpenSearchDetection() throws IOException {
     // Test AWS OpenSearch Service detection
     Mockito.when(searchClient.getShimConfiguration())
@@ -1366,9 +1840,10 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Mock response body for seq_no and primary_term extraction
-    Mockito.when(rawResponse.getEntity())
-        .thenReturn(Mockito.mock(org.apache.http.HttpEntity.class));
-    Mockito.when(rawResponse.getEntity().getContent())
+    // FIX: Create entity mock once and reuse it (avoid Mockito chaining issue)
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+    Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
+    Mockito.when(mockEntity.getContent())
         .thenReturn(
             new java.io.ByteArrayInputStream(
                 "{\"_seq_no\": 123, \"_primary_term\": 456}".getBytes()));
@@ -1489,9 +1964,10 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Mock response body for seq_no and primary_term extraction
-    Mockito.when(rawResponse.getEntity())
-        .thenReturn(Mockito.mock(org.apache.http.HttpEntity.class));
-    Mockito.when(rawResponse.getEntity().getContent())
+    // FIX: Create entity mock once and reuse it
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+    Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
+    Mockito.when(mockEntity.getContent())
         .thenReturn(
             new java.io.ByteArrayInputStream(
                 "{\"_seq_no\": 123, \"_primary_term\": 456}".getBytes()));
@@ -1538,9 +2014,10 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Mock response body for seq_no and primary_term extraction
-    Mockito.when(rawResponse.getEntity())
-        .thenReturn(Mockito.mock(org.apache.http.HttpEntity.class));
-    Mockito.when(rawResponse.getEntity().getContent())
+    // FIX: Create entity mock once and reuse it
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+    Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
+    Mockito.when(mockEntity.getContent())
         .thenReturn(
             new java.io.ByteArrayInputStream(
                 "{\"_seq_no\": 123, \"_primary_term\": 456}".getBytes()));

@@ -160,6 +160,12 @@ public class PoliciesConfig {
           "Manage Ownership Types",
           "Create, update and delete Ownership Types.");
 
+  public static final Privilege MANAGE_SERVICE_ACCOUNTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_SERVICE_ACCOUNTS",
+          "Manage Service Accounts",
+          "Create, update, and delete service accounts for programmatic API access.");
+
   public static final Privilege CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE =
       Privilege.of(
           "CREATE_BUSINESS_ATTRIBUTE",
@@ -183,6 +189,9 @@ public class PoliciesConfig {
           "MANAGE_STRUCTURED_PROPERTIES",
           "Manage Structured Properties",
           "Manage structured properties in your instance.");
+
+  public static final Privilege MANAGE_DOCUMENTS_PRIVILEGE =
+      Privilege.of("MANAGE_DOCUMENTS", "Manage Documents", "Manage documents in DataHub");
 
   public static final Privilege VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE =
       Privilege.of(
@@ -224,6 +233,12 @@ public class PoliciesConfig {
           "Manage Home Page Templates",
           "Privilege allowing users to manage the default home page template and the global modules in it.");
 
+  public static final Privilege GET_TOPIC_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_TOPIC_EVENTS",
+          "Get Topic Events",
+          "The ability to use the Events API to read events from custom Kafka topics.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -242,6 +257,7 @@ public class PoliciesConfig {
           MANAGE_SECRETS_PRIVILEGE,
           GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
           MANAGE_ACCESS_TOKENS,
+          MANAGE_SERVICE_ACCOUNTS_PRIVILEGE,
           VIEW_TESTS_PRIVILEGE,
           MANAGE_TESTS_PRIVILEGE,
           MANAGE_GLOSSARIES_PRIVILEGE,
@@ -257,17 +273,19 @@ public class PoliciesConfig {
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+          MANAGE_DOCUMENTS_PRIVILEGE,
           VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
           GET_METADATA_CHANGE_LOG_EVENTS,
-          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
+          GET_TOPIC_EVENTS_PRIVILEGE);
 
   // Resource Privileges //
 
-  static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
+  public static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
       Privilege.of("VIEW_ENTITY_PAGE", "View Entity Page", "The ability to view the entity page.");
 
   static final Privilege EXISTS_ENTITY_PRIVILEGE =
@@ -834,6 +852,27 @@ public class PoliciesConfig {
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
+  // Knowledge Article Privileges
+  public static final ResourcePrivileges DOCUMENT_PRIVILEGES =
+      ResourcePrivileges.of(
+          "document",
+          "Documents",
+          "Documents created on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
+              MANAGE_DOCUMENTS_PRIVILEGE));
+
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
       ResourcePrivileges.of(
@@ -927,6 +966,14 @@ public class PoliciesConfig {
               DATA_MANAGE_NAMESPACES_PRIVILEGE,
               DATA_LIST_ENTITIES_PRIVILEGE));
 
+  // DataHub View Privileges
+  public static final ResourcePrivileges DATAHUB_VIEW_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.DATAHUB_VIEW_ENTITY_NAME,
+          "Views",
+          "DataHub Views",
+          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EXISTS_ENTITY_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -940,6 +987,7 @@ public class PoliciesConfig {
           DOMAIN_PRIVILEGES,
           GLOSSARY_TERM_PRIVILEGES,
           GLOSSARY_NODE_PRIVILEGES,
+          DOCUMENT_PRIVILEGES,
           CORP_GROUP_PRIVILEGES,
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,
@@ -950,7 +998,8 @@ public class PoliciesConfig {
           INGESTION_SOURCE_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
-          APPLICATION_PRIVILEGES);
+          APPLICATION_PRIVILEGES,
+          DATAHUB_VIEW_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

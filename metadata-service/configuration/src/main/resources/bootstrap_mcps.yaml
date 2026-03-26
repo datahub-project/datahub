@@ -7,13 +7,13 @@ bootstrap:
   templates:
     # Bootstrap
     - name: root-user
-      version: v4
+      version: v5
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/root-user.yaml"
 
     - name: data-platforms
-      version: v4
+      version: v9
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
@@ -37,7 +37,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/roles.yaml"
 
     - name: page-modules
-      version: v6
+      version: v8
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-modules.yaml"
@@ -55,3 +55,10 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
+
+    - name: ingestion-datahub-documents
+      version: v1
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
+      values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_DOCUMENTS_REVISION"

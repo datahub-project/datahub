@@ -34,7 +34,7 @@ def assert_field_paths_match(
 ) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
     assert len(fields) == len(expected_field_paths)
-    for f, efp in zip(fields, expected_field_paths):
+    for f, efp in zip(fields, expected_field_paths, strict=False):
         assert f.fieldPath == efp
     assert_field_paths_are_unique(fields)
 
@@ -99,7 +99,7 @@ def _get_base_config_dict() -> dict:
 
 def test_authenticate_no_ssl():
     config_dict = _get_base_config_dict()
-    config = CassandraSourceConfig.parse_obj(config_dict)
+    config = CassandraSourceConfig.model_validate(config_dict)
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 
@@ -116,7 +116,7 @@ def test_authenticate_no_ssl():
 def test_authenticate_ssl_ca_certs():
     config_dict = _get_base_config_dict()
     config_dict["ssl_ca_certs"] = "ca.pem"
-    config = CassandraSourceConfig.parse_obj(config_dict)
+    config = CassandraSourceConfig.model_validate(config_dict)
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 
@@ -148,7 +148,7 @@ def test_authenticate_ssl_all_certs():
     config_dict["ssl_ca_certs"] = "ca.pem"
     config_dict["ssl_certfile"] = "client.crt"
     config_dict["ssl_keyfile"] = "client.key"
-    config = CassandraSourceConfig.parse_obj(config_dict)
+    config = CassandraSourceConfig.model_validate(config_dict)
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 

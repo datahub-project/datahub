@@ -20,6 +20,7 @@ class DatasetSubTypes(StrEnum):
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
     QLIK_DATASET = "Qlik Dataset"
+    GRAFANA_DATASET = "Grafana Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
@@ -30,15 +31,24 @@ class DatasetSubTypes(StrEnum):
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    SEMANTIC_VIEW = "Semantic View"
     DYNAMIC_TABLE = "Dynamic Table"
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    SEMANTIC_MODEL = "Semantic Model"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
+
+
+class GenericContainerSubTypes(StrEnum):
+    """Generic container subtypes that are not specific to datasets, BI, flows, or jobs."""
+
+    # Microsoft Fabric
+    FABRIC_WORKSPACE = "Fabric Workspace"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -58,6 +68,10 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    # Microsoft Fabric
+    FABRIC_LAKEHOUSE = "Fabric Lakehouse"
+    FABRIC_WAREHOUSE = "Fabric Warehouse"
+    FABRIC_SCHEMA = "Fabric Schema"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -81,13 +95,15 @@ class BIContainerSubTypes(StrEnum):
 
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
-    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+    PROCEDURE_CONTAINER = "Procedures Container"
+    ADF_DATA_FACTORY = "Data Factory"
 
 
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    FUNCTION = "Function"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -119,6 +135,9 @@ class BIAssetSubTypes(StrEnum):
     HEX_PROJECT = "Project"
     HEX_COMPONENT = "Component"
 
+    # Streamlit
+    STREAMLIT = "Streamlit"
+
 
 class MLAssetSubTypes(StrEnum):
     MLFLOW_TRAINING_RUN = "ML Training Run"
@@ -129,25 +148,86 @@ class MLAssetSubTypes(StrEnum):
 
     VERTEX_MODEL = "ML Model"
     VERTEX_MODEL_GROUP = "ML Model Group"
+    VERTEX_MODEL_EVALUATION = "Model Evaluation"
     VERTEX_TRAINING_JOB = "Training Job"
     VERTEX_ENDPOINT = "Endpoint"
     VERTEX_DATASET = "Dataset"
     VERTEX_PROJECT = "Project"
-    VERTEX_PIPELINE = "Pipeline Job"
-    VERTEX_PIPELINE_TASK = "Pipeline Task"
-    VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"
+    VERTEX_PIPELINE = "Pipeline"
+    VERTEX_PIPELINE_TASK = "Task"
+    VERTEX_PIPELINE_TASK_RUN = "Task Run"
+
+    FOLDER = "Folder"
+
+
+class DataJobSubTypes(StrEnum):
+    # ADF Activity Types
+    ADF_COPY_ACTIVITY = "Copy Activity"
+    ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"
+    ADF_EXECUTE_PIPELINE = "Execute Pipeline"
+    ADF_LOOKUP_ACTIVITY = "Lookup Activity"
+    ADF_GET_METADATA_ACTIVITY = "Get Metadata Activity"
+    ADF_STORED_PROCEDURE_ACTIVITY = "Stored Procedure Activity"
+    ADF_SCRIPT_ACTIVITY = "Script Activity"
+    ADF_WEB_ACTIVITY = "Web Activity"
+    ADF_WEBHOOK_ACTIVITY = "Webhook Activity"
+    ADF_IF_CONDITION = "If Condition"
+    ADF_FOREACH_LOOP = "ForEach Loop"
+    ADF_UNTIL_LOOP = "Until Loop"
+    ADF_WAIT_ACTIVITY = "Wait Activity"
+    ADF_SET_VARIABLE = "Set Variable"
+    ADF_APPEND_VARIABLE = "Append Variable"
+    ADF_SWITCH_ACTIVITY = "Switch Activity"
+    ADF_FILTER_ACTIVITY = "Filter Activity"
+    ADF_VALIDATION_ACTIVITY = "Validation Activity"
+    ADF_DATABRICKS_NOTEBOOK = "Databricks Notebook"
+    ADF_DATABRICKS_SPARK_JAR = "Databricks Spark Jar"
+    ADF_DATABRICKS_SPARK_PYTHON = "Databricks Spark Python"
+    ADF_HDINSIGHT_HIVE = "HDInsight Hive"
+    ADF_HDINSIGHT_PIG = "HDInsight Pig"
+    ADF_HDINSIGHT_SPARK = "HDInsight Spark"
+    ADF_HDINSIGHT_MAPREDUCE = "HDInsight MapReduce"
+    ADF_HDINSIGHT_STREAMING = "HDInsight Streaming"
+    ADF_AZURE_FUNCTION_ACTIVITY = "Azure Function Activity"
+    ADF_AZURE_ML_BATCH = "Azure ML Batch"
+    ADF_AZURE_ML_UPDATE = "Azure ML Update"
+    ADF_AZURE_ML_PIPELINE = "Azure ML Pipeline"
+    ADF_CUSTOM_ACTIVITY = "Custom Activity"
+    ADF_DELETE_ACTIVITY = "Delete Activity"
+    ADF_SYNAPSE_NOTEBOOK = "Synapse Notebook"
+    ADF_SPARK_JOB = "Spark Job"
+    ADF_SYNAPSE_SPARK_JOB = "Synapse Spark Job"
+    ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
+    ADF_FAIL_ACTIVITY = "Fail Activity"
+
+    # Fabric Data Factory Activity Types (Fabric-specific, not in ADF)
+    FABRIC_SPARK_JOB_DEFINITION = "Spark Job Definition"
+    FABRIC_INVOKE_COPY_JOB = "Invoke Copy Job"
+    FABRIC_EXECUTE_SSIS_PACKAGE = "Execute SSIS Package"
+    FABRIC_KQL_ACTIVITY = "KQL Activity"
+    FABRIC_TRIDENT_NOTEBOOK = "Trident Notebook"
+    FABRIC_OFFICE365_EMAIL = "Office 365 Email"
+    FABRIC_EMAIL_ACTIVITY = "Email Activity"
+    FABRIC_TEAMS_ACTIVITY = "Teams Activity"
+    FABRIC_PBI_SEMANTIC_MODEL_REFRESH = "PBI Semantic Model Refresh"
+    FABRIC_REFRESH_DATAFLOW = "Refresh Data Flow"
+    FABRIC_HDINSIGHT_ACTIVITY = "HDInsight Activity"
+    FABRIC_DATA_LAKE_ANALYTICS = "Data Lake Analytics"
+    FABRIC_AZURE_ML_EXECUTE_PIPELINE = "Azure ML Execute Pipeline"
 
 
 def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
     source_enums = [
         DatasetSubTypes,
+        GenericContainerSubTypes,
         DatasetContainerSubTypes,
         BIContainerSubTypes,
         FlowContainerSubTypes,
         JobContainerSubTypes,
         BIAssetSubTypes,
         MLAssetSubTypes,
+        DataJobSubTypes,
     ]
 
     for enum_class in source_enums:

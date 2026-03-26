@@ -137,19 +137,19 @@ class PlatformResourceRepository(
                             self.entity_class
                         )
                     )
-                    entity = self.entity_class(**entity_obj.dict())
+                    entity = self.entity_class(**entity_obj.model_dump())
 
                     # Create updated entity ID with persisted=True
                     entity_id = entity.get_id()
-                    if hasattr(entity_id, "dict"):
-                        entity_id_data = entity_id.dict()
+                    if hasattr(entity_id, "model_dump"):
+                        entity_id_data = entity_id.model_dump()
                         entity_id_data["persisted"] = True
 
                         # Create new entity ID with updated flags
                         updated_entity_id = type(entity_id)(**entity_id_data)
 
                         # Update the entity with the new ID (immutable update)
-                        entity_data = entity.dict()  # type: ignore[attr-defined]
+                        entity_data = entity.model_dump()  # type: ignore[attr-defined]
                         entity_data["id"] = updated_entity_id
                         updated_entity = type(entity)(**entity_data)
 
@@ -359,13 +359,13 @@ class PlatformResourceRepository(
                             self.entity_class
                         )
                     )
-                    entity = self.entity_class(**entity_obj.dict())
+                    entity = self.entity_class(**entity_obj.model_dump())
                     # Check if platform instance matches
                     entity_id = entity.get_id()
                     if entity_id.platform_instance == self.platform_instance:
                         # Create a new entity ID with the correct state instead of mutating
-                        # All our entity IDs are Pydantic models, so we can use dict() method
-                        entity_data = entity_id.dict()
+                        # All our entity IDs are Pydantic models, so we can use model_dump() method
+                        entity_data = entity_id.model_dump()
                         entity_data["persisted"] = (
                             True  # This entity was found in DataHub
                         )
@@ -433,7 +433,7 @@ class PlatformResourceRepository(
                 entity_obj = platform_resource.resource_info.value.as_pydantic_object(
                     self.entity_class
                 )
-                result = self.entity_class(**entity_obj.dict())
+                result = self.entity_class(**entity_obj.model_dump())
         elif len(platform_resources) > 1:
             # Handle multiple matches - find the one with matching platform instance
             target_platform_instance = entity_id.platform_instance
@@ -447,7 +447,7 @@ class PlatformResourceRepository(
                             self.entity_class
                         )
                     )
-                    entity = self.entity_class(**entity_obj.dict())
+                    entity = self.entity_class(**entity_obj.model_dump())
                     if entity.get_id().platform_instance == target_platform_instance:
                         result = entity
                         break

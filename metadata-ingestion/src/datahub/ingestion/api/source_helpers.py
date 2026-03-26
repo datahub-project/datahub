@@ -354,8 +354,23 @@ def auto_browse_path_v2(
                         )
                     ),
                 ).as_workunit()
-        elif urn not in emitted_urns and guess_entity_type(urn) == "container":
-            # Root containers have no Container aspect, so they are not handled above
+        elif urn not in emitted_urns and (
+            guess_entity_type(urn) == "container"
+            or (platform_instance and guess_entity_type(urn) in ("dataFlow", "dataJob"))
+        ):
+            # Emit a browse path for:
+            # - Root containers (no Container aspect, need empty path)
+            # - DataFlow/DataJob when platform_instance is set, so they get
+            #   grouped under their instance instead of the backend's catch-all
+            #   "Default" folder.
+            # TODO: This fallback should ideally apply to ALL entity types with
+            # platform_instance (not just DataFlow/DataJob). However, entities
+            # like Dataset often have their Container aspect emitted in a later
+            # batch (due to _batch_workunits_by_urn grouping only consecutive
+            # workunits). Emitting a fallback eagerly for those entities causes
+            # OS-dependent golden file differences because filesystem enumeration
+            # order determines which entities land in which batch. DataFlow and
+            # DataJob are safe because they never have Container aspects.
             emitted_urns.add(urn)
             if not dry_run:
                 yield MetadataChangeProposalWrapper(
@@ -547,6 +562,9 @@ def _prepend_platform_instance(
 ) -> List[BrowsePathEntryClass]:
     if platform and platform_instance:
         urn = make_dataplatform_instance_urn(platform, platform_instance)
+        # Check if platform instance is already the first entry to avoid duplication
+        if entries and entries[0].urn == urn:
+            return entries
         return [BrowsePathEntryClass(id=urn, urn=urn)] + entries
 
     return entries

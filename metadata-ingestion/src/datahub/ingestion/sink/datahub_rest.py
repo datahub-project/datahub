@@ -9,6 +9,7 @@ from enum import auto
 from typing import List, Optional, Tuple, Union
 
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import (
     ConfigEnum,
@@ -22,6 +23,7 @@ from datahub.configuration.env_vars import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
+    _DEFAULT_EMIT_MODE,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
     DataHubRestEmitter,
@@ -63,8 +65,8 @@ class RestSinkMode(ConfigEnum):
     ASYNC_BATCH = auto()
 
 
-_DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
+_DEFAULT_REST_SINK_MODE = pydantic.TypeAdapter(RestSinkMode).validate_python(
+    get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
 )
 
 
@@ -80,8 +82,9 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
 
-    @pydantic.validator("max_per_batch", always=True)
-    def validate_max_per_batch(cls, v):
+    @field_validator("max_per_batch", mode="before")
+    @classmethod
+    def validate_max_per_batch(cls, v: int) -> int:
         if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
             raise ValueError(
                 f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"
@@ -127,12 +130,44 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
     return str(uuid.uuid4())
 
 
+def _resolve_gms_emit_mode(
+    rest_sink_mode: RestSinkMode, configured_gms_emit_mode: EmitMode
+) -> EmitMode:
+    """Pick an EmitMode compatible with the sink mode.
+
+    If the user-configured GMS emit mode (via DATAHUB_EMIT_MODE env var) belongs
+    to the same family as the sink mode, honour it.  Otherwise warn and fall back
+    to a safe default for that family.
+    """
+    if rest_sink_mode == RestSinkMode.SYNC:
+        if not configured_gms_emit_mode.is_async:
+            return configured_gms_emit_mode
+        logger.warning(
+            f"REST sink mode is SYNC but DATAHUB_EMIT_MODE is "
+            f"{configured_gms_emit_mode.value} (async family). "
+            f"Overriding GMS emit mode to SYNC_PRIMARY."
+        )
+        return EmitMode.SYNC_PRIMARY
+    else:  # ASYNC or ASYNC_BATCH
+        if configured_gms_emit_mode.is_async:
+            return configured_gms_emit_mode
+        logger.warning(
+            f"REST sink mode is {rest_sink_mode.value} but DATAHUB_EMIT_MODE is "
+            f"{configured_gms_emit_mode.value} (sync family). "
+            f"Overriding GMS emit mode to ASYNC."
+        )
+        return EmitMode.ASYNC
+
+
 class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     _emitter_thread_local: threading.local
     treat_errors_as_warnings: bool = False
 
     def __post_init__(self) -> None:
         self._emitter_thread_local = threading.local()
+        self._gms_emit_mode = _resolve_gms_emit_mode(
+            self.config.mode, _DEFAULT_EMIT_MODE
+        )
 
         try:
             gms_config = self.emitter.server_config
@@ -148,6 +183,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         logger.debug("Setting env variables to override config")
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
+
+        logger.debug(
+            f"REST sink initialized: rest_sink_mode={self.config.mode.value}, "
+            f"gms_emit_mode={self._gms_emit_mode.value}, "
+            f"max_threads={self.config.max_threads}, "
+            f"max_per_batch={self.config.max_per_batch}"
+        )
 
         self.executor: Union[PartitionExecutor, BatchPartitionExecutor]
         if self.config.mode == RestSinkMode.ASYNC_BATCH:
@@ -282,12 +324,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        chunks = self.emitter.emit_mcps(events, emit_mode=EmitMode.ASYNC)
+        trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
-        if chunks > 1:
-            self.report.async_batches_split += chunks
+        if num_chunks > 1:
+            self.report.async_batches_split += num_chunks
             logger.info(
-                f"In async_batch mode, the payload was split into {chunks} batches. "
+                f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
 
@@ -313,7 +356,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                     partition_key,
                     self._emit_wrapper,
                     record,
-                    EmitMode.ASYNC,
+                    self._gms_emit_mode,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),
@@ -325,7 +368,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.executor.submit(
                     partition_key,
                     record,
-                    EmitMode.ASYNC,
+                    self._gms_emit_mode,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),
@@ -334,7 +377,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 # execute synchronously
                 try:
-                    self._emit_wrapper(record, emit_mode=EmitMode.SYNC_PRIMARY)
+                    self._emit_wrapper(record, emit_mode=self._gms_emit_mode)
                     write_callback.on_success(record_envelope, success_metadata={})
                 except Exception as e:
                     write_callback.on_failure(record_envelope, e, failure_metadata={})

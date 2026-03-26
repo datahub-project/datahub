@@ -101,7 +101,14 @@ public class EntityServiceImplTest {
     // Initialize common test objects
     entityService =
         new EntityServiceImpl(
-            mock(AspectDao.class), mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mock(AspectDao.class),
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create test aspects
     oldAspect = new Status().setRemoved(false);
@@ -161,7 +168,9 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // Apply upsert
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
 
     // Verify metadata was updated but content remained same
     assertEquals(changeMCP.getNextAspectVersion(), 1, "1 which is then incremented back to 2");
@@ -217,7 +226,9 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // Apply upsert
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
 
     // Verify both metadata and content were updated
     assertEquals(changeMCP.getNextAspectVersion(), 2, "Expected acceptance of proposed version");
@@ -260,7 +271,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // No existing aspect
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, null);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(changeMCP, null, Collections.emptyList(), null, opContext);
 
     // Verify new aspect was created correctly
     assertNotNull(result);
@@ -300,7 +312,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // No existing aspect
-    SystemAspect result1 = EntityServiceImpl.applyUpsert(changeMCP1, null);
+    SystemAspect result1 =
+        EntityServiceImpl.applyUpsert(changeMCP1, null, Collections.emptyList(), null, opContext);
 
     // Change 1
     assertNotNull(result1);
@@ -325,7 +338,12 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     SystemAspect result2 =
-        EntityServiceImpl.applyUpsert(changeMCP2, result1); // pass previous as latest
+        EntityServiceImpl.applyUpsert(
+            changeMCP2,
+            result1,
+            Collections.emptyList(),
+            null,
+            opContext); // pass previous as latest
 
     // Change 2
     assertNotNull(result2);
@@ -376,7 +394,9 @@ public class EntityServiceImplTest {
             .nextAspectVersion(1L)
             .build(opContext.getAspectRetriever());
 
-    SystemAspect upsert = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect upsert =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
     assertEquals(upsert.getSystemMetadataVersion(), Optional.of(1L));
     assertEquals(upsert.getVersion(), 0);
     assertEquals(changeMCP.getNextAspectVersion(), 1);
@@ -493,7 +513,8 @@ public class EntityServiceImplTest {
             false, // cdcModeChangeLog set to false
             mock(PreProcessHooks.class),
             0,
-            true);
+            true,
+            null); // metricUtils
 
     RecordTemplate sameAspect = newAspect;
 
@@ -909,7 +930,14 @@ public class EntityServiceImplTest {
     // Create EntityServiceImpl with mocks
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -950,7 +978,14 @@ public class EntityServiceImplTest {
     // Create entity service with mocked components
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create test inputs
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");
@@ -1276,5 +1311,86 @@ public class EntityServiceImplTest {
     // Verify the metric was incremented
     verify(mockMetricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("batch_with_duplicate"), eq(1.0d));
+  }
+
+  @Test
+  public void testProcessPendingDeletions() throws Exception {
+    // Test the private processPendingDeletions method via reflection
+    // This verifies DELETE remediation flow: pending deletions are executed through EntityService
+
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EventProducer mockEventProducer = mock(EventProducer.class);
+
+    // Create spy to verify deleteAspect calls
+    EntityServiceImpl entityService =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao,
+                mockEventProducer,
+                false,
+                false,
+                mock(PreProcessHooks.class),
+                0,
+                true,
+                null));
+
+    // Create test data
+    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+    com.linkedin.metadata.entity.validation.AspectDeletionRequest deletion1 =
+        com.linkedin.metadata.entity.validation.AspectDeletionRequest.builder()
+            .urn(testUrn)
+            .aspectName("datasetProperties")
+            .validationPoint("POST_DB_PATCH")
+            .aspectSize(2000000L)
+            .threshold(1500000L)
+            .build();
+
+    com.linkedin.metadata.entity.validation.AspectDeletionRequest deletion2 =
+        com.linkedin.metadata.entity.validation.AspectDeletionRequest.builder()
+            .urn(testUrn)
+            .aspectName("status")
+            .validationPoint("PRE_DB_PATCH")
+            .aspectSize(3000000L)
+            .threshold(1500000L)
+            .build();
+
+    java.util.List<com.linkedin.metadata.entity.validation.AspectDeletionRequest> deletions =
+        java.util.Arrays.asList(deletion1, deletion2);
+
+    // Mock deleteAspect to do nothing (just track the call)
+    doReturn(null)
+        .when(entityService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(testUrn.toString()),
+            any(String.class),
+            any(java.util.Map.class),
+            eq(false));
+
+    // Use reflection to access private processPendingDeletions method
+    java.lang.reflect.Method method =
+        EntityServiceImpl.class.getDeclaredMethod(
+            "processPendingDeletions", OperationContext.class, java.util.List.class);
+    method.setAccessible(true);
+
+    // Invoke the method - use real opContext from test setup
+    method.invoke(entityService, opContext, deletions);
+
+    // Verify deleteAspect was called for both deletions
+    verify(entityService, times(1))
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(testUrn.toString()),
+            eq("datasetProperties"),
+            any(java.util.Map.class),
+            eq(false));
+
+    verify(entityService, times(1))
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(testUrn.toString()),
+            eq("status"),
+            any(java.util.Map.class),
+            eq(false));
   }
 }

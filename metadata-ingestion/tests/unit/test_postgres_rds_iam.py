@@ -18,7 +18,7 @@ class TestPostgresRDSIAMConfig:
             "password": "testpass",
             "database": "testdb",
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
 
         assert config.auth_mode == PostgresAuthMode.PASSWORD
         assert config.aws_config is not None  # aws_config always has default value
@@ -32,7 +32,7 @@ class TestPostgresRDSIAMConfig:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
 
         assert config.auth_mode == PostgresAuthMode.AWS_IAM
         assert config.aws_config is not None
@@ -46,7 +46,7 @@ class TestPostgresRDSIAMConfig:
             "database": "testdb",
             "auth_mode": "AWS_IAM",
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
 
         assert config.auth_mode == PostgresAuthMode.AWS_IAM
         assert config.aws_config is not None
@@ -54,7 +54,7 @@ class TestPostgresRDSIAMConfig:
 
 
 class TestPostgresSourceRDSIAM:
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_without_rds_iam(self, mock_token_manager):
         config_dict = {
             "host_port": "localhost:5432",
@@ -62,7 +62,7 @@ class TestPostgresSourceRDSIAM:
             "password": "testpass",
             "database": "testdb",
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = PostgresSource(config, ctx)
@@ -70,7 +70,7 @@ class TestPostgresSourceRDSIAM:
         assert source._rds_iam_token_manager is None
         mock_token_manager.assert_not_called()
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5432",
@@ -79,7 +79,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = PostgresSource(config, ctx)
@@ -92,7 +92,7 @@ class TestPostgresSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_custom_port(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5433",
@@ -101,7 +101,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         PostgresSource(config, ctx)
@@ -113,7 +113,7 @@ class TestPostgresSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_no_username(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5432",
@@ -121,13 +121,13 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         with pytest.raises(ValueError, match="username is required"):
             PostgresSource(config, ctx)
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_invalid_port(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:invalid",
@@ -136,7 +136,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         PostgresSource(config, ctx)
@@ -149,7 +149,7 @@ class TestPostgresSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_stores_hostname_and_port(self, mock_token_manager):
         """Test that hostname and port are passed to token manager."""
         config_dict = {
@@ -159,7 +159,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = PostgresSource(config, ctx)
