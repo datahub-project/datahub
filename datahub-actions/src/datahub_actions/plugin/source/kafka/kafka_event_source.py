@@ -319,10 +319,7 @@ class KafkaEventSource(EventSource):
 
     def ack(self, event: EventEnvelope, processed: bool = True) -> None:
         # See for details: https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md#auto-offset-commit
-
-        if processed or not self.source_config.async_commit_enabled:
-            # Immediately commit if the message was processed by the upstream,
-            # or delayed commit is disabled
+        if not self.source_config.async_commit_enabled:
             with_retry(
                 self.source_config.commit_retry_count,
                 self.source_config.commit_retry_backoff,
@@ -330,5 +327,4 @@ class KafkaEventSource(EventSource):
                 event,
             )
         else:
-            # Otherwise store offset for periodic autocommit
             self._store_offsets(event)
