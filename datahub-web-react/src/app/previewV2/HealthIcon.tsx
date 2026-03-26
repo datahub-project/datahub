@@ -1,5 +1,6 @@
 import { Popover, colors } from '@components';
-import { CheckCircle, WarningCircle } from 'phosphor-react';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import React from 'react';
 import styled from 'styled-components';
 

@@ -33,8 +33,24 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- #16341 (Ingestion) SQL parsing: View query IDs are now generated using a SHA-256 hash instead of URL-encoding the view URN. This affects all connectors that use view lineage tracking (Snowflake, Oracle, BigQuery, Postgres, MySQL, Hive, Trino, ClickHouse, DB2, Dremio, SQL Server, and others). Previously, query entities had URNs like `urn:li:query:view_urn%3Ali%3Adataset%3A%28...%29`; they now use `urn:li:query:view_<sha256hash>`. After upgrading, the old URL-encoded query entities will become stale and orphaned. To clean them up, enable stateful ingestion with stale entity removal in your recipe and re-run ingestion.
+### Known Issues
 
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## v1.5.0
+
+Requirements:
+
+- Helm Chart: 0.9.0
+
+### Breaking Changes
+
+- #16685:(Ingestion) PowerBI M-Query lineage extraction has been rewritten using Microsoft's official `@microsoft/powerquery-parser`. As part of this change, the `native_query_parsing: false` configuration flag now suppresses only expressions containing `Value.NativeQuery`. Previously it suppressed all M-Query lineage extraction. Users who set this flag to block all lineage extraction will now see lineage produced for non-NativeQuery sources (Snowflake, PostgreSQL, MSSQL, etc.). To restore the suppress-all behaviour, add a `table_pattern.deny` rule in your recipe.
+- #16341:(Ingestion) SQL parsing: View query IDs are now generated using a SHA-256 hash instead of URL-encoding the view URN. This affects all connectors that use view lineage tracking (Snowflake, Oracle, BigQuery, Postgres, MySQL, Hive, Trino, ClickHouse, DB2, Dremio, SQL Server, and others). Previously, query entities had URNs like `urn:li:query:view_urn%3Ali%3Adataset%3A%28...%29`; they now use `urn:li:query:view_<sha256hash>`. After upgrading, the old URL-encoded query entities will become stale and orphaned. To clean them up, enable stateful ingestion with stale entity removal in your recipe and re-run ingestion.
 - #16396: Oracle connector: When connecting via `service_name` to a multitenant Oracle database, the database name used in URNs will now reflect the Pluggable Database (PDB) name instead of the Container Database (CDB) name. In Oracle Multitenant architecture, a CDB is the top-level container (e.g. `cdb`) and a PDB is an individual tenant database within it (e.g. `mypdb`); `service_name` typically routes to the PDB, so the PDB name is the correct identifier for your datasets. This affects both dataset URNs (when `add_database_name_to_urn: true`) and database/schema container URNs (always, since containers always include the database name). If your existing metadata was ingested with the old CDB-based URNs, re-ingesting will create new entities under the corrected URNs. To preserve the old URN shape and avoid re-creating entities, set `urn_db_name` explicitly in your recipe to match your previous CDB name.
 - #16628 (Ingestion) Fabric OneLake source: Workspace containers now use the `fabric` platform instead of `fabric-onelake`. This changes workspace container URNs and the `dataPlatformInstance.platform` emitted for workspace entities. Lakehouse, warehouse, schema, and dataset entities remain on `fabric-onelake`.
 - **Retention service disabled: only current version retained.** When the retention service is not enabled (not configured or unavailable), the write path now retains only the current version (version 0) and does not create version-history rows. Previously, version history was still written when retention was disabled. **Impact:** Deployments that run without retention enabled will no longer accumulate aspect version history; only the latest aspect value is stored. **Migration:** Enable and configure the retention service (e.g. ingest retention policies from `boot/retention.yaml`) if you need version history for any entity/aspect.
@@ -67,6 +83,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #16176: Vertex AI Source - The `region` configuration field is deprecated in favor of `regions` (list type). The `region` field continues to work for backward compatibility.
 - #16176: Vertex AI Source - Partition handling behavior will change in a future major version. Currently, `normalize_external_dataset_paths` defaults to `false`, meaning partitioned paths like `gs://bucket/data/year=2024/month=01/` create separate dataset entities. In the next major version, this will default to `true`, normalizing paths to `gs://bucket/data/` for stable dataset URNs with lineage aggregation across partitions. To opt-in to the new behavior now, set `normalize_external_dataset_paths: true` in your configuration.
+- #16375: Vertex AI Source - The `project_id` (singular) configuration field is deprecated in favor of `project_ids` (list). The field is automatically migrated at startup — no immediate action required. Update your recipe to use `project_ids: ["my-project"]` to silence the deprecation warning. `project_id` will be removed in a future major release.
 
 ### Other Notable Changes
 
@@ -84,6 +101,31 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #16142: Oracle ingestion: Fixed database container naming when using `service_name` instead of `database` configuration. Previously, Oracle containers had no name (only an ID) when using `service_name` with `data_dictionary_mode: ALL` (the default). Container URNs will change for affected users as the database name is now properly populated in the container GUID. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up the old containers and create properly named ones. This fix also ensures database names are normalized consistently with schema and table names.
 - #16300 (Ingestion) Mode connector: Performance improvements for large Mode workspaces including concurrent API fetching, response caching, and SQL parsing optimizations. Column-level lineage now emits table-level lineage as a fallback when column-level parsing times out.
 - #16300 (Ingestion) SQL parsing: Join resolution for queries involving CTEs and subqueries was optimized to avoid expensive deep-copy operations that caused significant slowdowns on complex queries. This affects all connectors that use SQL-based lineage (Snowflake, BigQuery, dbt, Mode, Redshift, etc.). The new approach directly walks SQL scope sources to resolve physical tables, replacing the previous indirect column-tracing fallback. This produces more accurate join metadata — for example, unused CTEs are now correctly excluded from join tables. In rare edge cases with unusual CTE patterns, join metadata may differ from previous results, but the new output better reflects the actual query structure.
+- #15741: New RDF ingestion source.
+- #15735: New Snowplow ingestion source.
+- #15249: New Apache Doris ingestion source.
+- #16236 (Ingestion) dbt: Support for ingesting dbt semantic models.
+- #16483 / #16445 (Ingestion) Kafka Connect: Added support for Debezium and Confluent JDBC sink connectors; the connector image bundles a JVM via jdk4py so a system Java installation is not required for Kafka Connect ingestion.
+- #16292 (Ingestion) Trino: Column-level lineage on upstream datasets via the connector.
+- #16443 (Ingestion) Iceberg: Optional ingestion-time domain assignment configuration.
+- #13232 (Ingestion) BigQuery: Added `convert_column_urns_to_lowercase` configuration option (opt-in).
+- #16568 (Ingestion) Power BI: `extract_column_level_lineage` is enabled by default for richer lineage; disable in the recipe if you need the previous behavior.
+- #16387 / #16388: Assets can be associated with multiple data products (backend and UI).
+- #16365: Policies can target resources by Glossary Terms and Groups.
+- #16207: Domain-scoped policies can include assets in child domains.
+- #16303 (Ingestion) Sigma: Workbook filtering in addition to workspace filtering.
+- #16100 (Ingestion) Snowflake: Metadata pattern pushdown and table type filtering to reduce warehouse metadata queries.
+- #16310 (Ingestion) Kafka source: Optional configuration to disable Avro schema name validation.
+- #16471 (CLI) `datahub search` with semantic search, query projection, and agent-context integration.
+- #15744 (SDK) Trace IDs are exposed for `SYNC_PRIMARY` and `ASYNC` emit modes on the REST emitter.
+- #16529 (Ingestion) Great Expectations and SQLAlchemy-based profilers are brought to feature parity.
+- #16355: Elasticsearch reindex and index-creation paths include additional retry behavior for resilience.
+- #16489 / #16498: Ingestion Docker images and builds use pinned transitive dependencies (`uv.lock`, `constraints.txt`) for more reproducible installs.
+- #16165 (Ingestion) Configurable report sample sizes and richer failure logging for ingestion reports.
+- #15855 (Ingestion) dbt: Support for ingesting dbt exposures.
+- #16058 (Ingestion) Snowflake: Support for ingesting external data metric function (DMF) assertions.
+- #16265 (Ingestion) Azure Data Factory: Column lineage extraction for Copy activity.
+- #16235 (Ingestion) Airflow plugin: Multi-statement SQL parsing support for lineage extraction.
 
 ## v1.4.0
 

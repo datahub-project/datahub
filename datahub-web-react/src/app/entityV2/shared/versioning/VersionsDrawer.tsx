@@ -5,7 +5,6 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
-import moment from 'moment';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
@@ -17,6 +16,7 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 import { useSearchAcrossVersionsQuery } from '@graphql/versioning.generated';
 import { FilterOperator } from '@types';
@@ -172,15 +172,15 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     sections={[
                         {
                             title: 'Created in Source',
-                            content: moment(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
+                            content: dayjs(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
                         },
                         {
                             title: 'Synced to DataHub',
-                            content: moment(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
+                            content: dayjs(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
                         },
                     ]}
                 >
-                    {moment(versionProperties?.created?.time).fromNow()}
+                    {dayjs(versionProperties?.created?.time).fromNow()}
                 </StructuredPopover>
             ),
             menu: (
