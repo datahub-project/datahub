@@ -21,6 +21,7 @@ from datahub.ingestion.source.kafka_connect.common import (
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
+    parse_topic_to_table_map,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
@@ -201,14 +202,7 @@ class SnowflakeSinkConnector(BaseConnector):
                 mappings = parse_comma_separated_list(
                     connector_manifest.config["snowflake.topic2table.map"]
                 )
-                for mapping in mappings:
-                    if ":" not in mapping:
-                        logger.warning(
-                            f"Invalid topic:table mapping format: '{mapping}'. Expected 'topic:table'."
-                        )
-                        continue
-                    topic, table = mapping.split(":", 1)  # Split only on first colon
-                    provided_topics_to_tables[topic.strip()] = table.strip()
+                provided_topics_to_tables = parse_topic_to_table_map(mappings)
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
@@ -489,6 +483,7 @@ class BigQuerySinkConnector(BaseConnector):
         sanitizeTopics: bool
         transforms: List[Dict[str, str]]
         topicsToTables: Optional[str] = None
+        topics2TableMap: Optional[Dict[str, str]] = None
         datasets: Optional[str] = None
         defaultDataset: Optional[str] = None
         version: str = "v1"
@@ -499,6 +494,18 @@ class BigQuerySinkConnector(BaseConnector):
     ) -> BQParser:
         project: str = connector_manifest.config["project"]
         sanitizeTopics: str = connector_manifest.config.get("sanitizeTopics") or "false"
+
+        # Support for both topic2Tables (legacy) and topic2table.map (new) for backward compatibility
+        # Legacy property topic2TableMap: https://docs.confluent.io/kafka-connectors/bigquery/current/kafka_connect_bigquery_config.html#csfle-and-cspe-configurations
+        # New version property topic2table.map: https://docs.confluent.io/cloud/current/connectors/cc-gcp-bigquery-storage-sink.html#insertion-and-ddl-support
+        topic2table_map_str: Optional[str] = connector_manifest.config.get(
+            "topic2table.map"
+        ) or connector_manifest.config.get("topic2TableMap")
+
+        topics2TableMap: Optional[Dict[str, str]] = None
+        if topic2table_map_str:
+            mappings = parse_comma_separated_list(topic2table_map_str)
+            topics2TableMap = parse_topic_to_table_map(mappings)
 
         # Parse ALL transforms (original BigQuery logic)
         transform_names: List[str] = (
@@ -535,6 +542,7 @@ class BigQuerySinkConnector(BaseConnector):
                 sanitizeTopics=sanitizeTopics.lower() == "true",
                 version="v2",
                 transforms=transforms,
+                topics2TableMap=topics2TableMap,
             )
         else:
             # v1 configuration: legacy format with regex-based dataset mapping
@@ -594,12 +602,17 @@ class BigQuerySinkConnector(BaseConnector):
     ) -> Optional[str]:
         if parser.version == "v2":
             dataset: Optional[str] = parser.defaultDataset
-            parts: List[str] = topic.split(":")
+            table = topic
+
+            # Parse topic format: "dataset:table" or just "table"
+            parts: List[str] = topic.split(":", 1)
             if len(parts) == 2:
                 dataset = parts[0]
                 table = parts[1]
-            else:
-                table = parts[0]
+
+            # Override table name if explicit mapping exists
+            if parser.topics2TableMap and topic in parser.topics2TableMap:
+                table = parser.topics2TableMap[topic]
         else:
             dataset = self.get_dataset_for_topic_v1(topic, parser)
             if dataset is None:
