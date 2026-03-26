@@ -183,8 +183,9 @@ class VertexAIConfig(
     requests_per_min: int = Field(
         default=600,
         description="Max API requests per minute when rate_limit is enabled. "
-        "Matches Google's default quota of 600 requests/min/region. "
-        "Lower this if you share quota with other workloads.",
+        "600 is Google's quota ceiling for resource management requests per project per region "
+        "(see https://cloud.google.com/vertex-ai/docs/quotas). Lower this only if you share "
+        "quota with other workloads running in the same project and region.",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(

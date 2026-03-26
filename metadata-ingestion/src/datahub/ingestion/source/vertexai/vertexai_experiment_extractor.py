@@ -124,7 +124,10 @@ class VertexAIExperimentExtractor:
         )
         experiments = []
         for ctx in contexts:
-            if not Experiment._is_tensorboard_experiment(ctx):
+            if (
+                metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD
+                not in ctx.metadata
+            ):
                 exp = Experiment.__new__(Experiment)
                 exp._metadata_context = ctx
                 experiments.append(exp)
