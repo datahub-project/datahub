@@ -264,7 +264,7 @@ class TestFabricConnection:
         conn = FabricConnection.from_dict(
             {"id": "conn-123", "displayName": "Empty Connection"}
         )
-        assert conn.connection_type == ""
+        assert conn.connection_type is None
         assert conn.connection_path is None
 
     def test_from_dict_no_path(self) -> None:

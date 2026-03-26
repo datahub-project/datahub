@@ -2,10 +2,6 @@
 
 from typing import Dict
 
-from datahub.ingestion.source.azure.constants import (  # noqa: F401
-    ADF_LINKED_SERVICE_PLATFORM_MAP,
-)
-
 # Fabric web UI base URL for building external links
 FABRIC_APP_BASE_URL = "https://app.fabric.microsoft.com"
 

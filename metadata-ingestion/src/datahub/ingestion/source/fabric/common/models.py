@@ -117,7 +117,9 @@ class FabricConnection:
 
     id: str
     display_name: str
-    connection_type: str  # connectionDetails.type — e.g. "SQL", "Snowflake", "AmazonS3"
+    connection_type: Optional[
+        str
+    ]  # connectionDetails.type — e.g. "SQL", "Snowflake", "AmazonS3"
     connection_path: Optional[str] = (
         None  # connectionDetails.path — e.g. "server;database"
     )
@@ -128,7 +130,7 @@ class FabricConnection:
         return cls(
             id=data["id"],
             display_name=data.get("displayName", ""),
-            connection_type=connection_details.get("type", ""),
+            connection_type=connection_details.get("type"),
             connection_path=connection_details.get("path"),
         )
 

@@ -1,8 +1,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.fabric.common.constants import (
-    ADF_LINKED_SERVICE_PLATFORM_MAP,
     FABRIC_CONNECTION_PLATFORM_MAP,
 )
 from datahub.ingestion.source.fabric.common.models import FabricConnection
@@ -205,7 +205,7 @@ class CopyActivityLineageExtractor:
             # Fabric connection type.
             platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(connection_type)
         if platform is None:
-            logger.debug(
+            logger.warning(
                 "Unmapped connection type '%s', defaulting to connection type as platform",
                 connection_type,
             )

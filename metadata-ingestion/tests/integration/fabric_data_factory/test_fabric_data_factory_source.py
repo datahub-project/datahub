@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.fabric.common.models import ItemJobStatus
@@ -78,7 +78,7 @@ def _run_pipeline(
     return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     """Comprehensive test: filtering, copy lineage, invoke pipeline, execution history.
@@ -238,7 +238,7 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_no_execution_history(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     """Test that include_execution_history=False emits no DPI entities."""

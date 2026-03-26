@@ -123,9 +123,10 @@ class FabricCoreClient(BaseFabricClient):
             payload_b64 = part.get("payload", "")
             try:
                 content = json.loads(base64.b64decode(payload_b64))
-            except Exception:
+            except Exception as e:
                 self.report.report_parse_failure(
-                    f"Failed to decode definition part '{path}' for item {item_id}"
+                    f"Failed to decode definition part '{path}' for item {item_id}: "
+                    f"{type(e).__name__}: {e}"
                 )
                 continue
             result.append({"path": path, "content": content})
