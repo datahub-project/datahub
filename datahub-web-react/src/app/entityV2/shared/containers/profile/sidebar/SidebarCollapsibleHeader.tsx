@@ -1,5 +1,3 @@
-import { colors } from '@components';
-import { Typography } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -17,7 +15,7 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
     height: 56px;
     padding: 8px 20px 5px 20px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const Title = styled.div`
@@ -28,18 +26,18 @@ const Title = styled.div`
     width: 100%;
 `;
 
-const TabTitle = styled(Typography.Text)`
+const TabTitle = styled.span`
     font-size: 14px;
     font-weight: 800;
     line-height: 20px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const _TitleDescription = styled(Typography.Text)`
+const _TitleDescription = styled.span`
     font-size: 12px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Top = styled.div`
@@ -64,7 +62,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
 
     const currentTabName = currentTab?.name;
     const actionType = currentTab?.properties?.actionType;
-    const icon = currentTab?.icon;
 
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
@@ -76,7 +73,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     <Top>
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
-                            {actionType && <TitleAction actionType={actionType} icon={icon} />}
+                            {actionType && <TitleAction actionType={actionType} />}
                             {forLineage && (
                                 <ViewInPlatform hideSiblingActions={separateSiblings} urn={urn} data={entityData} />
                             )}

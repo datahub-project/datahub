@@ -1,13 +1,6 @@
-import functools
-import importlib.resources as pkg_resource
 import logging
 from typing import Dict, List, Optional
 
-import lark
-from lark import Lark, Tree
-
-import datahub.ingestion.source.powerbi.m_query.data_classes
-from datahub.configuration.env_vars import get_powerbi_m_query_parse_timeout
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -16,47 +9,42 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
 )
-from datahub.ingestion.source.powerbi.m_query import resolver, validator
+from datahub.ingestion.source.powerbi.m_query import (
+    pattern_handler,
+    resolver as mquery_resolver,
+)
+from datahub.ingestion.source.powerbi.m_query._bridge import (
+    MQueryBridgeError,
+    MQueryParseError,
+    _clear_bridge,
+    get_bridge,
+)
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
+    Lineage,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
 
-_M_QUERY_PARSE_TIMEOUT = get_powerbi_m_query_parse_timeout()
 
-
-@functools.lru_cache(maxsize=1)
-def get_lark_parser() -> Lark:
-    # Read lexical grammar as text
-    grammar: str = pkg_resource.read_text(
-        "datahub.ingestion.source.powerbi", "powerbi-lexical-grammar.rule"
-    )
-    # Create lark parser for the grammar text
-    return Lark(grammar, start="let_expression", regex=True)
-
-
-def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
-    lark_parser: Lark = get_lark_parser()
-
-    # Replace U+00a0 NO-BREAK SPACE with a normal space.
-    # Sometimes PowerBI returns expressions with this character and it breaks the parser.
-    expression = expression.replace("\u00a0", " ")
-
-    # Parser resolves the variable=null value to variable='', and in the Tree we get empty string
-    # to distinguish between an empty and null set =null to ="null"
-    expression = expression.replace("=null", '="null"')
-
-    logger.debug(f"Parsing expression = {expression}")
-    with threading_timeout(parse_timeout):
-        parse_tree: Tree = lark_parser.parse(expression)
-
-    if TRACE_POWERBI_MQUERY_PARSER:
-        logger.debug(parse_tree.pretty())
-
-    return parse_tree
+def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
+    """Call the bridge and return the NodeIdMap dict.
+    Clears the singleton on bridge crash or timeout so the next call gets a fresh context.
+    """
+    try:
+        with threading_timeout(timeout):
+            return get_bridge().parse(expression)
+    except MQueryBridgeError:
+        _clear_bridge()
+        raise
+    except TimeoutException:
+        # The timeout interrupts the Python thread mid-V8-eval, leaving the MiniRacer
+        # context in an undefined state. Clear the singleton so the next call gets a
+        # fresh context rather than reusing the potentially-corrupted one.
+        _clear_bridge()
+        raise
 
 
 def get_upstream_tables(
@@ -66,94 +54,150 @@ def get_upstream_tables(
     ctx: PipelineContext,
     config: PowerBiDashboardSourceConfig,
     parameters: Optional[Dict[str, str]] = None,
-) -> List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage]:
+) -> List[Lineage]:
+    """Parse the M-Query expression on *table* and return upstream lineage.
+
+    Returns an empty list when the expression is absent, empty, a DAX
+    computed-table expression (no ``let`` keyword), or a NativeQuery that the
+    caller has opted out of (``native_query_parsing=False``).
+    """
     parameters = parameters or {}
+
     if table.expression is None:
-        logger.debug(f"There is no M-Query expression in table {table.full_name}")
+        logger.debug("There is no M-Query expression in table %s", table.full_name)
         return []
 
-    parameters = parameters or {}
+    expression = table.expression
 
-    logger.debug(
-        f"Processing {table.full_name} m-query expression for lineage extraction. Expression = {table.expression}"
-    )
+    if not expression.strip():
+        logger.debug("Empty M-Query expression in table %s — skipping", table.full_name)
+        return []
+
+    if TRACE_POWERBI_MQUERY_PARSER:
+        logger.debug(
+            "Processing %s m-query expression for lineage extraction. Expression = %s",
+            table.full_name,
+            expression,
+        )
+
+    # Replaces validator.py — correctly suppresses only NativeQuery expressions,
+    # fixing the prior bug where native_query_parsing=False suppressed all parsing.
+    if not config.native_query_parsing and "Value.NativeQuery" in expression:
+        logger.debug(
+            "Skipping NativeQuery expression (native_query_parsing=False) for %s",
+            table.full_name,
+        )
+        reporter.m_query_native_query_skipped += 1
+        return []
+
+    reporter.m_query_parse_attempts += 1
 
     try:
-        valid, message = validator.validate_parse_tree(
-            table.expression, native_query_enabled=config.native_query_parsing
-        )
-        if valid is False:
-            assert message is not None
-            logger.debug(f"Validation failed: {message}")
-            reporter.info(
-                title="Non-Data Platform Expression",
-                message=message,
-                context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
-            )
-            reporter.m_query_parse_validation_errors += 1
-            return []
-
         with reporter.m_query_parse_timer:
-            reporter.m_query_parse_attempts += 1
-            parse_tree: Tree = _parse_expression(
-                table.expression, parse_timeout=config.m_query_parse_timeout
-            )
-
-    except KeyboardInterrupt:
-        raise
+            node_map = _parse_with_bridge(expression, config.m_query_parse_timeout)
     except TimeoutException:
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",
             message=f"M-Query parsing timed out after {config.m_query_parse_timeout} seconds. Lineage for this table will not be extracted.",
-            context=f"table-full-name={table.full_name}, expression={table.expression}",
+            context=f"table-full-name={table.full_name}, expression={expression}",
         )
         return []
-    except (
-        BaseException
-    ) as e:  # TODO: Debug why BaseException is needed here and below.
-        if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            error_type = "Unexpected Character Error"
-            reporter.m_query_parse_unexpected_character_errors += 1
+    except MQueryParseError as e:
+        # Expressions without a `let` keyword are almost certainly not M-Query
+        # (e.g. DAX computed-table expressions like SUMMARIZE(...)). The old
+        # Lark parser happened to parse these and then logged INFO "Non-Data
+        # Platform Expression". Preserve that behaviour: only warn when the
+        # expression looks like it was intended to be M-Query.
+        if "let" not in expression.lower():
+            reporter.m_query_non_mquery_expressions += 1
+            logger.info(
+                "Non-M-Query expression in table %s — skipping lineage extraction "
+                "(expression does not contain 'let'). Expression: %s. Error: %s",
+                table.full_name,
+                expression,
+                e,
+            )
         else:
-            error_type = "Unknown Parsing Error"
             reporter.m_query_parse_unknown_errors += 1
-
+            reporter.warning(
+                title="Unable to parse M-Query expression",
+                message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
+                context=f"table-full-name={table.full_name}, expression={expression}",
+                exc=e,
+            )
+        return []
+    except MQueryBridgeError as e:
+        reporter.m_query_parse_unknown_errors += 1
         reporter.warning(
             title="Unable to parse M-Query expression",
-            message=f"Got an '{error_type}' while parsing the expression. Lineage will be missing for this table.",
-            context=f"table-full-name={table.full_name}, expression={table.expression}",
+            message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
+            context=f"table-full-name={table.full_name}",
             exc=e,
         )
         return []
+
     reporter.m_query_parse_successes += 1
 
     try:
-        lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
-            resolver.MQueryResolver(
-                table=table,
-                parse_tree=parse_tree,
-                reporter=reporter,
-                parameters=parameters,
-            ).resolve_to_lineage(
-                ctx=ctx,
-                config=config,
-                platform_instance_resolver=platform_instance_resolver,
-            )
+        data_access_func_details = mquery_resolver.resolve_to_data_access_functions(
+            node_map, parameters=parameters
         )
 
-        if lineage:
+        if not data_access_func_details:
+            logger.debug(
+                "No recognized data-access function found in expression for table %s."
+                " Expression may use an unsupported source (e.g. Web.Contents,"
+                " Excel.Workbook). To add support, reproduce with: %r",
+                table.full_name,
+                expression,
+            )
+
+        lineages: List[Lineage] = []
+        for f_detail in data_access_func_details:
+            supported_pattern = pattern_handler.SupportedPattern.get_pattern_handler(
+                f_detail.data_access_function_name
+            )
+            if supported_pattern is None:
+                logger.debug(
+                    "No handler for data access function %s",
+                    f_detail.data_access_function_name,
+                )
+                continue
+            lineage = supported_pattern.handler()(
+                ctx=ctx,
+                table=table,
+                config=config,
+                reporter=reporter,
+                platform_instance_resolver=platform_instance_resolver,
+            ).create_lineage(f_detail)
+            if lineage.upstreams:
+                lineages.append(lineage)
+
+        if lineages:
             reporter.m_query_resolver_successes += 1
         else:
             reporter.m_query_resolver_no_lineage += 1
-        return lineage
+            if data_access_func_details:
+                # Function(s) were recognized but all handlers returned empty —
+                # the per-handler debug logs above explain why. Log the expression
+                # here so it can be copy-pasted into a local test for investigation.
+                logger.debug(
+                    "Recognized function(s) %s but no lineage extracted for table %s."
+                    " To reproduce locally: %r",
+                    [f.data_access_function_name for f in data_access_func_details],
+                    table.full_name,
+                    expression,
+                )
 
-    except BaseException as e:
+        return lineages
+
+    except Exception as e:
         reporter.m_query_resolver_errors += 1
         reporter.warning(
             title="Unknown M-Query Pattern",
             message="Encountered an unknown M-Query Expression",
-            context=f"table-full-name={table.full_name}, expression={table.expression}, message={e}",
+            context=f"table-full-name={table.full_name}, expression={expression}, message={e}",
             exc=e,
         )
         return []

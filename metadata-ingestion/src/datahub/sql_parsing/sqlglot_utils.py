@@ -80,10 +80,14 @@ def is_dialect_instance(
 @functools.lru_cache(maxsize=SQL_PARSE_CACHE_SIZE)
 def _parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
-    statement: sqlglot.Expression = sqlglot.maybe_parse(
+) -> sqlglot.exp.Expression:
+    statement = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
+    if not isinstance(statement, sqlglot.exp.Expression):
+        raise TypeError(
+            f"Expected Expression from maybe_parse(), got {type(statement)}"
+        )
 
     # Handle Block statements from sqlglot v29+
     # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
@@ -119,7 +123,7 @@ def _parse_statement(
 
 def parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
+) -> sqlglot.exp.Expression:
     # Parsing is significantly more expensive than copying the expression.
     # Because the expressions are mutable, we don't want to allow the caller
     # to modify the parsed expression that sits in the cache. We keep
@@ -129,7 +133,7 @@ def parse_statement(
     return _parse_statement(sql, dialect).copy()
 
 
-def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.Expr:
     # Note: does not go through parse_statement, so _sanitize_snowflake_ddl is
     # not applied here. This is intentional — callers (e.g. dbt) pass compiled
     # SELECT SQL, never raw DDL with governance metadata.
@@ -156,9 +160,9 @@ def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expre
 def _expression_to_string(
     expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> str:
-    if isinstance(expression, str):
-        return expression
-    return expression.sql(dialect=get_dialect(platform))
+    if isinstance(expression, sqlglot.exp.Expr):
+        return expression.sql(dialect=get_dialect(platform))
+    return str(expression)
 
 
 PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION = re.compile(r"(%s|\$\d|\?)")
@@ -234,9 +238,11 @@ def generalize_query_fast(
         The generalized SQL query.
     """
 
-    if isinstance(expression, sqlglot.exp.Expression):
-        expression = expression.sql(dialect=get_dialect(dialect))
-    query_text = expression
+    query_text: str
+    if isinstance(expression, sqlglot.exp.Expr):
+        query_text = expression.sql(dialect=get_dialect(dialect))
+    else:
+        query_text = str(expression)
 
     REGEX_REPLACEMENTS = {
         **_BASIC_NORMALIZATION_RULES,

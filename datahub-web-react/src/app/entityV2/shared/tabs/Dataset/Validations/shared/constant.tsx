@@ -1,4 +1,8 @@
-import { Clock, Database, Dresser, GitFork, Hammer } from '@phosphor-icons/react';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { Dresser } from '@phosphor-icons/react/dist/csr/Dresser';
+import { GitFork } from '@phosphor-icons/react/dist/csr/GitFork';
+import { Hammer } from '@phosphor-icons/react/dist/csr/Hammer';
 import React from 'react';
 
 import { AssertionType } from '@src/types.generated';

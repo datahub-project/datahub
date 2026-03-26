@@ -118,6 +118,16 @@ module.exports = {
               type: "doc",
               id: "docs/dev-guides/agent-context/copilot-studio",
             },
+            {
+              label: "Google Vertex AI",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-vertex-ai",
+            },
+            {
+              label: "Google ADK",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-adk",
+            },
           ],
         },
         {
@@ -164,6 +174,12 @@ module.exports = {
               label: "Smart Assertions ⚡ (Anomaly Detection)",
               type: "doc",
               id: "docs/managed-datahub/observe/smart-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Backfill Assertion History",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-backfill",
               className: "saasOnly",
             },
             {
@@ -472,6 +488,11 @@ module.exports = {
           type: "doc",
           id: "docs/tags",
         },
+        {
+          label: "Views",
+          type: "doc",
+          id: "docs/features/feature-guides/views/overview",
+        },
       ],
     },
     // DataHub Cloud.
@@ -604,6 +625,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_17",
         "docs/managed-datahub/release-notes/v_0_3_16",
         "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
@@ -719,7 +741,7 @@ module.exports = {
           ],
         },
         {
-          PowerBI: [
+          "Power BI": [
             "docs/quick-ingestion-guides/powerbi/overview",
             "docs/quick-ingestion-guides/powerbi/setup",
             "docs/quick-ingestion-guides/powerbi/configuration",

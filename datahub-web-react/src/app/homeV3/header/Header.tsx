@@ -6,7 +6,7 @@ import GreetingText from '@app/homeV3/header/components/GreetingText';
 import SearchBar from '@app/homeV3/header/components/SearchBar';
 import { CenteredContainer, contentWidth } from '@app/homeV3/styledComponents';
 
-export const HeaderWrapper = styled.div`
+const HeaderWrapper = styled.div`
     display: flex;
     justify-content: center;
     padding: 27px 0 24px 0;

@@ -21,7 +21,7 @@ const LoadingContainer = styled.div`
     background: white;
 `;
 
-export interface InfiniteScrollNestedSelectProps<OptionType extends NestedSelectOption = NestedSelectOption>
+interface InfiniteScrollNestedSelectProps<OptionType extends NestedSelectOption = NestedSelectOption>
     extends Omit<SelectProps<OptionType>, 'options'> {
     options: OptionType[];
     loading?: boolean;

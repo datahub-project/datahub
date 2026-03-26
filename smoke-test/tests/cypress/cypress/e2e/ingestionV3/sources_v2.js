@@ -1,5 +1,5 @@
 import {
-  setThemeV2AndIngestionRedesignFlags,
+  setIngestionRedesignFlags,
   createAndRunIngestionSource,
   createIngestionSource,
   updateIngestionSource,
@@ -22,8 +22,8 @@ const ingestionSourceDetails = {
 
 describe("ingestion sources", () => {
   beforeEach(() => {
-    setThemeV2AndIngestionRedesignFlags(true);
-    cy.loginWithCredentials();
+    setIngestionRedesignFlags(true);
+    cy.login();
     goToIngestionPage();
   });
 
@@ -45,7 +45,7 @@ describe("ingestion sources", () => {
     const sourceName = "ingestion source";
     const updatedSourceName = "updated ingestion source";
     createIngestionSource(sourceName);
-    verifyScheduleIsAppliedOnTable(sourceName, "12:00 am"); // the default schedule
+    verifyScheduleIsAppliedOnTable(sourceName, "-"); // the default schedule
     updateIngestionSource(sourceName, updatedSourceName, {
       schedule: { hour: "01" },
     });

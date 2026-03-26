@@ -2073,7 +2073,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3"
                 }
             ],
             "fineGrainedLineages": [
@@ -2088,7 +2088,7 @@
                     ],
                     "transformOperation": "COPY: `metadata_index`.`id` AS `id`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2101,7 +2101,7 @@
                     ],
                     "transformOperation": "COPY: `metadata_index`.`urn` AS `urn`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2114,7 +2114,7 @@
                     ],
                     "transformOperation": "COPY: `metadata_index`.`path` AS `path`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2127,7 +2127,7 @@
                     ],
                     "transformOperation": "COPY: `metadata_index`.`doubleVal` AS `doubleVal`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3"
                 }
             ]
         }
@@ -2140,7 +2140,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2169,7 +2169,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2216,7 +2216,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2264,7 +2264,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_7d3b02d5c8beba609562eb96cc9a686081320a19fc65cd73436b2084207fa4d3",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

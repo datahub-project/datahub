@@ -1,19 +1,18 @@
-import {
-    AppWindow,
-    BookBookmark,
-    FileText,
-    Gear,
-    Globe,
-    HardDrives,
-    Plugs,
-    Question,
-    SignOut,
-    SquaresFour,
-    Tag,
-    TextColumns,
-    TrendUp,
-    UserCircle,
-} from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import { BookBookmark } from '@phosphor-icons/react/dist/csr/BookBookmark';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -38,8 +37,6 @@ import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeN
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
-import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -52,7 +49,7 @@ import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-import AcrylIcon from '@images/acryl-light-mark.svg?react';
+import AcrylIcon from '@images/datahublogo.svg?react';
 
 const Container = styled.div`
     height: 100vh;
@@ -95,16 +92,16 @@ const ScrollableContent = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #a9adbd;
+        background: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: #81879f;
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: #a9adbd transparent;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg} transparent;
 `;
 
 const Footer = styled.div`
@@ -120,7 +117,7 @@ const CustomLogo = styled.img`
     min-width: 20px;
 `;
 
-const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/datahublogo.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
@@ -146,9 +143,6 @@ export const NavSidebar = () => {
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
-
-    const { hasIngestionSources } = useHasIngestionSources();
-    const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showStructuredProperties =
@@ -330,15 +324,7 @@ export const NavSidebar = () => {
                         isHidden: !showDataSources,
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
-                        link: ingestionLink,
-                        onClick: () => {
-                            if (ingestionLink === PageRoutes.INGESTION_CREATE) {
-                                analytics.event({
-                                    type: EventType.EnterIngestionFlowEvent,
-                                    entryPoint: 'nav_menu',
-                                });
-                            }
-                        },
+                        link: PageRoutes.INGESTION,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

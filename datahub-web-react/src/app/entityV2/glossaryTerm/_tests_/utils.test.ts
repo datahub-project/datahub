@@ -1,5 +1,5 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { getRelatedAssetsUrl, getRelatedEntitiesUrl, sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 
 import { EntityType } from '@types';
 

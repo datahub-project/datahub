@@ -72,9 +72,11 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
       if (!shouldNotFilter(request)) {
         // This path requires authentication
         if (authentication == null || isAnonymousUser(authentication)) {
-          log.debug(
-              "Authentication required for path: {}, but user is not authenticated",
-              request.getServletPath());
+          String remoteAddr = request.getRemoteAddr();
+          log.warn(
+              "Rejected unauthenticated request to protected path: {} from {}",
+              request.getServletPath(),
+              remoteAddr != null ? remoteAddr : "unknown");
           response.sendError(
               HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
           return;

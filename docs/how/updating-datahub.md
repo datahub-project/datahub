@@ -33,7 +33,26 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## v1.5.0
+
+Requirements:
+
+- Helm Chart: 0.9.0
+
+### Breaking Changes
+
+- #16685:(Ingestion) PowerBI M-Query lineage extraction has been rewritten using Microsoft's official `@microsoft/powerquery-parser`. As part of this change, the `native_query_parsing: false` configuration flag now suppresses only expressions containing `Value.NativeQuery`. Previously it suppressed all M-Query lineage extraction. Users who set this flag to block all lineage extraction will now see lineage produced for non-NativeQuery sources (Snowflake, PostgreSQL, MSSQL, etc.). To restore the suppress-all behaviour, add a `table_pattern.deny` rule in your recipe.
+- #16341:(Ingestion) SQL parsing: View query IDs are now generated using a SHA-256 hash instead of URL-encoding the view URN. This affects all connectors that use view lineage tracking (Snowflake, Oracle, BigQuery, Postgres, MySQL, Hive, Trino, ClickHouse, DB2, Dremio, SQL Server, and others). Previously, query entities had URNs like `urn:li:query:view_urn%3Ali%3Adataset%3A%28...%29`; they now use `urn:li:query:view_<sha256hash>`. After upgrading, the old URL-encoded query entities will become stale and orphaned. To clean them up, enable stateful ingestion with stale entity removal in your recipe and re-run ingestion.
 - #16396: Oracle connector: When connecting via `service_name` to a multitenant Oracle database, the database name used in URNs will now reflect the Pluggable Database (PDB) name instead of the Container Database (CDB) name. In Oracle Multitenant architecture, a CDB is the top-level container (e.g. `cdb`) and a PDB is an individual tenant database within it (e.g. `mypdb`); `service_name` typically routes to the PDB, so the PDB name is the correct identifier for your datasets. This affects both dataset URNs (when `add_database_name_to_urn: true`) and database/schema container URNs (always, since containers always include the database name). If your existing metadata was ingested with the old CDB-based URNs, re-ingesting will create new entities under the corrected URNs. To preserve the old URN shape and avoid re-creating entities, set `urn_db_name` explicitly in your recipe to match your previous CDB name.
+- #16628 (Ingestion) Fabric OneLake source: Workspace containers now use the `fabric` platform instead of `fabric-onelake`. This changes workspace container URNs and the `dataPlatformInstance.platform` emitted for workspace entities. Lakehouse, warehouse, schema, and dataset entities remain on `fabric-onelake`.
 - **Retention service disabled: only current version retained.** When the retention service is not enabled (not configured or unavailable), the write path now retains only the current version (version 0) and does not create version-history rows. Previously, version history was still written when retention was disabled. **Impact:** Deployments that run without retention enabled will no longer accumulate aspect version history; only the latest aspect value is stored. **Migration:** Enable and configure the retention service (e.g. ingest retention policies from `boot/retention.yaml`) if you need version history for any entity/aspect.
 - #16134: Java 17 Runtime Required - DataHub now compiles to Java 17 bytecode (previously Java 11). All Docker images already ship with Java 17 runtime. Self-hosted users must ensure their runtime environment uses Java 17+. The Maven artifact name remains `datahub-client-java8` for backward compatibility, but now requires Java 17+ at runtime. This change also includes:
   - Spark integration upgraded from 3.0.3 to 3.3.4 (minimum version required for Java 17 support)
@@ -50,6 +69,10 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #16385 Default token signing key and salt have been removed from `metadata-service/configuration/src/main/resources/application.yaml`. It is recommended to set `authentication.tokenService.signingKey` or env var `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `authentication.tokenService.salt` or env var `DATAHUB_TOKEN_SERVICE_SALT` before starting DataHub. Refer the linked pages to know this is handled for [local development](../developers.md) and [CLI quickstart](../quickstart.md).
   - If you are using helm to deploy DataHub you should be unaffected as the helm charts don't use the default values in application.yaml but rather generate a random secret to use.
   - IMPACT: Due to the change in signing keys for local development and quickstart, PATs generated before this release will be invalidated and will need to be regenerated in those instances.
+- #15744: The `emit_mcps()` method on `DataHubRestEmitter` now returns `List[TraceData]` instead of `int`. Previously it returned the number of chunks/batches sent. Now it returns a list of `TraceData` objects (one per batch) containing trace IDs for debugging and status checking. To get the previous chunk count, use `len(result)` on the returned list. Additionally, `emit_mcp()` now returns `Optional[TraceData]` instead of `None`.
+- #16680 (Frontend) The V1 UI theme is now officially sunset. All new features and patches going forward will be on the V2 UI (`THEME_V2_ENABLED=true`). If you are a customer of DataHub Cloud, or started using DataHub after February 2025 (or kept your clone/fork's environment variables in-sync with upstream since then), then this is already your default experience and you do not need to change anything.
+  - To ensure you are experiencing the latest features of DataHub, please ensure the GMS environment variables `THEME_V2_ENABLED` and `THEME_V2_DEFAULT` are set to `true` and `THEME_V2_TOGGLEABLE` is set to `false`.
+  - If you are using helm to deploy Datahub, ensure `datahub-gms.theme_v2.enabled` and `datahub-gms.theme_v2.default` are both set to `true` in `values.yaml`.
 
 ### Known Issues
 
@@ -59,10 +82,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #16176: Vertex AI Source - The `region` configuration field is deprecated in favor of `regions` (list type). The `region` field continues to work for backward compatibility.
 - #16176: Vertex AI Source - Partition handling behavior will change in a future major version. Currently, `normalize_external_dataset_paths` defaults to `false`, meaning partitioned paths like `gs://bucket/data/year=2024/month=01/` create separate dataset entities. In the next major version, this will default to `true`, normalizing paths to `gs://bucket/data/` for stable dataset URNs with lineage aggregation across partitions. To opt-in to the new behavior now, set `normalize_external_dataset_paths: true` in your configuration.
+- #16375: Vertex AI Source - The `project_id` (singular) configuration field is deprecated in favor of `project_ids` (list). The field is automatically migrated at startup — no immediate action required. Update your recipe to use `project_ids: ["my-project"]` to silence the deprecation warning. `project_id` will be removed in a future major release.
 
 ### Other Notable Changes
 
-- #16339 (Ingestion) Migrating Python dependency declarations from `setup.py` to `pyproject.toml` (PEP 621). `setup.py` remains the source of truth for editing dependencies for now; `pyproject.toml` is auto-generated from it via `./gradlew :metadata-ingestion:generatePyprojectDeps`. Sync verification (`./gradlew :metadata-ingestion:verifyPyprojectSync`) runs automatically during `check` and `buildWheel`. `setup.py` will be deprecated in a future release in favor of `pyproject.toml` as the sole dependency source.
+- #15270 (Ingestion) Browse paths: When `platform_instance` is configured, DataFlow and DataJob entities now receive a `browsePathsV2` aspect with the platform instance as the root path. Previously, these entities had no browse path from ingestion and the backend would place them in a generic "Default" folder, causing entities from multiple platform instances to be mixed together. This affects sources like Fivetran, Glue, and Kafka-Connect that emit DataFlow/DataJob entities with `platform_instance`. Sources without `platform_instance` configured are unaffected.
+- #16339 (Ingestion) Migrating Python dependency declarations from `setup.py` to `pyproject.toml` (PEP 621). `setup.py` remains the source of truth for editing dependencies for now; `pyproject.toml` is auto-generated from it via `./gradlew :metadata-ingestion:updateLockFile`. Sync verification (`./gradlew :metadata-ingestion:verifyPyprojectSync`) runs automatically during `check` and `buildWheel`. `setup.py` will be deprecated in a future release in favor of `pyproject.toml` as the sole dependency source.
 - #16358 (Ingestion) dbt: Added `convert_urns_to_lowercase` config option for dbt ingestion (both dbt-core and dbt-cloud). When enabled, dbt platform URNs are lowercased, preventing duplicate entities caused by schema name casing differences (e.g., `app_sales` vs `APP_SALES`). This is an opt-in flag (default: `false` for all platforms). Recommended for case-insensitive platforms like Snowflake or BigQuery where dbt manifests may contain mixed-case identifiers.
 - **Kubernetes: optional scale-down during system-update.** When the system-update job runs in a Kubernetes cluster, an optional Java-based step can scale down deployments (by label selector, e.g. MAE/MCE) and set environment variables on other deployments (by label selector, e.g. GMS) before blocking upgrades (e.g. reindex), then restore them after. Scale-down is conditional: it runs only when a blocking upgrade (such as BuildIndices when reindex is needed) requires it. Rollout and scale-down operations run in parallel. State is stored in a ConfigMap; if retries are exceeded, the step restores state, deletes the ConfigMap, and fails. The Java implementation is disabled by default; enable via Helm (`datahubSystemUpdate.scaleDown.useJavaImplementation`) and the job env vars described in [Environment variables](../deploy/environment-vars.md#kubernetes-scale-down-system-update). Outside Kubernetes or when disabled, the step is a no-op.
 - #16176: Vertex AI Source Connector - Additional improvements beyond breaking changes:
@@ -73,6 +98,33 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Optional `platform_instance` configuration field for environments running multiple Vertex AI instances
   - Existing ingestion configurations continue to work without modification, and URNs remain unchanged unless `platform_instance` is explicitly configured
 - #16142: Oracle ingestion: Fixed database container naming when using `service_name` instead of `database` configuration. Previously, Oracle containers had no name (only an ID) when using `service_name` with `data_dictionary_mode: ALL` (the default). Container URNs will change for affected users as the database name is now properly populated in the container GUID. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up the old containers and create properly named ones. This fix also ensures database names are normalized consistently with schema and table names.
+- #16300 (Ingestion) Mode connector: Performance improvements for large Mode workspaces including concurrent API fetching, response caching, and SQL parsing optimizations. Column-level lineage now emits table-level lineage as a fallback when column-level parsing times out.
+- #16300 (Ingestion) SQL parsing: Join resolution for queries involving CTEs and subqueries was optimized to avoid expensive deep-copy operations that caused significant slowdowns on complex queries. This affects all connectors that use SQL-based lineage (Snowflake, BigQuery, dbt, Mode, Redshift, etc.). The new approach directly walks SQL scope sources to resolve physical tables, replacing the previous indirect column-tracing fallback. This produces more accurate join metadata — for example, unused CTEs are now correctly excluded from join tables. In rare edge cases with unusual CTE patterns, join metadata may differ from previous results, but the new output better reflects the actual query structure.
+- #15741: New RDF ingestion source.
+- #15735: New Snowplow ingestion source.
+- #15249: New Apache Doris ingestion source.
+- #16236 (Ingestion) dbt: Support for ingesting dbt semantic models.
+- #16483 / #16445 (Ingestion) Kafka Connect: Added support for Debezium and Confluent JDBC sink connectors; the connector image bundles a JVM via jdk4py so a system Java installation is not required for Kafka Connect ingestion.
+- #16292 (Ingestion) Trino: Column-level lineage on upstream datasets via the connector.
+- #16443 (Ingestion) Iceberg: Optional ingestion-time domain assignment configuration.
+- #13232 (Ingestion) BigQuery: Added `convert_column_urns_to_lowercase` configuration option (opt-in).
+- #16568 (Ingestion) Power BI: `extract_column_level_lineage` is enabled by default for richer lineage; disable in the recipe if you need the previous behavior.
+- #16387 / #16388: Assets can be associated with multiple data products (backend and UI).
+- #16365: Policies can target resources by Glossary Terms and Groups.
+- #16207: Domain-scoped policies can include assets in child domains.
+- #16303 (Ingestion) Sigma: Workbook filtering in addition to workspace filtering.
+- #16100 (Ingestion) Snowflake: Metadata pattern pushdown and table type filtering to reduce warehouse metadata queries.
+- #16310 (Ingestion) Kafka source: Optional configuration to disable Avro schema name validation.
+- #16471 (CLI) `datahub search` with semantic search, query projection, and agent-context integration.
+- #15744 (SDK) Trace IDs are exposed for `SYNC_PRIMARY` and `ASYNC` emit modes on the REST emitter.
+- #16529 (Ingestion) Great Expectations and SQLAlchemy-based profilers are brought to feature parity.
+- #16355: Elasticsearch reindex and index-creation paths include additional retry behavior for resilience.
+- #16489 / #16498: Ingestion Docker images and builds use pinned transitive dependencies (`uv.lock`, `constraints.txt`) for more reproducible installs.
+- #16165 (Ingestion) Configurable report sample sizes and richer failure logging for ingestion reports.
+- #15855 (Ingestion) dbt: Support for ingesting dbt exposures.
+- #16058 (Ingestion) Snowflake: Support for ingesting external data metric function (DMF) assertions.
+- #16265 (Ingestion) Azure Data Factory: Column lineage extraction for Copy activity.
+- #16235 (Ingestion) Airflow plugin: Multi-statement SQL parsing support for lineage extraction.
 
 ## v1.4.0
 

@@ -51,7 +51,6 @@ describe("External Document Profile Tests", () => {
 
   beforeEach(() => {
     enableContextDocuments();
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 
