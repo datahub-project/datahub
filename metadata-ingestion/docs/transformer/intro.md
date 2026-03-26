@@ -22,7 +22,14 @@ For example, adding a domain urn in your transformer to apply to datasets will n
 
 Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: tags, glossary terms, properties and ownership information.
 
-DataHub provided transformers for dataset are:
+DataHub provided multi-entity transformers (for datasets, containers, charts, dashboards, data jobs, and data flows):
+
+- [Simple Add Domain](./multi_entity_transformers.md#simple-add-domain)
+- [Pattern Add Domain](./multi_entity_transformers.md#pattern-add-domain)
+- [Simple Add Ownership](./multi_entity_transformers.md#simple-add-ownership)
+- [Pattern Add Ownership](./multi_entity_transformers.md#pattern-add-ownership)
+
+DataHub provided transformers for datasets only:
 
 - [Simple Add Dataset ownership](./dataset_transformer.md#simple-add-dataset-ownership)
 - [Pattern Add Dataset ownership](./dataset_transformer.md#pattern-add-dataset-ownership)
