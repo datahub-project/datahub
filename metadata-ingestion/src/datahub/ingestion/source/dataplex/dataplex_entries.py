@@ -136,31 +136,8 @@ class DataplexEntriesProcessor:
             yield from self.process_location(project_id, location)
 
     def process_location(self, project_id: str, location: str) -> Iterable["Entity"]:
-        """Process all eligible entry groups and entries for one location."""
+        """Process all pre-filtered entries for one location."""
         for entry in self.collect_entries(project_id, location):
-            entry_name = entry.name
-            filtered_missing_fqn = not bool(entry.fully_qualified_name)
-            if filtered_missing_fqn:
-                self.report.report_entry(
-                    entry_name=entry_name,
-                    filtered_missing_fqn=True,
-                    filtered_fqn=False,
-                    filtered_name=False,
-                )
-                continue
-            assert entry.fully_qualified_name
-            fqn = entry.fully_qualified_name
-            filtered_name = not self._entry_name_allowed(entry_name)
-            filtered_fqn = not self._entry_fqn_allowed(fqn)
-            self.report.report_entry(
-                entry_name=entry_name,
-                filtered_missing_fqn=False,
-                filtered_fqn=filtered_fqn,
-                filtered_name=filtered_name,
-            )
-            if filtered_name or filtered_missing_fqn or filtered_fqn:
-                continue
-
             project_container = self.build_project_container_for_entry(entry)
             if project_container is not None:
                 project_container_urn = project_container.urn.urn()
@@ -192,7 +169,7 @@ class DataplexEntriesProcessor:
         project_id: str,
         location: str,
     ) -> Iterable[dataplex_v1.Entry]:
-        """Stream entries from entry groups and Spanner workaround."""
+        """Stream filter-passing entries from entry groups and Spanner workaround."""
 
         for entry_group in self.list_entry_groups(project_id, location):
             logger.info(f"Listing entry group {entry_group.name}")
@@ -210,6 +187,13 @@ class DataplexEntriesProcessor:
             for entry in entries:
                 logger.info(f"Listing entry {entry.name} from group {entry_group.name}")
                 logger.info(f"ListEntries payload: {entry}")
+                if not self._report_and_should_process_entry(entry):
+                    logger.debug(
+                        "Skipping detailed fetch for filtered entry %s from group %s",
+                        entry.name,
+                        entry_group.name,
+                    )
+                    continue
                 try:
                     entry_request = dataplex_v1.GetEntryRequest(
                         name=entry.name,
@@ -219,6 +203,7 @@ class DataplexEntriesProcessor:
                         detailed_entry = self.catalog_client.get_entry(
                             request=entry_request
                         )
+                    logger.debug(f"Detailed entry {detailed_entry}")
                     yield detailed_entry
                 except Exception as exc:
                     self.source_report.warning(
@@ -234,6 +219,7 @@ class DataplexEntriesProcessor:
         self, project_id: str, location: str
     ) -> Iterable[dataplex_v1.Entry]:
         """Stream Spanner entries via search_entries workaround."""
+        logger.info(f"SearchEntries spanner for project={project_id} location={location}")
         request = dataplex_v1.SearchEntriesRequest(
             name=f"projects/{project_id}/locations/{location}",
             scope=f"projects/{project_id}",
@@ -245,13 +231,15 @@ class DataplexEntriesProcessor:
                     self.catalog_client.search_entries(request=request)
                 )
             for result in search_results:
-                logger.info(
-                    f"SearchEntries result for project={project_id} location={location}"
-                )
-                logger.debug(f"SearchEntries payload: {result}")
+                logger.info(f"SearchEntries result payload: {result}")
                 dataplex_entry = getattr(result, "dataplex_entry", None)
                 if dataplex_entry is not None:
-                    logger.info(f"Yielding spanner entry {dataplex_entry.name}")
+                    if not self._report_and_should_process_entry(dataplex_entry):
+                        logger.debug(
+                            "Skipping filtered spanner entry %s from search_entries",
+                            dataplex_entry.name,
+                        )
+                        continue
                     logger.debug(f"Spanner dataplex entry payload: {dataplex_entry}")
                     yield dataplex_entry
         except Exception as exc:
@@ -272,6 +260,30 @@ class DataplexEntriesProcessor:
         return self._entry_name_allowed(entry_name) and self._entry_fqn_allowed(
             entry.fully_qualified_name
         )
+
+    def _report_and_should_process_entry(self, entry: dataplex_v1.Entry) -> bool:
+        """Apply entry filters, report counters/samples, and return pass/fail."""
+        entry_name = entry.name
+        filtered_missing_fqn = not bool(entry.fully_qualified_name)
+        if filtered_missing_fqn:
+            self.report.report_entry(
+                entry_name=entry_name,
+                filtered_missing_fqn=True,
+                filtered_fqn=False,
+                filtered_name=False,
+            )
+            return False
+
+        assert entry.fully_qualified_name
+        filtered_name = not self._entry_name_allowed(entry_name)
+        filtered_fqn = not self._entry_fqn_allowed(entry.fully_qualified_name)
+        self.report.report_entry(
+            entry_name=entry_name,
+            filtered_missing_fqn=False,
+            filtered_fqn=filtered_fqn,
+            filtered_name=filtered_name,
+        )
+        return not filtered_name and not filtered_fqn
 
     def build_entity_for_entry(self, entry: dataplex_v1.Entry) -> Optional["Entity"]:
         """Map Dataplex entry to DataHub SDK v2 Dataset/Container entity."""

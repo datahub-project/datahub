@@ -192,6 +192,7 @@ class TestDataplexEntriesProcessorDesign:
 
         listed_entry = Mock(spec=dataplex_v1.Entry)
         listed_entry.name = "projects/p/locations/us/entryGroups/g1/entries/e1"
+        listed_entry.fully_qualified_name = "bigquery:p.ds.e1"
 
         detailed_entry = Mock(spec=dataplex_v1.Entry)
         detailed_entry.name = listed_entry.name
@@ -234,17 +235,9 @@ class TestDataplexEntriesProcessorDesign:
         assert process_location_mock.call_args_list[0].args == ("project-1", "us")
         assert process_location_mock.call_args_list[1].args == ("project-1", "eu")
 
-    def test_process_location_filters_and_yields_entity(
+    def test_process_location_yields_entity_for_pre_filtered_entries(
         self, processor: DataplexEntriesProcessor
     ) -> None:
-        missing_fqn_entry = Mock(spec=dataplex_v1.Entry)
-        missing_fqn_entry.name = "projects/p/locations/us/entryGroups/g/entries/missing"
-        missing_fqn_entry.fully_qualified_name = ""
-
-        filtered_by_name = Mock(spec=dataplex_v1.Entry)
-        filtered_by_name.name = "projects/p/locations/us/entryGroups/g/entries/deny"
-        filtered_by_name.fully_qualified_name = "bigquery:p.ds.deny"
-
         accepted = Mock(spec=dataplex_v1.Entry)
         accepted.name = "projects/p/locations/us/entryGroups/g/entries/allow"
         accepted.fully_qualified_name = "bigquery:p.ds.allow"
@@ -254,10 +247,8 @@ class TestDataplexEntriesProcessorDesign:
             patch.object(
                 processor,
                 "collect_entries",
-                return_value=[missing_fqn_entry, filtered_by_name, accepted],
+                return_value=[accepted],
             ),
-            patch.object(processor, "_entry_name_allowed", side_effect=[False, True]),
-            patch.object(processor, "_entry_fqn_allowed", side_effect=[True, True]),
             patch.object(
                 processor, "build_project_container_for_entry", return_value=None
             ),
@@ -268,10 +259,7 @@ class TestDataplexEntriesProcessorDesign:
 
         report = cast(DataplexEntriesReport, processor.report)
         assert entities == [entity]
-        assert report.entries_seen == 3
-        assert report.entries_filtered_by_missing_fqn == 1
-        assert report.entries_filtered_by_pattern == 1
-        assert report.entries_processed == 1
+        assert report.entries_seen == 0
         track_lineage_mock.assert_called_once_with(
             project_id="project-1",
             dataplex_location="us",
@@ -296,8 +284,10 @@ class TestDataplexEntriesProcessorDesign:
 
         listed_ok = Mock(spec=dataplex_v1.Entry)
         listed_ok.name = "projects/p/locations/us/entryGroups/accept/entries/ok"
+        listed_ok.fully_qualified_name = "bigquery:p.ds.ok"
         listed_fail = Mock(spec=dataplex_v1.Entry)
         listed_fail.name = "projects/p/locations/us/entryGroups/accept/entries/fail"
+        listed_fail.fully_qualified_name = "bigquery:p.ds.fail"
 
         detailed_ok = Mock(spec=dataplex_v1.Entry)
         detailed_ok.name = listed_ok.name
@@ -355,6 +345,9 @@ class TestDataplexEntriesProcessorDesign:
             result_with_entry = Mock()
             result_with_entry.dataplex_entry = Mock(spec=dataplex_v1.Entry)
             result_with_entry.dataplex_entry.name = "projects/p/locations/us/entries/e1"
+            result_with_entry.dataplex_entry.fully_qualified_name = (
+                "spanner:p.us.instance.db.table"
+            )
             result_without_entry = Mock()
             result_without_entry.dataplex_entry = None
             catalog_client.search_entries.return_value = [
