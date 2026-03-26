@@ -20,6 +20,10 @@ import "./commands";
 import "@testing-library/cypress/add-commands";
 import "cypress-real-events/support";
 
+// Attaches screenshots of failed tests to the mochawesome JSON via addContext,
+// so they get embedded when the unified HTML report is generated post-matrix.
+import "cypress-mochawesome-reporter/register";
+
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
 
@@ -40,11 +44,9 @@ beforeEach(function () {
   }
 
   const HOME_PAGE_REDESIGN_KEY = "showHomePageRedesign";
-  const NAV_BAR_REDESIGN_STATUS_KEY = "isNavBarRedesignEnabled";
 
   cy.on("window:before:load", (win) => {
     win.localStorage.setItem(HOME_PAGE_REDESIGN_KEY, "false");
-    win.localStorage.setItem(NAV_BAR_REDESIGN_STATUS_KEY, "false");
   });
 
   // Skip the introduce page for all tests

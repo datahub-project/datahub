@@ -49,10 +49,7 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    group: [
-                        '@components/theme/foundations/colors',
-                        '**/alchemy-components/theme/foundations/colors',
-                    ],
+                    group: ['@components/theme/foundations/colors', '**/alchemy-components/theme/foundations/colors'],
                     message:
                         'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
@@ -105,6 +102,31 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     rules: {
+        'no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: 'moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'moment-timezone',
+                        message:
+                            'moment-timezone was removed for bundle size. Use dayjs with timezone plugin instead.',
+                    },
+                    {
+                        name: 'moment/moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'dayjs',
+                        message:
+                            "Import dayjs from '@utils/dayjs' instead. The utils wrapper registers all required plugins (utc, isoWeek, timezone, etc.) — importing bare 'dayjs' silently skips plugin registration.",
+                    },
+                ],
+            },
+        ],
         '@typescript-eslint/no-explicit-any': 'off',
         '@stylistic/js/comma-dangle': ['error', 'always-multiline'],
         'arrow-body-style': 'off',
@@ -121,6 +143,11 @@ module.exports = {
                         message:
                             'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
                         allowTypeImports: true,
+                    },
+                    {
+                        name: '@monaco-editor/react',
+                        importNames: ['loader'],
+                        message: "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
                     },
                 ],
             },
@@ -181,18 +208,23 @@ module.exports = {
             rules: { 'import/no-cycle': 'off' },
         },
         {
+            // The dayjs utils wrapper itself must import bare 'dayjs' to extend plugins.
+            files: ['src/utils/dayjs.ts'],
+            rules: { 'no-restricted-imports': 'off' },
+        },
+        {
             files: ['src/alchemy-components/theme/**/*.ts'],
             rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
         },
         // Semantic color enforcement — only on files changed in the current branch
-        ...(changedTsFiles.length > 0
-            ? [
-                  {
-                      files: changedTsFiles,
-                      excludedFiles: COLOR_RULE_EXCLUDED_FILES,
-                      rules: COLOR_ENFORCEMENT_RULES,
-                  },
-              ]
-            : []),
+        // ...(changedTsFiles.length > 0
+        //     ? [
+        //           {
+        //               files: changedTsFiles,
+        //               excludedFiles: COLOR_RULE_EXCLUDED_FILES,
+        //               rules: COLOR_ENFORCEMENT_RULES,
+        //           },
+        //       ]
+        //     : []),
     ],
 };

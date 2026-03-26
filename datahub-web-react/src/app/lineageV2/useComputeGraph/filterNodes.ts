@@ -1,4 +1,4 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import {
     EdgeId,
     LineageAuditStamp,

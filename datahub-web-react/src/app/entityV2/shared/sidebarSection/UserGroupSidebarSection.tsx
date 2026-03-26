@@ -1,35 +1,30 @@
 import React, { useState } from 'react';
-import { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
-import { GroupsSection } from '@app/entityV2/shared/SidebarStyledComponents';
+import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
+
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
-import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { CorpGroup, EntityRelationship } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 
-const entityLinkTextStyle = {
-    overflow: 'hidden',
-    'white-space': 'nowrap',
-    'text-overflow': 'ellipsis',
-};
+const GroupsContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+`;
 
 type Props = {
     groupsDetails: EntityRelationship[];
 };
 
 export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
-    const theme = useTheme();
+    const entityRegistry = useEntityRegistryV2();
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
 
-    const groupLinkStyle = {
-        backgroundColor: theme.colors.bgHover,
-        '& svg': {
-            color: theme.colors.icon,
-        },
-    };
     // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const validGroups = groupsDetails.filter((detail) => {
         const group = detail?.entity as CorpGroup | undefined;
@@ -41,22 +36,22 @@ export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
             title="Groups"
             content={
                 <>
-                    <GroupsSection>
+                    <GroupsContainer>
                         {validGroups.map((groupDetail, index) => {
-                            const { entity } = groupDetail;
+                            const group = groupDetail.entity as CorpGroup;
                             return (
-                                entity &&
+                                group &&
                                 index < entityCount && (
-                                    <EntityLink
-                                        key={entity?.urn}
-                                        entity={entity}
-                                        styles={groupLinkStyle}
-                                        displayTextStyle={entityLinkTextStyle}
+                                    <AvatarPillWithLinkAndHover
+                                        key={group.urn}
+                                        user={group}
+                                        size="sm"
+                                        entityRegistry={entityRegistry}
                                     />
                                 )
                             );
                         })}
-                    </GroupsSection>
+                    </GroupsContainer>
                     {groupsDetailsCount > entityCount && (
                         <ShowMoreSection
                             totalCount={groupsDetailsCount}
