@@ -1214,6 +1214,7 @@ class NativeQueryLineage(AbstractLineage):
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
+        FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value: SupportedDataPlatform.GOOGLE_BIGQUERY,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
 
@@ -1281,6 +1282,9 @@ class NativeQueryLineage(AbstractLineage):
                     data_access_tokens, "Catalog"
                 )
             )
+
+        if data_access_tokens[0] == FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value:
+            return get_next_item(data_access_tokens, "BillingProject")
 
         return None
 
