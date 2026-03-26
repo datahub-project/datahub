@@ -288,7 +288,9 @@ class TestDataplexEntriesProcessorDesign:
         assert report.entries_filtered_by_pattern == 1
         assert report.entries_processed == 1
         track_lineage_mock.assert_called_once_with(
-            project_id="project-1", entry=accepted
+            project_id="project-1",
+            dataplex_location="us",
+            entry=accepted,
         )
 
     def test_collect_entries_covers_group_filtering_and_exception_paths(self) -> None:

@@ -203,10 +203,20 @@ def test_get_lineage_for_entry_uses_entry_location_in_parent(
         datahub_dataset_name="test-project.ds.table",
     )
 
+    mock_upstream_link = Mock()
+    mock_upstream_link.source.fully_qualified_name = "bigquery:upstream.ds.tbl"
+    mock_downstream_link = Mock()
+    mock_downstream_link.target.fully_qualified_name = "bigquery:downstream.ds.tbl"
+
+    lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client_mock.search_links.side_effect = [  # type: ignore[union-attr]
+        [mock_upstream_link],
+        [mock_downstream_link],
+    ]
+
     lineage_extractor.get_lineage_for_entry("test-project", test_entry)
 
     assert lineage_extractor.lineage_client is not None
-    lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
     calls = lineage_client_mock.search_links.call_args_list
     assert len(calls) >= 2
     for call in calls[:2]:

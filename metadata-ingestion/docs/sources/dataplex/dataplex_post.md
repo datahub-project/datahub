@@ -23,10 +23,6 @@ The connector adds the following custom properties to datasets:
 - `dataplex_fully_qualified_name`: The fully qualified name of the entry
 - `dataplex_ingested`: Marker indicating the dataset was ingested via Dataplex
 
-:::note
-To access system-managed entry groups like `@bigquery`, use multi-region locations (`us`, `eu`, `asia`) via the `entries_locations` config parameter. Regional locations (`us-central1`, etc.) only contain placeholder entries.
-:::
-
 #### Filtering Configuration
 
 Filter which datasets to ingest using regex patterns with allow/deny lists:
@@ -157,7 +153,7 @@ After exhausting retries, the connector logs a warning and continues processing 
 
 **Common Issues:**
 
-1. **Regional restrictions**: Lineage API requires multi-region location (`us`, `eu`, `asia`) rather than specific regions (`us-central1`). The connector automatically uses the first value from `entries_locations`.
+1. **Location scope**: Lineage API requests are scoped using each entry's own Dataplex location.
 2. **Missing permissions**: Ensure service account has `roles/datalineage.viewer` role on all projects.
 3. **No lineage data**: Some entries may not have lineage if they weren't created through supported systems (BigQuery DDL/DML, Cloud Data Fusion, etc.).
 4. **Rate limiting**: If you encounter persistent rate limiting, increase `lineage_retry_backoff_multiplier` to add more delay between retries, or decrease `lineage_max_retries` if you prefer faster failure.

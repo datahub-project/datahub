@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from threading import Lock
-from typing import TYPE_CHECKING, Iterable, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Iterable, Optional, cast
 
 from google.cloud import dataplex_v1
 
@@ -38,20 +38,6 @@ from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
     from datahub.sdk.entity import Entity
-
-
-class DataplexProcessorReport(Protocol):
-    catalog_api_timer: PerfTimer
-
-    def report_entry_group(self, entry_group_name: str, filtered: bool) -> None: ...
-
-    def report_entry(
-        self,
-        entry_name: str,
-        filtered_missing_fqn: bool,
-        filtered_fqn: bool,
-        filtered_name: bool,
-    ) -> None: ...
 
 
 logger = logging.getLogger(__name__)
@@ -131,7 +117,7 @@ class DataplexEntriesProcessor:
         self,
         config: DataplexConfig,
         catalog_client: dataplex_v1.CatalogServiceClient,
-        report: DataplexProcessorReport,
+        report: DataplexEntriesReport,
         entry_data_by_project: dict[str, set[EntryDataTuple]],
         entry_data_lock: Lock,
         source_report: SourceReport,
@@ -290,10 +276,18 @@ class DataplexEntriesProcessor:
     def build_entity_for_entry(self, entry: dataplex_v1.Entry) -> Optional["Entity"]:
         """Map Dataplex entry to DataHub SDK v2 Dataset/Container entity."""
         if not entry.fully_qualified_name:
+            logger.debug(
+                "Skipping entity build for entry %s: missing fully_qualified_name",
+                entry.name,
+            )
             return None
 
         mapping_result = self._resolve_entry_type_mapping(entry)
         if mapping_result is None:
+            logger.debug(
+                "Skipping entity build for entry %s: unresolved entry type mapping",
+                entry.name,
+            )
             return None
         short_name, mapping = mapping_result
 
@@ -313,6 +307,11 @@ class DataplexEntriesProcessor:
                 fully_qualified_name=entry.fully_qualified_name,
             )
             if dataset_name is None:
+                logger.debug(
+                    "Skipping dataset entity build for entry %s: unable to extract dataset name from FQN %s",
+                    entry.name,
+                    entry.fully_qualified_name,
+                )
                 return None
 
             schema_metadata = None
@@ -364,6 +363,11 @@ class DataplexEntriesProcessor:
             fully_qualified_name=entry.fully_qualified_name,
         )
         if container_key is None:
+            logger.debug(
+                "Skipping container entity build for entry %s: unable to build container key from FQN %s",
+                entry.name,
+                entry.fully_qualified_name,
+            )
             return None
 
         # For containers, always derive parent linkage from Dataplex parent_entry.
@@ -394,10 +398,18 @@ class DataplexEntriesProcessor:
     ) -> Optional[Container]:
         """Build project-level container for an entry's owning project."""
         if not entry.fully_qualified_name:
+            logger.debug(
+                "Skipping project container build for entry %s: missing fully_qualified_name",
+                entry.name,
+            )
             return None
 
         mapping_result = self._resolve_entry_type_mapping(entry)
         if mapping_result is None:
+            logger.debug(
+                "Skipping project container build for entry %s: unresolved entry type mapping",
+                entry.name,
+            )
             return None
         short_name, mapping = mapping_result
 
@@ -406,13 +418,28 @@ class DataplexEntriesProcessor:
             fully_qualified_name=entry.fully_qualified_name,
         )
         if project_schema_key is None:
+            logger.debug(
+                "Skipping project container build for entry %s: unable to build project schema key from FQN %s",
+                entry.name,
+                entry.fully_qualified_name,
+            )
             return None
 
         identity = parse_fully_qualified_name(short_name, entry.fully_qualified_name)
         if identity is None:
+            logger.debug(
+                "Skipping project container build for entry %s: unable to parse FQN %s",
+                entry.name,
+                entry.fully_qualified_name,
+            )
             return None
         project_id = identity.get("project_id")
         if project_id is None:
+            logger.debug(
+                "Skipping project container build for entry %s: parsed identity missing project_id (identity=%s)",
+                entry.name,
+                identity,
+            )
             return None
 
         return Container(
@@ -433,6 +460,10 @@ class DataplexEntriesProcessor:
     ) -> Optional[ContainerKey]:
         """Build container-relationship parent key for entry parent."""
         if not entry.parent_entry:
+            logger.debug(
+                "Skipping parent container key build for entry %s: missing parent_entry",
+                entry.name,
+            )
             return None
         short_name = extract_entry_type_short_name(entry.entry_type)
         if short_name is None:
@@ -447,6 +478,11 @@ class DataplexEntriesProcessor:
             parent_entry=entry.parent_entry,
         )
         if parent_schema_key is None:
+            logger.debug(
+                "Skipping parent container key build for entry %s: unable to build parent key from parent_entry %s",
+                entry.name,
+                entry.parent_entry,
+            )
             return None
         return parent_schema_key
 

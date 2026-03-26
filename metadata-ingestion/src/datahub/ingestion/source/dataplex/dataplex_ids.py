@@ -6,6 +6,50 @@ This module centralizes all Dataplex identity concerns:
 - Parent extraction from ``parent_entry``
 - Static Dataplex entry-type -> DataHub entity mapping
 
+Example Dataplex entry payload (anonymized):
+
+.. code-block:: text
+
+   name: "projects/example-project-123456/locations/us-west2/entryGroups/@cloudsql/entries/cloudsql.googleapis.com/projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db/tables/example_table"
+   entry_type: "projects/655216118709/locations/global/entryTypes/cloudsql-mysql-table"
+   create_time {
+     seconds: 1774092556
+     nanos: 511835000
+   }
+   update_time {
+     seconds: 1774092556
+     nanos: 511835000
+   }
+   parent_entry: "projects/example-project-123456/locations/us-west2/entryGroups/@cloudsql/entries/cloudsql.googleapis.com/projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db"
+   fully_qualified_name: "cloudsql_mysql:example-project-123456.us-west2.example-instance.example-db.example_table"
+   entry_source {
+     resource: "projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db/tables/example_table"
+     system: "CLOUD_SQL"
+     platform: "GCP"
+     display_name: "example_table"
+     ancestors {
+       name: "projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db"
+       type_: "dataplex-types.global.cloudsql-mysql-database"
+     }
+     ancestors {
+       name: "projects/example-project-123456/locations/us-west2/instances/example-instance"
+       type_: "dataplex-types.global.cloudsql-mysql-instance"
+     }
+     location: "us-west2"
+   }
+
+How identity resolution works:
+- ``ENTRY_TYPE_SHORT_NAME_REGEX`` extracts the short entry type from ``entry_type``
+  (for example ``cloudsql-mysql-table``).
+- That short name indexes ``DATAPLEX_ENTRY_TYPE_MAPPINGS``, which determines the
+  target DataHub entity type (``Dataset`` or ``Container``) and emitted subtype.
+- The mapping's ``fqn_regex`` parses ``fully_qualified_name`` into identity fields
+  (for example project, location, instance, database, table). Those fields are used
+  to build DataHub entity identity (dataset name / key-class identity / URNs).
+- The mapping's ``parent_entry_regex`` plus ``parent_container_key_class`` parses
+  ``parent_entry`` to build the parent container key that is later emitted as the
+  parent-container relationship.
+
 Primary reference for FQN structures:
 https://docs.cloud.google.com/dataplex/docs/fully-qualified-names
 
@@ -112,13 +156,22 @@ PROJECT_KEY_CLASSES: tuple[type[DataplexProjectId], ...] = (
 
 @dataclass(frozen=True)
 class DataplexEntryTypeMapping:
+    """Static mapping contract from Dataplex entry types to DataHub semantics."""
+
     # Keep platform values strict because they feed URN generation.
+    # DataHub platform used for URN generation for mapped entities.
     datahub_platform: Literal["bigquery", "cloudsql", "spanner", "pubsub", "bigtable"]
+    # Whether this Dataplex entry type maps to a DataHub Dataset or Container.
     datahub_entity_type: Literal["Dataset", "Container"]
+    # DataHub subtype to emit for the mapped entity.
     datahub_subtype: str
+    # Regex that parses fully_qualified_name into identity fields for this type.
     fqn_regex: Pattern[str]
+    # Regex that parses parent_entry into identity fields for parent-container linkage.
     parent_entry_regex: Optional[Pattern[str]]
+    # Container key class used when this entry type itself is a Container.
     container_key_class: Optional[type[DataplexProjectId]]
+    # Parent container key class used for Dataset parent_container derivation.
     parent_container_key_class: Optional[type[DataplexProjectId]]
 
 

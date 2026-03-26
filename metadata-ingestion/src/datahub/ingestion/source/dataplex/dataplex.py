@@ -229,19 +229,21 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Process all Dataplex resources for a single project."""
-        logger.info(
-            "Processing entries from Universal Catalog for project %s", project_id
-        )
-        try:
-            yield from auto_workunit(self.entries_processor.process_project(project_id))
-        except exceptions.GoogleAPICallError as exc:
-            self.report.report_failure(
-                title="Failed to process Dataplex entries",
-                message="Error while extracting entries from Universal Catalog.",
-                context=project_id,
-                exc=exc,
-            )
-            return
+        with self.report.new_stage(
+            f"Processing entries from Universal Catalog for project {project_id}"
+        ):
+            try:
+                yield from auto_workunit(
+                    self.entries_processor.process_project(project_id)
+                )
+            except exceptions.GoogleAPICallError as exc:
+                self.report.report_failure(
+                    title="Failed to process Dataplex entries",
+                    message="Error while extracting entries from Universal Catalog.",
+                    context=project_id,
+                    exc=exc,
+                )
+                return
 
         if self.config.include_lineage and self.lineage_extractor:
             yield from self._get_lineage_workunits(project_id)
