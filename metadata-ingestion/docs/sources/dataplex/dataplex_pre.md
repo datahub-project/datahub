@@ -8,23 +8,6 @@ The Dataplex connector extracts metadata from Google Dataplex using the **Univer
 
 Spanner entries are collected through an additional `search_entries` workaround after the entry-group traversal phase. Because those entries are not discovered through `list_entry_groups`, `filter_config.entry_groups.pattern` does not apply to them. Use entry-level filters (`filter_config.entries.pattern` and `filter_config.entries.fqn_pattern`) to control Spanner inclusion.
 
-#### Supported services
-
-- **BigQuery**: datasets, tables, models, routines, connections, and linked datasets
-- **Cloud SQL**: instances
-- **AlloyDB**: instances, databases, schemas, tables, and views
-- **Spanner**: instances, databases, and tables
-- **Pub/Sub**: topics and subscriptions
-- **Cloud Storage**: buckets
-- **Bigtable**: instances, clusters, and tables
-- **Vertex AI**: models, datasets, and feature stores
-- **Dataform**: repositories and workflows
-- **Dataproc Metastore**: services and databases
-
-:::note
-Only **BigQuery** and **Cloud Storage (GCS)** have been thoroughly tested with this connector. Other services may work but have not been validated.
-:::
-
 ### Prerequisites
 
 Refer to [Dataplex documentation](https://cloud.google.com/dataplex/docs) for Dataplex basics.
