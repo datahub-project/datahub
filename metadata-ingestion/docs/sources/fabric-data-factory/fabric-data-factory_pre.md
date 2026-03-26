@@ -9,7 +9,8 @@ The `fabric-data-factory` module ingests metadata from Microsoft Fabric Data Fac
 3. **Grant permissions** — Add your identity as a workspace **Contributor** (required for pipeline definitions and lineage)
 4. **Configure recipe** — Use `fabric-data-factory_recipe.yml` as a template
 5. **Run ingestion** — Execute `datahub ingest -c fabric-data-factory_recipe.yml`
-   :::
+
+:::
 
 #### Key Features
 
@@ -41,7 +42,7 @@ Fabric Data Factory Concepts
 
 #### Required Permissions
 
-The connector requires **Contributor** role on each workspace. Contributor is needed to fetch pipeline definitions without it, the connector will list pipelines but fail to read their activities and lineage.
+The connector requires **Contributor** role on each workspace. Contributor is needed to fetch pipeline definitions without it. With Reader role only, the connector will list workspaces and pipelines but will not extract pipeline activities, activity run details, or lineage.
 
 ##### Delegated (on behalf of a user) authentication
 
@@ -74,9 +75,13 @@ As of mid-2025, Microsoft split the original single tenant setting into two sepa
    - **Service principals can create workspaces, connections, and deployment pipelines** — Controls access to global APIs not protected by Fabric permissions. This is **disabled by default**. Enable only if needed.
 3. Restrict access to a dedicated **security group** containing only the service principals that need API access. This is the recommended approach.
 
-> **Note**: If you are on an older tenant where the legacy single setting **Service principals can use Fabric APIs** is still visible, enable that instead. It will be automatically migrated to the two new settings.
+:::tip
+If you are on an older tenant where the legacy single setting **Service principals can use Fabric APIs** is still visible, enable that instead. It will be automatically migrated to the two new settings.
+:::
 
-> **Note**: Tenant setting changes can take **up to 15 minutes** to propagate. If you receive 401 errors immediately after enabling, wait and retry.
+:::tip
+Tenant setting changes can take **up to 15 minutes** to propagate. If you receive 401 errors immediately after enabling, wait and retry.
+:::
 
 For detailed instructions, see [Developer admin settings](https://learn.microsoft.com/en-us/fabric/admin/service-admin-portal-developer) and [Identity support for Fabric REST APIs](https://learn.microsoft.com/en-us/rest/api/fabric/articles/identity-support).
 
