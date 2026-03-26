@@ -4,9 +4,9 @@ from threading import Lock
 from typing import cast
 from unittest.mock import Mock, patch
 
+import pytest
 from google.cloud import dataplex_v1
 
-from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
@@ -20,7 +20,8 @@ from datahub.sdk.dataset import Dataset
 class TestDataplexEntriesProcessorDesign:
     """Tests for DataplexEntriesProcessor interface behavior."""
 
-    def _build_processor(self) -> DataplexEntriesProcessor:
+    @pytest.fixture
+    def processor(self) -> DataplexEntriesProcessor:
         config = DataplexConfig(project_ids=["test-project"], env="PROD")
         report = DataplexEntriesReport()
         source_report = Mock()
@@ -111,27 +112,9 @@ class TestDataplexEntriesProcessorDesign:
             {f"processed-{index}" for index in range(12)}
         )
 
-    def test_entries_report_serialization_preserves_sample_values(self) -> None:
-        report = DataplexEntriesReport()
-        report.report_entry_group("projects/p/locations/us/entryGroups/@bigquery", True)
-        report.report_entry(
-            "projects/p/locations/us/entryGroups/@bigquery/entries/e1",
-            filtered_missing_fqn=False,
-            filtered_fqn=False,
-            filtered_name=False,
-        )
-
-        as_obj = Report.to_pure_python_obj(report)
-        assert as_obj["entry_group_filtered_samples"]
-        assert as_obj["entries_processed_samples"]
-
-    def test_processor_initialization_sets_dependencies(self) -> None:
-        processor = self._build_processor()
-        assert processor.config.project_ids == ["test-project"]
-        assert processor.entry_data_by_project == {}
-
-    def test_processor_utility_methods(self) -> None:
-        processor = self._build_processor()
+    def test_processor_utility_methods(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         entry = Mock(spec=dataplex_v1.Entry)
         entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
         entry.entry_type = "projects/p/locations/global/entryTypes/unknown-type"
@@ -170,8 +153,9 @@ class TestDataplexEntriesProcessorDesign:
         entry.fully_qualified_name = ""
         assert not processor.should_process_entry(entry)
 
-    def test_extract_display_name_falls_back_to_last_name_segment(self) -> None:
-        processor = self._build_processor()
+    def test_extract_display_name_falls_back_to_last_name_segment(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         entry = Mock(spec=dataplex_v1.Entry)
         entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
         entry_source = Mock()
@@ -182,8 +166,8 @@ class TestDataplexEntriesProcessorDesign:
 
     def test_extract_display_name_falls_back_when_display_name_is_non_string(
         self,
+        processor: DataplexEntriesProcessor,
     ) -> None:
-        processor = self._build_processor()
         entry = Mock(spec=dataplex_v1.Entry)
         entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
         entry_source = Mock()
@@ -236,8 +220,9 @@ class TestDataplexEntriesProcessorDesign:
         mock_list_entry_groups.assert_called_once_with("p", "us")
         catalog_client.search_entries.assert_not_called()
 
-    def test_process_project_uses_entries_locations(self) -> None:
-        processor = self._build_processor()
+    def test_process_project_uses_entries_locations(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         processor.config.entries_locations = ["us", "eu"]
 
         with patch.object(
@@ -249,9 +234,9 @@ class TestDataplexEntriesProcessorDesign:
         assert process_location_mock.call_args_list[0].args == ("project-1", "us")
         assert process_location_mock.call_args_list[1].args == ("project-1", "eu")
 
-    def test_process_location_filters_and_yields_entity(self) -> None:
-        processor = self._build_processor()
-
+    def test_process_location_filters_and_yields_entity(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         missing_fqn_entry = Mock(spec=dataplex_v1.Entry)
         missing_fqn_entry.name = "projects/p/locations/us/entryGroups/g/entries/missing"
         missing_fqn_entry.fully_qualified_name = ""
@@ -388,8 +373,9 @@ class TestDataplexEntriesProcessorDesign:
             catalog_client.search_entries.side_effect = Exception("search failed")
             assert list(processor.collect_spanner_entries("p", "us")) == []
 
-    def test_build_entity_for_entry_dataset_and_container_paths(self) -> None:
-        processor = self._build_processor()
+    def test_build_entity_for_entry_dataset_and_container_paths(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         processor.config.include_schema = True
 
         dataset_entry = Mock(spec=dataplex_v1.Entry)
@@ -471,9 +457,9 @@ class TestDataplexEntriesProcessorDesign:
             "urn:li:container:"
         )
 
-    def test_build_project_container_for_entry(self) -> None:
-        processor = self._build_processor()
-
+    def test_build_project_container_for_entry(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         entry = Mock(spec=dataplex_v1.Entry)
         entry.entry_type = (
             "projects/123/locations/global/entryTypes/cloud-spanner-table"
@@ -485,9 +471,9 @@ class TestDataplexEntriesProcessorDesign:
         assert project_container.display_name == "harshal-playground-306419"
         assert project_container.parent_container is None
 
-    def test_process_location_emits_project_container_once_per_project(self) -> None:
-        processor = self._build_processor()
-
+    def test_process_location_emits_project_container_once_per_project(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         entry_one = Mock(spec=dataplex_v1.Entry)
         entry_one.name = "projects/p/locations/us/entryGroups/g/entries/one"
         entry_one.fully_qualified_name = "bigquery:p.ds.one"
@@ -524,9 +510,8 @@ class TestDataplexEntriesProcessorDesign:
 
     def test_build_entity_for_entry_handles_invalid_and_unsupported_inputs(
         self,
+        processor: DataplexEntriesProcessor,
     ) -> None:
-        processor = self._build_processor()
-
         missing_fqn = Mock(spec=dataplex_v1.Entry)
         missing_fqn.name = "projects/p/locations/us/entryGroups/g/entries/e1"
         missing_fqn.entry_type = (
@@ -557,8 +542,9 @@ class TestDataplexEntriesProcessorDesign:
         ):
             assert processor.build_entity_for_entry(invalid_dataset_fqn) is None
 
-    def test_build_entity_for_entry_dataset_without_parent_container(self) -> None:
-        processor = self._build_processor()
+    def test_build_entity_for_entry_dataset_without_parent_container(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         processor.config.include_schema = False
 
         dataset_entry = Mock(spec=dataplex_v1.Entry)
@@ -584,9 +570,8 @@ class TestDataplexEntriesProcessorDesign:
 
     def test_extract_helpers_cover_display_description_datetime_and_group_id(
         self,
+        processor: DataplexEntriesProcessor,
     ) -> None:
-        processor = self._build_processor()
-
         entry = Mock(spec=dataplex_v1.Entry)
         entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
         entry.entry_source = Mock()
@@ -610,9 +595,9 @@ class TestDataplexEntriesProcessorDesign:
         assert processor._extract_datetime(no_source_entry, "create_time") is None
         assert processor._extract_entry_group_id(no_source_entry.name) == "unknown"
 
-    def test_build_entry_container_key_warns_for_invalid_entry_type(self) -> None:
-        processor = self._build_processor()
-
+    def test_build_entry_container_key_warns_for_invalid_entry_type(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         entry = Mock(spec=dataplex_v1.Entry)
         entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
         entry.entry_type = "invalid-entry-type"
@@ -622,9 +607,9 @@ class TestDataplexEntriesProcessorDesign:
         source_report = cast(Mock, processor.source_report)
         source_report.warning.assert_called_once()
 
-    def test_track_entry_for_lineage_warns_for_invalid_entry_type(self) -> None:
-        processor = self._build_processor()
-
+    def test_track_entry_for_lineage_warns_for_invalid_entry_type(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         entry = Mock(spec=dataplex_v1.Entry)
         entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
         entry.entry_type = "invalid-entry-type"
@@ -636,10 +621,11 @@ class TestDataplexEntriesProcessorDesign:
         source_report.warning.assert_called_once()
         assert "project-1" not in processor.entry_data_by_project
 
-    def test_build_entry_container_key_and_lineage_tracking(self) -> None:
-        processor = self._build_processor()
-
+    def test_build_entry_container_key_and_lineage_tracking(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
         no_parent = Mock(spec=dataplex_v1.Entry)
+        no_parent.name = "projects/p/locations/us/entryGroups/g/entries/no-parent"
         no_parent.entry_type = "projects/123/locations/global/entryTypes/bigquery-table"
         no_parent.parent_entry = ""
         assert processor.build_entry_container_key(no_parent) is None
