@@ -129,7 +129,10 @@ def parse_statement(
     # to modify the parsed expression that sits in the cache. We keep
     # the cached versions pristine by returning a copy on each call.
     if isinstance(sql, str) and is_dialect_instance(dialect, "snowflake"):
-        sql = _sanitize_snowflake_ddl(sql)
+        sanitized = _sanitize_snowflake_ddl(sql)
+        if sanitized != sql:
+            logger.debug("Sanitized Snowflake DDL: %s -> %s", sql, sanitized)
+        sql = sanitized
     return _parse_statement(sql, dialect).copy()
 
 
