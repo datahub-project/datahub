@@ -1529,7 +1529,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return []
 
         # Remove LINEAR() wrapper if present
-        if clustering_key.upper().startswith("LINEAR(") and clustering_key.endswith(")"):
+        if clustering_key.upper().startswith("LINEAR(") and clustering_key.endswith(
+            ")"
+        ):
             clustering_key = clustering_key[7:-1]  # Remove "LINEAR(" and ")"
 
         # Split by comma and strip whitespace
