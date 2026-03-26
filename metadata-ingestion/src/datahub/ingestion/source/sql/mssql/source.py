@@ -414,15 +414,15 @@ class SQLServerSource(SQLAlchemySource):
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
             self.report.warning(
                 title="Potential issue with lineage",
-                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
+                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_urns_to_lowercase' to True.",
             )
         if (
             self.config.include_lineage
             and not self.config.convert_column_urns_to_lowercase
         ):
             self.report.warning(
-                title="Potential issue with lineage",
-                message="Lineage may not resolve accurately because 'convert_column_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_column_urns_to_lowercase' to True.",
+                title="Potential issue with column-level lineage",
+                message="Lineage may not resolve accurately because 'convert_column_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_column_urns_to_lowercase' to True.",
             )
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
