@@ -80,8 +80,8 @@ def test_scroll_entities_by_entity_type(graph_client: DataHubGraph) -> None:
     assert set(datasets.entities.keys()) == ALL_DATASET_URNS
     for urn, aspects in datasets.entities.items():
         assert urn.startswith("urn:li:dataset:")
-        dataset_key_aspect, _ = aspects["datasetKey"]
-        dataset_key_aspect = cast(DatasetKeyClass, dataset_key_aspect)
+        raw_aspect, _ = aspects["datasetKey"]
+        dataset_key_aspect = cast(DatasetKeyClass, raw_aspect)
         assert dataset_key_aspect.platform == PLATFORM
         assert dataset_key_aspect.name
 
