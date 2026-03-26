@@ -16,11 +16,15 @@ import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
 // Mock the GraphQL queries
-vi.mock('@graphql/search.generated', () => ({
-    useAggregateAcrossEntitiesQuery: vi.fn(),
-    useGetAutoCompleteMultipleResultsQuery: vi.fn(),
-    useGetSearchResultsForMultipleQuery: vi.fn(),
-}));
+vi.mock('@graphql/search.generated', async (importOriginal) => {
+    const actual = (await importOriginal()) as any;
+    return {
+        ...actual,
+        useAggregateAcrossEntitiesQuery: vi.fn(),
+        useGetAutoCompleteMultipleResultsQuery: vi.fn(),
+        useGetSearchResultsForMultipleQuery: vi.fn(),
+    };
+});
 
 // Mock the search query inputs hook
 vi.mock('@src/app/search/useGetSearchQueryInputs', () => ({
