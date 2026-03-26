@@ -70,6 +70,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -2515,7 +2516,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
             : null;
     return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
-        || Objects.equals(newAspect, oldAspect);
+            || ValidationApiUtils.normalizedEqual(oldAspect, newAspect);
   }
 
   public void produceFailedMCPs(
