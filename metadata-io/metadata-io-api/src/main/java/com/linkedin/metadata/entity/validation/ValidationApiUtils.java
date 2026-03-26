@@ -15,9 +15,9 @@ import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.function.Consumer;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ValidationApiUtils {
   public static final String STRICT_URN_VALIDATION_ENABLED = "STRICT_URN_VALIDATION_ENABLED";
   private static final Set<String> AUDIT_STAMP_FIELD_NAMES =
-          Set.of("auditStamp", "created", "lastModified");
+      Set.of("auditStamp", "created", "lastModified");
   private static final String TIME_FIELD_NAME = "time";
 
   /**
@@ -68,7 +68,7 @@ public class ValidationApiUtils {
    * lastModified.time} defaults.
    */
   public static boolean normalizedEqual(
-          @Nullable RecordTemplate oldAspect, @Nullable RecordTemplate newAspect) {
+      @Nullable RecordTemplate oldAspect, @Nullable RecordTemplate newAspect) {
     if (oldAspect == newAspect) return true;
     if (oldAspect == null || newAspect == null) return false;
     if (oldAspect.equals(newAspect)) {
@@ -79,10 +79,10 @@ public class ValidationApiUtils {
   }
 
   private static boolean normalizedDataEquals(
-          @Nullable Object oldValue,
-          @Nullable Object newValue,
-          boolean insideAuditStamp,
-          @Nullable String currentFieldName) {
+      @Nullable Object oldValue,
+      @Nullable Object newValue,
+      boolean insideAuditStamp,
+      @Nullable String currentFieldName) {
     if (oldValue == newValue) {
       return true;
     }
@@ -102,10 +102,10 @@ public class ValidationApiUtils {
   }
 
   private static boolean numbersEqual(
-          Number oldValue,
-          Number newValue,
-          boolean insideAuditStamp,
-          @Nullable String currentFieldName) {
+      Number oldValue,
+      Number newValue,
+      boolean insideAuditStamp,
+      @Nullable String currentFieldName) {
     if (insideAuditStamp && TIME_FIELD_NAME.equals(currentFieldName)) {
       return oldValue.longValue() == newValue.longValue();
     }
@@ -117,13 +117,13 @@ public class ValidationApiUtils {
 
   private static boolean isIntegralNumber(Number value) {
     return value instanceof Byte
-            || value instanceof Short
-            || value instanceof Integer
-            || value instanceof Long;
+        || value instanceof Short
+        || value instanceof Integer
+        || value instanceof Long;
   }
 
   private static boolean normalizedMapEquals(
-          DataMap oldMap, DataMap newMap, boolean insideAuditStamp) {
+      DataMap oldMap, DataMap newMap, boolean insideAuditStamp) {
     if (oldMap.size() != newMap.size()) {
       return false;
     }
@@ -144,7 +144,7 @@ public class ValidationApiUtils {
   }
 
   private static boolean normalizedListEquals(
-          DataList oldList, DataList newList, boolean insideAuditStamp) {
+      DataList oldList, DataList newList, boolean insideAuditStamp) {
     if (oldList.size() != newList.size()) {
       return false;
     }

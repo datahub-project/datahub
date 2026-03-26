@@ -21,9 +21,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import org.testng.annotations.Test;
-
 import java.nio.charset.StandardCharsets;
+import org.testng.annotations.Test;
 
 public class ValidationApiUtilsTest {
   private final OperationContext opContext =
@@ -204,20 +203,20 @@ public class ValidationApiUtilsTest {
 
   private static SchemaMetadata createSchemaMetadataWithAuditStampDefaults() {
     String rawSchemaMetadataString =
-            "{\"platformSchema\":{\"com.linkedin.schema.KafkaSchema\":{\"documentSchemaType\":\"AVRO\",\"documentSchema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"SampleHiveSchema\\\",\\\"namespace\\\":\\\"com.linkedin.dataset\\\",\\\"doc\\\":\\\"Sample Hive dataset\\\",\\\"fields\\\":[{\\\"name\\\":\\\"field_foo\\\",\\\"type\\\":[\\\"string\\\"]}]\"}},\"created\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":0},\"lastModified\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":0},\"fields\":[{\"nullable\":false,\"fieldPath\":\"user_id\",\"description\":\"Id of the user created\",\"isPartOfKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}},\"recursive\":false,\"nativeDataType\":\"varchar(100)\"}],\"schemaName\":\"SampleHiveSchema\",\"version\":0,\"hash\":\"\",\"platform\":\"urn:li:dataPlatform:hive\"}";
+        "{\"platformSchema\":{\"com.linkedin.schema.KafkaSchema\":{\"documentSchemaType\":\"AVRO\",\"documentSchema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"SampleHiveSchema\\\",\\\"namespace\\\":\\\"com.linkedin.dataset\\\",\\\"doc\\\":\\\"Sample Hive dataset\\\",\\\"fields\\\":[{\\\"name\\\":\\\"field_foo\\\",\\\"type\\\":[\\\"string\\\"]}]\"}},\"created\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":0},\"lastModified\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":0},\"fields\":[{\"nullable\":false,\"fieldPath\":\"user_id\",\"description\":\"Id of the user created\",\"isPartOfKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}},\"recursive\":false,\"nativeDataType\":\"varchar(100)\"}],\"schemaName\":\"SampleHiveSchema\",\"version\":0,\"hash\":\"\",\"platform\":\"urn:li:dataPlatform:hive\"}";
     return GenericRecordUtils.deserializeAspect(
-            ByteString.copyString(rawSchemaMetadataString, StandardCharsets.UTF_8),
-            "application/json",
-            SchemaMetadata.class);
+        ByteString.copyString(rawSchemaMetadataString, StandardCharsets.UTF_8),
+        "application/json",
+        SchemaMetadata.class);
   }
 
   private static UpstreamLineage createUpstreamLineageWithAuditStampDefaults() {
     String rawUpstreamLineageString =
-            "{\"upstreams\":[{\"type\":\"TRANSFORMED\",\"auditStamp\":{\"actor\":\"urn:li:corpuser:unknown\",\"time\":0},\"dataset\":\"urn:li:dataset:(urn:li:dataPlatform:test,example.upstream_one,PROD)\"},{\"type\":\"TRANSFORMED\",\"auditStamp\":{\"actor\":\"urn:li:corpuser:unknown\",\"time\":0},\"dataset\":\"urn:li:dataset:(urn:li:dataPlatform:test,example.upstream_two,PROD)\"}]}";
+        "{\"upstreams\":[{\"type\":\"TRANSFORMED\",\"auditStamp\":{\"actor\":\"urn:li:corpuser:unknown\",\"time\":0},\"dataset\":\"urn:li:dataset:(urn:li:dataPlatform:test,example.upstream_one,PROD)\"},{\"type\":\"TRANSFORMED\",\"auditStamp\":{\"actor\":\"urn:li:corpuser:unknown\",\"time\":0},\"dataset\":\"urn:li:dataset:(urn:li:dataPlatform:test,example.upstream_two,PROD)\"}]}";
     return GenericRecordUtils.deserializeAspect(
-            ByteString.copyString(rawUpstreamLineageString, StandardCharsets.UTF_8),
-            "application/json",
-            UpstreamLineage.class);
+        ByteString.copyString(rawUpstreamLineageString, StandardCharsets.UTF_8),
+        "application/json",
+        UpstreamLineage.class);
   }
 
   private static void setUpstreamAuditStampTimes(DataMap aspectData, Number timeValue) {
