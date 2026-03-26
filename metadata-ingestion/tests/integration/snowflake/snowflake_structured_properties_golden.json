@@ -3174,7 +3174,7 @@
                         "nativeDataType": "NUMBER(38,0)",
                         "recursive": false,
                         "isPartOfKey": false,
-                        "isPartitioningKey": true
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_2",
@@ -3559,7 +3559,7 @@
                         "nativeDataType": "NUMBER(38,0)",
                         "recursive": false,
                         "isPartOfKey": false,
-                        "isPartitioningKey": true
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_2",
@@ -4048,7 +4048,7 @@
                         "nativeDataType": "NUMBER(38,0)",
                         "recursive": false,
                         "isPartOfKey": false,
-                        "isPartitioningKey": true
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_2",
