@@ -85,7 +85,7 @@ class VertexAIConfig(
 
     region: Optional[str] = Field(
         default=None,
-        description="[deprecated] Single Vertex AI region. Use 'regions' or 'discover_regions' instead.",
+        description="[deprecated] Single Vertex AI region. Prefer 'regions' or 'discover_regions'.",
     )
     _deprecate_region = pydantic_field_deprecated("region")
 
