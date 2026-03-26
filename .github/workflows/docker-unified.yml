@@ -413,7 +413,7 @@ jobs:
           elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
             includes="$python_matrix"
           fi
-          echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"include\":[$includes]}" >> "$GITHUB_OUTPUT"
 
   smoke_test:
     name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})

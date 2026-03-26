@@ -17,6 +17,9 @@ describe('useReloadableQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: () => {},
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, { fetchPolicy: 'cache-first' }));
@@ -30,6 +33,9 @@ describe('useReloadableQuery', () => {
             shouldBeReloaded: () => false,
             markAsReloaded: () => {},
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, { fetchPolicy: 'cache-first' }));
@@ -44,6 +50,9 @@ describe('useReloadableQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, {}));
@@ -58,6 +67,9 @@ describe('useReloadableQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, {}));
@@ -72,6 +84,9 @@ describe('useReloadableQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, {}));
