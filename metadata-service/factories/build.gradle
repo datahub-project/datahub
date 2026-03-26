@@ -43,6 +43,10 @@ dependencies {
   api externalDependency.springWeb
   api externalDependency.httpClient
   implementation externalDependency.springActuator
+  implementation externalDependency.javaxInject  // jakarta.inject-api (renamed in build.gradle)
+  // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+  implementation externalDependency.springBootKafka
+  implementation externalDependency.springBootMicrometerMetrics
   implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds

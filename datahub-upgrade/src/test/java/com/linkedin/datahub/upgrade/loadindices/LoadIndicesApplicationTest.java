@@ -10,7 +10,7 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
-import javax.inject.Named;
+import jakarta.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;

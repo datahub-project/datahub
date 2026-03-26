@@ -31,16 +31,16 @@ import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -385,13 +385,13 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class KafkaControllerTestConfig {
-    @MockBean public MCPTraceReader mcpTraceReader;
+    @MockitoBean public MCPTraceReader mcpTraceReader;
 
-    @MockBean
+    @MockitoBean
     @Qualifier("mclVersionedTraceReader")
     public MCLTraceReader mclTraceReader;
 
-    @MockBean
+    @MockitoBean
     @Qualifier("mclTimeseriesTraceReader")
     public MCLTraceReader mclTimeseriesTraceReader;
 

@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
@@ -14,6 +13,7 @@ import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -29,13 +29,15 @@ import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.mockito.Answers;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @Configuration
 @ComponentScan(
@@ -54,50 +56,97 @@ public class MCLSpringCommonTestConfiguration {
 
   // TODO: We cannot move from MockBeans here because we are reliant on their behavior in
   // configuration classes
-  @MockBean public EntityRegistry entityRegistry;
+  @MockitoBean public EntityRegistry entityRegistry;
 
-  @MockBean public ElasticSearchGraphService graphService;
+  @Bean
+  @Primary
+  public ElasticSearchGraphService graphService() {
+    return Mockito.mock(ElasticSearchGraphService.class);
+  }
 
-  @MockBean public TimeseriesAspectService timeseriesAspectService;
+  @Bean
+  @Primary
+  public TimeseriesAspectService timeseriesAspectService() {
+    return Mockito.mock(TimeseriesAspectService.class);
+  }
 
-  @MockBean public SystemMetadataService systemMetadataService;
+  @Bean
+  @Primary
+  public SystemMetadataService systemMetadataService() {
+    return Mockito.mock(SystemMetadataService.class);
+  }
 
-  @MockBean public SearchDocumentTransformer searchDocumentTransformer;
+  @Bean
+  @Primary
+  public SearchDocumentTransformer searchDocumentTransformer() {
+    return Mockito.mock(SearchDocumentTransformer.class);
+  }
 
-  @MockBean public IngestionScheduler ingestionScheduler;
+  @Bean
+  @Primary
+  public IngestionScheduler ingestionScheduler() {
+    return Mockito.mock(IngestionScheduler.class);
+  }
 
   @Bean
   public EntityClientConfig entityClientConfig() {
     return EntityClientConfig.builder().build();
   }
 
-  @MockBean(name = "systemEntityClient")
-  public SystemEntityClient systemEntityClient;
+  @Bean(name = "systemEntityClient")
+  @Primary
+  public SystemEntityClient systemEntityClient() {
+    return Mockito.mock(SystemEntityClient.class);
+  }
 
-  @MockBean public ElasticSearchService searchService;
+  @Bean(name = {"entitySearchService", "elasticSearchService"})
+  @Primary
+  public ElasticSearchService elasticSearchService() {
+    return Mockito.mock(ElasticSearchService.class);
+  }
 
-  @MockBean public FormService formService;
+  @Bean
+  @Primary
+  public FormService formService() {
+    return Mockito.mock(FormService.class);
+  }
 
-  @MockBean(name = "settingsBuilder")
-  public SettingsBuilder settingsBuilder;
+  @Bean(name = "settingsBuilder")
+  @Primary
+  public SettingsBuilder settingsBuilder() {
+    return Mockito.mock(SettingsBuilder.class);
+  }
 
-  @MockBean(name = "systemAuthentication")
-  public Authentication systemAuthentication;
+  // Use a real Authentication object to avoid Mockito state corruption during Spring context init
+  @Bean(name = "systemAuthentication")
+  @Primary
+  public Authentication systemAuthentication() {
+    return TestOperationContexts.TEST_SYSTEM_AUTH;
+  }
 
-  @MockBean(name = "dataHubUpgradeKafkaListener")
-  public DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener;
+  @Bean(name = "dataHubUpgradeKafkaListener")
+  @Primary
+  public DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener() {
+    return Mockito.mock(DataHubUpgradeKafkaListener.class);
+  }
 
-  @MockBean(name = "duheKafkaConsumerFactory")
-  public DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory;
+  @Bean(name = "duheKafkaConsumerFactory")
+  @Primary
+  @SuppressWarnings("unchecked")
+  public DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory() {
+    DefaultKafkaConsumerFactory<String, GenericRecord> factory =
+        Mockito.mock(DefaultKafkaConsumerFactory.class);
+    Consumer<String, GenericRecord> consumer = Mockito.mock(Consumer.class);
+    Mockito.when(factory.createConsumer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+        .thenReturn(consumer);
+    return factory;
+  }
 
   @Bean(name = "systemOperationContext")
   public OperationContext operationContext(
       final EntityRegistry entityRegistry,
       @Qualifier("systemAuthentication") final Authentication systemAuthentication,
       final IndexConvention indexConvention) {
-    when(systemAuthentication.getActor())
-        .thenReturn(TestOperationContexts.TEST_SYSTEM_AUTH.getActor());
-
     return OperationContext.asSystem(
         OperationContextConfig.builder().build(),
         systemAuthentication,
@@ -110,16 +159,44 @@ public class MCLSpringCommonTestConfiguration {
         true);
   }
 
-  @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;
+  @Bean
+  @Primary
+  public SpringStandardPluginConfiguration springStandardPluginConfiguration() {
+    return Mockito.mock(SpringStandardPluginConfiguration.class);
+  }
 
-  @MockBean(name = "kafkaThrottle")
-  public ThrottleSensor kafkaThrottle;
+  @Bean(name = "kafkaThrottle")
+  @Primary
+  public ThrottleSensor kafkaThrottle() {
+    return Mockito.mock(ThrottleSensor.class);
+  }
 
-  @MockBean(name = "traceAdminClient")
-  public AdminClient traceAdminClient;
+  @Bean(name = "traceAdminClient")
+  @Primary
+  public AdminClient traceAdminClient() {
+    return Mockito.mock(AdminClient.class);
+  }
 
-  @MockBean public MetricUtils metricUtils;
+  @Bean
+  @Primary
+  public MetricUtils metricUtils() {
+    return Mockito.mock(MetricUtils.class);
+  }
 
-  @MockBean(name = "searchClientShim", answer = Answers.RETURNS_MOCKS)
-  SearchClientShim<?> searchClientShim;
+  @Bean(name = "searchClientShim")
+  @Primary
+  @SuppressWarnings("unchecked")
+  public SearchClientShim<?> searchClientShim() {
+    SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+    Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    return mock;
+  }
+
+  // Provide mock directly to prevent ElasticSearchBulkProcessorFactory from calling
+  // searchClient.generateAsyncBulkProcessor() (a void method) which corrupts Mockito stub state
+  @Bean(name = "elasticSearchBulkProcessor")
+  @Primary
+  public ESBulkProcessor elasticSearchBulkProcessor() {
+    return Mockito.mock(ESBulkProcessor.class);
+  }
 }

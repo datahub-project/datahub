@@ -19,7 +19,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -138,7 +138,7 @@ public class KafkaEventConsumerFactory {
       consumerProps.getSecurity().setProtocol(securityProtocol);
     }
 
-    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
+    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));
 

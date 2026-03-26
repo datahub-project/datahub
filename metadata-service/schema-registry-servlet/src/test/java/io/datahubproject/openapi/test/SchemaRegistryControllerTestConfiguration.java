@@ -6,20 +6,20 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
 @TestPropertySource(value = "classpath:/application.properties")
 @ComponentScan(basePackages = {"com.linkedin.gms.factory.kafka", "com.linkedin.gms.factory.config"})
 public class SchemaRegistryControllerTestConfiguration {
-  @MockBean KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean KafkaHealthChecker kafkaHealthChecker;
 
-  @MockBean EntityRegistry entityRegistry;
+  @MockitoBean EntityRegistry entityRegistry;
 
-  @MockBean MetricUtils metricUtils;
+  @MockitoBean MetricUtils metricUtils;
 
   @Bean(name = "systemOperationContext")
   public OperationContext systemOperationContext() {

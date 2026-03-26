@@ -25,6 +25,11 @@ dependencies {
   implementation externalDependency.mustache
   implementation externalDependency.javaxInject
   implementation externalDependency.springActuator
+  // Jackson 2 bridge: keeps com.fasterxml.jackson on classpath until we migrate to Jackson 3
+  implementation(externalDependency.springBootJackson2)
+  // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+  implementation externalDependency.springBootKafka
+  implementation externalDependency.springBootMicrometerMetrics
   implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'

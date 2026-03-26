@@ -19,44 +19,44 @@ import io.datahubproject.metadata.services.SecretService;
 import io.ebean.Database;
 import org.mockito.Answers;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
 @Import(value = {SystemAuthenticationFactory.class})
 public class MaeConsumerApplicationTestConfiguration {
 
-  @MockBean private KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean private KafkaHealthChecker kafkaHealthChecker;
 
-  @MockBean private EntityServiceImpl _entityServiceImpl;
+  @MockitoBean private EntityServiceImpl _entityServiceImpl;
 
-  @MockBean private Database ebeanServer;
+  @MockitoBean private Database ebeanServer;
 
-  @MockBean private EntityRegistry entityRegistry;
+  @MockitoBean private EntityRegistry entityRegistry;
 
-  @MockBean private RestrictedService restrictedService;
+  @MockitoBean private RestrictedService restrictedService;
 
-  @MockBean private SecretService secretService;
+  @MockitoBean private SecretService secretService;
 
-  @MockBean private GraphService _graphService;
+  @MockitoBean private GraphService _graphService;
 
-  @MockBean private ElasticSearchSystemMetadataService _elasticSearchSystemMetadataService;
+  @MockitoBean private ElasticSearchSystemMetadataService _elasticSearchSystemMetadataService;
 
-  @MockBean private ConfigEntityRegistry _configEntityRegistry;
+  @MockitoBean private ConfigEntityRegistry _configEntityRegistry;
 
-  @MockBean public ElasticSearchService elasticSearchService;
+  @MockitoBean public ElasticSearchService elasticSearchService;
 
-  @MockBean public EntitySearchService entitySearchService;
+  @MockitoBean public EntitySearchService entitySearchService;
 
-  @MockBean public MetricUtils metricUtils;
+  @MockitoBean public MetricUtils metricUtils;
 
-  @MockBean(answer = Answers.RETURNS_MOCKS)
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
   public SearchClientShim<?> searchClientShim;
 
   // Mock semantic search factories to avoid needing full configuration
-  @MockBean public EmbeddingProviderFactory embeddingProviderFactory;
+  @MockitoBean public EmbeddingProviderFactory embeddingProviderFactory;
 
-  @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+  @MockitoBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
 
-  @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
+  @MockitoBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 }

@@ -27,11 +27,11 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @Configuration
 @ComponentScan(
@@ -54,18 +54,18 @@ public class ExecutionIngestionAuthTestConfiguration {
             .getResourceAsStream("entity-registry.yml"));
   }
 
-  @MockBean(name = INDEX_CONVENTION_BEAN)
+  @MockitoBean(name = INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
 
-  @MockBean(name = "entityService")
+  @MockitoBean(name = "entityService")
   private EntityService<?> entityService;
 
-  @MockBean(name = "graphClient")
+  @MockitoBean(name = "graphClient")
   private GraphClient graphClient;
 
-  @MockBean private GraphService graphService;
+  @MockitoBean private GraphService graphService;
 
-  @MockBean(name = "searchService")
+  @MockitoBean(name = "searchService")
   private SearchService searchService;
 
   @Bean(name = "baseElasticSearchComponents")
@@ -80,38 +80,38 @@ public class ExecutionIngestionAuthTestConfiguration {
         );
   }
 
-  @MockBean(name = "deleteEntityService")
+  @MockitoBean(name = "deleteEntityService")
   private DeleteEntityService deleteEntityService;
 
-  @MockBean(name = "entitySearchService")
+  @MockitoBean(name = "entitySearchService")
   private EntitySearchService entitySearchService;
 
-  @MockBean(name = "cachingEntitySearchService")
+  @MockitoBean(name = "cachingEntitySearchService")
   private CachingEntitySearchService cachingEntitySearchService;
 
-  @MockBean(name = "timeseriesAspectService")
+  @MockitoBean(name = "timeseriesAspectService")
   private TimeseriesAspectService timeseriesAspectService;
 
-  @MockBean(name = "relationshipSearchService")
+  @MockitoBean(name = "relationshipSearchService")
   private LineageSearchService lineageSearchService;
 
-  @MockBean(name = "kafkaEventProducer")
+  @MockitoBean(name = "kafkaEventProducer")
   private EventProducer eventProducer;
 
-  @MockBean private RollbackService rollbackService;
+  @MockitoBean private RollbackService rollbackService;
 
-  @MockBean private SystemTelemetryContext systemTelemetryContext;
+  @MockitoBean private SystemTelemetryContext systemTelemetryContext;
 
-  @MockBean private MetricUtils metricUtils;
+  @MockitoBean private MetricUtils metricUtils;
 
-  @MockBean private RestrictedService restrictedService;
+  @MockitoBean private RestrictedService restrictedService;
 
-  @MockBean(name = "systemEntityClient")
+  @MockitoBean(name = "systemEntityClient")
   private SystemEntityClient systemEntityClient;
 
-  @MockBean(name = "dataHubSecretService")
+  @MockitoBean(name = "dataHubSecretService")
   private SecretService service;
 
-  @MockBean(name = "searchClientShim")
+  @MockitoBean(name = "searchClientShim")
   private SearchClientShim<?> searchClientShim;
 }

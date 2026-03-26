@@ -7,9 +7,9 @@ import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 

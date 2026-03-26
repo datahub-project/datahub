@@ -46,16 +46,16 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -79,7 +79,7 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   @Autowired private AuthorizerChain mockAuthorizerChain;
   @Autowired private OperationContext opContext;
   @Autowired private DataHubUsageService mockDataHubUsageService;
-  @MockBean private ConfigurationProvider configurationProvider;
+  @MockitoBean private ConfigurationProvider configurationProvider;
   @Autowired private ObjectMapper objectMapper;
 
   private static final String ACTOR_URN = "urn:li:corpuser:testuser";
@@ -711,10 +711,10 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @TestConfiguration
   public static class ExternalEventsControllerTestConfig {
-    @MockBean public ExternalEventsService eventsService;
-    @MockBean public AuthorizerChain authorizerChain;
-    @MockBean public SystemTelemetryContext systemTelemetryContext;
-    @MockBean public DataHubUsageService dataHubUsageService;
+    @MockitoBean public ExternalEventsService eventsService;
+    @MockitoBean public AuthorizerChain authorizerChain;
+    @MockitoBean public SystemTelemetryContext systemTelemetryContext;
+    @MockitoBean public DataHubUsageService dataHubUsageService;
 
     @Bean
     public ObjectMapper objectMapper() {

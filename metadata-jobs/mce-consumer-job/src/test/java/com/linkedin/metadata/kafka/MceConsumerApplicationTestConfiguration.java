@@ -23,14 +23,13 @@ import com.linkedin.restli.client.Client;
 import io.ebean.Database;
 import java.net.URI;
 import org.mockito.Answers;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
 @Import(
@@ -40,13 +39,13 @@ import org.springframework.context.annotation.Primary;
     })
 public class MceConsumerApplicationTestConfiguration {
 
-  @Autowired private TestRestTemplate restTemplate;
+  @LocalServerPort private int port;
 
-  @MockBean public KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean public KafkaHealthChecker kafkaHealthChecker;
 
-  @MockBean public EntityService<?> _entityService;
+  @MockitoBean public EntityService<?> _entityService;
 
-  @MockBean(answer = Answers.RETURNS_MOCKS)
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
   public SearchClientShim<?> searchClientShim;
 
   @Bean
@@ -55,7 +54,7 @@ public class MceConsumerApplicationTestConfiguration {
       @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils) {
-    String selfUri = restTemplate.getRootUri();
+    String selfUri = "http://localhost:" + port;
     final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
     return new SystemRestliEntityClient(
         restClient,
@@ -75,20 +74,20 @@ public class MceConsumerApplicationTestConfiguration {
         .build();
   }
 
-  @MockBean public Database ebeanServer;
+  @MockitoBean public Database ebeanServer;
 
-  @MockBean protected TimeseriesAspectService timeseriesAspectService;
+  @MockitoBean protected TimeseriesAspectService timeseriesAspectService;
 
-  @MockBean protected EntityRegistry entityRegistry;
+  @MockitoBean protected EntityRegistry entityRegistry;
 
-  @MockBean protected ConfigEntityRegistry configEntityRegistry;
+  @MockitoBean protected ConfigEntityRegistry configEntityRegistry;
 
-  @MockBean protected SiblingGraphService siblingGraphService;
+  @MockitoBean protected SiblingGraphService siblingGraphService;
 
   // Mock semantic search factories to avoid needing full configuration
-  @MockBean public EmbeddingProviderFactory embeddingProviderFactory;
+  @MockitoBean public EmbeddingProviderFactory embeddingProviderFactory;
 
-  @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+  @MockitoBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
 
-  @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
+  @MockitoBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 }

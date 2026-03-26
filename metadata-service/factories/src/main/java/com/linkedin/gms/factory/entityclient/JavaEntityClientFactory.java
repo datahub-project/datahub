@@ -16,7 +16,7 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
