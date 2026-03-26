@@ -1,14 +1,14 @@
 """Data pack models for the DataHub CLI."""
 
-from enum import Enum
 from typing import List, Optional
 
 from pydantic import ConfigDict, Field
 
 from datahub.configuration.common import ConfigModel
+from datahub.utilities.str_enum import StrEnum
 
 
-class TrustTier(str, Enum):
+class TrustTier(StrEnum):
     """Trust level of a data pack."""
 
     VERIFIED = "verified"
