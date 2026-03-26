@@ -1264,25 +1264,25 @@ class NativeQueryLineage(AbstractLineage):
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
         if (
             data_access_tokens[0]
-            != FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
+            == FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
         ):
-            return None
+            database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
-        database: Optional[str] = get_next_item(data_access_tokens, "Database")
+            if (
+                database and database != Constant.M_QUERY_NULL
+            ):  # database name is explicitly set
+                return database
 
-        if (
-            database and database != Constant.M_QUERY_NULL
-        ):  # database name is explicitly set
-            return database
-
-        return (
-            get_next_item(  # database name is set in Name argument
-                data_access_tokens, "Name"
+            return (
+                get_next_item(  # database name is set in Name argument
+                    data_access_tokens, "Name"
+                )
+                or get_next_item(  # If both above arguments are not available, then try Catalog
+                    data_access_tokens, "Catalog"
+                )
             )
-            or get_next_item(  # If both above arguments are not available, then try Catalog
-                data_access_tokens, "Catalog"
-            )
-        )
+
+        return None
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
