@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -6,6 +7,7 @@ from functools import lru_cache
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     FrozenSet,
     Iterable,
@@ -25,7 +27,6 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
-from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
@@ -47,6 +48,45 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExternalTableOptions:
+    _FORMAT_RE: ClassVar[re.Pattern] = re.compile(
+        r"format\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _URIS_RE: ClassVar[re.Pattern] = re.compile(
+        r"uris\s*=\s*\[([^\]]+)\]", re.IGNORECASE
+    )
+    _URI_ITEM_RE: ClassVar[re.Pattern] = re.compile(r"['\"]([^'\"]+)['\"]")
+    _COMPRESSION_RE: ClassVar[re.Pattern] = re.compile(
+        r"compression\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _MAX_BAD_RECORDS_RE: ClassVar[re.Pattern] = re.compile(
+        r"max_bad_records\s*=\s*(\d+)", re.IGNORECASE
+    )
+
+    source_format: Optional[str] = None
+    source_uris: Optional[List[str]] = None
+    compression: Optional[str] = None
+    max_bad_records: Optional[int] = None
+
+    @classmethod
+    def from_ddl(cls, ddl: str) -> "ExternalTableOptions":
+        """Parse source_format, source_uris, compression, and max_bad_records from a BigQuery external table DDL."""
+        opts = cls()
+
+        if m := cls._FORMAT_RE.search(ddl):
+            opts.source_format = m.group(1).upper()
+        if m := cls._URIS_RE.search(ddl):
+            if items := cls._URI_ITEM_RE.findall(m.group(1)):
+                opts.source_uris = items
+        if m := cls._COMPRESSION_RE.search(ddl):
+            opts.compression = m.group(1).upper()
+        if m := cls._MAX_BAD_RECORDS_RE.search(ddl):
+            opts.max_bad_records = int(m.group(1))
+
+        return opts
 
 
 @dataclass
@@ -134,6 +174,10 @@ class BigqueryTable(BaseTable):
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     external: bool = False
+    external_source_format: Optional[str] = None
+    external_source_uris: Optional[List[str]] = None
+    external_compression: Optional[str] = None
+    external_max_bad_records: Optional[int] = None
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
 
@@ -395,6 +439,13 @@ class BigQuerySchemaApi:
             self.report.num_list_tables_api_requests += 1
             self.report.list_tables_sec += current_timer.elapsed_seconds()
 
+    @staticmethod
+    def _bq_location_to_region(location: str) -> str:
+        # BigQuery INFORMATION_SCHEMA.TABLE_STORAGE is scoped to a region, not a dataset.
+        # The region identifier uses the format "region-<location>" (case-insensitive).
+        # E.g. "US" -> "region-us", "us-central1" -> "region-us-central1".
+        return f"region-{location.lower()}"
+
     def get_tables_for_dataset(
         self,
         project_id: str,
@@ -402,28 +453,34 @@ class BigQuerySchemaApi:
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
         with_partitions: bool = False,
+        location: Optional[str] = None,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
-            if with_partitions:
+            if with_partitions and location:
                 query_template = BigqueryQuery.tables_for_dataset
             else:
+                if with_partitions and not location:
+                    logger.warning(
+                        f"Dataset location not available for {project_id}.{dataset_name}, "
+                        "falling back to query without storage statistics."
+                    )
                 query_template = BigqueryQuery.tables_for_dataset_without_partition_data
+
+            query_args: Dict[str, str] = dict(
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table_filter=(
+                    f" and t.table_name in ({filter_clause})" if filter_clause else ""
+                ),
+            )
+            if location:
+                query_args["region"] = self._bq_location_to_region(location)
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
-            cur = self.get_query_result(
-                query_template.format(
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                    table_filter=(
-                        f" and t.table_name in ({filter_clause})"
-                        if filter_clause
-                        else ""
-                    ),
-                ),
-            )
+            cur = self.get_query_result(query_template.format(**query_args))
 
             for table in cur:
                 try:
@@ -455,11 +512,17 @@ class BigQuerySchemaApi:
             expiration = None
 
         _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
+        external = table.table_type == BigqueryTableType.EXTERNAL
+        ext_opts = (
+            ExternalTableOptions.from_ddl(table.ddl)
+            if external and table.ddl
+            else ExternalTableOptions()
+        )
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
             table_type=table.table_type,
-            last_altered=parse_ts_millis(table.get("last_altered")),
+            last_altered=table.get("last_altered"),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -475,7 +538,11 @@ class BigQuerySchemaApi:
             num_partitions=table.get("num_partitions"),
             active_billable_bytes=table.get("active_billable_bytes"),
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
-            external=(table.table_type == BigqueryTableType.EXTERNAL),
+            external=external,
+            external_source_format=ext_opts.source_format,
+            external_source_uris=ext_opts.source_uris,
+            external_compression=ext_opts.compression,
+            external_max_bad_records=ext_opts.max_bad_records,
         )
 
     def get_views_for_dataset(
@@ -484,16 +551,23 @@ class BigQuerySchemaApi:
         dataset_name: str,
         has_data_read: bool,
         report: BigQueryV2Report,
+        location: Optional[str] = None,
     ) -> Iterator[BigqueryView]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if has_data_read and location:
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        region=self._bq_location_to_region(location),
                     ),
                 )
             else:
+                if has_data_read and not location:
+                    logger.warning(
+                        f"Dataset location not available for {project_id}.{dataset_name}, "
+                        "falling back to query without storage statistics."
+                    )
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset_without_data_read.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -520,7 +594,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=(parse_ts_millis(view.get("last_altered"))),
+            last_altered=view.get("last_altered"),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -725,16 +799,23 @@ class BigQuerySchemaApi:
         dataset_name: str,
         has_data_read: bool,
         report: BigQueryV2Report,
+        location: Optional[str] = None,
     ) -> Iterator[BigqueryTableSnapshot]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if has_data_read and location:
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        region=self._bq_location_to_region(location),
                     ),
                 )
             else:
+                if has_data_read and not location:
+                    logger.warning(
+                        f"Dataset location not available for {project_id}.{dataset_name}, "
+                        "falling back to query without storage statistics."
+                    )
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset_without_data_read.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -761,7 +842,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=parse_ts_millis(snapshot.get("last_altered")),
+            last_altered=snapshot.get("last_altered"),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

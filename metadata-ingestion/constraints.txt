@@ -131,7 +131,9 @@ azure-storage-blob==12.28.0
 azure-storage-file-datalake==12.23.0
     # via acryl-datahub
 babel==2.18.0
-    # via jupyterlab-server
+    # via
+    #   jupyterlab-server
+    #   python-liquid
 backoff==2.2.1
     # via
     #   gql
@@ -411,7 +413,7 @@ fastjsonschema==2.21.2
     # via nbformat
 fastuuid==0.14.0
     # via litellm
-feast==0.41.3
+feast==0.47.0
     # via acryl-datahub
 filelock==3.25.0
     # via
@@ -478,7 +480,9 @@ google-auth==2.49.0
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-datacatalog
+    #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
+    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   google-cloud-storage
     #   google-genai
@@ -501,11 +505,11 @@ google-cloud-core==2.5.0
     #   google-cloud-storage
 google-cloud-datacatalog==3.29.0
     # via acryl-datahub
-google-cloud-datacatalog-lineage==0.2.2
+google-cloud-datacatalog-lineage==0.5.0
     # via acryl-datahub
 google-cloud-dataplex==2.16.0
     # via acryl-datahub
-google-cloud-logging==3.5.0
+google-cloud-logging==3.14.0
     # via acryl-datahub
 google-cloud-resource-manager==1.16.0
     # via
@@ -554,7 +558,9 @@ grpcio==1.78.0
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-datacatalog
+    #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
+    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -562,7 +568,7 @@ grpcio==1.78.0
     #   grpcio-tools
 grpcio-status==1.62.3
     # via google-api-core
-grpcio-tools==1.62.3
+grpcio-tools==1.71.2
     # via acryl-datahub
 gssapi==1.11.1
     # via requests-gssapi
@@ -633,10 +639,8 @@ importlib-metadata==8.7.1
     #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
-importlib-resources==6.5.2
-    # via
-    #   python-liquid
-    #   schwifty
+importlib-resources==6.5.2 ; python_full_version < '3.12'
+    # via schwifty
 iniconfig==2.3.0
     # via pytest
 ipaddress==1.0.23
@@ -651,11 +655,12 @@ ipython==8.38.0
     #   ipywidgets
 ipywidgets==8.1.8
     # via acryl-great-expectations
-isodate==0.7.2
+isodate==0.6.1
     # via
     #   azure-mgmt-datafactory
     #   azure-storage-blob
     #   azure-storage-file-datalake
+    #   rdflib
     #   tableschema
     #   zeep
 isoduration==20.11.0
@@ -777,8 +782,6 @@ langcodes==3.5.1
     # via spacy
 langdetect==1.0.9
     # via unstructured
-lark==1.1.4
-    # via acryl-datahub
 leb128==1.0.9
     # via asynch
 linear-tsv==1.1.0
@@ -821,6 +824,7 @@ markupsafe==3.0.3
     #   jinja2
     #   mako
     #   nbconvert
+    #   python-liquid
     #   werkzeug
 marshmallow==3.26.2
     # via
@@ -835,6 +839,8 @@ mdit-py-plugins==0.5.0
 mdurl==0.1.2
     # via markdown-it-py
 memray==1.19.1
+    # via acryl-datahub
+mini-racer==0.14.1
     # via acryl-datahub
 mistune==3.2.0
     # via
@@ -854,7 +860,7 @@ more-itertools==10.8.0
     #   jaraco-classes
     #   jaraco-functools
     #   simple-salesforce
-moto==4.2.14
+moto==5.1.22
     # via acryl-datahub
 msal==1.35.1
     # via
@@ -961,6 +967,7 @@ openpyxl==3.1.5
     #   dataflows-tabulator
 opentelemetry-api==1.40.0
     # via
+    #   google-cloud-logging
     #   mlflow-skinny
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
@@ -1080,8 +1087,9 @@ proto-plus==1.27.1
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.8
+protobuf==5.29.6
     # via
+    #   acryl-datahub
     #   databricks-sdk
     #   feast
     #   google-api-core
@@ -1117,11 +1125,11 @@ pure-sasl==0.6.2
     # via
     #   acryl-pyhive
     #   thrift-sasl
-py-partiql-parser==0.5.0
+py-partiql-parser==0.6.3
     # via moto
 py4j==0.10.9.9
     # via pyspark
-pyarrow==22.0.0
+pyarrow==18.0.0
     # via
     #   acryl-datahub
     #   dask-expr
@@ -1172,9 +1180,7 @@ pydantic==2.11.10
     #   unstructured-ingest
     #   weasel
 pydantic-core==2.33.2
-    # via
-    #   acryl-datahub
-    #   pydantic
+    # via pydantic
 pydash==8.0.6
     # via okta
 pydeequ==1.5.0
@@ -1220,6 +1226,7 @@ pyparsing==3.3.2
     # via
     #   acryl-great-expectations
     #   pyiceberg
+    #   rdflib
 pypdf==6.8.0
     # via unstructured-client
 pypdfium2==5.6.0
@@ -1289,7 +1296,7 @@ python-json-logger==4.0.0
     #   jupyter-events
 python-ldap==3.4.5
     # via acryl-datahub
-python-liquid==1.13.0
+python-liquid==2.1.0
     # via acryl-datahub
 python-magic==0.4.27
     # via unstructured
@@ -1314,6 +1321,7 @@ pytz==2026.1.post1
     #   croniter
     #   neo4j
     #   pandas
+    #   python-liquid
     #   redshift-connector
     #   snowflake-connector-python
     #   trino
@@ -1349,6 +1357,8 @@ pyzmq==27.1.0
     #   jupyter-server
 rapidfuzz==3.14.3
     # via unstructured
+rdflib==6.3.2
+    # via acryl-datahub
 readme-renderer==44.0
     # via twine
 redash-toolbelt==0.1.9
@@ -1362,7 +1372,6 @@ referencing==0.37.0
     #   jupyter-events
 regex==2026.2.28
     # via
-    #   lark
     #   nltk
     #   tiktoken
 requests==2.32.5
@@ -1514,6 +1523,7 @@ six==1.17.0
     #   dataflows-tabulator
     #   ecdsa
     #   html5lib
+    #   isodate
     #   langdetect
     #   linear-tsv
     #   python-dateutil
@@ -1589,9 +1599,9 @@ sqlalchemy2-stubs==0.0.2a38
     # via
     #   acryl-datahub
     #   sqlalchemy
-sqlglot==29.0.1
+sqlglot==30.0.3
     # via acryl-datahub
-sqlglotc==29.0.1
+sqlglotc==30.0.3
     # via sqlglot
 sqlparse==0.5.5
     # via
@@ -1817,7 +1827,6 @@ typing-extensions==4.15.0
     #   pyopenssl
     #   pypdf
     #   pytest-asyncio
-    #   python-liquid
     #   python-oxmsg
     #   python-utils
     #   referencing
@@ -1855,7 +1864,7 @@ tzlocal==5.3.1
     #   trino
 uc-micro-py==2.0.0
     # via linkify-it-py
-ujson==5.11.0
+ujson==5.12.0
     # via acryl-datahub
 unicodecsv==0.14.1
     # via

@@ -1,5 +1,4 @@
 import { GraphCard, LineChart } from '@components';
-import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
@@ -20,6 +19,7 @@ import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { TimeRange } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 export default function StorageSizeGraph() {
     const {

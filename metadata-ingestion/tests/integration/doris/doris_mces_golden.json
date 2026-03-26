@@ -798,7 +798,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customers,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "auditStamp": {
@@ -811,7 +811,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.orders,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 }
             ],
             "fineGrainedLineages": [
@@ -826,7 +826,7 @@
                     ],
                     "transformOperation": "COPY: `c`.`customer_id` AS `customer_id`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -839,7 +839,7 @@
                     ],
                     "transformOperation": "COPY: `c`.`customer_name` AS `customer_name`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -852,7 +852,7 @@
                     ],
                     "transformOperation": "SQL: COUNT(`dorisdb`.`o`.`order_id`) AS `order_count`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -865,7 +865,7 @@
                     ],
                     "transformOperation": "SQL: SUM(`dorisdb`.`o`.`total_amount`) AS `total_spent`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 }
             ]
         }
@@ -899,7 +899,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -928,7 +928,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -978,7 +978,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -994,7 +994,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

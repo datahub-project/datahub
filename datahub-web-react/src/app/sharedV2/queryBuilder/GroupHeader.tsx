@@ -1,4 +1,5 @@
 import { Tooltip } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -114,7 +115,7 @@ const GroupHeader = ({
                 <CardIcons>
                     {showDeleteButton && (
                         <Icon
-                            icon="Delete"
+                            icon={Trash}
                             size="md"
                             onClick={() => onDeletePredicate(index)}
                             data-testid="query-builder-delete-button"

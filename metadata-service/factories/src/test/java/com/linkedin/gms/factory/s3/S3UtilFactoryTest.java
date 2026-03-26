@@ -56,13 +56,9 @@ class TestStsClientConfiguration {
  * outside AWS: aws.region + dummy AWS_ENDPOINT_URL (system property) avoid real AWS calls.
  */
 @SpringBootTest(classes = {S3UtilFactory.class, TestStsClientConfiguration.class})
+@ContextConfiguration(initializers = SetAwsRegionAndEndpointInitializer.class)
 @TestPropertySource(properties = {"datahub.s3.roleArn="})
 public class S3UtilFactoryTest extends AbstractTestNGSpringContextTests {
-
-  static {
-    System.setProperty("aws.region", "us-east-1");
-    System.setProperty("AWS_ENDPOINT_URL", "http://localhost:9999");
-  }
 
   @Autowired
   @Qualifier("s3Util")
@@ -86,12 +82,9 @@ public class S3UtilFactoryTest extends AbstractTestNGSpringContextTests {
  * or outside AWS.
  */
 @SpringBootTest(classes = {S3UtilFactory.class, TestStsClientConfiguration.class})
+@ContextConfiguration(initializers = SetAwsRegionInitializer.class)
 @TestPropertySource(properties = {"datahub.s3.roleArn=arn:aws:iam::123456789012:role/test-role"})
 class S3UtilFactoryWithRoleArnTest extends AbstractTestNGSpringContextTests {
-
-  static {
-    System.setProperty("aws.region", "us-east-1");
-  }
 
   @Autowired
   @Qualifier("s3Util")
@@ -119,6 +112,27 @@ class S3UtilFactoryEndpointOnlyTest extends AbstractTestNGSpringContextTests {
     assertNotNull(
         s3Util,
         "S3Util bean should be created when only AWS_ENDPOINT_URL set (region defaulted to US_EAST_1)");
+  }
+}
+
+/**
+ * Sets aws.region before context loads, immune to test ordering with ClearAwsPropertiesInitializer.
+ */
+final class SetAwsRegionInitializer
+    implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+  @Override
+  public void initialize(ConfigurableApplicationContext applicationContext) {
+    System.setProperty("aws.region", "us-east-1");
+  }
+}
+
+/** Sets aws.region + AWS_ENDPOINT_URL before context loads, immune to test ordering. */
+final class SetAwsRegionAndEndpointInitializer
+    implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+  @Override
+  public void initialize(ConfigurableApplicationContext applicationContext) {
+    System.setProperty("aws.region", "us-east-1");
+    System.setProperty("AWS_ENDPOINT_URL", "http://localhost:9999");
   }
 }
 

@@ -32,6 +32,7 @@ from datahub.ingestion.source.common.subtypes import (
     GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
+from datahub.ingestion.source.fabric.common.models import WorkspaceKey
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_schema_name,
@@ -71,22 +72,47 @@ logger = logging.getLogger(__name__)
 PLATFORM = "fabric-onelake"
 
 
-class WorkspaceKey(ContainerKey):
-    """Container key for Fabric workspaces."""
-
-    workspace_id: str
-
-
 class LakehouseKey(WorkspaceKey):
     """Container key for Fabric lakehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
+    platform: str = PLATFORM
     lakehouse_id: str
+
+    def parent_key(self) -> Optional[ContainerKey]:
+        if type(self) is LakehouseKey:
+            # Default ContainerKey.parent_key() would preserve this key's
+            # platform (`fabric-onelake`) when deriving WorkspaceKey.
+            # For the lakehouse level, workspace parents must be `fabric`.
+            return WorkspaceKey(
+                instance=self.instance,
+                env=self.env,
+                workspace_id=self.workspace_id,
+            )
+
+        # For subclasses like LakehouseSchemaKey, keep standard traversal:
+        # LakehouseSchemaKey -> LakehouseKey.
+        return ContainerKey.parent_key(self)
 
 
 class WarehouseKey(WorkspaceKey):
     """Container key for Fabric warehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
+    platform: str = PLATFORM
     warehouse_id: str
+
+    def parent_key(self) -> Optional[ContainerKey]:
+        if type(self) is WarehouseKey:
+            # Same rationale as LakehouseKey: workspace parents must be `fabric`,
+            # not inherited as `fabric-onelake`.
+            return WorkspaceKey(
+                instance=self.instance,
+                env=self.env,
+                workspace_id=self.workspace_id,
+            )
+
+        # For subclasses like WarehouseSchemaKey, keep standard traversal:
+        # WarehouseSchemaKey -> WarehouseKey.
+        return ContainerKey.parent_key(self)
 
 
 class LakehouseSchemaKey(LakehouseKey):
@@ -199,7 +225,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     ) -> Iterable[Container]:
         """Create a workspace container."""
         container_key = WorkspaceKey(
-            platform=PLATFORM,
             instance=self.config.platform_instance,
             env=self.config.env,
             workspace_id=workspace.id,

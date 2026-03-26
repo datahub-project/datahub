@@ -1,6 +1,10 @@
-from typing import Dict, List, Optional
+from __future__ import annotations
 
-from pydantic import ConfigDict, Field, model_validator
+import logging
+import re
+from typing import Any, Dict, List, Optional
+
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -13,6 +17,10 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_project_filter import (
+    GCP_LABEL_PATTERN,
+    GCP_PROJECT_ID_PATTERN,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -23,6 +31,8 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     IngestionLimits,
     MLMetadataDefaults,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PlatformDetail(ConfigModel):
@@ -72,7 +82,7 @@ class VertexAIConfig(
     credential: Optional[GCPCredential] = Field(
         default=None, description="GCP credential information"
     )
-    project_id: str = Field(description=("Project ID in Google Cloud Platform"))
+
     region: Optional[str] = Field(
         default=None,
         description="[deprecated] Single Vertex AI region. Use 'regions' or 'discover_regions' instead.",
@@ -224,6 +234,91 @@ class VertexAIConfig(
         description="Stateful ingestion configuration for tracking and removing stale metadata.",
     )
 
+    @field_validator("project_ids", mode="before")
+    @classmethod
+    def _validate_project_ids(cls, v: Any) -> List[str]:
+        if not v:
+            return v or []
+        invalid = [pid for pid in v if not GCP_PROJECT_ID_PATTERN.match(pid)]
+        if invalid:
+            raise ValueError(
+                f"Invalid project_ids format: {invalid}. "
+                "Must be 6-30 chars, lowercase letters/numbers/hyphens, "
+                "start with letter, end with letter or number."
+            )
+        # Deduplicate while preserving order
+        return list(dict.fromkeys(v))
+
+    @field_validator("project_labels", mode="before")
+    @classmethod
+    def _validate_project_labels(cls, v: Any) -> List[str]:
+        if not v:
+            return v or []
+        invalid = [label for label in v if not GCP_LABEL_PATTERN.match(label)]
+        if invalid:
+            raise ValueError(
+                f"Invalid project_labels format: {invalid}. "
+                "Must be 'key:value' with lowercase letters, digits, underscores, or hyphens."
+            )
+        return list(dict.fromkeys(v))
+
+    @field_validator("project_id_pattern")
+    @classmethod
+    def _validate_project_id_pattern_syntax(
+        cls, v: AllowDenyPattern
+    ) -> AllowDenyPattern:
+        invalid_patterns = []
+        for pattern in v.allow + v.deny:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                invalid_patterns.append(f"'{pattern}': {e}")
+        if invalid_patterns:
+            raise ValueError(
+                f"Invalid regex in project_id_pattern: {', '.join(invalid_patterns)}. "
+                "Check your allow/deny patterns for syntax errors."
+            )
+        return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_project_id_to_project_ids(cls, values: Any) -> Any:
+        """Migrate deprecated 'project_id' to 'project_ids' and remove it."""
+        if not isinstance(values, dict):
+            return values
+        project_id = values.pop("project_id", None)
+        if not project_id:
+            return values
+        project_ids = values.get("project_ids")
+        if not project_ids:
+            logger.warning(
+                "Config field 'project_id' is deprecated, use 'project_ids: [\"%s\"]' instead.",
+                project_id,
+            )
+            values["project_ids"] = [project_id]
+        elif project_id not in project_ids:
+            raise ValueError(
+                f"Conflicting config: 'project_id' is '{project_id}' "
+                f"but 'project_ids' is {project_ids}. "
+                "Remove the deprecated 'project_id' field and use only 'project_ids'."
+            )
+        return values
+
+    @model_validator(mode="after")
+    def _validate_pattern_does_not_filter_all(self) -> "VertexAIConfig":
+        """Raise early if project_id_pattern would filter out all explicitly configured project_ids."""
+        if not self.project_ids:
+            return self
+        allowed = [
+            pid for pid in self.project_ids if self.project_id_pattern.allowed(pid)
+        ]
+        if not allowed:
+            raise ValueError(
+                f"All {len(self.project_ids)} configured project_ids were filtered out "
+                "by project_id_pattern. Check your allow/deny patterns."
+            )
+        return self
+
     @model_validator(mode="after")
     def require_region_source(self) -> "VertexAIConfig":
         if not self.region and not self.regions and not self.discover_regions:
@@ -232,7 +327,7 @@ class VertexAIConfig(
             )
         return self
 
-    def get_credentials(self) -> Optional[Dict[str, str]]:
+    def get_credentials(self) -> Optional[Dict[str, Any]]:
         if self.credential:
-            return self.credential.to_dict(self.project_id)
+            return self.credential.to_dict()
         return None
