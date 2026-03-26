@@ -771,14 +771,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             return json.loads(requests.get(uri).text)
         elif is_s3_uri(uri):
             u = urlparse(uri)
-            assert aws_connection
+            if not aws_connection:
+                raise ValueError(f"AWS connection required for S3 URI: {uri}")
             response = aws_connection.get_s3_client().get_object(
                 Bucket=u.netloc, Key=u.path.lstrip("/")
             )
             return json.loads(response["Body"].read().decode("utf-8"))
         elif is_gcs_uri(uri):
             u = urlparse(uri)
-            assert gcs_connection
+            if not gcs_connection:
+                raise ValueError(f"GCS connection required for GCS URI: {uri}")
             s3_compat = gcs_connection.get_s3_compatible_connection()
             response = s3_compat.get_s3_client().get_object(
                 Bucket=u.netloc, Key=u.path.lstrip("/")
@@ -796,6 +798,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         bucket = u.netloc
         key_pattern = u.path.lstrip("/")
 
+        # Use the longest static prefix to limit object store listing scope
         prefix_parts: List[str] = []
         for part in key_pattern.split("/"):
             if _has_glob_characters(part):
