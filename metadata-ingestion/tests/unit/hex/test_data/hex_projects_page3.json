@@ -83,6 +83,71 @@
       }
     },
     {
+      "id": "e8d7c5a3-2b4f-4e21-9823-1a3b5c7d9e0f",
+      "title": "Mixed Categories Project",
+      "description": "Project with both Scratchpad and Keep_Scratchpad categories",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user6@example.com"
+      },
+      "owner": {
+        "email": "user6@example.com"
+      },
+      "status": {
+        "name": "Published"
+      },
+      "categories": [
+        {
+          "name": "Scratchpad",
+          "description": "Personal scratchpad for a team member. Not intended for broad consumption"
+        },
+        {
+          "name": "Keep_Scratchpad",
+          "description": "Intended for broad consumption"
+        }
+      ],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 25,
+          "lastSevenDays": 5,
+          "lastFourteenDays": 10,
+          "lastThirtyDays": 20
+        },
+        "lastViewedAt": "2025-03-20T10:30:00.000Z",
+        "publishedResultsUpdatedAt": "2025-03-21T12:00:00.000Z"
+      },
+      "lastEditedAt": "2024-12-20T14:30:00.000Z",
+      "lastPublishedAt": "2024-12-15T09:00:00.000Z",
+      "createdAt": "2024-12-05T11:00:00.000Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user6@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
       "id": "4759f33c-1ab9-403d-92e8-9bef48de00cg",
       "title": "Cancelled Orders",
       "description": null,
