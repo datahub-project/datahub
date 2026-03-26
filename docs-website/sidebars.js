@@ -114,6 +114,21 @@ module.exports = {
               id: "docs/dev-guides/agent-context/snowflake",
             },
             {
+              label: "Cursor",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/cursor",
+            },
+            {
+              label: "Claude",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/claude",
+            },
+            {
+              label: "Gemini CLI",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/gemini-cli",
+            },
+            {
               label: "Microsoft Copilot Studio",
               type: "doc",
               id: "docs/dev-guides/agent-context/copilot-studio",
