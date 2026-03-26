@@ -328,7 +328,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -341,7 +342,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -354,7 +356,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -367,7 +370,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -380,7 +384,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -393,7 +398,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -406,7 +412,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -419,7 +426,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -432,7 +440,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -722,7 +731,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -735,7 +745,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -748,7 +759,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -761,7 +773,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -774,7 +787,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -787,7 +801,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -800,7 +815,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -813,7 +829,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -826,7 +843,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -1001,7 +1019,7 @@
                         "nativeDataType": "NUMBER(38,0)",
                         "recursive": false,
                         "isPartOfKey": false,
-                        "isPartitioningKey": true
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_2",
@@ -1014,7 +1032,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -1027,7 +1046,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -1040,7 +1060,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -1053,7 +1074,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -1066,7 +1088,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -1079,7 +1102,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -1092,7 +1116,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -1105,7 +1130,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -1118,7 +1144,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -1470,7 +1497,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -1483,7 +1511,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -1496,7 +1525,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -1509,7 +1539,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -1522,7 +1553,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -1535,7 +1567,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -1548,7 +1581,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -1561,7 +1595,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -1574,7 +1609,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -1710,7 +1746,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -1723,7 +1760,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -1736,7 +1774,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -1749,7 +1788,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -1762,7 +1802,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -1775,7 +1816,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -1788,7 +1830,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -1801,7 +1844,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -1814,7 +1858,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -2193,7 +2238,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -2206,7 +2252,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -2219,7 +2266,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -2232,7 +2280,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -2245,7 +2294,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -2258,7 +2308,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -2271,7 +2322,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -2284,7 +2336,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -2297,7 +2350,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -2374,7 +2428,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -2387,7 +2442,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -2400,7 +2456,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -2413,7 +2470,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -2426,7 +2484,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -2439,7 +2498,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -2452,7 +2512,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -2465,7 +2526,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -2478,7 +2540,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -2760,7 +2823,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -2773,7 +2837,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -2786,7 +2851,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -2799,7 +2865,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -2812,7 +2879,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -2825,7 +2893,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -2838,7 +2907,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -2851,7 +2921,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -2864,7 +2935,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -3153,7 +3225,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -3166,7 +3239,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -3179,7 +3253,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -3192,7 +3267,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -3205,7 +3281,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -3218,7 +3295,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -3231,7 +3309,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -3244,7 +3323,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -3257,7 +3337,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -3334,7 +3415,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -3347,7 +3429,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -3360,7 +3443,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -3373,7 +3457,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -3386,7 +3471,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -3399,7 +3485,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -3412,7 +3499,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -3425,7 +3513,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -3438,7 +3527,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -3810,7 +3900,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -3823,7 +3914,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -3836,7 +3928,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -3849,7 +3942,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -3862,7 +3956,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -3875,7 +3970,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -3888,7 +3984,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -3901,7 +3998,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -3914,7 +4012,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -4138,7 +4237,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -4151,7 +4251,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -4164,7 +4265,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -4177,7 +4279,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -4190,7 +4293,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -4203,7 +4307,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -4216,7 +4321,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -4229,7 +4335,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -4242,7 +4349,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
@@ -4322,7 +4430,7 @@
                         "nativeDataType": "NUMBER(38,0)",
                         "recursive": false,
                         "isPartOfKey": false,
-                        "isPartitioningKey": true
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_2",
@@ -4335,7 +4443,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_3",
@@ -4348,7 +4457,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_4",
@@ -4361,7 +4471,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_5",
@@ -4374,7 +4485,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_6",
@@ -4387,7 +4499,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_7",
@@ -4400,7 +4513,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_8",
@@ -4413,7 +4527,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_9",
@@ -4426,7 +4541,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "col_10",
@@ -4439,7 +4555,8 @@
                         },
                         "nativeDataType": "VARCHAR(255)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "metadata$action",
@@ -4452,7 +4569,8 @@
                         },
                         "nativeDataType": "VARCHAR(10)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "metadata$isupdate",
@@ -4465,7 +4583,8 @@
                         },
                         "nativeDataType": "BOOLEAN",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     },
                     {
                         "fieldPath": "metadata$row_id",
@@ -4478,7 +4597,8 @@
                         },
                         "nativeDataType": "NUMBER(38,0)",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "isPartitioningKey": false
                     }
                 ]
             }
