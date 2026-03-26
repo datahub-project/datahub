@@ -219,7 +219,9 @@ class DataplexEntriesProcessor:
         self, project_id: str, location: str
     ) -> Iterable[dataplex_v1.Entry]:
         """Stream Spanner entries via search_entries workaround."""
-        logger.info(f"SearchEntries spanner for project={project_id} location={location}")
+        logger.info(
+            f"SearchEntries spanner for project={project_id} location={location}"
+        )
         request = dataplex_v1.SearchEntriesRequest(
             name=f"projects/{project_id}/locations/{location}",
             scope=f"projects/{project_id}",
