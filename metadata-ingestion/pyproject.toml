@@ -543,16 +543,17 @@ excel = [
     "wcmatch<11.0.0",
 ]
 
+fabric-data-factory = [
+    "azure-core>=1.38.0,<2.0.0",
+    "azure-identity>=1.21.0,<2.0.0",
+    "requests>=2.28.0,<3.0",
+]
+
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
     "pyodbc>=4.0,<5.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
-]
-fabric-data-factory = [
-    "azure-core>=1.38.0,<2.0.0",
-    "azure-identity>=1.21.0,<2.0.0",
-    "requests>=2.28.0,<3.0",
 ]
 
 feast = [
@@ -2074,6 +2075,7 @@ presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMe
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"
 salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
 demo-data = "datahub.ingestion.source.demo_data.DemoDataSource"
+datapack = "datahub.ingestion.source.datapack:DataPackSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
