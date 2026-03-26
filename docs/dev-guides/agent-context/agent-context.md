@@ -32,6 +32,7 @@ When building AI agents that answer questions about data, agents often face thes
 3. **Using Google ADK?** See the [Google ADK integration guide](./google-adk.md)
 4. **Using Google Vertex AI Agent Builder?** See the [Google Vertex AI integration guide](./google-vertex-ai.md)
 5. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
+6. **Using Snowflake Cortex Code?** See the [Cortex Code integration guide](./cortex-code.md)
 
 ## Installation
 
@@ -99,6 +100,7 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 | Custom                   | Launched    | See below                                       |
 | Langchain                | Launched    | [LangChain Guide](./langchain.md)               |
 | Snowflake                | Launched    | [Snowflake Guide](./snowflake.md)               |
+| Snowflake Cortex Code    | Launched    | [Cortex Code Guide](./cortex-code.md)           |
 | Google ADK               | Launched    | [Google ADK Guide](./google-adk.md)             |
 | Google Vertex AI         | Launched    | [Google Vertex AI Guide](./google-vertex-ai.md) |
 | Microsoft Copilot Studio | Launched    | [Copilot Studio Guide](./copilot-studio.md)     |
