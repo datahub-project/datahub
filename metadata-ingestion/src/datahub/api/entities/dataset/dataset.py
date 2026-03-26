@@ -42,8 +42,8 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.graph import RelationshipDirection
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,

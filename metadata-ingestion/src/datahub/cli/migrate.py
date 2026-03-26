@@ -24,12 +24,12 @@ from datahub.emitter.mcp_builder import (
     SchemaKey,
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph import RelatedEntity
 from datahub.ingestion.graph.client import (
     ClientMode,
     DataHubGraph,
     get_default_graph,
 )
+from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,

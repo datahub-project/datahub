@@ -1,5 +1,5 @@
-from datahub.ingestion.graph import RelationshipDirection
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.openapi import RelationshipDirection
 
 # Create a graph client to query DataHub
 graph = DataHubGraph(config=DatahubClientConfig(server="http://localhost:8080"))

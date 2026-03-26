@@ -7,9 +7,9 @@ from avrogen.dict_wrapper import DictWrapper
 from datahub.cli import cli_utils
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph import RelatedEntity, RelationshipDirection
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerClass,
