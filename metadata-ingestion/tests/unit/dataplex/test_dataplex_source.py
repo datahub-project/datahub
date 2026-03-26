@@ -1,5 +1,6 @@
 """Unit tests for Dataplex source orchestration logic."""
 
+from contextlib import nullcontext
 from unittest.mock import Mock, patch
 
 from google.api_core import exceptions
@@ -17,6 +18,7 @@ def test_process_project_wraps_entities_and_lineage_workunits() -> None:
     source.config = Mock(include_lineage=True)
     source.lineage_extractor = Mock()
     source.report = Mock()
+    source.report.new_stage.return_value = nullcontext()
 
     lineage_workunit = Mock()
     with (
@@ -43,6 +45,7 @@ def test_process_project_reports_google_api_failure() -> None:
     source.config = Mock(include_lineage=False)
     source.lineage_extractor = None
     source.report = Mock()
+    source.report.new_stage.return_value = nullcontext()
 
     with patch(
         "datahub.ingestion.source.dataplex.dataplex.auto_workunit",
