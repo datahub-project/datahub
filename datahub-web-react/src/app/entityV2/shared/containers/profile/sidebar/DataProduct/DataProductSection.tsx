@@ -4,7 +4,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -33,12 +33,11 @@ interface Props {
 }
 
 export default function DataProductSection({ readOnly }: Props) {
-    const { reloadByKeyType } = useReloadableContext();
+    const { reloadByKeyType, bypassCacheForUrn } = useReloadableContext();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [showRemoveModal, setShowRemoveModal] = useState(false);
     const [dataProductToRemove, setDataProductToRemove] = useState<string | null>(null);
     const { entityData, urn } = useEntityData();
-    const { refetch } = useEntityContext();
     const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchRemoveFromDataProductsMutation] = useBatchRemoveFromDataProductsMutation();
@@ -82,7 +81,10 @@ export default function DataProductSection({ readOnly }: Props) {
                         ],
                         3000,
                     );
-                    setTimeout(refetch, 3000);
+                    // Mark these URNs to bypass cache on next fetch
+                    [urn, ...siblingUrns].forEach((entityUrn) => {
+                        bypassCacheForUrn(entityUrn);
+                    });
                 })
                 .catch((e: unknown) => {
                     toast.destroy();
@@ -106,7 +108,10 @@ export default function DataProductSection({ readOnly }: Props) {
                         ],
                         3000,
                     );
-                    setTimeout(refetch, 3000);
+                    // Mark these URNs to bypass cache on next fetch
+                    [urn, ...siblingUrns].forEach((entityUrn) => {
+                        bypassCacheForUrn(entityUrn);
+                    });
                 })
                 .catch((e: unknown) => {
                     toast.destroy();
