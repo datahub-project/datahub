@@ -26,6 +26,7 @@ from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
 from datahub.cli.graphql_cli import graphql
 from datahub.cli.ingest_cli import ingest
+from datahub.cli.lineage_cli import lineage
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
@@ -502,6 +503,7 @@ datahub.add_command(delete)
 datahub.add_command(exists)
 datahub.add_command(get)
 datahub.add_command(graphql)
+datahub.add_command(lineage)
 datahub.add_command(put)
 datahub.add_command(search)
 datahub.add_command(state)
