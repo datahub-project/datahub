@@ -6,7 +6,7 @@ modules (common.py, transform_plugins.py, etc.) without creating circular depend
 """
 
 import logging
-from typing import Final, List
+from typing import Dict, Final, List
 
 logger = logging.getLogger(__name__)
 
@@ -111,3 +111,21 @@ def parse_comma_separated_list(value: str) -> List[str]:
             items.append(cleaned_item)
 
     return items
+
+
+def parse_topic_to_table_map(mappings: List[str]) -> Dict[str, str]:
+    """Parse a list of 'topic:table' mapping strings into a dict.
+
+    Entries missing a ':' are skipped with a warning.
+    Only the first ':' is used as the delimiter, so table names may contain colons.
+    """
+    result: Dict[str, str] = {}
+    for mapping in mappings:
+        if ":" not in mapping:
+            logger.warning(
+                f"Invalid topic:table mapping format: '{mapping}'. Expected 'topic:table'."
+            )
+            continue
+        topic, table = mapping.split(":", 1)
+        result[topic.strip()] = table.strip()
+    return result

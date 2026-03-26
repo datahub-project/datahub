@@ -120,7 +120,7 @@ _Ask DataHub (Public Beta - Cloud only) provides contextual assistance throughou
 :::
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub-2.png"/>
 </p>
 
 _Ask DataHub (Public Beta - Cloud only) helps you understand configuration options and provides tailored recommendations for your data source_

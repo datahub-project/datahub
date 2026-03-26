@@ -124,8 +124,9 @@ sqlglot_lib = {
     # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
     # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
-    "sqlglot[c]==29.0.1",
-    "sqlglotc==29.0.1",
+    # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
+    # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
+    "sqlglot[c]==30.0.3",
     "patchy==2.8.0",
 }
 
@@ -236,11 +237,7 @@ looker_common = {
     "lkml>=1.3.4,<2.0.0",
     *sqlglot_lib,
     "GitPython>2,<4.0.0",
-    # python-liquid 2 includes a bunch of breaking changes.
-    # See https://jg-rp.github.io/liquid/migration/
-    # Eventually we should fully upgrade to v2, but that will require
-    # us to drop Python 3.8 support first.
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "deepmerge>=1.1.1,<3.0.0",
 }
 
@@ -306,7 +303,7 @@ snowflake_common = {
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
     #
-    # Upper bound <1.7.4 was (accidentally?) removed 
+    # Upper bound <1.7.4 was (accidentally?) removed
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
@@ -561,6 +558,11 @@ plugins: Dict[str, Set[str]] = {
     },
     "azure-ad": set(),
     "azure-data-factory": azure_data_factory,
+    "fabric-data-factory": {
+        "azure-core>=1.38.0,<2.0.0",
+        "azure-identity>=1.21.0,<2.0.0",
+        "requests>=2.28.0,<3.0",
+    },
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
         "pyodbc>=4.0,<5.0",
@@ -628,6 +630,7 @@ plugins: Dict[str, Set[str]] = {
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
     },
+    "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
     "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -659,7 +662,8 @@ plugins: Dict[str, Set[str]] = {
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    "kafka-connect": sql_common
+    | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -675,8 +679,9 @@ plugins: Dict[str, Set[str]] = {
         "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
+    "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
-    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"}
+    "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
     | cachetools_lib,
     "mongodb": {"pymongo[aws]>=4.8.0,<5.0.0", "packaging<26.0.0"},
@@ -741,7 +746,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"lark[regex]==1.1.4", "sqlparse<1.0.0", "more-itertools<11.0.0"}
+        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
         | threading_timeout_common
     ),
@@ -964,6 +969,7 @@ full_test_dev_requirements = {
         for plugin in [
             "athena",
             "azure-data-factory",
+            "fabric-data-factory",
             "fabric-onelake",
             "circuit-breaker",
             "clickhouse",
@@ -1011,6 +1017,7 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
+        "fabric-data-factory = datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
@@ -1204,7 +1211,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
-        "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
+        "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],
         "datahub.ingestion.autogenerated": ["*.json"],
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
@@ -1232,6 +1239,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
                 ]
             )
         ),
+        "sso": list(framework_common | {"playwright>=1.40.0,<2.0.0"}),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
         "docs": list(
