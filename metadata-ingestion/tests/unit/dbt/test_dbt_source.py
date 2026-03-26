@@ -2956,6 +2956,7 @@ def test_gcs_connection_config_builds_s3_compatible():
 
     assert s3_compat.aws_endpoint_url == GCS_ENDPOINT_URL
     assert s3_compat.aws_access_key_id == "my_access_id"
+    assert s3_compat.aws_secret_access_key is not None
     assert s3_compat.aws_secret_access_key.get_secret_value() == "my_secret"
     assert s3_compat.aws_region == "auto"
 
