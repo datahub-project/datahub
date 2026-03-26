@@ -23,6 +23,7 @@ import com.linkedin.restli.client.Client;
 import io.ebean.Database;
 import java.net.URI;
 import org.mockito.Answers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -80,7 +81,13 @@ public class MceConsumerApplicationTestConfiguration {
 
   @MockitoBean protected EntityRegistry entityRegistry;
 
-  @MockitoBean protected ConfigEntityRegistry configEntityRegistry;
+  // Use @Bean @Primary to prevent ConfigEntityRegistryFactory from loading entity-registry.yml
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  @Bean
+  @Primary
+  public ConfigEntityRegistry configEntityRegistry() {
+    return Mockito.mock(ConfigEntityRegistry.class);
+  }
 
   @MockitoBean protected SiblingGraphService siblingGraphService;
 

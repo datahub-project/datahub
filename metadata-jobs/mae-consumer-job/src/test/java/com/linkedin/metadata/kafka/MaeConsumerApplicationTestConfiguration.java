@@ -18,8 +18,11 @@ import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import io.ebean.Database;
 import org.mockito.Answers;
+import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
@@ -42,7 +45,13 @@ public class MaeConsumerApplicationTestConfiguration {
 
   @MockitoBean private ElasticSearchSystemMetadataService _elasticSearchSystemMetadataService;
 
-  @MockitoBean private ConfigEntityRegistry _configEntityRegistry;
+  // Use @Bean @Primary to prevent ConfigEntityRegistryFactory from loading entity-registry.yml
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  @Bean
+  @Primary
+  public ConfigEntityRegistry configEntityRegistry() {
+    return Mockito.mock(ConfigEntityRegistry.class);
+  }
 
   @MockitoBean public ElasticSearchService elasticSearchService;
 

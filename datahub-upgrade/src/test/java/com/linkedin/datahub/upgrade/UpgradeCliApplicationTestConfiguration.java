@@ -40,9 +40,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     })
 public class UpgradeCliApplicationTestConfiguration {
 
-  // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying
-  // to instantiate
-  //       see: https://github.com/spring-projects/spring-framework/issues/33934
+  // TODO: Convert to @Bean @Primary (like configEntityRegistry below) to avoid Spring Framework
+  // issue #33934 where @MockitoBean still triggers real factory bean initialization.
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
   @MockitoBean public UpgradeCli upgradeCli;
 
   @MockitoBean public SearchService searchService;
