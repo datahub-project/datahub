@@ -25,7 +25,11 @@ describe("run history tab in manage data sources", () => {
   afterEach(() => {
     // Guarantee cleanup even if a test fails mid-way
     if (createdSources.length > 0) {
-      navigateToTab("Sources");
+      // Use goToIngestionPage() rather than navigateToTab("Sources") so that
+      // cleanup always starts from a known page state. Tests that navigate to
+      // the Run History tab leave the Sources tab out of view, causing
+      // navigateToTab to time out waiting for the tab element.
+      goToIngestionPage();
       createdSources.forEach((name) => {
         deleteIngestionSource(name);
       });
