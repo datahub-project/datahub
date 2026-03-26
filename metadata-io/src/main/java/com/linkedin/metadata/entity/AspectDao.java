@@ -154,8 +154,8 @@ public interface AspectDao {
       // update version 0
       Optional<EntityAspect> updated = Optional.empty();
       final boolean isNoOp =
-              ValidationApiUtils.normalizedEqual(
-                      currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+          ValidationApiUtils.normalizedEqual(
+              currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
 
       // update trace
       newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));

@@ -2516,7 +2516,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
             : null;
     return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
-            || ValidationApiUtils.normalizedEqual(oldAspect, newAspect);
+        || ValidationApiUtils.normalizedEqual(oldAspect, newAspect);
   }
 
   public void produceFailedMCPs(
