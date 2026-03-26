@@ -12,6 +12,7 @@ create table metadata_aspect_v2 (
 );
 
 create index if not exists timeIndex ON metadata_aspect_v2 (createdon);
+create index if not exists idx_version ON metadata_aspect_v2 (version);
 
 insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) values(
   'urn:li:corpuser:datahub',
