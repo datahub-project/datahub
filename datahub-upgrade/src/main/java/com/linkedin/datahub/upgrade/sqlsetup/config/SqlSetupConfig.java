@@ -33,6 +33,9 @@ public class SqlSetupConfig {
   @Getter
   private String ebeanUrl;
 
+  @Value("${featureFlags.zduStage10:false}")
+  private boolean createSchemaVersionIndex;
+
   /**
    * Provides a no-op MetricUtils for SqlSetup context to avoid dependency on system telemetry. This
    * allows LocalEbeanConfigFactory to work without requiring the full metrics infrastructure.
@@ -113,7 +116,8 @@ public class SqlSetupConfig {
             createUserPassword,
             host,
             port,
-            databaseName);
+            databaseName,
+            createSchemaVersionIndex);
 
     // Validate authentication configuration
     validateAuthenticationConfig(args);
