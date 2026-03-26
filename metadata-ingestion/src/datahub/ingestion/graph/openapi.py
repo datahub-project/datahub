@@ -19,7 +19,7 @@ from typing_extensions import deprecated
 from datahub._codegen.aspect import _Aspect
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import DatahubClientConfig
-from datahub.ingestion.graph.filters import RawSearchFilter
+from datahub.ingestion.graph.filters import RawSearchFilter, RawSearchFilterRule
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     SystemMetadataClass,
@@ -75,12 +75,43 @@ class RelationshipDirection(StrEnum):
     OUTGOING = "OUTGOING"
 
 
+def _raw_filter_to_v3_body(raw: RawSearchFilter) -> Dict[str, Any]:
+    """Convert a RawSearchFilter to the v3 API request body filter format."""
+    return {"and": [{"criteria": clause["and"]} for clause in raw]}
+
+
+def _merge_filter_with_urns(
+    raw_filter: Optional[RawSearchFilter], urns: Optional[List[str]]
+) -> Optional[RawSearchFilter]:
+    """Combine a RawSearchFilter with a URN list using AND semantics.
+
+    If both are provided, the URN criterion is appended to each OR clause so that
+    results must satisfy both the filter and be in the URN list.
+    """
+    if raw_filter is None and urns is None:
+        return None
+    if urns is None:
+        return raw_filter
+    urn_criterion: RawSearchFilterRule = {
+        "field": "urn",
+        "values": urns,
+        "condition": "EQUAL",
+    }
+    if raw_filter is None:
+        return [{"and": [urn_criterion]}]
+    return [{"and": clause["and"] + [urn_criterion]} for clause in raw_filter]
+
+
 class OpenAPIGraphProtocol(Protocol):
     _gms_server: str
     config: DatahubClientConfig
     _session: requests.Session
 
     def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict: ...
+
+    def _post_generic(
+        self, url: str, payload_dict: Dict, params: Optional[Dict] = None
+    ) -> Dict: ...
 
 
 class OpenApiAPI(OpenAPIGraphProtocol):
@@ -171,14 +202,123 @@ class OpenApiAPI(OpenAPIGraphProtocol):
             )
             start = start + response.get("count", 0)
 
+    def scroll_entities(
+        self,
+        *,
+        entity_names: Optional[List[str]] = None,
+        aspects: Optional[List[str]] = None,
+        count: Optional[int] = None,
+        query: Optional[str] = None,
+        scroll_id: Optional[str] = None,
+        sort_field: Optional[str] = None,
+        with_system_metadata: Optional[bool] = None,
+        skip_cache: Optional[bool] = None,
+        skip_aggregation: Optional[bool] = None,
+        include_soft_delete: Optional[bool] = None,
+        scroll_id_per_entity: Optional[bool] = None,
+        slice_id: Optional[int] = None,
+        slice_max: Optional[int] = None,
+        pit_keep_alive: Optional[str] = None,
+        filter: Optional[RawSearchFilter] = None,
+        sort_criteria: Optional[List[SortCriterionDict]] = None,
+    ) -> ScrollResult:
+        """Scroll through entities using the OpenAPI v3 scroll endpoint.
+
+        Parameters left as None use the server's defaults (count=10, query="*", sort="urn",
+        systemMetadata=false, skipCache=false, skipAggregation=true, includeSoftDelete=false,
+        scrollIdPerEntity=false, pitKeepAlive="5m").
+
+        Args:
+            entity_names: Entity type names to restrict results to (e.g. ["dataset", "dashboard"]).
+                If None or empty, all entity types are returned.
+            aspects: Aspect names to include in the response. If None, all aspects are returned.
+            count: Number of results per page.
+            query: Search query string.
+            scroll_id: Pagination cursor from a previous scroll response.
+            sort_field: Field to sort by.
+            with_system_metadata: If True, return system metadata alongside each aspect.
+            skip_cache: If True, bypass the server-side cache.
+            skip_aggregation: If True, skip computing facet aggregations.
+            include_soft_delete: If True, include soft-deleted entities.
+            scroll_id_per_entity: If True, use per-entity scroll IDs.
+            slice_id: Slice index for parallel scrolling.
+            slice_max: Total number of slices for parallel scrolling.
+            pit_keep_alive: Point-in-time keep-alive duration (e.g. "5m").
+            filter: Optional filter as a RawSearchFilter (same type returned by
+                ``generate_filter()``). Each inner ``and`` list is ANDed; the outer list
+                is ORed:
+                ``[{"and": [{"field": "platform", "values": ["snowflake"]}]}]``.
+            sort_criteria: Optional sort criteria list, each entry matching the SortCriterion
+                schema: ``[{"field": "urn", "order": "ASCENDING"}]``.
+
+        Returns:
+            A ScrollResult with:
+            - scroll_id: cursor to pass in the next call (None when exhausted)
+            - entities: mapping of URN → aspect name → (typed aspect, system metadata)
+            - total_count: total number of matching entities
+        """
+        url = f"{self._gms_server}/openapi/v3/entity/scroll"
+
+        def _bool(v: Optional[bool]) -> Optional[str]:
+            return None if v is None else str(v).lower()
+
+        params: Dict[str, Any] = {
+            k: v
+            for k, v in {
+                "count": count,
+                "query": query,
+                "scrollId": scroll_id,
+                "sort": sort_field,
+                "systemMetadata": _bool(with_system_metadata),
+                "skipCache": _bool(skip_cache),
+                "skipAggregation": _bool(skip_aggregation),
+                "includeSoftDelete": _bool(include_soft_delete),
+                "scrollIdPerEntity": _bool(scroll_id_per_entity),
+                "sliceId": slice_id,
+                "sliceMax": slice_max,
+                "pitKeepAlive": pit_keep_alive,
+            }.items()
+            if v is not None
+        }
+
+        body: Dict[str, Any] = {}
+        if entity_names is not None:
+            body["entities"] = entity_names
+        if aspects is not None:
+            body["aspects"] = aspects
+        if filter is not None:
+            body["filter"] = _raw_filter_to_v3_body(filter)
+        if sort_criteria is not None:
+            body["sortCriteria"] = sort_criteria
+
+        response = self._session.post(
+            url, params=params, data=json.dumps(body), headers=_JSON_HEADERS
+        )
+        response.raise_for_status()
+        resp_json = response.json()
+
+        return ScrollResult(
+            scroll_id=resp_json.get("scrollId"),
+            entities=self._deserialize_entities(
+                resp_json.get("entities", []),
+                with_system_metadata=bool(with_system_metadata),
+                context="scroll response",
+            ),
+            total_count=resp_json.get("totalCount", 0),
+        )
+
     def scroll_relationships(
         self,
         *,
         relationship_types: Optional[List[str]] = None,
         source_types: Optional[List[str]] = None,
         destination_types: Optional[List[str]] = None,
+        direction: Optional[RelationshipDirection] = None,
         source_urns: Optional[List[str]] = None,
         destination_urns: Optional[List[str]] = None,
+        source_filter: Optional[RawSearchFilter] = None,
+        destination_filter: Optional[RawSearchFilter] = None,
+        edge_filter: Optional[RawSearchFilter] = None,
         count: Optional[int] = None,
         scroll_id: Optional[str] = None,
         include_soft_delete: Optional[bool] = None,
@@ -188,18 +328,30 @@ class OpenApiAPI(OpenAPIGraphProtocol):
     ) -> RelationshipScrollResult:
         """Scroll through relationships using the OpenAPI v3 relationship scroll endpoint.
 
-        Supports filtering by relationship types, source/destination entity types, and
-        source/destination URNs. Parameters left as None use the server's defaults
-        (count=10, all relationship types, no entity type or URN filters,
-        includeSoftDelete=false, pitKeepAlive="5m").
+        Supports filtering by relationship types, source/destination entity types,
+        source/destination URNs, and arbitrary v3 filters on source, destination, and
+        edges. Parameters left as None use the server's defaults (count=10, all
+        relationship types, no filters, includeSoftDelete=false, pitKeepAlive="5m").
+
+        When both a filter and a URN list are provided for the same side, they are
+        combined with AND semantics: results must satisfy both.
 
         Args:
             relationship_types: Relationship types to include (e.g. ["DownstreamOf"]).
                 If None or empty, all relationship types are returned.
             source_types: Entity types to filter source nodes (e.g. ["dataset"]).
             destination_types: Entity types to filter destination nodes.
+            direction: Direction of relationships to include (INCOMING or OUTGOING).
+                Defaults to OUTGOING if not specified.
             source_urns: URNs to filter source entities (OR logic across values).
+                Combined with source_filter via AND if both are provided.
             destination_urns: URNs to filter destination entities (OR logic across values).
+                Combined with destination_filter via AND if both are provided.
+            source_filter: RawSearchFilter for source entities. Combined with
+                source_urns via AND if both are provided.
+            destination_filter: RawSearchFilter for destination entities. Combined
+                with destination_urns via AND if both are provided.
+            edge_filter: RawSearchFilter applied to the relationship edge properties.
             count: Number of results per page.
             scroll_id: Pagination cursor from a previous scroll response.
             include_soft_delete: If True, include soft-deleted entities.
@@ -221,10 +373,8 @@ class OpenApiAPI(OpenAPIGraphProtocol):
             params["sourceTypes"] = source_types
         if destination_types is not None:
             params["destinationTypes"] = destination_types
-        if source_urns is not None:
-            params["sourceUrns"] = source_urns
-        if destination_urns is not None:
-            params["destinationUrns"] = destination_urns
+        if direction is not None:
+            params["direction"] = direction.value
         if count is not None:
             params["count"] = count
         if scroll_id is not None:
@@ -238,7 +388,19 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         if pit_keep_alive is not None:
             params["pitKeepAlive"] = pit_keep_alive
 
-        response = self._get_generic(url=url, params=params)
+        body: Dict[str, Any] = {}
+        merged_source = _merge_filter_with_urns(source_filter, source_urns)
+        if merged_source is not None:
+            body["sourceFilter"] = _raw_filter_to_v3_body(merged_source)
+        merged_destination = _merge_filter_with_urns(
+            destination_filter, destination_urns
+        )
+        if merged_destination is not None:
+            body["destinationFilter"] = _raw_filter_to_v3_body(merged_destination)
+        if edge_filter is not None:
+            body["edgeFilter"] = _raw_filter_to_v3_body(edge_filter)
+
+        response = self._post_generic(url=url, payload_dict=body, params=params)
 
         relationships = [
             Relationship(
@@ -360,110 +522,4 @@ class OpenApiAPI(OpenAPIGraphProtocol):
 
         return self._deserialize_entities(
             response.json(), with_system_metadata=with_system_metadata
-        )
-
-    def scroll_entities(
-        self,
-        *,
-        entity_name: Optional[str] = None,
-        aspects: Optional[List[str]] = None,
-        count: Optional[int] = None,
-        query: Optional[str] = None,
-        scroll_id: Optional[str] = None,
-        sort_field: Optional[str] = None,
-        with_system_metadata: Optional[bool] = None,
-        skip_cache: Optional[bool] = None,
-        skip_aggregation: Optional[bool] = None,
-        include_soft_delete: Optional[bool] = None,
-        scroll_id_per_entity: Optional[bool] = None,
-        slice_id: Optional[int] = None,
-        slice_max: Optional[int] = None,
-        pit_keep_alive: Optional[str] = None,
-        filter: Optional[RawSearchFilter] = None,
-        sort_criteria: Optional[List[SortCriterionDict]] = None,
-    ) -> ScrollResult:
-        """Scroll through entities using the OpenAPI v3 scroll endpoint.
-
-        Parameters left as None use the server's defaults (count=10, query="*", sort="urn",
-        systemMetadata=false, skipCache=false, skipAggregation=true, includeSoftDelete=false,
-        scrollIdPerEntity=false, pitKeepAlive="5m").
-
-        Args:
-            entity_name: The entity type name (e.g. "dataset", "dashboard"). If None, the
-                generic cross-entity scroll endpoint is used.
-            aspects: Aspect names to include in the response. If None, all aspects are returned.
-            count: Number of results per page.
-            query: Search query string.
-            scroll_id: Pagination cursor from a previous scroll response.
-            sort_field: Field to sort by.
-            with_system_metadata: If True, return system metadata alongside each aspect.
-            skip_cache: If True, bypass the server-side cache.
-            skip_aggregation: If True, skip computing facet aggregations.
-            include_soft_delete: If True, include soft-deleted entities.
-            scroll_id_per_entity: If True, use per-entity scroll IDs.
-            slice_id: Slice index for parallel scrolling.
-            slice_max: Total number of slices for parallel scrolling.
-            pit_keep_alive: Point-in-time keep-alive duration (e.g. "5m").
-            filter: Optional filter as a RawSearchFilter (same type returned by
-                ``generate_filter()``). Each inner ``and`` list is ANDed; the outer list
-                is ORed:
-                ``[{"and": [{"field": "platform", "values": ["snowflake"]}]}]``.
-            sort_criteria: Optional sort criteria list, each entry matching the SortCriterion
-                schema: ``[{"field": "urn", "order": "ASCENDING"}]``.
-
-        Returns:
-            A ScrollResult with:
-            - scroll_id: cursor to pass in the next call (None when exhausted)
-            - entities: mapping of URN → aspect name → (typed aspect, system metadata)
-            - total_count: total number of matching entities
-        """
-        if entity_name is not None:
-            url = f"{self._gms_server}/openapi/v3/entity/{entity_name}/scroll"
-        else:
-            url = f"{self._gms_server}/openapi/v3/entity/scroll"
-
-        def _bool(v: Optional[bool]) -> Optional[str]:
-            return None if v is None else str(v).lower()
-
-        params: Dict[str, Any] = {
-            k: v
-            for k, v in {
-                "count": count,
-                "query": query,
-                "scrollId": scroll_id,
-                "sort": sort_field,
-                "systemMetadata": _bool(with_system_metadata),
-                "skipCache": _bool(skip_cache),
-                "skipAggregation": _bool(skip_aggregation),
-                "includeSoftDelete": _bool(include_soft_delete),
-                "scrollIdPerEntity": _bool(scroll_id_per_entity),
-                "sliceId": slice_id,
-                "sliceMax": slice_max,
-                "pitKeepAlive": pit_keep_alive,
-            }.items()
-            if v is not None
-        }
-
-        body: Dict[str, Any] = {}
-        if aspects is not None:
-            body["aspects"] = aspects
-        if filter is not None:
-            body["filter"] = {"or": filter}
-        if sort_criteria is not None:
-            body["sortCriteria"] = sort_criteria
-
-        response = self._session.post(
-            url, params=params, data=json.dumps(body), headers=_JSON_HEADERS
-        )
-        response.raise_for_status()
-        resp_json = response.json()
-
-        return ScrollResult(
-            scroll_id=resp_json.get("scrollId"),
-            entities=self._deserialize_entities(
-                resp_json.get("entities", []),
-                with_system_metadata=bool(with_system_metadata),
-                context="scroll response",
-            ),
-            total_count=resp_json.get("totalCount", 0),
         )

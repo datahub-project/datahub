@@ -272,8 +272,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
         return self._send_restli_request("GET", url, params=params)
 
-    def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
-        return self._send_restli_request("POST", url, json=payload_dict)
+    def _post_generic(
+        self, url: str, payload_dict: Dict, params: Optional[Dict] = None
+    ) -> Dict:
+        return self._send_restli_request("POST", url, json=payload_dict, params=params)
 
     def _make_rest_sink_config(
         self, extra_config: Optional[Dict] = None
