@@ -346,8 +346,8 @@ EXPERIMENT_REGION = "us-central1"
 def experiment_extractor() -> VertexAIExperimentExtractor:
     source = VertexAISource(
         ctx=PipelineContext(run_id="test"),
-        config=VertexAIConfig(
-            project_id=EXPERIMENT_PROJECT_ID, region=EXPERIMENT_REGION
+        config=VertexAIConfig.model_validate(
+            {"project_id": EXPERIMENT_PROJECT_ID, "region": EXPERIMENT_REGION}
         ),
     )
     return source.experiment_extractor
