@@ -201,6 +201,21 @@ class DataJobSubTypes(StrEnum):
     ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
     ADF_FAIL_ACTIVITY = "Fail Activity"
 
+    # Fabric Data Factory Activity Types (Fabric-specific, not in ADF)
+    FABRIC_SPARK_JOB_DEFINITION = "Spark Job Definition"
+    FABRIC_INVOKE_COPY_JOB = "Invoke Copy Job"
+    FABRIC_EXECUTE_SSIS_PACKAGE = "Execute SSIS Package"
+    FABRIC_KQL_ACTIVITY = "KQL Activity"
+    FABRIC_TRIDENT_NOTEBOOK = "Trident Notebook"
+    FABRIC_OFFICE365_EMAIL = "Office 365 Email"
+    FABRIC_EMAIL_ACTIVITY = "Email Activity"
+    FABRIC_TEAMS_ACTIVITY = "Teams Activity"
+    FABRIC_PBI_SEMANTIC_MODEL_REFRESH = "PBI Semantic Model Refresh"
+    FABRIC_REFRESH_DATAFLOW = "Refresh Data Flow"
+    FABRIC_HDINSIGHT_ACTIVITY = "HDInsight Activity"
+    FABRIC_DATA_LAKE_ANALYTICS = "Data Lake Analytics"
+    FABRIC_AZURE_ML_EXECUTE_PIPELINE = "Azure ML Execute Pipeline"
+
 
 def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}

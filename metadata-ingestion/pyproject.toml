@@ -354,6 +354,8 @@ datahub-documents = [
     "urllib3>=1.26,<3.0",
 ]
 
+datahub-gc = []
+
 datahub-kafka = [
     "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
     "fastavro>=1.2.0,<2.0.0",
@@ -546,6 +548,11 @@ fabric-onelake = [
     "pyodbc>=4.0,<5.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
+]
+fabric-data-factory = [
+    "azure-core>=1.38.0,<2.0.0",
+    "azure-identity>=1.21.0,<2.0.0",
+    "requests>=2.28.0,<3.0",
 ]
 
 feast = [
@@ -1992,6 +1999,7 @@ athena = "datahub.ingestion.source.sql.athena:AthenaSource"
 azure-ad = "datahub.ingestion.source.identity.azure_ad:AzureADSource"
 azure-data-factory = "datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource"
 fabric-onelake = "datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource"
+fabric-data-factory = "datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource"
 bigquery = "datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source"
 bigquery-queries = "datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource"
 clickhouse = "datahub.ingestion.source.sql.clickhouse:ClickHouseSource"

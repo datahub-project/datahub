@@ -14,6 +14,8 @@ import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
 import elasticsearchLogo from '@images/elasticsearchlogo.png';
+import fabricDataFactoryLogo from '@images/fabricdatafactorylogo.svg';
+import fabricLogo from '@images/fabriclogo.svg';
 import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
@@ -152,26 +154,30 @@ const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 const SIGMA = 'sigma';
 const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
-const SAC_URN = `urn:li:dataPlatform:${SAC}`;
-const CASSANDRA = 'cassandra';
-const CASSANDRA_URN = `urn:li:dataPlatform:${CASSANDRA}`;
-const DATAHUB = 'datahub';
-const DATAHUB_GC = 'datahub-gc';
-const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
-const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
-const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
-const NEO4J = 'neo4j';
-const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
-const VERTEX_AI = 'vertexai';
-const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
-const SNAPLOGIC = 'snaplogic';
-const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
-const GOOGLE_SHEETS = 'google_sheets';
-const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
-const FABRIC_ONELAKE = 'fabric-onelake';
-const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
-const STREAMLIT = 'streamlit';
-const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
+export const SAC_URN = `urn:li:dataPlatform:${SAC}`;
+export const CASSANDRA = 'cassandra';
+export const CASSANDRA_URN = `urn:li:dataPlatform:${CASSANDRA}`;
+export const DATAHUB = 'datahub';
+export const DATAHUB_GC = 'datahub-gc';
+export const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
+export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
+export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
+export const NEO4J = 'neo4j';
+export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
+export const VERTEX_AI = 'vertexai';
+export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
+export const SNAPLOGIC = 'snaplogic';
+export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const GOOGLE_SHEETS = 'google_sheets';
+export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const FABRIC = 'fabric';
+export const FABRIC_URN = `urn:li:dataPlatform:${FABRIC}`;
+export const FABRIC_DATA_FACTORY = 'fabric-data-factory';
+export const FABRIC_DATA_FACTORY_URN = `urn:li:dataPlatform:${FABRIC_DATA_FACTORY}`;
+export const FABRIC_ONELAKE = 'fabric-onelake';
+export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
+export const STREAMLIT = 'streamlit';
+export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -225,6 +231,8 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogicLogo,
     [GOOGLE_SHEETS_URN]: googleSheetsLogo,
+    [FABRIC_URN]: fabricLogo,
+    [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
     [STREAMLIT_URN]: streamlitLogo,
 };

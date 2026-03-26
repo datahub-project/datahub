@@ -947,6 +947,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:fabric
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric
+    displayName: Microsoft Fabric
+    type: OTHERS
+    logoUrl: "assets/platforms/fabriclogo.svg"
 - entityUrn: urn:li:dataPlatform:fabric-onelake
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -957,6 +967,16 @@
     displayName: Fabric OneLake
     type: OTHERS
     logoUrl: "assets/platforms/fabriconelakelogo.png"
+- entityUrn: urn:li:dataPlatform:fabric-data-factory
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric-data-factory
+    displayName: Fabric Data Factory
+    type: OTHERS
+    logoUrl: "assets/platforms/fabricdatafactorylogo.svg"
 - entityUrn: urn:li:dataPlatform:datahub
   entityType: dataPlatform
   aspectName: dataPlatformInfo
