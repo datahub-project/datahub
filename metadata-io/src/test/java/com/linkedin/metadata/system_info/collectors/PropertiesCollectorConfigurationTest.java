@@ -623,6 +623,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.maxThreads",
           "elasticsearch.search.graph.pointInTimeCreationEnabled",
           "elasticsearch.search.graph.queryOptimization",
+          "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds",
           "elasticsearch.search.graph.timeoutSeconds",
           "elasticsearch.search.maxTermBucketSize",
           "elasticsearch.search.partial.factor",

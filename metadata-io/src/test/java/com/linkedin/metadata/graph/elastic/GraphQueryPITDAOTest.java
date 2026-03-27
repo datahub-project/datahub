@@ -3690,6 +3690,343 @@ public class GraphQueryPITDAOTest {
     // Test passes if no exception is thrown
   }
 
+  /**
+   * Bug 2 regression test: the per-page deadline check inside searchSingleSliceWithPit previously
+   * used the expression {@code remainingTime = System.currentTimeMillis() -
+   * (System.currentTimeMillis() - remainingTime)}, which always evaluates to the original {@code
+   * remainingTime} value. The guard {@code if (remainingTime <= 0)} therefore never fired, allowing
+   * slices to paginate indefinitely — eventually exhausting the PIT's keep-alive window and
+   * producing "Failed to execute PIT search for slice N" errors.
+   *
+   * <p>The fix converts {@code remainingTime} to an absolute {@code deadline} at method entry and
+   * compares wall-clock time on each iteration.
+   *
+   * <p>Design: {@code GraphQueryBaseDAO} enforces {@code Math.max(2, config.slices)}, so 2 slices
+   * always run. Slice 0 returns empty in a single call (fast path). All multi-page pagination is
+   * driven through slice 1, whose per-slice call count is tracked deterministically.
+   *
+   * <p>Timing contract (must hold on any reasonable CI machine):
+   *
+   * <ul>
+   *   <li>remainingTime = 800 ms (timeoutSeconds=1 minus 20% reservation)
+   *   <li>futureTimeout for slice 1 = max(1, ~800/1000) = 1 second (outer coordinator timeout)
+   *   <li>Page 2 mock sleeps 900 ms — past the 800 ms deadline but under the 1 s outer timeout
+   *   <li>With the fix: slice 1 stops after 2 pages; slice1Calls == 2
+   *   <li>Without the fix: slice 1 also fetches page 3 and the empty page 4; slice1Calls == 4
+   * </ul>
+   */
+  @Test(timeOut = 5000)
+  public void testSliceDeadlineTerminatesPaginationAfterRemainingTimeElapsed() throws Exception {
+    // testShutdownWithInterruptedException stubs awaitTermination to throw InterruptedException.
+    // Its @AfterMethod then calls dao.shutdown() again on the same mock, which hits the same stub
+    // and calls Thread.currentThread().interrupt() — leaving the flag set on the TestNG runner
+    // thread. Clear any residual interrupt state before this test runs.
+    Thread.interrupted();
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // timeoutSeconds=1, partialResults=true (20% reservation) → remainingTime=800ms.
+    // maxThreads=1 makes slices run sequentially on the same worker, so slice 0 completes
+    // before slice 1 starts. This ensures the per-slice call count is deterministic.
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(1)
+                            .maxThreads(1)
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .slices(2)
+                                    .maxRelations(-1)
+                                    .partialResults(true)
+                                    .searchQueryTimeReservation(0.2)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+    CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+    when(pitResponse.getId()).thenReturn("test-pit-id");
+    when(mockClient.createPit(any(CreatePitRequest.class), any(RequestOptions.class)))
+        .thenReturn(pitResponse);
+
+    // Slice 0: returns empty in one call (fast path, does not affect timing).
+    // Slice 1: page 1 instant, page 2 with 900 ms delay (past the 800 ms deadline,
+    //   under the 1 s outer future timeout), page 3 instant but must NOT be fetched.
+    String srcUrn = "urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)";
+    SearchResponse page1 =
+        createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d1_", "DownstreamOf"), 12);
+    SearchResponse page2 =
+        createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d2_", "DownstreamOf"), 12);
+    SearchResponse page3 =
+        createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d3_", "DownstreamOf"), 12);
+    SearchResponse emptyPage = createEmptySearchResponse(12);
+
+    java.util.concurrent.atomic.AtomicInteger slice1Calls =
+        new java.util.concurrent.atomic.AtomicInteger(0);
+    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              SearchRequest req = invocation.getArgument(0);
+              int sliceId =
+                  (req.source() != null && req.source().slice() != null)
+                      ? req.source().slice().getId()
+                      : -1;
+              if (sliceId == 0) {
+                return createEmptySearchResponse(0); // slice 0: single call, no pagination
+              }
+              // slice 1: multi-page with a delay on page 2 to push past the deadline
+              switch (slice1Calls.incrementAndGet()) {
+                case 1:
+                  return page1;
+                case 2:
+                  try {
+                    Thread.sleep(900); // pushes elapsed time past the 800 ms deadline
+                  } catch (InterruptedException e) {
+                    // Restore interrupt flag so searchSingleSliceWithPit's isInterrupted() check
+                    // terminates the loop cleanly on the next iteration.
+                    Thread.currentThread().interrupt();
+                  }
+                  return page2;
+                case 3:
+                  return page3; // must NOT be reached with the fix in place
+                default:
+                  return emptyPage;
+              }
+            });
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    Assert.assertNotNull(response);
+    // With the deadline fix slice 1 breaks before page 3 → exactly 2 calls to client.search().
+    // Without the fix (no-op remainingTime update) page 3 and the empty page 4 are also
+    // fetched, producing 4 calls.
+    Assert.assertEquals(
+        slice1Calls.get(),
+        2,
+        "Slice 1 must stop after page 2 when the deadline passes mid-loop, not fetch page 3+");
+  }
+
+  /**
+   * Bug 1 regression test: when {@code processSliceFutures()} times out waiting for a slow slice
+   * and calls {@code cancel(true)}, it then returns. The {@code finally} block in {@code
+   * searchWithSlices()} must still clean up the shared PIT. Before the fix, {@code sliceFutures}
+   * was scoped inside the {@code try} block, so the {@code finally} block could not iterate over
+   * them to cancel before cleanup.
+   *
+   * <p>This test simulates the race window: slice 0 returns quickly while slice 1 is permanently
+   * blocked inside {@code client.search()}. After the 1-second outer future timeout fires and
+   * cancels all futures, the {@code finally} block must still call {@code deletePit} to release the
+   * PIT on the server — preventing resource exhaustion from leaked PITs.
+   */
+  @Test(timeOut = 10000)
+  public void testPitCleanedUpAfterSliceTimeoutWithConcurrentBlockedSlice() throws Exception {
+    java.util.concurrent.CountDownLatch sliceBlockedLatch =
+        new java.util.concurrent.CountDownLatch(1);
+
+    try {
+      SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+      when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+      // 2 threads so both slices run concurrently: slice 0 finishes instantly while
+      // slice 1 stays blocked, causing processSliceFutures to time out on it.
+      ElasticSearchConfiguration testConfig =
+          TEST_OS_SEARCH_CONFIG.toBuilder()
+              .search(
+                  TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                      .graph(
+                          TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                              .timeoutSeconds(1)
+                              .maxThreads(2)
+                              .impact(
+                                  TEST_OS_SEARCH_CONFIG
+                                      .getSearch()
+                                      .getGraph()
+                                      .getImpact()
+                                      .toBuilder()
+                                      .slices(2)
+                                      .maxRelations(-1)
+                                      .partialResults(true) // return partial results on timeout
+                                      .searchQueryTimeReservation(0.2)
+                                      .build())
+                              .build())
+                      .build())
+              .build();
+
+      GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+      CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+      when(pitResponse.getId()).thenReturn("test-pit-id");
+      when(mockClient.createPit(any(CreatePitRequest.class), any(RequestOptions.class)))
+          .thenReturn(pitResponse);
+
+      // Slice 0 returns empty immediately. Slice 1 blocks on the latch, simulating
+      // a worker thread permanently stuck inside client.search().
+      when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+          .thenAnswer(
+              invocation -> {
+                SearchRequest req = invocation.getArgument(0);
+                if (req.source() != null
+                    && req.source().slice() != null
+                    && req.source().slice().getId() == 1) {
+                  sliceBlockedLatch.await(10, TimeUnit.SECONDS);
+                }
+                return createEmptySearchResponse(0);
+              });
+
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+      LineageGraphFilters filters =
+          LineageGraphFilters.forEntityType(
+              operationContext.getLineageRegistry(),
+              DATASET_ENTITY_NAME,
+              LineageDirection.UPSTREAM);
+
+      // Must return (with partial results) despite slice 1 being blocked.
+      // processSliceFutures waits up to 1 s for slice 1, times out, cancels all futures,
+      // and returns. The finally block then runs and must call deletePit.
+      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+      Assert.assertNotNull(response, "Response must not be null when a slice times out");
+
+      // The PIT must be cleaned up exactly once regardless of the blocked slice.
+      // With the structural fix (sliceFutures moved to outer scope) the finally block
+      // can also call cancel(true) on all futures before invoking cleanupPointInTime.
+      verify(mockClient, times(1))
+          .deletePit(
+              argThat(req -> req.getPitIds().contains("test-pit-id")), any(RequestOptions.class));
+    } finally {
+      // Unblock the stuck worker so the daemon thread can terminate cleanly.
+      sliceBlockedLatch.countDown();
+    }
+  }
+
+  /**
+   * Path C regression test: {@code processSliceFutures()} exits via the {@code remainingTime <= 0}
+   * branch after a <em>successful</em> (non-timed-out) slice, without calling {@code cancel(true)}
+   * on the remaining futures. Before the fix, {@code sliceFutures} was scoped inside the {@code
+   * try} block, so the {@code finally} block could not cancel or drain those still-running futures
+   * before deleting the shared PIT.
+   *
+   * <p>Timing contract:
+   *
+   * <ul>
+   *   <li>remainingTime = 800 ms (timeoutSeconds=1 minus 20% reservation)
+   *   <li>futureTimeout = max(1, 800/1000) = 1 s (outer per-future get() timeout)
+   *   <li>Slice 0 sleeps 900 ms — completes before the 1 s futureTimeout (no TimeoutException, so
+   *       Path A is not triggered), but elapsed > remainingTime=800 ms → remainingTime goes
+   *       negative → Path C break, with no cancel(true) issued
+   *   <li>Slice 1 is blocked when Path C fires; the finally block must still call deletePit
+   * </ul>
+   */
+  @Test(timeOut = 10000)
+  public void testPitCleanedUpWhenRemainingBudgetExhaustedBySuccessfulSlice() throws Exception {
+    // Clear any residual interrupt flag (see testSliceDeadlineTerminatesPagination... for details).
+    Thread.interrupted();
+
+    java.util.concurrent.CountDownLatch slice1BlockedLatch =
+        new java.util.concurrent.CountDownLatch(1);
+    try {
+      SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+      when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+      // maxThreads=2: both slices run concurrently on separate worker threads.
+      ElasticSearchConfiguration testConfig =
+          TEST_OS_SEARCH_CONFIG.toBuilder()
+              .search(
+                  TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                      .graph(
+                          TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                              .timeoutSeconds(1)
+                              .maxThreads(2)
+                              .impact(
+                                  TEST_OS_SEARCH_CONFIG
+                                      .getSearch()
+                                      .getGraph()
+                                      .getImpact()
+                                      .toBuilder()
+                                      .slices(2)
+                                      .maxRelations(-1)
+                                      .partialResults(true)
+                                      .searchQueryTimeReservation(0.2)
+                                      .build())
+                              .build())
+                      .build())
+              .build();
+
+      GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+      CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+      when(pitResponse.getId()).thenReturn("test-pit-id");
+      when(mockClient.createPit(any(CreatePitRequest.class), any(RequestOptions.class)))
+          .thenReturn(pitResponse);
+
+      String srcUrn = "urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)";
+      SearchResponse page1 =
+          createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d1_", "DownstreamOf"), 12);
+
+      // Slice 0: sleeps 900 ms then returns one result page followed by an empty page.
+      //   future.get(1 s) completes (900 ms < futureTimeout=1 s) → no TimeoutException.
+      //   Elapsed ≈ 900 ms > remainingTime=800 ms → remainingTime goes negative → Path C break.
+      // Slice 1: blocks on the latch, representing an in-flight client.search() that Path C
+      //   leaves without cancellation.
+      java.util.concurrent.atomic.AtomicInteger slice0Calls =
+          new java.util.concurrent.atomic.AtomicInteger(0);
+      when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+          .thenAnswer(
+              invocation -> {
+                SearchRequest req = invocation.getArgument(0);
+                int sliceId =
+                    (req.source() != null && req.source().slice() != null)
+                        ? req.source().slice().getId()
+                        : -1;
+                if (sliceId == 0) {
+                  if (slice0Calls.incrementAndGet() == 1) {
+                    try {
+                      Thread.sleep(900);
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    return page1;
+                  }
+                  return createEmptySearchResponse(0);
+                }
+                // Slice 1: blocks, simulating a worker stuck in client.search()
+                slice1BlockedLatch.await(10, TimeUnit.SECONDS);
+                return createEmptySearchResponse(0);
+              });
+
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)");
+      LineageGraphFilters filters =
+          LineageGraphFilters.forEntityType(
+              operationContext.getLineageRegistry(),
+              DATASET_ENTITY_NAME,
+              LineageDirection.UPSTREAM);
+
+      // processSliceFutures: waits for slice 0 (~900 ms, within futureTimeout=1 s),
+      // then remainingTime <= 0 → Path C break (no cancel). Slice 1 is still blocked.
+      // The finally block must cancel all futures and call deletePit.
+      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+      Assert.assertNotNull(response, "Response must not be null when Path C triggers");
+      verify(mockClient, times(1))
+          .deletePit(
+              argThat(req -> req.getPitIds().contains("test-pit-id")), any(RequestOptions.class));
+    } finally {
+      // Unblock the stuck worker so the daemon thread can terminate cleanly.
+      slice1BlockedLatch.countDown();
+    }
+  }
+
   @Test
   public void testPitCreatedOnceAndCleanedUpInFinally() throws Exception {
     // Tests that PIT is created once before the slice loop and cleaned up in finally

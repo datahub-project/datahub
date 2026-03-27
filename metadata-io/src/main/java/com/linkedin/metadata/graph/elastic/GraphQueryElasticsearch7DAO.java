@@ -73,34 +73,38 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
     // Create slice-based search requests
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
+    try {
+      for (int sliceId = 0; sliceId < slices; sliceId++) {
+        final int currentSliceId = sliceId;
+        CompletableFuture<List<LineageRelationship>> sliceFuture =
+            CompletableFuture.supplyAsync(
+                () -> {
+                  return searchSingleSliceWithScroll(
+                      opContext,
+                      query,
+                      lineageGraphFilters,
+                      visitedEntities,
+                      viaEntities,
+                      numHops,
+                      remainingHops,
+                      existingPaths,
+                      maxRelations,
+                      defaultPageSize,
+                      currentSliceId,
+                      slices,
+                      remainingTime,
+                      entityUrns,
+                      allowPartialResults);
+                });
+        sliceFutures.add(sliceFuture);
+      }
 
-    for (int sliceId = 0; sliceId < slices; sliceId++) {
-      final int currentSliceId = sliceId;
-      CompletableFuture<List<LineageRelationship>> sliceFuture =
-          CompletableFuture.supplyAsync(
-              () -> {
-                return searchSingleSliceWithScroll(
-                    opContext,
-                    query,
-                    lineageGraphFilters,
-                    visitedEntities,
-                    viaEntities,
-                    numHops,
-                    remainingHops,
-                    existingPaths,
-                    maxRelations,
-                    defaultPageSize,
-                    currentSliceId,
-                    slices,
-                    remainingTime,
-                    entityUrns,
-                    allowPartialResults);
-              });
-      sliceFutures.add(sliceFuture);
+      // Reuse the existing slice coordination logic
+      return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
+    } finally {
+      // Match PIT DAO: cancel(true) only interrupts; bounded wait so slices can clear scroll.
+      cancelAndDrainSliceFutures(sliceFutures);
     }
-
-    // Reuse the existing slice coordination logic
-    return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
   }
 
   /**
@@ -131,8 +135,14 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     String scrollId = null;
     String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
+    long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
+      if (System.currentTimeMillis() >= deadline) {
+        log.warn("Slice {} timed out before initial scroll search", sliceId);
+        return sliceRelationships;
+      }
+
       // Build initial search request with scroll and slice
       SearchRequest searchRequest = new SearchRequest();
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -177,9 +187,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
       // Continue scrolling until we reach the limit or no more results
       // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
-      while ((maxRelations <= 0 || sliceRelationships.size() < maxRelations) && remainingTime > 0) {
-        // Check timeout
-        if (remainingTime <= 0) {
+      while (maxRelations <= 0 || sliceRelationships.size() < maxRelations) {
+        if (System.currentTimeMillis() >= deadline) {
           log.warn("Slice {} timed out, stopping scroll search", sliceId);
           break;
         }
@@ -242,9 +251,6 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                     sliceId, maxRelations));
           }
         }
-
-        // Update remaining time
-        remainingTime = System.currentTimeMillis() - (System.currentTimeMillis() - remainingTime);
       }
 
     } catch (Exception e) {

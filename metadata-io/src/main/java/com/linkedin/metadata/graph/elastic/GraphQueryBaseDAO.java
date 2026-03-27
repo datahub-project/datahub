@@ -1576,6 +1576,31 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   }
 
   /**
+   * Cancels slice futures and waits (bounded) for them to finish so shared resources are not
+   * released while {@code client.search} or {@code scroll} may still run. Uses {@link
+   * CompletableFuture#allOf} so wait time is a single cap for all slices (see {@code
+   * elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds}).
+   */
+  protected void cancelAndDrainSliceFutures(
+      List<CompletableFuture<List<LineageRelationship>>> sliceFutures) {
+    if (sliceFutures.isEmpty()) {
+      return;
+    }
+    sliceFutures.forEach(f -> f.cancel(true));
+    int drainTimeoutSeconds =
+        Objects.requireNonNull(
+            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds(),
+            "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds must be configured");
+    CompletableFuture<?>[] pending = sliceFutures.toArray(CompletableFuture[]::new);
+    CompletableFuture<Void> allDone = CompletableFuture.allOf(pending);
+    try {
+      allDone.get(drainTimeoutSeconds, TimeUnit.SECONDS);
+    } catch (Exception ignored) {
+      // Timeout, cancellation, or already complete — proceed with resource cleanup
+    }
+  }
+
+  /**
    * Process slice futures with common error handling and result collection logic. This method is
    * reused by both PIT and scroll implementations.
    *
