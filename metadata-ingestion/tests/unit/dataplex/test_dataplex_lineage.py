@@ -104,12 +104,15 @@ def test_lineage_extraction_disabled(
 def test_lineage_edge_creation() -> None:
     """Test LineageEdge data structure."""
     edge = LineageEdge(
-        entry_id="upstream-entry",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream-entry,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
 
-    assert edge.entry_id == "upstream-entry"
+    assert (
+        edge.upstream_datahub_urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream-entry,PROD)"
+    )
     assert edge.lineage_type == DatasetLineageTypeClass.TRANSFORMED
 
 
@@ -276,7 +279,6 @@ def test_get_lineage_for_table_no_lineage(
     result = lineage_extractor.get_lineage_for_table(
         "test-project.test-dataset.entry-with-no-lineage",
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.entry-with-no-lineage,PROD)",
-        "bigquery",
     )
 
     assert result is None
@@ -288,7 +290,7 @@ def test_get_lineage_for_table_with_lineage(
     """Test getting lineage for table with lineage."""
     # Add a lineage edge to the map - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.test-dataset.upstream-entry",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.upstream-entry,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -302,7 +304,6 @@ def test_get_lineage_for_table_with_lineage(
     result = lineage_extractor.get_lineage_for_table(
         "test-project.test-dataset.test-entry",
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-entry,PROD)",
-        "bigquery",
     )
 
     assert result is not None
@@ -314,7 +315,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     """Test generating lineage workunits."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.test-dataset.upstream-entry",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.upstream-entry,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -328,7 +329,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-entry,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "test-project.test-dataset.test-entry", dataset_urn, "bigquery"
+            "test-project.test-dataset.test-entry", dataset_urn
         )
     )
 
@@ -374,6 +375,11 @@ def test_lineage_with_cross_platform_references(
     assert result["upstream"][0] == "gcs:my-bucket/raw/data.csv"
     assert result["downstream"][0] == "bigquery:my-project.analytics.final"
 
+    # GCS upstream is not yet part of DATAPLEX_ENTRY_TYPE_MAPPINGS datasets.
+    # Confirm it is skipped during edge normalization.
+    lineage_map = lineage_extractor.build_lineage_map("my-project", [test_entry])
+    assert lineage_map == {}
+
 
 def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
     config = DataplexConfig(
@@ -414,13 +420,57 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
     assert report.lineage_report.num_lineage_edges_added == 0
 
 
+def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        include_lineage=True,
+    )
+    report = DataplexReport()
+    mock_client = MagicMock()
+
+    # Downstream BigQuery table has an upstream Pub/Sub topic.
+    mock_link = MagicMock()
+    mock_link.source.fully_qualified_name = "pubsub:topic:acryl-staging.observe-topic"
+    mock_client.search_links.return_value = [mock_link]
+
+    extractor = DataplexLineageExtractor(
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
+    )
+
+    entries = [
+        EntryDataTuple(
+            dataplex_entry_short_name="entry_1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry_1",
+            dataplex_location="us",
+            dataplex_entry_type_short_name="bigquery-table",
+            dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
+            datahub_platform="bigquery",
+            datahub_dataset_name="test-project.dataset.table_1",
+        )
+    ]
+
+    lineage_map = extractor.build_lineage_map("test-project", entries)
+    assert "test-project.dataset.table_1" in lineage_map
+    edges = lineage_map["test-project.dataset.table_1"]
+    assert len(edges) == 1
+    edge = next(iter(edges))
+    assert (
+        edge.upstream_datahub_urn
+        == "urn:li:dataset:(urn:li:dataPlatform:pubsub,topic:acryl-staging.observe-topic,PROD)"
+    )
+    assert report.lineage_report.num_lineage_upstream_fqns_skipped == 0
+
+
 def test_workunit_urn_structure_validation(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
     """Test that generated workunits have correct URN structure."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="my-project.my-dataset.upstream-table",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.upstream-table,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -434,7 +484,7 @@ def test_workunit_urn_structure_validation(
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.downstream-table,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "my-project.my-dataset.downstream-table", dataset_urn, "bigquery"
+            "my-project.my-dataset.downstream-table", dataset_urn
         )
     )
 
@@ -459,12 +509,12 @@ def test_workunit_aspect_completeness(
     """Test that workunit aspects contain all required fields."""
     # Add lineage edges - use full dataset_id as key
     edge1 = LineageEdge(
-        entry_id="my-project.my-dataset.table1",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.table1,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
     edge2 = LineageEdge(
-        entry_id="my-project.my-dataset.table2",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.table2,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.COPY,
     )
@@ -477,9 +527,7 @@ def test_workunit_aspect_completeness(
     # Generate workunit using full dataset_id
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.target-table,PROD)"
     workunits = list(
-        lineage_extractor.gen_lineage(
-            "my-project.my-dataset.target-table", dataset_urn, "bigquery"
-        )
+        lineage_extractor.gen_lineage("my-project.my-dataset.target-table", dataset_urn)
     )
 
     assert len(workunits) == 1
@@ -516,7 +564,7 @@ def test_workunit_upstream_urn_format(
     """Test that upstream URNs in workunits are correctly formatted."""
     # Add lineage edge with specific entry ID format - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.sales_dataset.customer_table",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales_dataset.customer_table,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -531,7 +579,7 @@ def test_workunit_upstream_urn_format(
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics_dataset.analytics_table,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "test-project.analytics_dataset.analytics_table", dataset_urn, "bigquery"
+            "test-project.analytics_dataset.analytics_table", dataset_urn
         )
     )
 
@@ -553,7 +601,7 @@ def test_workunit_generation_with_no_lineage(
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.isolated-table,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "my-project.my-dataset.isolated-table", dataset_urn, "bigquery"
+            "my-project.my-dataset.isolated-table", dataset_urn
         )
     )
 
@@ -992,7 +1040,10 @@ class TestLineageMapKeyCollision:
         analytics_edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(analytics_edges) == 1
         edge = next(iter(analytics_edges))
-        assert edge.entry_id == "test-project.abc.users"
+        assert (
+            edge.upstream_datahub_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)"
+        )
 
     def test_same_table_name_different_datasets_no_collision(self) -> None:
         """Test that tables with same name in different datasets don't collide.
@@ -1028,6 +1079,9 @@ class TestLineageMapKeyCollision:
                         "bigquery:test-project.abc.users"
                     )
                     return [mock_link]
+                # For source-side requests we don't need downstream values.
+                if target_fqn == "":
+                    return []
             return []
 
         mock_client.search_links.side_effect = mock_search_links
@@ -1102,7 +1156,7 @@ class TestLineageMapKeyCollision:
 
         # Manually populate lineage map with full dataset_id keys
         edge = LineageEdge(
-            entry_id="test-project.abc.users",
+            upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)",
             audit_stamp=datetime.datetime.now(datetime.timezone.utc),
             lineage_type=DatasetLineageTypeClass.TRANSFORMED,
         )
@@ -1114,7 +1168,6 @@ class TestLineageMapKeyCollision:
         result = extractor.get_lineage_for_table(
             "test-project.analytics.customers",
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
-            "bigquery",
         )
         assert result is not None, (
             "Lookup with full dataset_id 'test-project.analytics.customers' should find lineage"
@@ -1124,7 +1177,6 @@ class TestLineageMapKeyCollision:
         result_by_table_name = extractor.get_lineage_for_table(
             "customers",  # Just table name
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,customers,PROD)",
-            "bigquery",
         )
         assert result_by_table_name is None, (
             "Lookup with just table name 'customers' should NOT find lineage"
@@ -1134,7 +1186,6 @@ class TestLineageMapKeyCollision:
         result_different_dataset = extractor.get_lineage_for_table(
             "test-project.sales.customers",  # Different dataset, same table name
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.customers,PROD)",
-            "bigquery",
         )
         assert result_different_dataset is None, (
             "Lookup with 'test-project.sales.customers' should NOT find lineage for analytics.customers"
@@ -1198,6 +1249,9 @@ class TestLineageMapKeyCollision:
         edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(edges) == 1
         edge = next(iter(edges))
-        assert edge.entry_id == "test-project.abc.users", (
-            f"Upstream should be 'test-project.abc.users', got '{edge.entry_id}'"
+        assert (
+            edge.upstream_datahub_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)"
+        ), (
+            f"Upstream should be 'urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)', got '{edge.upstream_datahub_urn}'"
         )

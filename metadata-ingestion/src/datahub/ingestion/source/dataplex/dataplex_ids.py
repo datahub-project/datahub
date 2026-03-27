@@ -497,7 +497,39 @@ def extract_datahub_dataset_name_from_fqn(
     mapping = _get_mapping(entry_type_or_short_name)
     if mapping is None or mapping.datahub_entity_type != "Dataset":
         return None
-    # Validate FQN with the entry-type-specific regex contract first.
+    return _extract_dataset_name_from_fqn(
+        entry_type_or_short_name=entry_type_or_short_name,
+        fully_qualified_name=fully_qualified_name,
+    )
+
+
+def build_dataset_urn_from_fqn_only(
+    fully_qualified_name: str, env: str
+) -> Optional[str]:
+    """Extract DataHub dataset URN by matching FQN against dataset mappings."""
+    for entry_type_short_name, mapping in DATAPLEX_ENTRY_TYPE_MAPPINGS.items():
+        if mapping.datahub_entity_type != "Dataset":
+            continue
+        dataset_name = _extract_dataset_name_from_fqn(
+            entry_type_or_short_name=entry_type_short_name,
+            fully_qualified_name=fully_qualified_name,
+        )
+        if dataset_name is None:
+            continue
+        return make_dataset_urn_with_platform_instance(
+            platform=mapping.datahub_platform,
+            name=dataset_name,
+            platform_instance=None,
+            env=env,
+        )
+
+    return None
+
+
+def _extract_dataset_name_from_fqn(
+    entry_type_or_short_name: str, fully_qualified_name: str
+) -> Optional[str]:
+    """Validate FQN against mapping regex and return DataHub dataset name."""
     if (
         parse_fully_qualified_name(entry_type_or_short_name, fully_qualified_name)
         is None

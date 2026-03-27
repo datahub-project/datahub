@@ -13,6 +13,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     build_container_key_from_fqn,
     build_container_urn_from_fqn,
     build_dataset_urn_from_fqn,
+    build_dataset_urn_from_fqn_only,
     build_parent_container_key,
     build_parent_container_urn,
     build_project_container_urn_from_fqn,
@@ -474,3 +475,31 @@ def test_is_supported_lineage_entry_type_helper() -> None:
     assert not is_supported_lineage_entry_type("cloud-bigtable-instance")
     assert not is_supported_lineage_entry_type("cloudsql-mysql-database")
     assert not is_supported_lineage_entry_type("unknown-entry-type")
+
+
+@pytest.mark.parametrize(
+    "fully_qualified_name,expected_dataset_urn",
+    [
+        (
+            "bigquery:test-project.analytics.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+        ),
+        (
+            "pubsub:topic:acryl-staging.observe-staging-obs",
+            "urn:li:dataset:(urn:li:dataPlatform:pubsub,topic:acryl-staging.observe-staging-obs,PROD)",
+        ),
+        (
+            "bigtable:trustedplatform-pl-production.feature-store.counts",
+            "urn:li:dataset:(urn:li:dataPlatform:bigtable,trustedplatform-pl-production.feature-store.counts,PROD)",
+        ),
+        ("unknown:project.dataset.table", None),
+        ("invalid", None),
+    ],
+)
+def test_build_dataset_urn_from_fqn_only_cross_platform(
+    fully_qualified_name: str, expected_dataset_urn: str | None
+) -> None:
+    assert (
+        build_dataset_urn_from_fqn_only(fully_qualified_name, env="PROD")
+        == expected_dataset_urn
+    )

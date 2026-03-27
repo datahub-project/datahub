@@ -30,7 +30,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
-    extract_datahub_dataset_name_from_fqn,
+    build_dataset_urn_from_fqn_only,
     is_supported_lineage_entry_type,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -62,12 +62,12 @@ class LineageEdge:
     immutability and hashability.
 
     Attributes:
-        entry_id: The upstream entry ID in Dataplex format
+        upstream_datahub_urn: The upstream dataset URN normalized for DataHub
         audit_stamp: When this lineage was observed
         lineage_type: Type of lineage (TRANSFORMED, COPY, etc.)
     """
 
-    entry_id: str
+    upstream_datahub_urn: str
     audit_stamp: datetime
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED
 
@@ -177,14 +177,14 @@ class DataplexLineageReport(Report):
         logger.debug(f"Lineage downstream links observed for {entry_name}: {count}")
 
     def report_lineage_edge_added(
-        self, downstream_dataset_id: str, upstream_dataset_id: str
+        self, downstream_dataset_id: str, upstream_dataset_urn: str
     ) -> None:
         self.num_lineage_edges_added += 1
         self.lineage_edges_added_samples.append(
-            f"{downstream_dataset_id}<-{upstream_dataset_id}"
+            f"{downstream_dataset_id}<-{upstream_dataset_urn}"
         )
         logger.debug(
-            f"Lineage edge added: {downstream_dataset_id} <- {upstream_dataset_id}"
+            f"Lineage edge added: {downstream_dataset_id} <- {upstream_dataset_urn}"
         )
 
     def report_lineage_entry_failed(self, entry_name: str, stage: str) -> None:
@@ -477,15 +477,16 @@ class DataplexLineageExtractor:
 
             # Convert upstream FQNs to LineageEdge objects
             for upstream_fqn in lineage_data.get("upstream", []):
-                # Reuse this entry type's configured FQN parser to normalize lineage IDs.
-                upstream_dataset_id = extract_datahub_dataset_name_from_fqn(
-                    entry_type_or_short_name=entry.dataplex_entry_type_short_name,
+                # Upstream FQN may be cross-platform (e.g. pubsub->bigquery), so
+                # normalize to DataHub URN using a mapping lookup driven only by FQN shape.
+                upstream_dataset_urn = build_dataset_urn_from_fqn_only(
                     fully_qualified_name=upstream_fqn,
+                    env=self.config.env,
                 )
 
-                if upstream_dataset_id:
+                if upstream_dataset_urn:
                     edge = LineageEdge(
-                        entry_id=upstream_dataset_id,
+                        upstream_datahub_urn=upstream_dataset_urn,
                         audit_stamp=datetime.now(timezone.utc),
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
                     )
@@ -493,10 +494,12 @@ class DataplexLineageExtractor:
                     lineage_by_full_dataset_id[entry.datahub_dataset_name].add(edge)
                     self.report.report_lineage_edge_added(
                         downstream_dataset_id=entry.datahub_dataset_name,
-                        upstream_dataset_id=upstream_dataset_id,
+                        upstream_dataset_urn=upstream_dataset_urn,
                     )
                     logger.debug(
-                        f"  Added lineage edge: {entry.datahub_dataset_name} <- {upstream_dataset_id}"
+                        "  Added lineage edge: %s <- %s",
+                        entry.datahub_dataset_name,
+                        upstream_dataset_urn,
                     )
                 else:
                     self.report.report_lineage_upstream_fqn_skipped(
@@ -554,7 +557,7 @@ class DataplexLineageExtractor:
         return lineage_by_full_dataset_id
 
     def get_lineage_for_table(
-        self, dataset_id: str, dataset_urn: str, platform: str
+        self, dataset_id: str, dataset_urn: str
     ) -> Optional[UpstreamLineageClass]:
         """
         Build UpstreamLineageClass for a specific entry.
@@ -562,8 +565,6 @@ class DataplexLineageExtractor:
         Args:
             dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
             dataset_urn: DataHub URN for the dataset
-            platform: Source platform for the entry (bigquery, gcs, etc.)
-
         Returns:
             UpstreamLineageClass object or None if no lineage exists
         """
@@ -573,17 +574,9 @@ class DataplexLineageExtractor:
         upstream_list: list[UpstreamClass] = []
 
         for lineage_edge in self.lineage_by_full_dataset_id[dataset_id]:
-            # Generate URN for the upstream entry using the full dataset_id
-            upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=platform,
-                name=lineage_edge.entry_id,
-                platform_instance=None,
-                env=self.config.env,
-            )
-
             # Create table-level lineage
             upstream_class = UpstreamClass(
-                dataset=upstream_urn,
+                dataset=lineage_edge.upstream_datahub_urn,
                 type=lineage_edge.lineage_type,
                 auditStamp=AuditStampClass(
                     actor="urn:li:corpuser:datahub",
@@ -593,7 +586,7 @@ class DataplexLineageExtractor:
             upstream_list.append(upstream_class)
             # Report the lineage relationship
             self.report.report_lineage_relationship_created(
-                f"{dataset_id}<-{lineage_edge.entry_id}"
+                f"{dataset_id}<-{lineage_edge.upstream_datahub_urn}"
             )
 
         if not upstream_list:
@@ -605,7 +598,6 @@ class DataplexLineageExtractor:
         self,
         dataset_id: str,
         dataset_urn: str,
-        platform: str,
         upstream_lineage: Optional[UpstreamLineageClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -614,16 +606,13 @@ class DataplexLineageExtractor:
         Args:
             dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
             dataset_urn: DataHub URN for the dataset
-            platform: Source platform (bigquery, gcs, etc.)
             upstream_lineage: Optional pre-built UpstreamLineageClass
 
         Yields:
             MetadataWorkUnit objects containing lineage information
         """
         if upstream_lineage is None:
-            upstream_lineage = self.get_lineage_for_table(
-                dataset_id, dataset_urn, platform
-            )
+            upstream_lineage = self.get_lineage_for_table(dataset_id, dataset_urn)
 
         if upstream_lineage is None:
             return
@@ -678,7 +667,6 @@ class DataplexLineageExtractor:
                     yield from self.gen_lineage(
                         entry.datahub_dataset_name,
                         dataset_urn,
-                        entry.datahub_platform,
                     )
                 except Exception as e:
                     self.report.report_lineage_entry_failed(
@@ -734,7 +722,6 @@ class DataplexLineageExtractor:
                         yield from self.gen_lineage(
                             entry.datahub_dataset_name,
                             dataset_urn,
-                            entry.datahub_platform,
                         )
                     except Exception as e:
                         self.report.report_lineage_entry_failed(
