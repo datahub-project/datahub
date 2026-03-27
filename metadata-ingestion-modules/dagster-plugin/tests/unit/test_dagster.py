@@ -1,4 +1,5 @@
 import json
+import logging
 import pathlib
 import tempfile
 import uuid
@@ -27,8 +28,13 @@ from freezegun import freeze_time
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.metadata.schema_classes import StatusClass
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
-from datahub_dagster_plugin.client.dagster_generator import DatahubDagsterSourceConfig
+from datahub_dagster_plugin.client.dagster_generator import (
+    DagsterEnvironment,
+    DagsterGenerator,
+    DatahubDagsterSourceConfig,
+)
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubSensors,
     make_datahub_sensor,
@@ -551,3 +557,36 @@ def test_success_run_still_emits_lineage(mock_emit: Mock, mock_uuid: Mock) -> No
     assert "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)" in [
         str(d) for d in io_aspect.inputDatasets
     ]
+
+
+def test_emit_asset_emits_status_aspect() -> None:
+    """Verify that emit_asset emits StatusClass(removed=False) so that
+    soft-deleted entities are automatically restored on re-ingestion.
+    """
+    mock_graph = Mock()
+    config = DatahubDagsterSourceConfig(
+        datahub_client_config=DatahubClientConfig(server="http://localhost:8081"),
+    )
+    generator = DagsterGenerator(
+        logger=logging.getLogger(__name__),
+        config=config,
+        dagster_environment=DagsterEnvironment(repository=None),
+    )
+    generator.emit_asset(
+        graph=mock_graph,
+        asset_key=["my_asset"],
+        description=None,
+        properties=None,
+    )
+
+    emitted = [c.args[0] for c in mock_graph.emit_mcp.call_args_list]
+    status_mcps = [
+        m
+        for m in emitted
+        if isinstance(m, MetadataChangeProposalWrapper)
+        and isinstance(m.aspect, StatusClass)
+    ]
+    assert len(status_mcps) == 1
+    status_aspect = status_mcps[0].aspect
+    assert isinstance(status_aspect, StatusClass)
+    assert status_aspect.removed is False
