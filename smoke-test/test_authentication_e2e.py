@@ -351,15 +351,16 @@ def test_admin_endpoints_require_privileges(auth_session) -> None:
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
 
-    test_user_urn = "urn:li:corpuser:limited_auth_test_user"
+    limited_auth_email = "limited.auth.test@smoke.datahub.test"
+    test_user_urn = f"urn:li:corpuser:{limited_auth_email}"
     token_id = None
 
     try:
         # Create limited user
-        create_user(admin_session, "limited_auth_test_user", "testpass123")
+        create_user(admin_session, limited_auth_email, "testpass123")
 
         # Login as limited user and get API token
-        limited_session = login_as("limited_auth_test_user", "testpass123")
+        limited_session = login_as(limited_auth_email, "testpass123")
         api_token, token_id = extract_api_token_from_session(limited_session)
 
         # Test admin-only endpoints that require MANAGE_SYSTEM_OPERATIONS_PRIVILEGE

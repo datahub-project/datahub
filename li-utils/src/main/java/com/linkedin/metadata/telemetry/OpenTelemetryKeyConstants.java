@@ -15,6 +15,10 @@ public class OpenTelemetryKeyConstants {
   public static final String ENTITY_TYPE_ATTR = "entity.type";
   public static final String ASPECT_NAME_ATTR = "aspect.name";
   public static final String LOGIN_SOURCE_ATTR = "login.source";
+
+  /** Present on failed login span events; value is the {@code LoginDenialReason} enum name. */
+  public static final String LOGIN_DENIAL_REASON_ATTR = "login.denial.reason";
+
   public static final String TELEMETRY_TRACE_ID_ATTR = "telemetry.trace.id";
 
   // OTEL Event Source Context Mutable Baggage

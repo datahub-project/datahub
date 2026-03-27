@@ -1,6 +1,7 @@
 package com.datahub.authentication.token;
 
 import static com.datahub.authentication.token.TokenClaims.*;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
@@ -10,6 +11,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -221,7 +223,7 @@ public class StatelessTokenServiceTest {
   }
 
   @Test
-  public void testValidateAccessTokenFailsDueToHardDeletedUser() throws Exception {
+  public void testValidateAccessTokenFailsWhenCorpUserKeyMissing() throws Exception {
     AspectRetriever mockAspectRetriever = Mockito.mock(AspectRetriever.class);
     OperationContext mockContext =
         TestOperationContexts.systemContextNoSearchAuthorization(mockAspectRetriever);
@@ -235,7 +237,7 @@ public class StatelessTokenServiceTest {
             TokenType.PERSONAL, new Actor(ActorType.USER, "deleteduser"));
     assertNotNull(token);
 
-    // Mock to return empty aspect map - user has no CorpUserKey aspect (hard deleted)
+    // No CorpUserKey aspect in the retriever response (metadata absent for that URN)
     Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
         .thenReturn(Map.of(UrnUtils.getUrn("urn:li:corpuser:deleteduser"), Collections.emptyMap()));
 
@@ -312,6 +314,45 @@ public class StatelessTokenServiceTest {
                     "corpUserKey", new Aspect(corpUserKey.data()))));
 
     // Validation should fail due to suspended status
+    TokenException exception =
+        expectThrows(TokenException.class, () -> statelessTokenService.validateAccessToken(token));
+    assertEquals(exception.getMessage(), "Actor is not active");
+  }
+
+  @Test
+  public void testValidateAccessTokenFailsForInactiveCorpUserInfo() throws Exception {
+    AspectRetriever mockAspectRetriever = Mockito.mock(AspectRetriever.class);
+    OperationContext mockContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockAspectRetriever);
+
+    StatelessTokenService statelessTokenService =
+        new StatelessTokenService(mockContext, TEST_SIGNING_KEY, "HS256");
+
+    String token =
+        statelessTokenService.generateAccessToken(
+            TokenType.PERSONAL, new Actor(ActorType.USER, "inactiveprofile"));
+    assertNotNull(token);
+
+    Status activeStatus = new Status().setRemoved(false);
+    CorpUserStatus activeUserStatus = new CorpUserStatus().setStatus("ACTIVE");
+    CorpUserKey corpUserKey = new CorpUserKey().setUsername("inactiveprofile");
+    CorpUserInfo inactiveInfo = new CorpUserInfo().setActive(false);
+
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:inactiveprofile");
+    Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
+        .thenReturn(
+            Map.of(
+                userUrn,
+                Map.of(
+                    "status",
+                    new Aspect(activeStatus.data()),
+                    "corpUserStatus",
+                    new Aspect(activeUserStatus.data()),
+                    "corpUserKey",
+                    new Aspect(corpUserKey.data()),
+                    CORP_USER_INFO_ASPECT_NAME,
+                    new Aspect(inactiveInfo.data()))));
+
     TokenException exception =
         expectThrows(TokenException.class, () -> statelessTokenService.validateAccessToken(token));
     assertEquals(exception.getMessage(), "Actor is not active");

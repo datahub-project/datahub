@@ -21,7 +21,9 @@ pytestmark = pytest.mark.no_cypress_suite1
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
-user_urn = "urn:li:corpuser:sessionUser"
+# Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
+SESSION_TEST_EMAIL = "session.access.token@smoke.datahub.test"
+user_urn = f"urn:li:corpuser:{SESSION_TEST_EMAIL}"
 
 
 @pytest.fixture(scope="class")
@@ -58,7 +60,7 @@ def custom_user_session():
     # Pass the invite token when creating the user
     sign_up_json = {
         "fullName": "Test Session User",
-        "email": "sessionUser",
+        "email": SESSION_TEST_EMAIL,
         "password": "sessionUser",
         "title": "Date Engineer",
         "inviteToken": invite_token,
@@ -81,7 +83,7 @@ def custom_user_session():
     res_data = listUsers(admin_session)
     assert res_data["data"]
     assert res_data["data"]["listUsers"]
-    assert {"username": "sessionUser"} in res_data["data"]["listUsers"]["users"]
+    assert {"username": SESSION_TEST_EMAIL} in res_data["data"]["listUsers"]["users"]
 
     yield login_as(sign_up_json["email"], sign_up_json["password"])
 
@@ -97,7 +99,9 @@ def custom_user_session():
     res_data = listUsers(admin_session)
     assert res_data["data"]
     assert res_data["data"]["listUsers"]
-    assert {"username": "sessionUser"} not in res_data["data"]["listUsers"]["users"]
+    assert {"username": SESSION_TEST_EMAIL} not in res_data["data"]["listUsers"][
+        "users"
+    ]
 
 
 def test_01_soft_delete(graph_client, custom_user_session):
