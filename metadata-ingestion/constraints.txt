@@ -293,7 +293,7 @@ cramjam==2.11.0
     # via python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
-cryptography==46.0.5
+cryptography==46.0.6
     # via
     #   acryl-datahub
     #   acryl-great-expectations
