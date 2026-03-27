@@ -69,33 +69,49 @@ def get_tables(native_query: str) -> List[str]:
     return tables
 
 
-def remove_drop_statement(query: str) -> str:
-    # Certain PowerBI M-Queries contain a combination of DROP and SELECT statements within SQL, causing SQLParser to fail on these queries.
-    # Therefore, these occurrences are being removed.
+def remove_tsql_control_statements(query: str) -> str:
+    # Certain PowerBI M-Queries embed T-SQL control flow statements (USE, SET, GO, DROP)
+    # that are not valid in standard SQL dialects and cause the SQL parser to fail.
+    # Strip them before parsing so we can still extract lineage from the SELECT statements.
 
     patterns = [
-        # Regular expression to match patterns like:
-        #   "DROP TABLE IF EXISTS #<identifier>;"
-        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...;"
-        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...\n"
+        # DROP TABLE IF EXISTS #<temp> — temp table cleanup between statements
         r"DROP\s+TABLE\s+IF\s+EXISTS\s+(?:#?\w+(?:,\s*#?\w+)*)[;\n]",
+        # USE <database> — T-SQL database context switch; \S+ handles both plain
+        # identifiers (USE Reports) and bracketed ones (USE [Reports])
+        r"^\s*USE\s+\S+\s*$",
+        # SET <option> ON|OFF — T-SQL session-level options (NOCOUNT, QUOTED_IDENTIFIER, etc.)
+        r"^\s*SET\s+\w+\s+(?:ON|OFF)\s*;?\s*$",
+        # GO — T-SQL batch separator
+        r"^\s*GO\s*$",
+        # INTO #<temp_table> within SELECT … INTO — redirects output to temp table;
+        # strip only the INTO clause so FROM/WHERE lineage remains parseable.
+        # ##name = global temp table, #name = local temp table.
+        r"\s+INTO\s+##?\w+",
     ]
 
     new_query = query
 
     for pattern in patterns:
-        new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE)
+        new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE | re.MULTILINE)
 
     # Only normalize multiple consecutive spaces (but preserve newlines and tabs)
-    # This fixes spacing issues caused by DROP statement removal without
+    # This fixes spacing issues caused by statement removal without
     # collapsing the entire query into a single line
     new_query = re.sub(r"[ \t]+", " ", new_query)
-    # Remove spaces at the start of lines (left by DROP statement removal)
+    # Remove spaces at the start of lines
     new_query = re.sub(r"\n[ \t]+", "\n", new_query)
+    # Collapse 3+ consecutive blank lines down to one
+    new_query = re.sub(r"\n{3,}", "\n\n", new_query)
     # Remove trailing spaces
     new_query = new_query.strip()
 
     return new_query
+
+
+def remove_drop_statement(query: str) -> str:
+    # Kept for backwards compatibility — delegates to the broader T-SQL cleanup function.
+    return remove_tsql_control_statements(query)
 
 
 def parse_custom_sql(
