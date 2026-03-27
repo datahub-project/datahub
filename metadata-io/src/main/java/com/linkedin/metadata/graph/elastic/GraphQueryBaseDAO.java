@@ -49,12 +49,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -93,7 +95,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
   protected abstract SearchClientShim<?> getClient();
 
-  protected abstract List<LineageRelationship> searchWithSlices(
+  protected abstract LineageSliceFetchResult searchWithSlices(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
       LineageGraphFilters lineageGraphFilters,
@@ -1393,21 +1395,22 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       // Do one hop on the lineage graph
       // Note: maxRelations is the original total limit, but we pass the remaining capacity
       // to the scroll methods to ensure accurate limit checking at each level
-      currentLevel =
+      ImpactHopResult hopResult =
           processOneHopLineageWithMaxRelations(
-                  opContext,
-                  currentLevel,
-                  remainingTime,
-                  maxHops,
-                  lineageGraphFilters,
-                  visitedEntities,
-                  viaEntities,
-                  existingPaths,
-                  result,
-                  i,
-                  maxRelations,
-                  allowPartialResults)
-              .collect(Collectors.toList());
+              opContext,
+              currentLevel,
+              remainingTime,
+              maxHops,
+              lineageGraphFilters,
+              visitedEntities,
+              viaEntities,
+              existingPaths,
+              result,
+              i,
+              maxRelations,
+              allowPartialResults);
+      currentLevel = hopResult.getNextLevelUrns();
+      isPartial |= hopResult.isSlicePartial();
 
       currentTime = System.currentTimeMillis();
       remainingTime = timeoutTime - currentTime;
@@ -1447,7 +1450,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     return new LineageResponse(resultList.size(), resultList, isPartial);
   }
 
-  private Stream<Urn> processOneHopLineageWithMaxRelations(
+  private ImpactHopResult processOneHopLineageWithMaxRelations(
       @Nonnull OperationContext opContext,
       List<Urn> currentLevel,
       long remainingTime,
@@ -1470,7 +1473,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     // total limit
     // If maxRelations is -1 or 0 (unlimited), pass -1 to indicate no limit
     int remainingCapacity = (maxRelations <= 0) ? -1 : Math.max(0, maxRelations - result.size());
-    List<LineageRelationship> oneHopRelationships =
+    LineageSliceFetchResult hopFetch =
         getLineageRelationshipsWithMaxRelations(
             opContext,
             currentLevel,
@@ -1484,7 +1487,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             remainingCapacity,
             allowPartialResults);
 
-    for (LineageRelationship oneHopRelnship : oneHopRelationships) {
+    for (LineageRelationship oneHopRelnship : hopFetch.getLineageRelationships()) {
       if (result.containsKey(oneHopRelnship.getEntity())) {
         log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
         result.put(
@@ -1494,12 +1497,16 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         result.put(oneHopRelnship.getEntity(), oneHopRelnship);
       }
     }
-    return oneHopRelationships.stream().map(LineageRelationship::getEntity);
+    List<Urn> nextLevelUrns =
+        hopFetch.getLineageRelationships().stream()
+            .map(LineageRelationship::getEntity)
+            .collect(Collectors.toList());
+    return new ImpactHopResult(nextLevelUrns, hopFetch.isPartial());
   }
 
   // Get 1-hop lineage relationships with timeout
   @WithSpan
-  private List<LineageRelationship> getLineageRelationshipsWithMaxRelations(
+  private LineageSliceFetchResult getLineageRelationshipsWithMaxRelations(
       @Nonnull final OperationContext opContext,
       @Nonnull List<Urn> entityUrns,
       @Nonnull LineageGraphFilters lineageGraphFilters,
@@ -1541,7 +1548,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * @param allowPartialResults If true, return partial results on timeout or maxRelations instead
    *     of throwing
    */
-  private List<LineageRelationship> scrollLineageSearchWithMaxRelations(
+  private LineageSliceFetchResult scrollLineageSearchWithMaxRelations(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
       LineageGraphFilters lineageGraphFilters,
@@ -1576,97 +1583,155 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   }
 
   /**
+   * Best-effort cleanup after {@link #processSliceFutures}: {@code cancel(true)} on each slice so
+   * the JDK interrupts runner threads (see {@link CompletableFuture#cancel(boolean)}). That does
+   * not stop blocking {@code client.search}/{@code scroll} calls in general; slice deadlines and
+   * client timeouts narrow that window.
+   *
+   * <p>We cancel before {@link CompletableFuture#allOf}, not wait on {@code allOf} first: {@code
+   * allOf} completes exceptionally as soon as any constituent fails, so a pre-cancel {@code
+   * allOf().get(...)} would not wait for siblings when one slice already errored—{@link
+   * #processSliceFutures} does not treat mixed success/failure as a single joinable outcome.
+   *
+   * <p>After cancel, futures reach a terminal state quickly; {@code allOf(...).get(drainTimeout)}
+   * (see {@code elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds}) is a bounded join on
+   * those stages, not a reliable wait for in-flight HTTP to finish.
+   */
+  protected void cancelAndDrainSliceFutures(
+      List<CompletableFuture<List<LineageRelationship>>> sliceFutures) {
+    if (sliceFutures.isEmpty()) {
+      return;
+    }
+    sliceFutures.forEach(f -> f.cancel(true));
+    int drainTimeoutSeconds =
+        Objects.requireNonNull(
+            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds(),
+            "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds must be configured");
+    CompletableFuture<?>[] pending = sliceFutures.toArray(CompletableFuture[]::new);
+    CompletableFuture<Void> allDone = CompletableFuture.allOf(pending);
+    try {
+      allDone.get(drainTimeoutSeconds, TimeUnit.SECONDS);
+    } catch (Exception ignored) {
+      // Already complete, cancelled, allOf exceptional completion, or timeout — proceed
+    }
+  }
+
+  /**
    * Process slice futures with common error handling and result collection logic. This method is
    * reused by both PIT and scroll implementations.
    *
    * @param sliceFutures The list of futures for each slice
    * @param remainingTime Remaining time in milliseconds
-   * @param allowPartialResults If true, return partial results on timeout instead of throwing
+   * @param allowPartialResults If true, skip failed or timed-out slices and continue while budget
+   *     allows; {@link LineageSliceFetchResult#isPartial()} is set if any slice was skipped or time
+   *     ran out early
    */
-  protected List<LineageRelationship> processSliceFutures(
+  protected LineageSliceFetchResult processSliceFutures(
       List<CompletableFuture<List<LineageRelationship>>> sliceFutures,
       long remainingTime,
       boolean allowPartialResults) {
 
-    List<LineageRelationship> allRelationships = Collections.synchronizedList(new ArrayList<>());
+    List<LineageRelationship> allRelationships = new ArrayList<>();
+    boolean slicePartial = false;
 
-    try {
-      // Process each future one by one with proper timeout management
-      // This ensures immediate exception detection and proper resource cleanup
-      for (int i = 0; i < sliceFutures.size(); i++) {
-        CompletableFuture<List<LineageRelationship>> future = sliceFutures.get(i);
+    for (int i = 0; i < sliceFutures.size(); i++) {
+      CompletableFuture<List<LineageRelationship>> future = sliceFutures.get(i);
 
-        // Calculate remaining time for this future
-        long startTime = System.currentTimeMillis();
-        long futureTimeout = Math.max(1, remainingTime / 1000); // Ensure at least 1 second
+      // Ceil ms→s so future.get() allows the full wall-clock budget (truncation would e.g. give 1s
+      // for 1999ms).
+      long startTime = System.currentTimeMillis();
+      long futureTimeout = Math.max(1L, (long) Math.ceil(remainingTime / 1000.0));
 
-        try {
-          // Wait for this specific future to complete
-          List<LineageRelationship> sliceResults = future.get(futureTimeout, TimeUnit.SECONDS);
-          allRelationships.addAll(sliceResults);
+      try {
+        List<LineageRelationship> sliceResults = future.get(futureTimeout, TimeUnit.SECONDS);
+        allRelationships.addAll(sliceResults);
 
-          // Update remaining time for next iteration
-          long elapsed = System.currentTimeMillis() - startTime;
-          remainingTime -= elapsed;
+        long elapsed = System.currentTimeMillis() - startTime;
+        remainingTime -= elapsed;
 
-          // If we're out of time, break early
-          if (remainingTime <= 0) {
-            if (allowPartialResults) {
-              log.warn(
-                  "Out of time, stopping slice processing after {} slices. Returning partial results.",
-                  i + 1);
-            } else {
-              log.warn("Out of time, stopping slice processing after {} slices", i + 1);
-            }
-            break;
-          }
-
-        } catch (TimeoutException e) {
-          log.warn("Slice {} timed out after {} seconds", i, futureTimeout);
-          // Cancel all futures to prevent resource leaks
-          sliceFutures.forEach(f -> f.cancel(true));
+        if (remainingTime <= 0) {
           if (allowPartialResults) {
             log.warn(
-                "Returning partial results after slice {} timed out. {} relationships collected so far.",
-                i,
+                "Out of time, stopping slice processing after {} slices. {} relationships collected (partial).",
+                i + 1,
                 allRelationships.size());
-            break;
+            slicePartial = true;
           } else {
-            log.error("Slice {} timed out after {} seconds", i, futureTimeout);
-            throw new RuntimeException(
-                "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
+            log.warn("Out of time, stopping slice processing after {} slices", i + 1);
           }
-        } catch (Exception e) {
-          log.error("Slice {} failed with exception", i, e);
-          // Cancel other futures to prevent resource leaks
-          sliceFutures.forEach(f -> f.cancel(true));
-          // Re-throw the original exception to preserve the exception chain
-          if (e instanceof RuntimeException) {
-            throw e;
-          } else {
-            throw new RuntimeException("Slice " + i + " failed", e);
-          }
+          break;
         }
-      }
-    } catch (Exception e) {
-      // If we have partial results enabled and collected some results, return them
-      if (allowPartialResults && !allRelationships.isEmpty()) {
+
+      } catch (TimeoutException e) {
+        if (!allowPartialResults) {
+          log.error("Slice {} timed out after {} seconds", i, futureTimeout);
+          sliceFutures.forEach(f -> f.cancel(true));
+          throw new RuntimeException(
+              "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
+        }
+        future.cancel(true);
+        slicePartial = true;
         log.warn(
-            "Error during slice-based search, but returning partial results. {} relationships collected so far.",
+            "Slice {} timed out after {} s (reason=timeout); {} relationships collected so far; continuing with remaining slices if budget allows",
+            i,
+            futureTimeout,
+            allRelationships.size());
+        long elapsed = System.currentTimeMillis() - startTime;
+        remainingTime -= elapsed;
+        if (remainingTime <= 0) {
+          log.warn(
+              "Run budget exhausted after slice {} timeout; {} relationships collected (partial).",
+              i,
+              allRelationships.size());
+          break;
+        }
+
+      } catch (ExecutionException e) {
+        if (!allowPartialResults) {
+          log.error("Slice {} failed with exception", i, e);
+          sliceFutures.forEach(f -> f.cancel(true));
+          Throwable cause = e.getCause();
+          if (cause instanceof RuntimeException) {
+            throw (RuntimeException) cause;
+          }
+          throw new RuntimeException("Slice " + i + " failed", cause != null ? cause : e);
+        }
+        future.cancel(true);
+        slicePartial = true;
+        String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+        log.warn(
+            "Slice {} failed (reason=error); {} relationships collected so far; continuing: {}",
+            i,
             allRelationships.size(),
-            e);
-        return allRelationships;
+            msg);
+        long elapsed = System.currentTimeMillis() - startTime;
+        remainingTime -= elapsed;
+        if (remainingTime <= 0) {
+          log.warn(
+              "Run budget exhausted after slice {} error; {} relationships collected (partial).",
+              i,
+              allRelationships.size());
+          break;
+        }
+
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        sliceFutures.forEach(f -> f.cancel(true));
+        throw new RuntimeException("Interrupted during slice processing", e);
       }
-      // Otherwise, throw the exception
-      log.error("Error during slice-based search", e);
-      throw new RuntimeException("Failed to execute slice-based search", e);
     }
 
-    return allRelationships;
+    return new LineageSliceFetchResult(allRelationships, slicePartial);
   }
 
   @Override
   public void cleanupPointInTime(String pitId) {
     ESUtils.cleanupPointInTime(getClient(), pitId, "API Request");
+  }
+
+  @Value
+  private static class ImpactHopResult {
+    @Nonnull List<Urn> nextLevelUrns;
+    boolean slicePartial;
   }
 }
