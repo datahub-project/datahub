@@ -1,13 +1,14 @@
 import { TextProps } from '@visx/text/lib/Text';
+import { DefaultTheme } from 'styled-components';
 
 import { ColorSchemeSettings, WhiskerMetricType } from '@components/components/WhiskerChart/types';
 
-export const DEFAULT_COLOR_SHEME: ColorSchemeSettings = {
-    box: '#705EE4',
-    boxAlternative: '#CAC3F1',
-    medianLine: '#2200F9',
-    alternative: '#533FD1',
-};
+export const getDefaultColorScheme = (theme: DefaultTheme): ColorSchemeSettings => ({
+    box: theme.colors.chartsBrandMedium,
+    boxAlternative: theme.colors.chartsBrandBase,
+    medianLine: theme.colors.chartsBrandContrast,
+    alternative: theme.colors.chartsBrandHigh,
+});
 
 export const WHISKER_METRIC_NAMES = {
     [WhiskerMetricType.Max]: 'Max',

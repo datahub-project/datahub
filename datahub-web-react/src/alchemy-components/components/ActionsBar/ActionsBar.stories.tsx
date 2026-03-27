@@ -38,8 +38,8 @@ type Story = StoryObj<typeof meta>;
 
 const Warning = styled.div`
     padding: 8px;
-    background-color: ${(props) => props.theme.colors.bgSurfaceError};
-    color: ${(props) => props.theme.colors.textError};
+    background-color: ${({ theme }) => theme.colors.bgSurfaceError};
+    color: ${({ theme }) => theme.colors.textError};
     display: flex;
     align-items: center;
     gap: 8px;

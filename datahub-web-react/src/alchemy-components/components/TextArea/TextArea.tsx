@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
