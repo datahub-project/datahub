@@ -275,15 +275,16 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
 
-    test_user_urn = "urn:li:corpuser:limited_test_user"
+    limited_test_email = "limited.test.user@smoke.datahub.test"
+    test_user_urn = f"urn:li:corpuser:{limited_test_email}"
     token_id = None
 
     try:
         # Create a limited-privilege user (no special privileges by default)
-        create_user(admin_session, "limited_test_user", "testpass123")
+        create_user(admin_session, limited_test_email, "testpass123")
 
         # Login as the limited user
-        limited_user_session = login_as("limited_test_user", "testpass123")
+        limited_user_session = login_as(limited_test_email, "testpass123")
 
         # Extract API token from the session
         api_token, token_id = extract_api_token_from_session(limited_user_session)

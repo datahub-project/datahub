@@ -199,6 +199,7 @@ def set_view_entity_profile_privileges_policy_status(status, session):
 
 
 def create_user(session, email, password):
+    """Create a native user via /signUp; ``email`` must be valid if enforceValidEmail is enabled."""
     # Remove user if exists
     res_data = remove_user(session, f"urn:li:corpuser:{email}")
     assert res_data
