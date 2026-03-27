@@ -17,7 +17,6 @@ import io.micrometer.core.instrument.Clock;
 import org.mockito.Answers;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ContextConfiguration;
@@ -38,23 +37,23 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
 
   // Mock Beans take precedence, we add these to avoid needing to configure data sources etc. while
   // still testing prod config
-  @MockBean private Database database;
+  @MockitoBean private Database database;
 
-  @MockBean private BootstrapManager bootstrapManager;
+  @MockitoBean private BootstrapManager bootstrapManager;
 
-  @MockBean private Clock clock;
+  @MockitoBean private Clock clock;
 
-  @MockBean private MetricUtils metricUtils;
+  @MockitoBean private MetricUtils metricUtils;
 
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
 
   // Mock semantic search factories to avoid needing full configuration
-  @MockBean private EmbeddingProviderFactory embeddingProviderFactory;
+  @MockitoBean private EmbeddingProviderFactory embeddingProviderFactory;
 
-  @MockBean private SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+  @MockitoBean private SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
 
-  @MockBean private SemanticSearchServiceFactory semanticSearchServiceFactory;
+  @MockitoBean private SemanticSearchServiceFactory semanticSearchServiceFactory;
 
   @Test
   public void testTelemetry() {

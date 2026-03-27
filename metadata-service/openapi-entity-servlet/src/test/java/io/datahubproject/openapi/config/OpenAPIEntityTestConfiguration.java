@@ -41,14 +41,14 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
 public class OpenAPIEntityTestConfiguration {
-  @MockBean SystemTelemetryContext systemTelemetryContext;
+  @MockitoBean SystemTelemetryContext systemTelemetryContext;
 
   @Bean
   public TracingInterceptor tracingInterceptor(
@@ -61,7 +61,7 @@ public class OpenAPIEntityTestConfiguration {
     return new ObjectMapper(new YAMLFactory());
   }
 
-  @MockBean EntityService<?> entityService;
+  @MockitoBean EntityService<?> entityService;
 
   @Bean
   @Primary
@@ -87,10 +87,10 @@ public class OpenAPIEntityTestConfiguration {
     return authorizerChain;
   }
 
-  @MockBean(name = "elasticSearchSystemMetadataService")
+  @MockitoBean(name = "elasticSearchSystemMetadataService")
   public SystemMetadataService systemMetadataService;
 
-  @MockBean public TimelineService timelineService;
+  @MockitoBean public TimelineService timelineService;
 
   @Bean("entityRegistry")
   @Primary
@@ -138,9 +138,9 @@ public class OpenAPIEntityTestConfiguration {
     return entitiesController;
   }
 
-  @MockBean public TimelineControllerV2 timelineControllerV2;
+  @MockitoBean public TimelineControllerV2 timelineControllerV2;
 
-  @MockBean public RelationshipsController relationshipsController;
+  @MockitoBean public RelationshipsController relationshipsController;
 
   @Bean(name = "systemOperationContext")
   public OperationContext operationContext(final EntityRegistry entityRegistry) {

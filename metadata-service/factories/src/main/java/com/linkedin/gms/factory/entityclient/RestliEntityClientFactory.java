@@ -11,7 +11,6 @@ import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.client.Client;
 import java.net.URI;
-import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -23,7 +22,6 @@ import org.springframework.context.annotation.Configuration;
 public class RestliEntityClientFactory {
 
   @Bean("entityClient")
-  @Singleton
   public EntityClient entityClient(
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
@@ -48,7 +46,6 @@ public class RestliEntityClientFactory {
   }
 
   @Bean("systemEntityClient")
-  @Singleton
   public SystemEntityClient systemEntityClient(
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,

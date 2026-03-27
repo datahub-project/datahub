@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 @ActiveProfiles("test")
 @SpringBootTest(
     classes = {MaeConsumerApplication.class, MaeConsumerApplicationTestConfiguration.class},
-    properties = "PE_CONSUMER_ENABLED=true")
+    properties = {"PE_CONSUMER_ENABLED=true", "spring.main.allow-bean-definition-overriding=true"})
 public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private KafkaHealthIndicator kafkaHealthIndicator;

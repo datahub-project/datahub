@@ -18,31 +18,31 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.Tracer;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
 public class AuthServiceTestConfiguration {
 
   public static String SYSTEM_CLIENT_ID = "systemClientId";
-  @MockBean StatelessTokenService statelessTokenService;
+  @MockitoBean StatelessTokenService statelessTokenService;
 
-  @MockBean(name = "configurationProvider")
+  @MockitoBean(name = "configurationProvider")
   ConfigurationProvider configProvider;
 
-  @MockBean NativeUserService nativeUserService;
+  @MockitoBean NativeUserService nativeUserService;
 
-  @MockBean EntityService entityService;
+  @MockitoBean EntityService entityService;
 
-  @MockBean SecretService secretService;
+  @MockitoBean SecretService secretService;
 
-  @MockBean InviteTokenService inviteTokenService;
+  @MockitoBean InviteTokenService inviteTokenService;
 
-  @MockBean TrackingService trackingService;
+  @MockitoBean TrackingService trackingService;
 
-  @MockBean Tracer mockTracer;
+  @MockitoBean Tracer mockTracer;
 
-  @MockBean SpanContext mockSpanContext;
+  @MockitoBean SpanContext mockSpanContext;
 
   @Bean(name = "systemOperationContext")
   public OperationContext systemOperationContext(ObjectMapper objectMapper) {

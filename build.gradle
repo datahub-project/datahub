@@ -25,17 +25,19 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.8.1'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.13'
-  ext.springBootVersion = '3.5.6'
-  ext.springKafkaVersion = '3.3.8'
+  ext.springVersion = '7.0.6'
+  ext.springBootVersion = '4.0.5'
+  ext.springKafkaVersion = '4.0.4'
   ext.openTelemetryVersion = '1.56.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
-  ext.jacksonVersion = '2.18.6'
-  ext.jettyVersion = '12.0.32'
+  ext.jacksonVersion = '2.21.1'
+  // jackson-annotations dropped the patch version starting with 2.20 ("2.21" not "2.21.x")
+  ext.jacksonAnnotationsVersion = '2.21'
+  ext.jettyVersion = '12.1.7'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
@@ -54,13 +56,13 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.32'
   ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
-  ext.kafkaVersion = '8.0.0'
+  ext.kafkaVersion = '8.1.0'
   ext.hazelcastVersion = '5.6.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
   ext.awsSdk2Version = '2.30.33'
-  ext.micrometerVersion = '1.15.1'
+  ext.micrometerVersion = '1.16.4'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
   ext.nettyVersion = '4.1.130.Final' // CVE-2025-55163, CVE-2025-58056, CVE-2025-67735; align all io.netty modules
 
@@ -145,7 +147,7 @@ project.ext.externalDependency = [
     'micrometerPrometheus': "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
     'micrometerJmx': "io.micrometer:micrometer-registry-jmx:$micrometerVersion",
     'micrometerObserve': "io.micrometer:micrometer-observation:$micrometerVersion",
-    'micrometerOtelBridge': "io.micrometer:micrometer-tracing-bridge-otel:1.5.1",
+    'micrometerOtelBridge': "io.micrometer:micrometer-tracing-bridge-otel:1.6.4",
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
     'ebeanTest': 'io.ebean:ebean-test:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
@@ -184,7 +186,7 @@ project.ext.externalDependency = [
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'xercesImpl': 'xerces:xercesImpl:2.12.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
-    'javaxInject' : 'javax.inject:javax.inject:1',
+    'javaxInject' : 'jakarta.inject:jakarta.inject-api:2.0.1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.46',
@@ -266,7 +268,7 @@ project.ext.externalDependency = [
     'reflections': 'org.reflections:reflections:0.9.12',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
-    'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
+    'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.1.0',
     'shiroCore': 'org.apache.shiro:shiro-core:1.13.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.3.4',
@@ -274,20 +276,31 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
     'springBootTest': "org.springframework.boot:spring-boot-starter-test:$springBootVersion",
     'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
     'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
+    // Bridge for Jackson 2 (com.fasterxml) until full migration to Jackson 3 (tools.jackson)
+    'springBootJackson2': "org.springframework.boot:spring-boot-jackson2:$springBootVersion",
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
-    'springRetry': "org.springframework.retry:spring-retry:2.0.11",
+    // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+    'springBootKafka': "org.springframework.boot:spring-boot-kafka:$springBootVersion",
+    'springBootMicrometerMetrics': "org.springframework.boot:spring-boot-micrometer-metrics:$springBootVersion",
+    // Spring Boot 4.0: Jetty, Cassandra, Elasticsearch auto-configs moved to separate modules
+    'springBootJetty': "org.springframework.boot:spring-boot-jetty:$springBootVersion",
+    'springBootCassandra': "org.springframework.boot:spring-boot-cassandra:$springBootVersion",
+    'springBootElasticsearch': "org.springframework.boot:spring-boot-elasticsearch:$springBootVersion",
+    // Spring Boot 4.0: WebMvc test slice moved to separate module
+    'springBootWebMvcTest': "org.springframework.boot:spring-boot-webmvc-test:$springBootVersion",
+    'springRetry': "org.springframework.retry:spring-retry:2.0.12",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',
@@ -309,7 +322,7 @@ project.ext.externalDependency = [
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
-    'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
+    'annotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
@@ -468,8 +481,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
       }
       // Align all Jackson modules to jacksonVersion (e.g. play config must not use 2.18.4 / 2.11.4)
+      // jackson-annotations dropped the patch segment starting in 2.20 ("2.21" not "2.21.x")
       if (details.requested.group == 'com.fasterxml.jackson.core' || details.requested.group == 'com.fasterxml.jackson.dataformat' || details.requested.group == 'com.fasterxml.jackson.datatype' || details.requested.group == 'com.fasterxml.jackson.module') {
-        def v = rootProject.ext.jacksonVersion
+        def v = (details.requested.name == 'jackson-annotations') ? rootProject.ext.jacksonAnnotationsVersion : rootProject.ext.jacksonVersion
         details.useTarget("${details.requested.group}:${details.requested.name}:${v}")
         details.because("Jackson aligned to ${v}")
       }
@@ -482,7 +496,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     }
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast)
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonAnnotationsVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
@@ -614,9 +628,13 @@ subprojects {
 
     // Exclude unwanted transitive dependencies from log4j (fixed in logging-parent 12.0.0)
     // See: https://github.com/apache/logging-log4j2/issues/3066
+    // Note: jspecify exclusion was removed because Spring Framework 7.0 requires it at runtime
+    // Exclude Jackson 3 (tools.jackson) — we use spring-boot-jackson2 bridge to stay on Jackson 2.
+    // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'org.jspecify', module: 'jspecify'
+      exclude group: 'tools.jackson.core'
+      exclude group: 'tools.jackson'
     }
 
     dependencies {

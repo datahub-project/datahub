@@ -19,10 +19,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -36,16 +36,16 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   static class TestConfig {
-    @MockBean public MetricUtils metricUtils;
+    @MockitoBean public MetricUtils metricUtils;
 
-    @MockBean(name = "settingsBuilder")
+    @MockitoBean(name = "settingsBuilder")
     public SettingsBuilder settingsBuilder;
 
-    @MockBean(name = "baseElasticSearchComponents")
+    @MockitoBean(name = "baseElasticSearchComponents")
     public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
         baseElasticSearchComponents;
 
-    @MockBean public QueryFilterRewriteChain queryFilterRewriteChain;
+    @MockitoBean public QueryFilterRewriteChain queryFilterRewriteChain;
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext() {

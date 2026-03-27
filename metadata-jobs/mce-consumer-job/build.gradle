@@ -20,6 +20,11 @@ dependencies {
 
     implementation(externalDependency.springBootStarterWeb)
     implementation(externalDependency.springBootStarterJetty)
+    // Jackson 2 bridge: keeps com.fasterxml.jackson on classpath until we migrate to Jackson 3
+    implementation(externalDependency.springBootJackson2)
+    // Spring Boot 4.0: Cassandra/Elasticsearch auto-configs moved to separate modules
+    implementation externalDependency.springBootCassandra
+    implementation externalDependency.springBootElasticsearch
     implementation externalDependency.springKafka
     implementation externalDependency.springBootAutoconfigure
     implementation externalDependency.springActuator
