@@ -321,6 +321,32 @@ def test_mssql_with_query():
         assert data_platform_tables[0].urn == expected_tables[index]
 
 
+def test_mssql_multi_database():
+    q = """
+    let
+        Source = Sql.Databases("ws-azu-e2-synapse-prod-ondemand.sql.azuresynapse.net"),
+        DB_Source = Source{[Name="DATABASE_NAME"]}[Data],
+        TABLE_Source = DB_Source{[Schema="SCHEMA_NAME",Item="TABLE_NAME"]}[Data]
+    in
+        TABLE_Source
+    """
+
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,database_name.schema_name.table_name,PROD)"
+    )
+
+
 @pytest.mark.integration
 def test_snowflake_native_query():
     snowflake_queries: List[str] = [

@@ -173,6 +173,11 @@
         "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
         "default" : null
       }, {
+        "name" : "schemaVersion",
+        "type" : [ "null", "long" ],
+        "doc" : "Schema version of the aspect data model. Used to determine aspects that need migrations.\nDefaults to 1 when not present as a baseline. Incremented when an aspect is modified.",
+        "default" : null
+      }, {
         "name" : "aspectCreated",
         "type" : [ "null", {
           "type" : "record",

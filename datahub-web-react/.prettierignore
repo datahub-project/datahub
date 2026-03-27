@@ -1,4 +1,5 @@
 ../docs-website
+../docs/generated
 **/.venv
 **/venv
 **/.tox

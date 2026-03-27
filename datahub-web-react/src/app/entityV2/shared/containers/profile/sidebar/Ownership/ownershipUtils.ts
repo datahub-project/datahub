@@ -15,7 +15,7 @@ const OWNERSHIP_DISPLAY_TYPES = [
     {
         type: OwnershipType.BusinessOwner,
         name: 'Business Owner',
-        description: 'Principle stakeholders or domain experts associated with the asset(s).',
+        description: 'Principal stakeholders or domain experts associated with the asset(s).',
     },
     {
         type: OwnershipType.DataSteward,
