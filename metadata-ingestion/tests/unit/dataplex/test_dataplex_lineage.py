@@ -150,11 +150,13 @@ def test_extract_entry_id_from_fqn_invalid(
 def test_lineage_edge_creation() -> None:
     """Test LineageEdge data structure."""
     edge = LineageEdge(
+        platform="bigquery",
         entry_id="upstream-entry",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
 
+    assert edge.platform == "bigquery"
     assert edge.entry_id == "upstream-entry"
     assert edge.lineage_type == DatasetLineageTypeClass.TRANSFORMED
 
@@ -285,6 +287,7 @@ def test_get_lineage_for_table_with_lineage(
     """Test getting lineage for table with lineage."""
     # Add a lineage edge to the map - use full dataset_id as key
     edge = LineageEdge(
+        platform="bigquery",
         entry_id="test-project.test-dataset.upstream-entry",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
@@ -311,6 +314,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     """Test generating lineage workunits."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
+        platform="bigquery",
         entry_id="test-project.test-dataset.upstream-entry",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
@@ -402,6 +406,7 @@ def test_workunit_urn_structure_validation(
     """Test that generated workunits have correct URN structure."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
+        platform="bigquery",
         entry_id="my-project.my-dataset.upstream-table",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
@@ -441,11 +446,13 @@ def test_workunit_aspect_completeness(
     """Test that workunit aspects contain all required fields."""
     # Add lineage edges - use full dataset_id as key
     edge1 = LineageEdge(
+        platform="bigquery",
         entry_id="my-project.my-dataset.table1",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
     edge2 = LineageEdge(
+        platform="bigquery",
         entry_id="my-project.my-dataset.table2",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.COPY,
@@ -498,6 +505,7 @@ def test_workunit_upstream_urn_format(
     """Test that upstream URNs in workunits are correctly formatted."""
     # Add lineage edge with specific entry ID format - use full dataset_id as key
     edge = LineageEdge(
+        platform="bigquery",
         entry_id="test-project.sales_dataset.customer_table",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
@@ -1013,6 +1021,7 @@ class TestLineageMapKeyCollision:
 
         # Manually populate lineage map with full dataset_id keys
         edge = LineageEdge(
+            platform="bigquery",
             entry_id="test-project.abc.users",
             audit_stamp=datetime.datetime.now(datetime.timezone.utc),
             lineage_type=DatasetLineageTypeClass.TRANSFORMED,
@@ -1105,3 +1114,206 @@ class TestLineageMapKeyCollision:
         assert edge.entry_id == "test-project.abc.users", (
             f"Upstream should be 'test-project.abc.users', got '{edge.entry_id}'"
         )
+
+
+def test_cross_platform_lineage_preserves_upstream_platform() -> None:
+    """Test that GCS upstream entries get dataPlatform:gcs, not the target's platform.
+
+    When the GCP Data Lineage API reports that a BigQuery external table has a
+    GCS file as its upstream source, the generated upstream URN must use the
+    GCS platform - not inherit the BigQuery target's platform.
+
+    Real-world example from Dataplex ingestion:
+      Data Lineage API link:
+        source: gcs:my-bucket.`raw/thelook/order_items/*.csv`
+        target: bigquery:field-eng.datahub_demo_raw.ext_thelook_order_items
+
+      Expected upstream URN:
+        urn:li:dataset:(urn:li:dataPlatform:gcs,...,PROD)
+      Actual (buggy) upstream URN:
+        urn:li:dataset:(urn:li:dataPlatform:bigquery,...,PROD)
+
+    Bug location: get_lineage_for_table() passes the target entry's platform
+    to make_dataset_urn_with_platform_instance() instead of the upstream's
+    platform parsed from the FQN.
+    """
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        entries_location="us",
+        include_lineage=True,
+    )
+    report = DataplexReport()
+    mock_client = MagicMock()
+
+    # Mock the Data Lineage API: a BigQuery external table has a GCS upstream
+    def mock_search_links(request):
+        target_fqn = getattr(
+            getattr(request, "target", None), "fully_qualified_name", ""
+        )
+        if target_fqn and "ext_thelook_order_items" in target_fqn:
+            mock_link = MagicMock()
+            # GCS upstream - note the gcs: platform prefix
+            mock_link.source.fully_qualified_name = (
+                "gcs:my-bucket.`raw/thelook/order_items/*.csv`"
+            )
+            return [mock_link]
+        return []
+
+    mock_client.search_links.side_effect = mock_search_links
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    # The target is a BigQuery external table
+    bq_entry = EntryDataTuple(
+        entry_id="ext_thelook_order_items",
+        source_platform="bigquery",
+        dataset_id="test-project.datahub_demo_raw.ext_thelook_order_items",
+    )
+
+    # Step 1: Build the lineage map (populates lineage_by_full_dataset_id)
+    extractor.build_lineage_map("test-project", [bq_entry])
+
+    # Verify the lineage edge was recorded
+    assert "test-project.datahub_demo_raw.ext_thelook_order_items" in (
+        extractor.lineage_by_full_dataset_id
+    )
+    edges = extractor.lineage_by_full_dataset_id[
+        "test-project.datahub_demo_raw.ext_thelook_order_items"
+    ]
+    assert len(edges) == 1
+
+    # Step 2: Generate the upstream lineage aspect
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "test-project.datahub_demo_raw.ext_thelook_order_items,PROD)"
+    )
+    result = extractor.get_lineage_for_table(
+        "test-project.datahub_demo_raw.ext_thelook_order_items",
+        dataset_urn,
+        "bigquery",  # target platform
+    )
+
+    assert result is not None
+    assert len(result.upstreams) == 1
+
+    upstream_urn = result.upstreams[0].dataset
+
+    # The upstream is a GCS file - the URN MUST use the gcs platform,
+    # not inherit the bigquery platform from the target entry
+    assert "urn:li:dataPlatform:gcs" in upstream_urn, (
+        f"Upstream URN should use 'gcs' platform for GCS source, "
+        f"but got: {upstream_urn}"
+    )
+    assert "urn:li:dataPlatform:bigquery" not in upstream_urn, (
+        f"Upstream URN should NOT use 'bigquery' platform for GCS source, "
+        f"but got: {upstream_urn}"
+    )
+
+
+def test_normalize_gcs_entry_id(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test GCS entry ID normalization from Data Lineage API format to DataHub format.
+
+    The GCP Data Lineage API uses: bucket.`path/to/files/*.csv`
+    DataHub GCS source uses:       bucket/path/to/files
+    """
+    normalize = lineage_extractor._normalize_gcs_entry_id
+
+    # Standard case: backtick-wrapped path with glob
+    assert normalize("my-bucket.`raw/thelook/order_items/*.csv`") == (
+        "my-bucket/raw/thelook/order_items"
+    )
+
+    # Different glob extension
+    assert normalize("my-bucket.`data/files/*.parquet`") == ("my-bucket/data/files")
+
+    # Bare glob (no extension)
+    assert normalize("my-bucket.`data/files/*`") == "my-bucket/data/files"
+
+    # No glob - concrete file path with backticks
+    assert normalize("my-bucket.`raw/data/file.csv`") == ("my-bucket/raw/data/file.csv")
+
+    # No backticks (just dot separator)
+    assert normalize("my-bucket.raw/data") == "my-bucket/raw/data"
+
+    # Bucket only - no change
+    assert normalize("my-bucket") == "my-bucket"
+
+    # Already slash-separated - no change
+    assert normalize("my-bucket/raw/data") == "my-bucket/raw/data"
+
+
+def test_gcs_entry_id_normalized_to_datahub_format() -> None:
+    """End-to-end test: GCS upstream URN name matches DataHub GCS source format.
+
+    Verifies that the full pipeline (build_lineage_map -> get_lineage_for_table)
+    produces a GCS upstream URN with the normalized entry ID format that the
+    DataHub GCS ingestion source would create.
+
+    Data Lineage API FQN: gcs:my-bucket.`raw/thelook/order_items/*.csv`
+    Expected URN name:    my-bucket/raw/thelook/order_items
+    """
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        entries_location="us",
+        include_lineage=True,
+    )
+    report = DataplexReport()
+    mock_client = MagicMock()
+
+    def mock_search_links(request):
+        target_fqn = getattr(
+            getattr(request, "target", None), "fully_qualified_name", ""
+        )
+        if target_fqn and "ext_thelook_order_items" in target_fqn:
+            mock_link = MagicMock()
+            mock_link.source.fully_qualified_name = (
+                "gcs:my-bucket.`raw/thelook/order_items/*.csv`"
+            )
+            return [mock_link]
+        return []
+
+    mock_client.search_links.side_effect = mock_search_links
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    bq_entry = EntryDataTuple(
+        entry_id="ext_thelook_order_items",
+        source_platform="bigquery",
+        dataset_id="test-project.datahub_demo_raw.ext_thelook_order_items",
+    )
+
+    extractor.build_lineage_map("test-project", [bq_entry])
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "test-project.datahub_demo_raw.ext_thelook_order_items,PROD)"
+    )
+    result = extractor.get_lineage_for_table(
+        "test-project.datahub_demo_raw.ext_thelook_order_items",
+        dataset_urn,
+        "bigquery",
+    )
+
+    assert result is not None
+    assert len(result.upstreams) == 1
+
+    upstream_urn = result.upstreams[0].dataset
+
+    # URN should be: urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/raw/thelook/order_items,PROD)
+    expected_name = "my-bucket/raw/thelook/order_items"
+    assert expected_name in upstream_urn, (
+        f"Upstream URN name should be '{expected_name}' "
+        f"(slash-separated, no backticks, no glob), but got: {upstream_urn}"
+    )
+    assert "`" not in upstream_urn, (
+        f"Upstream URN should not contain backticks, but got: {upstream_urn}"
+    )
+    assert "*" not in upstream_urn, (
+        f"Upstream URN should not contain glob patterns, but got: {upstream_urn}"
+    )
