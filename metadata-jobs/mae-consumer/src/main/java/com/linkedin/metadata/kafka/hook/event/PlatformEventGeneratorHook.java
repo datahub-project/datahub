@@ -57,12 +57,19 @@ import org.springframework.stereotype.Component;
 public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   /**
-   * Computed at startup from the entity registry: all aspects with at least one {@code isLineage:
-   * true} relationship field spec, plus {@code logicalParent} explicitly (its PhysicalInstanceOf
-   * relationship lacks the flag but must still trigger RCEs). Adding a new lineage relationship
-   * type to a PDL file automatically includes it here without code changes.
+   * Aspects that carry non-lineage relationships which must still trigger RCEs. These are added
+   * explicitly because their PDL {@code @Relationship} annotations lack {@code "isLineage": true},
+   * so the registry scan would otherwise miss them.
    */
-  private final Set<String> relationshipChangeSupportedAspectNames;
+  private static final Set<String> NON_LINEAGE_RELATIONSHIP_ASPECTS =
+      ImmutableSet.of(Constants.LOGICAL_PARENT_ASPECT_NAME);
+
+  /**
+   * Computed at startup from the entity registry: all aspects with at least one {@code isLineage:
+   * true} relationship field spec, plus {@link #NON_LINEAGE_RELATIONSHIP_ASPECTS}. Adding a new
+   * lineage relationship type to a PDL file automatically includes it here without code changes.
+   */
+  @Getter private final Set<String> relationshipChangeSupportedAspectNames;
 
   /** The list of aspects that are supported for generating semantic change events. */
   private static final Set<String> ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES =
@@ -148,9 +155,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
                         .anyMatch(RelationshipFieldSpec::isLineageRelationship))
             .map(AspectSpec::getName)
             .collect(Collectors.toSet());
-    // logicalParent's PhysicalInstanceOf relationship lacks isLineage=true in its PDL
-    // but must still trigger RCEs so downstream services can react to new physical-logical links.
-    aspects.add(Constants.LOGICAL_PARENT_ASPECT_NAME);
+    aspects.addAll(NON_LINEAGE_RELATIONSHIP_ASPECTS);
     return ImmutableSet.copyOf(aspects);
   }
 
@@ -173,11 +178,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   @Override
   public boolean isEnabled() {
     return isEnabled;
-  }
-
-  @VisibleForTesting
-  Set<String> getRelationshipChangeSupportedAspectNames() {
-    return relationshipChangeSupportedAspectNames;
   }
 
   private List<ChangeEvent> getChangeEvents(MetadataChangeLog logEvent) {
