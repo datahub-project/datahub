@@ -3,6 +3,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from google.cloud.aiplatform import ExperimentRun, PipelineJob
+from google.cloud.aiplatform.metadata import constants as metadata_constants
+from google.cloud.aiplatform.metadata.context import Context as MetadataContext
+from google.cloud.aiplatform.metadata.execution import Execution as MetadataExecution
+from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 
@@ -386,19 +390,15 @@ def test_metadata_store_parent_with_experiment_uses_its_location(
 def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
     experiment_extractor: VertexAIExperimentExtractor,
 ) -> None:
-    from google.cloud.aiplatform.metadata.experiment_resources import Experiment
-
     regular_ctx = MagicMock()
+    regular_ctx.metadata = {}
     tb_ctx = MagicMock()
+    tb_ctx.metadata = {metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD: True}
 
     with (
         patch(
             "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
             return_value=[regular_ctx, tb_ctx],
-        ),
-        patch(
-            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.Experiment._is_tensorboard_experiment",
-            side_effect=lambda ctx: ctx is tb_ctx,
         ),
         patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
     ):
@@ -413,12 +413,6 @@ def test_list_experiment_runs_combines_context_and_execution_nodes(
     experiment_extractor: VertexAIExperimentExtractor,
 ) -> None:
     """Both v2 (Context) and v1 (Execution) nodes produce ExperimentRun instances."""
-    from google.cloud.aiplatform.metadata.context import Context as MetadataContext
-    from google.cloud.aiplatform.metadata.execution import (
-        Execution as MetadataExecution,
-    )
-    from google.cloud.aiplatform.metadata.experiment_resources import Experiment
-
     mock_exp = MagicMock(spec=Experiment)
     mock_exp.resource_name = (
         "projects/p/locations/l/metadataStores/default/contexts/exp-1"
