@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.plugins;
 import static org.testng.Assert.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
@@ -56,6 +57,20 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   @BeforeClass
   private void setup() {
     Mockito.when(configurationProvider.getDatahub()).thenReturn(new DataHubConfiguration());
+  }
+
+  @Test
+  public void testAspectMigrationMutatorChain_flagDisabled_isDisabled() {
+    // zduStage20 is false (RETURNS_MOCKS default) → chain receives no mutators → disabled
+    assertTrue(context.containsBean("aspectMigrationMutatorChain"));
+    MutationHook bean = context.getBean("aspectMigrationMutatorChain", MutationHook.class);
+    assertNotNull(bean);
+    assertTrue(bean instanceof AspectMigrationMutatorChain);
+    AspectMigrationMutatorChain chain = (AspectMigrationMutatorChain) bean;
+    assertFalse(chain.isEnabled(), "Chain should be disabled when zduStage20 flag is off");
+    assertTrue(chain.getChainByAspect().isEmpty());
+    assertNotNull(chain.getConfig());
+    assertTrue(chain.getConfig().isEnabled());
   }
 
   @Test
