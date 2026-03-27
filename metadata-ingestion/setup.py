@@ -310,7 +310,8 @@ snowflake_common = {
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
     "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
     "msal<2.0.0",

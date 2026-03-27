@@ -543,16 +543,17 @@ excel = [
     "wcmatch<11.0.0",
 ]
 
+fabric-data-factory = [
+    "azure-core>=1.38.0,<2.0.0",
+    "azure-identity>=1.21.0,<2.0.0",
+    "requests>=2.28.0,<3.0",
+]
+
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
     "pyodbc>=4.0,<5.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
-]
-fabric-data-factory = [
-    "azure-core>=1.38.0,<2.0.0",
-    "azure-identity>=1.21.0,<2.0.0",
-    "requests>=2.28.0,<3.0",
 ]
 
 feast = [
@@ -580,7 +581,7 @@ fivetran = [
     "patchy==2.8.0",
     "pip",
     "schwifty<2026.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
@@ -1137,7 +1138,7 @@ snowflake = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1161,7 +1162,7 @@ snowflake-queries = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1179,7 +1180,7 @@ snowflake-slim = [
     "pandas<3.0.0",
     "pip",
     "schwifty<2026.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
@@ -1199,7 +1200,7 @@ snowflake-summary = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1475,7 +1476,7 @@ all = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1645,7 +1646,7 @@ dev = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1836,7 +1837,7 @@ docs = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
