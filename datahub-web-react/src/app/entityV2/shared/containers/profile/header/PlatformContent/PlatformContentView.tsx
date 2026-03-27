@@ -38,7 +38,7 @@ const PlatformContentWrapper = styled.div`
 const PlatformText = styled(Typography.Text)`
     font-size: 10px;
     font-weight: 400;
-    color: #6c6b88;
+    color: ${(props) => props.theme.colors.textSecondary};
     text-transform: capitalize;
     white-space: nowrap;
 `;
@@ -46,7 +46,7 @@ const PlatformText = styled(Typography.Text)`
 const PlatformDivider = styled.div`
     display: inline-block;
     margin: 0 10px;
-    border-left: 1px solid #d5d5d5;
+    border-left: 1px solid ${(props) => props.theme.colors.border};
     height: 16px;
     vertical-align: text-top;
 `;

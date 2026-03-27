@@ -1,10 +1,9 @@
-import { Popover, colors } from '@components';
+import { Popover } from '@components';
 import React, { useRef } from 'react';
 import { createPortal } from 'react-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { useViewsSelectContext } from '@app/entityV2/view/select/ViewSelectContext';
 import { ViewSelectPopoverContent } from '@app/entityV2/view/select/ViewSelectPopoverContent';
@@ -27,14 +26,14 @@ const ViewSelectContainer = styled.div`
             &.ant-select-open {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${ANTD_GRAY[1]};
+                    color: ${(props) => props.theme.colors.bg};
                 }
             }
 
             &:not(.ant-select-open) {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: #fff;
+                    color: ${(props) => props.theme.colors.bg};
                 }
             }
 
@@ -61,31 +60,22 @@ const overlayInnerStyle = {
     width: '100%',
 };
 
-const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean) => {
+const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean, themeObj?: any) => {
     if (isShowNavBarRedesign)
         return {
             display: 'flex',
             width: '100%',
             opacity: 0.97,
-            backgroundColor: colors.gray[1600],
+            backgroundColor: themeObj?.colors?.bgSurfaceNewNav,
             borderRadius: '0 0 12px 12px',
             paddingTop: '1px',
-            boxShadow: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
+            boxShadow: themeObj?.colors?.shadowXl,
         };
 
     return overlayInnerStyle;
 };
 
-const overlayStyle = {
-    left: '0px',
-    backgroundColor: REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK,
-    backdropFilter: 'blur(5px)',
-    opacity: 0.97,
-    zIndex: 13,
-    'transform-origin': '0',
-};
-
-const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
+const getOverlayStyle = (isShowNavBarRedesign?: boolean, themeObj?: any) => {
     if (isShowNavBarRedesign)
         return {
             left: '0px',
@@ -95,7 +85,14 @@ const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
             width: '100%',
         };
 
-    return overlayStyle;
+    return {
+        left: '0px',
+        backgroundColor: themeObj?.colors?.bg,
+        backdropFilter: 'blur(5px)',
+        opacity: 0.97,
+        zIndex: 13,
+        'transform-origin': '0',
+    };
 };
 
 const Blur = styled.div<{ $isOpen?: boolean }>`
@@ -119,6 +116,7 @@ const Blur = styled.div<{ $isOpen?: boolean }>`
  * In the event that a user refreshes their browser, the state of the view should be saved as well.
  */
 export const ViewSelect = () => {
+    const theme = useTheme();
     const userContext = useUserContext();
 
     const {
@@ -207,8 +205,8 @@ export const ViewSelect = () => {
                     }
                     trigger="click"
                     overlayClassName="view-select-popover"
-                    overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign)}
-                    overlayStyle={getOverlayStyle(isShowNavBarRedesign)}
+                    overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign, theme)}
+                    overlayStyle={getOverlayStyle(isShowNavBarRedesign, theme)}
                     showArrow={false}
                     popupVisible={false}
                     ref={selectRef}
