@@ -3,6 +3,7 @@ package com.datahub.auth.authentication;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.LOGIN_DENIAL_REASON_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.LOGIN_EVENT;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.LOGIN_SOURCE_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.SOURCE_IP;
@@ -448,28 +449,19 @@ public class AuthServiceController {
             }
 
             if (!doesPasswordMatch) {
-              systemOperationContext.withSpan(
-                  "failedPasswordLogin",
-                  () -> {
-                    AttributesBuilder loginEventAttributes = Attributes.builder();
-                    loginEventAttributes.put(
-                        USER_ID_ATTR, UrnUtils.getUrn(userUrnString).toString());
-                    loginEventAttributes.put(
-                        EVENT_TYPE_ATTR, DataHubUsageEventType.FAILED_LOGIN_EVENT.getType());
-                    loginEventAttributes.put(
-                        LOGIN_SOURCE_ATTR, LoginSource.PASSWORD_LOGIN.getSource());
-                    List<String> sourceIP = httpEntity.getHeaders().getOrEmpty(X_FORWARDED_FOR);
-                    if (!sourceIP.isEmpty()) {
-                      loginEventAttributes.put(SOURCE_IP, sourceIP.get(0));
-                    }
-                    Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
-                  });
+              recordFailedNativeLoginUsageEvent(
+                  httpEntity,
+                  userUrnString,
+                  LoginDenialReason.INVALID_CREDENTIALS,
+                  "failedPasswordLogin");
               emitLoginDenialLog(
                   verboseAuthFailureLogging,
                   userUrnString,
                   LoginDenialReason.INVALID_CREDENTIALS,
                   "verifyNativeUserCredentials");
             } else if (sessionDenial != null) {
+              recordFailedNativeLoginUsageEvent(
+                  httpEntity, userUrnString, sessionDenial, "failedLoginSessionEligibility");
               emitLoginDenialLog(
                   verboseAuthFailureLogging,
                   userUrnString,
@@ -616,6 +608,28 @@ public class AuthServiceController {
       json.put(LOGIN_DENIAL_REASON_FIELD_NAME, loginDenialReason.name());
     }
     return json.toString();
+  }
+
+  private void recordFailedNativeLoginUsageEvent(
+      final HttpEntity<String> httpEntity,
+      final String userUrnString,
+      final LoginDenialReason denialReason,
+      final String spanName) {
+    systemOperationContext.withSpan(
+        spanName,
+        () -> {
+          AttributesBuilder loginEventAttributes = Attributes.builder();
+          loginEventAttributes.put(USER_ID_ATTR, UrnUtils.getUrn(userUrnString).toString());
+          loginEventAttributes.put(
+              EVENT_TYPE_ATTR, DataHubUsageEventType.FAILED_LOGIN_EVENT.getType());
+          loginEventAttributes.put(LOGIN_SOURCE_ATTR, LoginSource.PASSWORD_LOGIN.getSource());
+          loginEventAttributes.put(LOGIN_DENIAL_REASON_ATTR, denialReason.name());
+          List<String> sourceIP = httpEntity.getHeaders().getOrEmpty(X_FORWARDED_FOR);
+          if (!sourceIP.isEmpty()) {
+            loginEventAttributes.put(SOURCE_IP, sourceIP.get(0));
+          }
+          Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
+        });
   }
 
   private void emitLoginDenialLog(

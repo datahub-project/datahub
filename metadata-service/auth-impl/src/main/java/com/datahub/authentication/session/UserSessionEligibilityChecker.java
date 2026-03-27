@@ -16,7 +16,9 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +28,13 @@ import lombok.RequiredArgsConstructor;
  */
 @RequiredArgsConstructor
 public class UserSessionEligibilityChecker {
+
+  private static final Set<String> SESSION_ELIGIBILITY_ASPECT_NAMES =
+      Set.of(
+          CORP_USER_KEY_ASPECT_NAME,
+          STATUS_ASPECT_NAME,
+          CORP_USER_STATUS_ASPECT_NAME,
+          CORP_USER_INFO_ASPECT_NAME);
 
   private final EntityService<?> _entityService;
 
@@ -39,14 +48,16 @@ public class UserSessionEligibilityChecker {
       final boolean enforceExistenceEnabled) {
     final Urn userUrn = resolveCorpUserUrn(userIdOrUrn);
 
-    final RecordTemplate keyAspect =
-        _entityService.getLatestAspect(opContext, userUrn, CORP_USER_KEY_ASPECT_NAME);
+    final Map<String, RecordTemplate> aspects =
+        _entityService.getLatestAspectsForUrn(
+            opContext, userUrn, SESSION_ELIGIBILITY_ASPECT_NAMES, false);
+
+    final RecordTemplate keyAspect = aspects.get(CORP_USER_KEY_ASPECT_NAME);
     if (enforceExistenceEnabled && keyAspect == null) {
       return Optional.of(LoginDenialReason.HARD_DELETED);
     }
 
-    final RecordTemplate statusAspect =
-        _entityService.getLatestAspect(opContext, userUrn, STATUS_ASPECT_NAME);
+    final RecordTemplate statusAspect = aspects.get(STATUS_ASPECT_NAME);
     if (statusAspect != null) {
       final Status status = new Status(statusAspect.data());
       if (status.isRemoved()) {
@@ -54,8 +65,7 @@ public class UserSessionEligibilityChecker {
       }
     }
 
-    final RecordTemplate corpUserStatusAspect =
-        _entityService.getLatestAspect(opContext, userUrn, CORP_USER_STATUS_ASPECT_NAME);
+    final RecordTemplate corpUserStatusAspect = aspects.get(CORP_USER_STATUS_ASPECT_NAME);
     if (corpUserStatusAspect != null) {
       final CorpUserStatus cus = new CorpUserStatus(corpUserStatusAspect.data());
       if (cus.hasStatus() && CORP_USER_STATUS_SUSPENDED.equals(cus.getStatus())) {
@@ -63,8 +73,7 @@ public class UserSessionEligibilityChecker {
       }
     }
 
-    final RecordTemplate corpUserInfoAspect =
-        _entityService.getLatestAspect(opContext, userUrn, CORP_USER_INFO_ASPECT_NAME);
+    final RecordTemplate corpUserInfoAspect = aspects.get(CORP_USER_INFO_ASPECT_NAME);
 
     if (keyAspect != null && corpUserInfoAspect == null && corpUserStatusAspect == null) {
       return Optional.of(LoginDenialReason.NOT_PROVISIONED);

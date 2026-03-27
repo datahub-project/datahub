@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
 public class NativeUserServiceFactory {
@@ -26,7 +25,6 @@ public class NativeUserServiceFactory {
   @Autowired private ConfigurationProvider _configurationProvider;
 
   @Bean(name = "nativeUserService")
-  @Scope("singleton")
   @Nonnull
   protected NativeUserService getInstance(final SystemEntityClient entityClient) throws Exception {
     return new NativeUserService(
@@ -34,7 +32,6 @@ public class NativeUserServiceFactory {
   }
 
   @Bean
-  @Scope("singleton")
   @Nonnull
   protected UserSessionEligibilityChecker userSessionEligibilityChecker() {
     return new UserSessionEligibilityChecker(_entityService);

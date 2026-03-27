@@ -12,13 +12,18 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.LoginDenialReason;
 import com.linkedin.common.Status;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.CorpUserKey;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -30,15 +35,18 @@ public class UserSessionEligibilityCheckerTest {
       TestOperationContexts.systemContextNoSearchAuthorization(
           Mockito.mock(com.linkedin.metadata.aspect.AspectRetriever.class));
 
+  private static void stubLatestAspectsForUrn(
+      EntityService<?> entityService, Urn urn, Map<String, RecordTemplate> aspects) {
+    Mockito.when(
+            entityService.getLatestAspectsForUrn(
+                any(OperationContext.class), eq(urn), any(), eq(false)))
+        .thenReturn(aspects);
+  }
+
   @Test
   public void testMissingKeyWhenEnforced() {
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(null);
+    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), Collections.emptyMap());
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     Optional<LoginDenialReason> r = checker.checkEligibility(opContext, USER, true);
@@ -48,16 +56,7 @@ public class UserSessionEligibilityCheckerTest {
   @Test
   public void testMissingKeyWhenNotEnforcedStillAllowsWithoutProfile() {
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class), eq(UrnUtils.getUrn(USER)), eq(STATUS_ASPECT_NAME)))
-        .thenReturn(null);
+    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), Collections.emptyMap());
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     assertTrue(checker.checkEligibility(opContext, USER, false).isEmpty());
@@ -67,28 +66,9 @@ public class UserSessionEligibilityCheckerTest {
   public void testKeyOnlyIsNotProvisioned() {
     CorpUserKey key = new CorpUserKey().setUsername("eligibilitytest");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(key);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class), eq(UrnUtils.getUrn(USER)), eq(STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_INFO_ASPECT_NAME)))
-        .thenReturn(null);
+    Map<String, RecordTemplate> aspects = new HashMap<>();
+    aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
+    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     assertEquals(
@@ -100,16 +80,10 @@ public class UserSessionEligibilityCheckerTest {
   public void testSoftDeletedPrecedesNotProvisioned() {
     CorpUserKey key = new CorpUserKey().setUsername("eligibilitytest");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(key);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class), eq(UrnUtils.getUrn(USER)), eq(STATUS_ASPECT_NAME)))
-        .thenReturn(new Status().setRemoved(true));
+    Map<String, RecordTemplate> aspects = new HashMap<>();
+    aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
+    aspects.put(STATUS_ASPECT_NAME, new Status().setRemoved(true));
+    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     assertEquals(
@@ -121,22 +95,11 @@ public class UserSessionEligibilityCheckerTest {
   public void testSuspendedPrecedesNotProvisioned() {
     CorpUserKey key = new CorpUserKey().setUsername("eligibilitytest");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(key);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class), eq(UrnUtils.getUrn(USER)), eq(STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_STATUS_ASPECT_NAME)))
-        .thenReturn(new CorpUserStatus().setStatus(CORP_USER_STATUS_SUSPENDED));
+    Map<String, RecordTemplate> aspects = new HashMap<>();
+    aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
+    aspects.put(
+        CORP_USER_STATUS_ASPECT_NAME, new CorpUserStatus().setStatus(CORP_USER_STATUS_SUSPENDED));
+    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     assertEquals(
@@ -147,28 +110,10 @@ public class UserSessionEligibilityCheckerTest {
   public void testInactiveCorpUserInfo() {
     CorpUserKey key = new CorpUserKey().setUsername("eligibilitytest");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(key);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class), eq(UrnUtils.getUrn(USER)), eq(STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_INFO_ASPECT_NAME)))
-        .thenReturn(new CorpUserInfo().setActive(false));
+    Map<String, RecordTemplate> aspects = new HashMap<>();
+    aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
+    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo().setActive(false));
+    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     assertEquals(
@@ -178,31 +123,12 @@ public class UserSessionEligibilityCheckerTest {
   @Test
   public void testResolvesBareUsernameToCorpuserUrn() {
     CorpUserKey key = new CorpUserKey().setUsername("jdoe");
+    Urn jdoe = UrnUtils.getUrn("urn:li:corpuser:jdoe");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn("urn:li:corpuser:jdoe")),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(key);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn("urn:li:corpuser:jdoe")),
-                eq(STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn("urn:li:corpuser:jdoe")),
-                eq(CORP_USER_STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn("urn:li:corpuser:jdoe")),
-                eq(CORP_USER_INFO_ASPECT_NAME)))
-        .thenReturn(new CorpUserInfo().setActive(true));
+    Map<String, RecordTemplate> aspects = new HashMap<>();
+    aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
+    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo().setActive(true));
+    stubLatestAspectsForUrn(entityService, jdoe, aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     assertTrue(checker.checkEligibility(opContext, "jdoe", true).isEmpty());
@@ -212,28 +138,10 @@ public class UserSessionEligibilityCheckerTest {
   public void testCorpUserInfoPresentPasses() {
     CorpUserKey key = new CorpUserKey().setUsername("eligibilitytest");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_KEY_ASPECT_NAME)))
-        .thenReturn(key);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class), eq(UrnUtils.getUrn(USER)), eq(STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_STATUS_ASPECT_NAME)))
-        .thenReturn(null);
-    Mockito.when(
-            entityService.getLatestAspect(
-                any(OperationContext.class),
-                eq(UrnUtils.getUrn(USER)),
-                eq(CORP_USER_INFO_ASPECT_NAME)))
-        .thenReturn(new CorpUserInfo().setActive(true));
+    Map<String, RecordTemplate> aspects = new HashMap<>();
+    aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
+    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo().setActive(true));
+    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
     assertTrue(checker.checkEligibility(opContext, USER, true).isEmpty());
