@@ -30,7 +30,7 @@ class GitReference(ConfigModel):
         description="Name of your Git repo e.g. https://github.com/datahub-project/datahub or https://gitlab.com/gitlab-org/gitlab. If organization/repo is provided, we assume it is a GitHub repo."
     )
     branch: str = Field(
-        "main",
+        default="main",
         description="Branch on which your files live by default. Typically main or master. This can also be a commit hash.",
     )
     url_subdir: Optional[str] = Field(
@@ -39,7 +39,7 @@ class GitReference(ConfigModel):
         "Only affects URL generation, not git operations.",
     )
     url_template: Optional[str] = Field(
-        None,
+        default=None,
         description=f"Template for generating an external URL to a file in the repo, e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos."
         "It supports the following variables: {repo_url}, {branch}, {file_path}.",
     )
@@ -96,18 +96,18 @@ class GitInfo(GitReference):
     """A reference to a Git repository, including a deploy key that can be used to clone it."""
 
     deploy_key_file: Optional[FilePath] = Field(
-        None,
+        default=None,
         description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. "
         "Use a file where possible, else see deploy_key for a config field that accepts a raw string. "
         "We expect the key not have a passphrase.",
     )
     deploy_key: Optional[SecretStr] = Field(
-        None,
+        default=None,
         description="A private key that contains an ssh key that has been configured as a deploy key for this repository. See deploy_key_file if you want to use a file that contains this key.",
     )
 
     repo_ssh_locator: Optional[str] = Field(
-        None,
+        default=None,
         description="The URL to call `git clone` on. By default, for GitHub and GitLab repos, we infer the SSH URL. For other hosts, this defaults to the value of `repo`",
     )
 
