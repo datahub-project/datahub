@@ -96,6 +96,7 @@ def test_lineage_extraction_disabled(
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
         datahub_dataset_name="test-project.test-dataset.test-table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
     result = extractor.get_lineage_for_entry("test-project", entry_data)
     assert result is None
@@ -179,6 +180,7 @@ def test_get_lineage_for_entry_with_upstream(
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
         datahub_dataset_name="test-project.test-dataset.test-table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     # Get lineage
@@ -204,6 +206,7 @@ def test_get_lineage_for_entry_uses_entry_location_in_parent(
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
         datahub_dataset_name="test-project.ds.table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     mock_upstream_link = Mock()
@@ -247,6 +250,7 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name="test-project.dataset.table1",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         ),
         EntryDataTuple(
             dataplex_entry_short_name="entry2",
@@ -256,6 +260,7 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name="test-project.dataset.table2",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         ),
     ]
 
@@ -365,6 +370,7 @@ def test_lineage_with_cross_platform_references(
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
         datahub_dataset_name="my-project.analytics.test-table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     result = lineage_extractor.get_lineage_for_entry("my-project", test_entry)
@@ -410,6 +416,7 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
             dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
             datahub_platform="bigquery",
             datahub_dataset_name="test-project.dataset.table_1",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
     ]
 
@@ -449,6 +456,7 @@ def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
             dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
             datahub_platform="bigquery",
             datahub_dataset_name="test-project.dataset.table_1",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
     ]
 
@@ -647,6 +655,7 @@ def test_pagination_automatic_handling() -> None:
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
         datahub_dataset_name="test-project.test_dataset.test_table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -694,6 +703,7 @@ def test_pagination_with_large_result_set() -> None:
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
         datahub_dataset_name="test-project.analytics.target_table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -777,6 +787,7 @@ def test_batched_lineage_processing() -> None:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(5)
     ]
@@ -823,6 +834,7 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(3)
     ]
@@ -868,6 +880,7 @@ def test_batched_lineage_with_batching_disabled() -> None:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(10)
     ]
@@ -923,6 +936,7 @@ def test_batched_lineage_memory_cleanup() -> None:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(6)
     ]
@@ -1000,6 +1014,7 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="test-project.analytics.customers",  # Full path
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
             EntryDataTuple(
                 dataplex_entry_short_name="sales_customers",
@@ -1009,6 +1024,7 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="test-project.sales.customers",  # Same table name, different dataset
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
             EntryDataTuple(
                 dataplex_entry_short_name="abc_users",
@@ -1018,6 +1034,7 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="test-project.abc.users",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
         ]
 
@@ -1103,6 +1120,7 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="test-project.analytics.customers",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
             EntryDataTuple(
                 dataplex_entry_short_name="customers_sales",
@@ -1112,6 +1130,7 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="test-project.sales.customers",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
         ]
 
@@ -1231,6 +1250,7 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="test-project.analytics.customers",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
         ]
 

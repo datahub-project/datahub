@@ -230,6 +230,7 @@ def test_get_lineage_workunits_yields_from_extractor() -> None:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="project-1.ds.table",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             )
         }
     }
@@ -254,6 +255,7 @@ def test_get_lineage_workunits_reports_failure_on_exception() -> None:
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
                 datahub_dataset_name="project-1.ds.table",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             )
         }
     }

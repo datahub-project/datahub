@@ -23,6 +23,7 @@ class TestEntryDataTuple:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name="test-project.test-dataset.test-table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         assert entry_data.dataplex_entry_short_name == "test-entry"
@@ -45,6 +46,7 @@ class TestEntryDataTuple:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name="project.dataset.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         entry_data2 = EntryDataTuple(
@@ -55,6 +57,7 @@ class TestEntryDataTuple:
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
             datahub_dataset_name="project.dataset.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         # Should be able to add to set

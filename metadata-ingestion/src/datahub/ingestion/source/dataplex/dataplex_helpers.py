@@ -22,7 +22,7 @@ class EntryDataTuple:
     dataplex_entry_fqn: str
     datahub_platform: str
     datahub_dataset_name: str
-    datahub_dataset_urn: str = ""
+    datahub_dataset_urn: str
 
 
 def make_audit_stamp(timestamp: Any) -> Optional[Dict[str, Any]]:
