@@ -1084,32 +1084,25 @@ public class GraphQueryPITDAOTest {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
       fail("Should throw exception when timeout occurs with partialResults=false");
     } catch (RuntimeException e) {
-      // The exception may be wrapped, so check both the exception and its cause
+      // Slice timeouts wrap java.util.concurrent.TimeoutException, which often has a null
+      // message; the wrapper message is "Slice N timed out after … seconds".
       Throwable cause = e.getCause();
-      String message = cause.getMessage();
-      boolean isTimeoutException = false;
-
-      // Check if the cause is an IllegalStateException with timeout message
-      if (cause instanceof RuntimeException) {
-        String causeMessage = cause.getMessage();
-        isTimeoutException =
-            (causeMessage != null
-                && (causeMessage.contains("timed out") || causeMessage.contains("timeout")));
-      }
-
-      // Also check if the wrapper message indicates a timeout
-      if (!isTimeoutException
-          && message != null
-          && (message.contains("timed out") || message.contains("timeout"))) {
-        isTimeoutException = true;
-      }
+      String top = e.getMessage();
+      String causeMsg = cause != null ? cause.getMessage() : null;
+      boolean isTimeoutException =
+          cause instanceof java.util.concurrent.TimeoutException
+              || (top != null
+                  && (top.contains("timed out") || top.toLowerCase().contains("timeout")))
+              || (causeMsg != null
+                  && (causeMsg.contains("timed out")
+                      || causeMsg.toLowerCase().contains("timeout")));
 
       Assert.assertTrue(
           isTimeoutException,
           "Exception should indicate timeout. Got: "
               + e.getClass().getSimpleName()
               + " - "
-              + message
+              + top
               + (cause != null
                   ? " (cause: "
                       + cause.getClass().getSimpleName()
@@ -1496,8 +1489,10 @@ public class GraphQueryPITDAOTest {
   @Test(timeOut = 10000)
   public void testProcessSliceFuturesExceptionWithPartialResultsAndCollectedRelationships()
       throws Exception {
-    // Test that when an exception occurs during slice processing, allowPartialResults=true,
-    // and some relationships have been collected, we log a warning and return partial results
+    // allowPartialResults=true: a failing slice is skipped and LineageResponse.partial is set.
+    // Use one slice so Mockito stubs are deterministic (parallel slices consume stubs in arbitrary
+    // order). When the slice task throws, its in-flight relationships are not merged, so total may
+    // be 0 while partial is still true.
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -1508,19 +1503,18 @@ public class GraphQueryPITDAOTest {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    // Create a configuration with multiple slices and partialResults=true
     ElasticSearchConfiguration testConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
                         TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
-                            .timeoutSeconds(10) // Reasonable timeout
+                            .timeoutSeconds(10)
                             .impact(
                                 TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
-                                    .maxRelations(1000) // High limit so we don't hit it
+                                    .maxRelations(1000)
                                     .partialResults(true)
-                                    .slices(3) // Use 3 slices
+                                    .slices(1)
                                     .searchQueryTimeReservation(0.2)
                                     .build())
                             .build())
@@ -1529,13 +1523,11 @@ public class GraphQueryPITDAOTest {
 
     GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
 
-    // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
     when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
-    // Create hits for the first slice that will succeed
     SearchHit[] hits1 =
         createFakeLineageHits(
             2,
@@ -1544,40 +1536,16 @@ public class GraphQueryPITDAOTest {
             "DownstreamOf");
 
     SearchResponse searchResponse1 = createFakeSearchResponse(hits1, 2);
-    SearchResponse emptyResponse = createEmptySearchResponse(2);
 
-    // Mock search: first slice succeeds completely (initial + scroll), then second slice throws
-    // exception
-    // For PIT-based search, we need to ensure the first slice completes fully before the second
-    // throws
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(searchResponse1) // First slice, initial search - succeeds
-        .thenReturn(emptyResponse) // First slice, scroll search (empty = complete)
-        .thenReturn(emptyResponse) // First slice, any additional scroll (empty = complete)
-        .thenThrow(
-            new RuntimeException("Search operation failed for second slice")); // Second slice fails
+        .thenReturn(searchResponse1)
+        .thenThrow(new RuntimeException("PIT search failed on follow-up page"));
 
-    // When partialResults=true and an exception occurs but some relationships were collected,
-    // should return partial results
-    // Note: The exception might be thrown before relationships are collected due to async
-    // execution,
-    // so we need to handle both cases - either partial results are returned OR an exception is
-    // thrown
-    try {
-      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.assertNotNull(response, "Response should not be null");
-      // Should return partial results from the first slice that succeeded
-      Assert.assertTrue(
-          response.getTotal() > 0,
-          "Should return partial results from slices that completed successfully");
-    } catch (RuntimeException e) {
-      // If exception is thrown, it means the exception happened before relationships were collected
-      // This is acceptable behavior - the test verifies the code path exists
-      // We just verify it's the expected exception type
-      Assert.assertTrue(
-          e.getMessage() != null && e.getMessage().contains("slice"),
-          "Exception should mention slice failure. Got: " + e.getMessage());
-    }
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+    Assert.assertNotNull(response, "Response should not be null");
+    Assert.assertTrue(
+        response.isPartial(),
+        "Response should be marked partial when the slice fails under allowPartialResults=true");
   }
 
   @Test(timeOut = 10000)
@@ -1994,8 +1962,8 @@ public class GraphQueryPITDAOTest {
       // The exception should be wrapped in our new exception handling
       // Check the entire exception chain for the expected messages
       Assert.assertTrue(
-          hasMessageInChain(e, "Failed to execute slice-based search"),
-          "Expected slice-related error message in exception chain, got: " + e.getMessage());
+          hasMessageInChain(e, "Search operation failed") || hasMessageInChain(e, "Slice 0 failed"),
+          "Expected search or slice failure in exception chain, got: " + e.getMessage());
     }
   }
 
@@ -3526,8 +3494,9 @@ public class GraphQueryPITDAOTest {
     Assert.assertNotNull(
         caughtException[0], "Expected RuntimeException to be thrown due to interruption");
     Assert.assertTrue(
-        caughtException[0].getMessage().contains("Failed to execute slice-based search"),
-        "Expected slice-based search failure message, got: " + caughtException[0].getMessage());
+        caughtException[0].getMessage().contains("Interrupted during slice processing"),
+        "Expected interruption during slice processing message, got: "
+            + caughtException[0].getMessage());
   }
 
   @Test
@@ -3897,6 +3866,9 @@ public class GraphQueryPITDAOTest {
       LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
 
       Assert.assertNotNull(response, "Response must not be null when a slice times out");
+      Assert.assertTrue(
+          response.isPartial(),
+          "Slice-level timeout with partialResults=true must set LineageResponse.partial");
 
       // The PIT must be cleaned up exactly once regardless of the blocked slice.
       // With the structural fix (sliceFutures moved to outer scope) the finally block

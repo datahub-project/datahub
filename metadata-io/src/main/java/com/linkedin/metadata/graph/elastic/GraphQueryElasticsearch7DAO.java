@@ -55,7 +55,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
    *     of throwing
    */
   @Override
-  protected List<LineageRelationship> searchWithSlices(
+  protected LineageSliceFetchResult searchWithSlices(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
       LineageGraphFilters lineageGraphFilters,
