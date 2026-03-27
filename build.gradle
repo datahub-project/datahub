@@ -62,7 +62,7 @@ buildscript {
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
-  ext.nettyVersion = '4.1.130.Final' // CVE-2025-55163, CVE-2025-58056, CVE-2025-67735; align all io.netty modules
+  ext.nettyVersion = '4.1.132.Final' // align all io.netty modules
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
