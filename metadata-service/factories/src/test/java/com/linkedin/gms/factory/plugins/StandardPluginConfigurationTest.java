@@ -60,13 +60,14 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   }
 
   @Test
-  public void testAspectMigrationMutatorChain_noMutatorsRegistered_isDisabled() {
+  public void testAspectMigrationMutatorChain_flagDisabled_isDisabled() {
+    // zduStage20 is false (RETURNS_MOCKS default) → chain receives no mutators → disabled
     assertTrue(context.containsBean("aspectMigrationMutatorChain"));
     MutationHook bean = context.getBean("aspectMigrationMutatorChain", MutationHook.class);
     assertNotNull(bean);
     assertTrue(bean instanceof AspectMigrationMutatorChain);
     AspectMigrationMutatorChain chain = (AspectMigrationMutatorChain) bean;
-    assertFalse(chain.isEnabled(), "Chain should be disabled when no mutators are registered");
+    assertFalse(chain.isEnabled(), "Chain should be disabled when zduStage20 flag is off");
     assertTrue(chain.getChainByAspect().isEmpty());
     assertNotNull(chain.getConfig());
     assertTrue(chain.getConfig().isEnabled());

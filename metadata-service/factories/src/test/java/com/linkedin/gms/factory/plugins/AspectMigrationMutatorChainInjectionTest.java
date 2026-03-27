@@ -33,7 +33,11 @@ import org.testng.annotations.Test;
       SpringStandardPluginConfiguration.class,
       AspectMigrationMutatorChainInjectionTest.TestMigrationConfig.class
     })
-@TestPropertySource(properties = {"metadataChangeProposal.validation.ignoreUnknown=true"})
+@TestPropertySource(
+    properties = {
+      "metadataChangeProposal.validation.ignoreUnknown=true",
+      "featureFlags.zduStage20=true"
+    })
 public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private ApplicationContext context;
