@@ -2,11 +2,11 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=avsc
-com.fasterxml.jackson.core:jackson-annotations:2.19.0=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-core:2.19.0=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-databind:2.19.0=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.19.0=avsc
-com.fasterxml.jackson:jackson-bom:2.19.0=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-annotations:2.21=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-core:2.21.1=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-databind:2.21.1=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.21.1=avsc
+com.fasterxml.jackson:jackson-bom:2.21.1=avsc,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.github.ben-manes.caffeine:caffeine:2.7.0=avsc
 com.google.code.findbugs:jsr305:3.0.2=avsc
 com.google.errorprone:error_prone_annotations:2.3.3=avsc

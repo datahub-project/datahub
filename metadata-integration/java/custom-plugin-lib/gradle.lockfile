@@ -2,12 +2,12 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-annotations:2.19.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-core:2.19.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-databind:2.19.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.19.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.0=runtimeClasspath,testRuntimeClasspath
-com.fasterxml.jackson:jackson-bom:2.19.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-annotations:2.21=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-core:2.21.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-databind:2.21.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.21.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.1=runtimeClasspath,testRuntimeClasspath
+com.fasterxml.jackson:jackson-bom:2.21.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.github.ben-manes.caffeine:caffeine:2.7.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.google.code.findbugs:jsr305:3.0.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.google.errorprone:error_prone_annotations:2.21.1=runtimeClasspath,testRuntimeClasspath
@@ -34,5 +34,5 @@ org.javassist:javassist:3.26.0-GA=runtimeClasspath,testRuntimeClasspath
 org.reflections:reflections:0.9.12=runtimeClasspath,testRuntimeClasspath
 org.slf4j:slf4j-api:1.7.30=compileClasspath,testCompileClasspath
 org.slf4j:slf4j-api:1.7.36=runtimeClasspath,testRuntimeClasspath
-org.yaml:snakeyaml:2.4=runtimeClasspath,testRuntimeClasspath
+org.yaml:snakeyaml:2.5=runtimeClasspath,testRuntimeClasspath
 empty=annotationProcessor,shadow,signatures,testAnnotationProcessor
