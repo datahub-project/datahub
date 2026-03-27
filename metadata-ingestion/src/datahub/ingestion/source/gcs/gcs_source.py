@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, PrivateAttr, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import (
@@ -98,9 +98,12 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
     Only used when auth_type is workload_identity_federation.
     """
 
+    _gcs_oauth_credentials: Optional[Credentials] = PrivateAttr(default=None)
+    _gcs_oauth_project_id: Optional[str] = PrivateAttr(default=None)
+
     def _apply_oauth(self, boto3_client: Any) -> None:
-        creds = getattr(self, "_gcs_oauth_credentials", None)
-        project_id = getattr(self, "_gcs_oauth_project_id", None)
+        creds = self._gcs_oauth_credentials
+        project_id = self._gcs_oauth_project_id
         if creds is not None:
             _register_gcs_oauth_before_send(boto3_client, creds, project_id)
 
@@ -179,17 +182,10 @@ class GCSSourceConfig(
                     values.get("gcp_wif_configuration_json"),
                     values.get("gcp_wif_configuration_json_string"),
                 ]
-                provided_options = [opt for opt in wif_options if opt is not None]
-
-                if len(provided_options) == 0:
+                if not any(opt is not None for opt in wif_options):
                     raise ValueError(
                         "One of gcp_wif_configuration (file path), gcp_wif_configuration_json (JSON content), "
                         "or gcp_wif_configuration_json_string (JSON string) is required when auth_type is 'workload_identity_federation'"
-                    )
-                elif len(provided_options) > 1:
-                    raise ValueError(
-                        "Cannot specify multiple WIF configuration options. Use only one of: "
-                        "gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string."
                     )
         return values
 
@@ -278,14 +274,8 @@ class GCSSource(StatefulIngestionSourceBase):
                 aws_access_key_id="gcs-oauth",
                 aws_secret_access_key="not-used",
             )
-            # Pydantic v2 models freeze field assignment after __init__; object.__setattr__
-            # bypasses this to attach runtime-only state that is not part of the config schema.
-            object.__setattr__(
-                aws_config, "_gcs_oauth_credentials", self._wif_credentials
-            )
-            object.__setattr__(
-                aws_config, "_gcs_oauth_project_id", self._wif_project_id
-            )
+            aws_config._gcs_oauth_credentials = self._wif_credentials
+            aws_config._gcs_oauth_project_id = self._wif_project_id
 
             s3_config = DataLakeSourceConfig(
                 path_specs=s3_path_specs,

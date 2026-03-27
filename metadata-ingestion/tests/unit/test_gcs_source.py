@@ -571,8 +571,8 @@ def test_gcs_oauth_aws_config_registers_hooks_on_get_s3_client():
             aws_access_key_id="x",
             aws_secret_access_key="y",
         )
-        object.__setattr__(config, "_gcs_oauth_credentials", mock.MagicMock())
-        object.__setattr__(config, "_gcs_oauth_project_id", "my-proj")
+        config._gcs_oauth_credentials = mock.MagicMock()
+        config._gcs_oauth_project_id = "my-proj"
 
         client = cast(mock.MagicMock, config.get_s3_client())
 
@@ -596,8 +596,8 @@ def test_gcs_oauth_aws_config_registers_hooks_on_get_s3_resource():
             aws_access_key_id="x",
             aws_secret_access_key="y",
         )
-        object.__setattr__(config, "_gcs_oauth_credentials", mock.MagicMock())
-        object.__setattr__(config, "_gcs_oauth_project_id", None)
+        config._gcs_oauth_credentials = mock.MagicMock()
+        config._gcs_oauth_project_id = None
 
         resource = cast(mock.MagicMock, config.get_s3_resource())
 
@@ -619,7 +619,7 @@ def test_gcs_oauth_aws_config_no_hooks_without_creds():
             aws_access_key_id="x",
             aws_secret_access_key="y",
         )
-        assert not hasattr(config, "_gcs_oauth_credentials")
+        assert config._gcs_oauth_credentials is None
 
         client = cast(mock.MagicMock, config.get_s3_client())
 

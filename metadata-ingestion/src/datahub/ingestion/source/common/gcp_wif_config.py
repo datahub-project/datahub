@@ -87,6 +87,25 @@ class GCPWIFConfig(ConfigModel):
 
         return values
 
+    @model_validator(mode="after")
+    def _validate_wif_mutual_exclusion(self) -> "GCPWIFConfig":
+        """Validate that at most one WIF configuration option is set."""
+        provided = [
+            opt
+            for opt in [
+                self.gcp_wif_configuration,
+                self.gcp_wif_configuration_json,
+                self.gcp_wif_configuration_json_string,
+            ]
+            if opt is not None
+        ]
+        if len(provided) > 1:
+            raise ValueError(
+                "Cannot specify multiple WIF configuration options. Use only one of: "
+                "gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string."
+            )
+        return self
+
 
 def load_wif_credentials(
     wif_config: GCPWIFConfig,
