@@ -33,6 +33,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #16473: Vertex AI Source - **ML Model version set URNs now scoped per project**: Previously, all Vertex AI model versions shared a version set based solely on the numeric model ID, which caused conflicts when multiple GCP projects contained models with the same numeric ID (GCP model IDs are project-local, not globally unique). Version sets are now scoped per project, preventing `422 ValidationException` errors during ingestion. After upgrading, existing model version entities will be orphaned in their old version sets; new ingestion runs will create correctly scoped version sets. Old orphaned entities can be cleaned up by enabling stateful ingestion with stale entity removal.
+
 ### Known Issues
 
 ### Potential Downtime

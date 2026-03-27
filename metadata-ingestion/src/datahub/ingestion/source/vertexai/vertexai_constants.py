@@ -1,5 +1,5 @@
 import re
-from typing import Literal, Set
+from typing import List, Literal, Set
 
 # Platform identifier
 PLATFORM: Literal["vertexai"] = "vertexai"
@@ -408,7 +408,7 @@ class TrainingJobTypes:
     AUTOML_FORECASTING_TRAINING_JOB = "AutoMLForecastingTrainingJob"
 
     @classmethod
-    def all(cls) -> list[str]:
+    def all(cls) -> List[str]:
         """Return all training job type names."""
         return [
             cls.CUSTOM_JOB,
@@ -433,7 +433,7 @@ class DatasetTypes:
     VIDEO_DATASET = "VideoDataset"
 
     @classmethod
-    def all(cls) -> list[str]:
+    def all(cls) -> List[str]:
         """Return all dataset type names."""
         return [
             cls.TEXT_DATASET,
