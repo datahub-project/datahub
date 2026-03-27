@@ -375,8 +375,10 @@ class AbstractLineage(ABC):
             self.table.full_name,
             query,
         )
-        query = native_sql_parser.remove_drop_statement(query)
+        # remove_special_characters must run first to expand #(lf) → \n before
+        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
+        query = native_sql_parser.remove_drop_statement(query)
         logger.debug(
             "[tsql-debug] parse_custom_sql cleaned query for table %s: %r",
             self.table.full_name,
