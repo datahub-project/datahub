@@ -19,7 +19,7 @@ const Count = styled.div`
     display: flex;
     justify-content: center;
     border-radius: 10px;
-    background-color: #e5ece9;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     font-size: 10px;
     font-weight: 400;
     margin-left: 8px;

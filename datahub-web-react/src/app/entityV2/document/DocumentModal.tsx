@@ -1,5 +1,4 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -155,7 +154,7 @@ export const DocumentModal: React.FC<DocumentViewModalProps> = ({
             <ModalContent>
                 {loading || !document ? (
                     <LoadingWrapper>
-                        <LoadingOutlined style={{ fontSize: 36, color: colors.gray[200] }} />
+                        <LoadingOutlined style={{ fontSize: 36 }} />
                     </LoadingWrapper>
                 ) : (
                     <EntityContext.Provider

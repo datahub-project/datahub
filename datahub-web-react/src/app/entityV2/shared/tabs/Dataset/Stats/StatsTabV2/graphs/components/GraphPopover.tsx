@@ -25,11 +25,11 @@ type GraphPopoverProps = {
 export default function GraphPopover({ header, value, pills }: GraphPopoverProps) {
     return (
         <StyledPopoverContainer>
-            <Text color="gray" size="sm" type="div">
+            <Text size="sm" type="div">
                 {header}
             </Text>
             <StyledPopoverRowContainer>
-                <Text color="gray" size="sm" weight="bold">
+                <Text size="sm" weight="bold">
                     {value}
                 </Text>
                 {pills}

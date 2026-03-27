@@ -4,14 +4,12 @@ import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-height: 68px;
     overflow: hidden !important;
     border-radius: 12px;
     max-width: 100%;
-    background: #fafafc !important;
+    background: ${(props) => props.theme.colors.bgSurface} !important;
 
     span {
         font-family: 'Roboto Mono', monospace;
@@ -31,12 +29,12 @@ const Container = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     width: fit-content;
 
     :hover {
-        color: ${REDESIGN_COLORS.HOVER_PURPLE};
+        color: ${(props) => props.theme.colors.buttonFillBrand};
         background: transparent;
     }
 `;

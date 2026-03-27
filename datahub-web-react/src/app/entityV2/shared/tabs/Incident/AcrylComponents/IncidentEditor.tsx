@@ -1,6 +1,6 @@
 import { Form } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IncidentAssigneeSelector } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentAssigneeSelector';
 import { IncidentLinkedAssetsList } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentLinkedAssetsList';
@@ -27,7 +27,6 @@ import { IncidentEditorProps } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Input } from '@src/alchemy-components';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 
@@ -49,6 +48,7 @@ export const IncidentEditor = ({
             data?.type &&
             (data?.type !== IncidentType?.Custom || data?.customType),
     );
+    const themeConfig = useTheme();
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
     const isFirstRender = useRef(true);
@@ -139,7 +139,7 @@ export const IncidentEditor = ({
             name="message"
             rules={[{ required: false }]}
             customStyle={{
-                color: colors.gray[600],
+                color: themeConfig.colors.text,
             }}
         >
             <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
@@ -169,7 +169,7 @@ export const IncidentEditor = ({
                         label=""
                         placeholder="Provide a name..."
                         inputTestId="incident-name-input"
-                        color={colors.gray[600]}
+                        color={themeConfig.colors.text}
                     />
                 </InputFormItem>
                 <InputFormItem label="Description" name="description">

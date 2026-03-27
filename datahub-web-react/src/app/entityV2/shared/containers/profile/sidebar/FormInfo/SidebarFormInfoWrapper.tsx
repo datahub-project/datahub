@@ -11,7 +11,7 @@ import EntityFormModal from '@app/entityV2/shared/entityForm/EntityFormModal';
 const FormInfoWrapper = styled.div`
     padding: 12px 0px;
     border-bottom: 1px dashed;
-    border-color: rgba(0, 0, 0, 0.3);
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 export default function SidebarFormInfoWrapper() {

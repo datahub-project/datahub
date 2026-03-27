@@ -1,11 +1,8 @@
-import { blue, green } from '@ant-design/colors';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const Pill = styled.div`
-    background-color: ${ANTD_GRAY[1]};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 10px;
     border: 1px solid;
     font-size: 12px;
@@ -15,18 +12,18 @@ const Pill = styled.div`
 `;
 
 const PrimaryKeyPill = styled(Pill)`
-    color: ${blue[5]} !important;
-    border-color: ${blue[2]};
+    color: ${(props) => props.theme.colors.textBrand} !important;
+    border-color: ${(props) => props.theme.colors.borderBrand};
 `;
 
 const ForeignKeyPill = styled(Pill)`
-    color: ${green[5]} !important;
-    border-color: ${green[2]};
+    color: ${(props) => props.theme.colors.textSuccess} !important;
+    border-color: ${(props) => props.theme.colors.borderSuccess};
 `;
 
 const NullablePill = styled(Pill)`
-    color: ${ANTD_GRAY[7]} !important;
-    border-color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary} !important;
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 export function PrimaryKeyLabel() {

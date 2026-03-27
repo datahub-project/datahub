@@ -1,3 +1,5 @@
+// Disabling no hardcoded colors rule in test file
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { hexToRgb, hexToRgba } from '@app/sharedV2/colors/colorUtils';
 
 describe('hexToRgba', () => {

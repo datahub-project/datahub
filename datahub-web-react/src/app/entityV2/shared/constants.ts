@@ -1,3 +1,6 @@
+// Disabling no hardcoded colors rule right now
+// TO-DO: Remove these colors once their usage in other files is migrated to semantic tokens
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
