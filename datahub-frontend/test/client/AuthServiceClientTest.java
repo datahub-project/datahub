@@ -456,6 +456,54 @@ public class AuthServiceClientTest {
   }
 
   @Test
+  public void testVerifyNativeUserCredentialsMismatchWithoutDenialField() throws Exception {
+    String userUrn = "urn:li:corpuser:testuser";
+    String password = "wrong";
+
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
+    when(mockResponse.getEntity()).thenReturn(mockEntity);
+    when(mockEntity.getContent())
+        .thenReturn(new ByteArrayInputStream("{\"doesPasswordMatch\":false}".getBytes()));
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    NativeUserCredentialVerifyResult result =
+        authServiceClient.verifyNativeUserCredentials(userUrn, password);
+
+    assertFalse(result.isPasswordMatches());
+    assertTrue(result.getLoginDenialReason().isEmpty());
+    assertFalse(result.allowsSessionCreation());
+  }
+
+  @Test
+  public void testVerifyNativeUserCredentialsSoftDeletedWithVerboseLogging() throws Exception {
+    AuthServiceClient verboseClient =
+        new AuthServiceClient(
+            "localhost", 8080, "/api/v2", false, systemAuthentication, mockHttpClient, true);
+
+    String userUrn = "urn:li:corpuser:deleted";
+    String password = "correct";
+
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
+    when(mockResponse.getEntity()).thenReturn(mockEntity);
+    when(mockEntity.getContent())
+        .thenReturn(
+            new ByteArrayInputStream(
+                createVerifyCredentialsResponseJson(true, LoginDenialReason.SOFT_DELETED)
+                    .getBytes()));
+
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    NativeUserCredentialVerifyResult result =
+        verboseClient.verifyNativeUserCredentials(userUrn, password);
+
+    assertTrue(result.isPasswordMatches());
+    assertEquals(LoginDenialReason.SOFT_DELETED, result.getLoginDenialReason().orElseThrow());
+    assertFalse(result.allowsSessionCreation());
+  }
+
+  @Test
   public void testVerifyNativeUserCredentialsPasswordMismatch() throws Exception {
     String userUrn = "urn:li:corpuser:testuser";
     String password = "wrong";
@@ -528,6 +576,57 @@ public class AuthServiceClientTest {
             () -> verboseClient.generateSessionTokenForUser(userId, loginSource));
 
     assertEquals(LoginDenialReason.HARD_DELETED, ex.getLoginDenialReason());
+  }
+
+  @Test
+  public void testGenerateSessionTokenForbiddenMalformedJsonBody() throws Exception {
+    AuthServiceClient verboseClient =
+        new AuthServiceClient(
+            "localhost", 8080, "/api/v2", false, systemAuthentication, mockHttpClient, true);
+
+    String userId = "blockedUser";
+    String loginSource = "PASSWORD_LOGIN";
+
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_FORBIDDEN);
+    when(mockResponse.getEntity()).thenReturn(mockEntity);
+    when(mockEntity.getContent())
+        .thenReturn(new ByteArrayInputStream("not valid json {{{".getBytes()));
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    SessionTokenDeniedException ex =
+        assertThrows(
+            SessionTokenDeniedException.class,
+            () -> verboseClient.generateSessionTokenForUser(userId, loginSource));
+
+    assertNull(ex.getLoginDenialReason());
+  }
+
+  @Test
+  public void testGenerateSessionTokenForbiddenSoftDeletedWithVerboseLogging() throws Exception {
+    AuthServiceClient verboseClient =
+        new AuthServiceClient(
+            "localhost", 8080, "/api/v2", false, systemAuthentication, mockHttpClient, true);
+
+    String userId = "softDeletedUser";
+    String loginSource = "PASSWORD_LOGIN";
+
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_FORBIDDEN);
+    when(mockResponse.getEntity()).thenReturn(mockEntity);
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectNode denial = mapper.createObjectNode();
+    denial.put("loginDenialReason", LoginDenialReason.SOFT_DELETED.name());
+    when(mockEntity.getContent())
+        .thenReturn(new ByteArrayInputStream(denial.toString().getBytes()));
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    SessionTokenDeniedException ex =
+        assertThrows(
+            SessionTokenDeniedException.class,
+            () -> verboseClient.generateSessionTokenForUser(userId, loginSource));
+
+    assertEquals(LoginDenialReason.SOFT_DELETED, ex.getLoginDenialReason());
   }
 
   @Test

@@ -625,7 +625,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     }
   }
 
-  private void verifyPreProvisionedUser(@Nonnull OperationContext opContext, CorpuserUrn urn) {
+  void verifyPreProvisionedUser(@Nonnull OperationContext opContext, CorpuserUrn urn) {
     // GMS returned an entity, but a key-only (or single-aspect) corp user is treated as not
     // provisioned for login — the URN is known to metadata, unlike a missing corpUserKey row.
     try {
@@ -664,8 +664,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     systemEntityClient.ingestProposal(opContext, proposal);
   }
 
-  private void emitOidcLoginDeniedLog(
-      final String rawUserRef, final LoginDenialReason loginDenialReason) {
+  void emitOidcLoginDeniedLog(final String rawUserRef, final LoginDenialReason loginDenialReason) {
     final String masked = LoginIdentityMask.mask(rawUserRef);
     if (loginDenialReason.logsAtWarn()) {
       log.warn("loginDenied userRef={} loginDenialReason={}", masked, loginDenialReason.name());
