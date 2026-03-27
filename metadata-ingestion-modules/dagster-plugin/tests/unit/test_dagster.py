@@ -587,4 +587,6 @@ def test_emit_asset_emits_status_aspect() -> None:
         and isinstance(m.aspect, StatusClass)
     ]
     assert len(status_mcps) == 1
-    assert status_mcps[0].aspect.removed is False
+    status_aspect = status_mcps[0].aspect
+    assert isinstance(status_aspect, StatusClass)
+    assert status_aspect.removed is False
