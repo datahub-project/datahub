@@ -362,8 +362,26 @@ class AbstractLineage(ABC):
             )
         )
 
+        logger.debug(
+            "[tsql-debug] parse_custom_sql entry: table=%s, platform=%s, db=%s, schema=%s, server=%s",
+            self.table.full_name,
+            platform_pair.datahub_data_platform_name,
+            database,
+            schema,
+            server,
+        )
+        logger.debug(
+            "[tsql-debug] parse_custom_sql raw query for table %s: %r",
+            self.table.full_name,
+            query,
+        )
         query = native_sql_parser.remove_drop_statement(query)
         query = native_sql_parser.remove_special_characters(query)
+        logger.debug(
+            "[tsql-debug] parse_custom_sql cleaned query for table %s: %r",
+            self.table.full_name,
+            query,
+        )
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
@@ -378,6 +396,10 @@ class AbstractLineage(ABC):
         )
 
         if parsed_result is None:
+            logger.debug(
+                "[tsql-debug] parse_custom_sql returned None for table %s — no result from sqlglot",
+                self.table.full_name,
+            )
             self.reporter.info(
                 title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
@@ -386,6 +408,11 @@ class AbstractLineage(ABC):
             return Lineage.empty()
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
+            logger.debug(
+                "[tsql-debug] parse_custom_sql table_error for table %s: %s",
+                self.table.full_name,
+                parsed_result.debug_info.table_error,
+            )
             self.reporter.warning(
                 title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
@@ -1047,8 +1074,20 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         record_fields = _get_record_args(node_map, data_access_func_detail.arg_list)
         query: Optional[str] = record_fields.get("Query")
         if query:
+            logger.debug(
+                "[tsql-debug] MSSqlLineage inline query found for table %s, "
+                "enable_advance_lineage_sql_construct=%s, raw query: %r",
+                self.table.full_name,
+                self.config.enable_advance_lineage_sql_construct,
+                query,
+            )
             if self.config.enable_advance_lineage_sql_construct is False:
                 # Use previous parser to generate URN to keep backward compatibility
+                logger.debug(
+                    "[tsql-debug] MSSqlLineage using old parser for table %s — "
+                    "T-SQL cleanup will NOT run",
+                    self.table.full_name,
+                )
                 return Lineage(
                     upstreams=self.create_urn_using_old_parser(
                         query=query,
@@ -1066,7 +1105,10 @@ class MSSqlLineage(TwoStepDataAccessPattern):
             )
 
         # It is a regular case of MS-SQL
-        logger.debug("Handling with regular case")
+        logger.debug(
+            "[tsql-debug] MSSqlLineage no inline query for table %s — using structural pattern",
+            self.table.full_name,
+        )
         return self.two_level_access_pattern(data_access_func_detail)
 
 

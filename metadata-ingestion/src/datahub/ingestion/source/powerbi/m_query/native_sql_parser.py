@@ -90,10 +90,22 @@ def remove_tsql_control_statements(query: str) -> str:
         r"\s+INTO\s+##?\w+",
     ]
 
+    logger.debug(
+        "[tsql-debug] remove_tsql_control_statements input (len=%d, bytes=%r): %r",
+        len(query),
+        query[:200].encode("utf-8", errors="replace"),
+        query,
+    )
+
     new_query = query
 
     for pattern in patterns:
+        before = new_query
         new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE | re.MULTILINE)
+        if new_query != before:
+            logger.debug("[tsql-debug] Pattern %r matched and removed content", pattern)
+        else:
+            logger.debug("[tsql-debug] Pattern %r did not match", pattern)
 
     # Only normalize multiple consecutive spaces (but preserve newlines and tabs)
     # This fixes spacing issues caused by statement removal without
@@ -105,6 +117,13 @@ def remove_tsql_control_statements(query: str) -> str:
     new_query = re.sub(r"\n{3,}", "\n\n", new_query)
     # Remove trailing spaces
     new_query = new_query.strip()
+
+    logger.debug(
+        "[tsql-debug] remove_tsql_control_statements output (changed=%s, len=%d): %r",
+        new_query != query,
+        len(new_query),
+        new_query,
+    )
 
     return new_query
 
@@ -124,10 +143,17 @@ def parse_custom_sql(
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
     logger.debug("Using sqlglot_lineage to parse custom sql")
-
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
+    logger.debug(
+        "[tsql-debug] parse_custom_sql calling sqlglot: platform=%s, db=%s, schema=%s, platform_instance=%s, env=%s",
+        platform,
+        database,
+        schema,
+        platform_instance,
+        env,
+    )
 
-    return create_lineage_sql_parsed_result(
+    result = create_lineage_sql_parsed_result(
         query=query,
         default_schema=schema,
         default_db=database,
@@ -136,3 +162,15 @@ def parse_custom_sql(
         env=env,
         graph=ctx.graph,
     )
+
+    if result is None:
+        logger.debug("[tsql-debug] parse_custom_sql: sqlglot returned None result")
+    else:
+        logger.debug(
+            "[tsql-debug] parse_custom_sql result: in_tables=%s, table_error=%s, column_error=%s",
+            result.in_tables,
+            result.debug_info.table_error if result.debug_info else "no debug_info",
+            result.debug_info.column_error if result.debug_info else "no debug_info",
+        )
+
+    return result
