@@ -41,6 +41,15 @@ record DataHubPolicyInfo {
   state: string
 
   /**
+   * The effect of the policy, ALLOW or DENY. Defaults to ALLOW.
+   * DENY policies take precedence over ALLOW policies.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  effect: optional string = "ALLOW"
+
+  /**
    * The resource that the policy applies to. Not required for some 'Platform' privileges.
    */
   resources: optional DataHubResourceFilter

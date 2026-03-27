@@ -2,6 +2,8 @@ package com.datahub.authorization;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
+import static com.linkedin.metadata.authorization.PoliciesConfig.ALLOW_POLICY_EFFECT;
+import static com.linkedin.metadata.authorization.PoliciesConfig.DENY_POLICY_EFFECT;
 import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -617,6 +619,30 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
+  public void testAllowAllModeIgnoresDenyPolicies() throws Exception {
+    _dataHubAuthorizer.setMode(DataHubAuthorizer.AuthorizationMode.ALLOW_ALL);
+
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    final List<String> privileges = ImmutableList.of("EDIT_ENTITY_OWNERS");
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:test");
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+
+    final AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrn.toString(),
+            "EDIT_ENTITY_OWNERS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
   public void testInvalidateCache() throws Exception {
 
     // First make sure that the default policies are as expected.
@@ -1090,9 +1116,22 @@ public class DataHubAuthorizerTest {
       @Nullable final Urn container,
       DataHubActorFilter actorFilter)
       throws Exception {
+    return createDataHubPolicyInfoFor(
+        active, privileges, domain, container, actorFilter, ALLOW_POLICY_EFFECT);
+  }
+
+  private DataHubPolicyInfo createDataHubPolicyInfoFor(
+      boolean active,
+      List<String> privileges,
+      @Nullable final Urn domain,
+      @Nullable final Urn container,
+      DataHubActorFilter actorFilter,
+      String mode)
+      throws Exception {
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
     dataHubPolicyInfo.setState(active ? ACTIVE_POLICY_STATE : INACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setEffect(mode);
     dataHubPolicyInfo.setPrivileges(new StringArray(privileges));
     dataHubPolicyInfo.setDisplayName("My Test Display");
     dataHubPolicyInfo.setDescription("My test display!");
@@ -1218,5 +1257,291 @@ public class DataHubAuthorizerTest {
       final OperationContext systemOpContext, final SystemEntityClient entityClient) {
     return new AuthorizerContext(
         Collections.emptyMap(), new DefaultEntitySpecResolver(systemOpContext, entityClient));
+  }
+
+  @Test
+  public void testDenyPolicyTakesPrecedenceOverAllowPolicy() throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+
+    final List<String> privileges = ImmutableList.of("EDIT_ENTITY_TAGS");
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, ALLOW_POLICY_EFFECT);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+
+    final AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrn.toString(),
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    AuthorizationResult result = _dataHubAuthorizer.authorize(request);
+    assertEquals(result.getType(), AuthorizationResult.Type.DENY);
+    assertTrue(result.getMessage().contains("Denied by policy"));
+  }
+
+  @Test
+  public void testDenyPolicyOnlyDeniesSpecificUser() throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+
+    final Urn deniedUser = Urn.createFromString("urn:li:corpuser:denieduser");
+    final Urn allowedUser = Urn.createFromString("urn:li:corpuser:alloweduser");
+
+    final List<String> privileges = ImmutableList.of("EDIT_ENTITY_TAGS");
+
+    final DataHubActorFilter allowActorFilter = new DataHubActorFilter();
+    allowActorFilter.setAllUsers(true);
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(
+            true, privileges, null, null, allowActorFilter, ALLOW_POLICY_EFFECT);
+
+    final DataHubActorFilter denyActorFilter = new DataHubActorFilter();
+    denyActorFilter.setUsers(new UrnArray(ImmutableList.of(deniedUser)));
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(
+            true, privileges, null, null, denyActorFilter, DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+
+    AuthorizationRequest deniedRequest =
+        new AuthorizationRequest(
+            deniedUser.toString(),
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    AuthorizationResult deniedResult = _dataHubAuthorizer.authorize(deniedRequest);
+    assertEquals(deniedResult.getType(), AuthorizationResult.Type.DENY);
+
+    AuthorizationRequest allowedRequest =
+        new AuthorizationRequest(
+            allowedUser.toString(),
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    AuthorizationResult allowedResult = _dataHubAuthorizer.authorize(allowedRequest);
+    assertEquals(allowedResult.getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testGetGrantedPrivilegesFiltersOutDenyPolicies() throws Exception {
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
+
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("EDIT_ENTITY_TAGS"),
+            null,
+            null,
+            actorFilter,
+            ALLOW_POLICY_EFFECT);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("EDIT_ENTITY_OWNERS"),
+            null,
+            null,
+            actorFilter,
+            DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("ALL", ImmutableList.of(allowPolicy, denyPolicy));
+
+    PolicyEngine.PolicyGrantedPrivileges grantedPrivileges =
+        _dataHubAuthorizer.getGrantedPrivileges(userUrn.toString(), Optional.empty());
+
+    assertTrue(grantedPrivileges.getPrivileges().contains("EDIT_ENTITY_TAGS"));
+    assertFalse(grantedPrivileges.getPrivileges().contains("EDIT_ENTITY_OWNERS"));
+  }
+
+  @Test
+  public void testGetGrantedPrivilegesDenyOverridesAllow() throws Exception {
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setUsers(new UrnArray(ImmutableList.of(userUrn)));
+
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("VIEW_ENTITY_PAGE", "EDIT_ENTITY_TAGS"),
+            null,
+            null,
+            actorFilter,
+            ALLOW_POLICY_EFFECT);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("VIEW_ENTITY_PAGE"),
+            null,
+            null,
+            actorFilter,
+            DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("ALL", ImmutableList.of(allowPolicy, denyPolicy));
+
+    PolicyEngine.PolicyGrantedPrivileges grantedPrivileges =
+        _dataHubAuthorizer.getGrantedPrivileges(userUrn.toString(), Optional.empty());
+
+    assertFalse(grantedPrivileges.getPrivileges().contains("VIEW_ENTITY_PAGE"));
+    assertTrue(grantedPrivileges.getPrivileges().contains("EDIT_ENTITY_TAGS"));
+  }
+
+  @Test
+  public void testDenyPolicyInDenyBucketEnforcedEvenWithoutPrivilegeBucketEntry() throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("EDIT_ENTITY_TAGS"),
+            null,
+            null,
+            actorFilter,
+            ALLOW_POLICY_EFFECT);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("EDIT_ENTITY_TAGS"),
+            null,
+            null,
+            actorFilter,
+            DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+
+    final AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrn.toString(),
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    AuthorizationResult result = _dataHubAuthorizer.authorize(request);
+    assertEquals(result.getType(), AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void testDenyPolicyDoesNotBlockUnrelatedPrivilege() throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("EDIT_ENTITY_TAGS", "EDIT_ENTITY_OWNERS"),
+            null,
+            null,
+            actorFilter,
+            ALLOW_POLICY_EFFECT);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("EDIT_ENTITY_TAGS"),
+            null,
+            null,
+            actorFilter,
+            DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_OWNERS", ImmutableList.of(allowPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+
+    AuthorizationResult tagsResult =
+        _dataHubAuthorizer.authorize(
+            new AuthorizationRequest(
+                userUrn.toString(),
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList()));
+    assertEquals(tagsResult.getType(), AuthorizationResult.Type.DENY);
+
+    AuthorizationResult ownersResult =
+        _dataHubAuthorizer.authorize(
+            new AuthorizationRequest(
+                userUrn.toString(),
+                "EDIT_ENTITY_OWNERS",
+                Optional.of(resourceSpec),
+                Collections.emptyList()));
+    assertEquals(ownersResult.getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testAuthorizedActorsFiltersOutDenyPolicies() throws Exception {
+    final Urn allowedUser = Urn.createFromString("urn:li:corpuser:alloweduser");
+    final Urn deniedUser = Urn.createFromString("urn:li:corpuser:denieduser");
+
+    final DataHubActorFilter allowActorFilter = new DataHubActorFilter();
+    allowActorFilter.setUsers(new UrnArray(ImmutableList.of(allowedUser)));
+
+    final DataHubActorFilter denyActorFilter = new DataHubActorFilter();
+    denyActorFilter.setUsers(new UrnArray(ImmutableList.of(deniedUser)));
+
+    final List<String> privileges = ImmutableList.of("EDIT_ENTITY_TAGS");
+
+    final DataHubPolicyInfo allowPolicy =
+        createDataHubPolicyInfoFor(
+            true, privileges, null, null, allowActorFilter, ALLOW_POLICY_EFFECT);
+    final DataHubPolicyInfo denyPolicy =
+        createDataHubPolicyInfoFor(
+            true, privileges, null, null, denyActorFilter, DENY_POLICY_EFFECT);
+
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+
+    AuthorizedActors authorizedActors =
+        _dataHubAuthorizer.authorizedActors("EDIT_ENTITY_TAGS", Optional.empty());
+
+    assertTrue(authorizedActors.getUsers().contains(allowedUser));
+    assertFalse(authorizedActors.getUsers().contains(deniedUser));
+  }
+
+  @Test
+  public void testNullEffectPolicyTreatedAsAllow() throws Exception {
+    // Policies stored before the effect field existed have null effect; must behave as ALLOW.
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+
+    final DataHubPolicyInfo legacyPolicy = new DataHubPolicyInfo();
+    legacyPolicy.setDisplayName("Legacy policy");
+    legacyPolicy.setDescription("Pre-deny-feature policy");
+    legacyPolicy.setType(METADATA_POLICY_TYPE);
+    legacyPolicy.setState(ACTIVE_POLICY_STATE);
+    legacyPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    legacyPolicy.setActors(actorFilter);
+    legacyPolicy.setEditable(true);
+    // No setEffect() call — effect is absent (null), simulating a legacy policy.
+
+    _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(legacyPolicy));
+
+    final AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrn.toString(),
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    AuthorizationResult result = _dataHubAuthorizer.authorize(request);
+    assertEquals(result.getType(), AuthorizationResult.Type.ALLOW);
   }
 }

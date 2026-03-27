@@ -15,7 +15,7 @@ import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossa
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
+import { Maybe, Policy, PolicyEffect, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -74,6 +74,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
 
     const isActive = policy?.state === PolicyState.Active;
+    const isDenyPolicy = policy?.effect === PolicyEffect.Deny;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
@@ -84,6 +85,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
     const containers = getFieldValues(resources?.filter, 'CONTAINER') || [];
+    const tags = getFieldValues(resources?.filter, 'TAG') || [];
     const glossaryEntities = getFieldValues(resources?.filter, 'GLOSSARY') || [];
 
     const {
@@ -148,6 +150,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
+                    <Typography.Title level={5}>Effect</Typography.Title>
+                    <ThinDivider />
+                    <Tag color={isDenyPolicy ? 'red' : 'blue'}>{policy?.effect}</Tag>
+                </div>
+                <div>
                     <Typography.Title level={5}>Description</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{policy?.description}</Typography.Text>
@@ -202,6 +209,19 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                 })}
                             </div>
                         )}
+                        <div>
+                            <Typography.Title level={5}>Tags</Typography.Title>
+                            <ThinDivider />
+                            {(tags?.length &&
+                                tags.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`tag-${value.value}-${key}`}>
+                                            {getEntityTag(value)}
+                                        </PoliciesTag>
+                                    );
+                                })) || <PoliciesTag>All</PoliciesTag>}
+                        </div>
                         <div>
                             <Typography.Title level={5}>Domains</Typography.Title>
                             <ThinDivider />

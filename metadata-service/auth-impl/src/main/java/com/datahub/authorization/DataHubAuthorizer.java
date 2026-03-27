@@ -68,7 +68,14 @@ public class DataHubAuthorizer implements Authorizer {
   private AuthorizationMode mode;
   @Getter private final OperationContext systemOpContext;
 
+  /**
+   * Special cache key holding every policy regardless of privilege, used by {@link
+   * #getGrantedPrivileges}.
+   */
   public static final String ALL = "ALL";
+
+  /** Special cache key holding only DENY-effect policies, used by {@link #authorize}. */
+  public static final String DENY = "DENY";
 
   public DataHubAuthorizer(
       @Nonnull final OperationContext systemOpContext,
@@ -103,8 +110,11 @@ public class DataHubAuthorizer implements Authorizer {
 
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
 
-    // 0. Short circuit: If the action is being performed by the system (root), always allow it.
     if (isSystemRequest(request, systemOpContext.getAuthentication())) {
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
+    }
+
+    if (AuthorizationMode.ALLOW_ALL.equals(mode())) {
       return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
     }
 
@@ -116,22 +126,36 @@ public class DataHubAuthorizer implements Authorizer {
             .map(entitySpecResolver::resolve)
             .collect(Collectors.toList());
 
-    // 1. Fetch the policies relevant to the requested privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate =
-        new LinkedList<>(getOrDefault(request.getPrivilege(), new ArrayList<>()));
-    policiesToEvaluate.addAll(
-        PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn())));
+    // DENY takes precedence over ALLOW. DENY policies live in a dedicated bucket (not indexed
+    // by privilege) so that a policy listing only some privileges can't be silently missed;
+    // isPrivilegeMatch inside evaluatePolicy handles the per-privilege filter.
+    final List<DataHubPolicyInfo> denyPolicies = getOrDefault(DENY, new ArrayList<>());
 
-    // 2. Evaluate each policy.
-    for (DataHubPolicyInfo policy : policiesToEvaluate) {
-      if (isRequestGranted(policy, request, resolvedResourceSpec, resolvedSubResources)) {
-        // Short circuit if policy has granted privileges to this actor.
+    // Privilege-indexed buckets contain only ALLOW policies; DENY policies are never added there.
+    final List<DataHubPolicyInfo> allowPolicies =
+        new LinkedList<>(getOrDefault(request.getPrivilege(), new ArrayList<>()));
+    allowPolicies.addAll(PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn())));
+
+    for (DataHubPolicyInfo denyPolicy : denyPolicies) {
+      if (isPolicyApplicableToRequest(
+          denyPolicy, request, resolvedResourceSpec, resolvedSubResources)) {
+        return new AuthorizationResult(
+            request,
+            AuthorizationResult.Type.DENY,
+            String.format("Denied by policy: %s", denyPolicy.getDisplayName()));
+      }
+    }
+
+    for (DataHubPolicyInfo allowPolicy : allowPolicies) {
+      if (isPolicyApplicableToRequest(
+          allowPolicy, request, resolvedResourceSpec, resolvedSubResources)) {
         return new AuthorizationResult(
             request,
             AuthorizationResult.Type.ALLOW,
-            String.format("Granted by policy with type: %s", policy.getType()));
+            String.format("Granted by policy with type: %s", allowPolicy.getType()));
       }
     }
+
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
@@ -227,6 +251,10 @@ public class DataHubAuthorizer implements Authorizer {
         continue;
       }
 
+      if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
+        continue;
+      }
+
       final PolicyEngine.PolicyActors matchingActors =
           policyEngine.getMatchingActors(policy, resolvedResourceSpec);
 
@@ -274,8 +302,12 @@ public class DataHubAuthorizer implements Authorizer {
     return systemAuthentication.getActor().toUrnStr().equals(request.getActorUrn());
   }
 
-  /** Returns true if a policy grants the requested privilege for a given actor and resource. */
-  private boolean isRequestGranted(
+  /**
+   * Returns true if a policy is applicable to the given request — i.e., the policy matches on
+   * privilege, resource, and actor. For ALLOW policies this means access is granted; for DENY
+   * policies this means access is denied. Callers must handle the distinction.
+   */
+  private boolean isPolicyApplicableToRequest(
       final DataHubPolicyInfo policy,
       final AuthorizationRequest request,
       final Optional<ResolvedEntitySpec> resourceSpec,
@@ -302,7 +334,7 @@ public class DataHubAuthorizer implements Authorizer {
               request.getPrivilege(),
               resourceSpec,
               subResources);
-      return result.isGranted();
+      return result.isApplicable();
     } catch (RuntimeException e) {
       log.error("Error evaluating policy {} for request {}", policy.getDisplayName(), request);
       throw e;
@@ -399,19 +431,26 @@ public class DataHubAuthorizer implements Authorizer {
 
     private void addPolicyToCache(
         final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
-      final List<String> privileges = policy.getPrivileges();
-      for (String privilege : privileges) {
-        List<DataHubPolicyInfo> existingPolicies =
-            cache.containsKey(privilege)
-                ? new ArrayList<>(cache.get(privilege))
-                : new ArrayList<>();
-        existingPolicies.add(policy);
-        cache.put(privilege, existingPolicies);
-      }
-      List<DataHubPolicyInfo> existingPolicies =
+      List<DataHubPolicyInfo> allPolicies =
           cache.containsKey(ALL) ? new ArrayList<>(cache.get(ALL)) : new ArrayList<>();
-      existingPolicies.add(policy);
-      cache.put(ALL, existingPolicies);
+      allPolicies.add(policy);
+      cache.put(ALL, allPolicies);
+
+      if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
+        List<DataHubPolicyInfo> denyPolicies =
+            cache.containsKey(DENY) ? new ArrayList<>(cache.get(DENY)) : new ArrayList<>();
+        denyPolicies.add(policy);
+        cache.put(DENY, denyPolicies);
+      } else {
+        for (String privilege : policy.getPrivileges()) {
+          List<DataHubPolicyInfo> existingPolicies =
+              cache.containsKey(privilege)
+                  ? new ArrayList<>(cache.get(privilege))
+                  : new ArrayList<>();
+          existingPolicies.add(policy);
+          cache.put(privilege, existingPolicies);
+        }
+      }
     }
   }
 }
