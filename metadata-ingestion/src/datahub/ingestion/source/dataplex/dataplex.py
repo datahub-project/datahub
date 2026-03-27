@@ -66,6 +66,10 @@ logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_schema`",
 )
 @capability(
+    SourceCapability.DESCRIPTIONS,
+    "Enabled by default",
+)
+@capability(
     SourceCapability.LINEAGE_COARSE,
     "Optionally enabled via configuration `include_lineage`",
 )

@@ -11,6 +11,9 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulLineageConfigMixin,
@@ -125,6 +128,11 @@ class DataplexConfig(
         "Lower values reduce memory usage but may increase processing time. "
         "Set to None to disable batching (process all entries at once). "
         "Recommended: 1000 for large deployments (>10k entries), None for small deployments (<1k entries). Default: 1000.",
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion configuration for stale metadata removal.",
     )
 
     dataplex_url: str = Field(
