@@ -70,12 +70,20 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> pathlib.Path:
             actual = _sha256_file(cache_path)
             if actual == pack.sha256:
                 click.echo(f"Using cached pack: {cache_path}")
+                # If index was previously resolved, return the combined file
+                combined = cache_path.with_suffix(".combined.json")
+                if combined.exists():
+                    return combined
                 return cache_path
             else:
                 click.echo("Cached file checksum mismatch, re-downloading...")
 
         else:
             click.echo(f"Using cached pack: {cache_path}")
+            # If index was previously resolved, return the combined file
+            combined = cache_path.with_suffix(".combined.json")
+            if combined.exists():
+                return combined
             return cache_path
 
     # Download (or copy for file:// URLs)
