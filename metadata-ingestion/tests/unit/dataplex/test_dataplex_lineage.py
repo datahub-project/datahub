@@ -1,6 +1,7 @@
 """Unit tests for Dataplex lineage extraction."""
 
 import datetime
+from typing import cast
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -20,7 +21,7 @@ def dataplex_config() -> DataplexConfig:
     """Create a test configuration."""
     return DataplexConfig(
         project_ids=["test-project"],
-        entries_location="us",
+        entries_locations=["us"],
         include_lineage=True,
     )
 
@@ -29,6 +30,12 @@ def dataplex_config() -> DataplexConfig:
 def dataplex_report() -> DataplexReport:
     """Create a test report."""
     return DataplexReport()
+
+
+@pytest.fixture
+def source_report() -> Mock:
+    """Create a mock SourceReport-like object for warnings."""
+    return Mock()
 
 
 @pytest.fixture
@@ -41,12 +48,14 @@ def mock_lineage_client() -> Mock:
 def lineage_extractor(
     dataplex_config: DataplexConfig,
     dataplex_report: DataplexReport,
+    source_report: Mock,
     mock_lineage_client: Mock,
 ) -> DataplexLineageExtractor:
     """Create a lineage extractor with mocked client."""
     return DataplexLineageExtractor(
         config=dataplex_config,
-        report=dataplex_report,
+        report=dataplex_report.lineage_report,
+        source_report=source_report,
         lineage_client=mock_lineage_client,
     )
 
@@ -63,99 +72,48 @@ def test_lineage_extractor_initialization(
 
 def test_lineage_extraction_disabled(
     dataplex_report: DataplexReport,
+    source_report: Mock,
 ) -> None:
     """Test that lineage extraction is skipped when disabled."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        entries_location="us",
+        entries_locations=["us"],
         include_lineage=False,  # Disabled
     )
 
     extractor = DataplexLineageExtractor(
         config=config,
-        report=dataplex_report,
+        report=dataplex_report.lineage_report,
+        source_report=source_report,
         lineage_client=None,
     )
 
     entry_data = EntryDataTuple(
-        entry_id="test-entry",
-        source_platform="bigquery",
-        dataset_id="test-project.test-dataset.test-table",
+        dataplex_entry_short_name="test-entry",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-entry",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.test-dataset.test-table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
     result = extractor.get_lineage_for_entry("test-project", entry_data)
     assert result is None
 
 
-def test_construct_fqn_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction for BigQuery tables."""
-    fqn = lineage_extractor._construct_fqn("bigquery", "my-project.my-dataset.my-table")
-    assert fqn == "bigquery:my-project.my-dataset.my-table"
-
-
-def test_construct_fqn_gcs(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction for GCS objects."""
-    fqn = lineage_extractor._construct_fqn("gcs", "my-bucket/path/to/file.csv")
-    assert fqn == "gcs:my-bucket/path/to/file.csv"
-
-
-def test_construct_fqn_unknown_platform(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test FQN construction for unknown platforms (fallback)."""
-    fqn = lineage_extractor._construct_fqn("unknown", "my-dataset-id")
-    assert fqn == "unknown:my-dataset-id"
-
-
-def test_extract_entry_id_from_fqn_bigquery(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction from BigQuery FQN."""
-    entry_id = lineage_extractor._extract_entry_id_from_fqn(
-        "bigquery:my-project.my-dataset.my-table"
-    )
-    assert entry_id == "my-project.my-dataset.my-table"
-
-
-def test_extract_entry_id_from_fqn_gcs(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction from GCS FQN."""
-    # GCS with path
-    entry_id = lineage_extractor._extract_entry_id_from_fqn(
-        "gcs:my-bucket/path/to/file.csv"
-    )
-    assert entry_id == "my-bucket/path/to/file.csv"
-
-    # GCS bucket only
-    entry_id = lineage_extractor._extract_entry_id_from_fqn("gcs:my-bucket")
-    assert entry_id == "my-bucket"
-
-
-def test_extract_entry_id_from_fqn_no_prefix(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction without platform prefix."""
-    entry_id = lineage_extractor._extract_entry_id_from_fqn("project-123.dataset.table")
-    assert entry_id == "project-123.dataset.table"
-
-
-def test_extract_entry_id_from_fqn_invalid(
-    lineage_extractor: DataplexLineageExtractor,
-) -> None:
-    """Test entry ID extraction with invalid format."""
-    entry_id = lineage_extractor._extract_entry_id_from_fqn("")
-    assert entry_id == ""
-
-
 def test_lineage_edge_creation() -> None:
     """Test LineageEdge data structure."""
     edge = LineageEdge(
-        entry_id="upstream-entry",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream-entry,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
 
-    assert edge.entry_id == "upstream-entry"
+    assert (
+        edge.upstream_datahub_urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream-entry,PROD)"
+    )
     assert edge.lineage_type == DatasetLineageTypeClass.TRANSFORMED
 
 
@@ -215,9 +173,14 @@ def test_get_lineage_for_entry_with_upstream(
 
     # Create EntryDataTuple for the test entry
     test_entry = EntryDataTuple(
-        entry_id="test-entry",
-        source_platform="bigquery",
-        dataset_id="test-project.test-dataset.test-table",
+        dataplex_entry_short_name="test-entry",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-entry",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.test-dataset.test-table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     # Get lineage
@@ -230,6 +193,41 @@ def test_get_lineage_for_entry_with_upstream(
     assert len(result["downstream"]) == 1
     assert result["upstream"][0] == "bigquery:project.dataset.table1"
     assert result["downstream"][0] == "bigquery:project.dataset.table2"
+
+
+def test_get_lineage_for_entry_uses_entry_location_in_parent(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    test_entry = EntryDataTuple(
+        dataplex_entry_short_name="entry-eu",
+        dataplex_entry_name="projects/p/locations/eu/entryGroups/g/entries/entry-eu",
+        dataplex_location="eu",
+        dataplex_entry_fqn="bigquery:test-project.ds.table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.ds.table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+    )
+
+    mock_upstream_link = Mock()
+    mock_upstream_link.source.fully_qualified_name = "bigquery:upstream.ds.tbl"
+    mock_downstream_link = Mock()
+    mock_downstream_link.target.fully_qualified_name = "bigquery:downstream.ds.tbl"
+
+    lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client_mock.search_links.side_effect = [  # type: ignore[union-attr]
+        [mock_upstream_link],
+        [mock_downstream_link],
+    ]
+
+    lineage_extractor.get_lineage_for_entry("test-project", test_entry)
+
+    assert lineage_extractor.lineage_client is not None
+    calls = lineage_client_mock.search_links.call_args_list
+    assert len(calls) >= 2
+    for call in calls[:2]:
+        request = call.kwargs["request"]
+        assert request.parent == "projects/test-project/locations/eu"
 
 
 def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
@@ -245,14 +243,24 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     # Create EntryDataTuple objects for test entries
     entry_data = [
         EntryDataTuple(
-            entry_id="entry1",
-            source_platform="bigquery",
-            dataset_id="test-project.dataset.table1",
+            dataplex_entry_short_name="entry1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:test-project.dataset.table1",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="test-project.dataset.table1",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         ),
         EntryDataTuple(
-            entry_id="entry2",
-            source_platform="bigquery",
-            dataset_id="test-project.dataset.table2",
+            dataplex_entry_short_name="entry2",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry2",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:test-project.dataset.table2",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="test-project.dataset.table2",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         ),
     ]
 
@@ -262,8 +270,11 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     )
 
     assert isinstance(lineage_by_full_dataset_id, dict)
-    # The map should have entries for entries that have lineage
-    assert lineage_extractor.report.num_lineage_entries_scanned >= 0
+    assert lineage_extractor.report.num_lineage_entries_scanned == 2
+    assert lineage_extractor.report.num_lineage_entries_processed == 2
+    assert lineage_extractor.report.num_lineage_entries_without_lineage == 0
+    assert lineage_extractor.report.num_lineage_upstream_fqns_skipped == 0
+    assert lineage_extractor.report.num_lineage_edges_added == 2
 
 
 def test_get_lineage_for_table_no_lineage(
@@ -273,7 +284,6 @@ def test_get_lineage_for_table_no_lineage(
     result = lineage_extractor.get_lineage_for_table(
         "test-project.test-dataset.entry-with-no-lineage",
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.entry-with-no-lineage,PROD)",
-        "bigquery",
     )
 
     assert result is None
@@ -285,7 +295,7 @@ def test_get_lineage_for_table_with_lineage(
     """Test getting lineage for table with lineage."""
     # Add a lineage edge to the map - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.test-dataset.upstream-entry",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.upstream-entry,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -299,7 +309,6 @@ def test_get_lineage_for_table_with_lineage(
     result = lineage_extractor.get_lineage_for_table(
         "test-project.test-dataset.test-entry",
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-entry,PROD)",
-        "bigquery",
     )
 
     assert result is not None
@@ -311,7 +320,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     """Test generating lineage workunits."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.test-dataset.upstream-entry",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.upstream-entry,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -325,40 +334,12 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-entry,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "test-project.test-dataset.test-entry", dataset_urn, "bigquery"
+            "test-project.test-dataset.test-entry", dataset_urn
         )
     )
 
     assert len(workunits) == 1
     assert workunits[0].metadata.entityUrn == dataset_urn  # type: ignore[union-attr]
-
-
-def test_fqn_round_trip_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction and parsing round-trip for BigQuery."""
-    original_dataset_id = "my-project.my-dataset.my-table"
-
-    fqn = lineage_extractor._construct_fqn("bigquery", original_dataset_id)
-
-    # Parse FQN
-    extracted_id = lineage_extractor._extract_entry_id_from_fqn(fqn)
-
-    # Verify round-trip
-    assert fqn == "bigquery:my-project.my-dataset.my-table"
-    assert extracted_id == "my-project.my-dataset.my-table"
-
-
-def test_fqn_round_trip_gcs(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction and parsing round-trip for GCS."""
-    original_dataset_id = "my-bucket/data/2024/file.csv"
-
-    fqn = lineage_extractor._construct_fqn("gcs", original_dataset_id)
-
-    # Parse FQN
-    extracted_id = lineage_extractor._extract_entry_id_from_fqn(fqn)
-
-    # Verify round-trip
-    assert fqn == "gcs:my-bucket/data/2024/file.csv"
-    assert extracted_id == "my-bucket/data/2024/file.csv"
 
 
 def test_lineage_with_cross_platform_references(
@@ -382,9 +363,14 @@ def test_lineage_with_cross_platform_references(
     lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
 
     test_entry = EntryDataTuple(
-        entry_id="test-table",
-        source_platform="bigquery",
-        dataset_id="my-project.analytics.test-table",
+        dataplex_entry_short_name="test-table",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-table",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:my-project.analytics.test-table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="my-project.analytics.test-table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     result = lineage_extractor.get_lineage_for_entry("my-project", test_entry)
@@ -395,6 +381,96 @@ def test_lineage_with_cross_platform_references(
     assert result["upstream"][0] == "gcs:my-bucket/raw/data.csv"
     assert result["downstream"][0] == "bigquery:my-project.analytics.final"
 
+    # GCS upstream is not yet part of DATAPLEX_ENTRY_TYPE_MAPPINGS datasets.
+    # Confirm it is skipped during edge normalization.
+    lineage_map = lineage_extractor.build_lineage_map("my-project", [test_entry])
+    assert lineage_map == {}
+
+
+def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        include_lineage=True,
+    )
+    report = DataplexReport()
+    mock_client = MagicMock()
+
+    # Return an upstream lineage edge with unsupported platform prefix.
+    mock_link = MagicMock()
+    mock_link.source.fully_qualified_name = "unknown:project.dataset.upstream"
+    mock_client.search_links.return_value = [mock_link]
+
+    extractor = DataplexLineageExtractor(
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
+    )
+
+    entries = [
+        EntryDataTuple(
+            dataplex_entry_short_name="entry_1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry_1",
+            dataplex_location="us",
+            dataplex_entry_type_short_name="bigquery-table",
+            dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
+            datahub_platform="bigquery",
+            datahub_dataset_name="test-project.dataset.table_1",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        )
+    ]
+
+    lineage_map = extractor.build_lineage_map("test-project", entries)
+    assert lineage_map == {}
+    assert report.lineage_report.num_lineage_entries_without_lineage == 0
+    assert report.lineage_report.num_lineage_upstream_fqns_skipped == 1
+    assert report.lineage_report.num_lineage_edges_added == 0
+
+
+def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        include_lineage=True,
+    )
+    report = DataplexReport()
+    mock_client = MagicMock()
+
+    # Downstream BigQuery table has an upstream Pub/Sub topic.
+    mock_link = MagicMock()
+    mock_link.source.fully_qualified_name = "pubsub:topic:acryl-staging.observe-topic"
+    mock_client.search_links.return_value = [mock_link]
+
+    extractor = DataplexLineageExtractor(
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
+    )
+
+    entries = [
+        EntryDataTuple(
+            dataplex_entry_short_name="entry_1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry_1",
+            dataplex_location="us",
+            dataplex_entry_type_short_name="bigquery-table",
+            dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
+            datahub_platform="bigquery",
+            datahub_dataset_name="test-project.dataset.table_1",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        )
+    ]
+
+    lineage_map = extractor.build_lineage_map("test-project", entries)
+    assert "test-project.dataset.table_1" in lineage_map
+    edges = lineage_map["test-project.dataset.table_1"]
+    assert len(edges) == 1
+    edge = next(iter(edges))
+    assert (
+        edge.upstream_datahub_urn
+        == "urn:li:dataset:(urn:li:dataPlatform:pubsub,topic:acryl-staging.observe-topic,PROD)"
+    )
+    assert report.lineage_report.num_lineage_upstream_fqns_skipped == 0
+
 
 def test_workunit_urn_structure_validation(
     lineage_extractor: DataplexLineageExtractor,
@@ -402,7 +478,7 @@ def test_workunit_urn_structure_validation(
     """Test that generated workunits have correct URN structure."""
     # Add a lineage edge - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="my-project.my-dataset.upstream-table",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.upstream-table,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -416,7 +492,7 @@ def test_workunit_urn_structure_validation(
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.downstream-table,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "my-project.my-dataset.downstream-table", dataset_urn, "bigquery"
+            "my-project.my-dataset.downstream-table", dataset_urn
         )
     )
 
@@ -441,12 +517,12 @@ def test_workunit_aspect_completeness(
     """Test that workunit aspects contain all required fields."""
     # Add lineage edges - use full dataset_id as key
     edge1 = LineageEdge(
-        entry_id="my-project.my-dataset.table1",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.table1,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
     edge2 = LineageEdge(
-        entry_id="my-project.my-dataset.table2",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.table2,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.COPY,
     )
@@ -459,9 +535,7 @@ def test_workunit_aspect_completeness(
     # Generate workunit using full dataset_id
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.target-table,PROD)"
     workunits = list(
-        lineage_extractor.gen_lineage(
-            "my-project.my-dataset.target-table", dataset_urn, "bigquery"
-        )
+        lineage_extractor.gen_lineage("my-project.my-dataset.target-table", dataset_urn)
     )
 
     assert len(workunits) == 1
@@ -498,7 +572,7 @@ def test_workunit_upstream_urn_format(
     """Test that upstream URNs in workunits are correctly formatted."""
     # Add lineage edge with specific entry ID format - use full dataset_id as key
     edge = LineageEdge(
-        entry_id="test-project.sales_dataset.customer_table",
+        upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales_dataset.customer_table,PROD)",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -513,7 +587,7 @@ def test_workunit_upstream_urn_format(
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics_dataset.analytics_table,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "test-project.analytics_dataset.analytics_table", dataset_urn, "bigquery"
+            "test-project.analytics_dataset.analytics_table", dataset_urn
         )
     )
 
@@ -535,7 +609,7 @@ def test_workunit_generation_with_no_lineage(
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.isolated-table,PROD)"
     workunits = list(
         lineage_extractor.gen_lineage(
-            "my-project.my-dataset.isolated-table", dataset_urn, "bigquery"
+            "my-project.my-dataset.isolated-table", dataset_urn
         )
     )
 
@@ -567,13 +641,21 @@ def test_pagination_automatic_handling() -> None:
     mock_client.search_links.return_value = [mock_link1, mock_link2, mock_link3]
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     entry = EntryDataTuple(
-        entry_id="test_table",
-        source_platform="bigquery",
-        dataset_id="test-project.test_dataset.test_table",
+        dataplex_entry_short_name="test_table",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test_table",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.test_dataset.test_table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.test_dataset.test_table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -607,13 +689,21 @@ def test_pagination_with_large_result_set() -> None:
     mock_client.search_links.return_value = mock_links
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     entry = EntryDataTuple(
-        entry_id="target_table",
-        source_platform="bigquery",
-        dataset_id="test-project.analytics.target_table",
+        dataplex_entry_short_name="target_table",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/target_table",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.analytics.target_table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.analytics.target_table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
     result = extractor.get_lineage_for_entry("test-project", entry)
@@ -681,15 +771,23 @@ def test_batched_lineage_processing() -> None:
     mock_client.search_links.side_effect = mock_search_links
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 5 test entries
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
-            source_platform="bigquery",
-            dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_short_name=f"entry_{i}",
+            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
+            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(5)
     ]
@@ -720,15 +818,23 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
     mock_client.search_links.return_value = [mock_link]
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 3 test entries
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
-            source_platform="bigquery",
-            dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_short_name=f"entry_{i}",
+            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
+            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(3)
     ]
@@ -758,15 +864,23 @@ def test_batched_lineage_with_batching_disabled() -> None:
     mock_client.search_links.return_value = [mock_link]
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 10 test entries
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
-            source_platform="bigquery",
-            dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_short_name=f"entry_{i}",
+            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
+            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(10)
     ]
@@ -806,15 +920,23 @@ def test_batched_lineage_memory_cleanup() -> None:
     mock_client.search_links.side_effect = mock_search_links
 
     extractor = DataplexLineageExtractor(
-        config=config, report=report, lineage_client=mock_client
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=mock_client,
     )
 
     # Create 6 entries (will be processed in 3 batches of 2)
     entries = [
         EntryDataTuple(
-            entry_id=f"entry_{i}",
-            source_platform="bigquery",
-            dataset_id=f"test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_short_name=f"entry_{i}",
+            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
+            dataplex_location="us",
+            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(6)
     ]
@@ -876,25 +998,43 @@ class TestLineageMapKeyCollision:
         mock_client.search_links.side_effect = mock_search_links
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=mock_client
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=mock_client,
         )
 
         # Create entries with same table name but different datasets
         entries = [
             EntryDataTuple(
-                entry_id="analytics_customers",
-                source_platform="bigquery",
-                dataset_id="test-project.analytics.customers",  # Full path
+                dataplex_entry_short_name="analytics_customers",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/analytics_customers",
+                dataplex_location="us",
+                dataplex_entry_fqn="bigquery:test-project.analytics.customers",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="test-project.analytics.customers",  # Full path
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
             EntryDataTuple(
-                entry_id="sales_customers",
-                source_platform="bigquery",
-                dataset_id="test-project.sales.customers",  # Same table name, different dataset
+                dataplex_entry_short_name="sales_customers",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/sales_customers",
+                dataplex_location="us",
+                dataplex_entry_fqn="bigquery:test-project.sales.customers",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="test-project.sales.customers",  # Same table name, different dataset
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
             EntryDataTuple(
-                entry_id="abc_users",
-                source_platform="bigquery",
-                dataset_id="test-project.abc.users",
+                dataplex_entry_short_name="abc_users",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/abc_users",
+                dataplex_location="us",
+                dataplex_entry_fqn="bigquery:test-project.abc.users",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="test-project.abc.users",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
         ]
 
@@ -917,7 +1057,10 @@ class TestLineageMapKeyCollision:
         analytics_edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(analytics_edges) == 1
         edge = next(iter(analytics_edges))
-        assert edge.entry_id == "test-project.abc.users"
+        assert (
+            edge.upstream_datahub_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)"
+        )
 
     def test_same_table_name_different_datasets_no_collision(self) -> None:
         """Test that tables with same name in different datasets don't collide.
@@ -953,25 +1096,41 @@ class TestLineageMapKeyCollision:
                         "bigquery:test-project.abc.users"
                     )
                     return [mock_link]
+                # For source-side requests we don't need downstream values.
+                if target_fqn == "":
+                    return []
             return []
 
         mock_client.search_links.side_effect = mock_search_links
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=mock_client
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=mock_client,
         )
 
         # Two tables with same name 'customers' in different datasets
         entries = [
             EntryDataTuple(
-                entry_id="customers_analytics",
-                source_platform="bigquery",
-                dataset_id="test-project.analytics.customers",
+                dataplex_entry_short_name="customers_analytics",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/customers_analytics",
+                dataplex_location="us",
+                dataplex_entry_fqn="bigquery:test-project.analytics.customers",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="test-project.analytics.customers",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
             EntryDataTuple(
-                entry_id="customers_sales",
-                source_platform="bigquery",
-                dataset_id="test-project.sales.customers",
+                dataplex_entry_short_name="customers_sales",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/customers_sales",
+                dataplex_location="us",
+                dataplex_entry_fqn="bigquery:test-project.sales.customers",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="test-project.sales.customers",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
         ]
 
@@ -1008,12 +1167,15 @@ class TestLineageMapKeyCollision:
         report = DataplexReport()
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=None
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=None,
         )
 
         # Manually populate lineage map with full dataset_id keys
         edge = LineageEdge(
-            entry_id="test-project.abc.users",
+            upstream_datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)",
             audit_stamp=datetime.datetime.now(datetime.timezone.utc),
             lineage_type=DatasetLineageTypeClass.TRANSFORMED,
         )
@@ -1025,7 +1187,6 @@ class TestLineageMapKeyCollision:
         result = extractor.get_lineage_for_table(
             "test-project.analytics.customers",
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
-            "bigquery",
         )
         assert result is not None, (
             "Lookup with full dataset_id 'test-project.analytics.customers' should find lineage"
@@ -1035,7 +1196,6 @@ class TestLineageMapKeyCollision:
         result_by_table_name = extractor.get_lineage_for_table(
             "customers",  # Just table name
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,customers,PROD)",
-            "bigquery",
         )
         assert result_by_table_name is None, (
             "Lookup with just table name 'customers' should NOT find lineage"
@@ -1045,7 +1205,6 @@ class TestLineageMapKeyCollision:
         result_different_dataset = extractor.get_lineage_for_table(
             "test-project.sales.customers",  # Different dataset, same table name
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.customers,PROD)",
-            "bigquery",
         )
         assert result_different_dataset is None, (
             "Lookup with 'test-project.sales.customers' should NOT find lineage for analytics.customers"
@@ -1076,14 +1235,22 @@ class TestLineageMapKeyCollision:
         mock_client.search_links.side_effect = mock_search_links
 
         extractor = DataplexLineageExtractor(
-            config=config, report=report, lineage_client=mock_client
+            config=config,
+            report=report.lineage_report,
+            source_report=Mock(),
+            lineage_client=mock_client,
         )
 
         entries = [
             EntryDataTuple(
-                entry_id="analytics_customers",
-                source_platform="bigquery",
-                dataset_id="test-project.analytics.customers",
+                dataplex_entry_short_name="analytics_customers",
+                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/analytics_customers",
+                dataplex_location="us",
+                dataplex_entry_fqn="bigquery:test-project.analytics.customers",
+                dataplex_entry_type_short_name="bigquery-table",
+                datahub_platform="bigquery",
+                datahub_dataset_name="test-project.analytics.customers",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
             ),
         ]
 
@@ -1102,6 +1269,9 @@ class TestLineageMapKeyCollision:
         edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(edges) == 1
         edge = next(iter(edges))
-        assert edge.entry_id == "test-project.abc.users", (
-            f"Upstream should be 'test-project.abc.users', got '{edge.entry_id}'"
+        assert (
+            edge.upstream_datahub_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)"
+        ), (
+            f"Upstream should be 'urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)', got '{edge.upstream_datahub_urn}'"
         )

@@ -1,877 +1,658 @@
 """Unit tests for Dataplex entry processing."""
 
-from datetime import datetime
 from threading import Lock
-from typing import Optional
+from typing import cast
 from unittest.mock import Mock, patch
 
 import pytest
 from google.cloud import dataplex_v1
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_entries import process_entry
-from datahub.metadata.schema_classes import (
-    ContainerClass,
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-    SchemaMetadataClass,
+from datahub.ingestion.source.dataplex.dataplex_entries import (
+    DataplexEntriesProcessor,
+    DataplexEntriesReport,
 )
+from datahub.ingestion.source.dataplex.dataplex_ids import DataplexCloudSqlMySqlDatabase
+from datahub.sdk.container import Container
+from datahub.sdk.dataset import Dataset
 
 
-class TestProcessEntry:
-    """Test process_entry function."""
-
-    @pytest.fixture
-    def config(self):
-        """Create a default DataplexConfig for testing."""
-        return DataplexConfig(project_ids=["test-project"], env="PROD")
+class TestDataplexEntriesProcessorDesign:
+    """Tests for DataplexEntriesProcessor interface behavior."""
 
     @pytest.fixture
-    def entry_data_by_project(self):
-        """Create entry data dictionary."""
-        return {}
+    def processor(self) -> DataplexEntriesProcessor:
+        config = DataplexConfig(project_ids=["test-project"], env="PROD")
+        report = DataplexEntriesReport()
+        source_report = Mock()
+        catalog_client = Mock(spec=dataplex_v1.CatalogServiceClient)
 
-    @pytest.fixture
-    def entry_data_lock(self):
-        """Create entry data lock."""
-        return Lock()
-
-    @pytest.fixture
-    def bq_containers(self):
-        """Create BigQuery containers dictionary."""
-        return {}
-
-    @pytest.fixture
-    def bq_containers_lock(self):
-        """Create BigQuery containers lock."""
-        return Lock()
-
-    @pytest.fixture
-    def construct_mcps_fn(self):
-        """Create a mock construct_mcps function."""
-
-        def _construct_mcps(dataset_urn, aspects):
-            """Mock function that yields MCPs."""
-            for aspect in aspects:
-                mcp = Mock(spec=MetadataChangeProposalWrapper)
-                mcp.aspect = aspect
-                mcp.entityUrn = dataset_urn
-                yield mcp
-
-        return _construct_mcps
-
-    def create_mock_entry(
-        self,
-        name: str,
-        fully_qualified_name: Optional[str],
-        entry_type: str = "TABLE",
-        description: Optional[str] = None,
-        create_time: Optional[datetime] = None,
-        update_time: Optional[datetime] = None,
-        aspects: Optional[dict] = None,
-    ) -> dataplex_v1.Entry:
-        """Create a mock Dataplex entry."""
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.name = name
-        entry.fully_qualified_name = fully_qualified_name
-        entry.entry_type = entry_type
-        entry.aspects = aspects or {}
-
-        # Mock entry_source
-        entry_source = Mock()
-        entry_source.description = description
-        entry_source.create_time = create_time
-        entry_source.update_time = update_time
-        entry.entry_source = entry_source
-
-        return entry
-
-    def test_entry_without_fqn(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that entry without FQN is skipped."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/test_entry",
-            fully_qualified_name=None,
+        return DataplexEntriesProcessor(
+            config=config,
+            catalog_client=catalog_client,
+            report=report,
+            entry_data_by_project={},
+            entry_data_lock=Lock(),
+            source_report=source_report,
         )
 
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
+    def test_entries_report_tracks_counts_and_default_sampling(self) -> None:
+        report = DataplexEntriesReport()
+
+        report.report_entry_group("eg-pass", filtered=False)
+        for index in range(12):
+            report.report_entry_group(f"eg-{index}", filtered=True)
+
+        for index in range(12):
+            report.report_entry(
+                f"entry-{index}",
+                filtered_missing_fqn=False,
+                filtered_fqn=False,
+                filtered_name=True,
             )
+
+        for index in range(12):
+            report.report_entry(
+                f"fqn-{index}",
+                filtered_missing_fqn=False,
+                filtered_fqn=True,
+                filtered_name=False,
+            )
+
+        for index in range(12):
+            report.report_entry(
+                f"missing-fqn-{index}",
+                filtered_missing_fqn=True,
+                filtered_fqn=False,
+                filtered_name=False,
+            )
+
+        for index in range(12):
+            report.report_entry(
+                f"processed-{index}",
+                filtered_missing_fqn=False,
+                filtered_fqn=False,
+                filtered_name=False,
+            )
+
+        assert report.entry_groups_seen == 13
+        assert report.entry_groups_filtered == 12
+        assert report.entry_group_filtered_samples.total_elements == 12
+        assert len(list(report.entry_group_filtered_samples)) == 10
+        assert set(report.entry_group_filtered_samples).issubset(
+            {f"eg-{index}" for index in range(12)}
         )
 
-        assert len(results) == 0
-        assert len(entry_data_by_project) == 0
+        assert report.entries_seen == 48
+        assert report.entries_filtered_by_pattern == 12
+        assert report.entry_pattern_filtered_samples.total_elements == 12
+        assert len(list(report.entry_pattern_filtered_samples)) == 10
+        assert set(report.entry_pattern_filtered_samples).issubset(
+            {f"entry-{index}" for index in range(12)}
+        )
 
-    def test_entry_filtered_by_pattern(
-        self,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that entries are filtered correctly by pattern (allow/deny)."""
+        assert report.entries_filtered_by_missing_fqn == 12
+        assert report.entry_missing_fqn_samples.total_elements == 12
+        assert len(list(report.entry_missing_fqn_samples)) == 10
+        assert set(report.entry_missing_fqn_samples).issubset(
+            {f"missing-fqn-{index}" for index in range(12)}
+        )
+
+        assert report.entries_filtered_by_fqn_pattern == 12
+        assert report.entry_fqn_filtered_samples.total_elements == 12
+        assert len(list(report.entry_fqn_filtered_samples)) == 10
+        assert set(report.entry_fqn_filtered_samples).issubset(
+            {f"fqn-{index}" for index in range(12)}
+        )
+
+        assert report.entries_processed == 12
+        assert report.entries_processed_samples.total_elements == 12
+        assert len(list(report.entries_processed_samples)) == 10
+        assert set(report.entries_processed_samples).issubset(
+            {f"processed-{index}" for index in range(12)}
+        )
+
+    def test_processor_utility_methods(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.entry_type = "projects/p/locations/global/entryTypes/unknown-type"
+        entry.fully_qualified_name = ""
+        entry.parent_entry = ""
+
+        # No entry_groups filter configured yet -> allow all.
+        assert processor.should_process_entry_group(
+            "projects/p/locations/us/entryGroups/g"
+        )
+
+        # Unsupported/invalid entries should be skipped safely.
+        assert processor.build_entity_for_entry(entry) is None
+        assert processor.build_entry_container_key(entry) is None
+
+    def test_should_process_entry_uses_full_entry_name_for_pattern(self) -> None:
         config = DataplexConfig(
             project_ids=["test-project"],
-            filter_config={
-                "entries": {
-                    "dataset_pattern": {"allow": ["prod_.*"], "deny": [".*_temp"]},
-                }
-            },
+            filter_config={"entries": {"pattern": {"allow": [r"^projects/.*$"]}}},
+        )
+        processor = DataplexEntriesProcessor(
+            config=config,
+            catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
+            report=DataplexEntriesReport(),
+            entry_data_by_project={},
+            entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
-        # Test 1: Entry that doesn't match allow pattern - should be rejected
-        entry_dev = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/dev_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.dev_table",
-        )
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.fully_qualified_name = "bigquery:p.ds.table"
 
-        results_dev = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry_dev,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
+        assert processor.should_process_entry(entry)
 
-        assert len(results_dev) == 0, (
-            "Entry 'dev_table' should be rejected (doesn't match allow pattern)"
-        )
+        entry.fully_qualified_name = ""
+        assert not processor.should_process_entry(entry)
 
-        # Test 2: Entry that matches allow pattern - should be created
-        entry_prod = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/prod_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.prod_table",
-        )
+    def test_extract_display_name_falls_back_to_last_name_segment(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry_source = Mock()
+        entry_source.display_name = ""
+        entry.entry_source = entry_source
 
-        results_prod = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry_prod,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
+        assert processor._extract_display_name(entry) == "e1"
 
-        assert len(results_prod) > 0, (
-            "Entry 'prod_table' should be created (matches allow pattern)"
-        )
-        # Verify it has the expected aspects
-        assert any(isinstance(r.aspect, DatasetPropertiesClass) for r in results_prod)
-        assert any(
-            isinstance(r.aspect, DataPlatformInstanceClass) for r in results_prod
-        )
-
-        # Test 3: Entry that matches allow pattern but also matches deny pattern - should be rejected
-        entry_prod_temp = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/prod_table_temp",
-            fully_qualified_name="bigquery:test-project.my_dataset.prod_table_temp",
-        )
-
-        results_prod_temp = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry_prod_temp,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        assert len(results_prod_temp) == 0, (
-            "Entry 'prod_table_temp' should be rejected (matches deny pattern)"
-        )
-
-    def test_entry_with_invalid_fqn(
+    def test_extract_display_name_falls_back_when_display_name_is_non_string(
         self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that entry with invalid FQN is skipped."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/test_entry",
-            fully_qualified_name="invalid-fqn-format",
+        processor: DataplexEntriesProcessor,
+    ) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry_source = Mock()
+        entry_source.display_name = Mock()
+        entry.entry_source = entry_source
+
+        assert processor._extract_display_name(entry) == "e1"
+
+    def test_collect_entries_streams_before_spanner_search(self) -> None:
+        catalog_client = Mock()
+        processor = DataplexEntriesProcessor(
+            config=DataplexConfig(project_ids=["test-project"], env="PROD"),
+            catalog_client=catalog_client,
+            report=DataplexEntriesReport(),
+            entry_data_by_project={},
+            entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
+        entry_group = Mock(spec=dataplex_v1.EntryGroup)
+        entry_group.name = "projects/p/locations/us/entryGroups/g1"
+
+        listed_entry = Mock(spec=dataplex_v1.Entry)
+        listed_entry.name = "projects/p/locations/us/entryGroups/g1/entries/e1"
+        listed_entry.fully_qualified_name = "bigquery:p.ds.e1"
+
+        detailed_entry = Mock(spec=dataplex_v1.Entry)
+        detailed_entry.name = listed_entry.name
+
+        catalog_client.list_entries.return_value = [listed_entry]
+        catalog_client.get_entry.return_value = detailed_entry
+        catalog_client.search_entries.return_value = []
+
+        with (
+            patch.object(
+                processor, "list_entry_groups", return_value=[entry_group]
+            ) as mock_list_entry_groups,
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.ListEntriesRequest"
+            ) as mock_list_entries_request,
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.GetEntryRequest"
+            ) as mock_get_entry_request,
+        ):
+            mock_list_entries_request.return_value = Mock()
+            mock_get_entry_request.return_value = Mock()
+            entries_iter = processor.collect_entries("p", "us")
+            first_entry = next(iter(entries_iter))
+
+        assert first_entry is detailed_entry
+        mock_list_entry_groups.assert_called_once_with("p", "us")
+        catalog_client.search_entries.assert_not_called()
+
+    def test_process_project_uses_entries_locations(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.entries_locations = ["us", "eu"]
+
+        with patch.object(
+            processor, "process_location", side_effect=[[Mock()], [Mock()]]
+        ) as process_location_mock:
+            entities = list(processor.process_project("project-1"))
+
+        assert len(entities) == 2
+        assert process_location_mock.call_args_list[0].args == ("project-1", "us")
+        assert process_location_mock.call_args_list[1].args == ("project-1", "eu")
+
+    def test_process_location_yields_entity_for_pre_filtered_entries(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        accepted = Mock(spec=dataplex_v1.Entry)
+        accepted.name = "projects/p/locations/us/entryGroups/g/entries/allow"
+        accepted.fully_qualified_name = "bigquery:p.ds.allow"
+
+        entity = Mock()
+        with (
+            patch.object(
+                processor,
+                "collect_entries",
+                return_value=[accepted],
+            ),
+            patch.object(
+                processor, "build_project_container_for_entry", return_value=None
+            ),
+            patch.object(processor, "build_entity_for_entry", return_value=entity),
+            patch.object(processor, "_track_entry_for_lineage") as track_lineage_mock,
+        ):
+            entities = list(processor.process_location("project-1", "us"))
+
+        report = cast(DataplexEntriesReport, processor.report)
+        assert entities == [entity]
+        assert report.entries_seen == 0
+        track_lineage_mock.assert_called_once_with(
+            project_id="project-1",
+            dataplex_location="us",
+            entry=accepted,
         )
 
-        assert len(results) == 0
-
-    def test_bigquery_entry_valid(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test processing a valid BigQuery entry."""
-        create_time = datetime(2023, 1, 1, 12, 0, 0)
-        update_time = datetime(2023, 1, 2, 12, 0, 0)
-
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.my_table",
-            description="Test table description",
-            create_time=create_time,
-            update_time=update_time,
+    def test_collect_entries_covers_group_filtering_and_exception_paths(self) -> None:
+        catalog_client = Mock()
+        processor = DataplexEntriesProcessor(
+            config=DataplexConfig(project_ids=["test-project"], env="PROD"),
+            catalog_client=catalog_client,
+            report=DataplexEntriesReport(),
+            entry_data_by_project={},
+            entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
+        skipped_group = Mock(spec=dataplex_v1.EntryGroup)
+        skipped_group.name = "projects/p/locations/us/entryGroups/skip"
+        accepted_group = Mock(spec=dataplex_v1.EntryGroup)
+        accepted_group.name = "projects/p/locations/us/entryGroups/accept"
+
+        listed_ok = Mock(spec=dataplex_v1.Entry)
+        listed_ok.name = "projects/p/locations/us/entryGroups/accept/entries/ok"
+        listed_ok.fully_qualified_name = "bigquery:p.ds.ok"
+        listed_fail = Mock(spec=dataplex_v1.Entry)
+        listed_fail.name = "projects/p/locations/us/entryGroups/accept/entries/fail"
+        listed_fail.fully_qualified_name = "bigquery:p.ds.fail"
+
+        detailed_ok = Mock(spec=dataplex_v1.Entry)
+        detailed_ok.name = listed_ok.name
+        spanner_entry = Mock(spec=dataplex_v1.Entry)
+        spanner_entry.name = "projects/p/locations/us/entryGroups/@spanner/entries/e1"
+
+        catalog_client.list_entries.return_value = [listed_ok, listed_fail]
+        catalog_client.get_entry.side_effect = [detailed_ok, Exception("boom")]
+
+        with (
+            patch.object(
+                processor,
+                "list_entry_groups",
+                return_value=[skipped_group, accepted_group],
+            ),
+            patch.object(
+                processor,
+                "should_process_entry_group",
+                side_effect=[False, True],
+            ),
+            patch.object(
+                processor, "collect_spanner_entries", return_value=[spanner_entry]
+            ),
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.ListEntriesRequest"
+            ) as list_entries_request_mock,
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.GetEntryRequest"
+            ) as get_entry_request_mock,
+        ):
+            list_entries_request_mock.return_value = Mock()
+            get_entry_request_mock.return_value = Mock()
+            entries = list(processor.collect_entries("p", "us"))
+
+        report = cast(DataplexEntriesReport, processor.report)
+        assert entries == [detailed_ok, spanner_entry]
+        assert report.entry_groups_seen == 2
+        assert report.entry_groups_filtered == 1
+
+    def test_collect_spanner_entries_success_and_exception(self) -> None:
+        catalog_client = Mock()
+        processor = DataplexEntriesProcessor(
+            config=DataplexConfig(project_ids=["test-project"], env="PROD"),
+            catalog_client=catalog_client,
+            report=DataplexEntriesReport(),
+            entry_data_by_project={},
+            entry_data_lock=Lock(),
+            source_report=Mock(),
         )
 
-        # Should have at least DatasetProperties and DataPlatformInstance
-        assert len(results) >= 2
-
-        # Check DatasetProperties
-        dataset_props = None
-        platform_instance = None
-        container = None
-        for result in results:
-            if isinstance(result.aspect, DatasetPropertiesClass):
-                dataset_props = result.aspect
-            elif isinstance(result.aspect, DataPlatformInstanceClass):
-                platform_instance = result.aspect
-            elif isinstance(result.aspect, ContainerClass):
-                container = result.aspect
-
-        assert dataset_props is not None
-        assert dataset_props.name == "my_table"
-        assert dataset_props.description == "Test table description"
-        assert dataset_props.created is not None
-        assert dataset_props.lastModified is not None
-
-        assert platform_instance is not None
-        assert "bigquery" in str(platform_instance.platform)
-
-        # Should have container for BigQuery
-        assert container is not None
-
-        # Check entry data tracking
-        assert "test-project" in entry_data_by_project
-        entry_data = entry_data_by_project["test-project"]
-        assert len(entry_data) == 1
-        entry_tuple = next(iter(entry_data))
-        assert entry_tuple.entry_id == "my_table"
-        assert entry_tuple.source_platform == "bigquery"
-
-        # Check BigQuery container tracking
-        assert "test-project" in bq_containers
-        assert "my_dataset" in bq_containers["test-project"]
-
-    def test_bigquery_entry_insufficient_parts(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that BigQuery entry with insufficient parts is skipped."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/test_entry",
-            fully_qualified_name="bigquery:test-project.my_dataset",
-        )
-
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.SearchEntriesRequest"
+        ) as search_request_mock:
+            search_request_mock.return_value = Mock()
+            result_with_entry = Mock()
+            result_with_entry.dataplex_entry = Mock(spec=dataplex_v1.Entry)
+            result_with_entry.dataplex_entry.name = "projects/p/locations/us/entries/e1"
+            result_with_entry.dataplex_entry.fully_qualified_name = (
+                "spanner:p.us.instance.db.table"
             )
-        )
-
-        assert len(results) == 0
-
-    def test_bigquery_entry_zone_metadata(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that BigQuery entry with zone metadata is skipped."""
-        invalid_zone_patterns = ["_zone", "zone1"]
-
-        for zone_pattern in invalid_zone_patterns:
-            table_name = (
-                f"test{zone_pattern}" if zone_pattern.startswith("_") else zone_pattern
-            )
-            entry = self.create_mock_entry(
-                name=f"projects/test-project/locations/us/entryGroups/@bigquery/entries/{table_name}",
-                fully_qualified_name=f"bigquery:test-project.my_dataset.{table_name}",
-            )
-
-            results = list(
-                process_entry(
-                    project_id="test-project",
-                    entry=entry,
-                    entry_group_id="@bigquery",
-                    config=config,
-                    entry_data_by_project=entry_data_by_project,
-                    entry_data_lock=entry_data_lock,
-                    bq_containers=bq_containers,
-                    bq_containers_lock=bq_containers_lock,
-                    construct_mcps_fn=construct_mcps_fn,
-                )
-            )
-
-            assert len(results) == 0, (
-                f"Entry with zone pattern '{zone_pattern}' should be skipped"
-            )
-
-    def test_bigquery_entry_asset_metadata(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that BigQuery entry with asset metadata is skipped."""
-        invalid_asset_patterns = ["_asset", "asset1"]
-
-        for asset_pattern in invalid_asset_patterns:
-            table_name = (
-                f"test{asset_pattern}"
-                if asset_pattern.startswith("_")
-                else asset_pattern
-            )
-            entry = self.create_mock_entry(
-                name=f"projects/test-project/locations/us/entryGroups/@bigquery/entries/{table_name}",
-                fully_qualified_name=f"bigquery:test-project.my_dataset.{table_name}",
-            )
-
-            results = list(
-                process_entry(
-                    project_id="test-project",
-                    entry=entry,
-                    entry_group_id="@bigquery",
-                    config=config,
-                    entry_data_by_project=entry_data_by_project,
-                    entry_data_lock=entry_data_lock,
-                    bq_containers=bq_containers,
-                    bq_containers_lock=bq_containers_lock,
-                    construct_mcps_fn=construct_mcps_fn,
-                )
-            )
-
-            assert len(results) == 0, (
-                f"Entry with asset pattern '{asset_pattern}' should be skipped"
-            )
-
-    def test_gcs_entry_valid(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test processing a valid GCS entry."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@gcs/entries/file.parquet",
-            fully_qualified_name="gcs:my-bucket/path/to/file.parquet",
-            description="GCS file",
-        )
-
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@gcs",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        # Should have at least DatasetProperties and DataPlatformInstance
-        assert len(results) >= 2
-
-        dataset_props = None
-        for result in results:
-            if isinstance(result.aspect, DatasetPropertiesClass):
-                dataset_props = result.aspect
-                break
-
-        assert dataset_props is not None
-        assert dataset_props.description == "GCS file"
-
-        # Check entry data tracking
-        assert "test-project" in entry_data_by_project
-        entry_data = entry_data_by_project["test-project"]
-        assert len(entry_data) == 1
-        entry_tuple = next(iter(entry_data))
-        assert entry_tuple.source_platform == "gcs"
-
-        # GCS entries should not have containers
-        assert len(bq_containers) == 0
-
-    def test_gcs_entry_insufficient_parts(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that GCS entry with insufficient parts is skipped."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@gcs/entries/test_entry",
-            fully_qualified_name="gcs:my-bucket",
-        )
-
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@gcs",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        assert len(results) == 0
-
-    def test_gcs_entry_asset_metadata(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that GCS entry with asset metadata is skipped."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@gcs/entries/asset1",
-            fully_qualified_name="gcs:my-bucket/asset1",
-        )
-
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@gcs",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        assert len(results) == 0
-
-    def test_entry_with_schema_extraction_enabled(
-        self,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test entry processing with schema extraction enabled."""
-        config = DataplexConfig(project_ids=["test-project"], include_schema=True)
-
-        # Mock schema aspect
-        schema_aspect = Mock(spec=dataplex_v1.Aspect)
-        schema_aspect.data = {
-            "fields": [
-                {
-                    "name": "column1",
-                    "type": "STRING",
-                    "mode": "NULLABLE",
-                }
+            result_without_entry = Mock()
+            result_without_entry.dataplex_entry = None
+            catalog_client.search_entries.return_value = [
+                result_with_entry,
+                result_without_entry,
             ]
-        }
 
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.my_table",
-            aspects={"dataplex.googleapis.com/schema": schema_aspect},
-        )
-
-        # Mock extract_schema_from_entry_aspects to return schema
-        # Need to patch it in dataplex_entries module since it's imported there
-        mock_schema = Mock(spec=SchemaMetadataClass)
-        mock_schema.fields = [Mock()]
+            entries = list(processor.collect_spanner_entries("p", "us"))
+            assert len(entries) == 1
+            assert entries[0].name == "projects/p/locations/us/entries/e1"
 
         with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_schema_from_entry_aspects"
-        ) as mock_extract:
-            mock_extract.return_value = mock_schema
+            "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.SearchEntriesRequest"
+        ) as search_request_mock:
+            search_request_mock.return_value = Mock()
+            catalog_client.search_entries.side_effect = Exception("search failed")
+            assert list(processor.collect_spanner_entries("p", "us")) == []
 
-            results = list(
-                process_entry(
-                    project_id="test-project",
-                    entry=entry,
-                    entry_group_id="@bigquery",
-                    config=config,
-                    entry_data_by_project=entry_data_by_project,
-                    entry_data_lock=entry_data_lock,
-                    bq_containers=bq_containers,
-                    bq_containers_lock=bq_containers_lock,
-                    construct_mcps_fn=construct_mcps_fn,
-                )
-            )
+    def test_build_entity_for_entry_dataset_and_container_paths(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = True
 
-            # Should have schema metadata
-            schema_metadata = None
-            for result in results:
-                if isinstance(result.aspect, SchemaMetadataClass):
-                    schema_metadata = result.aspect
-                    break
-
-            assert schema_metadata is not None
-            assert mock_extract.called
-            assert mock_extract.call_count == 1
-
-    def test_entry_with_schema_extraction_disabled(
-        self,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test entry processing with schema extraction disabled."""
-        config = DataplexConfig(project_ids=["test-project"], include_schema=False)
-
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.my_table",
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
         )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
+        )
+        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
+        dataset_entry.parent_entry = (
+            "projects/p/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/p/datasets/ds"
+        )
+        dataset_entry.entry_source = None
 
-        # Mock extract_schema_from_entry_aspects to ensure it's not called
-        # Need to patch it in dataplex_entries module since it's imported there
+        with (
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+                return_value={"k": "v"},
+            ),
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_entries.extract_schema_from_entry_aspects",
+                return_value=[],
+            ),
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
+
+        container_entry = Mock(spec=dataplex_v1.Entry)
+        container_entry.name = (
+            "projects/p/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/p/datasets/ds"
+        )
+        container_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-dataset"
+        )
+        container_entry.fully_qualified_name = "bigquery:p.ds"
+        container_entry.parent_entry = ""
+        container_entry.entry_source = None
+
         with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_schema_from_entry_aspects"
-        ) as mock_extract:
-            mock_extract.return_value = None
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            container_entity = processor.build_entity_for_entry(container_entry)
+        assert isinstance(container_entity, Container)
+        assert str(container_entity.parent_container).startswith("urn:li:container:")
 
-            results = list(
-                process_entry(
-                    project_id="test-project",
-                    entry=entry,
-                    entry_group_id="@bigquery",
-                    config=config,
-                    entry_data_by_project=entry_data_by_project,
-                    entry_data_lock=entry_data_lock,
-                    bq_containers=bq_containers,
-                    bq_containers_lock=bq_containers_lock,
-                    construct_mcps_fn=construct_mcps_fn,
-                )
+        cloudsql_database_container = Mock(spec=dataplex_v1.Entry)
+        cloudsql_database_container.name = (
+            "projects/p/locations/us-west2/entryGroups/@cloudsql/entries/"
+            "cloudsql.googleapis.com/projects/p/locations/us-west2/instances/i/databases/d"
+        )
+        cloudsql_database_container.entry_type = (
+            "projects/123/locations/global/entryTypes/cloudsql-mysql-database"
+        )
+        cloudsql_database_container.fully_qualified_name = (
+            "cloudsql_mysql:p.us-west2.i.d"
+        )
+        cloudsql_database_container.parent_entry = (
+            "projects/p/locations/us-west2/entryGroups/@cloudsql/entries/"
+            "cloudsql.googleapis.com/projects/p/locations/us-west2/instances/i"
+        )
+        cloudsql_database_container.entry_source = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            cloudsql_container_entity = processor.build_entity_for_entry(
+                cloudsql_database_container
             )
+        assert isinstance(cloudsql_container_entity, Container)
+        assert str(cloudsql_container_entity.parent_container).startswith(
+            "urn:li:container:"
+        )
 
-            # Should not have schema metadata
-            schema_metadata = None
-            for result in results:
-                if isinstance(result.aspect, SchemaMetadataClass):
-                    schema_metadata = result.aspect
-                    break
+    def test_build_project_container_for_entry(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.entry_type = (
+            "projects/123/locations/global/entryTypes/cloud-spanner-table"
+        )
+        entry.fully_qualified_name = "spanner:harshal-playground-306419.regional-us-west2.sergio-test.cymbal.Users"
 
-            assert schema_metadata is None
-            # Function should not be called when include_schema is False
-            assert not mock_extract.called
+        project_container = processor.build_project_container_for_entry(entry)
+        assert isinstance(project_container, Container)
+        assert project_container.display_name == "harshal-playground-306419"
+        assert project_container.parent_container is None
 
-    def test_entry_without_timestamps(
+    def test_process_location_emits_project_container_once_per_project(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entry_one = Mock(spec=dataplex_v1.Entry)
+        entry_one.name = "projects/p/locations/us/entryGroups/g/entries/one"
+        entry_one.fully_qualified_name = "bigquery:p.ds.one"
+        entry_two = Mock(spec=dataplex_v1.Entry)
+        entry_two.name = "projects/p/locations/us/entryGroups/g/entries/two"
+        entry_two.fully_qualified_name = "bigquery:p.ds.two"
+
+        project_container = Mock()
+        project_container.urn.urn.return_value = "urn:li:container:project"
+        dataset_entity_one = Mock()
+        dataset_entity_two = Mock()
+
+        with (
+            patch.object(
+                processor, "collect_entries", return_value=[entry_one, entry_two]
+            ),
+            patch.object(processor, "_entry_name_allowed", return_value=True),
+            patch.object(processor, "_entry_fqn_allowed", return_value=True),
+            patch.object(
+                processor,
+                "build_project_container_for_entry",
+                return_value=project_container,
+            ),
+            patch.object(
+                processor,
+                "build_entity_for_entry",
+                side_effect=[dataset_entity_one, dataset_entity_two],
+            ),
+            patch.object(processor, "_track_entry_for_lineage"),
+        ):
+            entities = list(processor.process_location("project-1", "us"))
+
+        assert entities == [project_container, dataset_entity_one, dataset_entity_two]
+
+    def test_build_entity_for_entry_handles_invalid_and_unsupported_inputs(
         self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test entry processing without timestamps."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.my_table",
-            create_time=None,
-            update_time=None,
+        processor: DataplexEntriesProcessor,
+    ) -> None:
+        missing_fqn = Mock(spec=dataplex_v1.Entry)
+        missing_fqn.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        missing_fqn.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
         )
+        missing_fqn.fully_qualified_name = ""
+        missing_fqn.parent_entry = ""
+        assert processor.build_entity_for_entry(missing_fqn) is None
 
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
+        unsupported = Mock(spec=dataplex_v1.Entry)
+        unsupported.name = "projects/p/locations/us/entryGroups/g/entries/e2"
+        unsupported.entry_type = "projects/123/locations/global/entryTypes/unknown"
+        unsupported.fully_qualified_name = "unknown:p.ds.t"
+        unsupported.parent_entry = ""
+        assert processor.build_entity_for_entry(unsupported) is None
+
+        invalid_dataset_fqn = Mock(spec=dataplex_v1.Entry)
+        invalid_dataset_fqn.name = "projects/p/locations/us/entryGroups/g/entries/e3"
+        invalid_dataset_fqn.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
         )
+        invalid_dataset_fqn.fully_qualified_name = "bigquery"
+        invalid_dataset_fqn.parent_entry = ""
+        invalid_dataset_fqn.entry_source = None
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={},
+        ):
+            assert processor.build_entity_for_entry(invalid_dataset_fqn) is None
 
-        dataset_props = None
-        for result in results:
-            if isinstance(result.aspect, DatasetPropertiesClass):
-                dataset_props = result.aspect
-                break
+    def test_build_entity_for_entry_dataset_without_parent_container(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = False
 
-        assert dataset_props is not None
-        assert dataset_props.created is None
-        assert dataset_props.lastModified is None
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
+        )
+        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = None
 
-    def test_entry_without_entry_source(
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.parent_container is None
+
+    def test_extract_helpers_cover_display_description_datetime_and_group_id(
         self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test entry processing without entry_source."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.my_table",
+        processor: DataplexEntriesProcessor,
+    ) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.entry_source = Mock()
+        entry.entry_source.display_name = "Display"
+        entry.entry_source.description = "Description"
+        ts = Mock()
+        ts.timestamp.return_value = 123.0
+        entry.entry_source.create_time = ts
+        entry.entry_source.update_time = ts
+
+        assert processor._extract_display_name(entry) == "Display"
+        assert processor._extract_description(entry) == "Description"
+        assert processor._extract_entry_group_id(entry.name) == "g"
+        assert processor._extract_datetime(entry, "create_time") is not None
+        assert processor._extract_datetime(entry, "update_time") is not None
+
+        no_source_entry = Mock(spec=dataplex_v1.Entry)
+        no_source_entry.name = "projects/p/locations/us/entries/e2"
+        no_source_entry.entry_source = None
+        assert processor._extract_description(no_source_entry) == ""
+        assert processor._extract_datetime(no_source_entry, "create_time") is None
+        assert processor._extract_entry_group_id(no_source_entry.name) == "unknown"
+
+    def test_build_entry_container_key_warns_for_invalid_entry_type(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.entry_type = "invalid-entry-type"
+        entry.parent_entry = "projects/p/locations/us/entryGroups/g/entries/parent"
+
+        assert processor.build_entry_container_key(entry) is None
+        source_report = cast(Mock, processor.source_report)
+        source_report.warning.assert_called_once()
+
+    def test_track_entry_for_lineage_warns_for_invalid_entry_type(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        entry.entry_type = "invalid-entry-type"
+        entry.fully_qualified_name = "bigquery:p.ds.table"
+
+        processor._track_entry_for_lineage("project-1", "us", entry)
+
+        source_report = cast(Mock, processor.source_report)
+        source_report.warning.assert_called_once()
+        assert "project-1" not in processor.entry_data_by_project
+
+    def test_build_entry_container_key_and_lineage_tracking(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        no_parent = Mock(spec=dataplex_v1.Entry)
+        no_parent.name = "projects/p/locations/us/entryGroups/g/entries/no-parent"
+        no_parent.entry_type = "projects/123/locations/global/entryTypes/bigquery-table"
+        no_parent.parent_entry = ""
+        assert processor.build_entry_container_key(no_parent) is None
+
+        with_parent = Mock(spec=dataplex_v1.Entry)
+        with_parent.entry_type = (
+            "projects/123/locations/global/entryTypes/cloudsql-mysql-table"
         )
-        entry.entry_source = None  # type: ignore[assignment]
-
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
+        with_parent.parent_entry = (
+            "projects/p/locations/us-west2/entryGroups/@cloudsql/entries/"
+            "cloudsql.googleapis.com/projects/p/locations/us-west2/instances/i/databases/d"
         )
+        parent_key = processor.build_entry_container_key(with_parent)
+        assert isinstance(parent_key, DataplexCloudSqlMySqlDatabase)
+        assert parent_key.as_urn().startswith("urn:li:container:")
 
-        dataset_props = None
-        for result in results:
-            if isinstance(result.aspect, DatasetPropertiesClass):
-                dataset_props = result.aspect
-                break
-
-        assert dataset_props is not None
-        assert dataset_props.description == ""
-        assert dataset_props.created is None
-        assert dataset_props.lastModified is None
-
-    def test_entry_custom_properties(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test that custom properties are extracted from entry."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
-            fully_qualified_name="bigquery:test-project.my_dataset.my_table",
-            entry_type="TABLE",
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
         )
+        dataset_entry.fully_qualified_name = "bigquery:p.ds.table1"
+        processor._track_entry_for_lineage("project-1", "us", dataset_entry)
+        assert "project-1" in processor.entry_data_by_project
+        tracked = next(iter(processor.entry_data_by_project["project-1"]))
+        assert tracked.datahub_dataset_name == "p.ds.table1"
+        assert tracked.datahub_platform == "bigquery"
+        assert tracked.dataplex_entry_fqn == "bigquery:p.ds.table1"
 
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
+        non_dataset_entry = Mock(spec=dataplex_v1.Entry)
+        non_dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e2"
+        non_dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-dataset"
         )
-
-        dataset_props = None
-        for result in results:
-            if isinstance(result.aspect, DatasetPropertiesClass):
-                dataset_props = result.aspect
-                break
-
-        assert dataset_props is not None
-        assert dataset_props.customProperties is not None
-        assert "dataplex_ingested" in dataset_props.customProperties
-        assert dataset_props.customProperties["dataplex_ingested"] == "true"
-        assert "dataplex_entry_id" in dataset_props.customProperties
-        assert dataset_props.customProperties["dataplex_entry_id"] == "my_table"
-        assert "dataplex_entry_group" in dataset_props.customProperties
-        assert dataset_props.customProperties["dataplex_entry_group"] == "@bigquery"
-        assert "dataplex_fully_qualified_name" in dataset_props.customProperties
-
-    def test_multiple_entries_same_project(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test processing multiple entries for the same project."""
-        entry1 = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/table1",
-            fully_qualified_name="bigquery:test-project.dataset1.table1",
-        )
-
-        entry2 = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/table2",
-            fully_qualified_name="bigquery:test-project.dataset2.table2",
-        )
-
-        # Process first entry
-        list(
-            process_entry(
-                project_id="test-project",
-                entry=entry1,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        # Process second entry
-        list(
-            process_entry(
-                project_id="test-project",
-                entry=entry2,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        # Check entry data tracking
-        assert "test-project" in entry_data_by_project
-        entry_data = entry_data_by_project["test-project"]
-        assert len(entry_data) == 2
-
-        # Check BigQuery container tracking
-        assert "test-project" in bq_containers
-        assert "dataset1" in bq_containers["test-project"]
-        assert "dataset2" in bq_containers["test-project"]
-
-    def test_entry_fqn_without_colon(
-        self,
-        config,
-        entry_data_by_project,
-        entry_data_lock,
-        bq_containers,
-        bq_containers_lock,
-        construct_mcps_fn,
-    ):
-        """Test entry with FQN that doesn't have colon (uses entry_id as dataset_name)."""
-        entry = self.create_mock_entry(
-            name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
-            fully_qualified_name="my_table",  # No colon, no platform prefix
-        )
-
-        results = list(
-            process_entry(
-                project_id="test-project",
-                entry=entry,
-                entry_group_id="@bigquery",
-                config=config,
-                entry_data_by_project=entry_data_by_project,
-                entry_data_lock=entry_data_lock,
-                bq_containers=bq_containers,
-                bq_containers_lock=bq_containers_lock,
-                construct_mcps_fn=construct_mcps_fn,
-            )
-        )
-
-        # Should be skipped because parse_entry_fqn will fail
-        assert len(results) == 0
+        non_dataset_entry.fully_qualified_name = "bigquery:p.ds"
+        processor._track_entry_for_lineage("project-2", "us", non_dataset_entry)
+        assert "project-2" not in processor.entry_data_by_project

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import collections
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Set
 
@@ -24,16 +24,26 @@ from google.cloud.datacatalog_lineage import EntityReference, SearchLinksRequest
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
-from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
+from datahub.ingestion.source.dataplex.dataplex_ids import (
+    build_dataset_urn_from_fqn_only,
+    is_supported_lineage_entry_type,
+)
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +62,143 @@ class LineageEdge:
     immutability and hashability.
 
     Attributes:
-        entry_id: The upstream entry ID in Dataplex format
+        upstream_datahub_urn: The upstream dataset URN normalized for DataHub
         audit_stamp: When this lineage was observed
         lineage_type: Type of lineage (TRANSFORMED, COPY, etc.)
     """
 
-    entry_id: str
+    upstream_datahub_urn: str
     audit_stamp: datetime
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED
+
+
+@dataclass
+class DataplexLineageReport(Report):
+    """Lineage-specific observability for Dataplex ingestion."""
+
+    num_lineage_relationships_created: int = 0
+    lineage_relationships_created_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_entries_processed: int = 0
+    lineage_entries_processed_samples: LossyList[str] = field(default_factory=LossyList)
+    num_lineage_entries_scanned: int = 0
+    lineage_entries_scanned_samples: LossyList[str] = field(default_factory=LossyList)
+    num_lineage_entries_without_lineage: int = 0
+    lineage_entries_without_lineage_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_entries_skipped_unsupported_type: int = 0
+    lineage_entries_skipped_unsupported_type_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_upstream_fqns_skipped: int = 0
+    lineage_upstream_fqns_skipped_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_upstream_links_found: int = 0
+    lineage_upstream_links_found_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_downstream_links_found: int = 0
+    lineage_downstream_links_found_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_edges_added: int = 0
+    lineage_edges_added_samples: LossyList[str] = field(default_factory=LossyList)
+    num_lineage_entries_failed: int = 0
+    lineage_entries_failed_samples: LossyList[str] = field(default_factory=LossyList)
+    lineage_api: dict[str, tuple[int, float]] = field(default_factory=dict)
+
+    def report_lineage_api_call(self, api_name: str, elapsed_seconds: float) -> None:
+        """Accumulate per-API call count and total latency in seconds."""
+        num_calls, total_time_secs = self.lineage_api.get(api_name, (0, 0.0))
+        self.lineage_api[api_name] = (
+            num_calls + 1,
+            total_time_secs + elapsed_seconds,
+        )
+
+    def report_lineage_relationship_created(self, relationship: str) -> None:
+        self.num_lineage_relationships_created += 1
+        self.lineage_relationships_created_samples.append(relationship)
+        logger.debug(f"Lineage relationship created: {relationship}")
+
+    def report_lineage_entry_processed(self, entry_name: str) -> None:
+        self.num_lineage_entries_processed += 1
+        self.lineage_entries_processed_samples.append(entry_name)
+        logger.debug(f"Lineage entry processed: {entry_name}")
+
+    def report_lineage_entry_scanned(self, entry_name: str) -> None:
+        self.num_lineage_entries_scanned += 1
+        self.lineage_entries_scanned_samples.append(entry_name)
+        logger.debug(f"Lineage entry has links: {entry_name}")
+
+    def report_lineage_entry_without_lineage(
+        self, entry_name: str, reason: str
+    ) -> None:
+        self.num_lineage_entries_without_lineage += 1
+        self.lineage_entries_without_lineage_samples.append(
+            f"entry={entry_name}, reason={reason}"
+        )
+        logger.debug(f"Lineage missing for entry {entry_name} (reason={reason})")
+
+    def report_lineage_entry_skipped_unsupported_type(
+        self, entry_name: str, entry_type: str
+    ) -> None:
+        self.num_lineage_entries_skipped_unsupported_type += 1
+        self.lineage_entries_skipped_unsupported_type_samples.append(
+            f"entry={entry_name}, entry_type={entry_type}"
+        )
+        logger.debug(
+            f"Lineage skipped unsupported entry type for {entry_name}: {entry_type}"
+        )
+
+    def report_lineage_upstream_fqn_skipped(
+        self, entry_name: str, upstream_fqn: str
+    ) -> None:
+        self.num_lineage_upstream_fqns_skipped += 1
+        self.lineage_upstream_fqns_skipped_samples.append(
+            f"entry={entry_name}, upstream_fqn={upstream_fqn}"
+        )
+        logger.debug(
+            f"Lineage upstream FQN skipped for {entry_name}: upstream_fqn={upstream_fqn}"
+        )
+
+    def report_lineage_upstream_links_found(self, entry_name: str, count: int) -> None:
+        if count <= 0:
+            return
+        self.num_lineage_upstream_links_found += count
+        self.lineage_upstream_links_found_samples.append(
+            f"entry={entry_name}, count={count}"
+        )
+        logger.debug(f"Lineage upstream links observed for {entry_name}: {count}")
+
+    def report_lineage_downstream_links_found(
+        self, entry_name: str, count: int
+    ) -> None:
+        if count <= 0:
+            return
+        self.num_lineage_downstream_links_found += count
+        self.lineage_downstream_links_found_samples.append(
+            f"entry={entry_name}, count={count}"
+        )
+        logger.debug(f"Lineage downstream links observed for {entry_name}: {count}")
+
+    def report_lineage_edge_added(
+        self, downstream_dataset_id: str, upstream_dataset_urn: str
+    ) -> None:
+        self.num_lineage_edges_added += 1
+        self.lineage_edges_added_samples.append(
+            f"{downstream_dataset_id}<-{upstream_dataset_urn}"
+        )
+        logger.debug(
+            f"Lineage edge added: {downstream_dataset_id} <- {upstream_dataset_urn}"
+        )
+
+    def report_lineage_entry_failed(self, entry_name: str, stage: str) -> None:
+        self.num_lineage_entries_failed += 1
+        self.lineage_entries_failed_samples.append(f"entry={entry_name}, stage={stage}")
+        logger.debug(f"Lineage entry failed: {entry_name} (stage={stage})")
 
 
 class DataplexLineageExtractor:
@@ -73,29 +212,38 @@ class DataplexLineageExtractor:
     def __init__(
         self,
         config: DataplexConfig,
-        report: DataplexReport,
+        report: DataplexLineageReport,
+        source_report: SourceReport,
         lineage_client: Optional[LineageClient] = None,
-        redundant_run_skip_handler: Optional[Any] = None,
+        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         """
         Initialize the lineage extractor.
 
         Args:
             config: Dataplex source configuration
-            report: Source report for tracking metrics
+            report: Lineage report for lineage-specific counters
+            source_report: Source report for warning/failure emission
             lineage_client: Optional pre-configured LineageClient
-            redundant_run_skip_handler: Optional handler to skip redundant lineage runs
+            redundant_run_skip_handler: Optional redundant lineage run skip handler
         """
         self.config = config
         self.report = report
+        self.source_report = source_report
         self.lineage_client = lineage_client
+        # TODO: Use redundant_run_skip_handler to short-circuit lineage calls when stateful
+        # lineage ingestion determines this run is redundant.
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
-        # Map entry IDs to their upstream dependencies to enable efficient lineage lookups
+        # Map dataset IDs to their upstream dependencies to enable efficient lineage lookups
         # during workunit generation without re-querying the Lineage API
         self.lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
             collections.defaultdict(set)
         )
+
+    def _resolve_lineage_parent(self, project_id: str, entry: EntryDataTuple) -> str:
+        """Resolve Data Lineage API parent using the tracked entry location."""
+        return f"projects/{project_id}/locations/{entry.dataplex_location}"
 
     def get_lineage_for_entry(
         self, project_id: str, entry: EntryDataTuple
@@ -118,44 +266,58 @@ class DataplexLineageExtractor:
             return None
 
         try:
-            fully_qualified_name = self._construct_fqn(
-                entry.source_platform,
-                entry.dataset_id,
-            )
+            fully_qualified_name = entry.dataplex_entry_fqn
             lineage_data: dict[str, list[Any]] = {"upstream": [], "downstream": []}
-            # We only need multi-region name like US, EU, etc.
-            parent = f"projects/{project_id}/locations/{self.config.entries_location}"
+            parent = self._resolve_lineage_parent(project_id, entry)
 
             # Get upstream lineage (where this entry is the target) - retries are handled inside _search_links_by_target
-            upstream_links = self._search_links_by_target(parent, fully_qualified_name)
+            with PerfTimer() as timer:
+                upstream_links = self._search_links_by_target(
+                    parent, fully_qualified_name
+                )
+                self.report.report_lineage_api_call(
+                    "search_links_by_target", timer.elapsed_seconds()
+                )
             for link in upstream_links:
                 if link.source and link.source.fully_qualified_name:
                     lineage_data["upstream"].append(link.source.fully_qualified_name)
 
             # Get downstream lineage (where this entry is the source) - retries are handled inside _search_links_by_source
-            downstream_links = self._search_links_by_source(
-                parent, fully_qualified_name
-            )
+            with PerfTimer() as timer:
+                downstream_links = self._search_links_by_source(
+                    parent, fully_qualified_name
+                )
+                self.report.report_lineage_api_call(
+                    "search_links_by_source", timer.elapsed_seconds()
+                )
             for link in downstream_links:
                 if link.target and link.target.fully_qualified_name:
                     lineage_data["downstream"].append(link.target.fully_qualified_name)
 
             if lineage_data["upstream"] or lineage_data["downstream"]:
                 logger.debug(
-                    f"Found lineage for {entry.entry_id}: "
+                    f"Found lineage for {entry.dataplex_entry_short_name}: "
                     f"{len(lineage_data['upstream'])} upstream, "
                     f"{len(lineage_data['downstream'])} downstream"
                 )
-                self.report.num_lineage_entries_scanned += 1
+                self.report.report_lineage_entry_scanned(entry.dataplex_entry_name)
 
             return lineage_data
 
         except Exception as e:
             # After retries are exhausted, report structured warning and continue
-            self.report.num_lineage_entries_failed += 1
-            self.report.report_warning(
+            self.report.report_lineage_entry_failed(
+                entry_name=entry.dataplex_entry_name,
+                stage="get_lineage_for_entry",
+            )
+            self.source_report.warning(
                 "Failed to get lineage for entry after retries. Continuing with other entries.",
-                context=entry.entry_id,
+                context=(
+                    f"project_id={project_id}, "
+                    f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                    f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                    f"entry_type={entry.dataplex_entry_type_short_name}"
+                ),
                 exc=e,
             )
             return None
@@ -274,41 +436,6 @@ class DataplexLineageExtractor:
         retrying_func = retry_decorator(self._search_links_by_source_impl)
         return retrying_func(parent, fully_qualified_name)
 
-    def _construct_fqn(
-        self,
-        platform: str,
-        dataset_id: str,
-    ) -> str:
-        """
-        Construct a fully qualified name for an entry based on platform.
-
-        The FQN format varies by platform per Google Cloud Lineage API:
-        - BigQuery: bigquery:{project}.{dataset}.{table}
-        - GCS: gcs:{bucket}/{path}
-
-        Args:
-            platform: Source platform ("bigquery" or "gcs")
-            dataset_id: Full path like "project.dataset.table" for BigQuery
-                        or "bucket/path" for GCS
-
-        Returns:
-            Fully qualified name string in the format expected by Google Lineage API
-        """
-        if platform == "bigquery":
-            # BigQuery format: bigquery:{project}.{dataset}.{table}
-            # For entries, dataset_id already contains "project.dataset.table"
-            return f"bigquery:{dataset_id}"
-        elif platform == "gcs":
-            # GCS format: gcs:{bucket}/{path}
-            # For entries, dataset_id already contains the full path
-            return f"gcs:{dataset_id}"
-        else:
-            # Fallback for unknown platforms (shouldn't happen in practice)
-            logger.warning(
-                f"Unknown platform '{platform}' for FQN construction, using generic format"
-            )
-            return f"{platform}:{dataset_id}"
-
     def build_lineage_map(
         self, project_id: str, entry_data: Iterable[EntryDataTuple]
     ) -> Dict[str, Set[LineageEdge]]:
@@ -326,34 +453,98 @@ class DataplexLineageExtractor:
         lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
             collections.defaultdict(set)
         )
-        entry_count = 0
-
-        for entry in entry_data:
-            entry_count += 1
-            logger.debug(
-                f"Processing entry {entry_count}: {entry.dataset_id} (platform: {entry.source_platform})"
-            )
+        for entry_index, entry in enumerate(entry_data, start=1):
+            self.report.report_lineage_entry_processed(entry.dataplex_entry_name)
             lineage_data = self.get_lineage_for_entry(project_id, entry)
 
             if not lineage_data:
+                self.report.report_lineage_entry_without_lineage(
+                    entry_name=entry.dataplex_entry_name,
+                    reason="lineage_lookup_failed_or_unavailable",
+                )
+                continue
+            upstream_count = len(lineage_data.get("upstream", []))
+            downstream_count = len(lineage_data.get("downstream", []))
+            self.report.report_lineage_upstream_links_found(
+                entry_name=entry.dataplex_entry_name,
+                count=upstream_count,
+            )
+            self.report.report_lineage_downstream_links_found(
+                entry_name=entry.dataplex_entry_name,
+                count=downstream_count,
+            )
+            if upstream_count == 0 and downstream_count == 0:
+                self.report.report_lineage_entry_without_lineage(
+                    entry_name=entry.dataplex_entry_name,
+                    reason="empty_upstream_and_downstream",
+                )
+                continue
+
+            if not is_supported_lineage_entry_type(
+                entry.dataplex_entry_type_short_name
+            ):
+                self.report.report_lineage_entry_skipped_unsupported_type(
+                    entry_name=entry.dataplex_entry_name,
+                    entry_type=entry.dataplex_entry_type_short_name,
+                )
                 continue
 
             # Convert upstream FQNs to LineageEdge objects
             for upstream_fqn in lineage_data.get("upstream", []):
-                # Extract dataset ID from FQN (full path like project.dataset.table)
-                upstream_dataset_id = self._extract_entry_id_from_fqn(upstream_fqn)
+                # Upstream FQN may be cross-platform (e.g. pubsub->bigquery), so
+                # normalize to DataHub URN using a mapping lookup driven only by FQN shape.
+                upstream_dataset_urn = build_dataset_urn_from_fqn_only(
+                    fully_qualified_name=upstream_fqn,
+                    env=self.config.env,
+                )
 
-                if upstream_dataset_id:
+                if upstream_dataset_urn:
                     edge = LineageEdge(
-                        entry_id=upstream_dataset_id,
+                        upstream_datahub_urn=upstream_dataset_urn,
                         audit_stamp=datetime.now(timezone.utc),
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
                     )
                     # Use full dataset_id as key to avoid collisions between tables with same name
-                    lineage_by_full_dataset_id[entry.dataset_id].add(edge)
-                    logger.debug(
-                        f"  Added lineage edge: {entry.dataset_id} <- {upstream_dataset_id}"
+                    lineage_by_full_dataset_id[entry.datahub_dataset_name].add(edge)
+                    self.report.report_lineage_edge_added(
+                        downstream_dataset_id=entry.datahub_dataset_name,
+                        upstream_dataset_urn=upstream_dataset_urn,
                     )
+                    logger.debug(
+                        "  Added lineage edge: %s <- %s",
+                        entry.datahub_dataset_name,
+                        upstream_dataset_urn,
+                    )
+                else:
+                    self.report.report_lineage_upstream_fqn_skipped(
+                        entry_name=entry.dataplex_entry_name,
+                        upstream_fqn=upstream_fqn,
+                    )
+                    self.source_report.warning(
+                        "Unable to normalize upstream Dataplex lineage FQN. Skipping upstream edge.",
+                        title="Dataplex upstream lineage parse failed",
+                        context=(
+                            f"project_id={project_id}, "
+                            f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                            f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                            f"entry_type={entry.dataplex_entry_type_short_name}, "
+                            f"upstream_fqn={upstream_fqn}"
+                        ),
+                    )
+            if entry_index % 1000 == 0:
+                logger.info(
+                    "Lineage map progress for project %s: processed=%s, scanned=%s, "
+                    "no_lineage=%s, unsupported=%s, failed=%s, edges_added=%s, "
+                    "upstream_parse_skipped=%s",
+                    project_id,
+                    self.report.num_lineage_entries_processed,
+                    self.report.num_lineage_entries_scanned,
+                    self.report.num_lineage_entries_without_lineage,
+                    self.report.num_lineage_entries_skipped_unsupported_type,
+                    self.report.num_lineage_entries_failed,
+                    self.report.num_lineage_edges_added,
+                    self.report.num_lineage_upstream_fqns_skipped,
+                )
 
         self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
 
@@ -361,45 +552,26 @@ class DataplexLineageExtractor:
         total_edges = sum(len(edges) for edges in lineage_by_full_dataset_id.values())
         entries_with_lineage = len(lineage_by_full_dataset_id)
         logger.info(
-            f"Lineage map complete: {entries_with_lineage} entries with lineage, {total_edges} total edges"
+            "Lineage map complete for project %s: entries_with_lineage=%s, total_edges=%s, "
+            "processed=%s, no_lineage=%s, unsupported=%s, failed=%s, upstream_parse_skipped=%s, "
+            "upstream_links_observed=%s, downstream_links_observed=%s, edges_added=%s",
+            project_id,
+            entries_with_lineage,
+            total_edges,
+            self.report.num_lineage_entries_processed,
+            self.report.num_lineage_entries_without_lineage,
+            self.report.num_lineage_entries_skipped_unsupported_type,
+            self.report.num_lineage_entries_failed,
+            self.report.num_lineage_upstream_fqns_skipped,
+            self.report.num_lineage_upstream_links_found,
+            self.report.num_lineage_downstream_links_found,
+            self.report.num_lineage_edges_added,
         )
 
         return lineage_by_full_dataset_id
 
-    def _extract_entry_id_from_fqn(self, fqn: str) -> Optional[str]:
-        """
-        Extract entry ID from a fully qualified name.
-
-        Handles platform-specific FQN formats:
-        - BigQuery: bigquery:{project}.{dataset}.{table} -> {project}.{dataset}.{table}
-        - GCS: gcs:{bucket}/{path} -> {bucket}/{path}
-        - GCS: gcs:{bucket} -> {bucket}
-
-        Args:
-            fqn: Fully qualified name in format "{platform}:{identifier}"
-
-        Returns:
-            Entry ID (everything after the platform prefix) or None if extraction fails
-        """
-        try:
-            if ":" in fqn:
-                platform, entry_part = fqn.split(":", 1)
-
-                # Validate that we have a known platform
-                if platform not in ["bigquery", "gcs", "dataplex"]:
-                    logger.warning(f"Unexpected platform '{platform}' in FQN: {fqn}")
-
-                return entry_part
-            else:
-                # No platform prefix, return as-is (shouldn't happen in practice)
-                logger.warning(f"FQN missing platform prefix: {fqn}")
-                return fqn
-        except Exception as e:
-            logger.error(f"Failed to extract entry ID from FQN '{fqn}': {e}")
-            return None
-
     def get_lineage_for_table(
-        self, dataset_id: str, dataset_urn: str, platform: str
+        self, dataset_id: str, dataset_urn: str
     ) -> Optional[UpstreamLineageClass]:
         """
         Build UpstreamLineageClass for a specific entry.
@@ -407,8 +579,6 @@ class DataplexLineageExtractor:
         Args:
             dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
             dataset_urn: DataHub URN for the dataset
-            platform: Source platform for the entry (bigquery, gcs, etc.)
-
         Returns:
             UpstreamLineageClass object or None if no lineage exists
         """
@@ -418,17 +588,9 @@ class DataplexLineageExtractor:
         upstream_list: list[UpstreamClass] = []
 
         for lineage_edge in self.lineage_by_full_dataset_id[dataset_id]:
-            # Generate URN for the upstream entry using the full dataset_id
-            upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=platform,
-                name=lineage_edge.entry_id,
-                platform_instance=None,
-                env=self.config.env,
-            )
-
             # Create table-level lineage
             upstream_class = UpstreamClass(
-                dataset=upstream_urn,
+                dataset=lineage_edge.upstream_datahub_urn,
                 type=lineage_edge.lineage_type,
                 auditStamp=AuditStampClass(
                     actor="urn:li:corpuser:datahub",
@@ -437,7 +599,9 @@ class DataplexLineageExtractor:
             )
             upstream_list.append(upstream_class)
             # Report the lineage relationship
-            self.report.report_lineage_relationship_created()
+            self.report.report_lineage_relationship_created(
+                f"{dataset_id}<-{lineage_edge.upstream_datahub_urn}"
+            )
 
         if not upstream_list:
             return None
@@ -448,7 +612,6 @@ class DataplexLineageExtractor:
         self,
         dataset_id: str,
         dataset_urn: str,
-        platform: str,
         upstream_lineage: Optional[UpstreamLineageClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -457,16 +620,13 @@ class DataplexLineageExtractor:
         Args:
             dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
             dataset_urn: DataHub URN for the dataset
-            platform: Source platform (bigquery, gcs, etc.)
             upstream_lineage: Optional pre-built UpstreamLineageClass
 
         Yields:
             MetadataWorkUnit objects containing lineage information
         """
         if upstream_lineage is None:
-            upstream_lineage = self.get_lineage_for_table(
-                dataset_id, dataset_urn, platform
-            )
+            upstream_lineage = self.get_lineage_for_table(dataset_id, dataset_urn)
 
         if upstream_lineage is None:
             return
@@ -511,21 +671,30 @@ class DataplexLineageExtractor:
             for entry in entry_list:
                 # Construct dataset URN - entries use full dataset_id path
                 dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                    platform=entry.source_platform,
-                    name=entry.dataset_id,
+                    platform=entry.datahub_platform,
+                    name=entry.datahub_dataset_name,
                     platform_instance=None,
                     env=self.config.env,
                 )
 
                 try:
                     yield from self.gen_lineage(
-                        entry.dataset_id, dataset_urn, entry.source_platform
+                        entry.datahub_dataset_name,
+                        dataset_urn,
                     )
                 except Exception as e:
-                    self.report.num_lineage_entries_failed += 1
-                    self.report.report_warning(
+                    self.report.report_lineage_entry_failed(
+                        entry_name=entry.dataplex_entry_name,
+                        stage="gen_lineage_single_batch",
+                    )
+                    self.source_report.warning(
                         "Failed to generate lineage for entry.",
-                        context=entry.dataset_id,
+                        context=(
+                            f"project_id={project_id}, "
+                            f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                            f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                            "stage=gen_lineage_single_batch"
+                        ),
                         exc=e,
                     )
         else:
@@ -557,21 +726,30 @@ class DataplexLineageExtractor:
                 for entry in batch:
                     # Construct dataset URN - entries use full dataset_id path
                     dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                        platform=entry.source_platform,
-                        name=entry.dataset_id,
+                        platform=entry.datahub_platform,
+                        name=entry.datahub_dataset_name,
                         platform_instance=None,
                         env=self.config.env,
                     )
 
                     try:
                         yield from self.gen_lineage(
-                            entry.dataset_id, dataset_urn, entry.source_platform
+                            entry.datahub_dataset_name,
+                            dataset_urn,
                         )
                     except Exception as e:
-                        self.report.num_lineage_entries_failed += 1
-                        self.report.report_warning(
+                        self.report.report_lineage_entry_failed(
+                            entry_name=entry.dataplex_entry_name,
+                            stage=f"gen_lineage_batch_{batch_idx + 1}",
+                        )
+                        self.source_report.warning(
                             "Failed to generate lineage for entry.",
-                            context=entry.dataset_id,
+                            context=(
+                                f"project_id={project_id}, "
+                                f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                                f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                                f"stage=gen_lineage_batch_{batch_idx + 1}"
+                            ),
                             exc=e,
                         )
 
