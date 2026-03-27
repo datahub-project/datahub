@@ -5,6 +5,8 @@ import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
@@ -14,7 +16,9 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authentication.LoginDenialReason;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
@@ -36,6 +40,7 @@ import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +52,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.web.servlet.DispatcherServlet;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -61,6 +67,14 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
   }
 
+  @BeforeMethod
+  public void stubSessionEligibility() {
+    reset(mockUserSessionEligibilityChecker);
+    when(mockUserSessionEligibilityChecker.checkEligibility(
+            any(OperationContext.class), anyString(), anyBoolean()))
+        .thenReturn(Optional.empty());
+  }
+
   @Autowired private AuthServiceController authServiceController;
   @Autowired private EntityService mockEntityService;
   @Autowired private SecretService mockSecretService;
@@ -73,6 +87,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @Autowired private SpanContext mockSpanContext;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private TrackingService mockTrackingService;
+
+  @Autowired private UserSessionEligibilityChecker mockUserSessionEligibilityChecker;
 
   private final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
 
@@ -227,6 +243,151 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @Test
+  public void testGenerateSessionTokenForUserEligibilityDenied() throws Exception {
+    String userId = "disabledUser";
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockUserSessionEligibilityChecker.checkEligibility(
+            eq(systemOperationContext), eq(userId), anyBoolean()))
+        .thenReturn(Optional.of(LoginDenialReason.SOFT_DELETED));
+
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    authConfig.setVerboseAuthFailureLogging(true);
+    when(mockConfigProvider.getAuthentication()).thenReturn(authConfig);
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(httpEntity).join();
+
+    assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertEquals(
+        LoginDenialReason.SOFT_DELETED.name(), responseJson.get("loginDenialReason").asText());
+    verify(mockTokenService, never())
+        .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
+  }
+
+  @Test
+  public void testVerifyNativeUserCredentialsEligibleDenied() throws Exception {
+    String userUrn = "urn:li:corpuser:testUser";
+    String password = "correctPassword";
+
+    when(mockNativeUserService.doesPasswordMatch(
+            eq(systemOperationContext), eq(userUrn), eq(password)))
+        .thenReturn(true);
+    when(mockUserSessionEligibilityChecker.checkEligibility(
+            eq(systemOperationContext), eq(userUrn), anyBoolean()))
+        .thenReturn(Optional.of(LoginDenialReason.INACTIVE));
+
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    when(mockConfigProvider.getAuthentication()).thenReturn(authConfig);
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", userUrn);
+    requestBody.put("password", password);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertTrue(responseJson.get("doesPasswordMatch").asBoolean());
+    assertEquals(LoginDenialReason.INACTIVE.name(), responseJson.get("loginDenialReason").asText());
+  }
+
+  @Test
+  public void testGenerateSessionTokenForUserEligibilityHardDeleted() throws Exception {
+    String userId = "missingKeyUser";
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockUserSessionEligibilityChecker.checkEligibility(
+            eq(systemOperationContext), eq(userId), anyBoolean()))
+        .thenReturn(Optional.of(LoginDenialReason.HARD_DELETED));
+
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(httpEntity).join();
+
+    assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertEquals(
+        LoginDenialReason.HARD_DELETED.name(), responseJson.get("loginDenialReason").asText());
+    verify(mockTokenService, never())
+        .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
+  }
+
+  @Test
+  public void testGenerateSessionTokenForUserEligibilityNotProvisioned() throws Exception {
+    String userId = "stubUser";
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockUserSessionEligibilityChecker.checkEligibility(
+            eq(systemOperationContext), eq(userId), anyBoolean()))
+        .thenReturn(Optional.of(LoginDenialReason.NOT_PROVISIONED));
+
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(httpEntity).join();
+
+    assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertEquals(
+        LoginDenialReason.NOT_PROVISIONED.name(), responseJson.get("loginDenialReason").asText());
+  }
+
+  @Test
+  public void testVerifyNativeUserCredentialsNotProvisioned() throws Exception {
+    String userUrn = "urn:li:corpuser:stub";
+    String password = "correctPassword";
+
+    when(mockNativeUserService.doesPasswordMatch(
+            eq(systemOperationContext), eq(userUrn), eq(password)))
+        .thenReturn(true);
+    when(mockUserSessionEligibilityChecker.checkEligibility(
+            eq(systemOperationContext), eq(userUrn), anyBoolean()))
+        .thenReturn(Optional.of(LoginDenialReason.NOT_PROVISIONED));
+
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", userUrn);
+    requestBody.put("password", password);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertTrue(responseJson.get("doesPasswordMatch").asBoolean());
+    assertEquals(
+        LoginDenialReason.NOT_PROVISIONED.name(), responseJson.get("loginDenialReason").asText());
+  }
+
+  @Test
   public void testSignUpSuccess() throws Exception {
     // Setup
     String userUrn = "urn:li:corpuser:testUser";
@@ -373,6 +534,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
             eq(systemOperationContext), eq(userUrn), eq(password)))
         .thenReturn(true);
 
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
     // Create request body
     ObjectNode requestBody = objectMapper.createObjectNode();
     requestBody.put("userUrn", userUrn);
@@ -428,6 +591,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     JsonNode responseJson = objectMapper.readTree(response.getBody());
     assertTrue(responseJson.has("doesPasswordMatch"));
     assertFalse(responseJson.get("doesPasswordMatch").asBoolean());
+    assertTrue(responseJson.has("loginDenialReason"));
+    assertEquals(
+        LoginDenialReason.INVALID_CREDENTIALS.name(),
+        responseJson.get("loginDenialReason").asText());
   }
 
   @Test

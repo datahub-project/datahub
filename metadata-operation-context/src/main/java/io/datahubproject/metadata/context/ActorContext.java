@@ -1,5 +1,6 @@
 package io.datahubproject.metadata.context;
 
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_STATUS_SUSPENDED;
@@ -11,6 +12,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -68,7 +70,9 @@ public class ActorContext implements ContextInterface {
   }
 
   /**
-   * Actor is considered active if the user is not hard-deleted, soft-deleted, and is not suspended
+   * Actor is considered active if a corp user key is present when enforcement is on, the user is
+   * not soft-deleted, is not suspended, and corpUserInfo.active is not false when corpUserInfo is
+   * present
    *
    * @param aspectRetriever aspect retriever - ideally the SystemEntityClient backed one for caching
    * @return active status
@@ -83,12 +87,16 @@ public class ActorContext implements ContextInterface {
     Map<Urn, Map<String, Aspect>> urnAspectMap =
         aspectRetriever.getLatestAspectObjects(
             Set.of(selfUrn),
-            Set.of(STATUS_ASPECT_NAME, CORP_USER_STATUS_ASPECT_NAME, CORP_USER_KEY_ASPECT_NAME));
+            Set.of(
+                STATUS_ASPECT_NAME,
+                CORP_USER_STATUS_ASPECT_NAME,
+                CORP_USER_KEY_ASPECT_NAME,
+                CORP_USER_INFO_ASPECT_NAME));
 
     Map<String, Aspect> aspectMap = urnAspectMap.getOrDefault(selfUrn, Map.of());
 
     if (enforceExistenceEnabled && !aspectMap.containsKey(CORP_USER_KEY_ASPECT_NAME)) {
-      // user is hard deleted
+      // No corp user key aspect (never provisioned, purged, or inconsistent); not inferrable.
       return false;
     }
 
@@ -100,6 +108,15 @@ public class ActorContext implements ContextInterface {
         Optional.ofNullable(aspectMap.get(CORP_USER_STATUS_ASPECT_NAME))
             .map(a -> new CorpUserStatus(a.data()))
             .orElse(new CorpUserStatus().setStatus(""));
+
+    final Optional<CorpUserInfo> corpUserInfo =
+        Optional.ofNullable(aspectMap.get(CORP_USER_INFO_ASPECT_NAME))
+            .map(a -> new CorpUserInfo(a.data()));
+    if (corpUserInfo.isPresent()
+        && corpUserInfo.get().hasActive()
+        && !corpUserInfo.get().isActive()) {
+      return false;
+    }
 
     return !status.isRemoved() && !CORP_USER_STATUS_SUSPENDED.equals(corpUserStatus.getStatus());
   }

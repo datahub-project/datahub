@@ -186,6 +186,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.logAuthenticatorExceptions",
           "authentication.passwordResetTokenExpirationMs",
           "authentication.sessionTokenDurationMs",
+          "authentication.verboseAuthFailureLogging",
           "authentication.tokenService.issuer",
           "authentication.tokenService.signingAlgorithm",
           "authorization.defaultAuthorizer.enabled",

@@ -4,6 +4,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
@@ -31,6 +32,8 @@ public class AuthServiceTestConfiguration {
   ConfigurationProvider configProvider;
 
   @MockBean NativeUserService nativeUserService;
+
+  @MockBean UserSessionEligibilityChecker userSessionEligibilityChecker;
 
   @MockBean EntityService entityService;
 

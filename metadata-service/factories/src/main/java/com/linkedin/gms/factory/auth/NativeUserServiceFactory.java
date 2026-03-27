@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.auth;
 
+import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.user.NativeUserService;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -30,5 +31,12 @@ public class NativeUserServiceFactory {
   protected NativeUserService getInstance(final SystemEntityClient entityClient) throws Exception {
     return new NativeUserService(
         _entityService, entityClient, _secretService, _configurationProvider.getAuthentication());
+  }
+
+  @Bean
+  @Scope("singleton")
+  @Nonnull
+  protected UserSessionEligibilityChecker userSessionEligibilityChecker() {
+    return new UserSessionEligibilityChecker(_entityService);
   }
 }

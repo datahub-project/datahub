@@ -307,13 +307,16 @@ public class AuthModule extends AbstractModule {
 
     final boolean metadataServiceUseSsl = doesMetadataServiceUseSsl(configs);
 
+    final boolean authVerboseLogging =
+        configs.hasPath("auth.verbose.logging") && configs.getBoolean("auth.verbose.logging");
     return new AuthServiceClient(
         metadataServiceHost,
         metadataServicePort,
         metadataServiceBasePath,
         metadataServiceUseSsl,
         systemAuthentication,
-        httpClient);
+        httpClient,
+        authVerboseLogging);
   }
 
   @Provides

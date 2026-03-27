@@ -23,6 +23,8 @@ authentication:
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
 
+  verboseAuthFailureLogging: ${AUTH_VERBOSE_LOGGING:false}
+
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.

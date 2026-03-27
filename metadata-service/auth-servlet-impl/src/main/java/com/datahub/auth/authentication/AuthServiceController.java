@@ -12,7 +12,9 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authentication.LoginDenialReason;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
@@ -24,6 +26,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.auth.LoginIdentityMask;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.entity.EntityService;
@@ -37,6 +40,7 @@ import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -69,6 +73,7 @@ public class AuthServiceController {
   private static final String ARE_NATIVE_USER_CREDENTIALS_RESET_FIELD_NAME =
       "areNativeUserCredentialsReset";
   private static final String DOES_PASSWORD_MATCH_FIELD_NAME = "doesPasswordMatch";
+  private static final String LOGIN_DENIAL_REASON_FIELD_NAME = "loginDenialReason";
   private static final String BASE_URL = "baseUrl";
   private static final String OIDC_ENABLED = "oidcEnabled";
   private static final String CLIENT_ID = "clientId";
@@ -100,6 +105,8 @@ public class AuthServiceController {
   private ConfigurationProvider _configProvider;
 
   @Autowired private NativeUserService _nativeUserService;
+
+  @Autowired private UserSessionEligibilityChecker _userSessionEligibilityChecker;
 
   @Autowired private EntityService<?> _entityService;
 
@@ -151,7 +158,9 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
-    log.info("Attempting to generate session token for user {}", userId.asText());
+    log.info(
+        "Attempting to generate session token for userRef={}",
+        LoginIdentityMask.mask(userId.asText()));
     Authentication authentication = AuthenticationContext.getAuthentication();
     final String actorId = authentication.getActor().getId();
     final String actorUrn = authentication.getActor().toUrnStr();
@@ -160,6 +169,23 @@ public class AuthServiceController {
           // 1. Verify that only those authorized to generate a token (datahub system) are able to.
           if (isAuthorizedToGenerateSessionToken(actorId)) {
             try {
+              final boolean verboseAuthFailureLogging =
+                  _configProvider.getAuthentication().isVerboseAuthFailureLogging();
+              final boolean enforceExistence =
+                  _configProvider.getAuthentication().isEnforceExistenceEnabled();
+              final Optional<LoginDenialReason> eligibilityDenial =
+                  _userSessionEligibilityChecker.checkEligibility(
+                      systemOperationContext, userId.asText(), enforceExistence);
+              if (eligibilityDenial.isPresent()) {
+                emitLoginDenialLog(
+                    verboseAuthFailureLogging,
+                    userId.asText(),
+                    eligibilityDenial.get(),
+                    "generateSessionTokenForUser");
+                return new ResponseEntity<>(
+                    buildLoginDenialJsonBody(eligibilityDenial.get()), HttpStatus.FORBIDDEN);
+              }
+
               // 2. Generate a new DataHub JWT
               final long sessionTokenDurationMs =
                   _configProvider.getAuthentication().getSessionTokenDurationMs();
@@ -169,8 +195,8 @@ public class AuthServiceController {
                       new Actor(ActorType.USER, userId.asText()),
                       sessionTokenDurationMs);
               log.info(
-                  "Successfully generated session token for user: {}, duration: {} ms",
-                  userId.asText(),
+                  "Successfully generated session token for userRef: {}, duration: {} ms",
+                  LoginIdentityMask.mask(userId.asText()),
                   sessionTokenDurationMs);
               return systemOperationContext.withSpan(
                   "loginSuccess",
@@ -193,7 +219,10 @@ public class AuthServiceController {
                     return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
                   });
             } catch (Exception e) {
-              log.error("Failed to generate session token for user: {}", userId.asText(), e);
+              log.error(
+                  "Failed to generate session token for userRef: {}",
+                  LoginIdentityMask.mask(userId.asText()),
+                  e);
               return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
             }
           }
@@ -394,13 +423,30 @@ public class AuthServiceController {
 
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
-    log.info("Attempting to verify credentials for native user {}", userUrnString);
+    log.info(
+        "Attempting to verify credentials for native userRef={}",
+        LoginIdentityMask.mask(userUrnString));
     return CompletableFuture.supplyAsync(
         () -> {
           try {
             boolean doesPasswordMatch =
                 _nativeUserService.doesPasswordMatch(
                     systemOperationContext, userUrnString, passwordString);
+            final boolean verboseAuthFailureLogging =
+                _configProvider.getAuthentication().isVerboseAuthFailureLogging();
+            final boolean enforceExistence =
+                _configProvider.getAuthentication().isEnforceExistenceEnabled();
+
+            LoginDenialReason sessionDenial = null;
+            if (doesPasswordMatch) {
+              final Optional<LoginDenialReason> eligibilityDenial =
+                  _userSessionEligibilityChecker.checkEligibility(
+                      systemOperationContext, userUrnString, enforceExistence);
+              if (eligibilityDenial.isPresent()) {
+                sessionDenial = eligibilityDenial.get();
+              }
+            }
+
             if (!doesPasswordMatch) {
               systemOperationContext.withSpan(
                   "failedPasswordLogin",
@@ -418,15 +464,33 @@ public class AuthServiceController {
                     }
                     Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
                   });
+              emitLoginDenialLog(
+                  verboseAuthFailureLogging,
+                  userUrnString,
+                  LoginDenialReason.INVALID_CREDENTIALS,
+                  "verifyNativeUserCredentials");
+            } else if (sessionDenial != null) {
+              emitLoginDenialLog(
+                  verboseAuthFailureLogging,
+                  userUrnString,
+                  sessionDenial,
+                  "verifyNativeUserCredentials");
             }
-            String response = buildVerifyNativeUserPasswordResponse(doesPasswordMatch);
+
+            final LoginDenialReason denialForJson =
+                !doesPasswordMatch ? LoginDenialReason.INVALID_CREDENTIALS : sessionDenial;
+            String response =
+                buildVerifyNativeUserPasswordResponse(doesPasswordMatch, denialForJson);
             log.info(
-                "Verified credentials for native user: {}, result: {}",
-                userUrnString,
+                "Verified credentials for native userRef: {}, passwordMatch: {}",
+                LoginIdentityMask.mask(userUrnString),
                 doesPasswordMatch);
             return new ResponseEntity<>(response, HttpStatus.OK);
           } catch (Exception e) {
-            log.error("Failed to verify credentials for native user {}", userUrnString, e);
+            log.error(
+                "Failed to verify credentials for native userRef: {}",
+                LoginIdentityMask.mask(userUrnString),
+                e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
@@ -544,9 +608,46 @@ public class AuthServiceController {
     return json.toString();
   }
 
-  private String buildVerifyNativeUserPasswordResponse(final boolean doesPasswordMatch) {
+  private String buildVerifyNativeUserPasswordResponse(
+      final boolean doesPasswordMatch, final LoginDenialReason loginDenialReason) {
     JSONObject json = new JSONObject();
     json.put(DOES_PASSWORD_MATCH_FIELD_NAME, doesPasswordMatch);
+    if (loginDenialReason != null) {
+      json.put(LOGIN_DENIAL_REASON_FIELD_NAME, loginDenialReason.name());
+    }
+    return json.toString();
+  }
+
+  private void emitLoginDenialLog(
+      final boolean verboseAuthFailureLogging,
+      final String rawUserRef,
+      final LoginDenialReason reason,
+      final String operation) {
+    final String masked = LoginIdentityMask.mask(rawUserRef);
+    if (reason.logsAtWarn()) {
+      log.warn("loginDenied userRef={} loginDenialReason={}", masked, reason.name());
+      if (verboseAuthFailureLogging) {
+        log.warn(
+            "loginDenied userRef={} loginDenialReason={} operation={}",
+            rawUserRef,
+            reason.name(),
+            operation);
+      }
+    } else {
+      log.info("loginDenied userRef={} loginDenialReason={}", masked, reason.name());
+      if (verboseAuthFailureLogging) {
+        log.info(
+            "loginDenied userRef={} loginDenialReason={} operation={}",
+            rawUserRef,
+            reason.name(),
+            operation);
+      }
+    }
+  }
+
+  private String buildLoginDenialJsonBody(final LoginDenialReason reason) {
+    JSONObject json = new JSONObject();
+    json.put(LOGIN_DENIAL_REASON_FIELD_NAME, reason.name());
     return json.toString();
   }
 

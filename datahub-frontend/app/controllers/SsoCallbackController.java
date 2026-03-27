@@ -44,6 +44,8 @@ public class SsoCallbackController extends CallbackController {
   private final Config config;
   private final CallbackLogic callbackLogic;
   private final com.typesafe.config.Config configs;
+  private final String normalizedBasePath;
+  private final boolean authVerboseLogging;
 
   @Inject
   public SsoCallbackController(
@@ -58,8 +60,10 @@ public class SsoCallbackController extends CallbackController {
     this.configs = configs;
 
     // Set default URL with proper base path - redirects to Home Page on log in
-    String basePath = BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
-    String homeUrl = basePath.isEmpty() ? "/" : basePath + "/";
+    normalizedBasePath = BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
+    authVerboseLogging =
+        configs.hasPath("auth.verbose.logging") && configs.getBoolean("auth.verbose.logging");
+    String homeUrl = normalizedBasePath.isEmpty() ? "/" : normalizedBasePath + "/";
     setDefaultUrl(homeUrl);
 
     log.info("Home URL: {}", getDefaultUrl());
@@ -70,7 +74,9 @@ public class SsoCallbackController extends CallbackController {
             systemOperationContext,
             entityClient,
             authClient,
-            new CookieConfigs(configs));
+            new CookieConfigs(configs),
+            normalizedBasePath,
+            authVerboseLogging);
   }
 
   @Override
@@ -134,10 +140,18 @@ public class SsoCallbackController extends CallbackController {
         final OperationContext systemOperationContext,
         final SystemEntityClient entityClient,
         final AuthServiceClient authClient,
-        final CookieConfigs cookieConfigs) {
+        final CookieConfigs cookieConfigs,
+        final String basePath,
+        final boolean authVerboseLogging) {
       oidcCallbackLogic =
           new OidcCallbackLogic(
-              ssoManager, systemOperationContext, entityClient, authClient, cookieConfigs);
+              ssoManager,
+              systemOperationContext,
+              entityClient,
+              authClient,
+              cookieConfigs,
+              basePath,
+              authVerboseLogging);
     }
 
     @Override
