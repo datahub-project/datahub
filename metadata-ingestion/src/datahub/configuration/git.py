@@ -13,6 +13,7 @@ from pydantic import (
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.configuration.validate_multiline_string import pydantic_multiline_string
+from datahub.utilities.global_warning_util import add_global_warning
 
 _GITHUB_PREFIX = "https://github.com/"
 _GITLAB_PREFIX = "https://gitlab.com/"
@@ -38,8 +39,8 @@ class GitReference(ConfigModel):
     )
     url_template: Optional[str] = Field(
         None,
-        description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
-        "It supports the following variables: {repo_url}, {branch}, {file_path}",
+        description=f"Template for generating an external URL to a file in the repo, e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos."
+        "It supports the following variables: {repo_url}, {branch}, {file_path}.",
     )
 
     _deprecated_base_url = pydantic_renamed_field(
@@ -71,14 +72,15 @@ class GitReference(ConfigModel):
         elif self.repo.startswith(_GITLAB_PREFIX):
             self.url_template = _GITLAB_URL_TEMPLATE
         else:
-            raise ValueError(
-                "Unable to infer URL template from repo. Please set url_template manually."
+            add_global_warning(
+                "Unable to infer URL template from `repo`. Please set `url_template` manually."
             )
 
         return self
 
-    def get_url_for_file_path(self, file_path: str) -> str:
-        assert self.url_template
+    def get_url_for_file_path(self, file_path: str) -> Optional[str]:
+        if not self.url_template:
+            return None
         if self.url_subdir:
             file_path = f"{self.url_subdir}/{file_path}"
         return self.url_template.format(
