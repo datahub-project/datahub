@@ -44,10 +44,11 @@ public class MaeConsumerApplicationTestConfiguration {
 
   @MockitoBean private ElasticSearchSystemMetadataService _elasticSearchSystemMetadataService;
 
-  // Use @Bean @Primary to prevent ConfigEntityRegistryFactory from loading entity-registry.yml
+  // Use @Bean to prevent ConfigEntityRegistryFactory from loading entity-registry.yml.
+  // Do NOT add @Primary — ConfigEntityRegistry is a subtype of EntityRegistry and would
+  // compete with the @MockitoBean entityRegistry above, causing NoUniqueBeanDefinitionException.
   // See: https://github.com/spring-projects/spring-framework/issues/33934
   @Bean
-  @Primary
   public ConfigEntityRegistry configEntityRegistry() {
     return Mockito.mock(ConfigEntityRegistry.class);
   }
