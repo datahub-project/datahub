@@ -1,4 +1,5 @@
 import pathlib
+import urllib.parse
 from copy import deepcopy
 from typing import Any, Optional, Union
 
@@ -67,9 +68,9 @@ class GitReference(ConfigModel):
         if self.url_template is not None:
             return self
 
-        if self.repo.startswith(_GITHUB_PREFIX):
+        if _remove_url_basic_auth(self.repo).startswith(_GITHUB_PREFIX):
             self.url_template = _GITHUB_URL_TEMPLATE
-        elif self.repo.startswith(_GITLAB_PREFIX):
+        elif _remove_url_basic_auth(self.repo).startswith(_GITLAB_PREFIX):
             self.url_template = _GITLAB_URL_TEMPLATE
         else:
             add_global_warning(
@@ -83,8 +84,11 @@ class GitReference(ConfigModel):
             return None
         if self.url_subdir:
             file_path = f"{self.url_subdir}/{file_path}"
+
         return self.url_template.format(
-            repo_url=self.repo, branch=self.branch, file_path=file_path
+            repo_url=_remove_url_basic_auth(self.repo),
+            branch=self.branch,
+            file_path=file_path,
         )
 
 
@@ -177,3 +181,10 @@ class GitInfo(GitReference):
         )
 
         return checkout_dir
+
+
+def _remove_url_basic_auth(url: str) -> str:
+    parsed_url = urllib.parse.urlsplit(url)
+    return urllib.parse.urlunsplit(
+        parsed_url._replace(netloc=parsed_url.netloc.split("@")[-1])
+    )
