@@ -66,7 +66,15 @@ class DataplexEntriesReport(Report):
 
     entries_processed: int = 0
     entries_processed_samples: LossyList[str] = field(default_factory=LossyList)
-    catalog_api_timer: PerfTimer = field(default_factory=PerfTimer)
+    catalog_api: dict[str, tuple[int, float]] = field(default_factory=dict)
+
+    def report_catalog_api_call(self, api_name: str, elapsed_seconds: float) -> None:
+        """Accumulate per-API call count and total latency in seconds."""
+        num_calls, total_time_secs = self.catalog_api.get(api_name, (0, 0.0))
+        self.catalog_api[api_name] = (
+            num_calls + 1,
+            total_time_secs + elapsed_seconds,
+        )
 
     def report_entry_group(self, entry_group_name: str, filtered: bool) -> None:
         """Report one scanned entry group and its filtering outcome."""
@@ -161,8 +169,12 @@ class DataplexEntriesProcessor:
         """List entry groups for a ``(project_id, location)`` pair."""
         parent = f"projects/{project_id}/locations/{location}"
         request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
-        with self.report.catalog_api_timer:
-            return self.catalog_client.list_entry_groups(request=request)
+        with PerfTimer() as timer:
+            response = self.catalog_client.list_entry_groups(request=request)
+        self.report.report_catalog_api_call(
+            "list_entry_groups", timer.elapsed_seconds()
+        )
+        return response
 
     def collect_entries(
         self,
@@ -182,8 +194,9 @@ class DataplexEntriesProcessor:
                 continue
 
             request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
-            with self.report.catalog_api_timer:
+            with PerfTimer() as timer:
                 entries = list(self.catalog_client.list_entries(request=request))
+            self.report.report_catalog_api_call("list_entries", timer.elapsed_seconds())
             for entry in entries:
                 logger.info(f"Listing entry {entry.name} from group {entry_group.name}")
                 logger.info(f"ListEntries payload: {entry}")
@@ -199,10 +212,13 @@ class DataplexEntriesProcessor:
                         name=entry.name,
                         view=dataplex_v1.EntryView.ALL,
                     )
-                    with self.report.catalog_api_timer:
+                    with PerfTimer() as timer:
                         detailed_entry = self.catalog_client.get_entry(
                             request=entry_request
                         )
+                    self.report.report_catalog_api_call(
+                        "get_entry", timer.elapsed_seconds()
+                    )
                     logger.debug(f"Detailed entry {detailed_entry}")
                     yield detailed_entry
                 except Exception as exc:
@@ -228,10 +244,13 @@ class DataplexEntriesProcessor:
             query="system=cloud_spanner",
         )
         try:
-            with self.report.catalog_api_timer:
+            with PerfTimer() as timer:
                 search_results = list(
                     self.catalog_client.search_entries(request=request)
                 )
+            self.report.report_catalog_api_call(
+                "search_entries", timer.elapsed_seconds()
+            )
             for result in search_results:
                 logger.info(f"SearchEntries result payload: {result}")
                 dataplex_entry = getattr(result, "dataplex_entry", None)

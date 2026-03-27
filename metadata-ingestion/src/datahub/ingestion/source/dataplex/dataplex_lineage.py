@@ -108,7 +108,15 @@ class DataplexLineageReport(Report):
     lineage_edges_added_samples: LossyList[str] = field(default_factory=LossyList)
     num_lineage_entries_failed: int = 0
     lineage_entries_failed_samples: LossyList[str] = field(default_factory=LossyList)
-    lineage_api_timer: PerfTimer = field(default_factory=PerfTimer)
+    lineage_api: dict[str, tuple[int, float]] = field(default_factory=dict)
+
+    def report_lineage_api_call(self, api_name: str, elapsed_seconds: float) -> None:
+        """Accumulate per-API call count and total latency in seconds."""
+        num_calls, total_time_secs = self.lineage_api.get(api_name, (0, 0.0))
+        self.lineage_api[api_name] = (
+            num_calls + 1,
+            total_time_secs + elapsed_seconds,
+        )
 
     def report_lineage_relationship_created(self, relationship: str) -> None:
         self.num_lineage_relationships_created += 1
@@ -263,18 +271,24 @@ class DataplexLineageExtractor:
             parent = self._resolve_lineage_parent(project_id, entry)
 
             # Get upstream lineage (where this entry is the target) - retries are handled inside _search_links_by_target
-            with self.report.lineage_api_timer:
+            with PerfTimer() as timer:
                 upstream_links = self._search_links_by_target(
                     parent, fully_qualified_name
+                )
+                self.report.report_lineage_api_call(
+                    "search_links_by_target", timer.elapsed_seconds()
                 )
             for link in upstream_links:
                 if link.source and link.source.fully_qualified_name:
                     lineage_data["upstream"].append(link.source.fully_qualified_name)
 
             # Get downstream lineage (where this entry is the source) - retries are handled inside _search_links_by_source
-            with self.report.lineage_api_timer:
+            with PerfTimer() as timer:
                 downstream_links = self._search_links_by_source(
                     parent, fully_qualified_name
+                )
+                self.report.report_lineage_api_call(
+                    "search_links_by_source", timer.elapsed_seconds()
                 )
             for link in downstream_links:
                 if link.target and link.target.fully_qualified_name:
