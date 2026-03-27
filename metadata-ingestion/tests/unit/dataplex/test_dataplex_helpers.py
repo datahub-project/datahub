@@ -6,8 +6,6 @@ from unittest.mock import Mock
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntryDataTuple,
     make_audit_stamp,
-    make_bigquery_dataset_container_key,
-    parse_entry_fqn,
     serialize_field_value,
 )
 
@@ -18,51 +16,53 @@ class TestEntryDataTuple:
     def test_create_entry_data_tuple(self):
         """Test creating EntryDataTuple."""
         entry_data = EntryDataTuple(
-            entry_id="test-entry",
-            source_platform="bigquery",
-            dataset_id="test-project.test-dataset.test-table",
+            dataplex_entry_short_name="test-entry",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/test-entry",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="test-project.test-dataset.test-table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
-        assert entry_data.entry_id == "test-entry"
-        assert entry_data.source_platform == "bigquery"
-        assert entry_data.dataset_id == "test-project.test-dataset.test-table"
+        assert entry_data.dataplex_entry_short_name == "test-entry"
+        assert entry_data.dataplex_entry_name.endswith("/entries/test-entry")
+        assert (
+            entry_data.dataplex_entry_fqn
+            == "bigquery:test-project.test-dataset.test-table"
+        )
+        assert entry_data.dataplex_entry_type_short_name == "bigquery-table"
+        assert entry_data.datahub_platform == "bigquery"
+        assert entry_data.datahub_dataset_name == "test-project.test-dataset.test-table"
 
     def test_entry_data_tuple_hashable(self):
         """Test that EntryDataTuple is hashable (frozen)."""
         entry_data1 = EntryDataTuple(
-            entry_id="entry1",
-            source_platform="bigquery",
-            dataset_id="project.dataset.table",
+            dataplex_entry_short_name="entry1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project.dataset.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project.dataset.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         entry_data2 = EntryDataTuple(
-            entry_id="entry1",
-            source_platform="bigquery",
-            dataset_id="project.dataset.table",
+            dataplex_entry_short_name="entry1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry1",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project.dataset.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project.dataset.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         # Should be able to add to set
         entry_set = {entry_data1, entry_data2}
         assert len(entry_set) == 1
-
-
-class TestMakeBigQueryDatasetContainerKey:
-    """Test make_bigquery_dataset_container_key function."""
-
-    def test_make_container_key(self):
-        """Test creating BigQuery dataset container key."""
-        key = make_bigquery_dataset_container_key(
-            project_id="test-project",
-            dataset_id="test_dataset",
-            platform="bigquery",
-            env="PROD",
-        )
-
-        assert key.project_id == "test-project"
-        assert key.dataset_id == "test_dataset"
-        assert key.platform == "bigquery"
-        assert key.env == "PROD"
-        assert key.backcompat_env_as_instance is True
 
 
 class TestMakeAuditStamp:
@@ -145,63 +145,3 @@ class TestSerializeFieldValue:
 
         result = serialize_field_value(mock_map)
         assert isinstance(result, str)
-
-
-class TestParseEntryFqn:
-    """Test parse_entry_fqn function."""
-
-    def test_parse_bigquery_fqn_full(self):
-        """Test parsing BigQuery FQN with full table reference."""
-        platform, dataset_id = parse_entry_fqn(
-            "bigquery:test-project.my_dataset.my_table"
-        )
-
-        assert platform == "bigquery"
-        assert dataset_id == "test-project.my_dataset.my_table"
-
-    def test_parse_bigquery_fqn_dataset_only(self):
-        """Test parsing BigQuery FQN with dataset only."""
-        platform, dataset_id = parse_entry_fqn("bigquery:test-project.my_dataset")
-
-        assert platform == "bigquery"
-        assert dataset_id == "test-project.my_dataset"
-
-    def test_parse_gcs_fqn(self):
-        """Test parsing GCS FQN."""
-        platform, dataset_id = parse_entry_fqn("gcs:my-bucket/path/to/file.parquet")
-
-        assert platform == "gcs"
-        assert dataset_id == "my-bucket/path/to/file.parquet"
-
-    def test_parse_fqn_no_colon(self):
-        """Test parsing FQN without colon."""
-        platform, dataset_id = parse_entry_fqn("invalid-fqn")
-
-        assert platform == ""
-        assert dataset_id == ""
-
-    def test_parse_other_platform_fqn(self):
-        """Test parsing FQN for other platforms."""
-        platform, dataset_id = parse_entry_fqn("custom:resource/path")
-
-        assert platform == "custom"
-        assert dataset_id == "resource/path"
-
-    def test_parse_bigquery_fqn_single_part(self):
-        """Test parsing BigQuery FQN with only one part (unexpected format)."""
-        platform, dataset_id = parse_entry_fqn("bigquery:project")
-
-        assert platform == "bigquery"
-        assert dataset_id == "project"
-
-
-class TestParseEntryFqnEdgeCases:
-    """Test parse_entry_fqn edge cases for coverage."""
-
-    def test_parse_bigquery_fqn_one_part_warning(self):
-        """Test parsing BigQuery FQN with unexpected single part format."""
-        platform, dataset_id = parse_entry_fqn("bigquery:justonepart")
-
-        # Should still return platform and resource_path
-        assert platform == "bigquery"
-        assert dataset_id == "justonepart"
