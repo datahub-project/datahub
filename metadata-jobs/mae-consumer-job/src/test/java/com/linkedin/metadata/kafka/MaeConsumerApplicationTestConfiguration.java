@@ -17,7 +17,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import io.ebean.Database;
-import org.mockito.Answers;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -59,8 +58,16 @@ public class MaeConsumerApplicationTestConfiguration {
 
   @MockitoBean public MetricUtils metricUtils;
 
-  @MockitoBean(answers = Answers.RETURNS_MOCKS)
-  public SearchClientShim<?> searchClientShim;
+  // Use @Bean @Primary to prevent SearchClientShimFactory from connecting to localhost:9200
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  @Bean
+  @Primary
+  @SuppressWarnings("unchecked")
+  public SearchClientShim<?> searchClientShim() {
+    SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+    Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    return mock;
+  }
 
   // Mock semantic search factories to avoid needing full configuration
   @MockitoBean public EmbeddingProviderFactory embeddingProviderFactory;
