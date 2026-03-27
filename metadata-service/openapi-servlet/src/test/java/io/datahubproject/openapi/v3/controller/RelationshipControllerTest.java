@@ -18,6 +18,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -1229,5 +1230,162 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
             .getMax()
             .intValue());
     assertTrue(capturedOpContext.getSearchContext().getSearchFlags().isIncludeSoftDeleted());
+  }
+
+  @Test
+  public void testScrollRelationshipsDefaultDirectionIsOutgoing() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-1", Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithDirectionOutgoing() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-out", Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "OUTGOING")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-out"));
+
+    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithDirectionIncoming() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-in", Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "INCOMING")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-in"));
+
+    assertEquals(RelationshipDirection.INCOMING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithDirectionCaseInsensitive() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "outgoing")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithInvalidDirection() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "SIDEWAYS")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
   }
 }
