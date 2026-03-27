@@ -451,7 +451,13 @@ class HiveMetadataProcessor:
                 self.report.report_dropped(dataset_name)
                 continue
 
-            columns = list(group)
+            columns = sorted(
+                group,
+                key=lambda c: (
+                    c.get("is_partition_col", 0),
+                    c.get("col_sort_order", 0),
+                ),
+            )
             if len(columns) == 0:
                 self.report.report_warning(dataset_name, "missing column information")
 
