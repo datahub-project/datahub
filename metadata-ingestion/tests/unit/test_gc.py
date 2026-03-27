@@ -396,10 +396,10 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         urns = list(self.cleanup._get_urns())
         self.config.entity_types.remove("dataProcessInstance")
         # Verify get_urns_by_filter was called correctly
-        self.mock_graph.get_urns_by_filter.has_calls(
+        self.mock_graph.get_urns_by_filter.assert_has_calls(
             [
                 call(
-                    entity_types=self.config.entity_types,
+                    entity_types=["dataProcessInstance"],
                     platform=self.config.platform,
                     env=self.config.env,
                     query=self.config.query,
@@ -422,7 +422,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
                     ],
                 ),
                 call(
-                    entity_types=["dataProcessInstance"],
+                    entity_types=self.config.entity_types,
                     platform=self.config.platform,
                     env=self.config.env,
                     query=self.config.query,

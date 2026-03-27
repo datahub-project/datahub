@@ -565,7 +565,8 @@ plugins: Dict[str, Set[str]] = {
     },
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
-        "pyodbc>=4.0,<5.0",
+        # pyodbc 4.x does not support Python 3.12 C-API.
+        "pyodbc<6.0.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
