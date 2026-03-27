@@ -228,11 +228,16 @@ class CopyActivityLineageExtractor:
         conn_type_props = (dataset_settings.get("connectionSettings") or {}).get(
             "properties", {}
         ).get("typeProperties") or {}
+        ls_type_props = (dataset_settings.get("linkedService") or {}).get(
+            "properties", {}
+        ).get("typeProperties") or {}
         ds_type_props = dataset_settings.get("typeProperties") or {}
 
-        artifact_id: Optional[str] = conn_type_props.get(
-            "artifactId"
-        ) or ds_type_props.get("artifactId")
+        artifact_id: Optional[str] = (
+            conn_type_props.get("artifactId")
+            or ls_type_props.get("artifactId")
+            or ds_type_props.get("artifactId")
+        )
         if not artifact_id:
             logger.debug(
                 "No artifactId found in OneLake datasetSettings for activity '%s'",
@@ -242,6 +247,7 @@ class CopyActivityLineageExtractor:
 
         resolved_workspace_id: str = (
             conn_type_props.get("workspaceId")
+            or ls_type_props.get("workspaceId")
             or ds_type_props.get("workspaceId")
             or pipeline_workspace_id
         )
