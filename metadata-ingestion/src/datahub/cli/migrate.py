@@ -27,9 +27,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import (
     ClientMode,
     DataHubGraph,
-    RelatedEntity,
     get_default_graph,
 )
+from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,

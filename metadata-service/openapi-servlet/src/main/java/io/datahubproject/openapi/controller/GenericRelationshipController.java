@@ -292,6 +292,7 @@ public abstract class GenericRelationshipController {
       @RequestParam(value = "relationshipTypes", required = false) String[] relationshipTypes,
       @RequestParam(value = "sourceTypes", required = false) String[] sourceTypes,
       @RequestParam(value = "destinationTypes", required = false) String[] destinationTypes,
+      @RequestParam(value = "direction", defaultValue = "OUTGOING") String direction,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
@@ -355,6 +356,14 @@ public abstract class GenericRelationshipController {
             .map(io.datahubproject.openapi.v3.models.Filter::toRecordTemplate)
             .orElse(QueryUtils.EMPTY_FILTER);
 
+    RelationshipDirection relationshipDirection;
+    try {
+      relationshipDirection = RelationshipDirection.valueOf(direction.toUpperCase());
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          "Direction must be INCOMING, OUTGOING, or UNDIRECTED, got: " + direction);
+    }
+
     RelatedEntitiesScrollResult result =
         graphService.scrollRelatedEntities(
             opContext,
@@ -365,7 +374,7 @@ public abstract class GenericRelationshipController {
             relationshipTypes != null
                 ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                 : Set.of(),
-            QueryUtils.newRelationshipFilter(edgeFilter, RelationshipDirection.UNDIRECTED),
+            QueryUtils.newRelationshipFilter(edgeFilter, relationshipDirection),
             Edge.EDGE_SORT_CRITERION,
             scrollId,
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
