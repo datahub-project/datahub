@@ -217,14 +217,14 @@ module.exports = {
             rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
         },
         // Semantic color enforcement — only on files changed in the current branch
-        // ...(changedTsFiles.length > 0
-        //     ? [
-        //           {
-        //               files: changedTsFiles,
-        //               excludedFiles: COLOR_RULE_EXCLUDED_FILES,
-        //               rules: COLOR_ENFORCEMENT_RULES,
-        //           },
-        //       ]
-        //     : []),
+        ...(changedTsFiles.length > 0
+            ? [
+                  {
+                      files: changedTsFiles,
+                      excludedFiles: COLOR_RULE_EXCLUDED_FILES,
+                      rules: COLOR_ENFORCEMENT_RULES,
+                  },
+              ]
+            : []),
     ],
 };
