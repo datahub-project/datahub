@@ -18,6 +18,7 @@ import dataclasses
 import json
 import logging
 from collections import namedtuple
+from itertools import groupby
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -63,7 +64,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 if TYPE_CHECKING:
@@ -430,7 +430,7 @@ class HiveMetadataProcessor:
         # Fetch and process table rows
         table_rows = self.fetcher.fetch_table_rows()
 
-        for key, group in groupby_unsorted(table_rows, self._get_table_key):
+        for key, group in groupby(table_rows, self._get_table_key):
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -481,6 +481,11 @@ class HiveMetadataProcessor:
                 self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
+
+            # Register schema with aggregator so view lineage SQL parsing
+            # can resolve column types without network calls to DataHub
+            if self.aggregator is not None:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
 
             # Build properties
             properties: Dict[str, str] = properties_cache.get(dataset_name, {})
@@ -568,7 +573,7 @@ class HiveMetadataProcessor:
         """Iterate over Hive view datasets from view rows."""
         view_rows = self.fetcher.fetch_view_rows()
 
-        for key, group in groupby_unsorted(view_rows, self._get_table_key):
+        for key, group in groupby(view_rows, self._get_table_key):
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -687,6 +692,9 @@ class HiveMetadataProcessor:
                 simplify_nested_field_paths=self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
+
+            if self.aggregator is not None:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
 
             # Add properties
             properties: Dict[str, str] = {"is_view": "True"}
