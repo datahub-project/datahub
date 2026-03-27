@@ -104,7 +104,7 @@ class GitInfo(GitReference):
 
     repo_ssh_locator: Optional[str] = Field(
         None,
-        description="The url to call `git clone` on. We infer this for github and gitlab repos, but it is required for other hosts.",
+        description="The URL to call `git clone` on. By default, for GitHub and GitLab repos, we infer the SSH URL. For other hosts, this defaults to the value of `repo`",
     )
 
     _fix_deploy_key_newlines = pydantic_multiline_string("deploy_key")
@@ -140,9 +140,7 @@ class GitInfo(GitReference):
                 f"git@gitlab.com:{self.repo[len(_GITLAB_PREFIX) :]}.git"
             )
         else:
-            raise ValueError(
-                "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."
-            )
+            self.repo_ssh_locator = self.repo
 
         return self
 
