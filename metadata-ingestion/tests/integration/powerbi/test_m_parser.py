@@ -925,7 +925,7 @@ def test_snowflake_double_double_quotes():
     )
 
 
-def test_databricks_multicloud():
+def test_databricks_native_query():
     q = M_QUERIES[31]
 
     lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
