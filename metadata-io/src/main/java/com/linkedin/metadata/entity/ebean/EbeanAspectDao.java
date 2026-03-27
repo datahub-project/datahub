@@ -1040,6 +1040,26 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
   }
 
+  /** Efficient override using SQL {@code ORDER BY created_on DESC LIMIT maxRows}. */
+  @Override
+  @Nonnull
+  public List<EntityAspect> getLatestAspects(
+      @Nonnull Urn urn, Set<String> aspectNames, int maxRows) {
+    validateConnection();
+    List<EbeanAspectV2> ebeanAspects =
+        server
+            .find(EbeanAspectV2.class)
+            .select(EbeanAspectV2.ALL_COLUMNS)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+            .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
+            .orderBy()
+            .desc(EbeanAspectV2.CREATED_ON_COLUMN)
+            .setMaxRows(maxRows)
+            .findList();
+    return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
+  }
+
   private Map<String, SystemAspect> toAspectMap(
       @Nonnull EntityRegistry entityRegistry,
       Set<EbeanAspectV2> beans,

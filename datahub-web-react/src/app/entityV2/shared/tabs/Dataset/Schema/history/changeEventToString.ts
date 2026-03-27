@@ -1,16 +1,37 @@
+import {
+    CATEGORY_APPLICATION,
+    CATEGORY_ASSET_MEMBERSHIP,
+    CATEGORY_DOMAIN,
+    CATEGORY_STRUCTURED_PROPERTY,
+    ChangeCategoryType,
+    ChangeOperationType,
+    GLOSSARY_RELATIONSHIP_TYPE_LABELS,
+    PARAM_DESCRIPTION,
+    PARAM_DOMAIN_URN,
+    PARAM_FIELD_PATH,
+    PARAM_OWNER_TYPE,
+    PARAM_OWNER_TYPE_URN,
+    PARAM_OWNER_URN,
+    PARAM_PROPERTY_URN,
+    PARAM_PROPERTY_VALUES,
+    PARAM_RELATIONSHIP_TYPE,
+    PARAM_TAG_URN,
+    PARAM_TERM_URN,
+    UNINFORMATIVE_OWNER_TYPES,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { downgradeV2FieldPath } from '@src/app/lineageV2/lineageUtils';
 import { ChangeEvent } from '@src/types.generated';
 
-const CATEGORY_TECHNICAL_SCHEMA = 'TECHNICAL_SCHEMA';
-const CATEGORY_DOCUMENTATION = 'DOCUMENTATION';
-const OPERATION_ADD = 'ADD';
-const OPERATION_REMOVE = 'REMOVE';
 const DEFAULT_FIELD_PATH = 'A new field';
 const EMPTY_ASSET_DOC = 'Asset documentation is empty.';
 const EMPTY_FIELD_DOC = (fieldPath) => `Field documentation for ${downgradeV2FieldPath(fieldPath)} is empty.`;
 const SET_ASSET_DOC = (description) => `Set asset documentation to ${description}`;
 const SET_FIELD_DOC = (fieldPath, description) =>
     `Set field documentation for ${downgradeV2FieldPath(fieldPath)} to ${description}`;
+
+function getRelationshipLabel(relationshipType: string): string {
+    return GLOSSARY_RELATIONSHIP_TYPE_LABELS[relationshipType] || 'related';
+}
 
 // function that iterates through array of key, value objects and returns the value associated with the key or default value
 // if the key is not found
@@ -23,29 +44,191 @@ function getParameter(
     return parameter?.value || defaultValue;
 }
 
-export function getDocumentationString(changeEvent: ChangeEvent) {
-    let documentationString = changeEvent.description;
+function extractNameFromUrn(urn: string, nameMap?: Map<string, string>): string {
+    // Use resolved display name if available, otherwise fall back to last URN segment
+    if (nameMap?.has(urn)) return nameMap.get(urn)!;
+    const parts = urn.split(':');
+    return parts[parts.length - 1] || urn;
+}
 
-    if (changeEvent.category === CATEGORY_TECHNICAL_SCHEMA) {
-        const fieldPath = getParameter(changeEvent.parameters, 'fieldPath', DEFAULT_FIELD_PATH);
-        if (changeEvent.operation === OPERATION_ADD) {
-            documentationString = `Added column ${downgradeV2FieldPath(fieldPath || '')}.`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
-            documentationString = `Removed column ${downgradeV2FieldPath(fieldPath || '')}.`;
+function formatPropertyValues(rawJson: string): string {
+    try {
+        const values = JSON.parse(rawJson);
+        if (Array.isArray(values)) {
+            return values.map((v) => `"${v}"`).join(', ');
         }
-    } else if (changeEvent.category === CATEGORY_DOCUMENTATION) {
-        const description = getParameter(changeEvent.parameters, 'description', '');
+        return `"${values}"`;
+    } catch {
+        return `"${rawJson}"`;
+    }
+}
 
-        if (!changeEvent.modifier) {
-            // Documentation at the entity level
-            documentationString = description === '' ? EMPTY_ASSET_DOC : SET_ASSET_DOC(description);
-        } else {
-            // Documentation at the field level
-            const fieldPath = changeEvent.modifier;
-            documentationString =
-                description === '' ? EMPTY_FIELD_DOC(fieldPath) : SET_FIELD_DOC(fieldPath, description);
+function formatOwnerTypeUrn(urn: string): string {
+    // Extract display name from URNs like "urn:li:ownershipType:__system__business_owner"
+    const lastSegment = urn.split(':').pop() || '';
+    // Strip the __system__ prefix if present, then humanize
+    const cleaned = lastSegment.replace(/^__system__/, '');
+    return cleaned
+        .split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+function formatOwnerType(rawType: string): string {
+    // Convert "TECHNICAL_OWNER" -> "Technical Owner"
+    return rawType
+        .split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+/**
+ * Strip entity URN references from backend descriptions since they are redundant
+ * in the Change History sidebar (we're already viewing that entity's history).
+ * Handles patterns like: "for 'urn:li:...'", "of 'urn:li:...'", "to entity 'urn:li:...'"
+ */
+export function stripEntityUrns(text: string | undefined | null): string {
+    if (!text) return '';
+    return text
+        .replace(/ (?:to|from) entity 'urn:li:[^']*'/g, '')
+        .replace(/ (?:for|of|to|from) 'urn:li:[^']*'/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<string, string>) {
+    let displayString = changeEvent.description;
+    // Cast to string — the backend emits categories (DOMAIN, STRUCTURED_PROPERTY, APPLICATION)
+    // not yet present in the generated ChangeCategoryType enum.
+    const category = changeEvent.category as string;
+
+    if (category === ChangeCategoryType.TechnicalSchema) {
+        const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH, DEFAULT_FIELD_PATH);
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = `Added column ${downgradeV2FieldPath(fieldPath || '')}.`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = `Removed column ${downgradeV2FieldPath(fieldPath || '')}.`;
+        } else if (changeEvent.operation === ChangeOperationType.Modify) {
+            displayString = `Modified column ${downgradeV2FieldPath(fieldPath || '')}.`;
+        }
+    } else if (category === ChangeCategoryType.Documentation) {
+        const hasDescriptionParam = (changeEvent.parameters || []).some((p) => p.key === PARAM_DESCRIPTION);
+
+        if (hasDescriptionParam) {
+            // EditableDatasetProperties / EditableSchemaMetadata events include a description parameter.
+            const description = getParameter(changeEvent.parameters, PARAM_DESCRIPTION, '');
+            if (!changeEvent.modifier) {
+                displayString = description === '' ? EMPTY_ASSET_DOC : SET_ASSET_DOC(description);
+            } else {
+                const fieldPath = changeEvent.modifier;
+                displayString = description === '' ? EMPTY_FIELD_DOC(fieldPath) : SET_FIELD_DOC(fieldPath, description);
+            }
+        } else if (changeEvent.modifier) {
+            // SchemaMetadata-sourced field description changes: modifier holds the field path
+            // but no description parameter. Prefix the column name to the backend description
+            // so the user can see which column was affected.
+            const fieldPath = downgradeV2FieldPath(changeEvent.modifier);
+            displayString = `[${fieldPath}] ${changeEvent.description || ''}`;
+        }
+    } else if (category === ChangeCategoryType.Tag) {
+        const tagUrn = getParameter(changeEvent.parameters, PARAM_TAG_URN, '');
+        const tagName = tagUrn ? extractNameFromUrn(tagUrn, nameMap) : 'Unknown';
+        const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
+
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = fieldPath
+                ? `Added tag "${tagName}" to field ${downgradeV2FieldPath(fieldPath)}.`
+                : `Added tag "${tagName}".`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = fieldPath
+                ? `Removed tag "${tagName}" from field ${downgradeV2FieldPath(fieldPath)}.`
+                : `Removed tag "${tagName}".`;
+        }
+    } else if (category === ChangeCategoryType.GlossaryTerm) {
+        const termUrn = getParameter(changeEvent.parameters, PARAM_TERM_URN, '');
+        const termName = termUrn ? extractNameFromUrn(termUrn, nameMap) : 'Unknown';
+        const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
+        const relationshipType = getParameter(changeEvent.parameters, PARAM_RELATIONSHIP_TYPE);
+
+        if (relationshipType) {
+            const label = getRelationshipLabel(relationshipType);
+            if (changeEvent.operation === ChangeOperationType.Add) {
+                displayString = `Added ${label} term "${termName}".`;
+            } else if (changeEvent.operation === ChangeOperationType.Remove) {
+                displayString = `Removed ${label} term "${termName}".`;
+            }
+        } else if (termUrn) {
+            if (changeEvent.operation === ChangeOperationType.Add) {
+                displayString = fieldPath
+                    ? `Added term "${termName}" to field ${downgradeV2FieldPath(fieldPath)}.`
+                    : `Added term "${termName}".`;
+            } else if (changeEvent.operation === ChangeOperationType.Remove) {
+                displayString = fieldPath
+                    ? `Removed term "${termName}" from field ${downgradeV2FieldPath(fieldPath)}.`
+                    : `Removed term "${termName}".`;
+            }
+        }
+    } else if (category === ChangeCategoryType.Ownership) {
+        const ownerUrn = getParameter(changeEvent.parameters, PARAM_OWNER_URN, '');
+        const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn, nameMap) : 'Unknown';
+        const rawOwnerType = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE);
+        const ownerTypeUrn = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE_URN);
+        let ownerTypeSuffix = '';
+        if (ownerTypeUrn) {
+            ownerTypeSuffix = ` (${formatOwnerTypeUrn(ownerTypeUrn)})`;
+        } else if (rawOwnerType && !UNINFORMATIVE_OWNER_TYPES.has(rawOwnerType)) {
+            ownerTypeSuffix = ` (${formatOwnerType(rawOwnerType)})`;
+        }
+
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = `Added owner "${ownerName}"${ownerTypeSuffix}.`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = `Removed owner "${ownerName}"${ownerTypeSuffix}.`;
+        }
+    } else if (category === CATEGORY_DOMAIN) {
+        const domainUrn = getParameter(changeEvent.parameters, PARAM_DOMAIN_URN, '');
+        const domainName = domainUrn ? extractNameFromUrn(domainUrn, nameMap) : 'Unknown';
+
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = `Added to domain "${domainName}".`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = `Removed from domain "${domainName}".`;
+        }
+    } else if (category === CATEGORY_STRUCTURED_PROPERTY) {
+        const propertyUrn = getParameter(changeEvent.parameters, PARAM_PROPERTY_URN, '');
+        const propertyName = propertyUrn ? extractNameFromUrn(propertyUrn, nameMap) : 'Unknown';
+        const propertyValues = getParameter(changeEvent.parameters, PARAM_PROPERTY_VALUES);
+        const valuesSuffix = propertyValues ? ` to ${formatPropertyValues(propertyValues)}` : '';
+
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = `Set structured property "${propertyName}"${valuesSuffix}.`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = `Removed structured property "${propertyName}".`;
+        } else if (changeEvent.operation === ChangeOperationType.Modify) {
+            displayString = `Updated structured property "${propertyName}"${valuesSuffix}.`;
+        }
+    } else if (category === CATEGORY_APPLICATION) {
+        const appUrn = changeEvent.modifier || '';
+        const appName = appUrn ? extractNameFromUrn(appUrn, nameMap) : 'Unknown';
+
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = `Added to application "${appName}".`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = `Removed from application "${appName}".`;
+        }
+    } else if (category === CATEGORY_ASSET_MEMBERSHIP) {
+        const assetUrn = changeEvent.modifier || '';
+        const assetName = assetUrn ? extractNameFromUrn(assetUrn, nameMap) : 'Unknown';
+
+        if (changeEvent.operation === ChangeOperationType.Add) {
+            displayString = `Added asset "${assetName}".`;
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
+            displayString = `Removed asset "${assetName}".`;
         }
     }
 
-    return documentationString;
+    return stripEntityUrns(displayString);
 }
+
+/** @deprecated Use getChangeEventString instead */
+export const getDocumentationString = getChangeEventString;

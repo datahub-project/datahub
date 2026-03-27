@@ -99,7 +99,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
     return OwnerChangeEvent.entityOwnerChangeEventBuilder()
         .modifier(newOwner.getOwner().toString())
         .entityUrn(entityUrn)
-        .category(ChangeCategory.OWNER)
+        .category(ChangeCategory.OWNERSHIP)
         .operation(ChangeOperation.ADD)
         .semVerChange(SemanticChangeType.MINOR)
         .description(
@@ -117,7 +117,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
     return OwnerChangeEvent.entityOwnerChangeEventBuilder()
         .modifier(oldOwner.getOwner().toString())
         .entityUrn(entityUrn)
-        .category(ChangeCategory.OWNER)
+        .category(ChangeCategory.OWNERSHIP)
         .operation(ChangeOperation.REMOVE)
         .semVerChange(SemanticChangeType.MINOR)
         .description(
@@ -151,7 +151,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
     Ownership targetOwnership = getOwnershipFromAspect(currentValue);
 
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    if (element == ChangeCategory.OWNER) {
+    if (element == ChangeCategory.OWNERSHIP) {
       changeEvents.addAll(
           computeDiffs(baseOwnership, targetOwnership, currentValue.getUrn(), null));
     }

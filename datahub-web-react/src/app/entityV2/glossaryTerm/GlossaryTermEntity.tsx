@@ -34,6 +34,7 @@ import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossary
 import { EntityType, GlossaryTerm, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,

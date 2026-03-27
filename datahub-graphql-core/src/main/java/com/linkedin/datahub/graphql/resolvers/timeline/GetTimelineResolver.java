@@ -40,9 +40,6 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
 
     final String datasetUrnString = input.getUrn();
     final List<ChangeCategoryType> changeCategories = input.getChangeCategories();
-    final long startTime = 0;
-    final long endTime = 0;
-    //    final String version = input.getVersion() == null ? null : input.getVersion();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -58,22 +55,27 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
             final Urn datasetUrn = Urn.createFromString(datasetUrnString);
             final List<ChangeTransaction> changeTransactionList =
                 _timelineService.getTimeline(
-                    datasetUrn, changeCategorySet, startTime, endTime, null, null, false);
+                    datasetUrn,
+                    changeCategorySet,
+                    TimelineService.DEFAULT_MAX_CHANGE_TRANSACTIONS,
+                    false);
             GetTimelineResult result = new GetTimelineResult();
             result.setChangeTransactions(
                 changeTransactionList.stream()
                     .map(ChangeTransactionMapper::map)
+                    .filter(t -> t.getChanges() != null && !t.getChanges().isEmpty())
                     .collect(Collectors.toList()));
             return result;
           } catch (URISyntaxException u) {
             log.error(
                 String.format(
-                    "Failed to list schema blame data, likely due to the Urn %s being invalid",
+                    "Failed to get timeline data, likely due to the URN %s being invalid",
                     datasetUrnString),
                 u);
             return null;
           } catch (Exception e) {
-            log.error("Failed to list schema blame data", e);
+            log.error(
+                String.format("Failed to get timeline data for entity %s", datasetUrnString), e);
             return null;
           }
         },
