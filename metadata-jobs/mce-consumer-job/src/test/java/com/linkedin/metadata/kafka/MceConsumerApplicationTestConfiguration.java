@@ -2,9 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
@@ -14,19 +12,14 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
-import com.linkedin.restli.client.Client;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
-import java.net.URI;
-import org.mockito.Answers;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
@@ -40,28 +33,64 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     })
 public class MceConsumerApplicationTestConfiguration {
 
-  @LocalServerPort private int port;
-
   @MockitoBean public KafkaHealthChecker kafkaHealthChecker;
 
-  @MockitoBean public EntityService<?> _entityService;
-
-  @MockitoBean(answers = Answers.RETURNS_MOCKS)
-  public SearchClientShim<?> searchClientShim;
-
+  // Use @Bean @Primary to prevent EntityServiceFactory from creating a real EntityServiceImpl
+  // (which would try to connect to MySQL through its dao dependency chain)
   @Bean
   @Primary
-  public SystemEntityClient systemEntityClient(
-      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
-      final EntityClientConfig entityClientConfig,
-      final MetricUtils metricUtils) {
-    String selfUri = "http://localhost:" + port;
-    final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
-    return new SystemRestliEntityClient(
-        restClient,
-        entityClientConfig,
-        configurationProvider.getCache().getClient().getEntityClient(),
-        metricUtils);
+  @SuppressWarnings("unchecked")
+  public EntityService<?> entityService() {
+    return Mockito.mock(EntityService.class);
+  }
+
+  @MockitoBean protected TimeseriesAspectService timeseriesAspectService;
+
+  @MockitoBean protected SiblingGraphService siblingGraphService;
+
+  // Mock semantic search factories to avoid needing full configuration
+  @MockitoBean public EmbeddingProviderFactory embeddingProviderFactory;
+
+  @MockitoBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+
+  @MockitoBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
+
+  @MockitoBean public MetricUtils metricUtils;
+
+  // Use @Bean @Primary to prevent SearchClientShimFactory from connecting to localhost:9200
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  @Bean
+  @Primary
+  @SuppressWarnings("unchecked")
+  public SearchClientShim<?> searchClientShim() {
+    SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+    Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    return mock;
+  }
+
+  // Use @Bean @Primary to prevent EbeanDatabaseFactory from trying to connect to MySQL
+  @Bean
+  @Primary
+  public Database ebeanServer() {
+    return Mockito.mock(Database.class);
+  }
+
+  // Use real EntityRegistry to prevent EntityRegistryFactory from calling methods on a plain mock
+  // (MergedEntityRegistry.apply(configEntityRegistry) throws AssertionError on unstubbed mocks)
+  @Bean
+  @Primary
+  public EntityRegistry entityRegistry() {
+    return TestOperationContexts.defaultEntityRegistry();
+  }
+
+  // Use @Bean (no @Primary) to prevent ConfigEntityRegistryFactory from loading
+  // entity-registry.yml.
+  // Do NOT add @Primary — ConfigEntityRegistry is a subtype of EntityRegistry and would
+  // compete with the entityRegistry bean above, causing NoUniqueBeanDefinitionException.
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  @Bean
+  public ConfigEntityRegistry configEntityRegistry() {
+    return Mockito.mock(ConfigEntityRegistry.class);
   }
 
   @Bean
@@ -75,26 +104,11 @@ public class MceConsumerApplicationTestConfiguration {
         .build();
   }
 
-  @MockitoBean public Database ebeanServer;
-
-  @MockitoBean protected TimeseriesAspectService timeseriesAspectService;
-
-  @MockitoBean protected EntityRegistry entityRegistry;
-
-  // Use @Bean @Primary to prevent ConfigEntityRegistryFactory from loading entity-registry.yml
-  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  // Use @Bean @Primary to prevent SystemEntityClientFactory from attempting to initialize
+  // a real client during context startup. The test uses RestTemplate directly.
   @Bean
   @Primary
-  public ConfigEntityRegistry configEntityRegistry() {
-    return Mockito.mock(ConfigEntityRegistry.class);
+  public SystemEntityClient systemEntityClient() {
+    return Mockito.mock(SystemEntityClient.class);
   }
-
-  @MockitoBean protected SiblingGraphService siblingGraphService;
-
-  // Mock semantic search factories to avoid needing full configuration
-  @MockitoBean public EmbeddingProviderFactory embeddingProviderFactory;
-
-  @MockitoBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
-
-  @MockitoBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 }
