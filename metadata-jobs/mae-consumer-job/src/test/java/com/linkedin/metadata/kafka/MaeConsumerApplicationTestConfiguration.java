@@ -16,6 +16,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -34,7 +35,13 @@ public class MaeConsumerApplicationTestConfiguration {
 
   @MockitoBean private Database ebeanServer;
 
-  @MockitoBean private EntityRegistry entityRegistry;
+  // Use real EntityRegistry to prevent EntityRegistryFactory from calling methods on a plain mock
+  // (MergedEntityRegistry.apply(configEntityRegistry) throws NPE on unstubbed mocks)
+  @Bean
+  @Primary
+  public EntityRegistry entityRegistry() {
+    return TestOperationContexts.defaultEntityRegistry();
+  }
 
   @MockitoBean private RestrictedService restrictedService;
 
