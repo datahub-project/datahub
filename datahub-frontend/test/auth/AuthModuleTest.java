@@ -11,6 +11,7 @@ import com.datahub.authentication.Authentication;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.linkedin.metadata.restli.RestliClientSslConfig;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.ConfigFactory;
 import java.util.HashMap;
@@ -455,5 +456,36 @@ public class AuthModuleTest {
     boolean result = module.doesMetadataServiceUseSsl(config);
     // The result depends on the environment variable, so we just verify it doesn't throw
     assertNotNull(Boolean.valueOf(result));
+  }
+
+  @Test
+  public void buildRestliSslConfigForMetadataService_mapsTruststoreAndKeystoreFromConfig() {
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("metadataService.truststore.path", "/certs/trust.p12");
+    configMap.put("metadataService.truststore.password", "trust-secret");
+    configMap.put("metadataService.truststore.type", "PKCS12");
+    configMap.put("metadataService.keystore.path", "/certs/client.p12");
+    configMap.put("metadataService.keystore.password", "ks-secret");
+    configMap.put("metadataService.keystore.type", "PKCS12");
+    configMap.put("metadataService.keystore.keyPassword", "key-secret");
+
+    com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
+    RestliClientSslConfig ssl = AuthModule.buildRestliSslConfigForMetadataService(config);
+
+    assertTrue(ssl.hasCustomSslMaterial());
+    assertEquals("/certs/trust.p12", ssl.getTruststorePath());
+    assertEquals("trust-secret", ssl.getTruststorePassword());
+    assertEquals("PKCS12", ssl.getTruststoreType());
+    assertEquals("/certs/client.p12", ssl.getKeystorePath());
+    assertEquals("ks-secret", ssl.getKeystorePassword());
+    assertEquals("PKCS12", ssl.getKeystoreType());
+    assertEquals("key-secret", ssl.getKeyPassword());
+  }
+
+  @Test
+  public void buildRestliSslConfigForMetadataService_emptyWhenTlsKeysUnset() {
+    com.typesafe.config.Config config = ConfigFactory.parseMap(new HashMap<>());
+    RestliClientSslConfig ssl = AuthModule.buildRestliSslConfigForMetadataService(config);
+    assertFalse(ssl.hasCustomSslMaterial());
   }
 }

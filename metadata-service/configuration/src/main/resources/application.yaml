@@ -133,6 +133,11 @@ datahub:
       path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
       password: ${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}} # Required if useSSL is true
       type: ${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:PKCS12}
+    keystore:
+      path: ${DATAHUB_GMS_SSL_KEYSTORE_PATH:#{null}}
+      password: ${DATAHUB_GMS_SSL_KEYSTORE_PASSWORD:#{null}}
+      type: ${DATAHUB_GMS_SSL_KEYSTORE_TYPE:PKCS12}
+      keyPassword: ${DATAHUB_GMS_SSL_KEY_PASSWORD:#{null}}
     async:
       request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 
