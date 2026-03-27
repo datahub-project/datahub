@@ -1,18 +1,19 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
-import { DatePicker, Tooltip } from 'antd';
-import moment from 'moment';
+import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { getTimeRangeDescription } from '@app/shared/time/timeUtils';
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 const RangePickerWrapper = styled.div`
     transition: color 0s;
     position: relative;
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         cursor: pointer;
     }
     .ant-picker-range {
@@ -32,14 +33,14 @@ const { RangePicker } = DatePicker;
 
 type Props = {
     onChange: (dates, _dateStrings) => void;
-    initialDates: [moment.Moment | null, moment.Moment | null];
+    initialDates: [Dayjs | null, Dayjs | null];
 };
 
 export default function LineageTimeSelector({ onChange, initialDates }: Props) {
     const [isOpen, setIsOpen] = useState(false);
     const [headerText, setHeaderText] = useState('No time range selected');
-    const [startDate, setStartDate] = useState<moment.Moment | null>(initialDates[0]);
-    const [endDate, setEndDate] = useState<moment.Moment | null>(initialDates[1]);
+    const [startDate, setStartDate] = useState<Dayjs | null>(initialDates[0]);
+    const [endDate, setEndDate] = useState<Dayjs | null>(initialDates[1]);
 
     useEffect(() => {
         const timeRangeDescription = getTimeRangeDescription(startDate, endDate);
@@ -61,13 +62,13 @@ export default function LineageTimeSelector({ onChange, initialDates }: Props) {
                         bordered={false}
                         value={initialDates}
                         disabledDate={(current: any) => {
-                            return current && current > moment().endOf('day');
+                            return current && current > dayjs().endOf('day');
                         }}
                         format="ll"
                         ranges={{
-                            'Last 7 days': [moment().subtract(7, 'days'), moment()],
-                            'Last 14 days': [moment().subtract(14, 'days'), moment()],
-                            'Last 28 days': [moment().subtract(28, 'days'), moment()],
+                            'Last 7 days': [dayjs().subtract(7, 'days'), dayjs()],
+                            'Last 14 days': [dayjs().subtract(14, 'days'), dayjs()],
+                            'Last 28 days': [dayjs().subtract(28, 'days'), dayjs()],
                             'All Time': [null, null],
                         }}
                         onChange={(dates, dateStrings) => {

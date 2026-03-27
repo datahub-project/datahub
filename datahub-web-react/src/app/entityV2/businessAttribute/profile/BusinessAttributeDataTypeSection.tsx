@@ -96,5 +96,3 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
         </div>
     );
 };
-
-export default BusinessAttributeDataTypeSection;

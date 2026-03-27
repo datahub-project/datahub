@@ -20,7 +20,7 @@ const SearchResultContainer = styled.div`
 `;
 
 // filter out entity itself and its children
-export function filterResultsForMove(entity: GlossaryNode, entityUrn: string) {
+function filterResultsForMove(entity: GlossaryNode, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'GlossaryNode' &&

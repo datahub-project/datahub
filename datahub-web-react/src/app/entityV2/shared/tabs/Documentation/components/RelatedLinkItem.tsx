@@ -1,3 +1,5 @@
+import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { List } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -7,6 +9,7 @@ import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -92,14 +95,14 @@ export const RelatedLinkItem: React.FC<RelatedLinkItemProps> = ({ link, onEdit, 
                     <StyledButton
                         variant="text"
                         isCircle
-                        icon={{ icon: 'Pencil', source: 'phosphor', size: 'md', color: 'gray', colorLevel: 500 }}
+                        icon={{ icon: Pencil, size: 'md', color: 'gray', colorLevel: 500 }}
                         onClick={() => onEdit(link)}
                         data-testid="edit-link-button"
                     />
                     <StyledButton
                         variant="text"
                         isCircle
-                        icon={{ icon: 'Trash', source: 'phosphor', size: 'md', color: 'red', colorLevel: 500 }}
+                        icon={{ icon: Trash, size: 'md', color: 'red', colorLevel: 500 }}
                         onClick={() => onDelete(link)}
                         data-testid="remove-link-button"
                     />

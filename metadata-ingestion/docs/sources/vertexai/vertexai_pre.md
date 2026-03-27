@@ -1,18 +1,48 @@
-Ingesting metadata from VertexAI requires using the **Vertex AI** module.
+### Overview
 
-#### Prerequisites
+The `vertexai` module ingests metadata from Vertex AI into DataHub. It extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI.
 
-Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai/docs) for basic information on Vertex AI.
+The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. Use `env` (e.g., `PROD`, `DEV`, `STAGING`) to distinguish between environments. The optional `platform_instance` field namespaces resources to avoid URN collisions when ingesting from multiple Vertex AI setups.
 
-#### Credentials to access to GCP
+> **Deprecation Notice**: The `project_id` (singular) configuration field is deprecated and will be removed in a future release. Use `project_ids` (list) instead:
+>
+> ```yaml
+> # Deprecated
+> project_id: my-project
+>
+> # Preferred
+> project_ids:
+>   - my-project
+> ```
+>
+> **Migration behavior**: If `project_id` is set and `project_ids` is not, the value is automatically moved to `project_ids` and a deprecation warning is logged. If both are set with the same value, `project_id` is silently ignored. If both are set with conflicting values, ingestion fails with a validation error. No manual migration is required — update your recipe at your convenience to silence the warning.
 
-Please read the section to understand how to set up application default Credentials to [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+**Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
+
+Enabling `stateful_ingestion` has two effects: (1) resources not updated since the previous run are skipped, reducing redundant API calls on subsequent runs; and (2) entities deleted from Vertex AI are automatically soft-deleted in DataHub. Use `stateful_ingestion.ignore_old_state: true` to get soft-deletion only without the incremental skip behaviour.
+
+For improved organization in the DataHub UI:
+
+- Model versions are organized under their respective model group folders
+- Pipeline tasks and task runs are nested under their parent pipeline folders
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+#### Vertex AI setup
+
+Refer to [Vertex AI documentation](https://cloud.google.com/vertex-ai/docs) for Vertex AI basics.
+
+#### GCP Authentication
+
+Set up Application Default Credentials (ADC) following [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
 
 ##### Permissions
 
-- Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+Grant the following permissions to the service account on all target projects.
 
-Default GCP Role which contains these permissions [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
+**Default GCP Role:** [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
 
 | Permission                          | Description                                                          |
 | ----------------------------------- | -------------------------------------------------------------------- |
@@ -39,10 +69,10 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 #### Create a service account and assign roles
 
-1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the previously created role to this service account.
-2. Download a service account JSON keyfile.
+1. Create a service account following [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the role above
+2. Download the service account JSON keyfile
 
-   - Example credential file:
+   Example credential file:
 
    ```json
    {
@@ -78,67 +108,3 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
     client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
     client_id: "123456678890"
   ```
-
-### Integration Details
-
-Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
-
-The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. Use `env` (e.g., `PROD`, `DEV`, `STAGING`) to distinguish between environments. The optional `platform_instance` field namespaces resources to avoid URN collisions when ingesting from multiple Vertex AI setups.
-
-**Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
-
-Enabling `stateful_ingestion` has two effects: (1) resources not updated since the previous run are skipped, reducing redundant API calls on subsequent runs; and (2) entities deleted from Vertex AI are automatically soft-deleted in DataHub. Use `stateful_ingestion.ignore_old_state: true` to get soft-deletion only without the incremental skip behaviour.
-
-For improved organization in the DataHub UI:
-
-- Model versions are organized under their respective model group folders
-- Pipeline tasks and task runs are nested under their parent pipeline folders
-
-#### Concept Mapping
-
-This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
-
-|                                                       Source Concept                                                       |                                             DataHub Concept                                              |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| :------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|         [`Model`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Model)          |        [`MlModelGroup`](https://docs.datahub.com/docs/generated/metamodel/entities/mlmodelgroup/)        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  The name of a Model Group is the same as Model's name. Model serve as containers for multiple versions of the same model in Vertex AI.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-|                    [`Model Version`](https://cloud.google.com/vertex-ai/docs/model-registry/versioning)                    |             [`MlModel`](https://docs.datahub.com/docs/generated/metamodel/entities/mlmodel/)             |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   The name of a Model is `{model_name}_{model_version}` (e.g. my_vertexai_model_1 for model registered to Model Registry or Deployed to Endpoint. Each Model Version represents a specific iteration of a model with its own metadata.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|                                                     Dataset <br/><br/>                                                     |             [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)              |                                                                                                                                                                                                                                                                                                                                                  A Managed Dataset resource in Vertex AI is mapped to Dataset in DataHub. <br></br> Supported types of datasets include ([`Text`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.TextDataset), [`Tabular`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.TabularDataset), [`Image Dataset`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.ImageDataset), [`Video`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.VideoDataset), [`TimeSeries`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.TimeSeriesDataset))                                                                                                                                                                                                                                                                                                                                                   |
-|                     [`Training Job`](https://cloud.google.com/vertex-ai/docs/beginner/beginners-guide)                     | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) | A Training Job is mapped as DataProcessInstance in DataHub. <br></br> Supported types of training jobs include ([`AutoMLTextTrainingJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.AutoMLTextTrainingJob), [`AutoMLTabularTrainingJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.AutoMLTabularTrainingJob), [`AutoMLImageTrainingJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.AutoMLImageTrainingJob), [`AutoMLVideoTrainingJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.AutoMLVideoTrainingJob), [`AutoMLForecastingTrainingJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.AutoMLForecastingTrainingJob), [`Custom Job`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.CustomJob), [`Custom TrainingJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.CustomTrainingJob), [`Custom Container TrainingJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.CustomContainerTrainingJob), [`Custom Python Packaging Job`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.CustomPythonPackageTrainingJob) ) |
-|    [`Experiment`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Experiment)     |           [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container/)           |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         Experiments organize related runs and serve as logical groupings for model development iterations. Each Experiment is mapped to a Container in DataHub.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| [`Experiment Run`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.ExperimentRun) | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                An Experiment Run represents a single execution of a ML workflow. An Experiment Run tracks ML parameters, metricis, artifacts and metadata                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-|     [`Execution`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Execution)      | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Metadata Execution resource for Vertex AI. Metadata Execution is started in a experiment run and captures input and output artifacts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|   [`PipelineJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.PipelineJob)    |            [`DataFlow`](https://docs.datahub.com/docs/generated/metamodel/entities/dataflow/)            |                                                                                                                                                                                                                                                                                             A Vertex AI Pipeline is mapped to a stable DataFlow entity in DataHub (one per pipeline template). The compiled pipeline spec name (`pipelineInfo.name`, i.e. the `@pipeline(name="...")` argument) is used as the stable identifier; non-Kubeflow pipelines fall back to `display_name` with any timestamp suffix stripped. Each pipeline run creates a DataProcessInstance, and pipeline tasks are modeled as DataJobs nested under the parent DataFlow. This enables proper incremental lineage aggregation across multiple pipeline runs. **Breaking Change (v1.4.0)**: Previously, each pipeline run created a separate DataFlow entity. Existing pipeline entities from earlier versions will appear as separate entities from new ingestion runs. Enable stateful ingestion with stale entity removal to clean up old pipeline entities.                                                                                                                                                                                                                                                                                              |
-|       [`PipelineJob Task`](https://cloud.google.com/vertex-ai/docs/pipelines/build-pipeline#understanding-pipelines)       |             [`DataJob`](https://docs.datahub.com/docs/generated/metamodel/entities/datajob/)             |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             Each task within a Vertex AI pipeline is modeled as a DataJob in DataHub, nested under its parent pipeline DataFlow. Tasks represent individual steps in the pipeline workflow.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|     [`PipelineJob Task Run`](https://cloud.google.com/vertex-ai/docs/pipelines/build-pipeline#understanding-pipelines)     | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   Each execution of a pipeline task is modeled as a DataProcessInstance, linked to its DataJob (task definition). This captures runtime metadata, inputs/outputs, and lineage for each task execution.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-
-##### Vertex AI Concept Diagram
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-ingestion/vertexai/concept-mapping.png"/>
-</p>
-
-#### Lineage
-
-The connector captures comprehensive lineage relationships including cross-platform lineage to external data sources:
-
-**Core Vertex AI Lineage**:
-
-- Training job → Model (AutoML and CustomJob)
-- Dataset → Training job (AutoML and ML Metadata-based)
-- Training job → Output models (ML Metadata Executions)
-- Model → Training datasets (direct upstream lineage via TrainingData aspect)
-- Experiment run → Model (outputs)
-- Model evaluation → Model and test datasets (inputs)
-- Pipeline task runs → Models and datasets (inputs/outputs via DataProcessInstance aspects)
-
-**Cross-Platform Lineage** (external data sources):
-
-The connector links Vertex AI resources to external datasets when referenced in job configurations or ML Metadata artifacts. Supported platforms:
-
-- **Google Cloud Storage** (gs://...) → `gcs` platform
-- **BigQuery** (bq://project.dataset.table or projects/.../datasets/.../tables/...) → `bigquery` platform
-- **Amazon S3** (s3://..., s3a://...) → `s3` platform
-- **Azure Blob Storage** (wasbs://..., abfss://...) → `abs` platform
-- **Snowflake** (snowflake://...) → `snowflake` platform
-
-Use `platform_instance_map` to configure platform instances and environments for external platforms, ensuring URNs match those from native connectors for proper lineage connectivity.

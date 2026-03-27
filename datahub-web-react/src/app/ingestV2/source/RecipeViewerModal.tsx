@@ -4,6 +4,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { jsonToYaml } from '@app/ingestV2/source/utils';
+import '@conf/monaco';
 
 const YamlWrapper = styled.div`
     padding: 24px;

@@ -53,6 +53,7 @@ const lightTheme: ColorTheme = {
     radioButtonBorder: colors.gray600,
     radioButtonDotFill: colors.gray0,
     radioButtonDotDisabled: colors.gray500,
+    borderCheckbox: colors.gray500,
     avatarBorderBrand: colors.violet100,
     avatarBorderInformation: colors.blue200,
     border: colors.gray100,
@@ -104,16 +105,16 @@ const lightTheme: ColorTheme = {
     bgInputDisabled: colors.gray400,
     borderInput: colors.gray100,
     borderInputFocus: colors.violet400,
-    textPlaceholder: colors.gray500,
+    textPlaceholder: colors.gray600,
     // Scrollbar
     scrollbarTrack: 'transparent',
     scrollbarThumb: colors.gray100,
     scrollbarThumbHover: colors.gray500,
+    scrollbarThumbOnDarkBg: colors.gray500,
     // Code blocks
     bgCode: colors.gray200,
     bgCodeBlock: colors.gray200,
     // Highlight
-    bgHighlight: '#ffe58f',
     // Tooltip
     bgTooltip: colors.gray1000,
     // Brand gradients

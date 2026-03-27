@@ -13,7 +13,7 @@ import navigateToUrl from '@app/utils/navigateToUrl';
 import { DataPlatform, SemanticVersionStruct } from '@types';
 
 export const SEMANTIC_VERSION_PARAM = 'semantic_version';
-export const SIBLING_VERSION_PARAM = 'secondary_version'; // Note: Currently unused
+const SIBLING_VERSION_PARAM = 'secondary_version'; // Note: Currently unused
 
 const Wrapper = styled.div`
     display: flex;

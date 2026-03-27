@@ -186,23 +186,60 @@ For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQD
 </details>
 
 <details>
+  <summary>Claude Code</summary>
+
+Claude Code natively supports streamable HTTP, so no proxy or additional dependencies are needed.
+
+Run the following command, replacing `<tenant>` and `<token>` with your own values:
+
+```bash
+claude mcp add --transport http \
+  --header "Authorization: Bearer <token>" \
+  datahub-cloud \
+  "https://<tenant>.acryl.io/integrations/ai/mcp/"
+```
+
+For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
+
+</details>
+
+<details>
   <summary>Cursor</summary>
 
 1. Make sure you're using Cursor v1.1 or newer.
 2. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server.
-3. Enter the following into the file:
+3. Enter the following into the file, replacing `<tenant>` and `<token>` with your own values:
 
 ```json
 {
   "mcpServers": {
     "datahub-cloud": {
-      "url": "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"
+      "url": "https://<tenant>.acryl.io/integrations/ai/mcp/",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
     }
   }
 }
 ```
 
 4. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
+
+For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+
+</details>
+
+<details>
+  <summary>Gemini CLI</summary>
+
+```bash
+gemini mcp add --transport http \
+  --header "Authorization: Bearer <token>" \
+  datahub-cloud \
+  "https://<tenant>.acryl.io/integrations/ai/mcp/"
+```
+
+For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
 
 </details>
 
@@ -278,10 +315,26 @@ These are passed to the `mcp-server-datahub` process at startup (see configurati
 </details>
 
 <details>
+  <summary>Claude Code</summary>
+
+Run the following command, replacing the placeholder values:
+
+```bash
+claude mcp add datahub \
+  -e DATAHUB_GMS_URL="<your-datahub-url>" \
+  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
+  -- uvx mcp-server-datahub@latest
+```
+
+For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
+
+</details>
+
+<details>
   <summary>Cursor</summary>
 
 1. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server.
-2. Enter the following into the file:
+2. Enter the following into the file, replacing the placeholder values:
 
 ```json
 {
@@ -299,6 +352,23 @@ These are passed to the `mcp-server-datahub` process at startup (see configurati
 ```
 
 3. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
+
+For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+
+</details>
+
+<details>
+  <summary>Gemini CLI</summary>
+
+```bash
+gemini mcp add \
+  -e DATAHUB_GMS_URL="<your-datahub-url>" \
+  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
+  datahub \
+  uvx mcp-server-datahub@latest
+```
+
+For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
 
 </details>
 

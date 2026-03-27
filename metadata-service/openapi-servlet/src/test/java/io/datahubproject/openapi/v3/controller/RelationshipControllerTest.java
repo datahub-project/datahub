@@ -18,13 +18,19 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
+import io.datahubproject.openapi.v3.models.ConjunctiveCriterion;
+import io.datahubproject.openapi.v3.models.Criterion;
+import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +65,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
   @Autowired private RelationshipController relationshipController;
   @Autowired private MockMvc mockMvc;
   @Autowired private GraphService mockGraphService;
+  @Autowired private ObjectMapper objectMapper;
 
   @BeforeMethod
   public void setup() {
@@ -799,5 +806,586 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify that empty pitKeepAlive is converted to null
     assertNotNull(pitKeepAliveCaptor.getValue());
+  }
+
+  // -------------------------------------------------------------------------
+  // scrollRelationships tests
+  // -------------------------------------------------------------------------
+
+  private static final ScrollRelationshipsRequestBody EMPTY_SCROLL_BODY =
+      ScrollRelationshipsRequestBody.builder().build();
+
+  @Test
+  public void testScrollRelationshipsDefaults() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-1", Arrays.asList());
+
+    ArgumentCaptor<Set> relationshipTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            sourceTypesCaptor.capture(),
+            sourceFilterCaptor.capture(),
+            destTypesCaptor.capture(),
+            destFilterCaptor.capture(),
+            relationshipTypesCaptor.capture(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-1"));
+
+    // No relationshipTypes param → null → empty set (all types)
+    assertTrue(relationshipTypesCaptor.getValue().isEmpty());
+    // No sourceType / destinationType → null passed through
+    assertNull(sourceTypesCaptor.getValue());
+    assertNull(destTypesCaptor.getValue());
+    // No filters in body → EMPTY_FILTER (no criteria)
+    assertTrue(
+        sourceFilterCaptor.getValue().getOr().isEmpty()
+            || sourceFilterCaptor.getValue().getOr().stream()
+                .allMatch(cc -> cc.getAnd().isEmpty()));
+    assertTrue(
+        destFilterCaptor.getValue().getOr().isEmpty()
+            || destFilterCaptor.getValue().getOr().stream().allMatch(cc -> cc.getAnd().isEmpty()));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithRelationshipTypes() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<Set> relationshipTypesCaptor = ArgumentCaptor.forClass(Set.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            relationshipTypesCaptor.capture(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("relationshipTypes", "DownstreamOf")
+                .param("relationshipTypes", "Consumes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    Set capturedTypes = relationshipTypesCaptor.getValue();
+    assertEquals(2, capturedTypes.size());
+    assertTrue(capturedTypes.contains("DownstreamOf"));
+    assertTrue(capturedTypes.contains("Consumes"));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithEntityTypeFilters() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            sourceTypesCaptor.capture(),
+            any(),
+            destTypesCaptor.capture(),
+            any(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("sourceTypes", "dataset")
+                .param("destinationTypes", "chart")
+                .param("destinationTypes", "dashboard")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    Set capturedSrcTypes = sourceTypesCaptor.getValue();
+    assertEquals(1, capturedSrcTypes.size());
+    assertTrue(capturedSrcTypes.contains("dataset"));
+
+    Set capturedDstTypes = destTypesCaptor.getValue();
+    assertEquals(2, capturedDstTypes.size());
+    assertTrue(capturedDstTypes.contains("chart"));
+    assertTrue(capturedDstTypes.contains("dashboard"));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithUrnFilters() throws Exception {
+    String sourceUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,src,PROD)";
+    String destUrn1 = "urn:li:chart:(looker,chart1)";
+    String destUrn2 = "urn:li:chart:(looker,chart2)";
+
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            sourceFilterCaptor.capture(),
+            any(),
+            destFilterCaptor.capture(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    io.datahubproject.openapi.v3.models.Filter sourceFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(sourceUrn))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+    io.datahubproject.openapi.v3.models.Filter destFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(destUrn1, destUrn2))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+
+    ScrollRelationshipsRequestBody body =
+        ScrollRelationshipsRequestBody.builder()
+            .sourceFilter(sourceFilter)
+            .destinationFilter(destFilter)
+            .build();
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Source filter should have a non-empty criterion on the "urn" field
+    Filter capturedSrcFilter = sourceFilterCaptor.getValue();
+    assertNotNull(capturedSrcFilter);
+    assertFalse(capturedSrcFilter.getOr().isEmpty());
+    assertEquals("urn", capturedSrcFilter.getOr().get(0).getAnd().get(0).getField());
+    assertFalse(capturedSrcFilter.getOr().get(0).getAnd().get(0).getValues().isEmpty());
+
+    // Destination filter should have a non-empty criterion on the "urn" field with both URNs
+    Filter capturedDstFilter = destFilterCaptor.getValue();
+    assertNotNull(capturedDstFilter);
+    assertFalse(capturedDstFilter.getOr().isEmpty());
+    assertEquals("urn", capturedDstFilter.getOr().get(0).getAnd().get(0).getField());
+    assertEquals(2, capturedDstFilter.getOr().get(0).getAnd().get(0).getValues().size());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithSliceOptions() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            opContextCaptor.capture(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("sliceId", "1")
+                .param("sliceMax", "4")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+    assertEquals(
+        1,
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+    assertEquals(
+        4,
+        capturedOpContext
+            .getSearchContext()
+            .getSearchFlags()
+            .getSliceOptions()
+            .getMax()
+            .intValue());
+  }
+
+  @Test
+  public void testScrollRelationshipsAllParameters() throws Exception {
+    String sourceUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,src,PROD)";
+    String destUrn = "urn:li:chart:(looker,chart1)";
+
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(5, 20, "next-scroll", Arrays.asList());
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<Set> relTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+    ArgumentCaptor<String> scrollIdCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> pitCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Integer> countCaptor = ArgumentCaptor.forClass(Integer.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            opContextCaptor.capture(),
+            sourceTypesCaptor.capture(),
+            sourceFilterCaptor.capture(),
+            destTypesCaptor.capture(),
+            destFilterCaptor.capture(),
+            relTypesCaptor.capture(),
+            relFilterCaptor.capture(),
+            any(),
+            scrollIdCaptor.capture(),
+            pitCaptor.capture(),
+            countCaptor.capture(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    io.datahubproject.openapi.v3.models.Filter sourceFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(sourceUrn))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+    io.datahubproject.openapi.v3.models.Filter destFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("urn")
+                                    .values(List.of(destUrn))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+    io.datahubproject.openapi.v3.models.Filter edgeFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(
+                List.of(
+                    ConjunctiveCriterion.builder()
+                        .criteria(
+                            List.of(
+                                Criterion.builder()
+                                    .field("relationshipType")
+                                    .values(List.of("DownstreamOf"))
+                                    .condition(Criterion.Condition.EQUAL)
+                                    .build()))
+                        .build()))
+            .build();
+
+    ScrollRelationshipsRequestBody body =
+        ScrollRelationshipsRequestBody.builder()
+            .sourceFilter(sourceFilter)
+            .destinationFilter(destFilter)
+            .edgeFilter(edgeFilter)
+            .build();
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("relationshipTypes", "DownstreamOf")
+                .param("sourceTypes", "dataset")
+                .param("destinationTypes", "chart")
+                .param("count", "20")
+                .param("scrollId", "prev-scroll")
+                .param("pitKeepAlive", "10m")
+                .param("sliceId", "0")
+                .param("sliceMax", "3")
+                .param("includeSoftDelete", "true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("next-scroll"));
+
+    // Verify relationship types
+    assertEquals(1, relTypesCaptor.getValue().size());
+    assertTrue(relTypesCaptor.getValue().contains("DownstreamOf"));
+
+    // Verify entity type filters
+    assertEquals(1, sourceTypesCaptor.getValue().size());
+    assertTrue(sourceTypesCaptor.getValue().contains("dataset"));
+    assertEquals(1, destTypesCaptor.getValue().size());
+    assertTrue(destTypesCaptor.getValue().contains("chart"));
+
+    // Verify URN filters from request body
+    assertFalse(sourceFilterCaptor.getValue().getOr().isEmpty());
+    assertFalse(destFilterCaptor.getValue().getOr().isEmpty());
+
+    // Verify edge filter was embedded in the RelationshipFilter
+    RelationshipFilter capturedRelFilter = relFilterCaptor.getValue();
+    assertNotNull(capturedRelFilter);
+    assertFalse(capturedRelFilter.getOr().isEmpty());
+    assertEquals("relationshipType", capturedRelFilter.getOr().get(0).getAnd().get(0).getField());
+
+    // Verify pagination parameters
+    assertEquals("prev-scroll", scrollIdCaptor.getValue());
+    assertEquals("10m", pitCaptor.getValue());
+    assertEquals(20, countCaptor.getValue().intValue());
+
+    // Verify slice options and includeSoftDelete
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+    assertEquals(
+        0,
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+    assertEquals(
+        3,
+        capturedOpContext
+            .getSearchContext()
+            .getSearchFlags()
+            .getSliceOptions()
+            .getMax()
+            .intValue());
+    assertTrue(capturedOpContext.getSearchContext().getSearchFlags().isIncludeSoftDeleted());
+  }
+
+  @Test
+  public void testScrollRelationshipsDefaultDirectionIsOutgoing() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-1", Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithDirectionOutgoing() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-out", Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "OUTGOING")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-out"));
+
+    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithDirectionIncoming() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-in", Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "INCOMING")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-in"));
+
+    assertEquals(RelationshipDirection.INCOMING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithDirectionCaseInsensitive() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anySet(),
+            relFilterCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "outgoing")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithInvalidDirection() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("direction", "SIDEWAYS")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
   }
 }

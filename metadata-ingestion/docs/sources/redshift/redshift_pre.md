@@ -1,18 +1,22 @@
+### Overview
+
+The `redshift` module ingests metadata from Redshift into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
-The DataHub Redshift connector requires specific database privileges to extract metadata, lineage, and usage statistics from your Amazon Redshift cluster.
+Requires specific database privileges for metadata extraction, lineage, and usage statistics.
 
-## Permission Overview
+#### Permission Overview
 
-DataHub requires three categories of permissions:
+Three categories of permissions:
 
 1. **System Table Access** - Access to Redshift system tables for lineage and usage statistics
 2. **System View Access** - Access to system views for metadata discovery
 3. **Data Access** - Access to user schemas and tables for profiling and classification
 
-## System Table and View Permissions
+#### System Table and View Permissions
 
-Execute the following commands as a database superuser or user with sufficient privileges to grant these permissions:
+Execute as a superuser or user with grant privileges:
 
 ```sql
 -- Core system access (required for lineage and usage statistics)
@@ -51,17 +55,7 @@ GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized 
 GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;             -- Replace with actual schema names
 ```
 
-**Important**: Make sure to grant USAGE on any schema you want to ingest from:
-
-```sql
-GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;
-```
-
-## Detailed Permission Breakdown
-
-The following sections provide detailed information about which permissions are required for specific features and configurations.
-
-### Core System Views (Always Required)
+#### Core System Views (Always Required)
 
 These system views are accessed in all DataHub configurations:
 
@@ -84,9 +78,11 @@ GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;      -- External tab
 GRANT SELECT ON pg_catalog.pg_class_info TO datahub;            -- Table creation timestamps and basic info
 ```
 
-### Conditional System Tables (Feature Dependent)
+#### Conditional System Tables
 
-#### Shared Database (Datashare Consumer)
+Fire-grained permissions based on your Redshift configuration and desired features
+
+##### Shared Database (Datashare Consumer)
 
 ```sql
 -- Required when is_shared_database = True
@@ -94,7 +90,7 @@ GRANT SELECT ON pg_catalog.svv_redshift_tables TO datahub;       -- Table inform
 GRANT SELECT ON pg_catalog.svv_redshift_columns TO datahub;      -- Column information in shared databases
 ```
 
-#### Redshift Serverless Workgroups
+##### Redshift Serverless Workgroups
 
 ```sql
 -- Required for serverless workgroups
@@ -102,7 +98,7 @@ GRANT SELECT ON pg_catalog.svv_user_info TO datahub;            -- User informat
 GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;             -- Materialized view information (serverless)
 ```
 
-#### Redshift Provisioned Clusters
+##### Redshift Provisioned Clusters
 
 ```sql
 -- Required for provisioned clusters
@@ -110,14 +106,14 @@ GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User informat
 GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized view information (provisioned)
 ```
 
-#### Datashares Lineage
+##### Datashares Lineage
 
 ```sql
 -- Required when include_share_lineage: true (default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;           -- Cross-cluster datashare information
 ```
 
-### Recommended Permission Set
+#### Recommended Permission Set
 
 For a typical provisioned cluster with default settings:
 
@@ -153,7 +149,7 @@ GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized 
 GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;             -- Replace with actual schema names
 ```
 
-#### Data Access Privileges (Required for Data Profiling and Classification)
+##### Data Access Privileges (Required for Data Profiling and Classification)
 
 **Important**: The system table permissions above only provide access to metadata. To enable data profiling, classification, or any feature that reads actual table data, you must grant additional privileges:
 
@@ -209,7 +205,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
 
 :::
 
-#### Optional: Datashare Privileges
+##### Optional: Datashare Privileges
 
 To enable cross-cluster lineage through datashares, grant the following privileges:
 
@@ -217,101 +213,3 @@ To enable cross-cluster lineage through datashares, grant the following privileg
 -- Grant SHARE privilege on datashares (replace with actual datashare names)
 GRANT SHARE ON your_datashare_name TO datahub;
 ```
-
-## Ingestion of multiple redshift databases, namespaces
-
-- If multiple databases are present in the Redshift namespace (or provisioned cluster),
-  you would need to set up a separate ingestion per database.
-
-- Ingestion recipes of all databases in a particular redshift namespace should use same platform instance.
-
-- If you've multiple redshift namespaces that you want to ingest within DataHub, it is highly recommended that
-  you specify a platform_instance equivalent to namespace in recipe. It can be same as namespace id or other
-  human readable name however it should be unique across all your redshift namespaces.
-
-## Lineage
-
-There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
-
-### stl_scan_based
-
-The stl_scan based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system tables to
-discover lineage between tables.
-
-**Pros:**
-
-- Fast
-- Reliable
-
-**Cons:**
-
-- Does not work with Spectrum/external tables because those scans do not show up in stl_scan table.
-- If a table is depending on a view then the view won't be listed as dependency. Instead the table will be connected with the view's dependencies.
-
-### sql_based
-
-The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
-and uses sql parsing to discover the dependencies.
-
-**Pros:**
-
-- Works with Spectrum tables
-- Views are connected properly if a table depends on it
-
-**Cons:**
-
-- Slow.
-- Less reliable as the query parser can fail on certain queries
-
-### mixed
-
-Using both collector above and first applying the sql based and then the stl_scan based one.
-
-**Pros:**
-
-- Works with Spectrum tables
-- Views are connected properly if a table depends on it
-- A bit more reliable than the sql_based one only
-
-**Cons:**
-
-- Slow
-- May be incorrect at times as the query parser can fail on certain queries
-
-:::note
-
-The redshift stl redshift tables which are used for getting data lineage retain at most seven days of log history, and sometimes closer to 2-5 days. This means you cannot extract lineage from queries issued outside that window.
-
-:::
-
-## Datashares Lineage
-
-This is enabled by default, can be disabled via setting `include_share_lineage: False`
-
-It is mandatory to run redshift ingestion of datashare producer namespace at least once so that lineage
-shows up correctly after datashare consumer namespace is ingested.
-
-## Profiling
-
-Profiling runs sql queries on the redshift cluster to get statistics about the tables. To be able to do that, the user needs to have read access to the tables that should be profiled.
-
-If you don't want to grant read access to the tables you can enable table level profiling which will get table statistics without reading the data.
-
-```yaml
-profiling:
-  profile_table_level_only: true
-```
-
-### Caveats
-
-:::note
-
-**System table access**: The `SYSLOG ACCESS UNRESTRICTED` privilege gives the user visibility to data generated by other users. For example, STL_QUERY and STL_QUERYTEXT contain the full text of INSERT, UPDATE, and DELETE statements.
-
-:::
-
-:::note
-
-**Datashare lineage**: For cross-cluster lineage through datashares, the `datahub` user requires `SHARE` privileges on datashares in both producer and consumer namespaces. See the [Amazon Redshift datashare documentation](https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_DATASHARES.html) for more information.
-
-:::

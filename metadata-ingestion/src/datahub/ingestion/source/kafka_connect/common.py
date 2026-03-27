@@ -41,6 +41,7 @@ KAFKA: Final[str] = "kafka"
 SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
+JDBC_PREFIX: Final[str] = "jdbc:"
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
@@ -529,8 +530,7 @@ def validate_jdbc_url(url: str) -> bool:
     if not url or not isinstance(url, str):
         return False
 
-    # Basic JDBC URL validation
-    if not url.startswith("jdbc:"):
+    if not url.startswith(JDBC_PREFIX):
         return False
 
     parts = url.split(":", 3)
@@ -744,8 +744,8 @@ class BaseConnector:
         capture ALL tables from the database.
 
         The SchemaResolver cache is pre-populated during initialization via
-        initialize_schema_resolver_from_datahub(), which fetches all schema metadata
-        from DataHub for the configured platform and environment.
+        SchemaResolverProvider, which bulk-fetches all schema metadata from DataHub
+        for the configured platform and environment.
 
         Args:
             database_name: The database name (e.g., "mydb", "testdb")
@@ -951,10 +951,8 @@ class BaseConnector:
 
             # Build target URN using DatasetUrn helper with correct target platform
             # Use platform_instance if configured in platform_instance_map for Kafka
-            kafka_platform_instance = (
-                self.config.platform_instance_map.get(target_platform)
-                if self.config.platform_instance_map
-                else None
+            kafka_platform_instance = get_platform_instance(
+                self.config, self.connector_manifest.name, target_platform
             )
             target_urn = DatasetUrn.create_from_ids(
                 platform_id=target_platform,

@@ -1,8 +1,3 @@
-import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -23,6 +18,7 @@ import {
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
+import dayjs from '@utils/dayjs';
 
 import {
     Entity,
@@ -37,12 +33,7 @@ import {
     StringMapEntryInput,
 } from '@types';
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(advancedFormat);
-dayjs.extend(localizedFormat);
-
-export const CUSTOM_SOURCE_NAME = 'custom';
+const CUSTOM_SOURCE_NAME = 'custom';
 export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
@@ -482,7 +473,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dashboard.toLowerCase(),
 ]);
 
-export type EntityTypeCount = {
+type EntityTypeCount = {
     count: number;
     displayName: string;
 };
@@ -714,9 +705,4 @@ export const getIngestionSourceMutationInput = (data: SourceBuilderState, source
               }
             : undefined,
     };
-};
-
-export const getSourceDisplayName = (sourceType: string, ingestionSources: SourceConfig[]) => {
-    const sourceConfigs = getSourceConfigs(ingestionSources, sourceType as string);
-    return sourceConfigs?.displayName;
 };

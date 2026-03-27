@@ -792,7 +792,15 @@
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "topics": "my-topic",
+                "tasks.max": "1",
+                "name": "mysql_sink",
+                "auto.create": "true",
+                "connection.url": "mysql://test_mysql:3306/librarydb",
+                "insert.mode": "insert"
+            },
             "name": "mysql_sink",
             "description": "Sink connector using `io.confluent.connect.jdbc.JdbcSinkConnector` plugin."
         }
@@ -827,6 +835,63 @@
 {
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(kafka-connect,mysql_sink,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,mysql_sink,PROD),my-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "mysql_sink:my-topic",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,mysql_sink,PROD),my-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,my-topic,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql1.librarydb.my-topic,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,mysql_sink,PROD),my-topic)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

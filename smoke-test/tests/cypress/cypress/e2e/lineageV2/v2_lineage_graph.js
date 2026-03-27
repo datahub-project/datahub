@@ -105,7 +105,7 @@ const FILTERING_NODE20_URN =
 
 describe("lineage_graph", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.lineageGraphV3 = false;
     });
   });

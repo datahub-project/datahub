@@ -1,4 +1,5 @@
 import { Button, Dropdown, Icon, colors } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -109,7 +110,7 @@ export default function AddModuleButton({ orientation, className, rowIndex, rowS
                     onClick={onClick}
                     data-testid="add-module-button"
                 >
-                    <Icon icon="Plus" source="phosphor" color="primary" />
+                    <Icon icon={Plus} color="primary" />
                 </ButtonComponent>
             </Dropdown>
         </Wrapper>
