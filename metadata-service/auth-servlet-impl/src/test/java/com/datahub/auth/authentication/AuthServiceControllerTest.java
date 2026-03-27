@@ -35,10 +35,7 @@ import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
-import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
@@ -83,7 +80,6 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @Autowired private InviteTokenService mockInviteTokenService;
   @Autowired private OperationContext systemOperationContext;
   @Autowired private ConfigurationProvider mockConfigProvider;
-  @Autowired private Tracer mockTracer;
   @Autowired private SpanContext mockSpanContext;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private TrackingService mockTrackingService;
@@ -173,17 +169,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     requestBody.put("userId", userId);
     HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
 
-    Span span = mock(Span.class);
     when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
-    io.opentelemetry.api.trace.SpanBuilder mockSpanBuilder =
-        mock(io.opentelemetry.api.trace.SpanBuilder.class);
-    when(mockSpanBuilder.setParent(any(Context.class))).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.setSpanKind(any())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.setAttribute(anyString(), anyString())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.setAttribute(anyString(), anyLong())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.addLink(any())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.startSpan()).thenReturn(span);
-    when(mockTracer.spanBuilder(anyString())).thenReturn(mockSpanBuilder);
 
     // Execute
     ResponseEntity<String> response =
@@ -570,17 +556,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     requestBody.put("password", password);
     HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
 
-    Span span = mock(Span.class);
     when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
-    io.opentelemetry.api.trace.SpanBuilder mockSpanBuilder =
-        mock(io.opentelemetry.api.trace.SpanBuilder.class);
-    when(mockSpanBuilder.setParent(any(Context.class))).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.setSpanKind(any())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.setAttribute(anyString(), anyString())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.setAttribute(anyString(), anyLong())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.addLink(any())).thenReturn(mockSpanBuilder);
-    when(mockSpanBuilder.startSpan()).thenReturn(span);
-    when(mockTracer.spanBuilder(anyString())).thenReturn(mockSpanBuilder);
 
     // Execute
     ResponseEntity<String> response =

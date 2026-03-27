@@ -16,6 +16,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.Tracer;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -43,14 +44,17 @@ public class AuthServiceTestConfiguration {
 
   @MockBean TrackingService trackingService;
 
-  @MockBean Tracer mockTracer;
-
   @MockBean SpanContext mockSpanContext;
 
+  @Bean
+  public Tracer noopTestTracer() {
+    return OpenTelemetry.noop().getTracer("auth-servlet-impl-test");
+  }
+
   @Bean(name = "systemOperationContext")
-  public OperationContext systemOperationContext(ObjectMapper objectMapper) {
+  public OperationContext systemOperationContext(ObjectMapper objectMapper, Tracer noopTestTracer) {
     SystemTelemetryContext mockSystemTelemetryContext =
-        SystemTelemetryContext.builder().tracer(mockTracer).build();
+        SystemTelemetryContext.builder().tracer(noopTestTracer).build();
     return TestOperationContexts.systemContextTraceNoSearchAuthorization(
         () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
         () -> mockSystemTelemetryContext);
