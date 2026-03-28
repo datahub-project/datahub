@@ -363,27 +363,16 @@ class AbstractLineage(ABC):
         )
 
         logger.debug(
-            "[tsql-debug] parse_custom_sql entry: table=%s, platform=%s, db=%s, schema=%s, server=%s",
+            "parse_custom_sql: table=%s, platform=%s, db=%s, schema=%s",
             self.table.full_name,
             platform_pair.datahub_data_platform_name,
             database,
             schema,
-            server,
-        )
-        logger.debug(
-            "[tsql-debug] parse_custom_sql raw query for table %s: %r",
-            self.table.full_name,
-            query,
         )
         # remove_special_characters must run first to expand #(lf) → \n before
         # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
         query = native_sql_parser.remove_drop_statement(query)
-        logger.debug(
-            "[tsql-debug] parse_custom_sql cleaned query for table %s: %r",
-            self.table.full_name,
-            query,
-        )
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
@@ -399,7 +388,7 @@ class AbstractLineage(ABC):
 
         if parsed_result is None:
             logger.debug(
-                "[tsql-debug] parse_custom_sql returned None for table %s — no result from sqlglot",
+                "parse_custom_sql returned None for table %s",
                 self.table.full_name,
             )
             self.reporter.info(
@@ -411,7 +400,7 @@ class AbstractLineage(ABC):
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
             logger.debug(
-                "[tsql-debug] parse_custom_sql table_error for table %s: %s",
+                "parse_custom_sql table_error for table %s: %s",
                 self.table.full_name,
                 parsed_result.debug_info.table_error,
             )
@@ -1077,17 +1066,15 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         query: Optional[str] = record_fields.get("Query")
         if query:
             logger.debug(
-                "[tsql-debug] MSSqlLineage inline query found for table %s, "
-                "enable_advance_lineage_sql_construct=%s, raw query: %r",
+                "MSSqlLineage inline query found for table %s, "
+                "enable_advance_lineage_sql_construct=%s",
                 self.table.full_name,
                 self.config.enable_advance_lineage_sql_construct,
-                query,
             )
             if self.config.enable_advance_lineage_sql_construct is False:
                 # Use previous parser to generate URN to keep backward compatibility
                 logger.debug(
-                    "[tsql-debug] MSSqlLineage using old parser for table %s — "
-                    "T-SQL cleanup will NOT run",
+                    "MSSqlLineage using old parser for table %s — T-SQL cleanup will NOT run",
                     self.table.full_name,
                 )
                 return Lineage(
@@ -1108,7 +1095,7 @@ class MSSqlLineage(TwoStepDataAccessPattern):
 
         # It is a regular case of MS-SQL
         logger.debug(
-            "[tsql-debug] MSSqlLineage no inline query for table %s — using structural pattern",
+            "MSSqlLineage no inline query for table %s — using structural pattern",
             self.table.full_name,
         )
         return self.two_level_access_pattern(data_access_func_detail)

@@ -91,22 +91,10 @@ def remove_tsql_control_statements(query: str) -> str:
         r"\s+INTO\s+##?\w+",
     ]
 
-    logger.debug(
-        "[tsql-debug] remove_tsql_control_statements input (len=%d, bytes=%r): %r",
-        len(query),
-        query[:200].encode("utf-8", errors="replace"),
-        query,
-    )
-
     new_query = query
 
     for pattern in patterns:
-        before = new_query
         new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE | re.MULTILINE)
-        if new_query != before:
-            logger.debug("[tsql-debug] Pattern %r matched and removed content", pattern)
-        else:
-            logger.debug("[tsql-debug] Pattern %r did not match", pattern)
 
     # Leading semicolon before WITH — T-SQL defensive pattern (;WITH ...) used to ensure
     # the previous statement is terminated before a CTE. Strip only the semicolon,
@@ -116,9 +104,7 @@ def remove_tsql_control_statements(query: str) -> str:
         r"^\s*;(\s*WITH\b)", r"\1", new_query, flags=re.IGNORECASE | re.MULTILINE
     )
     if new_query != before:
-        logger.debug(
-            "[tsql-debug] Stripped leading semicolon before WITH (CTE defensive pattern)"
-        )
+        logger.debug("Stripped leading semicolon before WITH (CTE defensive pattern)")
 
     # Only normalize multiple consecutive spaces (but preserve newlines and tabs)
     # This fixes spacing issues caused by statement removal without
@@ -130,13 +116,6 @@ def remove_tsql_control_statements(query: str) -> str:
     new_query = re.sub(r"\n{3,}", "\n\n", new_query)
     # Remove trailing spaces
     new_query = new_query.strip()
-
-    logger.debug(
-        "[tsql-debug] remove_tsql_control_statements output (changed=%s, len=%d): %r",
-        new_query != query,
-        len(new_query),
-        new_query,
-    )
 
     return new_query
 
@@ -157,14 +136,6 @@ def parse_custom_sql(
 ) -> Optional["SqlParsingResult"]:
     logger.debug("Using sqlglot_lineage to parse custom sql")
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
-    logger.debug(
-        "[tsql-debug] parse_custom_sql calling sqlglot: platform=%s, db=%s, schema=%s, platform_instance=%s, env=%s",
-        platform,
-        database,
-        schema,
-        platform_instance,
-        env,
-    )
 
     result = create_lineage_sql_parsed_result(
         query=query,
@@ -177,7 +148,7 @@ def parse_custom_sql(
     )
 
     if result is None:
-        logger.debug("[tsql-debug] parse_custom_sql: sqlglot returned None result")
+        logger.debug("parse_custom_sql: sqlglot returned None result")
         return result
 
     if result.debug_info and result.debug_info.table_error:
@@ -190,7 +161,7 @@ def parse_custom_sql(
                 r"\n\n(\s*SELECT\b)", r";\n\n\1", query, flags=re.IGNORECASE
             )
             logger.debug(
-                "[tsql-debug] parse_custom_sql retrying with create_lineage_from_sql_statements: %s",
+                "parse_custom_sql retrying with create_lineage_from_sql_statements due to: %s",
                 error_str[:100],
             )
             result = create_lineage_from_sql_statements(
@@ -204,10 +175,9 @@ def parse_custom_sql(
             )
 
     logger.debug(
-        "[tsql-debug] parse_custom_sql result: in_tables=%s, table_error=%s, column_error=%s",
+        "parse_custom_sql result: in_tables=%s, table_error=%s",
         result.in_tables,
-        result.debug_info.table_error if result.debug_info else "no debug_info",
-        result.debug_info.column_error if result.debug_info else "no debug_info",
+        result.debug_info.table_error if result.debug_info else None,
     )
 
     return result
