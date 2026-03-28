@@ -960,6 +960,600 @@ def test_add_dataset_tags_transformation():
     assert output
 
 
+# Add these test functions to your test_transform_dataset.py file
+# Make sure these imports are present at the top of the file:
+# from typing import Type, Optional
+# from datahub.metadata.schema_classes import BrowsePathsV2Class, BrowsePathEntryClass, GlobalTagsClass, TagAssociationClass
+
+
+def dummy_container_tag_resolver_method(dataset_urn):
+    """Helper function for testing AddDatasetTags with container support."""
+    if "example1" in dataset_urn:
+        return [TagAssociationClass(tag=builder.make_tag_urn("Dynamic"))]
+    return []
+
+
+def test_simple_container_and_dataset_tags_transformation(
+    mock_time, mock_datahub_graph_instance
+):
+    """Test SimpleAddDatasetTags with container support enabled."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="container_1", urn="urn:li:container:container_1"
+                ),
+                models.BrowsePathEntryClass(
+                    id="container_2", urn="urn:li:container:container_2"
+                ),
+            ]
+        )
+
+    pipeline_context = PipelineContext(
+        run_id="test_simple_container_and_dataset_tags_transformation"
+    )
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    # First dataset
+    dataset1 = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)"
+    )
+    # Second dataset
+    dataset2 = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)"
+    )
+
+    inputs = [dataset1, dataset2, EndOfStream()]
+
+    # Initialize transformer with container support
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [
+                builder.make_tag_urn("NeedsDocumentation"),
+                builder.make_tag_urn("Legacy"),
+            ],
+            "is_container": True,  # Enable container tag handling
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have: 2 datasets + 2 dataset tag MCPs + 2 tag entities + 2 container tag MCPs + EndOfStream
+    assert len(outputs) == 9
+
+    # Verify dataset tags were added
+    dataset1_tags = outputs[2].record.aspect
+    assert isinstance(dataset1_tags, GlobalTagsClass)
+    assert len(dataset1_tags.tags) == 2
+    assert dataset1_tags.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")
+    assert dataset1_tags.tags[1].tag == builder.make_tag_urn("Legacy")
+
+    dataset2_tags = outputs[3].record.aspect
+    assert isinstance(dataset2_tags, GlobalTagsClass)
+    assert len(dataset2_tags.tags) == 2
+
+    # Verify container tags were created
+    container1_tags = outputs[6].record.aspect
+    assert isinstance(container1_tags, GlobalTagsClass)
+    assert len(container1_tags.tags) == 2
+    assert outputs[6].record.entityUrn == "urn:li:container:container_1"
+
+    container2_tags = outputs[7].record.aspect
+    assert isinstance(container2_tags, GlobalTagsClass)
+    assert len(container2_tags.tags) == 2
+    assert outputs[7].record.entityUrn == "urn:li:container:container_2"
+
+
+def test_pattern_container_and_dataset_tags_transformation(
+    mock_time, mock_datahub_graph_instance
+):
+    """Test PatternAddDatasetTags with container support enabled."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="container_1", urn="urn:li:container:container_1"
+                ),
+                models.BrowsePathEntryClass(
+                    id="container_2", urn="urn:li:container:container_2"
+                ),
+            ]
+        )
+
+    pipeline_context = PipelineContext(
+        run_id="test_pattern_container_and_dataset_tags_transformation"
+    )
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    # Datasets with different patterns
+    dataset1 = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)"
+    )
+    dataset2 = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)"
+    )
+
+    inputs = [dataset1, dataset2, EndOfStream()]
+
+    # Initialize transformer with container support and pattern matching
+    transformer = PatternAddDatasetTags.create(
+        {
+            "tag_pattern": {
+                "rules": {
+                    ".*example1.*": [
+                        builder.make_tag_urn("Private"),
+                        builder.make_tag_urn("Legacy"),
+                    ],
+                    ".*example2.*": [builder.make_tag_urn("Public")],
+                }
+            },
+            "is_container": True,  # Enable container tag handling
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have datasets + dataset tag MCPs + tag entities + container tag MCPs + EndOfStream
+    # Note: The base transformer creates MCPs for all datasets, even when no tags match
+    assert len(outputs) == 10
+
+    # Verify dataset1 tags (should match Private + Legacy)
+    dataset1_tags = outputs[2].record.aspect
+    assert isinstance(dataset1_tags, GlobalTagsClass)
+    assert len(dataset1_tags.tags) == 2
+    tag_urns = [tag.tag for tag in dataset1_tags.tags]
+    assert builder.make_tag_urn("Private") in tag_urns
+    assert builder.make_tag_urn("Legacy") in tag_urns
+
+    # Verify dataset2 tags (should match Public)
+    dataset2_tags = outputs[3].record.aspect
+    assert isinstance(dataset2_tags, GlobalTagsClass)
+    assert len(dataset2_tags.tags) == 1
+    assert dataset2_tags.tags[0].tag == builder.make_tag_urn("Public")
+
+    # Verify container tags (should have all unique tags from both datasets)
+    container1_tags = outputs[7].record.aspect
+    assert isinstance(container1_tags, GlobalTagsClass)
+    assert len(container1_tags.tags) == 3  # Private, Legacy, Public
+    container_tag_urns = [tag.tag for tag in container1_tags.tags]
+    assert builder.make_tag_urn("Private") in container_tag_urns
+    assert builder.make_tag_urn("Legacy") in container_tag_urns
+    assert builder.make_tag_urn("Public") in container_tag_urns
+
+
+def test_container_and_dataset_tags_with_no_container(
+    mock_time, mock_datahub_graph_instance
+):
+    """Test container tag handling when no containers are found."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return None  # No containers
+
+    pipeline_context = PipelineContext(
+        run_id="test_container_and_dataset_tags_with_no_container"
+    )
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    dataset = make_generic_dataset()
+    inputs = [dataset, EndOfStream()]
+
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [builder.make_tag_urn("TestTag")],
+            "is_container": True,  # Enable container tag handling
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have: dataset + dataset tag MCP + tag entity + EndOfStream
+    # No container MCPs since no containers found
+    assert len(outputs) == 4
+
+    # Verify dataset tags were still added
+    dataset_tags = outputs[1].record.aspect
+    assert isinstance(dataset_tags, GlobalTagsClass)
+    assert len(dataset_tags.tags) == 1
+    assert dataset_tags.tags[0].tag == builder.make_tag_urn("TestTag")
+
+
+def test_container_and_dataset_tags_with_no_tag_match(
+    mock_time, mock_datahub_graph_instance
+):
+    """Test container tag handling when no tags match the pattern."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="container_1", urn="urn:li:container:container_1"
+                )
+            ]
+        )
+
+    pipeline_context = PipelineContext(
+        run_id="test_container_and_dataset_tags_with_no_tag_match"
+    )
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    # Dataset that won't match the pattern
+    dataset = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,nonmatching,PROD)"
+    )
+    inputs = [dataset, EndOfStream()]
+
+    transformer = PatternAddDatasetTags.create(
+        {
+            "tag_pattern": {
+                "rules": {
+                    ".*example.*": [builder.make_tag_urn("ExampleTag")],
+                }
+            },
+            "is_container": True,  # Enable container tag handling
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have: dataset + empty globalTags MCP + EndOfStream (no container MCPs since no tags)
+    assert len(outputs) == 3
+    assert outputs[0].record == dataset
+
+    # Verify empty tags MCP was created
+    empty_tags_mcp = outputs[1].record
+    assert isinstance(empty_tags_mcp, MetadataChangeProposalWrapper)
+    assert isinstance(empty_tags_mcp.aspect, GlobalTagsClass)
+    assert len(empty_tags_mcp.aspect.tags) == 0
+
+    assert isinstance(outputs[2].record, EndOfStream)
+
+
+def test_container_tags_deduplication(mock_time, mock_datahub_graph_instance):
+    """Test that duplicate tags are properly handled when multiple datasets contribute to same container."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="shared_container", urn="urn:li:container:shared_container"
+                )
+            ]
+        )
+
+    pipeline_context = PipelineContext(run_id="test_container_tags_deduplication")
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    # Both datasets will get the same tags and share the same container
+    dataset1 = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,PROD)"
+    )
+    dataset2 = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test2,PROD)"
+    )
+
+    inputs = [dataset1, dataset2, EndOfStream()]
+
+    transformer = PatternAddDatasetTags.create(
+        {
+            "tag_pattern": {
+                "rules": {
+                    ".*test.*": [
+                        builder.make_tag_urn("Shared"),
+                        builder.make_tag_urn("Common"),
+                    ],
+                }
+            },
+            "is_container": True,
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have: 2 datasets + 2 dataset tag MCPs + 2 tag entities + 1 container tag MCP + EndOfStream
+    assert len(outputs) == 8
+
+    # Verify container has deduplicated tags (should not have duplicates)
+    container_tags = outputs[6].record.aspect
+    assert isinstance(container_tags, GlobalTagsClass)
+    assert len(container_tags.tags) == 2  # Should be deduplicated
+    assert outputs[6].record.entityUrn == "urn:li:container:shared_container"
+
+    tag_urns = [tag.tag for tag in container_tags.tags]
+    assert builder.make_tag_urn("Shared") in tag_urns
+    assert builder.make_tag_urn("Common") in tag_urns
+
+
+def test_container_tags_disabled_by_default(mock_time, mock_datahub_graph_instance):
+    """Test that container tags are not created when is_container=False (default)."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="container_1", urn="urn:li:container:container_1"
+                )
+            ]
+        )
+
+    pipeline_context = PipelineContext(run_id="test_container_tags_disabled_by_default")
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    dataset = make_generic_dataset()
+    inputs = [dataset, EndOfStream()]
+
+    # Don't set is_container (should default to False)
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [builder.make_tag_urn("TestTag")],
+            # is_container defaults to False
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have: dataset + dataset tag MCP + tag entity + EndOfStream
+    # No container MCPs should be generated
+    assert len(outputs) == 4
+
+    # Verify no container MCPs were created
+    for output in outputs:
+        if hasattr(output.record, "entityUrn") and output.record.entityUrn:
+            assert not output.record.entityUrn.startswith("urn:li:container:")
+
+
+def test_add_dataset_tags_container_transformation(
+    mock_time, mock_datahub_graph_instance
+):
+    """Test AddDatasetTags base class with container support using callback function."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="dynamic_container", urn="urn:li:container:dynamic_container"
+                )
+            ]
+        )
+
+    pipeline_context = PipelineContext(
+        run_id="test_add_dataset_tags_container_transformation"
+    )
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    transformer = AddDatasetTags.create(
+        {
+            "get_tags_to_add": "tests.unit.test_transform_dataset.dummy_container_tag_resolver_method",
+            "is_container": True,
+        },
+        pipeline_context,
+    )
+
+    # Use dataset that will match the callback function
+    dataset = make_generic_dataset(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)"
+    )
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset, EndOfStream()]]
+        )
+    )
+
+    # Should have: dataset + dataset tag MCP + tag entity + container tag MCP + EndOfStream
+    assert len(outputs) == 5
+
+    # Verify dataset tags
+    dataset_tags = outputs[1].record.aspect
+    assert isinstance(dataset_tags, GlobalTagsClass)
+    assert len(dataset_tags.tags) == 1
+    assert dataset_tags.tags[0].tag == builder.make_tag_urn("Dynamic")
+
+    # Verify container tags
+    container_tags = outputs[3].record.aspect
+    assert isinstance(container_tags, GlobalTagsClass)
+    assert len(container_tags.tags) == 1
+    assert container_tags.tags[0].tag == builder.make_tag_urn("Dynamic")
+    assert outputs[3].record.entityUrn == "urn:li:container:dynamic_container"
+
+
+def test_container_tags_with_multiple_containers_per_dataset(
+    mock_time, mock_datahub_graph_instance
+):
+    """Test that tags are applied to all containers that contain a dataset."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="parent_container", urn="urn:li:container:parent_container"
+                ),
+                models.BrowsePathEntryClass(
+                    id="child_container", urn="urn:li:container:child_container"
+                ),
+            ]
+        )
+
+    pipeline_context = PipelineContext(
+        run_id="test_container_tags_with_multiple_containers_per_dataset"
+    )
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    dataset = make_generic_dataset()
+    inputs = [dataset, EndOfStream()]
+
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [builder.make_tag_urn("SharedTag")],
+            "is_container": True,
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have: dataset + dataset tag MCP + tag entity + 2 container tag MCPs + EndOfStream
+    assert len(outputs) == 6
+
+    # Verify both containers received the tags
+    container_mcps = [
+        output
+        for output in outputs
+        if hasattr(output.record, "entityUrn")
+        and output.record.entityUrn
+        and output.record.entityUrn.startswith("urn:li:container:")
+    ]
+
+    assert len(container_mcps) == 2
+
+    parent_container_mcp = next(
+        mcp for mcp in container_mcps if "parent_container" in mcp.record.entityUrn
+    )
+    child_container_mcp = next(
+        mcp for mcp in container_mcps if "child_container" in mcp.record.entityUrn
+    )
+
+    assert isinstance(parent_container_mcp.record.aspect, GlobalTagsClass)
+    assert isinstance(child_container_mcp.record.aspect, GlobalTagsClass)
+    assert len(parent_container_mcp.record.aspect.tags) == 1
+    assert len(child_container_mcp.record.aspect.tags) == 1
+    assert parent_container_mcp.record.aspect.tags[0].tag == builder.make_tag_urn(
+        "SharedTag"
+    )
+    assert child_container_mcp.record.aspect.tags[0].tag == builder.make_tag_urn(
+        "SharedTag"
+    )
+
+
+def test_container_tags_filters_non_container_urns(
+    mock_time, mock_datahub_graph_instance
+):
+    """Test that only container URNs are processed, not other entity types in browse paths."""
+
+    def fake_get_aspect(
+        entity_urn: str,
+        aspect_type: Type[models.BrowsePathsV2Class],
+        version: int = 0,
+    ) -> Optional[models.BrowsePathsV2Class]:
+        return models.BrowsePathsV2Class(
+            path=[
+                models.BrowsePathEntryClass(
+                    id="dataset_entry",
+                    urn="urn:li:dataset:(platform,name,env)",  # Not a container
+                ),
+                models.BrowsePathEntryClass(
+                    id="container_entry",
+                    urn="urn:li:container:real_container",  # This is a container
+                ),
+                models.BrowsePathEntryClass(
+                    id="domain_entry",
+                    urn="urn:li:domain:some_domain",  # Not a container
+                ),
+            ]
+        )
+
+    pipeline_context = PipelineContext(
+        run_id="test_container_tags_filters_non_container_urns"
+    )
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
+
+    dataset = make_generic_dataset()
+    inputs = [dataset, EndOfStream()]
+
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [builder.make_tag_urn("FilterTest")],
+            "is_container": True,
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+    )
+
+    # Should have: dataset + dataset tag MCP + tag entity + 1 container tag MCP (only for real container) + EndOfStream
+    assert len(outputs) == 5
+
+    # Verify only one container MCP was created
+    container_mcps = [
+        output
+        for output in outputs
+        if hasattr(output.record, "entityUrn")
+        and output.record.entityUrn
+        and output.record.entityUrn.startswith("urn:li:container:")
+    ]
+
+    assert len(container_mcps) == 1
+    assert container_mcps[0].record.entityUrn == "urn:li:container:real_container"
+
+    container_tags = container_mcps[0].record.aspect
+    assert isinstance(container_tags, GlobalTagsClass)
+    assert len(container_tags.tags) == 1
+    assert container_tags.tags[0].tag == builder.make_tag_urn("FilterTest")
+
+
 def test_pattern_dataset_ownership_transformation(mock_time):
     no_owner_aspect = make_generic_dataset()
 
