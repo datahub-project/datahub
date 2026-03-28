@@ -10,7 +10,8 @@ source:
     password: pass
 
     # This is recommended to improve lineage quality. Ignores case-sensitivity when constructing internal identifiers.
-    convert_urns_to_lowercase: True
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
     # Uncomment if you need to use encryption with pytds
@@ -32,13 +33,12 @@ sink:
 source:
   type: mssql
   config:
-    # Coordinates
     host_port: localhost:1433
     database: DemoDatabase
-
-    # Credentials
     username: user
     password: pass
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Query-based lineage extraction
     include_query_lineage: true
@@ -66,13 +66,12 @@ sink:
 source:
   type: mssql-odbc
   config:
-    # Coordinates
     host_port: localhost:1433
     database: DemoDatabase
-
-    # Credentials
     username: admin
     password: password
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
     uri_args:
