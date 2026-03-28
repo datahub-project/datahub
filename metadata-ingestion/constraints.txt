@@ -1138,7 +1138,7 @@ pyarrow==18.0.0
     #   deltalake
     #   feast
     #   pyiceberg
-pyasn1==0.6.2
+pyasn1==0.6.3
     # via
     #   pyasn1-modules
     #   python-jose
