@@ -23,6 +23,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
 )
+from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -1401,3 +1402,30 @@ def test_athena_with_platform_instance():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
     )
+
+
+@pytest.mark.integration
+def test_if_expression_walks_both_branches():
+    """IfExpression should produce lineage from both true and false branches."""
+    q = (
+        "let\n"
+        "    Source = if true\n"
+        '        then Sql.Database("prod-server", "prod_db")\n'
+        '        else Sql.Database("dev-server", "dev_db"),\n'
+        '    mytable = Source{[Schema="dbo",Item="employees"]}[Data]\n'
+        "in\n"
+        "    mytable"
+    )
+    lineage = get_data_platform_tables_with_dummy_table(q=q)
+    assert len(lineage) == 2
+    urns = {lin.upstreams[0].urn for lin in lineage}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,prod_db.dbo.employees,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dev_db.dbo.employees,PROD)",
+    }
+
+
+def test_native_query_mssql_and_postgres_supported():
+    assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
+    assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
+    assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")

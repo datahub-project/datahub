@@ -1214,6 +1214,8 @@ class NativeQueryLineage(AbstractLineage):
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
+        FunctionName.MSSQL_DATA_ACCESS.value: SupportedDataPlatform.MS_SQL,
+        FunctionName.POSTGRESQL_DATA_ACCESS.value: SupportedDataPlatform.POSTGRES_SQL,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
 
