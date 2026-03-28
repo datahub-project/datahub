@@ -654,7 +654,9 @@ class OracleLineage(AbstractLineage):
     def _get_server_and_db_name(value: str) -> Tuple[Optional[str], Optional[str]]:
         # JDBC-style host:port/servicename → (host:port, servicename)
         # TNS alias / bare hostname → (hostname, None); caller omits db from qualified name
-        value = value.strip('"')
+        # Oracle connection strings are case-insensitive; normalise to lowercase so that
+        # server_to_platform_instance keys don't need to match M-Query capitalisation.
+        value = value.strip('"').lower()
         parts = value.split("/")
         if len(parts) == 2:
             db_name = parts[1].split(".")[0]
