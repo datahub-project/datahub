@@ -4,11 +4,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeDatabase,
     SnowflakeDataDictionary,
     SnowflakeView,
+)
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
 )
 
 
@@ -283,3 +289,169 @@ class TestSnowflakeDataDictionary:
         mock_get_views_schema_query.assert_called_once_with(
             db_name="TEST_DB", schema_name="PUBLIC", view_filter=""
         )
+
+    def test_get_views_for_schema_using_information_schema_query_failure_raises_runtime_error(
+        self, mock_snowflake_data_dictionary_information_schema
+    ):
+        """Query failure in get_views_for_schema_using_information_schema is wrapped in RuntimeError."""
+        original_error = Exception("SQL compilation error")
+        mock_snowflake_data_dictionary_information_schema.connection.query.side_effect = original_error
+
+        with pytest.raises(RuntimeError) as exc_info:
+            mock_snowflake_data_dictionary_information_schema.get_views_for_schema_using_information_schema(
+                schema_name="MY_SCHEMA", db_name="MY_DB"
+            )
+
+        assert "MY_DB.MY_SCHEMA" in str(exc_info.value)
+        assert exc_info.value.__cause__ is original_error
+
+    def test_show_views_pagination_marker_is_qualified(self):
+        """When SHOW VIEWS returns a full page, the pagination cursor uses schema_name.view_name."""
+        connection = MagicMock(spec=SnowflakeConnection)
+        report = MagicMock(spec=SnowflakeV2Report)
+        data_dict = SnowflakeDataDictionary(
+            connection, report, fetch_views_from_information_schema=False
+        )
+
+        page_size = 3
+        # First page: exactly page_size rows across two schemas → triggers pagination
+        first_page = [
+            {
+                "name": f"VIEW_{i}",
+                "schema_name": "SCHEMA_A" if i < 2 else "SCHEMA_B",
+                "created_on": datetime(2024, 1, 1),
+                "comment": None,
+                "text": "SELECT 1",
+                "is_secure": "false",
+                "is_materialized": "false",
+            }
+            for i in range(page_size)
+        ]
+        # Second page: empty → stops pagination
+        second_page: list = []
+
+        call_count = 0
+
+        def query_side_effect(_: str) -> Any:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return iter(first_page)
+            return iter(second_page)
+
+        connection.query.side_effect = query_side_effect
+
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_schema.SHOW_COMMAND_MAX_PAGE_SIZE",
+            page_size,
+        ):
+            result = data_dict._get_views_for_database_using_show("TEST_DB")
+
+        assert call_count == 2
+        # Second call must use the qualified marker "SCHEMA_B.VIEW_2"
+        second_call_query: str = connection.query.call_args_list[1][0][0]
+        assert "SCHEMA_B.VIEW_2" in second_call_query
+
+        # All views from the first page are present in the result
+        assert len(result["SCHEMA_A"]) == 2
+        assert len(result["SCHEMA_B"]) == 1
+
+
+class TestSnowflakeQueryStrings:
+    def test_show_external_tables_without_db_name_queries_account(self):
+        query = SnowflakeQuery.show_external_tables()
+        assert query == "show external tables in account"
+
+    def test_show_external_tables_with_db_name_scopes_to_database(self):
+        query = SnowflakeQuery.show_external_tables(db_name="MY_DB")
+        assert 'in database "MY_DB"' in query
+        assert "account" not in query
+
+    def test_show_external_tables_different_databases_produce_different_queries(self):
+        q1 = SnowflakeQuery.show_external_tables(db_name="DB_ONE")
+        q2 = SnowflakeQuery.show_external_tables(db_name="DB_TWO")
+        assert q1 != q2
+        assert "DB_ONE" in q1
+        assert "DB_TWO" in q2
+
+
+def _make_schema_gen() -> SnowflakeSchemaGenerator:
+    config = SnowflakeV2Config.model_validate(
+        {"account_id": "test_account", "username": "test_user", "password": "test_pass"}
+    )
+    report = SnowflakeV2Report()
+    connection = MagicMock()
+    identifiers = MagicMock()
+    identifiers.get_dataset_identifier.side_effect = (
+        lambda name, schema, db: f"{db}.{schema}.{name}".lower()
+    )
+    identifiers.gen_dataset_urn.side_effect = (
+        lambda key: f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{key},PROD)"
+    )
+    return SnowflakeSchemaGenerator(
+        config=config,
+        report=report,
+        connection=connection,
+        filters=MagicMock(),
+        identifiers=identifiers,
+        domain_registry=None,
+        profiler=None,
+        aggregator=None,
+        snowsight_url_builder=None,
+    )
+
+
+def _make_db(name: str) -> SnowflakeDatabase:
+    return SnowflakeDatabase(name=name, created=None, comment=None)
+
+
+class TestExternalTablesDdlLineage:
+    def test_queries_per_database_not_account_wide(self):
+        """_external_tables_ddl_lineage issues one SHOW EXTERNAL TABLES per database."""
+        gen = _make_schema_gen()
+        gen.databases = [_make_db("DB_A"), _make_db("DB_B")]
+        mock_conn = cast(MagicMock, gen.connection)
+        mock_conn.query.return_value = iter([])
+
+        list(gen._external_tables_ddl_lineage(discovered_tables=[]))
+
+        queried = [call.args[0] for call in mock_conn.query.call_args_list]
+        assert SnowflakeQuery.show_external_tables(db_name="DB_A") in queried
+        assert SnowflakeQuery.show_external_tables(db_name="DB_B") in queried
+        assert SnowflakeQuery.show_external_tables() not in queried
+
+    def test_failure_in_one_db_does_not_stop_other_dbs(self):
+        """A query error for one database emits a warning but continues to the next."""
+        gen = _make_schema_gen()
+        gen.databases = [_make_db("DB_FAIL"), _make_db("DB_OK")]
+
+        s3_row = {
+            "name": "EXT_TBL",
+            "schema_name": "MY_SCHEMA",
+            "database_name": "DB_OK",
+            "location": "s3://bucket/path/",
+        }
+
+        def query_side_effect(_: str) -> Any:
+            if "DB_FAIL" in _:
+                raise Exception("permission denied")
+            return iter([s3_row])
+
+        cast(MagicMock, gen.connection).query.side_effect = query_side_effect
+        cast(MagicMock, gen.identifiers).get_dataset_identifier.side_effect = (
+            lambda name, schema, db: f"{db}.{schema}.{name}".lower()
+        )
+
+        results = list(
+            gen._external_tables_ddl_lineage(
+                discovered_tables=["db_ok.my_schema.ext_tbl"]
+            )
+        )
+
+        # DB_OK lineage is still emitted despite DB_FAIL erroring
+        assert len(results) == 1
+        assert "db_ok" in results[0].downstream_urn.lower()
+
+        # A warning was reported for the failing database
+        warnings = gen.report.warnings.as_obj()
+        assert any("DB_FAIL" in str(w) for w in warnings)
