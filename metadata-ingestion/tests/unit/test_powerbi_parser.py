@@ -1,3 +1,5 @@
+import types
+
 import pytest
 
 from datahub.configuration.source_common import PlatformDetail
@@ -19,8 +21,14 @@ from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     AmazonAthenaLineage,
     MSSqlLineage,
     OracleLineage,
+    _remap_column_lineage_to_pbi_fields,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 
 @pytest.fixture
@@ -1369,3 +1377,61 @@ def test_oracle_native_query_takes_precedence_over_hierarchical(oracle_lineage_t
     urns = [u.urn.lower() for u in lineage.upstreams]
     assert any("orders" in u for u in urns)
     assert not any("some_other_table" in u for u in urns)
+
+
+_ORACLE_URN = "urn:li:dataset:(urn:li:dataPlatform:oracle,alpha6.edw.sector_bb,PROD)"
+
+
+def _make_cll(
+    downstream_col: str, upstream_col: str = "upstream_col"
+) -> ColumnLineageInfo:
+    return ColumnLineageInfo(
+        downstream=DownstreamColumnRef(column=downstream_col),
+        upstreams=[ColumnRef(table=_ORACLE_URN, column=upstream_col)],
+    )
+
+
+def _pbi_col(name: str) -> types.SimpleNamespace:
+    return types.SimpleNamespace(name=name)
+
+
+def test_remap_returns_unchanged_when_no_pbi_columns():
+    cll = [_make_cll("adep"), _make_cll("ades")]
+    result = _remap_column_lineage_to_pbi_fields(cll, [])
+    assert result is cll
+
+
+def test_remap_returns_unchanged_when_no_column_lineage():
+    pbi_cols = [_pbi_col("ADEP"), _pbi_col("ADES")]
+    result = _remap_column_lineage_to_pbi_fields([], pbi_cols)
+    assert result == []
+
+
+def test_remap_corrects_case_mismatch():
+    cll = [_make_cll("adep"), _make_cll("ades")]
+    pbi_cols = [_pbi_col("ADEP"), _pbi_col("ADES")]
+
+    result = _remap_column_lineage_to_pbi_fields(cll, pbi_cols)
+
+    assert result[0].downstream.column == "ADEP"
+    assert result[1].downstream.column == "ADES"
+    assert result[0].upstreams == cll[0].upstreams
+
+
+def test_remap_leaves_already_matching_columns_unchanged():
+    cll = [_make_cll("ADEP")]
+    pbi_cols = [_pbi_col("ADEP")]
+
+    result = _remap_column_lineage_to_pbi_fields(cll, pbi_cols)
+
+    assert result[0] is cll[0]
+
+
+def test_remap_preserves_columns_absent_from_pbi_schema():
+    cll = [_make_cll("calculated_col"), _make_cll("adep")]
+    pbi_cols = [_pbi_col("ADEP")]
+
+    result = _remap_column_lineage_to_pbi_fields(cll, pbi_cols)
+
+    assert result[0].downstream.column == "calculated_col"
+    assert result[1].downstream.column == "ADEP"

@@ -178,6 +178,38 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
     return value
 
 
+def _remap_column_lineage_to_pbi_fields(
+    column_lineage: List[ColumnLineageInfo],
+    pbi_columns: List,
+) -> List[ColumnLineageInfo]:
+    # sqlglot derives downstream column names from the upstream schema (Oracle
+    # stores columns lowercase in DataHub), but PowerBI field names come back
+    # from the API in a different case (typically uppercase). Remap so the
+    # downstream schemaField URN matches the actual PowerBI field.
+    if not column_lineage or not pbi_columns:
+        return column_lineage
+
+    pbi_col_map: Dict[str, str] = {col.name.lower(): col.name for col in pbi_columns}
+
+    remapped: List[ColumnLineageInfo] = []
+    for cll_info in column_lineage:
+        if cll_info.downstream and cll_info.downstream.column:
+            pbi_name = pbi_col_map.get(cll_info.downstream.column.lower())
+            if pbi_name and pbi_name != cll_info.downstream.column:
+                cll_info = ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=cll_info.downstream.table,
+                        column=pbi_name,
+                        column_type=cll_info.downstream.column_type,
+                        native_column_type=cll_info.downstream.native_column_type,
+                    ),
+                    upstreams=cll_info.upstreams,
+                    logic=cll_info.logic,
+                )
+        remapped.append(cll_info)
+    return remapped
+
+
 def make_urn(
     config: PowerBiDashboardSourceConfig,
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
@@ -406,10 +438,8 @@ class AbstractLineage(ABC):
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=(
-                parsed_result.column_lineage
-                if parsed_result.column_lineage is not None
-                else []
+            column_lineage=_remap_column_lineage_to_pbi_fields(
+                parsed_result.column_lineage or [], self.table.columns or []
             ),
         )
 
