@@ -39,7 +39,6 @@ const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
 const ScrollableContent = styled.div`
     max-height: 380px;
     overflow: auto;
-    min-width: 260px;
 `;
 
 const LoadingWrapper = styled.div`
