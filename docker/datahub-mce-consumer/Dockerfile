@@ -62,7 +62,8 @@ ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
     OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip
 
 EXPOSE 9090
+EXPOSE 4319
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9090/actuator/health || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:4319/actuator/health || curl --fail http://localhost:9090/actuator/health || exit 1
 
 CMD /datahub/datahub-mce-consumer/scripts/start.sh
