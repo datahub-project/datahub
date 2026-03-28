@@ -80,9 +80,11 @@ from datahub.ingestion.source.vertexai.vertexai_training_extractor import (
     VertexAITrainingExtractor,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    create_vertex_retry_without_429,
     format_api_error_message,
     get_project_container,
     get_resource_category_container,
+    patch_vertex_sdk_retry,
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -151,6 +153,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             else nullcontext()
         )
 
+        self._custom_retry = create_vertex_retry_without_429()
+        patch_vertex_sdk_retry(self._custom_retry)
+
         self._initialize_builders_and_extractors()
 
     def _setup_credentials(self) -> Optional[service_account.Credentials]:
@@ -184,7 +189,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             for project_id in self._projects:
                 regions = self._discover_regions_for_project(project_id)
                 project_to_regions[project_id] = (
-                    regions if regions else [self.config.region]
+                    regions
+                    if regions
+                    else ([self.config.region] if self.config.region else [])
                 )
         else:
             if self.config.regions:
@@ -527,7 +534,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         raise RuntimeError("No project ID configured")
 
     def _get_region(self) -> str:
-        return self._current_region or self.config.region
+        return self._current_region or self.config.region or ""
 
     def _discover_regions_for_project(self, project_id: str) -> List[str]:
         """Discover available Vertex AI regions for a project using Locations API."""

@@ -1,6 +1,7 @@
 import logging
+import types
 from contextlib import AbstractContextManager, nullcontext
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -57,6 +58,7 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     log_checkpoint_time,
     log_progress,
+    rate_limited_gapic_list,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -83,7 +85,7 @@ class VertexAITrainingExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,  # aiplatform module
+        client: types.ModuleType,
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
@@ -129,13 +131,14 @@ class VertexAITrainingExtractor:
             if last_checkpoint_millis:
                 log_checkpoint_time(last_checkpoint_millis, class_name)
 
-            with self.rate_limiter:
-                jobs_pager = getattr(self.client, class_name).list(
-                    order_by=ORDER_BY_UPDATE_TIME_DESC
-                )
+            jobs = rate_limited_gapic_list(
+                getattr(self.client, class_name),
+                self.rate_limiter,
+                order_by=ORDER_BY_UPDATE_TIME_DESC,
+            )
 
             max_jobs = self.config.max_training_jobs_per_type
-            for job_count, job in enumerate(jobs_pager, start=1):
+            for job_count, job in enumerate(jobs, start=1):
                 if last_checkpoint_millis:
                     job_update_millis = int(job.update_time.timestamp() * 1000)
                     if job_update_millis <= last_checkpoint_millis:
@@ -149,8 +152,7 @@ class VertexAITrainingExtractor:
                     )
 
                 log_progress(job_count, max_jobs, class_name)
-                with self.rate_limiter:
-                    yield from self._get_training_job_mcps(job)
+                yield from self._get_training_job_mcps(job)
 
                 if max_jobs is not None and job_count >= max_jobs:
                     logger.info(
@@ -374,8 +376,7 @@ class VertexAITrainingExtractor:
 
             for dtype in DatasetTypes.all():
                 dataset_class = getattr(self.client.datasets, dtype)
-                with self.rate_limiter:
-                    datasets = list(dataset_class.list())
+                datasets = rate_limited_gapic_list(dataset_class, self.rate_limiter)
                 for ds in datasets:
                     self.datasets[ds.name] = ds
 
@@ -438,7 +439,7 @@ class VertexAITrainingExtractor:
         self, model: Model, model_version_str: str
     ) -> Optional[VersionInfo]:
         with self.rate_limiter:
-            versions = list(model.versioning_registry.list_versions())
+            versions = model.versioning_registry.list_versions()
         for version in versions:
             if version.version_id == model_version_str:
                 return version

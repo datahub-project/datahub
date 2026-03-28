@@ -234,8 +234,10 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
     }
 
     # Step 1: Process pipeline - this tracks the resource usage by artifact URI
-    with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
-        mock_list.return_value = [mock_pipeline]
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        return_value=[mock_pipeline],
+    ):
         list(source.pipeline_extractor.get_workunits())
 
     # Step 2: Simulate model processing to resolve resource name to URN
@@ -395,8 +397,10 @@ def test_model_group_downstream_lineage_from_pipeline_tasks(
     }
 
     # Step 1: Process pipeline - this tracks resource usage by artifact URI
-    with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
-        mock_list.return_value = [mock_pipeline]
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        return_value=[mock_pipeline],
+    ):
         list(source.pipeline_extractor.get_workunits())
 
     # Step 2: Simulate model processing to resolve resource name to URNs

@@ -52,21 +52,29 @@ def gen_mock_model(
     # Configure list_model_evaluations if provided
     if list_model_evaluations_return is not None:
         mock_model.list_model_evaluations = Mock(
-            return_value=iter(list_model_evaluations_return)
+            return_value=list(list_model_evaluations_return)
         )
 
-    mock_version = Mock()
-    mock_version.version_id = f"{num}"
-    mock_version.version_description = "test version"
-    mock_version.version_create_time = MOCK_CREATE_TIME
-    mock_version.version_update_time = MOCK_UPDATE_TIME
+    # Mock version proto (fields accessed by _list_versions via GAPIC path)
+    mock_version_proto = Mock()
+    mock_version_proto.version_id = f"{num}"
+    mock_version_proto.version_description = "test version"
+    mock_version_proto.version_create_time = MOCK_CREATE_TIME
+    mock_version_proto.version_update_time = MOCK_UPDATE_TIME
+    mock_version_proto.display_name = f"mock_prediction_model_{num}_display_name"
+    mock_version_proto.version_aliases = []
+    mock_version_proto.name = f"{mock_model.resource_name}@{num}"
 
-    # Replace the versioning_registry attribute entirely with a mock
-    # that has list_versions configured
     mock_versioning_registry = Mock()
+    mock_versioning_registry.model_resource_name = mock_model.resource_name
+    mock_versioning_registry.client.list_model_versions.return_value = [
+        mock_version_proto
+    ]
+    # list_versions() is still called directly in training_extractor._search_model_version
+    mock_version = Mock()
+    mock_version.version_id = mock_version_proto.version_id
     mock_versioning_registry.list_versions.return_value = [mock_version]
 
-    # Use object.__setattr__ to bypass any property descriptors
     object.__setattr__(mock_model, "versioning_registry", mock_versioning_registry)
 
     return mock_model

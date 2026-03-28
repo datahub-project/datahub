@@ -83,10 +83,9 @@ class VertexAIConfig(
         default=None, description="GCP credential information"
     )
 
-    region: str = Field(
-        description=(
-            "[deprecated] Single Vertex AI region. Prefer 'regions' or 'discover_regions'."
-        ),
+    region: Optional[str] = Field(
+        default=None,
+        description="[deprecated] Single Vertex AI region. Prefer 'regions' or 'discover_regions'.",
     )
     _deprecate_region = pydantic_field_deprecated("region")
 
@@ -174,9 +173,7 @@ class VertexAIConfig(
     ml_metadata_max_execution_search_limit: int = Field(
         default=MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS,
         description="Maximum number of ML Metadata executions to retrieve when searching for a training job. "
-        "Executions are ordered by LAST_UPDATE_TIME descending (most recently updated first), so if the limit is reached, "
-        "you'll get the most recently completed/updated executions. Prevents excessive API calls and timeouts. "
-        "Default: 500. The API will automatically paginate results (100 per page).",
+        "Ordered by LAST_UPDATE_TIME descending. Lower this if ingestion is slow or timing out.",
     )
     rate_limit: bool = Field(
         default=False,
@@ -184,10 +181,11 @@ class VertexAIConfig(
         "Enable if you see '429 Quota Exceeded' errors during ingestion.",
     )
     requests_per_min: int = Field(
-        default=60,
-        description="How many Vertex AI API calls to allow per minute when rate_limit is enabled. "
-        "Start low (30–60) and increase only if ingestion is too slow — some calls fetch multiple "
-        "pages of results internally, so the real quota usage is higher than this number suggests.",
+        default=600,
+        description="Max API requests per minute when rate_limit is enabled. "
+        "600 is Google's quota ceiling for resource management requests per project per region "
+        "(see https://cloud.google.com/vertex-ai/docs/quotas). Lower this only if you share "
+        "quota with other workloads running in the same project and region.",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(
@@ -308,7 +306,7 @@ class VertexAIConfig(
         return values
 
     @model_validator(mode="after")
-    def _validate_pattern_does_not_filter_all(self) -> VertexAIConfig:
+    def _validate_pattern_does_not_filter_all(self) -> "VertexAIConfig":
         """Raise early if project_id_pattern would filter out all explicitly configured project_ids."""
         if not self.project_ids:
             return self
@@ -319,6 +317,14 @@ class VertexAIConfig(
             raise ValueError(
                 f"All {len(self.project_ids)} configured project_ids were filtered out "
                 "by project_id_pattern. Check your allow/deny patterns."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def require_region_source(self) -> "VertexAIConfig":
+        if not self.region and not self.regions and not self.discover_regions:
+            raise ValueError(
+                "Must specify at least one of: 'region' (deprecated), 'regions', or 'discover_regions=true'."
             )
         return self
 
