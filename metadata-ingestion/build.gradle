@@ -4,8 +4,47 @@ plugins {
 
 apply from: "../gradle/coverage/python-coverage.gradle"
 
+/** Gradle on native Windows ({@code os.name} contains {@code windows}); Linux, macOS, and WSL/Linux are false here. */
+def datahubIsWindowsOs() {
+  System.getProperty('os.name', '').toLowerCase(java.util.Locale.ROOT).contains('windows')
+}
+
+def datahubPythonExecutable() {
+  def fromEnv = System.getenv('DATAHUB_PYTHON_EXECUTABLE')
+  if (fromEnv != null && !fromEnv.trim().isEmpty()) {
+    return fromEnv.trim()
+  }
+  // Linux/macOS/CI: `python3` on PATH. Windows: python.org installer usually exposes `python`.
+  return datahubIsWindowsOs() ? 'python' : 'python3'
+}
+
+/** Linux/macOS: {@code bash}. Windows: Git Bash if present; else {@code bash}. Env override: {@code DATAHUB_BASH_EXECUTABLE}. */
+def datahubBashExecutable() {
+  def fromEnv = System.getenv('DATAHUB_BASH_EXECUTABLE')
+  if (fromEnv != null && !fromEnv.trim().isEmpty()) {
+    return fromEnv.trim()
+  }
+  if (!datahubIsWindowsOs()) {
+    return 'bash'
+  }
+  def candidates = []
+  def pf = System.getenv('ProgramFiles')
+  if (pf != null) {
+    candidates.add("${pf}\\Git\\bin\\bash.exe")
+  }
+  candidates.add('C:\\Program Files\\Git\\bin\\bash.exe')
+  candidates.add('C:\\Program Files (x86)\\Git\\bin\\bash.exe')
+  for (p in candidates) {
+    if (p != null && new File(p as String).isFile()) {
+      return p
+    }
+  }
+  return 'bash'
+}
+
 ext {
-  python_executable = 'python3'
+  python_executable = datahubPythonExecutable()
+  bash_executable = datahubBashExecutable()
   venv_name = 'venv'
   // Constrain setuptools<82 in build isolation environments (e.g. when building flatdict from source)
   uv_build_constraints = '--build-constraint build-constraints.txt'
@@ -18,8 +57,8 @@ if (!project.hasProperty("extra_pip_requirements")) {
 }
 
 task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c',
-    'import sys; sys.version_info >= (3, 9), f"Python version {sys.version_info[:2]} not allowed"'
+  // One-line script, no double-quotes (Windows CreateProcess / Gradle quoting).
+  commandLine python_executable, '-c', 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
@@ -27,7 +66,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   def venv_copies_flag = System.getenv('DATAHUB_VENV_USE_COPIES') == 'true' ? '--copies' : ''
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     "if [ ! -d ${venv_name} ] || [ ! -f ${venv_name}/bin/python ]; then ${python_executable} -m venv ${venv_copies_flag} ${venv_name}; fi && " +
     "set -x && " +
     // If we already have uv available, use it to upgrade uv. Otherwise, install it with pip.
@@ -39,7 +78,7 @@ task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} -e . &&" +
     "touch ${sentinel_file}"
@@ -49,7 +88,7 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} -e . ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
@@ -61,13 +100,13 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
     project.fileTree(dir: "scripts"),
   )
   outputs.dir('src/datahub/metadata')
-  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/codegen.sh"
+  commandLine bash_executable, '-c', "${venv_activate_command} ./scripts/codegen.sh"
 }
 
 task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
   def package_name = project.findProperty('package_name')
   def package_version = project.findProperty('package_version')
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
@@ -79,7 +118,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} -e .[dev] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
@@ -89,7 +128,7 @@ task installAll(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_all_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} -e .[all] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
@@ -104,7 +143,7 @@ task checkLockFile(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('uv.lock')
   inputs.file file('constraints.txt')
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "python scripts/verify_pyproject_equivalence.py && " +
     "uv lock --check && " +
@@ -114,7 +153,7 @@ task checkLockFile(type: Exec, dependsOn: installPackageOnly) {
 }
 
 task updateLockFile(type: Exec, dependsOn: installPackageOnly) {
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "python scripts/generate_pyproject_deps.py && " +
     "python scripts/verify_pyproject_equivalence.py && " +
@@ -138,7 +177,7 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
   )
   outputs.dir('../docs/generated/metamodel')
   
-  commandLine 'bash', '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir ${docsOutdir} --file ${outdir}/metadata_model_mces.json --extra-docs ${metadataModelDocsRoot}"
+  commandLine bash_executable, '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir ${docsOutdir} --file ${outdir}/metadata_model_mces.json --extra-docs ${metadataModelDocsRoot}"
 }
 
 task lineageGen(type: Exec, dependsOn: [codegen]) {
@@ -153,7 +192,7 @@ task lineageGen(type: Exec, dependsOn: [codegen]) {
   )
   outputs.file(lineageOutput)
   
-  commandLine 'bash', '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir /tmp --lineage-output ${lineageOutput}"
+  commandLine bash_executable, '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir /tmp --lineage-output ${lineageOutput}"
 }
 
 task testScripts(type: Exec, dependsOn: [installDev]) {
@@ -162,15 +201,15 @@ task testScripts(type: Exec, dependsOn: [installDev]) {
   outputs.dir("scripts/test-results")
   outputs.file file("scripts/.coverage")
 
-  commandLine 'bash', '-c', "set +x && source ${project.projectDir}/${venv_name}/bin/activate && set -x && cd ${project.projectDir}/scripts && PYTHONPATH=${project.projectDir} pytest -vv tests ${get_coverage_args('scripts')} --cov=."
+  commandLine bash_executable, '-c', "set +x && source ${project.projectDir}/${venv_name}/bin/activate && set -x && cd ${project.projectDir}/scripts && PYTHONPATH=${project.projectDir} pytest -vv tests ${get_coverage_args('scripts')} --cov=."
 }
 
 task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
-    commandLine 'bash', '-c', "${venv_activate_command} ./scripts/modeldocupload.sh"
+    commandLine bash_executable, '-c', "${venv_activate_command} ./scripts/modeldocupload.sh"
 }
 
 task lint(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "ruff check scripts/ scripts/tests/ src/ tests/ examples/ && " +
     "ruff format --check scripts/ scripts/tests/ src/ tests/ examples/ && " +
@@ -178,7 +217,7 @@ task lint(type: Exec, dependsOn: installDev) {
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "ruff check --fix scripts/ scripts/tests/ src/ tests/ examples/ && " +
     "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
@@ -196,7 +235,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   outputs.dir("${venv_name}")
   outputs.dir("test-results")
   def cvg_arg = get_coverage_args("quick")
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "${pytest_default_env} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
@@ -206,7 +245,7 @@ task installDocs(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} -e .[docs] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
@@ -217,7 +256,7 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
@@ -228,7 +267,7 @@ task testSingle(dependsOn: [installDevTest]) {
   doLast {
   if (testFile != 'unknown')  {
     exec {
-      commandLine 'bash', '-c',
+      commandLine bash_executable, '-c',
         "${venv_activate_command} ${pytest_default_env} pytest ${testFile} --junit-xml=test-results/junit.file.xml"
     }
   } else {
@@ -252,7 +291,7 @@ integrationBatchIds.each { batchId ->
         inputs.file file("pyproject.toml")
         inputs.file file("setup.cfg")
         inputs.file file("setup.py")
-        commandLine 'bash', '-c',
+        commandLine bash_executable, '-c',
             venv_activate_command +
             "${pytest_default_env} pytest ${cvgArg} -m '${markerName}' --junit-xml=${junitXml}"
     }
@@ -265,13 +304,13 @@ task testFull(type: Exec, dependsOn: [installDevTest]) {
   inputs.file file("setup.cfg")
   inputs.file file("setup.py")
   outputs.dir("test-results")
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "${pytest_default_env} pytest ${get_coverage_args('full')}"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDocs]) {
-  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/specgen.sh"
+  commandLine bash_executable, '-c', "${venv_activate_command} ./scripts/specgen.sh"
 }
 
 task connectorRegistry(type: Exec, dependsOn: [codegen, installDevTest]) {
@@ -281,7 +320,7 @@ task connectorRegistry(type: Exec, dependsOn: [codegen, installDevTest]) {
     project.fileTree(dir: "src/datahub/ingestion/source", include: "**/*.py")
   )
   outputs.dir('src/datahub/ingestion/autogenerated/connector_registry')
-  commandLine 'bash', '-c', "${venv_activate_command} python scripts/connector_registry.py --output-dir ./src/datahub/ingestion/autogenerated"
+  commandLine bash_executable, '-c', "${venv_activate_command} python scripts/connector_registry.py --output-dir ./src/datahub/ingestion/autogenerated"
 }
 
 task docGen(type: Exec, dependsOn: [codegen, installDocs, specGen]) {
@@ -308,7 +347,7 @@ task docGen(type: Exec, dependsOn: [codegen, installDocs, specGen]) {
   outputs.dir(docsOutDir)
   outputs.file("${docsOutDir}/integrations.json")
 
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "rm -rf ${docsOutDir} && " +
     "python scripts/docgen.py --out-dir ${docsOutDir} --connector-registry-dir ${connectorRegistryDir} --extra-docs ${extraDocsDir}" +
@@ -317,11 +356,11 @@ task docGen(type: Exec, dependsOn: [codegen, installDocs, specGen]) {
 }
 
 task cleanPythonCache(type: Exec) {
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
 task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, checkLockFile]) {
-  commandLine 'bash', '-c',
+  commandLine bash_executable, '-c',
     venv_activate_command +
     "cp constraints.txt src/datahub/constraints.txt && " +
     "uv pip install ${uv_build_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'

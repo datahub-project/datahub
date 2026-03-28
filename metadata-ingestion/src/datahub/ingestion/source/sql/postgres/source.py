@@ -7,11 +7,18 @@ import psycopg2  # noqa: F401
 import sqlalchemy.dialects.postgresql as custom_types
 
 # GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
-# activate it, we must import it so that it can hook into SQLAlchemy. While
-# we don't use the Geometry type that we import, we do care about the side
-# effects of the import. For more details, see here:
-# https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
-from geoalchemy2 import Geometry  # noqa: F401
+# activate it, we import it so that it can hook into SQLAlchemy. Some
+# environments have incompatible geoalchemy2/shapely combos that can fail at
+# import-time, so we degrade gracefully and continue without PostGIS-specific
+# type handling instead of disabling the entire Postgres source.
+try:
+    from geoalchemy2 import Geometry  # noqa: F401
+except Exception as e:
+    logging.getLogger(__name__).warning(
+        "Failed to initialize PostGIS support via geoalchemy2. "
+        "Continuing without PostGIS type handling: %s",
+        e,
+    )
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
