@@ -48,6 +48,8 @@ export class SearchV2Helper {
 
   ensureFilterAppliedOnSearchPage(name, value) {
     cy.clickOptionWithTestId(`filter-dropdown-${name}`);
-    cy.getWithTestId(`filter-option-${value}`).should("be.checked");
+    cy.getWithTestId(`filter-option-${value}`)
+      .find('input[type="checkbox"]')
+      .should("be.checked");
   }
 }

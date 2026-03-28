@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -47,7 +48,7 @@ const Container = styled.div<{ $isCompact?: boolean }>`
     `}
 `;
 
-const Icon = styled.div`
+const IconWrapper = styled.div`
     margin-right: 4px;
     display: flex;
     align-items: center;
@@ -55,7 +56,7 @@ const Icon = styled.div`
 
 const FilterName = styled.div`
     margin-right: 2px;
-    color: ${SEARCH_COLORS.LINK_BLUE};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     align-items: center;
 `;
@@ -97,7 +98,11 @@ export default function SelectedFilter({
             key={`${field.field}-${operator}-${values.map((value) => value.value).join('-')}`}
         >
             <FilterName>
-                {(field.icon && <Icon>{field.icon}</Icon>) || null}
+                {field.icon && (
+                    <IconWrapper>
+                        <Icon icon={field.icon} size="md" />
+                    </IconWrapper>
+                )}
                 {displayName || field.field}
             </FilterName>
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />

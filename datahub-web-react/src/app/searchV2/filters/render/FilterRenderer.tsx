@@ -1,5 +1,7 @@
 import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 
+import { AppConfig } from '@types';
+
 /**
  * Base interface used for custom search filter renderers
  *
@@ -9,6 +11,17 @@ export interface FilterRenderer {
      * The filter field that is rendered by this renderer
      */
     field: string;
+
+    /**
+     * Returns a name of the filter
+     */
+    name: string;
+
+    /**
+     * Returns true when filter could be rendered
+     * If method is not implemented, it will be considered as true
+     */
+    canBeRendered?: (config?: AppConfig) => boolean;
 
     /**
      * Renders the filter

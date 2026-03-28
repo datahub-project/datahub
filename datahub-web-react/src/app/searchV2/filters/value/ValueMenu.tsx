@@ -2,6 +2,8 @@
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 
+import { useIsVisible } from '@components/components/Select/private/hooks/useIsVisible';
+
 import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
 import { getIsDateRangeFilter } from '@app/searchV2/filters/utils';
 import BooleanValueMenu from '@app/searchV2/filters/value/BooleanValueMenu';
@@ -19,34 +21,27 @@ interface Props {
     values: FilterValue[];
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
-    type?: 'card' | 'default';
-    visible: boolean;
     includeCount?: boolean;
     className?: string;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
+    isRenderedInSubMenu?: boolean;
 }
 
 export default function ValueMenu({
     field,
     values,
     defaultOptions,
-    type = 'card',
     onChangeValues,
-    visible,
     includeCount,
     className,
     manuallyUpdateFilters,
     aggregationsEntityTypes,
+    isRenderedInSubMenu = false,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
-    const visibilityRef = useRef<boolean>(visible);
     const isDateRangeFilter = getIsDateRangeFilter(field);
 
-    /**
-     * Synchronize stagedSelectedValues with the values prop
-     * NOTE: Callback with useState not feasible due to its initialization behavior.
-     */
     const previousValues = usePrevious(values);
     useEffect(() => {
         if (!isEqual(values, previousValues)) {
@@ -54,113 +49,116 @@ export default function ValueMenu({
         }
     }, [values, previousValues]);
 
-    /**
-     * If the visibility of the menu changes in the parent component, we can dump off the staged values before closing
-     * to make the UI feel more responsive.
-     */
-    useEffect(() => {
-        const previouslyVisible = visibilityRef.current;
-        visibilityRef.current = visible;
+    const wrapperRef = useRef(null);
+    const isVisible = useIsVisible(wrapperRef);
+    const isVisibleRef = useRef<boolean>(isVisible);
 
-        if (!visible && previouslyVisible !== visible && !isDateRangeFilter) {
+    useEffect(() => {
+        const previouslyVisible = isVisibleRef.current;
+        isVisibleRef.current = isVisible;
+
+        if (
+            !isVisible &&
+            previouslyVisible !== isVisible &&
+            !isDateRangeFilter &&
+            !isEqual(values, stagedSelectedValues)
+        ) {
             onChangeValues(stagedSelectedValues);
         }
-    }, [visible, stagedSelectedValues, onChangeValues, isDateRangeFilter]);
+    }, [isVisible, stagedSelectedValues, onChangeValues, isDateRangeFilter, values]);
 
     if (isDateRangeFilter && manuallyUpdateFilters) {
         return <DateRangeMenu field={field} manuallyUpdateFilters={manuallyUpdateFilters} />;
     }
 
-    switch (field.type) {
-        case FieldType.TEXT:
-            return (
-                <TextValueMenu
-                    field={field}
-                    values={stagedSelectedValues}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                />
-            );
-        case FieldType.BOOLEAN:
-            return (
-                <BooleanValueMenu
-                    field={field}
-                    values={stagedSelectedValues}
-                    type={type}
-                    className={className}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                />
-            );
-        case FieldType.ENTITY:
-            return (
-                <EntityValueMenu
-                    field={field}
-                    includeCount={includeCount}
-                    values={stagedSelectedValues}
-                    defaultOptions={defaultOptions}
-                    type={type}
-                    className={className}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                />
-            );
-        case FieldType.NESTED_ENTITY_TYPE:
-            return (
-                <EntityTypeMenu
-                    field={field}
-                    includeCount={includeCount}
-                    values={stagedSelectedValues}
-                    defaultOptions={defaultOptions}
-                    type={type}
-                    className={className}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                />
-            );
-        case FieldType.ENTITY_TYPE:
-            return (
-                <EntityTypeMenu
-                    field={field}
-                    includeCount={includeCount}
-                    values={stagedSelectedValues}
-                    defaultOptions={defaultOptions}
-                    type={type}
-                    className={className}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                    aggregationsEntityTypes={aggregationsEntityTypes}
-                />
-            );
-        case FieldType.ENUM:
-            return (
-                <EnumValueMenu
-                    field={field}
-                    includeCount={includeCount}
-                    values={stagedSelectedValues}
-                    defaultOptions={defaultOptions}
-                    type={type}
-                    className={className}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                    aggregationsEntityTypes={aggregationsEntityTypes}
-                />
-            );
-        case FieldType.BUCKETED_TIMESTAMP:
-            return (
-                <TimeBucketMenu
-                    field={field}
-                    values={stagedSelectedValues}
-                    type={type}
-                    className={className}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                />
-            );
-        case FieldType.BROWSE_PATH:
-            return <></>;
-        default:
-            console.error(`Unknown field type: ${field}`);
-            return null;
-    }
+    const renderValueMenu = () => {
+        switch (field.type) {
+            case FieldType.TEXT:
+                return (
+                    <TextValueMenu
+                        field={field}
+                        values={stagedSelectedValues}
+                        onChangeValues={setStagedSelectedValues}
+                        isRenderedInSubMenu={isRenderedInSubMenu}
+                    />
+                );
+            case FieldType.BOOLEAN:
+                return (
+                    <BooleanValueMenu
+                        field={field}
+                        values={stagedSelectedValues}
+                        className={className}
+                        onChangeValues={setStagedSelectedValues}
+                        isRenderedInSubMenu={isRenderedInSubMenu}
+                    />
+                );
+            case FieldType.ENTITY:
+                return (
+                    <EntityValueMenu
+                        field={field}
+                        includeCount={includeCount}
+                        values={stagedSelectedValues}
+                        defaultOptions={defaultOptions}
+                        className={className}
+                        onChangeValues={setStagedSelectedValues}
+                        isRenderedInSubMenu={isRenderedInSubMenu}
+                    />
+                );
+            case FieldType.NESTED_ENTITY_TYPE:
+                return (
+                    <EntityTypeMenu
+                        field={field}
+                        includeCount={includeCount}
+                        values={stagedSelectedValues}
+                        defaultOptions={defaultOptions}
+                        className={className}
+                        onChangeValues={setStagedSelectedValues}
+                        isRenderedInSubMenu={isRenderedInSubMenu}
+                    />
+                );
+            case FieldType.ENTITY_TYPE:
+                return (
+                    <EntityTypeMenu
+                        field={field}
+                        includeCount={includeCount}
+                        values={stagedSelectedValues}
+                        defaultOptions={defaultOptions}
+                        className={className}
+                        onChangeValues={setStagedSelectedValues}
+                        aggregationsEntityTypes={aggregationsEntityTypes}
+                        isRenderedInSubMenu={isRenderedInSubMenu}
+                    />
+                );
+            case FieldType.ENUM:
+                return (
+                    <EnumValueMenu
+                        field={field}
+                        includeCount={includeCount}
+                        values={stagedSelectedValues}
+                        defaultOptions={defaultOptions}
+                        className={className}
+                        onChangeValues={setStagedSelectedValues}
+                        aggregationsEntityTypes={aggregationsEntityTypes}
+                        isRenderedInSubMenu={isRenderedInSubMenu}
+                    />
+                );
+            case FieldType.BUCKETED_TIMESTAMP:
+                return (
+                    <TimeBucketMenu
+                        field={field}
+                        values={stagedSelectedValues}
+                        className={className}
+                        onChangeValues={onChangeValues}
+                        isRenderedInSubMenu={isRenderedInSubMenu}
+                    />
+                );
+            case FieldType.BROWSE_PATH:
+                return <></>;
+            default:
+                console.error(`Unknown field type: ${field}`);
+                return null;
+        }
+    };
+
+    return <div ref={wrapperRef}>{renderValueMenu()}</div>;
 }

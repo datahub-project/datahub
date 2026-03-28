@@ -1,11 +1,6 @@
-import { Button, Tooltip, colors } from '@components';
-import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
+import { Button, Tooltip } from '@components';
+import { DownloadSimple } from '@phosphor-icons/react/dist/ssr';
 import React from 'react';
-import styled from 'styled-components';
-
-const StyledButton = styled(Button)`
-    border: 1px solid ${colors.gray[100]};
-`;
 
 type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
@@ -16,18 +11,17 @@ type Props = {
 export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadingCsv, disabled }: Props) {
     return (
         <Tooltip title="Download results..." showArrow={false} placement="top">
-            <StyledButton
+            <Button
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
-                isCircle
                 icon={{ icon: DownloadSimple }}
                 variant="text"
                 color="gray"
-                size="sm"
+                size="md"
                 data-testid="download-csv-button"
             >
                 {isDownloadingCsv ? 'Downloading...' : null}
-            </StyledButton>
+            </Button>
         </Tooltip>
     );
 }

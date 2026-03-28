@@ -1,8 +1,8 @@
-import { CaretDownFilled } from '@ant-design/icons';
-import React from 'react';
+import { Pill } from '@components';
+import React, { useState } from 'react';
 import styled, { CSSProperties } from 'styled-components';
 
-import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
+import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import { FilterPredicate, FilterValue } from '@app/searchV2/filters/types';
 import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
 import { AggregationMetadata, FacetFilterInput } from '@src/types.generated';
@@ -18,7 +18,6 @@ export const IconWrapper = styled.div`
 
 interface Props {
     numActiveFilters: number;
-    filterIcon?: JSX.Element;
     displayName: string;
     filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;
@@ -29,7 +28,6 @@ interface Props {
 
 export default function SearchFilterView({
     numActiveFilters,
-    filterIcon,
     displayName,
     filterPredicate,
     onChangeValues,
@@ -37,6 +35,10 @@ export default function SearchFilterView({
     filterOptions,
     manuallyUpdateFilters,
 }: Props) {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const onClear = () => onChangeValues([]);
+
     return (
         <ValueSelector
             field={filterPredicate?.field}
@@ -44,16 +46,20 @@ export default function SearchFilterView({
             defaultOptions={filterOptions}
             onChangeValues={onChangeValues}
             manuallyUpdateFilters={manuallyUpdateFilters}
+            isOpen={isMenuOpen}
+            setIsOpen={setIsMenuOpen}
         >
-            <SearchFilterLabel
-                $isActive={!!numActiveFilters}
+            <SearchFilterBase
+                isActive={!!numActiveFilters}
+                isOpen={isMenuOpen}
                 style={labelStyle}
                 data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
+                onClear={onClear}
+                showClear={!!numActiveFilters}
             >
-                {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
-            </SearchFilterLabel>
+                {displayName}{' '}
+                {numActiveFilters ? <Pill label={`${numActiveFilters}`} size="sm" variant="filled" /> : null}
+            </SearchFilterBase>
         </ValueSelector>
     );
 }
