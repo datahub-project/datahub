@@ -7,6 +7,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.restli.RestliClientSslConfig;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.client.Client;
@@ -22,6 +23,27 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(name = "entityClient.impl", havingValue = "restli")
 public class RestliEntityClientFactory {
 
+  @Value("${datahub.gms.truststore.path:#{null}}")
+  private String truststorePath;
+
+  @Value("${datahub.gms.truststore.password:#{null}}")
+  private String truststorePassword;
+
+  @Value("${datahub.gms.truststore.type:#{null}}")
+  private String truststoreType;
+
+  @Value("${datahub.gms.keystore.path:#{null}}")
+  private String keystorePath;
+
+  @Value("${datahub.gms.keystore.password:#{null}}")
+  private String keystorePassword;
+
+  @Value("${datahub.gms.keystore.type:#{null}}")
+  private String keystoreType;
+
+  @Value("${datahub.gms.keystore.keyPassword:#{null}}")
+  private String keyPassword;
+
   @Bean("entityClient")
   @Singleton
   public EntityClient entityClient(
@@ -35,14 +57,16 @@ public class RestliEntityClientFactory {
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils) {
     final Client restClient;
+    RestliClientSslConfig sslConfig = buildSslConfig();
     if (gmsUri != null) {
-      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+      restClient =
+          DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol, sslConfig);
     } else {
       // Use the same logic as GMSConfiguration.getResolvedBasePath()
       String resolvedBasePath = BasePathUtils.resolveBasePath(gmsBasePathEnabled, gmsBasePath);
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol);
+              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol, null, sslConfig);
     }
     return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
   }
@@ -62,16 +86,29 @@ public class RestliEntityClientFactory {
       final MetricUtils metricUtils) {
 
     final Client restClient;
+    RestliClientSslConfig sslConfig = buildSslConfig();
     if (gmsUri != null) {
-      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+      restClient =
+          DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol, sslConfig);
     } else {
       // Use the same logic as GMSConfiguration.getResolvedBasePath()
       String resolvedBasePath = BasePathUtils.resolveBasePath(gmsBasePathEnabled, gmsBasePath);
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol);
+              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol, null, sslConfig);
     }
     return new SystemRestliEntityClient(
         restClient, entityClientConfig, entityClientCacheConfig, metricUtils);
+  }
+
+  private RestliClientSslConfig buildSslConfig() {
+    return RestliClientSslConfig.fromNullableStrings(
+        truststorePath,
+        truststorePassword,
+        truststoreType,
+        keystorePath,
+        keystorePassword,
+        keystoreType,
+        keyPassword);
   }
 }
