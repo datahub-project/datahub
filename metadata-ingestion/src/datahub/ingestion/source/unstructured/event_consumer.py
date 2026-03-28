@@ -316,7 +316,7 @@ class DocumentEventConsumer:
                         if isinstance(aspect_name_raw, dict)
                         else aspect_name_raw
                     )
-                    if aspect_name != "documentInfo":
+                    if aspect_name not in ("documentInfo", "semanticContent"):
                         continue
 
                     # Reset idle timer only when yielding a document event

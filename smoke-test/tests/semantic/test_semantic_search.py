@@ -271,6 +271,13 @@ def verify_semantic_content(auth_session, urn: str) -> dict[str, Any]:
     if not embeddings:
         raise Exception(f"No embeddings found in semanticContent for {urn}")
 
+    # Reject documents still waiting for Phase 2 embedding resolution
+    if "__pending__" in embeddings:
+        raise Exception(
+            f"Document {urn} still has __pending__ embeddings — "
+            "Phase 2 (DataHubDocumentsSource) has not yet generated real embeddings."
+        )
+
     # Find the first embedding field dynamically - supports any model key
     # (cohere_embed_v3, text_embedding_3_small, etc.)
     embedding_keys = list(embeddings.keys())
