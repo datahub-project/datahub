@@ -1,8 +1,8 @@
 package io.datahubproject.metadata.context;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -208,7 +208,6 @@ public class OperationContext implements AuthorizationSession {
           .searchContext(searchContext != null ? searchContext : SearchContext.EMPTY)
           .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
           .servicesRegistryContext(servicesRegistryContext)
-          // Authorizer.EMPTY doesn't actually apply to system auth
           .authorizationContext(
               AuthorizationContext.builder().authorizer(Authorizer.SYSTEM).build())
           .retrieverContext(retrieverContext)
@@ -355,24 +354,21 @@ public class OperationContext implements AuthorizationSession {
   }
 
   /**
-   * Provides a cached authorizer interface in the context of the session user
+   * Provides a cached authorizer interface in the context of the {@link #getSessionActorContext()
+   * session user}
    *
-   * @param privilege the requested privilege
+   * @param privileges the requested privileges
    * @param resourceSpec the optional resource that is the target of the privilege
-   * @return authorization result
+   * @param subResources additional resources in the context of authorization
+   * @return batch authorization result
    */
   @Override
-  public AuthorizationResult authorize(
-      @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
-    return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
-  }
-
-  public AuthorizationResult authorize(
-      @Nonnull String privilege,
+  public BatchAuthorizationResult authorize(
+      @Nonnull Set<String> privileges,
       @Nullable EntitySpec resourceSpec,
       @Nonnull Collection<EntitySpec> subResources) {
     return authorizationContext.authorize(
-        getSessionActorContext(), privilege, resourceSpec, subResources);
+        getSessionActorContext(), privileges, resourceSpec, subResources);
   }
 
   @Nullable

@@ -63,7 +63,6 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   private static final String TEST_BUCKET = "test-bucket";
   private static final String TEST_FOLDER = "documents";
   private static final String TEST_FILE_ID = "abc123-def456-ghi789";
-  private static final String TEST_FILE_ID_WITH_SEPARATOR = "abc123__filename.pdf";
   private static final String TEST_PRESIGNED_URL =
       "https://s3.amazonaws.com/test-bucket/documents/abc123-def456-ghi789?signature=xyz";
   private static final int DEFAULT_EXPIRATION = 3600;

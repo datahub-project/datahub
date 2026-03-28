@@ -9,7 +9,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -100,8 +99,6 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
@@ -157,16 +154,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId());
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax());
     assertEquals(
-        0,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        0);
     assertEquals(
-        2,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        2);
   }
 
   @Test
@@ -291,16 +283,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId());
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax());
     assertEquals(
-        1,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        1);
     assertEquals(
-        3,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        3);
   }
 
   @Test
@@ -486,7 +473,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify specific relationship types were passed
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(2, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 2);
     assertTrue(capturedTypes.contains("DownstreamOf"));
     assertTrue(capturedTypes.contains("Consumes"));
   }
@@ -528,7 +515,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify specific relationship type was passed
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(1, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 1);
     assertTrue(capturedTypes.contains("DownstreamOf"));
   }
 
@@ -676,16 +663,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     OperationContext capturedOpContext = opContextCaptor.getValue();
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
     assertEquals(
-        2,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        2);
     assertEquals(
-        5,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        5);
     assertTrue(capturedOpContext.getSearchContext().getSearchFlags().isIncludeSoftDeleted());
 
     // Verify INCOMING direction parameters
@@ -694,14 +676,14 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify relationship types
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(2, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 2);
     assertTrue(capturedTypes.contains("DownstreamOf"));
     assertTrue(capturedTypes.contains("Consumes"));
 
     // Verify other parameters
-    assertEquals("prev-scroll-id", scrollIdCaptor.getValue());
-    assertEquals("15m", pitKeepAliveCaptor.getValue());
-    assertEquals(20, countCaptor.getValue().intValue());
+    assertEquals(scrollIdCaptor.getValue(), "prev-scroll-id");
+    assertEquals(pitKeepAliveCaptor.getValue(), "15m");
+    assertEquals(countCaptor.getValue().intValue(), 20);
   }
 
   @Test
@@ -751,23 +733,18 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify relationship types
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(1, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 1);
     assertTrue(capturedTypes.contains("Produces"));
 
     // Verify slice options
     OperationContext capturedOpContext = opContextCaptor.getValue();
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
     assertEquals(
-        1,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        1);
     assertEquals(
-        4,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        4);
   }
 
   @Test

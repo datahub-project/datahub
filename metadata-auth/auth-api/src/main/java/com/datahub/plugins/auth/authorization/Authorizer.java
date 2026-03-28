@@ -4,7 +4,10 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.LazyAuthorizationResultMap;
 import com.datahub.plugins.Plugin;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
@@ -48,9 +51,41 @@ public interface Authorizer extends Plugin {
   default void init(
       @Nonnull final Map<String, Object> authorizerConfig, @Nonnull final AuthorizerContext ctx) {}
 
-  /** Authorizes an action based on the actor, the resource, and required privileges. */
+  /**
+   * Authorizes an action based on the actor, the resource, and required privilege.
+   *
+   * <p>This method is designed for the implementations, that do not support {@link
+   * #authorizeBatch(BatchAuthorizationRequest) batch authorization}. In case your implementation
+   * may benefit from batch authorization (e.g. the latency for authorizing one and many requests is
+   * almost the same) it's better to implement {@link #authorizeBatch(BatchAuthorizationRequest)
+   * batch authorization}
+   */
   default AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, "Not Implemented.");
+  }
+
+  /**
+   * Authorizes an actions based on the actor, the resource, and required privileges.
+   *
+   * <p>Returned map with results <b>MUST</b> be thread safe against {@link Map#get} operation. It
+   * means that {@link Map#get} either should not update {@link Map} under the cover (like any
+   * standard {@link Map} implementation, e.g. {@link java.util.HashMap}) or should consider thread
+   * safety
+   */
+  @Nonnull
+  default BatchAuthorizationResult authorizeBatch(
+      @Nonnull final BatchAuthorizationRequest batchRequest) {
+    var results =
+        new LazyAuthorizationResultMap(
+            batchRequest.getPrivileges(),
+            privilege ->
+                authorize(
+                    new AuthorizationRequest(
+                        batchRequest.getActorUrn(),
+                        privilege,
+                        batchRequest.getResourceSpec(),
+                        batchRequest.getSubResources())));
+    return new BatchAuthorizationResult(batchRequest, results);
   }
 
   /**

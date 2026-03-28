@@ -11,6 +11,9 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -85,8 +88,12 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     AuthenticationContext.setAuthentication(authentication);
 
     // Setup authorization
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    doReturn(
+            new BatchAuthorizationResult(
+                mock(BatchAuthorizationRequest.class),
+                new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)))
+        .when(authorizerChain)
+        .authorizeBatch(any(BatchAuthorizationRequest.class));
 
     // Setup K8s client config
     Config config = mock(Config.class);
@@ -1767,8 +1774,12 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
       AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      doReturn(
+              new BatchAuthorizationResult(
+                  mock(BatchAuthorizationRequest.class),
+                  new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)))
+          .when(authorizerChain)
+          .authorizeBatch(any(BatchAuthorizationRequest.class));
       AuthenticationContext.setAuthentication(authentication);
       return authorizerChain;
     }
