@@ -1,5 +1,8 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -136,16 +139,58 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testPostgresCreateTableSqlStatements() {
-    java.util.List<String> statements = postgresOps.createTableSqlStatements();
+    java.util.List<String> statements = postgresOps.createTableSqlStatements(false);
     assertNotNull(statements);
     assertTrue(statements.size() >= 2); // At least table creation + one index
     assertTrue(statements.get(0).contains("CREATE TABLE IF NOT EXISTS metadata_aspect_v2"));
     assertTrue(statements.get(1).contains("CREATE INDEX IF NOT EXISTS timeIndex"));
+    assertTrue(statements.stream().noneMatch(s -> s.contains("schemaVersionIndex")));
+  }
+
+  @Test
+  public void testPostgresCreateTableSqlStatementsWithSchemaVersionIndex() {
+    // schemaVersionIndex is created via postSetup, not in the statement list
+    java.util.List<String> statements = postgresOps.createTableSqlStatements(true);
+    assertTrue(statements.stream().noneMatch(s -> s.contains("schemaVersionIndex")));
+  }
+
+  @Test
+  public void testPostgresPostSetupDropsInvalidIndexThenCreates() throws SQLException {
+    // Simulate pg_index returning a row (invalid index exists)
+    when(mockConnection.prepareStatement(org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockConnection.createStatement()).thenReturn(mockPreparedStatement);
+
+    postgresOps.postSetup(mockConnection);
+
+    verify(mockPreparedStatement).execute("DROP INDEX CONCURRENTLY schemaversionindex");
+    verify(mockPreparedStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
+  }
+
+  @Test
+  public void testPostgresPostSetupCreatesIndexWhenNoneInvalid() throws SQLException {
+    // Simulate pg_index returning no rows (no invalid index)
+    when(mockConnection.prepareStatement(org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(false);
+    when(mockConnection.createStatement()).thenReturn(mockPreparedStatement);
+
+    postgresOps.postSetup(mockConnection);
+
+    verify(mockPreparedStatement, never()).execute("DROP INDEX CONCURRENTLY schemaVersionIndex");
+    verify(mockPreparedStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
   }
 
   @Test
   public void testMysqlCreateTableSqlStatements() {
-    java.util.List<String> statements = mysqlOps.createTableSqlStatements();
+    java.util.List<String> statements = mysqlOps.createTableSqlStatements(false);
     assertNotNull(statements);
     assertEquals(statements.size(), 1); // MySQL creates table with indexes in one statement
     assertTrue(statements.get(0).contains("CREATE TABLE IF NOT EXISTS metadata_aspect_v2"));
@@ -154,7 +199,7 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testMysqlCreateTableSqlStatementsMatchesMysqlSetupCharsetAndCollation() {
-    java.util.List<String> statements = mysqlOps.createTableSqlStatements();
+    java.util.List<String> statements = mysqlOps.createTableSqlStatements(false);
     assertNotNull(statements);
     String ddl = statements.get(0);
     assertTrue(
