@@ -1,4 +1,5 @@
 import pathlib
+import urllib.parse
 from copy import deepcopy
 from typing import Any, Optional, Union
 
@@ -13,6 +14,7 @@ from pydantic import (
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.configuration.validate_multiline_string import pydantic_multiline_string
+from datahub.utilities.global_warning_util import add_global_warning
 
 _GITHUB_PREFIX = "https://github.com/"
 _GITLAB_PREFIX = "https://gitlab.com/"
@@ -38,8 +40,8 @@ class GitReference(ConfigModel):
     )
     url_template: Optional[str] = Field(
         None,
-        description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
-        "It supports the following variables: {repo_url}, {branch}, {file_path}",
+        description=f"Template for generating an external URL to a file in the repo, e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos."
+        "It supports the following variables: {repo_url}, {branch}, {file_path}.",
     )
 
     _deprecated_base_url = pydantic_renamed_field(
@@ -66,23 +68,27 @@ class GitReference(ConfigModel):
         if self.url_template is not None:
             return self
 
-        if self.repo.startswith(_GITHUB_PREFIX):
+        if _remove_url_basic_auth(self.repo).startswith(_GITHUB_PREFIX):
             self.url_template = _GITHUB_URL_TEMPLATE
-        elif self.repo.startswith(_GITLAB_PREFIX):
+        elif _remove_url_basic_auth(self.repo).startswith(_GITLAB_PREFIX):
             self.url_template = _GITLAB_URL_TEMPLATE
         else:
-            raise ValueError(
-                "Unable to infer URL template from repo. Please set url_template manually."
+            add_global_warning(
+                "Unable to infer URL template from `repo`. Please set `url_template` manually."
             )
 
         return self
 
-    def get_url_for_file_path(self, file_path: str) -> str:
-        assert self.url_template
+    def get_url_for_file_path(self, file_path: str) -> Optional[str]:
+        if not self.url_template:
+            return None
         if self.url_subdir:
             file_path = f"{self.url_subdir}/{file_path}"
+
         return self.url_template.format(
-            repo_url=self.repo, branch=self.branch, file_path=file_path
+            repo_url=_remove_url_basic_auth(self.repo),
+            branch=self.branch,
+            file_path=file_path,
         )
 
 
@@ -102,7 +108,7 @@ class GitInfo(GitReference):
 
     repo_ssh_locator: Optional[str] = Field(
         None,
-        description="The url to call `git clone` on. We infer this for github and gitlab repos, but it is required for other hosts.",
+        description="The URL to call `git clone` on. By default, for GitHub and GitLab repos, we infer the SSH URL. For other hosts, this defaults to the value of `repo`",
     )
 
     _fix_deploy_key_newlines = pydantic_multiline_string("deploy_key")
@@ -138,9 +144,7 @@ class GitInfo(GitReference):
                 f"git@gitlab.com:{self.repo[len(_GITLAB_PREFIX) :]}.git"
             )
         else:
-            raise ValueError(
-                "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."
-            )
+            self.repo_ssh_locator = self.repo
 
         return self
 
@@ -177,3 +181,10 @@ class GitInfo(GitReference):
         )
 
         return checkout_dir
+
+
+def _remove_url_basic_auth(url: str) -> str:
+    parsed_url = urllib.parse.urlsplit(url)
+    return urllib.parse.urlunsplit(
+        parsed_url._replace(netloc=parsed_url.netloc.split("@")[-1])
+    )

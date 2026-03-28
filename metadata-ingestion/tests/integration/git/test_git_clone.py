@@ -60,6 +60,35 @@ def test_base_url_guessing() -> None:
     )
     assert config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
 
+    # Empty url_template and repo_ssh_locator and no guess.
+    config = GitInfo(
+        repo="https://my.git.internal/myproject",
+        branch="main",
+    )
+    assert config.get_url_for_file_path("README.md") is None
+    assert config.repo_ssh_locator == "https://my.git.internal/myproject"
+
+    # GitHub with personal access token
+    config = GitInfo(
+        repo="https://mytoken@github.com/myorg/myproject",
+    )
+    assert (
+        config.get_url_for_file_path("README.md")
+        == "https://github.com/myorg/myproject/blob/main/README.md"
+    )
+    assert config.repo_ssh_locator == "https://mytoken@github.com/myorg/myproject"
+
+    # Sanitize file path
+    config = GitInfo(
+        repo="https://mytoken@my.git.internal/myproject",
+        url_template="{repo_url}/blob/{branch}/{file_path}",
+        branch="main",
+    )
+    assert (
+        config.get_url_for_file_path("README.md")
+        == "https://my.git.internal/myproject/blob/main/README.md"
+    )
+
     # Deprecated: base_url.
     with pytest.warns(ConfigurationWarning, match="base_url is deprecated"):
         config = GitInfo.model_validate(
