@@ -1167,6 +1167,7 @@ module.exports = {
           label: "Patch",
         },
         "docs/api/tutorials/sdk/search_client",
+        "docs/api/tutorials/sdk/job-queue",
       ],
     },
     // Admin.
