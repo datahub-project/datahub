@@ -960,6 +960,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.endpoint",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.model",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.matchedChunksPerResult",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size"

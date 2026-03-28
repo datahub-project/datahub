@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SemanticMatchedChunkArray;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
@@ -487,6 +488,211 @@ public class SemanticEntitySearchServiceTest {
     // This ensures parity with keyword search field fetching logic
   }
 
+  @Test
+  public void testInnerHitsPopulatesSemanticMatchedChunks() throws IOException {
+    // Setup mock response with inner_hits containing matched chunks
+    ObjectNode mockResponse =
+        createMockSearchResponseWithInnerHits(
+            "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)",
+            0.92,
+            "This is the matched passage from the document.",
+            0,
+            100,
+            200,
+            0.92f);
+    setupMockOpenSearchResponse(mockResponse);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+
+    SearchEntity entity = result.getEntities().get(0);
+    SemanticMatchedChunkArray chunks = entity.getSemanticMatchedChunks();
+    assertNotNull(chunks);
+    assertEquals(chunks.size(), 1);
+
+    com.linkedin.metadata.search.SemanticMatchedChunk chunk = chunks.get(0);
+    assertEquals(chunk.getPosition().intValue(), 0);
+    assertEquals(chunk.getText(), "This is the matched passage from the document.");
+    assertEquals(chunk.getCharacterOffset().intValue(), 100);
+    assertEquals(chunk.getCharacterLength().intValue(), 200);
+    assertEquals(chunk.getScore(), 0.92f, 0.001f);
+  }
+
+  @Test
+  public void testFiveArgConstructorSetsMatchedChunksPerResult() throws IOException {
+    // Verify the 5-arg constructor wires matchedChunksPerResult into the query's inner_hits size
+    SemanticEntitySearchService customService =
+        new SemanticEntitySearchService(
+            searchClientShim, mockEmbeddingProvider, mappingsBuilder, "text_embedding_3_large", 3);
+    assertNotNull(customService);
+
+    setupMockOpenSearchResponse(
+        createMockSearchResponseWithInnerHits(
+            "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)",
+            0.90,
+            "chunk text",
+            0,
+            0,
+            50,
+            0.90f));
+
+    // Verify the query body includes inner_hits with the configured size
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    customService.search(
+        mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
+
+    String requestBody = extractRequestBody(requestCaptor.getValue());
+    assertTrue(requestBody.contains("inner_hits"), "Query should contain inner_hits");
+    assertTrue(
+        requestBody.contains("\"size\":3"),
+        "inner_hits size should match matchedChunksPerResult=3");
+  }
+
+  @Test
+  public void testInnerHitsWithMissingOptionalFields() throws IOException {
+    // Chunk missing text, characterOffset, characterLength — only position and score present
+    ObjectNode response = JsonNodeFactory.instance.objectNode();
+    ObjectNode hitsWrapper = JsonNodeFactory.instance.objectNode();
+    ObjectNode total = JsonNodeFactory.instance.objectNode();
+    total.put("value", 1);
+    hitsWrapper.set("total", total);
+
+    ArrayNode hitsArray = JsonNodeFactory.instance.arrayNode();
+    ObjectNode hit = JsonNodeFactory.instance.objectNode();
+    hit.put("_score", 0.88);
+
+    ObjectNode source = JsonNodeFactory.instance.objectNode();
+    source.put("urn", "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)");
+    hit.set("_source", source);
+
+    // Chunk source has only position — no text, no offset, no length
+    ObjectNode chunkSource = JsonNodeFactory.instance.objectNode();
+    chunkSource.put("position", 2);
+
+    ObjectNode chunkHit = JsonNodeFactory.instance.objectNode();
+    chunkHit.put("_score", 0.88);
+    chunkHit.set("_source", chunkSource);
+
+    ArrayNode chunkHitsArray = JsonNodeFactory.instance.arrayNode();
+    chunkHitsArray.add(chunkHit);
+
+    ObjectNode chunkHitsWrapper = JsonNodeFactory.instance.objectNode();
+    chunkHitsWrapper.set("total", total);
+    chunkHitsWrapper.set("hits", chunkHitsArray);
+
+    ObjectNode matchedChunksNode = JsonNodeFactory.instance.objectNode();
+    matchedChunksNode.set("hits", chunkHitsWrapper);
+
+    ObjectNode innerHits = JsonNodeFactory.instance.objectNode();
+    innerHits.set("matched_chunks", matchedChunksNode);
+
+    hit.set("inner_hits", innerHits);
+    hitsArray.add(hit);
+    hitsWrapper.set("hits", hitsArray);
+    response.set("hits", hitsWrapper);
+
+    setupMockOpenSearchResponse(response);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+
+    com.linkedin.metadata.search.SemanticMatchedChunk chunk =
+        result.getEntities().get(0).getSemanticMatchedChunks().get(0);
+    assertEquals(chunk.getPosition().intValue(), 2);
+    assertEquals(chunk.getScore(), 0.88f, 0.001f);
+    // Optional fields absent in source — must not be set on the chunk
+    assertTrue(!chunk.hasText());
+    assertTrue(!chunk.hasCharacterOffset());
+    assertTrue(!chunk.hasCharacterLength());
+  }
+
+  @Test
+  public void testInnerHitsMultipleChunksOrderedByScore() throws IOException {
+    // Build a response with two chunks so we can verify both are extracted
+    ObjectNode response = JsonNodeFactory.instance.objectNode();
+    ObjectNode hitsWrapper = JsonNodeFactory.instance.objectNode();
+    ObjectNode total = JsonNodeFactory.instance.objectNode();
+    total.put("value", 1);
+    hitsWrapper.set("total", total);
+
+    ArrayNode hitsArray = JsonNodeFactory.instance.arrayNode();
+    ObjectNode hit = JsonNodeFactory.instance.objectNode();
+    hit.put("_score", 0.95);
+
+    ObjectNode source = JsonNodeFactory.instance.objectNode();
+    source.put("urn", "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)");
+    hit.set("_source", source);
+
+    ArrayNode chunkHitsArray = JsonNodeFactory.instance.arrayNode();
+    for (int i = 0; i < 2; i++) {
+      ObjectNode chunkSource = JsonNodeFactory.instance.objectNode();
+      chunkSource.put("position", i);
+      chunkSource.put("text", "chunk " + i);
+
+      ObjectNode chunkHit = JsonNodeFactory.instance.objectNode();
+      chunkHit.put("_score", i == 0 ? 0.95 : 0.80);
+      chunkHit.set("_source", chunkSource);
+      chunkHitsArray.add(chunkHit);
+    }
+
+    ObjectNode chunkHitsWrapper = JsonNodeFactory.instance.objectNode();
+    chunkHitsWrapper.set("total", total);
+    chunkHitsWrapper.set("hits", chunkHitsArray);
+
+    ObjectNode matchedChunksNode = JsonNodeFactory.instance.objectNode();
+    matchedChunksNode.set("hits", chunkHitsWrapper);
+
+    ObjectNode innerHits = JsonNodeFactory.instance.objectNode();
+    innerHits.set("matched_chunks", matchedChunksNode);
+
+    hit.set("inner_hits", innerHits);
+    hitsArray.add(hit);
+    hitsWrapper.set("hits", hitsArray);
+    response.set("hits", hitsWrapper);
+
+    setupMockOpenSearchResponse(response);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    SemanticMatchedChunkArray chunks = result.getEntities().get(0).getSemanticMatchedChunks();
+    assertEquals(chunks.size(), 2);
+    assertEquals(chunks.get(0).getScore(), 0.95f, 0.001f);
+    assertEquals(chunks.get(1).getScore(), 0.80f, 0.001f);
+    assertEquals(chunks.get(0).getText(), "chunk 0");
+    assertEquals(chunks.get(1).getText(), "chunk 1");
+  }
+
+  @Test
+  public void testMissingInnerHitsReturnsEmptyChunks() throws IOException {
+    // Response without inner_hits — standard keyword result or semantic without inner_hits
+    setupMockOpenSearchResponse(
+        createMockSearchResponse(
+            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+
+    SearchEntity entity = result.getEntities().get(0);
+    SemanticMatchedChunkArray chunks = entity.getSemanticMatchedChunks();
+    assertNotNull(chunks);
+    assertTrue(chunks.isEmpty());
+  }
+
   // Helper methods
 
   private String extractRequestBody(Request request) throws IOException {
@@ -567,6 +773,66 @@ public class SemanticEntitySearchServiceTest {
     hitsArray.add(hit);
     hits.set("hits", hitsArray);
     response.set("hits", hits);
+
+    return response;
+  }
+
+  private ObjectNode createMockSearchResponseWithInnerHits(
+      String urn,
+      double docScore,
+      String chunkText,
+      int chunkPosition,
+      int characterOffset,
+      int characterLength,
+      float chunkScore) {
+    ObjectNode response = JsonNodeFactory.instance.objectNode();
+
+    ObjectNode hitsWrapper = JsonNodeFactory.instance.objectNode();
+    ObjectNode total = JsonNodeFactory.instance.objectNode();
+    total.put("value", 1);
+    hitsWrapper.set("total", total);
+
+    ArrayNode hitsArray = JsonNodeFactory.instance.arrayNode();
+
+    ObjectNode hit = JsonNodeFactory.instance.objectNode();
+    hit.put("_score", docScore);
+
+    ObjectNode source = JsonNodeFactory.instance.objectNode();
+    source.put("urn", urn);
+    hit.set("_source", source);
+
+    // Build inner_hits structure
+    ObjectNode chunkSource = JsonNodeFactory.instance.objectNode();
+    chunkSource.put("text", chunkText);
+    chunkSource.put("position", chunkPosition);
+    chunkSource.put("characterOffset", characterOffset);
+    chunkSource.put("characterLength", characterLength);
+
+    ObjectNode chunkHit = JsonNodeFactory.instance.objectNode();
+    chunkHit.put("_score", (double) chunkScore);
+    chunkHit.set("_source", chunkSource);
+
+    ArrayNode chunkHitsArray = JsonNodeFactory.instance.arrayNode();
+    chunkHitsArray.add(chunkHit);
+
+    ObjectNode chunkHitsTotal = JsonNodeFactory.instance.objectNode();
+    chunkHitsTotal.put("value", 1);
+
+    ObjectNode chunkHitsWrapper = JsonNodeFactory.instance.objectNode();
+    chunkHitsWrapper.set("total", chunkHitsTotal);
+    chunkHitsWrapper.set("hits", chunkHitsArray);
+
+    ObjectNode matchedChunksNode = JsonNodeFactory.instance.objectNode();
+    matchedChunksNode.set("hits", chunkHitsWrapper);
+
+    ObjectNode innerHits = JsonNodeFactory.instance.objectNode();
+    innerHits.set("matched_chunks", matchedChunksNode);
+
+    hit.set("inner_hits", innerHits);
+
+    hitsArray.add(hit);
+    hitsWrapper.set("hits", hitsArray);
+    response.set("hits", hitsWrapper);
 
     return response;
   }

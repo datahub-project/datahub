@@ -11,3 +11,45 @@ extend type Query {
   """
   semanticSearchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResults
 }
+
+extend type SearchResult {
+  """
+  The top-ranked passages that drove this document's semantic search ranking.
+  Ordered by descending similarity score (best match first).
+  Empty for keyword-only search results.
+  """
+  matchedChunks: [SemanticMatchedChunk!]!
+}
+
+"""
+A passage from a document that drove its semantic search ranking.
+Ordered by descending similarity score (best match first).
+"""
+type SemanticMatchedChunk {
+  """
+  Zero-based position of this chunk within the document.
+  """
+  position: Int!
+
+  """
+  The text of the matched chunk. May be absent if text was not stored at index time.
+  """
+  text: String
+
+  """
+  Character offset of this chunk within the source document text.
+  Used to slice the document text when chunk text is absent.
+  """
+  characterOffset: Int
+
+  """
+  Length of this chunk in characters.
+  Used to slice the document text when chunk text is absent.
+  """
+  characterLength: Int
+
+  """
+  Cosine similarity score of this chunk against the query embedding.
+  """
+  score: Float
+}
