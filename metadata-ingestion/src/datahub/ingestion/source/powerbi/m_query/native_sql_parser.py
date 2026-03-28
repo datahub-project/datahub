@@ -7,6 +7,7 @@ import sqlparse
 from datahub.ingestion.api.common import PipelineContext
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
+    create_lineage_from_sql_statements,
     create_lineage_sql_parsed_result,
 )
 
@@ -69,33 +70,59 @@ def get_tables(native_query: str) -> List[str]:
     return tables
 
 
-def remove_drop_statement(query: str) -> str:
-    # Certain PowerBI M-Queries contain a combination of DROP and SELECT statements within SQL, causing SQLParser to fail on these queries.
-    # Therefore, these occurrences are being removed.
+def remove_tsql_control_statements(query: str) -> str:
+    # Certain PowerBI M-Queries embed T-SQL control flow statements (USE, SET, GO, DROP)
+    # that are not valid in standard SQL dialects and cause the SQL parser to fail.
+    # Strip them before parsing so we can still extract lineage from the SELECT statements.
 
     patterns = [
-        # Regular expression to match patterns like:
-        #   "DROP TABLE IF EXISTS #<identifier>;"
-        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...;"
-        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...\n"
+        # DROP TABLE IF EXISTS #<temp> — temp table cleanup between statements
         r"DROP\s+TABLE\s+IF\s+EXISTS\s+(?:#?\w+(?:,\s*#?\w+)*)[;\n]",
+        # USE <database> — T-SQL database context switch; \S+ handles both plain
+        # identifiers (USE Reports) and bracketed ones (USE [Reports])
+        r"^\s*USE\s+\S+\s*$",
+        # SET <option> ON|OFF — T-SQL session-level options (NOCOUNT, QUOTED_IDENTIFIER, etc.)
+        r"^\s*SET\s+\w+\s+(?:ON|OFF)\s*;?\s*$",
+        # GO — T-SQL batch separator
+        r"^\s*GO\s*$",
+        # INTO #<temp_table> within SELECT … INTO — redirects output to temp table;
+        # strip only the INTO clause so FROM/WHERE lineage remains parseable.
+        # ##name = global temp table, #name = local temp table.
+        r"\s+INTO\s+##?\w+",
     ]
 
     new_query = query
 
     for pattern in patterns:
-        new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE)
+        new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE | re.MULTILINE)
+
+    # Leading semicolon before WITH — T-SQL defensive pattern (;WITH ...) used to ensure
+    # the previous statement is terminated before a CTE. Strip only the semicolon,
+    # preserving the WITH keyword so sqlglot can parse the CTE correctly.
+    before = new_query
+    new_query = re.sub(
+        r"^\s*;(\s*WITH\b)", r"\1", new_query, flags=re.IGNORECASE | re.MULTILINE
+    )
+    if new_query != before:
+        logger.debug("Stripped leading semicolon before WITH (CTE defensive pattern)")
 
     # Only normalize multiple consecutive spaces (but preserve newlines and tabs)
-    # This fixes spacing issues caused by DROP statement removal without
+    # This fixes spacing issues caused by statement removal without
     # collapsing the entire query into a single line
     new_query = re.sub(r"[ \t]+", " ", new_query)
-    # Remove spaces at the start of lines (left by DROP statement removal)
+    # Remove spaces at the start of lines
     new_query = re.sub(r"\n[ \t]+", "\n", new_query)
+    # Collapse 3+ consecutive blank lines down to one
+    new_query = re.sub(r"\n{3,}", "\n\n", new_query)
     # Remove trailing spaces
     new_query = new_query.strip()
 
     return new_query
+
+
+def remove_drop_statement(query: str) -> str:
+    # Kept for backwards compatibility — delegates to the broader T-SQL cleanup function.
+    return remove_tsql_control_statements(query)
 
 
 def parse_custom_sql(
@@ -108,10 +135,9 @@ def parse_custom_sql(
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
     logger.debug("Using sqlglot_lineage to parse custom sql")
-
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
 
-    return create_lineage_sql_parsed_result(
+    result = create_lineage_sql_parsed_result(
         query=query,
         default_schema=schema,
         default_db=database,
@@ -120,3 +146,38 @@ def parse_custom_sql(
         env=env,
         graph=ctx.graph,
     )
+
+    if result is None:
+        logger.debug("parse_custom_sql: sqlglot returned None result")
+        return result
+
+    if result.debug_info and result.debug_info.table_error:
+        error_str = str(result.debug_info.table_error)
+        if "Block contains" in error_str or "Invalid expression" in error_str:
+            # M-Query SQL often contains multiple statements (stored procedure style).
+            # Ensure blank-line-separated SELECT statements have semicolons so
+            # create_lineage_from_sql_statements can split them correctly.
+            retry_query = re.sub(
+                r"\n\n(\s*SELECT\b)", r";\n\n\1", query, flags=re.IGNORECASE
+            )
+            logger.debug(
+                "parse_custom_sql retrying with create_lineage_from_sql_statements due to: %s",
+                error_str[:100],
+            )
+            result = create_lineage_from_sql_statements(
+                queries=retry_query,
+                default_schema=schema,
+                default_db=database,
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=ctx.graph,
+            )
+
+    logger.debug(
+        "parse_custom_sql result: in_tables=%s, table_error=%s",
+        result.in_tables,
+        result.debug_info.table_error if result.debug_info else None,
+    )
+
+    return result

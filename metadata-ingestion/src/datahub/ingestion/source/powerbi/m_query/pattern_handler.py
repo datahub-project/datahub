@@ -362,8 +362,17 @@ class AbstractLineage(ABC):
             )
         )
 
-        query = native_sql_parser.remove_drop_statement(query)
+        logger.debug(
+            "parse_custom_sql: table=%s, platform=%s, db=%s, schema=%s",
+            self.table.full_name,
+            platform_pair.datahub_data_platform_name,
+            database,
+            schema,
+        )
+        # remove_special_characters must run first to expand #(lf) → \n before
+        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
+        query = native_sql_parser.remove_drop_statement(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
@@ -378,6 +387,10 @@ class AbstractLineage(ABC):
         )
 
         if parsed_result is None:
+            logger.debug(
+                "parse_custom_sql returned None for table %s",
+                self.table.full_name,
+            )
             self.reporter.info(
                 title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
@@ -386,6 +399,11 @@ class AbstractLineage(ABC):
             return Lineage.empty()
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
+            logger.debug(
+                "parse_custom_sql table_error for table %s: %s",
+                self.table.full_name,
+                parsed_result.debug_info.table_error,
+            )
             self.reporter.warning(
                 title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
@@ -1047,8 +1065,18 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         record_fields = _get_record_args(node_map, data_access_func_detail.arg_list)
         query: Optional[str] = record_fields.get("Query")
         if query:
+            logger.debug(
+                "MSSqlLineage inline query found for table %s, "
+                "enable_advance_lineage_sql_construct=%s",
+                self.table.full_name,
+                self.config.enable_advance_lineage_sql_construct,
+            )
             if self.config.enable_advance_lineage_sql_construct is False:
                 # Use previous parser to generate URN to keep backward compatibility
+                logger.debug(
+                    "MSSqlLineage using old parser for table %s — T-SQL cleanup will NOT run",
+                    self.table.full_name,
+                )
                 return Lineage(
                     upstreams=self.create_urn_using_old_parser(
                         query=query,
@@ -1066,7 +1094,10 @@ class MSSqlLineage(TwoStepDataAccessPattern):
             )
 
         # It is a regular case of MS-SQL
-        logger.debug("Handling with regular case")
+        logger.debug(
+            "MSSqlLineage no inline query for table %s — using structural pattern",
+            self.table.full_name,
+        )
         return self.two_level_access_pattern(data_access_func_detail)
 
 
@@ -1214,6 +1245,7 @@ class NativeQueryLineage(AbstractLineage):
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
+        FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value: SupportedDataPlatform.GOOGLE_BIGQUERY,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
 
@@ -1264,25 +1296,28 @@ class NativeQueryLineage(AbstractLineage):
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
         if (
             data_access_tokens[0]
-            != FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
+            == FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
         ):
-            return None
+            database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
-        database: Optional[str] = get_next_item(data_access_tokens, "Database")
+            if (
+                database and database != Constant.M_QUERY_NULL
+            ):  # database name is explicitly set
+                return database
 
-        if (
-            database and database != Constant.M_QUERY_NULL
-        ):  # database name is explicitly set
-            return database
-
-        return (
-            get_next_item(  # database name is set in Name argument
-                data_access_tokens, "Name"
+            return (
+                get_next_item(  # database name is set in Name argument
+                    data_access_tokens, "Name"
+                )
+                or get_next_item(  # If both above arguments are not available, then try Catalog
+                    data_access_tokens, "Catalog"
+                )
             )
-            or get_next_item(  # If both above arguments are not available, then try Catalog
-                data_access_tokens, "Catalog"
-            )
-        )
+
+        if data_access_tokens[0] == FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value:
+            return get_next_item(data_access_tokens, "BillingProject")
+
+        return None
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail

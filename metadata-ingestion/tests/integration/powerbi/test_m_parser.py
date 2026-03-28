@@ -684,6 +684,39 @@ def test_redshift_native_query():
     )
 
 
+def test_bigquery_native_query():
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from public.my_table where is_active and created_at >= date_add(current_date(), interval -60 days)", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+    config.native_query_parsing = True
+    config.enable_advance_lineage_sql_construct = True
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.public.my_table,PROD)"
+    )
+
+
 def test_sqlglot_parser():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[24],
@@ -925,7 +958,7 @@ def test_snowflake_double_double_quotes():
     )
 
 
-def test_databricks_multicloud():
+def test_databricks_native_query():
     q = M_QUERIES[31]
 
     lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
