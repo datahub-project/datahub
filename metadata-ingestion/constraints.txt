@@ -379,7 +379,7 @@ docutils==0.22.4
     # via readme-renderer
 duckdb==1.5.0
     # via acryl-datahub
-ecdsa==0.19.1
+ecdsa==0.19.2
     # via python-jose
 elasticsearch==7.13.4
     # via acryl-datahub
