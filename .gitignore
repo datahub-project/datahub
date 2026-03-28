@@ -2,6 +2,7 @@
 .project
 .settings
 .classpath
+.factorypath
 .gradle
 .idea
 *.iml
