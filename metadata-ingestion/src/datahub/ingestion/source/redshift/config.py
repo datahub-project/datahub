@@ -101,8 +101,12 @@ class RedshiftConfig(
         description="",
     )
 
-    _database_alias_removed = pydantic_removed_field("database_alias")
-    _use_lineage_v2_removed = pydantic_removed_field("use_lineage_v2")
+    _database_alias_removed = pydantic_removed_field(
+        "database_alias", month="November", year=2023
+    )
+    _use_lineage_v2_removed = pydantic_removed_field(
+        "use_lineage_v2", month="August", year=2025
+    )
     _rename_lineage_v2_generate_queries_to_lineage_generate_queries = (
         pydantic_renamed_field(
             "lineage_v2_generate_queries", "lineage_generate_queries"

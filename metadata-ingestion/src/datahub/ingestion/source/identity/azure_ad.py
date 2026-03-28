@@ -134,7 +134,9 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="regex patterns for groups to include in ingestion.",
     )
 
-    _remove_filtered_tracking = pydantic_removed_field("filtered_tracking")
+    _remove_filtered_tracking = pydantic_removed_field(
+        "filtered_tracking", month="January", year=2025
+    )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = Field(

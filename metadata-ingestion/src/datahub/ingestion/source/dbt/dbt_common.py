@@ -623,7 +623,9 @@ class DBTCommonConfig(
         description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run. This would also require enabling 'incremental_lineage' in the counterpart warehouse ingestion (_e.g._ BigQuery, Redshift, etc).",
     )
 
-    _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
+    _remove_use_compiled_code = pydantic_removed_field(
+        "use_compiled_code", month="March", year=2024
+    )
 
     include_compiled_code: bool = Field(
         default=True,

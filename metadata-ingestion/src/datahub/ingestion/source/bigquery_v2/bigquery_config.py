@@ -99,7 +99,9 @@ class BigQueryBaseConfig(ConfigModel):
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    _query_log_delay_removed = pydantic_removed_field("query_log_delay")
+    _query_log_delay_removed = pydantic_removed_field(
+        "query_log_delay", month="April", year=2023
+    )
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
@@ -504,9 +506,15 @@ class BigQueryV2Config(
         "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
     )
 
-    _include_view_lineage = pydantic_removed_field("include_view_lineage")
-    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
-    _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
+    _include_view_lineage = pydantic_removed_field(
+        "include_view_lineage", month="January", year=2025
+    )
+    _include_view_column_lineage = pydantic_removed_field(
+        "include_view_column_lineage", month="January", year=2025
+    )
+    _lineage_parse_view_ddl = pydantic_removed_field(
+        "lineage_parse_view_ddl", month="January", year=2025
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -617,5 +625,7 @@ class BigQueryV2Config(
         return "|".join(pattern) if pattern else ""
 
     _platform_instance_not_supported_for_bigquery = pydantic_removed_field(
-        "platform_instance"
+        "platform_instance",
+        month="September",
+        year=2025,
     )

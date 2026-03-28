@@ -242,7 +242,9 @@ class LookerDashboardSourceConfig(
     StatefulIngestionConfigBase,
     EnvConfigMixin,
 ):
-    _removed_github_info = pydantic_removed_field("github_info")
+    _removed_github_info = pydantic_removed_field(
+        "github_info", month="June", year=2023
+    )
 
     dashboard_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
