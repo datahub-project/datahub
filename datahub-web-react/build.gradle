@@ -164,6 +164,22 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   }
 }
 
+// Split lint tasks for CI parallel execution (lower peak memory per job)
+task yarnLintEslint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
+  args = ['run', 'lint:eslint']
+}
+
+task yarnLintFormat(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
+  args = ['run', 'format-check']
+}
+
+task yarnLintTypecheck(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
+  args = ['run', 'type-check']
+}
+
 test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
