@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -89,15 +90,12 @@ public class ValidationExceptionCollection
 
   @Override
   public String toString() {
-    return String.format(
-        "ValidationExceptionCollection{%s}",
-        entrySet().stream()
-            // sort by entity/aspect
-            .sorted(Comparator.comparing(p -> p.getKey().toString()))
-            .map(
-                e ->
-                    String.format(
-                        "EntityAspect:%s Exceptions: %s", e.getKey().toString(), e.getValue()))
-            .collect(Collectors.joining("; ")));
+    // Return just the error messages without verbose wrapper for cleaner UI display
+    return entrySet().stream()
+        // sort by entity/aspect
+        .sorted(Comparator.comparing(p -> p.getKey().toString()))
+        .flatMap(e -> e.getValue().stream().map(AspectValidationException::getMsg))
+        .filter(Objects::nonNull) // Filter out null messages to prevent NPE
+        .collect(Collectors.joining("; "));
   }
 }

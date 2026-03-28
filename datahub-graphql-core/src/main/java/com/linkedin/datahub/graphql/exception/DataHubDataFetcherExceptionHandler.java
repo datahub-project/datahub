@@ -24,6 +24,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
     DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
     String message = DEFAULT_ERROR_MESSAGE;
+    String errorSource = null;
 
     IllegalArgumentException illException =
         findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
@@ -47,6 +48,18 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       log.error("Failed to execute", validationException);
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
       message = extractErrorMessage(validationException);
+      errorSource = "VALIDATION";
+    }
+
+    // Also check for metadata-io ValidationException (different package, same name)
+    com.linkedin.metadata.entity.validation.ValidationException metadataValidationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    if (metadataValidationException != null) {
+      log.error("Failed to execute", metadataValidationException);
+      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
+      message = metadataValidationException.getMessage();
+      errorSource = "VALIDATION";
     }
 
     IllegalStateException illegalStateException =
@@ -68,11 +81,13 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (illException == null
         && graphQLException == null
         && validationException == null
+        && metadataValidationException == null
         && illegalStateException == null
         && runtimeException == null) {
       log.error("Failed to execute", exception);
     }
-    DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
+    DataHubGraphQLError error =
+        new DataHubGraphQLError(message, path, sourceLocation, errorCode, errorSource);
     return CompletableFuture.completedFuture(
         DataFetcherExceptionHandlerResult.newResult().error(error).build());
   }

@@ -82,14 +82,54 @@ function getGraphqlErrorCode(e) {
     return undefined;
 }
 
+/**
+ * Extracts the actual error message from GraphQL errors.
+ * This is where validator plugin messages are found.
+ */
+function getGraphqlErrorMessage(e): string | undefined {
+    if (e.graphQLErrors && e.graphQLErrors.length) {
+        const firstError = e.graphQLErrors[0];
+        return firstError.message;
+    }
+    return undefined;
+}
+
+function getGraphqlErrorSource(e): string | undefined {
+    if (e.graphQLErrors && e.graphQLErrors.length) {
+        const firstError = e.graphQLErrors[0];
+        const { extensions } = firstError;
+        return extensions && (extensions.errorSource as string);
+    }
+    return undefined;
+}
+
 export const handleBatchError = (urns, e, defaultMessage) => {
-    if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
+    const errorCode = getGraphqlErrorCode(e);
+    const errorSource = getGraphqlErrorSource(e);
+
+    // For multi-entity permission errors, show bulk edit specific message
+    if (urns.length > 1 && errorCode === 403) {
         return {
             content:
                 'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
             duration: 3,
         };
     }
+
+    // For validation errors specifically (errorSource=VALIDATION), extract the server message
+    // as it contains specific validation details from validator plugins
+    if (errorCode === 400 && errorSource === 'VALIDATION') {
+        const serverMessage = getGraphqlErrorMessage(e);
+        if (serverMessage?.trim()) {
+            return {
+                content: serverMessage,
+                duration: 3,
+            };
+        }
+    }
+
+    // For all other errors (non-validation 400s, 500s, etc.), use the safe default message
+    // Don't expose server details which could leak infrastructure information
     return defaultMessage;
 };
 

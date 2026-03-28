@@ -103,7 +103,7 @@ describe('entity V2 utils test ->', () => {
         });
     });
     describe('handleBatchError ->', () => {
-        describe('should return entities from EntityRelationshipsResult', () => {
+        describe('should handle batch errors appropriately', () => {
             const urns = ['urn1', 'urn2'];
             const defaultMessage = { content: 'Default message', duration: 3 };
             test('should return custom message if urns length is greater than 1 and error code is 403', () => {
@@ -117,13 +117,44 @@ describe('entity V2 utils test ->', () => {
                     duration: 3,
                 });
             });
-            test('should return defaultMessage if urns length is not greater than 1', () => {
+            test('should return defaultMessage if urns length is not greater than 1 and no GraphQL error message', () => {
                 const result = handleBatchError('urn', new Error(), defaultMessage);
                 expect(result).toEqual(defaultMessage);
             });
-            test('should return defaultMessage if urns length is greater than 1 but error code is not 403', () => {
+            test('should extract GraphQL error message for validation errors with errorSource=VALIDATION', () => {
+                const validatorMessage = 'Cannot delete system tag: this tag is protected';
+                const e = {
+                    graphQLErrors: [{
+                        message: validatorMessage,
+                        extensions: { code: 400, errorSource: 'VALIDATION' },
+                    }],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual({
+                    content: validatorMessage,
+                    duration: 3,
+                });
+            });
+            test('should use defaultMessage for non-validation BadRequest errors (no errorSource)', () => {
+                const e = {
+                    graphQLErrors: [{
+                        message: 'Some other bad request error',
+                        extensions: { code: 400 },
+                    }],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual(defaultMessage);
+            });
+            test('should return defaultMessage if no GraphQL error message is present', () => {
                 const e = {
                     graphQLErrors: [{ extensions: { code: 500 } }],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual(defaultMessage);
+            });
+            test('should return defaultMessage if graphQLErrors array is empty', () => {
+                const e = {
+                    graphQLErrors: [],
                 };
                 const result = handleBatchError(urns, e, defaultMessage);
                 expect(result).toEqual(defaultMessage);
