@@ -1,12 +1,10 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 const MenuItem = styled.div`
     font-size: 12px;
     padding: 0 4px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: number }>`
@@ -20,20 +18,20 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     justify-content: center;
     overflow: hidden;
     border: none;
-    background-color: 'white';
-    border: 1px solid #eee;
-    color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    color: ${(props) => props.theme.colors.icon};
     box-shadow: none;
     &&:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.textHover};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
     ${(props) =>
         props.disabled
             ? `
             ${MenuItem} {
-                color: ${ANTD_GRAY[7]};
+                color: ${props.theme.colors.textDisabled};
             }
     `
             : ''};

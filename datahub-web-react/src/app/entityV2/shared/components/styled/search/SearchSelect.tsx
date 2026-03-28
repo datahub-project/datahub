@@ -9,7 +9,6 @@ import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
@@ -33,7 +32,7 @@ const SearchBarContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 const SEARCH_BAR_STYLE = {

@@ -6,10 +6,9 @@ import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 
 import { Deprecation, SubResourceType, UsageQueryResult } from '@types';
@@ -22,12 +21,12 @@ const FieldDetailsContent = styled.div`
     display: flex;
     gap: 10px;
     border-bottom: 1px solid;
-    border-color: ${colors.gray[100]};
+    border-color: ${(props) => props.theme.colors.border};
     padding-bottom: 16px;
     & > div {
         &:not(:first-child) {
             border-left: 1px solid;
-            border-color: ${colors.gray[100]};
+            border-color: ${(props) => props.theme.colors.border};
         }
     }
 `;
@@ -58,14 +57,14 @@ const MarkAsDeprecatedButtonContainer = styled.div`
 `;
 
 const DetailLabel = styled(Typography.Text)`
-    color: rgb(55, 64, 102);
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 600;
     line-height: 16px;
 `;
 
 const DetailValue = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     opacity: 0.5;
     font-size: 12px;
     font-weight: 500;

@@ -2,10 +2,9 @@ import { DeliveredProcedureOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { notEmpty } from '@app/entityV2/shared/utils';
 import {
     getExecutionRequestStatusDisplayColor,
@@ -23,7 +22,7 @@ import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const PaginationControlContainer = styled.div`
@@ -54,85 +53,89 @@ function getStatusForStyling(status: DataProcessRunStatus, resultType: DataProce
     return 'RUNNING';
 }
 
-const columns = [
-    {
-        title: 'Time',
-        dataIndex: 'time',
-        key: 'time',
-        render: (value) => (
-            <Tooltip title={new Date(Number(value)).toUTCString()}>{new Date(Number(value)).toLocaleString()}</Tooltip>
-        ),
-    },
-    {
-        title: 'Duration',
-        dataIndex: 'duration',
-        key: 'duration',
-        render: (durationMs: number) => formatDuration(durationMs),
-    },
-    {
-        title: 'Run ID',
-        dataIndex: 'name',
-        key: 'name',
-    },
-    {
-        title: 'Task',
-        dataIndex: 'parentTemplate',
-        key: 'parentTemplate',
-        render: (parentTemplate) => <CompactEntityNameList entities={[parentTemplate]} />,
-    },
-    {
-        title: 'Status',
-        dataIndex: 'status',
-        key: 'status',
-        render: (status: any, row) => {
-            const statusForStyling = getStatusForStyling(status, row?.resultType);
-            const Icon = getExecutionRequestStatusIcon(statusForStyling);
-            const text = getExecutionRequestStatusDisplayText(statusForStyling);
-            const color = getExecutionRequestStatusDisplayColor(statusForStyling);
-            return (
-                <>
-                    <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                        {Icon && <Icon style={{ color }} />}
-                        <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                            {text || 'N/A'}
-                        </Typography.Text>
-                    </div>
-                </>
-            );
-        },
-    },
-    {
-        title: 'Inputs',
-        dataIndex: 'inputs',
-        key: 'inputs',
-        render: (inputs) => <CompactEntityNameList entities={inputs} />,
-    },
-    {
-        title: 'Outputs',
-        dataIndex: 'outputs',
-        key: 'outputs',
-        render: (outputs) => <CompactEntityNameList entities={outputs} />,
-    },
-    {
-        title: '',
-        dataIndex: 'externalUrl',
-        key: 'externalUrl',
-        render: (externalUrl) =>
-            externalUrl && (
-                <Tooltip title="View task run details">
-                    <ExternalUrlLink href={externalUrl}>
-                        <DeliveredProcedureOutlined />
-                    </ExternalUrlLink>
-                </Tooltip>
-            ),
-    },
-];
-
 const PAGE_SIZE = 20;
 
 export const OperationsTab = () => {
     const { urn, entityData } = useEntityData();
     const [page, setPage] = useState(1);
+
+    const theme = useTheme();
+
+    const columns = [
+        {
+            title: 'Time',
+            dataIndex: 'time',
+            key: 'time',
+            render: (value) => (
+                <Tooltip title={new Date(Number(value)).toUTCString()}>
+                    {new Date(Number(value)).toLocaleString()}
+                </Tooltip>
+            ),
+        },
+        {
+            title: 'Duration',
+            dataIndex: 'duration',
+            key: 'duration',
+            render: (durationMs: number) => formatDuration(durationMs),
+        },
+        {
+            title: 'Run ID',
+            dataIndex: 'name',
+            key: 'name',
+        },
+        {
+            title: 'Task',
+            dataIndex: 'parentTemplate',
+            key: 'parentTemplate',
+            render: (parentTemplate) => <CompactEntityNameList entities={[parentTemplate]} />,
+        },
+        {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (status: any, row) => {
+                const statusForStyling = getStatusForStyling(status, row?.resultType);
+                const Icon = getExecutionRequestStatusIcon(statusForStyling);
+                const text = getExecutionRequestStatusDisplayText(statusForStyling);
+                const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
+                return (
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
+                            {Icon && <Icon style={{ color }} />}
+                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
+                                {text || 'N/A'}
+                            </Typography.Text>
+                        </div>
+                    </>
+                );
+            },
+        },
+        {
+            title: 'Inputs',
+            dataIndex: 'inputs',
+            key: 'inputs',
+            render: (inputs) => <CompactEntityNameList entities={inputs} />,
+        },
+        {
+            title: 'Outputs',
+            dataIndex: 'outputs',
+            key: 'outputs',
+            render: (outputs) => <CompactEntityNameList entities={outputs} />,
+        },
+        {
+            title: '',
+            dataIndex: 'externalUrl',
+            key: 'externalUrl',
+            render: (externalUrl) =>
+                externalUrl && (
+                    <Tooltip title="View task run details">
+                        <ExternalUrlLink href={externalUrl}>
+                            <DeliveredProcedureOutlined />
+                        </ExternalUrlLink>
+                    </Tooltip>
+                ),
+        },
+    ];
 
     // Fetch data across all siblings.
     const allUrns = [

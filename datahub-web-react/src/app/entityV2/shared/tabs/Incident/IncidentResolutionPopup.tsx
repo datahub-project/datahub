@@ -1,11 +1,12 @@
 import { Form, Input, Modal, message } from 'antd';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
 import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from '@app/entityV2/shared/tabs/Incident/constant';
 import { FormItem, ModalHeading, ModalTitleContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
@@ -30,6 +31,7 @@ const ModalTitle = () => (
 );
 
 export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: IncidentResolutionPopupProps) => {
+    const theme = useTheme();
     const { urn, entityType } = useEntityData();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [form] = Form.useForm();
@@ -118,7 +120,7 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
                             message: 'A note is required.',
                         },
                     ]}
-                    style={{ color: colors.gray[600] }}
+                    style={{ color: theme.colors.text }}
                 >
                     <TextArea
                         rows={4}

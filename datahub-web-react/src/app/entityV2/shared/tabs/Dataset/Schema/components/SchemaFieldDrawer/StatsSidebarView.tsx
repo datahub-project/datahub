@@ -34,7 +34,7 @@ const LoadingText = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 export default function StatsSidebarView({

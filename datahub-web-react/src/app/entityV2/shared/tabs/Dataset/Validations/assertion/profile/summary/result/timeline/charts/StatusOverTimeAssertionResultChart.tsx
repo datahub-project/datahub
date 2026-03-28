@@ -6,15 +6,14 @@ import { Group } from '@visx/group';
 import { scaleUtc } from '@visx/scale';
 import { LinePath } from '@visx/shape';
 import React, { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
 import {
     AssertionResultChartData,
     TimeRange,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
 import {
-    ACCENT_COLOR_HEX,
     generateTimeScaleTickValues,
     getCustomTimeScaleTickValue,
     getFillColor,
@@ -40,8 +39,10 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
  * TODO(jayacryl) refactor to a pretty timeline line-view
  */
 export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
+    const theme = useTheme();
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT;
     const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN;
+    const ACCENT_COLOR_HEX = theme.colors.text;
 
     const xScale = useMemo(
         () =>
@@ -62,10 +63,10 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     <AxisBottom
                         top={chartInnerHeight}
                         scale={xScale}
-                        stroke={ANTD_GRAY[4]}
+                        stroke={theme.colors.bgSurface}
                         tickValues={timeScaleTicks}
                         tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
-                        tickStroke={ANTD_GRAY[9]}
+                        tickStroke={theme.colors.text}
                         tickLength={4}
                         tickLabelProps={{
                             fontSize: 11,
@@ -80,7 +81,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         tickValues={timeScaleTicks}
                         height={chartInnerHeight}
                         lineStyle={{
-                            stroke: ANTD_GRAY[5],
+                            stroke: theme.colors.border,
                             strokeLinecap: 'round',
                             strokeWidth: 1,
                             strokeDasharray: '1 4',
@@ -101,7 +102,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     {data.dataPoints.map((dataPoint) => {
                         const xOffset = xScale(new Date(dataPoint.time));
                         const yOffset = chartDimensions.height / 3;
-                        const fillColor = getFillColor(dataPoint.result.type);
+                        const fillColor = getFillColor(dataPoint.result.type, theme);
                         return (
                             <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
                                 <Popover
@@ -123,10 +124,10 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         left={xOffset}
                                         top={yOffset}
                                         fill={fillColor}
-                                        stroke="white"
+                                        stroke={theme.colors.bg}
                                         strokeWidth={2}
                                         size={100}
-                                        filter="drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.05))"
+                                        filter={`drop-shadow(0px 1px 2.5px ${theme.colors.overlayLight})`}
                                     />
                                 </Popover>
                             </LinkWrapper>
