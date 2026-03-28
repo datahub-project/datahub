@@ -1,0 +1,363 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:Playwright",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "Playwright",
+              "description": "Indicates the entity is for Playwright integration test purposes"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:PlaywrightNode",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Playwright test glossary node"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightTerm",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Playwright test term",
+              "name": "PlaywrightTerm",
+              "parentNode": "urn:li:glossaryNode:PlaywrightNode",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightColumnInfoType",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Playwright column info type term",
+              "name": "PlaywrightColumnInfoType",
+              "parentNode": "urn:li:glossaryNode:PlaywrightNode",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,Playwright_logging_events,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table where each row represents a single log event",
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"event_name\",\"type\":[\"string\"]},{\"name\":\"event_data\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "event_name",
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of your logging event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "event_data",
+                  "nullable": false,
+                  "description": {
+                    "string": "Data of your event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false,
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightColumnInfoType"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users created on a single day",
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"user_id\",\"type\":[\"string\"]},{\"name\":\"user_name\",\"type\":[\"string\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_name",
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of the user who signed up"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Playwright"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created_no_tag,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users created on a single day. Created from log events.",
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"user_id\",\"type\":[\"string\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user created"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hdfs dataset",
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePaths": {
+              "paths": [
+                "/prod/hdfs/SamplePlaywrightHdfsDataset"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHdfsSchema",
+              "platform": "urn:li:dataPlatform:hdfs",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"shipment_info\",\"type\":[\"string\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "shipment_info",
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false,
+                  "globalTags": {
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:Playwright"
+                      }
+                    ]
+                  },
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightColumnInfoType"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Playwright"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]
