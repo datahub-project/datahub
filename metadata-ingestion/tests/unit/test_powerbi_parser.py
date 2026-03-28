@@ -1379,7 +1379,7 @@ def test_oracle_native_query_takes_precedence_over_hierarchical(oracle_lineage_t
     assert not any("some_other_table" in u for u in urns)
 
 
-_ORACLE_URN = "urn:li:dataset:(urn:li:dataPlatform:oracle,alpha6.edw.sector_bb,PROD)"
+_ORACLE_URN = "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.edw.orders,PROD)"
 
 
 def _make_cll(
