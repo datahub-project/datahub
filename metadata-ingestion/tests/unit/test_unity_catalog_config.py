@@ -495,3 +495,30 @@ def test_usage_data_source_can_be_set_with_warehouse():
 
     assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
     assert config.warehouse_id == "test_warehouse"
+
+
+def test_include_ml_models_default():
+    """Test that include_ml_models defaults to True."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    assert config.include_ml_models is True
+
+
+def test_include_ml_models_can_be_disabled():
+    """Test that include_ml_models can be set to False."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "include_ml_models": False,
+        }
+    )
+    assert config.include_ml_models is False
