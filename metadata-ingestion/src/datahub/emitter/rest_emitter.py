@@ -49,6 +49,8 @@ from datahub.configuration.env_vars import (
     get_rest_emitter_batch_max_payload_bytes,
     get_rest_emitter_batch_max_payload_length,
     get_rest_emitter_default_endpoint,
+    get_rest_emitter_default_pool_connections,
+    get_rest_emitter_default_pool_maxsize,
     get_rest_emitter_default_retry_max_times,
 )
 from datahub.emitter.generic_emitter import Emitter
@@ -93,6 +95,8 @@ _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(get_rest_emitter_default_retry_max_times())
+_DEFAULT_POOL_CONNECTIONS = get_rest_emitter_default_pool_connections()
+_DEFAULT_POOL_MAXSIZE = get_rest_emitter_default_pool_maxsize()
 
 # Multiplier to increase number of retries on 429s
 _429_RETRY_MULTIPLIER = get_rest_emitter_429_retry_multiplier()
@@ -224,6 +228,9 @@ class RequestsSessionConfig(ConfigModel):
     retry_methods: List[str] = _DEFAULT_RETRY_METHODS
     retry_max_times: int = _DEFAULT_RETRY_MAX_TIMES
 
+    pool_connections: int = _DEFAULT_POOL_CONNECTIONS
+    pool_maxsize: int = _DEFAULT_POOL_MAXSIZE
+
     extra_headers: Dict[str, str] = {}
 
     ca_certificate_path: Optional[str] = None
@@ -279,7 +286,9 @@ class RequestsSessionConfig(ConfigModel):
             )
 
         adapter = HTTPAdapter(
-            pool_connections=100, pool_maxsize=100, max_retries=retry_strategy
+            pool_connections=self.pool_connections,
+            pool_maxsize=self.pool_maxsize,
+            max_retries=retry_strategy,
         )
         session.mount("http://", adapter)
         session.mount("https://", adapter)
@@ -389,6 +398,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         retry_status_codes: Optional[List[int]] = None,
         retry_methods: Optional[List[str]] = None,
         retry_max_times: Optional[int] = None,
+        pool_connections: Optional[int] = None,
+        pool_maxsize: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
@@ -459,6 +470,8 @@ class DataHubRestEmitter(Closeable, Emitter):
             ),
             retry_methods=get_or_else(retry_methods, _DEFAULT_RETRY_METHODS),
             retry_max_times=get_or_else(retry_max_times, _DEFAULT_RETRY_MAX_TIMES),
+            pool_connections=get_or_else(pool_connections, _DEFAULT_POOL_CONNECTIONS),
+            pool_maxsize=get_or_else(pool_maxsize, _DEFAULT_POOL_MAXSIZE),
             extra_headers={**headers, **(extra_headers or {})},
             ca_certificate_path=ca_certificate_path,
             client_certificate_path=client_certificate_path,
