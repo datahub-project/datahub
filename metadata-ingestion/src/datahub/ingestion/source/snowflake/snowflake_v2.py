@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -90,6 +92,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     QUERIES_EXTRACTION,
     VIEW_PARSING,
 )
+from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -529,6 +532,8 @@ class SnowflakeV2Source(
 
         self.inspect_session_metadata(self.connection)
 
+        yield from self._gen_platform_instance_workunits()
+
         snowsight_url_builder = None
         if self.config.include_external_url:
             snowsight_url_builder = self.get_snowsight_url_builder()
@@ -558,7 +563,7 @@ class SnowflakeV2Source(
         if self.config.shares:
             yield from SnowflakeSharesHandler(
                 self.config, self.report
-            ).get_shares_workunits(databases)
+            ).get_shares_workunits(databases, self.connection)
 
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
@@ -706,6 +711,26 @@ class SnowflakeV2Source(
 
         self.connection.close()
 
+    def _gen_platform_instance_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if not self.config.platform_instance:
+            return
+        if not self.report.organization_name:
+            return
+
+        platform_instance_urn = make_dataplatform_instance_urn(
+            self.identifiers.platform, self.config.platform_instance
+        )
+        custom_properties: dict = {
+            "organization_name": self.report.organization_name,
+        }
+        yield MetadataChangeProposalWrapper(
+            entityUrn=platform_instance_urn,
+            aspect=DataPlatformInstancePropertiesClass(
+                name=self.config.platform_instance,
+                customProperties=custom_properties,
+            ),
+        ).as_workunit()
+
     def report_warehouse_failure(self) -> None:
         if self.config.warehouse is not None:
             self.structured_reporter.failure(
@@ -777,6 +802,21 @@ class SnowflakeV2Source(
                 self.report.edition = SnowflakeEdition.ENTERPRISE
         except Exception:
             self.report.edition = None
+
+        if self.config.include_organization_metadata:
+            try:
+                for db_row in connection.query(
+                    SnowflakeQuery.current_organization_name()
+                ):
+                    self.report.organization_name = db_row[
+                        "CURRENT_ORGANIZATION_NAME()"
+                    ]
+            except Exception:
+                # CURRENT_ORGANIZATION_NAME() may not exist on pre-6.0 Snowflake
+                # or the account may not belong to an organization.
+                logger.debug(
+                    "Could not determine Snowflake organization name", exc_info=True
+                )
 
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:
         try:

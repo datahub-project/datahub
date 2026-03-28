@@ -22,6 +22,30 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
   ```
 - If share `X` is shared with more Snowflake accounts and a database is created from share `X` in those accounts, then additional entries need to be added to the `consumers` list for share `X`, one per Snowflake account. The same `shares` config can then be copied across recipes for all accounts.
 
+##### Ghost Node Prevention
+
+By default, DataHub emits sibling relationships for every table and view in a shared database, even if only a subset of those objects were actually granted to the share. Objects that exist in the database but were never granted appear as sibling nodes in DataHub with no data behind them — these are called ghost nodes.
+
+Enable `enumerate_share_objects: true` to have DataHub automatically discover the exact objects granted to each share using `SHOW SHARES` and `DESCRIBE SHARE`, and suppress siblings for objects not included in any grant.
+
+```yaml
+source:
+  type: snowflake
+  config:
+    enumerate_share_objects: true
+    shares:
+      X:
+        database: db1
+        platform_instance: instance1
+        consumers:
+          - database: db1_from_X
+            platform_instance: instance2
+```
+
+This requires the ingestion role to have `ACCOUNTADMIN` privileges or ownership of the shares. If the required privileges are not available, DataHub logs a warning and falls back to emitting siblings for all objects in the shared database.
+
+> **Note:** Enabling `enumerate_share_objects` prevents new ghost nodes from being emitted but does not remove sibling aspects already written to DataHub in previous ingestion runs. If you enable this option after running without it, re-run ingestion with [stateful ingestion](https://datahubproject.io/docs/metadata-ingestion/docs/dev_guides/stateful_ingestion) enabled and then manually soft-delete any remaining stale sibling aspects, or use the DataHub CLI to clean them up.
+
 #### Lineage and Usage
 
 DataHub supports two strategies for extracting lineage and usage information from Snowflake:

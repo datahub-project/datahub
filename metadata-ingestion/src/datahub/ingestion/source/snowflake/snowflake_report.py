@@ -98,6 +98,7 @@ class SnowflakeV2Report(
 ):
     account_locator: Optional[str] = None
     region: Optional[str] = None
+    organization_name: Optional[str] = None
 
     schemas_scanned: int = 0
     databases_scanned: int = 0
@@ -142,6 +143,13 @@ class SnowflakeV2Report(
     _scanned_tags: MutableSet[str] = field(default_factory=set)
 
     edition: Optional[SnowflakeEdition] = None
+
+    # Share discovery metrics (only populated when enumerate_share_objects=True)
+    num_outbound_shares_discovered: int = 0
+    num_shared_objects_discovered: int = 0
+    shares_discovery_failed: bool = False
+    num_siblings_emitted: int = 0
+    num_ghost_siblings_prevented: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
