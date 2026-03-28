@@ -288,6 +288,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.producer.schemaRegistryUrl",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
+          "kafka.producer.initializationRetryBackoffMs",
+          "kafka.producer.initializationRetryCount",
           "kafka.producer.maxRequestSize",
           "kafka.producer.requestTimeout",
           "kafka.producer.retryCount",
