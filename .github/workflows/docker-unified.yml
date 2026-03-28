@@ -375,7 +375,7 @@ jobs:
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
           if [[ "${{ env.IS_FORK }}" == "true" ]]; then
-            echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
             echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
@@ -689,6 +689,15 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
 
+      - name: Check /dev/shm size
+        if: matrix.test_strategy == 'cypress'
+        run: |
+          echo "=== /dev/shm ==="
+          df -h /dev/shm
+          ls -la /dev/shm || true
+          echo "=== Total RAM ==="
+          free -h
+
       - name: Smoke test
         if: |
           steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
@@ -716,6 +725,17 @@ jobs:
             echo "=========================================="
           elif [[ "${{ steps.retry-detection.outputs.is_retry }}" == "true" ]]; then
             echo "RETRY MODE: Running all tests (fallback)"
+          fi
+
+          # Log free memory every 30 s in the background so we can correlate
+          # renderer crashes with the exact moment available RAM drops.
+          if [[ "${{ matrix.test_strategy }}" == "cypress" ]]; then
+            while true; do
+              echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $(free -h | grep Mem)"
+              sleep 30
+            done &
+            MEMORY_MONITOR_PID=$!
+            trap 'kill $MEMORY_MONITOR_PID 2>/dev/null || true' EXIT
           fi
 
           echo "$DATAHUB_VERSION"
@@ -746,6 +766,16 @@ jobs:
 
       - name: Disk Check
         run: df -h . && docker images
+
+      - name: Check OOM kills
+        if: failure() && matrix.test_strategy == 'cypress'
+        run: |
+          echo "=== syslog OOM (dmesg blocked on GH Actions) ==="
+          grep -iE "killed process|out of memory|oom.killer" /var/log/syslog 2>/dev/null || echo "No OOM events in syslog"
+          echo "=== /proc/meminfo at failure ==="
+          cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable|SwapFree"
+          echo "=== /dev/shm at failure ==="
+          df -h /dev/shm
 
       - name: store logs
         if: failure()
