@@ -27,6 +27,8 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
     get_report_failure_sample_size,
     get_report_warning_sample_size,
+    get_source_error_log_level,
+    get_source_warning_log_level,
 )
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
@@ -258,6 +260,15 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         """
         See docs of StructuredLogs.report_log for details of args
         """
+        # Log at configured level (this method is for silent reporting, not immediate logging)
+        log_parts = ["[INGEST SOURCE WARNING]"]
+        if title:
+            log_parts.append(f"title={title}")
+        log_parts.append(f"warning={message}")
+        if context:
+            log_parts.append(f"context={context}")
+        logger.log(get_source_warning_log_level(), " ".join(log_parts))
+
         self._structured_logs.report_log(
             StructuredLogLevel.WARN,
             message,
@@ -302,6 +313,16 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         """
         See docs of StructuredLogs.report_log for details of args
         """
+        # Log at configured level if not already logging at ERROR level
+        if not log:
+            log_parts = ["[INGEST SOURCE ERROR]"]
+            if title:
+                log_parts.append(f"title={title}")
+            log_parts.append(f"error={message}")
+            if context:
+                log_parts.append(f"context={context}")
+            logger.log(get_source_error_log_level(), " ".join(log_parts))
+
         self._structured_logs.report_log(
             StructuredLogLevel.ERROR,
             message,

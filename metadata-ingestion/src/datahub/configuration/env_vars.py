@@ -1,6 +1,7 @@
 # ABOUTME: Central registry for all environment variables used in metadata-ingestion.
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
+import logging
 import os
 from typing import Optional
 
@@ -157,6 +158,60 @@ def get_report_failure_sample_size() -> int:
 def get_report_warning_sample_size() -> int:
     """Maximum number of warning entries to include in the report."""
     return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+def get_sink_error_log_level() -> int:
+    """Get the log level for sink errors.
+
+    Controls the log level at which sink errors are emitted. By default, errors
+    are logged at DEBUG level to avoid noise. Set to ERROR, WARNING, or INFO to
+    make them visible at those levels.
+
+    Valid values: DEBUG, INFO, WARNING, ERROR (case-insensitive)
+    Default: DEBUG
+    """
+    level_str = os.getenv("DATAHUB_SINK_ERROR_LOG_LEVEL", "DEBUG").upper()
+    return getattr(logging, level_str, logging.DEBUG)
+
+
+def get_sink_warning_log_level() -> int:
+    """Get the log level for sink warnings.
+
+    Controls the log level at which sink warnings are emitted. By default, warnings
+    are logged at DEBUG level to avoid noise. Set to WARNING or INFO to make them
+    visible at those levels.
+
+    Valid values: DEBUG, INFO, WARNING, ERROR (case-insensitive)
+    Default: DEBUG
+    """
+    level_str = os.getenv("DATAHUB_SINK_WARNING_LOG_LEVEL", "DEBUG").upper()
+    return getattr(logging, level_str, logging.DEBUG)
+
+
+def get_source_error_log_level() -> int:
+    """Get the log level for source errors.
+
+    Controls the log level at which source errors (via SourceReport) are emitted.
+    By default, errors are logged at DEBUG level to avoid noise.
+
+    Valid values: DEBUG, INFO, WARNING, ERROR (case-insensitive)
+    Default: DEBUG
+    """
+    level_str = os.getenv("DATAHUB_SOURCE_ERROR_LOG_LEVEL", "DEBUG").upper()
+    return getattr(logging, level_str, logging.DEBUG)
+
+
+def get_source_warning_log_level() -> int:
+    """Get the log level for source warnings.
+
+    Controls the log level at which source warnings (via SourceReport) are emitted.
+    By default, warnings are logged at DEBUG level to avoid noise.
+
+    Valid values: DEBUG, INFO, WARNING, ERROR (case-insensitive)
+    Default: DEBUG
+    """
+    level_str = os.getenv("DATAHUB_SOURCE_WARNING_LOG_LEVEL", "DEBUG").upper()
+    return getattr(logging, level_str, logging.DEBUG)
 
 
 # ============================================================================

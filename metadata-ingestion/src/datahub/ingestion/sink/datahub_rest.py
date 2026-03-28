@@ -20,6 +20,8 @@ from datahub.configuration.common import (
 from datahub.configuration.env_vars import (
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
+    get_sink_error_log_level,
+    get_sink_warning_log_level,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -130,6 +132,43 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
     # This shouldn't happen super frequently, but just adding a fallback of generating
     # a UUID so that we don't do any partitioning.
     return str(uuid.uuid4())
+
+
+def _log_sink_failure_or_warning(
+    record_envelope: RecordEnvelope,
+    message: str,
+    is_error: bool = True,
+) -> None:
+    """Log detailed context for sink failures and warnings.
+
+    Args:
+        record_envelope: The record envelope containing the failed record
+        message: The error or warning message
+        is_error: True for errors, False for warnings
+    """
+    # Extract aspect name if available
+    aspect_name = None
+    if isinstance(
+        record_envelope.record,
+        (MetadataChangeProposalWrapper, MetadataChangeProposal),
+    ):
+        aspect_name = getattr(record_envelope.record, "aspectName", None)
+
+    # Build log message with context (urn first for easier scanning)
+    tag = "[INGEST SINK ERROR]" if is_error else "[INGEST SINK WARNING]"
+    log_parts = [tag]
+
+    if record_urn := _get_urn(record_envelope):
+        log_parts.append(f"urn={record_urn}")
+    if aspect_name:
+        log_parts.append(f"aspect={aspect_name}")
+    if workunit_id := record_envelope.metadata.get("workunit_id"):
+        log_parts.append(f"workunit={workunit_id}")
+
+    log_parts.append(f"{'error' if is_error else 'warning'}={message}")
+
+    log_level = get_sink_error_log_level() if is_error else get_sink_warning_log_level()
+    logger.log(log_level, " ".join(log_parts))
 
 
 def _resolve_gms_emit_mode(
@@ -255,6 +294,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     ) -> None:
         self.report.pending_requests -= 1
         if future.cancelled():
+            _log_sink_failure_or_warning(
+                record_envelope, "future was cancelled", is_error=True
+            )
             self.report.report_failure({"error": "future was cancelled"})
             write_callback.on_failure(
                 record_envelope, OperationalError("future was cancelled"), {}
@@ -283,12 +325,22 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 if workunit_id := record_envelope.metadata.get("workunit_id"):
                     e.info["workunit_id"] = workunit_id
 
+                # Log detailed context before reporting
                 if not self.treat_errors_as_warnings:
+                    _log_sink_failure_or_warning(
+                        record_envelope, e.message, is_error=True
+                    )
                     self.report.report_failure({"error": e.message, "info": e.info})
                 else:
+                    _log_sink_failure_or_warning(
+                        record_envelope, e.message, is_error=False
+                    )
                     self.report.report_warning({"warning": e.message, "info": e.info})
                 write_callback.on_failure(record_envelope, e, e.info)
             else:
+                _log_sink_failure_or_warning(
+                    record_envelope, f"{type(e).__name__}: {e}", is_error=True
+                )
                 logger.exception(f"Failure: {e}", exc_info=e)
                 self.report.report_failure({"e": e})
                 write_callback.on_failure(record_envelope, Exception(e), {})
