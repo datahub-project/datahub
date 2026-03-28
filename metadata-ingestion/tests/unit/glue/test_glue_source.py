@@ -1,6 +1,7 @@
 import json
+from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Type, cast
+from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
@@ -14,9 +15,12 @@ from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
+    GLUE_NATIVE_CONNECTION_TYPE_MAP,
+    JDBC_PLATFORM_MAP,
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    _sanitize_jdbc_url,
 )
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -950,3 +954,483 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
     )
+
+
+def _make_jdbc_node(
+    node_id: str,
+    node_type: str,
+    connection_type: str,
+    jdbc_url: str,
+    dbtable: str,
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {
+                "Name": "connection_type",
+                "Value": f'"{connection_type}"',
+                "Param": False,
+            },
+            {
+                "Name": "connection_options",
+                "Value": f'{{"url": "{jdbc_url}", "dbtable": "{dbtable}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "jdbc_url, expected_platform, expected_database",
+    [
+        ("jdbc:postgresql://myhost:5432/mydb", "postgres", "mydb"),
+        ("jdbc:mysql://myhost:3306/mydb", "mysql", "mydb"),
+        ("jdbc:mariadb://myhost:3306/mydb", "mysql", "mydb"),
+        ("jdbc:redshift://myhost:5439/mydb", "redshift", "mydb"),
+        ("jdbc:oracle://myhost:1521/mydb", "oracle", "mydb"),
+        ("jdbc:sqlserver://myhost:1433/mydb", "mssql", "mydb"),
+        ("jdbc:sqlserver://myhost:1433;databaseName=mydb", "mssql", "mydb"),
+        ("jdbc:postgresql://myhost:5432/mydb?sslmode=require", "postgres", "mydb"),
+    ],
+)
+def test_parse_jdbc_url(
+    jdbc_url: str, expected_platform: str, expected_database: str
+) -> None:
+    source = glue_source()
+    platform, database = source._parse_jdbc_url(jdbc_url)
+    assert platform == expected_platform
+    assert database == expected_database
+
+
+def test_parse_jdbc_url_invalid() -> None:
+    source = glue_source()
+    with pytest.raises(ValueError, match="Not a valid JDBC URL"):
+        source._parse_jdbc_url("postgresql://myhost/mydb")
+
+
+@pytest.mark.parametrize(
+    "connection_type, jdbc_url, dbtable, expected_urn",
+    [
+        (
+            "postgresql",
+            "jdbc:postgresql://myhost:5432/mydb",
+            "public.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "postgresql",
+            "jdbc:postgresql://myhost:5432/mydb",
+            "customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "mysql",
+            "jdbc:mysql://myhost:3306/mydb",
+            "myschema.orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.myschema.orders,PROD)",
+        ),
+        (
+            "mysql",
+            "jdbc:mysql://myhost:3306/mydb",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_jdbc(
+    connection_type: str,
+    jdbc_url: str,
+    dbtable: str,
+    expected_urn: str,
+) -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_jdbc_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_type=connection_type,
+        jdbc_url=jdbc_url,
+        dbtable=dbtable,
+    )
+
+    new_dataset_ids: List[str] = []
+    new_dataset_mces: List[Any] = []
+    s3_formats: DefaultDict[str, Set[Any]] = defaultdict(set)
+
+    result = source.process_dataflow_node(
+        node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
+    )
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+    assert new_dataset_mces == []
+
+
+def test_process_dataflow_node_jdbc_missing_url() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {"Name": "connection_type", "Value": '"postgresql"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": '{"dbtable": "public.customers"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_jdbc_platform_map_coverage() -> None:
+    source = glue_source()
+    for jdbc_protocol, expected_platform in JDBC_PLATFORM_MAP.items():
+        url = f"jdbc:{jdbc_protocol}://host:1234/db"
+        platform, database = source._parse_jdbc_url(url)
+        assert platform == expected_platform, f"Failed for {jdbc_protocol}"
+        assert database == "db"
+
+
+def _make_glue_connection_node(
+    node_id: str,
+    node_type: str,
+    connection_name: str,
+    dbtable: str,
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": f'{{"connectionName": "{connection_name}", "dbtable": "{dbtable}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "dbtable, expected_urn",
+    [
+        (
+            "public.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_glue_connection_jdbc(
+    dbtable: str, expected_urn: str
+) -> None:
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node(
+        "DataSource0", "DataSource", "My PG Connection", dbtable
+    )
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+
+
+@pytest.mark.parametrize(
+    "conn_type, dbtable, expected_urn",
+    [
+        (
+            "POSTGRESQL",
+            "public.orders",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+        ),
+        (
+            "POSTGRESQL",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+        ),
+        (
+            "MYSQL",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_glue_connection_native(
+    conn_type: str, dbtable: str, expected_urn: str
+) -> None:
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": conn_type,
+            "ConnectionProperties": {
+                "HOST": "myhost",
+                "DATABASE": "mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node(
+        "DataSource0", "DataSource", "My Connection", dbtable
+    )
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+
+
+def test_process_dataflow_node_glue_connection_missing_dbtable() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": '{"connectionName": "My Connection"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_process_dataflow_node_glue_connection_fetch_failure() -> None:
+    source = glue_source()
+
+    def _raise(**kw: Any) -> None:
+        raise Exception("Connection not found")
+
+    source.glue_client.get_connection = _raise  # type: ignore[method-assign]
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node("DataSource0", "DataSource", "Missing", "mytable")
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_resolve_glue_connection_caching() -> None:
+    source = glue_source()
+    call_count = 0
+
+    def _get_connection(**kw: Any) -> Dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        return {
+            "Connection": {
+                "ConnectionType": "POSTGRESQL",
+                "ConnectionProperties": {"HOST": "h", "DATABASE": "db"},
+            }
+        }
+
+    source.glue_client.get_connection = _get_connection  # type: ignore[method-assign]
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+
+    source._resolve_glue_connection("My Connection", flow_urn)
+    source._resolve_glue_connection("My Connection", flow_urn)
+
+    assert call_count == 1
+
+
+def test_glue_native_connection_type_map_coverage() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    for conn_type, expected_platform in GLUE_NATIVE_CONNECTION_TYPE_MAP.items():
+        source._glue_connection_cache.clear()
+
+        def _make_get_connection(ct: str) -> Any:
+            def _get_connection(**kw: Any) -> Dict[str, Any]:
+                return {
+                    "Connection": {
+                        "ConnectionType": ct,
+                        "ConnectionProperties": {"HOST": "h", "DATABASE": "db"},
+                    }
+                }
+
+            return _get_connection
+
+        source.glue_client.get_connection = _make_get_connection(conn_type)  # type: ignore[method-assign]
+        result = source._resolve_glue_connection(conn_type, flow_urn)
+        assert result is not None, f"Failed for {conn_type}"
+        assert result[0] == expected_platform
+
+
+def test_resolve_glue_connection_spark_properties_fallback() -> None:
+    """SparkProperties (v2 schema) is used when ConnectionProperties has no JDBC_CONNECTION_URL."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {},
+            "SparkProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb"
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+
+    result = source._resolve_glue_connection("My Connection", flow_urn)
+
+    assert result == ("postgres", "mydb")
+
+
+@pytest.mark.parametrize(
+    "query, expected_dbtable",
+    [
+        ("SELECT * FROM public.customers WHERE id = 1", "public.customers"),
+        ("SELECT id, name FROM orders", "orders"),
+    ],
+)
+def test_process_dataflow_node_glue_connection_query_fallback(
+    query: str, expected_dbtable: str
+) -> None:
+    """query ConnectionOption is used when dbtable is absent (single-table queries)."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": f'{{"connectionName": "My PG Connection", "query": "{query}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert expected_dbtable in result["urn"]
+
+
+def test_process_dataflow_node_glue_connection_query_multi_table() -> None:
+    """Multi-table JOIN queries produce multiple dataset URNs via dataset_urns."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": '{"connectionName": "My PG Connection", "query": "SELECT a.id FROM orders a JOIN customers b ON a.cid = b.id"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert not source.report.warnings
+    orders_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    customers_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)"
+    )
+    assert result["urn"] in (orders_urn, customers_urn)
+    assert set(result["dataset_urns"]) == {orders_urn, customers_urn}
+
+
+def test_process_dataflow_node_jdbc_query_fallback() -> None:
+    """query ConnectionOption is used in the direct JDBC path when dbtable is absent."""
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_type",
+                "Value": '"postgresql"',
+                "Param": False,
+            },
+            {
+                "Name": "connection_options",
+                "Value": '{"url": "jdbc:postgresql://myhost:5432/mydb", "query": "SELECT * FROM public.orders"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert (
+        result["urn"]
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "raw_url, expected_safe",
+    [
+        (
+            "jdbc:postgresql://myhost:5432/mydb",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://admin:secret123@myhost:5432/mydb",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://myhost:5432/mydb?user=admin&password=secret",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://admin:secret@myhost:5432/mydb?ssl=true&password=extra",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+    ],
+)
+def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
+    assert _sanitize_jdbc_url(raw_url) == expected_safe
