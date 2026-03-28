@@ -180,7 +180,7 @@ scalaVersions.each { sv ->
 
     dependencies {
       exclude(dependency {
-        exclude_modules.contains(it.name)
+        exclude_modules.contains(it.name) && !it.name.startsWith("com.fasterxml.jackson")
       })
       exclude(dependency("org.slf4j::"))
       exclude(dependency("ch.qos.logback:"))
@@ -225,6 +225,7 @@ scalaVersions.each { sv ->
     relocate 'org.checkerframework', 'io.acryl.shaded.org.checkerframework'
     relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
     relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
+    relocate 'org.antlr', 'datahub.shaded.org.antlr'
 
     // Debug output to verify we're using the right dependency
     doFirst {
