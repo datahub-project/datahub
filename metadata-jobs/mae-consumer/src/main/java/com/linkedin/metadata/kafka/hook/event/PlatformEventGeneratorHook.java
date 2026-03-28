@@ -16,6 +16,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.EdgeDiff;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.eventgenerator.Aspect;
 import com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils;
@@ -54,6 +55,21 @@ import org.springframework.stereotype.Component;
 @Component
 @Import({EntityRegistryFactory.class})
 public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
+
+  /**
+   * Aspects that carry non-lineage relationships which must still trigger RCEs. These are added
+   * explicitly because their PDL {@code @Relationship} annotations lack {@code "isLineage": true},
+   * so the registry scan would otherwise miss them.
+   */
+  private static final Set<String> NON_LINEAGE_RELATIONSHIP_ASPECTS =
+      ImmutableSet.of(Constants.LOGICAL_PARENT_ASPECT_NAME);
+
+  /**
+   * Computed at startup from the entity registry: all aspects with at least one {@code isLineage:
+   * true} relationship field spec, plus {@link #NON_LINEAGE_RELATIONSHIP_ASPECTS}. Adding a new
+   * lineage relationship type to a PDL file automatically includes it here without code changes.
+   */
+  @Getter private final Set<String> relationshipChangeSupportedAspectNames;
 
   /** The list of aspects that are supported for generating semantic change events. */
   private static final Set<String> ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES =
@@ -124,6 +140,23 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     this.consumerGroupSuffix = consumerGroupSuffix;
     this.entityExclusions = entityExclusions;
     this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
+    this.relationshipChangeSupportedAspectNames =
+        computeRelationshipChangeSupportedAspects(systemOperationContext);
+  }
+
+  private static Set<String> computeRelationshipChangeSupportedAspects(
+      @Nonnull OperationContext systemOperationContext) {
+    Set<String> aspects =
+        systemOperationContext.getEntityRegistry().getEntitySpecs().values().stream()
+            .flatMap(entitySpec -> entitySpec.getAspectSpecs().stream())
+            .filter(
+                aspectSpec ->
+                    aspectSpec.getRelationshipFieldSpecs().stream()
+                        .anyMatch(RelationshipFieldSpec::isLineageRelationship))
+            .map(AspectSpec::getName)
+            .collect(Collectors.toSet());
+    aspects.addAll(NON_LINEAGE_RELATIONSHIP_ASPECTS);
+    return ImmutableSet.copyOf(aspects);
   }
 
   @VisibleForTesting
@@ -231,11 +264,13 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       processChangeEvent(logEvent);
     }
 
-    // Steps:
-    // 1. Parse the old and new aspect.
-    // 2. Find and invoke a EntityChangeEventGenerator.
-    // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-    processRelationshipChangeEvent(logEvent);
+    if (isEligibleForRelationshipChangeEventProcessing(logEvent)) {
+      // Steps:
+      // 1. Parse the old and new aspect.
+      // 2. Find and invoke a EntityChangeEventGenerator.
+      // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
+      processRelationshipChangeEvent(logEvent);
+    }
   }
 
   private <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
@@ -262,6 +297,11 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   private boolean isEligibleForChangeEventProcessing(final MetadataChangeLog log) {
     return CHANGE_EVENT_SUPPORTED_OPERATIONS.contains(log.getChangeType().toString())
         && ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES.contains(log.getAspectName())
+        && !entityExclusions.contains(log.getEntityType());
+  }
+
+  private boolean isEligibleForRelationshipChangeEventProcessing(final MetadataChangeLog log) {
+    return relationshipChangeSupportedAspectNames.contains(log.getAspectName())
         && !entityExclusions.contains(log.getEntityType());
   }
 

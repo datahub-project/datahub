@@ -55,6 +55,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -76,6 +77,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -105,6 +107,10 @@ public class PlatformEventGeneratorHookTest {
   private EventProducer mockProducer;
   private SystemEntityClient mockProcessInstanceEntityClient;
   private PlatformEventGeneratorHook _entityChangeEventHook;
+  // Saved by createMockOperationContext() so we can add getEntitySpecs() stub after
+  // TestOperationContexts has finished processing the registry (adding it before caused a
+  // duplicate-key crash inside TestOperationContexts).
+  private EntityRegistry _mockRegistry;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
@@ -113,9 +119,42 @@ public class PlatformEventGeneratorHookTest {
     mockProcessInstanceEntityClient = Mockito.mock(SystemEntityClient.class);
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient);
+
+    OperationContext opContext = createMockOperationContext();
+
+    // Stub getEntitySpecs() NOW — after TestOperationContexts is done — so that the hook's
+    // dynamic computation of relationshipChangeSupportedAspectNames includes upstreamLineage
+    // and dataJobInputOutput without re-entering TestOperationContexts.
+    RelationshipFieldSpec mockLineageSpec = Mockito.mock(RelationshipFieldSpec.class);
+    Mockito.when(mockLineageSpec.isLineageRelationship()).thenReturn(true);
+
+    AspectSpec upstreamLineageSpec = Mockito.mock(AspectSpec.class);
+    Mockito.when(upstreamLineageSpec.getName()).thenReturn(UPSTREAM_LINEAGE_ASPECT_NAME);
+    Mockito.when(upstreamLineageSpec.getRelationshipFieldSpecs())
+        .thenReturn(Collections.singletonList(mockLineageSpec));
+
+    AspectSpec dataJobInputOutputSpec = Mockito.mock(AspectSpec.class);
+    Mockito.when(dataJobInputOutputSpec.getName()).thenReturn(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
+    Mockito.when(dataJobInputOutputSpec.getRelationshipFieldSpecs())
+        .thenReturn(Collections.singletonList(mockLineageSpec));
+
+    EntitySpec lineageDatasetSpec = Mockito.mock(EntitySpec.class);
+    Mockito.when(lineageDatasetSpec.getAspectSpecs())
+        .thenReturn(Collections.singletonList(upstreamLineageSpec));
+
+    EntitySpec lineageDataJobSpec = Mockito.mock(EntitySpec.class);
+    Mockito.when(lineageDataJobSpec.getAspectSpecs())
+        .thenReturn(Collections.singletonList(dataJobInputOutputSpec));
+
+    Mockito.when(_mockRegistry.getEntitySpecs())
+        .thenReturn(
+            ImmutableMap.of(
+                DATASET_ENTITY_NAME, lineageDatasetSpec,
+                DATA_JOB_ENTITY_NAME, lineageDataJobSpec));
+
     _entityChangeEventHook =
         new PlatformEventGeneratorHook(
-            createMockOperationContext(), entityChangeEventGeneratorRegistry, mockProducer, true);
+            opContext, entityChangeEventGeneratorRegistry, mockProducer, true);
   }
 
   @Test
@@ -2074,6 +2113,7 @@ public class PlatformEventGeneratorHookTest {
 
   private OperationContext createMockOperationContext() {
     EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    _mockRegistry = registry; // saved so setupTest() can add getEntitySpecs() stub afterwards
     // Build Dataset Entity Spec
     EntitySpec datasetSpec = Mockito.mock(EntitySpec.class);
 
