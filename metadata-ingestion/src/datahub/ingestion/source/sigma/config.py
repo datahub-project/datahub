@@ -30,10 +30,9 @@ class Constant:
     # Rest API response key constants
     REFRESH_TOKEN = "refresh_token"
     ACCESS_TOKEN = "access_token"
+    EMAIL = "email"
     ENTRIES = "entries"
     MEMBERID = "memberId"
-    FIRSTNAME = "firstName"
-    LASTNAME = "lastName"
     EDGES = "edges"
     DEPENDENCIES = "dependencies"
     SOURCE = "source"

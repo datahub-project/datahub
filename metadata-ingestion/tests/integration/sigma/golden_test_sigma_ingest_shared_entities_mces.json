@@ -70,7 +70,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -199,7 +199,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -381,7 +381,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -1672,7 +1672,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
