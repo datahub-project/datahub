@@ -922,7 +922,7 @@ networkx==3.6.1 ; python_full_version >= '3.11'
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
-nltk==3.9.3
+nltk==3.9.4
     # via unstructured
 notebook==7.5.4
     # via acryl-great-expectations
