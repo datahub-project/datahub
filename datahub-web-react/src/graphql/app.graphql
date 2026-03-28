@@ -71,6 +71,8 @@ query appConfig {
         }
         searchCardConfig {
             showDescription
+            summarySourceUrn
+            summaryLabel
         }
         searchFlagsConfig {
             defaultSkipHighlighting

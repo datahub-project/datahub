@@ -241,6 +241,8 @@ type SearchCardConfig {
   Whether the search card should show description
   """
   showDescription: Boolean!
+  summarySourceUrn: String
+  summaryLabel: String!
 }
 
 """
