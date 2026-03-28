@@ -1516,6 +1516,29 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 ),
             )
 
+    def parse_clustering_key(self, clustering_key: str) -> List[str]:
+        """
+        Parse clustering key string and return list of Snowflake column nmes objects.
+
+        Examples:
+        - LINEAR(yyyymmdd) -> returns column with name 'yyyymmdd'
+        - LINEAR(C1, C2) -> returns columns with names 'C1' and 'C2'
+        - C1, C2 -> returns columns with names 'C1' and 'C2'
+        """
+        if not clustering_key:
+            return []
+
+        # Remove LINEAR() wrapper if present
+        if clustering_key.upper().startswith("LINEAR(") and clustering_key.endswith(
+            ")"
+        ):
+            clustering_key = clustering_key[7:-1]  # Remove "LINEAR(" and ")"
+
+        # Split by comma and strip whitespace
+        column_names = [name.strip().upper() for name in clustering_key.split(",")]
+
+        return column_names
+
     def _build_json_props(
         self,
         col_name: str,
@@ -1588,6 +1611,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
         dataset_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
+        clustering_columns = set()
+        if isinstance(table, SnowflakeTable) and table.clustering_key:
+            clustering_columns = set(self.parse_clustering_key(table.clustering_key))
+
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
             foreign_keys = self.build_foreign_keys(table, dataset_urn)
@@ -1634,6 +1661,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             else None
                         )
                     ),
+                    isPartitioningKey=col.name in clustering_columns,
                     globalTags=(
                         # For semantic views, add DIMENSION/FACT/METRIC tags
                         self._build_semantic_view_tags(
