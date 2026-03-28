@@ -13,6 +13,7 @@ from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.integration.snowflake.common import (
     FROZEN_TIME,
@@ -395,6 +396,127 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
                 ],
             }
         ]
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warning(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    """When SHOW DYNAMIC TABLES returns text=None (MONITOR privilege not granted),
+    pipeline emits a warning per dynamic table and still completes without failure."""
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Return text=None for the dynamic table (simulates missing MONITOR privilege)
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            default_query_results,
+            [
+                snowflake_query.SnowflakeQuery.show_dynamic_tables_for_database(
+                    "TEST_DB"
+                )
+            ],
+            [
+                {
+                    "created_on": "2021-06-08 00:00:00",
+                    "name": "TABLE_2",
+                    "database_name": "TEST_DB",
+                    "schema_name": "TEST_SCHEMA",
+                    "owner": "ACCOUNTADMIN",
+                    "comment": "Comment for Table",
+                    "text": None,  # NULL — MONITOR not granted
+                    "target_lag": None,
+                    "warehouse": "TEST_WAREHOUSE",
+                    "refresh_mode": "AUTO",
+                    "refresh_mode_reason": "DYNAMIC_TABLE_CONFIG",
+                    "data_timestamp": "2021-06-08 00:00:00",
+                    "scheduling_state": "RUNNING",
+                    "owner_role_type": "ROLE",
+                    "bytes": 0,
+                    "rows": 0,
+                }
+            ],
+        )
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+
+        report = cast(SnowflakeV2Report, pipeline.source.get_report())
+        assert report.num_dynamic_tables_missing_definition == 1
+        assert any(
+            w.title == "Dynamic table definition unavailable — lineage skipped"
+            for w in report.warnings
+        )
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    """INPUTS from DYNAMIC_TABLE_GRAPH_HISTORY produces table-level lineage
+    independently of DDL availability."""
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        base = query_permission_response_override(
+            default_query_results,
+            [snowflake_query.SnowflakeQuery.get_dynamic_table_graph_history("TEST_DB")],
+            [
+                {
+                    "NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                    "INPUTS": [
+                        {"name": "TEST_DB.TEST_SCHEMA.TABLE_1", "kind": "TABLE"}
+                    ],
+                    "TARGET_LAG_TYPE": "USER_DEFINED",
+                    "TARGET_LAG_SEC": 3600,
+                    "SCHEDULING_STATE": {"state": "ACTIVE"},
+                    "ALTER_TRIGGER": ["NONE"],
+                }
+            ],
+        )
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            base,
+            [
+                snowflake_query.SnowflakeQuery.show_dynamic_tables_for_database(
+                    "TEST_DB"
+                )
+            ],
+            [
+                {
+                    "created_on": "2021-06-08 00:00:00",
+                    "name": "TABLE_2",
+                    "database_name": "TEST_DB",
+                    "schema_name": "TEST_SCHEMA",
+                    "owner": "ACCOUNTADMIN",
+                    "comment": "Comment for Table",
+                    "text": None,  # DDL unavailable
+                    "target_lag": None,
+                    "warehouse": "TEST_WAREHOUSE",
+                    "refresh_mode": "AUTO",
+                    "refresh_mode_reason": "DYNAMIC_TABLE_CONFIG",
+                    "data_timestamp": "2021-06-08 00:00:00",
+                    "scheduling_state": "RUNNING",
+                    "owner_role_type": "ROLE",
+                    "bytes": 0,
+                    "rows": 0,
+                }
+            ],
+        )
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+
+        report = cast(SnowflakeV2Report, pipeline.source.get_report())
+        assert report.num_dynamic_tables_missing_definition == 1
+        assert report.sql_aggregator is not None
+        assert report.sql_aggregator.num_known_mapping_lineage >= 1
 
 
 # Tests for known_snowflake_edition config option
