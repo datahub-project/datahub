@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
@@ -230,6 +231,25 @@ public class UpsertStructuredPropertiesResolverTest {
     // Verify the result has the expected structure
     assertEquals(result.getProperties().get(0).getValues().size(), 1);
     assertEquals(result.getProperties().get(1).getValues().size(), 1);
+  }
+
+  @Test
+  public void testGetUnauthorized() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true, null);
+    UpsertStructuredPropertiesResolver resolver =
+        new UpsertStructuredPropertiesResolver(mockEntityClient);
+
+    // Execute resolver with deny context
+    QueryContext mockContext = getMockDenyContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we did NOT call ingestProposal
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
