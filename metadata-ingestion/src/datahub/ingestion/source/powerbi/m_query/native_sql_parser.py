@@ -108,6 +108,18 @@ def remove_tsql_control_statements(query: str) -> str:
         else:
             logger.debug("[tsql-debug] Pattern %r did not match", pattern)
 
+    # Leading semicolon before WITH — T-SQL defensive pattern (;WITH ...) used to ensure
+    # the previous statement is terminated before a CTE. Strip only the semicolon,
+    # preserving the WITH keyword so sqlglot can parse the CTE correctly.
+    before = new_query
+    new_query = re.sub(
+        r"^\s*;(\s*WITH\b)", r"\1", new_query, flags=re.IGNORECASE | re.MULTILINE
+    )
+    if new_query != before:
+        logger.debug(
+            "[tsql-debug] Stripped leading semicolon before WITH (CTE defensive pattern)"
+        )
+
     # Only normalize multiple consecutive spaces (but preserve newlines and tabs)
     # This fixes spacing issues caused by statement removal without
     # collapsing the entire query into a single line

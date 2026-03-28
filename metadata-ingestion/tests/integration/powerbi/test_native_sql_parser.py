@@ -138,6 +138,16 @@ def test_parse_custom_sql_multi_statement_extracts_all_sources(ctx):
     assert any("tableb" in urn for urn in urns)
 
 
+def test_remove_tsql_control_statements_leading_semicolon_before_with():
+    # Leading semicolon before CTE (;WITH ...) is a T-SQL defensive pattern to ensure
+    # the previous statement is terminated. It must be stripped so sqlglot can parse the CTE.
+    query = ";WITH cte AS (SELECT col FROM dbo.SourceTable)\nSELECT col FROM cte"
+    actual = native_sql_parser.remove_tsql_control_statements(query)
+    assert not actual.startswith(";")
+    assert "WITH cte AS" in actual
+    assert "dbo.SourceTable" in actual
+
+
 def test_parse_custom_sql_blank_line_separated_selects_extracts_all_sources(ctx):
     # Multiple SELECTs separated only by blank lines — pattern that appears after
     # DROP TABLE IF EXISTS is stripped from between statements (no semicolons remain).
