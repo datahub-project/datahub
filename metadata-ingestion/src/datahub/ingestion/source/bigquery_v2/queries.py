@@ -1,6 +1,12 @@
 import textwrap
 from typing import Optional
 
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_NULL_PARTITION_ID,
+    BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
+    BQ_UNPARTITIONED_PARTITION_ID,
+)
+
 
 class BigqueryTableType:
     # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
@@ -64,8 +70,8 @@ FROM
   left join (
     select
         table_name,
-        sum(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then 1 else 0 END) as num_partitions,
-        max(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then partition_id else NULL END) as max_partition_id,
+        sum(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then 1 else 0 END) as num_partitions,
+        max(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then partition_id else NULL END) as max_partition_id,
         sum(total_rows) as total_rows,
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,

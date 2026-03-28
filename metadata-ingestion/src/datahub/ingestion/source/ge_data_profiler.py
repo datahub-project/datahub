@@ -1091,6 +1091,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.dataset.engine.dialect.name.lower() == BIGQUERY
             and profile.rowCount
             and profile.rowCount > self.config.sample_size
+            # When custom_sql was provided, self.dataset._table is already an anonymous
+            # BigQuery cached-results table. BigQuery does not support TABLESAMPLE on
+            # anonymous tables, so attempting it fails silently and breaks sample value
+            # collection. The BigQuery profiler embeds TABLESAMPLE in the custom SQL
+            # directly when needed, so no secondary sampling pass is required.
+            and not self.custom_sql
         ):
             """
             According to BigQuery Sampling Docs(https://cloud.google.com/bigquery/docs/table-sampling),
