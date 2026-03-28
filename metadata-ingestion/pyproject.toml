@@ -2098,9 +2098,17 @@ set_browse_path = "datahub.ingestion.transformer.set_browse_path:SetBrowsePathTr
 add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership"
 simple_add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership"
 pattern_add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership"
+# Aliases without "dataset" prefix — these support all entity types including container
+add_ownership = "datahub.ingestion.transformer.add_dataset_ownership:AddOwnership"
+simple_add_ownership = "datahub.ingestion.transformer.add_dataset_ownership:SimpleAddOwnership"
+pattern_add_ownership = "datahub.ingestion.transformer.add_dataset_ownership:PatternAddOwnership"
 add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:AddDatasetDomain"
 simple_add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:SimpleAddDatasetDomain"
 pattern_add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:PatternAddDatasetDomain"
+# Aliases without "dataset" prefix — these support all entity types including container
+add_domain = "datahub.ingestion.transformer.dataset_domain:AddDomain"
+simple_add_domain = "datahub.ingestion.transformer.dataset_domain:SimpleAddDomain"
+pattern_add_domain = "datahub.ingestion.transformer.dataset_domain:PatternAddDomain"
 add_dataset_tags = "datahub.ingestion.transformer.add_dataset_tags:AddDatasetTags"
 simple_add_dataset_tags = "datahub.ingestion.transformer.add_dataset_tags:SimpleAddDatasetTags"
 pattern_add_dataset_tags = "datahub.ingestion.transformer.add_dataset_tags:PatternAddDatasetTags"

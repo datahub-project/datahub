@@ -249,3 +249,39 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
     ) -> "PatternAddDatasetOwnership":
         config = PatternDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+
+# --- Generic multi-entity-type aliases ---
+# These add container support on top of the existing entity types
+# (dataset, dataJob, dataFlow, chart, dashboard) while the *Dataset*
+# variants above remain unchanged for backward compatibility.
+
+_ALL_OWNERSHIP_ENTITY_TYPES: List[str] = [
+    "dataset",
+    "container",
+    "dataJob",
+    "dataFlow",
+    "chart",
+    "dashboard",
+]
+
+
+class AddOwnership(AddDatasetOwnership):
+    """Like AddDatasetOwnership but supports all entity types including container."""
+
+    def entity_types(self) -> List[str]:
+        return _ALL_OWNERSHIP_ENTITY_TYPES
+
+
+class SimpleAddOwnership(SimpleAddDatasetOwnership):
+    """Like SimpleAddDatasetOwnership but supports all entity types including container."""
+
+    def entity_types(self) -> List[str]:
+        return _ALL_OWNERSHIP_ENTITY_TYPES
+
+
+class PatternAddOwnership(PatternAddDatasetOwnership):
+    """Like PatternAddDatasetOwnership but supports all entity types including container."""
+
+    def entity_types(self) -> List[str]:
+        return _ALL_OWNERSHIP_ENTITY_TYPES

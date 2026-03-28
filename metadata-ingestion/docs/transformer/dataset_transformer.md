@@ -4,6 +4,8 @@ title: "Dataset"
 
 # Dataset Transformers
 
+> **Looking for multi-entity support?** The transformers on this page only process dataset entities. To apply domains or ownership to containers, charts, dashboards, and other entity types, see [Multi-Entity Transformers](./multi_entity_transformers.md).
+
 The below table shows transformer which can transform aspects of entity [Dataset](../../../docs/generated/metamodel/entities/dataset.md).
 
 | Dataset Aspect      | Transformer                                                                                                                                                                                                                                                                                                                                                           |
@@ -131,6 +133,8 @@ transformers:
 
 ## Simple Add Dataset ownership
 
+> **Note:** Despite the name, this transformer already processes datasets, charts, dashboards, data jobs, and data flows. For container support as well, use [`simple_add_ownership`](./multi_entity_transformers.md#simple-add-ownership).
+
 ### Config Details
 
 | Field              | Required | Type         | Default     | Description                                                                                                |
@@ -201,6 +205,8 @@ transformers:
   ```
 
 ## Pattern Add Dataset ownership
+
+> **Note:** Despite the name, this transformer already processes datasets, charts, dashboards, data jobs, and data flows. For container support as well, use [`pattern_add_ownership`](./multi_entity_transformers.md#pattern-add-ownership).
 
 ### Config Details
 
@@ -1225,6 +1231,8 @@ transformers:
 
 ## Simple Add Dataset domains
 
+> **Note:** This transformer only processes datasets. To apply domains to containers, charts, dashboards, and other entity types, use [`simple_add_domain`](./multi_entity_transformers.md#simple-add-domain).
+
 ### Config Details
 
 | Field              | Required | Type                  | Default     | Description                                                      |
@@ -1286,6 +1294,8 @@ transformers:
   ```
 
 ## Pattern Add Dataset domains
+
+> **Note:** This transformer only processes datasets. To apply domains to containers, charts, dashboards, and other entity types, use [`pattern_add_domain`](./multi_entity_transformers.md#pattern-add-domain).
 
 ### Config Details
 

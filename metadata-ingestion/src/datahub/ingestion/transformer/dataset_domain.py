@@ -259,3 +259,38 @@ class PatternAddDatasetDomain(AddDatasetDomain):
     ) -> "PatternAddDatasetDomain":
         config = PatternDatasetDomainSemanticsConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+
+# --- Generic multi-entity-type aliases ---
+# These support all entity types (dataset, container, chart, dashboard, dataJob, dataFlow)
+# while the *Dataset* variants above remain dataset-only for backward compatibility.
+
+_ALL_DOMAIN_ENTITY_TYPES: List[str] = [
+    "dataset",
+    "container",
+    "dataJob",
+    "dataFlow",
+    "chart",
+    "dashboard",
+]
+
+
+class AddDomain(AddDatasetDomain):
+    """Like AddDatasetDomain but supports all entity types."""
+
+    def entity_types(self) -> List[str]:
+        return _ALL_DOMAIN_ENTITY_TYPES
+
+
+class SimpleAddDomain(SimpleAddDatasetDomain):
+    """Like SimpleAddDatasetDomain but supports all entity types."""
+
+    def entity_types(self) -> List[str]:
+        return _ALL_DOMAIN_ENTITY_TYPES
+
+
+class PatternAddDomain(PatternAddDatasetDomain):
+    """Like PatternAddDatasetDomain but supports all entity types."""
+
+    def entity_types(self) -> List[str]:
+        return _ALL_DOMAIN_ENTITY_TYPES
