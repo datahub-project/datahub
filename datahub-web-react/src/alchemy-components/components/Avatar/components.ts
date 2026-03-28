@@ -35,18 +35,12 @@ export const AvatarImageWrapper = styled.div<{
 
     position: relative;
     border-radius: 50%;
+    color: ${(props) => props.theme.colors.textSecondary};
     border: ${(props) => props.$isOutlined && `1px solid ${props.theme.colors.border}`};
     display: flex;
     align-items: center;
     justify-content: center;
-    ${(props) => {
-        const styles = getAvatarColorStyles(props.$scheme, props.theme.colors);
-        return `
-            color: ${styles.color};
-            background-color: ${styles.backgroundColor};
-            border: ${styles.border};
-        `;
-    }}
+    ${(props) => getAvatarColorStyles(props.$scheme, props.theme.colors)}
 `;
 
 export const AvatarImage = styled.img`
@@ -57,7 +51,7 @@ export const AvatarImage = styled.img`
 `;
 
 export const AvatarText = styled.span<{ $size?: AvatarSizeOptions }>`
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 600;
     font-size: ${(props) => getAvatarNameSizes(props.$size)};
 `;
