@@ -112,11 +112,18 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "paths": [
-                "/powerbi/Employees"
+            "path": [
+                {
+                    "id": "Employees",
+                    "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                },
+                {
+                    "id": "EmployeeReport",
+                    "urn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)"
+                }
             ]
         }
     },
@@ -440,8 +447,11 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "id": "Employees",
                     "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                },
+                {
+                    "id": "EmployeeReport"
                 }
             ]
         }
@@ -552,35 +562,17 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "id": "Employees",
                     "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
                 }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePaths",
-    "aspect": {
-        "json": {
-            "paths": [
-                "/powerbi/Employees"
             ]
         }
     },
@@ -747,27 +739,6 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
-                    "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
-                }
-            ]
         }
     },
     "systemMetadata": {
