@@ -440,6 +440,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             looker_view.id.view_name,
             looker_view.fields,
             self.reporter,
+            tag_measures_and_dimensions=self.source_config.tag_measures_and_dimensions,
         )
 
         custom_properties: DatasetPropertiesClass = self._get_custom_properties(
