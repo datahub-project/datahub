@@ -444,9 +444,21 @@ class DocumentChunkingSourceConfig(ConfigModel):
         description="Force reprocess all documents regardless of content hash (overrides incremental_mode)",
     )
 
+    # Raw chunks mode
+    emit_chunks_without_embeddings: bool = Field(
+        default=False,
+        description=(
+            "When True and no embedding provider is configured, emit SemanticContent "
+            "with rawChunks populated. Allows sources like Notion/Confluence to "
+            "pre-compute chunks for later embedding by the datahub-documents source."
+        ),
+    )
+
 
 def get_processing_config_fingerprint(
-    chunking: ChunkingConfig, embedding: EmbeddingConfig
+    chunking: ChunkingConfig,
+    embedding: EmbeddingConfig,
+    emit_chunks_without_embeddings: bool = False,
 ) -> dict[str, Any]:
     """Extract processing configuration that affects output artifacts.
 
@@ -460,22 +472,24 @@ def get_processing_config_fingerprint(
     Args:
         chunking: Chunking configuration
         embedding: Embedding configuration
+        emit_chunks_without_embeddings: Whether chunking runs without embedding provider
 
     Returns:
         Dictionary of config values that affect processing output.
     """
-    # Embedding is enabled when provider is configured
     embedding_enabled = embedding.provider is not None
+    # Chunking runs if embedding is enabled OR if we emit raw chunks without embeddings
+    chunking_enabled = embedding_enabled or emit_chunks_without_embeddings
 
     return {
         # Chunking affects chunk boundaries and structure
-        "chunking_strategy": chunking.strategy if embedding_enabled else None,
+        "chunking_strategy": chunking.strategy if chunking_enabled else None,
         "chunking_max_characters": chunking.max_characters
-        if embedding_enabled
+        if chunking_enabled
         else None,
-        "chunking_overlap": chunking.overlap if embedding_enabled else None,
+        "chunking_overlap": chunking.overlap if chunking_enabled else None,
         "chunking_combine_text_under_n_chars": (
-            chunking.combine_text_under_n_chars if embedding_enabled else None
+            chunking.combine_text_under_n_chars if chunking_enabled else None
         ),
         # Embedding affects vector embeddings on chunks
         "embedding_provider": embedding.provider if embedding_enabled else None,
