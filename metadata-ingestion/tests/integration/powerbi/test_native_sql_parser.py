@@ -1,6 +1,14 @@
 from typing import List
 
+import pytest
+
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser
+
+
+@pytest.fixture
+def ctx() -> PipelineContext:
+    return PipelineContext(run_id="test", pipeline_name="test")
 
 
 def test_join():
@@ -107,3 +115,75 @@ WHERE status = 'inactive'
     assert "#TempB" not in actual
     # Source table lineage must be preserved in both SELECT statements
     assert actual.count("dbo.SourceTable") == 2
+
+
+def test_parse_custom_sql_multi_statement_extracts_all_sources(ctx):
+    # Multi-statement SQL (Block contains N statements) should extract lineage from
+    # all SELECT statements that reference real source tables — not just the first or last.
+    # Semicolons separate statements as they appear in real M-Query SQL.
+    query = "SELECT col FROM dbo.TableA WHERE x = 1;\nSELECT col FROM dbo.TableB WHERE y = 2"
+    result = native_sql_parser.parse_custom_sql(
+        ctx=ctx,
+        query=query,
+        platform="mssql",
+        database="TestDB",
+        schema="dbo",
+        env="PROD",
+        platform_instance=None,
+    )
+    assert result is not None
+    assert result.debug_info is None or result.debug_info.table_error is None
+    urns = {urn.lower() for urn in result.in_tables}
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+
+
+def test_parse_custom_sql_blank_line_separated_selects_extracts_all_sources(ctx):
+    # Multiple SELECTs separated only by blank lines — pattern that appears after
+    # DROP TABLE IF EXISTS is stripped from between statements (no semicolons remain).
+    # All source tables must still be extracted.
+    query = (
+        "SELECT col FROM dbo.TableA WHERE x = 1\n"
+        "\n"
+        "SELECT col FROM dbo.TableB WHERE y = 2"
+    )
+    result = native_sql_parser.parse_custom_sql(
+        ctx=ctx,
+        query=query,
+        platform="mssql",
+        database="TestDB",
+        schema="dbo",
+        env="PROD",
+        platform_instance=None,
+    )
+    assert result is not None
+    assert result.debug_info is None or result.debug_info.table_error is None
+    urns = {urn.lower() for urn in result.in_tables}
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+
+
+def test_parse_custom_sql_select_then_union_extracts_all_sources(ctx):
+    # SELECT ...;\nSELECT ... UNION SELECT ... produces ['Select', 'Union'] block error.
+    # All source tables across both statements must be extracted.
+    query = (
+        "SELECT col FROM dbo.TableA WHERE x = 1;\n"
+        "SELECT col FROM dbo.TableB\n"
+        "UNION ALL\n"
+        "SELECT col FROM dbo.TableC"
+    )
+    result = native_sql_parser.parse_custom_sql(
+        ctx=ctx,
+        query=query,
+        platform="mssql",
+        database="TestDB",
+        schema="dbo",
+        env="PROD",
+        platform_instance=None,
+    )
+    assert result is not None
+    assert result.debug_info is None or result.debug_info.table_error is None
+    urns = {urn.lower() for urn in result.in_tables}
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+    assert any("tablec" in urn for urn in urns)

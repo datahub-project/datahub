@@ -7,6 +7,7 @@ import sqlparse
 from datahub.ingestion.api.common import PipelineContext
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
+    create_lineage_from_sql_statements,
     create_lineage_sql_parsed_result,
 )
 
@@ -165,12 +166,36 @@ def parse_custom_sql(
 
     if result is None:
         logger.debug("[tsql-debug] parse_custom_sql: sqlglot returned None result")
-    else:
-        logger.debug(
-            "[tsql-debug] parse_custom_sql result: in_tables=%s, table_error=%s, column_error=%s",
-            result.in_tables,
-            result.debug_info.table_error if result.debug_info else "no debug_info",
-            result.debug_info.column_error if result.debug_info else "no debug_info",
-        )
+        return result
+
+    if result.debug_info and result.debug_info.table_error:
+        error_str = str(result.debug_info.table_error)
+        if "Block contains" in error_str or "Invalid expression" in error_str:
+            # M-Query SQL often contains multiple statements (stored procedure style).
+            # Ensure blank-line-separated SELECT statements have semicolons so
+            # create_lineage_from_sql_statements can split them correctly.
+            retry_query = re.sub(
+                r"\n\n(\s*SELECT\b)", r";\n\n\1", query, flags=re.IGNORECASE
+            )
+            logger.debug(
+                "[tsql-debug] parse_custom_sql retrying with create_lineage_from_sql_statements: %s",
+                error_str[:100],
+            )
+            result = create_lineage_from_sql_statements(
+                queries=retry_query,
+                default_schema=schema,
+                default_db=database,
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=ctx.graph,
+            )
+
+    logger.debug(
+        "[tsql-debug] parse_custom_sql result: in_tables=%s, table_error=%s, column_error=%s",
+        result.in_tables,
+        result.debug_info.table_error if result.debug_info else "no debug_info",
+        result.debug_info.column_error if result.debug_info else "no debug_info",
+    )
 
     return result
