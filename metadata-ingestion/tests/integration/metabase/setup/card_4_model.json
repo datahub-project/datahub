@@ -1,0 +1,91 @@
+{
+  "description": "Model representing active customers with their total payment amounts",
+  "archived": false,
+  "collection_position": null,
+  "table_id": null,
+  "type": "model",
+  "dataset": true,
+  "result_metadata": [{
+    "name": "customer_id",
+    "display_name": "Customer ID",
+    "base_type": "type/Integer",
+    "effective_type": "type/Integer",
+    "semantic_type": "type/PK"
+  }, {
+    "name": "full_name",
+    "display_name": "Full Name",
+    "base_type": "type/Text",
+    "effective_type": "type/Text",
+    "semantic_type": "type/Name"
+  }, {
+    "name": "total_amount",
+    "display_name": "Total Payment Amount",
+    "base_type": "type/Decimal",
+    "effective_type": "type/Decimal",
+    "semantic_type": "type/Currency"
+  }],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-13T22:25:45.761",
+    "is_qbnewb": false,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "can_write": true,
+  "database_id": 2,
+  "enable_embedding": false,
+  "collection_id": 150,
+  "query_type": "native",
+  "name": "Active Customers Model",
+  "last_query_start": "2021-12-14T10:30:00.000Z",
+  "dashboard_count": 0,
+  "average_query_time": 450,
+  "creator_id": 1,
+  "moderation_reviews": [],
+  "updated_at": "2021-12-14T10:30:15.500",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "type": "native",
+    "native": {
+      "query": "WITH customer_payments AS (\n  SELECT \n    c.customer_id,\n    c.first_name || ' ' || c.last_name AS full_name,\n    SUM(p.amount) AS total_amount,\n    COUNT(p.payment_id) AS payment_count\n  FROM customer c\n  INNER JOIN payment p ON c.customer_id = p.customer_id\n  WHERE p.payment_date >= CURRENT_DATE - INTERVAL '90 days'\n  GROUP BY c.customer_id, c.first_name, c.last_name\n  HAVING COUNT(p.payment_id) >= 5\n)\nSELECT \n  customer_id,\n  full_name,\n  total_amount\nFROM customer_payments\nWHERE total_amount > 100\nORDER BY total_amount DESC",
+      "template-tags": {}
+    },
+    "database": 2
+  },
+  "id": 4,
+  "display": "table",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName",
+    "timestamp": "2021-12-14T10:30:15.450"
+  },
+  "visualization_settings": {
+    "table.pivot_column": "total_amount",
+    "table.cell_column": "customer_id"
+  },
+  "collection": {
+    "authority_level": null,
+    "description": "Personal analytics collection",
+    "archived": false,
+    "slug": "john_doe_personal_collection",
+    "name": "John Doe",
+    "personal_owner_id": 14,
+    "type": null,
+    "id": 150,
+    "location": "/",
+    "namespace": null,
+    "is_personal": true,
+    "created_at": "2024-01-12T11:51:24.394309Z"
+  },
+  "created_at": "2021-12-14T10:25:00.000",
+  "public_uuid": null
+}
+
