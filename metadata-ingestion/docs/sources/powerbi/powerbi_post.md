@@ -73,7 +73,21 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 8.  Amazon Redshift
 9.  Amazon Athena
 
-Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
+Native SQL query parsing is supported for `Snowflake`, `Oracle`, `Amazon Redshift`, and ODBC data sources.
+
+#### Oracle Lineage
+
+Both JDBC-style (`host:port/servicename`) and TNS alias connection strings are supported, as well as inline SQL queries via the `Query=` record field. When using a TNS alias, use `server_to_platform_instance` to map the hostname to a DataHub platform instance:
+
+```yaml
+source:
+  type: powerbi
+  config:
+    server_to_platform_instance:
+      oracle-hostname.example.com:
+        platform_instance: my_oracle_instance
+        env: PROD
+```
 
 #### Athena Federated Query Platform Override
 

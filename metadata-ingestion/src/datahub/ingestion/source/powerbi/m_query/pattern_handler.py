@@ -178,6 +178,38 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
     return value
 
 
+def _remap_column_lineage_to_pbi_fields(
+    column_lineage: List[ColumnLineageInfo],
+    pbi_columns: List,
+) -> List[ColumnLineageInfo]:
+    # sqlglot derives downstream column names from the upstream schema (Oracle
+    # stores columns lowercase in DataHub), but PowerBI field names come back
+    # from the API in a different case (typically uppercase). Remap so the
+    # downstream schemaField URN matches the actual PowerBI field.
+    if not column_lineage or not pbi_columns:
+        return column_lineage
+
+    pbi_col_map: Dict[str, str] = {col.name.lower(): col.name for col in pbi_columns}
+
+    remapped: List[ColumnLineageInfo] = []
+    for cll_info in column_lineage:
+        if cll_info.downstream and cll_info.downstream.column:
+            pbi_name = pbi_col_map.get(cll_info.downstream.column.lower())
+            if pbi_name and pbi_name != cll_info.downstream.column:
+                cll_info = ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=cll_info.downstream.table,
+                        column=pbi_name,
+                        column_type=cll_info.downstream.column_type,
+                        native_column_type=cll_info.downstream.native_column_type,
+                    ),
+                    upstreams=cll_info.upstreams,
+                    logic=cll_info.logic,
+                )
+        remapped.append(cll_info)
+    return remapped
+
+
 def make_urn(
     config: PowerBiDashboardSourceConfig,
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
@@ -406,10 +438,8 @@ class AbstractLineage(ABC):
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=(
-                parsed_result.column_lineage
-                if parsed_result.column_lineage is not None
-                else []
+            column_lineage=_remap_column_lineage_to_pbi_fields(
+                parsed_result.column_lineage or [], self.table.columns or []
             ),
         )
 
@@ -652,18 +682,17 @@ class OracleLineage(AbstractLineage):
 
     @staticmethod
     def _get_server_and_db_name(value: str) -> Tuple[Optional[str], Optional[str]]:
-        error_message: str = (
-            f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>["
-            ".<domain>]"
-        )
-        splitter_result: List[str] = value.split("/")
-        if len(splitter_result) != 2:
-            logger.debug(error_message)
-            return None, None
+        # JDBC-style host:port/servicename → (host:port, servicename)
+        # TNS alias / bare hostname → (hostname, None); caller omits db from qualified name
+        # Oracle connection strings are case-insensitive; normalise to lowercase so that
+        # server_to_platform_instance keys don't need to match M-Query capitalisation.
+        value = value.strip('"').lower()
+        parts = value.split("/")
+        if len(parts) == 2:
+            db_name = parts[1].split(".")[0]
+            return parts[0], db_name
 
-        db_name = splitter_result[1].split(".")[0]
-
-        return splitter_result[0].strip('"'), db_name
+        return value, None
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -682,9 +711,26 @@ class OracleLineage(AbstractLineage):
 
         server, db_name = self._get_server_and_db_name(args[0])
 
-        if db_name is None or server is None:
+        if not server:
             return Lineage.empty()
 
+        # Check for inline SQL in record args, e.g.
+        # Oracle.Database("host", [Query="SELECT * FROM schema.table"])
+        record_fields = _get_record_args(
+            data_access_func_detail.node_map, data_access_func_detail.arg_list
+        )
+        query: Optional[str] = record_fields.get("Query")
+        if query:
+            return self.parse_custom_sql(
+                query=query,
+                server=server,
+                database=db_name,
+                schema=None,
+            )
+
+        # Hierarchical navigation path:
+        # Oracle.Database("host", [HierarchicalNavigation=true])
+        # followed by Source{[Schema="EDW"]}[Data]{[Name="TABLE_NAME"]}[Data]
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None or accessor.next is None:
             return Lineage.empty()
@@ -692,7 +738,13 @@ class OracleLineage(AbstractLineage):
         schema_name: Optional[str] = accessor.items.get("Schema")
         table_name: Optional[str] = accessor.next.items.get("Name")
 
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        # For TNS-style connections db_name is None, so qualified name is
+        # schema.table; the platform_instance prefix is applied by make_urn.
+        qualified_table_name: str = (
+            f"{db_name}.{schema_name}.{table_name}"
+            if db_name
+            else f"{schema_name}.{table_name}"
+        )
 
         urn = make_urn(
             config=self.config,
