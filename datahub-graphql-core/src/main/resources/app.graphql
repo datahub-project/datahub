@@ -868,6 +868,11 @@ type FeatureFlagsConfig {
   If enabled, hides lineage information in search result cards
   """
   hideLineageInSearchCards: Boolean!
+
+  """
+  If enabled, shows tests in the health icon on entity pages.
+  """
+  showTestsInHealthIcon: Boolean!
 }
 
 """

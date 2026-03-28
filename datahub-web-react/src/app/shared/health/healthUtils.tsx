@@ -33,7 +33,9 @@ export const isUnhealthy = (healths: Health[]) => {
     const isFailingAssertions = assertionHealth?.status === HealthStatus.Fail;
     const incidentHealth = healths.find((health) => health.type === HealthStatusType.Incidents);
     const hasActiveIncidents = incidentHealth?.status === HealthStatus.Fail;
-    return isFailingAssertions || hasActiveIncidents;
+    const testsHealth = healths.find((health) => health.type === HealthStatusType.Tests);
+    const hasFailingTests = testsHealth?.status === HealthStatus.Fail;
+    return isFailingAssertions || hasActiveIncidents || hasFailingTests;
 };
 
 export const isDeprecated = (entity: GenericEntityProperties) => {
@@ -88,6 +90,9 @@ export const getHealthRedirectPath = (type: HealthStatusType) => {
         case HealthStatusType.Incidents: {
             return 'Incidents';
         }
+        case HealthStatusType.Tests: {
+            return 'Governance';
+        }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);
     }
@@ -100,6 +105,9 @@ export const getHealthTypeName = (type: HealthStatusType) => {
         }
         case HealthStatusType.Incidents: {
             return 'Incidents';
+        }
+        case HealthStatusType.Tests: {
+            return 'Tests';
         }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);
