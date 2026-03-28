@@ -229,6 +229,50 @@ class SupportedDataPlatform(Enum):
 
 
 @dataclass
+class PowerBiTableExpressionLineageStats:
+    """Metrics for table-expression lineage (M bridge, DAX calculated table/column).
+
+    **Per table** (each ``get_upstream_tables`` call): Power BI stores one source
+    expression per table (1:1). ``m_query_*`` and ``dax_calculated_table_*`` counters
+    increment at most once per call, except ``m_query_bridge_parse_timer``, which
+    sums wall time inside the JS bridge.
+
+    **Per column** (``Mapper.extract_lineage``): ``dax_calculated_column_*`` counters
+    accumulate across all calculated columns with ``expression`` set when column-level
+    lineage is enabled (many increments per table / per ingest run).
+    """
+
+    m_query_bridge_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
+    m_query_parse_attempts: int = 0
+    """This table's expression was sent to the M parser bridge."""
+    m_query_m_ast_parsed: int = 0
+    """Bridge returned a syntactically valid M AST (lineage may still be empty)."""
+    m_query_parse_timeouts: int = 0
+    m_query_native_query_skipped: int = 0
+    """``native_query_parsing=False`` and the expression contains ``Value.NativeQuery``."""
+    m_query_non_m_expression: int = 0
+    """M parse failed and the text has no ``let`` (typical DAX calculated-table body)."""
+    m_query_parse_unexpected_failures: int = 0
+    """M parse failed with ``let`` present, or ``MQueryBridgeError``."""
+    m_query_resolution_exceptions: int = 0
+    """Exception while resolving a parsed AST to ``Lineage`` (e.g. pattern handler)."""
+    m_query_no_lineage: int = 0
+    """No ``Lineage`` rows returned for this table's expression."""
+    m_query_lineage_extracted: int = 0
+    """At least one ``Lineage`` row (``upstreams`` and/or ``powerbi_table_upstreams``)."""
+
+    dax_calculated_table_extractions: int = 0
+    """``extract_dax_table_references`` invoked (non-M branch with sibling tables)."""
+    dax_calculated_table_sibling_refs_found: int = 0
+    """DAX returned ≥1 sibling table name for the calculated-table expression."""
+
+    dax_calculated_column_scanned: int = 0
+    """Columns with non-empty ``expression`` scanned for DAX column lineage."""
+    dax_calculated_column_lineage_emitted: int = 0
+    """Columns where DAX parsing produced cross-table column lineage (CLL)."""
+
+
+@dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     all_workspace_count: int = 0
     filtered_workspace_names: LossyList[str] = dataclass_field(
@@ -243,22 +287,10 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     filtered_dashboards: LossyList[str] = dataclass_field(default_factory=LossyList)
     filtered_charts: LossyList[str] = dataclass_field(default_factory=LossyList)
 
-    m_query_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
-    m_query_parse_attempts: int = 0
-    m_query_parse_successes: int = 0
-    m_query_parse_timeouts: int = 0
-    m_query_native_query_skipped: int = 0
-    # Expressions that reached the parser but are not M-Query at all
-    # (e.g. DAX computed-table expressions, empty strings, label rows).
-    # These fail with MQueryParseError but are expected and logged at INFO.
-    m_query_non_mquery_expressions: int = 0
-    m_query_parse_validation_errors: int = 0
-    m_query_parse_unexpected_character_errors: int = 0
-    # Genuine M-Query expressions that the parser could not handle.
-    m_query_parse_unknown_errors: int = 0
-    m_query_resolver_errors: int = 0
-    m_query_resolver_no_lineage: int = 0
-    m_query_resolver_successes: int = 0
+    # One source expression per table (1:1); stats aggregate per get_upstream_tables call.
+    table_expression_lineage_stats: PowerBiTableExpressionLineageStats = (
+        dataclass_field(default_factory=PowerBiTableExpressionLineageStats)
+    )
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count

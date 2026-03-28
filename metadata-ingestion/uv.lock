@@ -159,6 +159,7 @@ all = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pydantic" },
+    { name = "pydaxlexer" },
     { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy", "zstandard"] },
@@ -626,6 +627,7 @@ dev = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pydantic" },
+    { name = "pydaxlexer" },
     { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy", "zstandard"] },
@@ -817,6 +819,7 @@ docs = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pydantic" },
+    { name = "pydaxlexer" },
     { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy", "zstandard"] },
@@ -1471,6 +1474,7 @@ powerbi = [
     { name = "more-itertools" },
     { name = "msal" },
     { name = "patchy" },
+    { name = "pydaxlexer" },
     { name = "setuptools" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -2787,6 +2791,10 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'docs'", specifier = ">=2.4.0,<2.12" },
     { name = "pydantic", marker = "extra == 'iceberg'", specifier = "<2.12" },
     { name = "pydantic", marker = "extra == 'integration-tests'", specifier = "<2.12" },
+    { name = "pydaxlexer", marker = "extra == 'all'", specifier = "==0.3.0" },
+    { name = "pydaxlexer", marker = "extra == 'dev'", specifier = "==0.3.0" },
+    { name = "pydaxlexer", marker = "extra == 'docs'", specifier = "==0.3.0" },
+    { name = "pydaxlexer", marker = "extra == 'powerbi'", specifier = "==0.3.0" },
     { name = "pydeequ", marker = "extra == 'abs'", specifier = ">=1.1.0,<2.0.0" },
     { name = "pydeequ", marker = "extra == 'all'", specifier = ">=1.1.0,<2.0.0" },
     { name = "pydeequ", marker = "extra == 'delta-lake'", specifier = ">=1.1.0,<2.0.0" },
@@ -3822,6 +3830,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz", hash = "sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89", size = 16081, upload-time = "2024-05-20T21:33:25.928Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53", size = 13643, upload-time = "2024-05-20T21:33:24.1Z" },
+]
+
+[[package]]
+name = "antlr4-python3-runtime"
+version = "4.13.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/5f/2cdf6f7aca3b20d3f316e9f505292e1f256a32089bd702034c29ebde6242/antlr4_python3_runtime-4.13.2.tar.gz", hash = "sha256:909b647e1d2fc2b70180ac586df3933e38919c85f98ccc656a96cd3f25ef3916", size = 117467, upload-time = "2024-08-03T19:00:12.757Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/03/a851e84fcbb85214dc637b6378121ef9a0dd61b4c65264675d8a5c9b1ae7/antlr4_python3_runtime-4.13.2-py3-none-any.whl", hash = "sha256:fe3835eb8d33daece0e799090eda89719dbccee7aa39ef94eed3818cafa5a7e8", size = 144462, upload-time = "2024-08-03T19:00:11.134Z" },
 ]
 
 [[package]]
@@ -10076,6 +10093,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/75/c1/1c55272f49d761cec38ddb80be9817935b9c91ebd6a8988e10f532868d56/pydash-8.0.6.tar.gz", hash = "sha256:b2821547e9723f69cf3a986be4db64de41730be149b2641947ecd12e1e11025a", size = 164338, upload-time = "2026-01-17T16:42:56.576Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a5/b7/cc5e7974699db40014d58c7dd7c4ad4ffc244d36930dc9ec7d06ee67d7a9/pydash-8.0.6-py3-none-any.whl", hash = "sha256:ee70a81a5b292c007f28f03a4ee8e75c1f5d7576df5457b836ec7ab2839cc5d0", size = 101561, upload-time = "2026-01-17T16:42:55.448Z" },
+]
+
+[[package]]
+name = "pydaxlexer"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "antlr4-python3-runtime" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ed/7c/a10099edd6eab2049b709beff50e831eb82155c362839dc12967a4852bef/pydaxlexer-0.3.0.tar.gz", hash = "sha256:7fc393f6f41fd63e233793bdd3071a384611439622748d2c62daabfd722ba5e2", size = 71848, upload-time = "2025-11-26T15:32:22.953Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/49/51b50f09b985db791f398fb5e3f00b6497fd1e64aefcc76cf457bcbb84d5/pydaxlexer-0.3.0-py3-none-any.whl", hash = "sha256:ffa13847f289f606f483a74f3351e82d6c3d97d7b43ee5d5409af515166fe167", size = 70686, upload-time = "2025-11-26T15:32:19.96Z" },
 ]
 
 [[package]]

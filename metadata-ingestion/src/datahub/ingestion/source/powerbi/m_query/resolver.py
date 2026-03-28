@@ -325,6 +325,260 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Sibling table reference resolution
+# Finds identifiers in the AST that are unresolved in the current let scope
+# and match known sibling PowerBI table names (table-to-table lineage).
+# ---------------------------------------------------------------------------
+
+
+def _resolve_identifier_for_table_refs(
+    node_map: NodeIdMap,
+    name: str,
+    current_let: Optional[dict],
+    current_let_id: Optional[int],
+    sibling_names_lower: FrozenSet[str],
+    sibling_name_map: Dict[str, str],
+    results: List[str],
+    seen: Set[Tuple[Optional[int], str]],
+) -> None:
+    """Resolve a single identifier name and check if it maps to a sibling table."""
+    # None current_let_id means the identifier appears at root scope (no surrounding let)
+    guard_key = (current_let_id, name.lower())
+    if guard_key in seen:
+        return
+    seen.add(guard_key)
+
+    resolved = resolve_identifier(node_map, current_let, name) if current_let else None
+    if resolved is not None:
+        _walk_for_table_refs(
+            node_map,
+            resolved,
+            current_let,
+            current_let_id,
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            seen,
+        )
+    elif name.lower() in sibling_names_lower:
+        results.append(sibling_name_map[name.lower()])
+
+
+def _walk_invoke_for_table_refs(
+    node_map: NodeIdMap,
+    invoke_node: dict,
+    current_let: Optional[dict],
+    current_let_id: Optional[int],
+    sibling_names_lower: FrozenSet[str],
+    sibling_name_map: Dict[str, str],
+    results: List[str],
+    seen: Set[Tuple[Optional[int], str]],
+) -> None:
+    """Walk arguments of an InvokeExpression for sibling table references."""
+    content = invoke_node.get("content", {})
+    if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
+        for arg in content.get("elements", []):
+            inner = _unwrap_csv(arg)
+            _walk_for_table_refs(
+                node_map,
+                inner,
+                current_let,
+                current_let_id,
+                sibling_names_lower,
+                sibling_name_map,
+                results,
+                seen,
+            )
+
+
+def _walk_for_table_refs(
+    node_map: NodeIdMap,
+    node: Optional[dict],
+    current_let: Optional[dict],
+    current_let_id: Optional[int],
+    sibling_names_lower: FrozenSet[str],
+    sibling_name_map: Dict[str, str],
+    results: List[str],
+    seen: Set[Tuple[Optional[int], str]],
+) -> None:
+    """Walk AST collecting identifiers unresolved in let scope that match sibling names."""
+    if isinstance(node, int):
+        node = node_map.get(node)
+    if node is None:
+        return
+
+    kind: str = node.get("kind", "")
+
+    if kind == "LetExpression":
+        _walk_for_table_refs(
+            node_map,
+            node.get("expression"),
+            node,
+            node.get("id", id(node)),  # prefer stable AST id; fall back to Python id
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            seen,
+        )
+        return
+
+    if kind == "IdentifierExpression":
+        identifier = node.get("identifier", {})
+        raw_name = identifier.get("literal", "") if isinstance(identifier, dict) else ""
+        name = raw_name.strip()
+        if name.startswith('#"') and name.endswith('"'):
+            name = name[2:-1]
+        _resolve_identifier_for_table_refs(
+            node_map,
+            name,
+            current_let,
+            current_let_id,
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            seen,
+        )
+        return
+
+    if kind == "Identifier":
+        raw_name = node.get("literal", "")
+        name = raw_name.strip()
+        if name.startswith('#"') and name.endswith('"'):
+            name = name[2:-1]
+        _resolve_identifier_for_table_refs(
+            node_map,
+            name,
+            current_let,
+            current_let_id,
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            seen,
+        )
+        return
+
+    if kind == "ListExpression":
+        content = node.get("content", {})
+        if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
+            for elem in content.get("elements", []):
+                inner = _unwrap_csv(elem)
+                _walk_for_table_refs(
+                    node_map,
+                    inner,
+                    current_let,
+                    current_let_id,
+                    sibling_names_lower,
+                    sibling_name_map,
+                    results,
+                    seen.copy(),
+                )
+        return
+
+    if kind == "RecursivePrimaryExpression":
+        # Walk head (e.g. the bare table name before any accessor) and any
+        # InvokeExpression arguments (e.g. Table.Combine({tblA, tblB})).
+        # ItemAccessExpression steps (e.g. Source{[Kind="Table"]}[Data]) are
+        # intentionally skipped — table references appear as the head, not inside
+        # accessor arguments.
+        _walk_for_table_refs(
+            node_map,
+            node.get("head"),
+            current_let,
+            current_let_id,
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            seen,
+        )
+        rec_exprs = node.get("recursiveExpressions", {})
+        elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
+        for recursive_expr in elements:
+            if isinstance(recursive_expr, int):
+                recursive_expr = node_map.get(recursive_expr)
+            if recursive_expr is None:
+                continue
+            if recursive_expr.get("kind") == "InvokeExpression":
+                _walk_invoke_for_table_refs(
+                    node_map,
+                    recursive_expr,
+                    current_let,
+                    current_let_id,
+                    sibling_names_lower,
+                    sibling_name_map,
+                    results,
+                    seen,
+                )
+        return
+
+    if kind == "FunctionExpression":
+        _walk_for_table_refs(
+            node_map,
+            node.get("expression"),
+            current_let,
+            current_let_id,
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            seen,
+        )
+        return
+
+
+def resolve_to_table_references(
+    node_map: NodeIdMap,
+    sibling_names: FrozenSet[str],
+) -> List[str]:
+    """Return original-cased sibling names that appear as unresolved identifiers in node_map."""
+    if not sibling_names:
+        return []
+
+    sibling_names_lower: FrozenSet[str] = frozenset(n.lower() for n in sibling_names)
+    sibling_name_map: Dict[str, str] = {n.lower(): n for n in sibling_names}
+
+    let_node_id: Optional[int] = None
+    let_node: Optional[dict] = None
+    root_node_id: Optional[int] = None
+    root_node: Optional[dict] = None
+
+    for node_id, node in node_map.items():
+        kind = node.get("kind")
+        if kind == "LetExpression":
+            if let_node_id is None or node_id < let_node_id:
+                let_node_id = node_id
+                let_node = node
+        if root_node_id is None or node_id < root_node_id:
+            root_node_id = node_id
+            root_node = node
+
+    results: List[str] = []
+
+    if let_node is not None:
+        _walk_for_table_refs(
+            node_map,
+            let_node.get("expression"),
+            let_node,
+            let_node_id,
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            set(),
+        )
+    elif root_node is not None:
+        _walk_for_table_refs(
+            node_map,
+            root_node,
+            None,
+            None,
+            sibling_names_lower,
+            sibling_name_map,
+            results,
+            set(),
+        )
+
+    return list(dict.fromkeys(results))
+
+
 def _walk_identifier_name(
     node_map: NodeIdMap,
     name: str,

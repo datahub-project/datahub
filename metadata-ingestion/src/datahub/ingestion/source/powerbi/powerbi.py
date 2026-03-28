@@ -55,7 +55,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
+from datahub.ingestion.source.powerbi.m_query import (
+    dax_resolver,
+    native_sql_parser,
+    parser,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -384,13 +388,93 @@ class Mapper:
                     )
                 )
 
-        if len(upstream) > 0:
+            for ref_name in lineage.powerbi_table_upstreams:
+                ref_table = next(
+                    (
+                        t
+                        for t in (table.dataset.tables if table.dataset else [])
+                        if t.name.lower() == ref_name.lower()
+                    ),
+                    None,
+                )
+                if ref_table is None:
+                    logger.debug(
+                        "powerbi_table_upstream '%s' not found in dataset tables for %s — skipping",
+                        ref_name,
+                        table.full_name,
+                    )
+                    continue
+                ref_urn = self.assets_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=self.__config.platform_name,
+                        name=ref_table.full_name,
+                        platform_instance=self.__config.platform_instance,
+                        env=self.__config.env,
+                    )
+                )
+                upstream.append(
+                    UpstreamClass(
+                        dataset=ref_urn,
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                )
+
+        # Column-level lineage from DAX calculated column expressions
+        if self.__config.extract_column_level_lineage and table.dataset:
+            tel_stats = self.__reporter.table_expression_lineage_stats
+            sibling_table_urns = {
+                t.name.lower(): self.assets_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=self.__config.platform_name,
+                        name=t.full_name,
+                        platform_instance=self.__config.platform_instance,
+                        env=self.__config.env,
+                    )
+                )
+                for t in table.dataset.tables
+            }
+            for col in table.columns or []:
+                if not col.expression:
+                    continue
+                tel_stats.dax_calculated_column_scanned += 1
+                col_cll = dax_resolver.extract_dax_column_lineage(
+                    column_name=col.name,
+                    expression=col.expression,
+                    table_urn=ds_urn,
+                    sibling_table_urns=sibling_table_urns,
+                )
+                if col_cll:
+                    tel_stats.dax_calculated_column_lineage_emitted += 1
+                for cll_info in col_cll:
+                    downstream_fields = [
+                        builder.make_schema_field_urn(
+                            ds_urn, cll_info.downstream.column
+                        )
+                    ]
+                    upstream_fields = [
+                        builder.make_schema_field_urn(r.table, r.column)
+                        for r in cll_info.upstreams
+                    ]
+                    if upstream_fields:
+                        cll_lineage.append(
+                            FineGrainedLineage(
+                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                downstreams=downstream_fields,
+                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                upstreams=upstream_fields,
+                            )
+                        )
+
+        # upstreams may be empty when the table has only calculated-column CLL (no external sources)
+        if upstream or cll_lineage:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
                 fineGrainedLineages=cll_lineage or None,
             )
 
-            logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
+            logger.debug(
+                f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage_class}"
+            )
 
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=ds_urn,
