@@ -18,6 +18,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.restli.RestliClientSslConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
@@ -383,6 +384,8 @@ public class AuthModule extends AbstractModule {
             utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL);
 
+    RestliClientSslConfig restliSslConfig = buildRestliSslConfigForMetadataService(configs);
+
     // Use the same logic as GMSConfiguration.getResolvedBasePath()
     String resolvedBasePath =
         com.linkedin.metadata.utils.BasePathUtils.resolveBasePath(
@@ -393,7 +396,25 @@ public class AuthModule extends AbstractModule {
         metadataServicePort,
         resolvedBasePath,
         metadataServiceUseSsl,
-        metadataServiceSslProtocol);
+        metadataServiceSslProtocol,
+        null,
+        restliSslConfig);
+  }
+
+  /**
+   * Reads truststore/keystore settings from Play config for the Rest.li metadata client. Package
+   * visibility for unit tests.
+   */
+  static RestliClientSslConfig buildRestliSslConfigForMetadataService(
+      com.typesafe.config.Config configs) {
+    return RestliClientSslConfig.fromNullableStrings(
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_TRUST_STORE_PATH, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_TRUST_STORE_PASSWORD, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_TRUST_STORE_TYPE, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_STORE_PATH, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_STORE_PASSWORD, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_STORE_TYPE, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_PASSWORD, null));
   }
 
   protected boolean doesMetadataServiceUseSsl(com.typesafe.config.Config configs) {
