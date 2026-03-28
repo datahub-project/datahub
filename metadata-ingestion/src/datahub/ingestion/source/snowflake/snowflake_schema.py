@@ -291,6 +291,17 @@ class SemanticViewQuery:
 
 
 @dataclass
+class CortexAnalystQuery:
+    """A natural language query made via Cortex Analyst against a semantic view."""
+
+    question: str
+    generated_sql: str
+    semantic_view_name: str
+    user_name: str
+    timestamp: datetime
+
+
+@dataclass
 class SemanticViewProfileCounts:
     """Profile counts for a semantic view (dimensions, facts, metrics)."""
 

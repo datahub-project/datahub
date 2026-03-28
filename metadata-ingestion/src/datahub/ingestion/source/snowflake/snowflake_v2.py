@@ -258,9 +258,9 @@ class SnowflakeV2Source(
 
         # Semantic view usage extractor (separate from main usage due to different data source)
         self.semantic_view_usage_extractor: Optional[SemanticViewUsageExtractor] = None
-        if (
-            self.config.semantic_views.enabled
-            and self.config.semantic_views.include_usage
+        if self.config.semantic_views.enabled and (
+            self.config.semantic_views.include_usage
+            or self.config.semantic_views.include_cortex_analyst_queries
         ):
             self.semantic_view_usage_extractor = SemanticViewUsageExtractor(
                 config=config,
@@ -696,6 +696,9 @@ class SnowflakeV2Source(
                 discovered_semantic_views_set
             )
             yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
+                discovered_semantic_views_set
+            )
+            yield from self.semantic_view_usage_extractor.get_cortex_analyst_query_workunits(
                 discovered_semantic_views_set
             )
 

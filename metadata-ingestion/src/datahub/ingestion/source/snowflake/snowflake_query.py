@@ -1630,3 +1630,28 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             AND sv.NAME = tc.semantic_view_name
         ORDER BY sv.SCHEMA, sv.NAME
         """
+
+    @staticmethod
+    def semantic_view_cortex_analyst_requests(
+        start_time_millis: int,
+        end_time_millis: int,
+        max_requests: int = 1000,
+    ) -> str:
+        """Query CORTEX_ANALYST_REQUESTS_V for natural language questions and generated SQL.
+
+        This view provides structured data about Cortex Analyst interactions,
+        including the original natural language question and the SQL it generated.
+        """
+        return f"""
+        SELECT
+            latest_question AS "QUESTION",
+            generated_sql AS "GENERATED_SQL",
+            semantic_model_name AS "SEMANTIC_MODEL_NAME",
+            user_id AS "USER_NAME",
+            timestamp AS "REQUEST_TIMESTAMP"
+        FROM snowflake.local.cortex_analyst_requests_v
+        WHERE timestamp >= to_timestamp_ltz({start_time_millis}, 3)
+            AND timestamp < to_timestamp_ltz({end_time_millis}, 3)
+        ORDER BY timestamp DESC
+        LIMIT {max_requests}
+        """

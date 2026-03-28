@@ -122,6 +122,13 @@ class SemanticViewsConfig(ConfigModel):
         "Only applicable when include_queries is True.",
     )
 
+    include_cortex_analyst_queries: bool = Field(
+        default=False,
+        description="If enabled, collect natural language questions and generated SQL from "
+        "Cortex Analyst via SNOWFLAKE.LOCAL.CORTEX_ANALYST_REQUESTS_V. "
+        "Requires SELECT privilege on that view. Emitted as Query entities accessible via API.",
+    )
+
     @model_validator(mode="after")
     def validate_column_lineage_requires_enabled(self) -> "SemanticViewsConfig":
         if self.column_lineage and not self.enabled:
@@ -142,6 +149,11 @@ class SemanticViewsConfig(ConfigModel):
             logger.warning(
                 "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
                 "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
+            )
+        if self.include_cortex_analyst_queries and not self.enabled:
+            logger.warning(
+                "semantic_views.include_cortex_analyst_queries is set to True but semantic_views.enabled is False. "
+                "Cortex Analyst queries will not be collected. Set semantic_views.enabled to True first."
             )
         return self
 
