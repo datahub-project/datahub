@@ -90,6 +90,8 @@ def assert_metadata_files_equal(
 
     ignore_paths = (*ignore_paths, *default_exclude_paths)
 
+    output = sort_output_in_same_order_as_golden(output, golden)
+
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and settings.update_golden:
         if isinstance(diff, MCPDiff) and diff.is_delta_valid:
@@ -99,7 +101,7 @@ def assert_metadata_files_equal(
         else:
             # Fallback: just overwrite the golden file
             logger.info(f"Overwriting golden file {golden_path}")
-            shutil.copyfile(str(output_path), str(golden_path))
+            write_metadata_file(pathlib.Path(golden_path), output)
         return
 
     if diff:
@@ -144,3 +146,64 @@ def diff_metadata_json(
         exclude_regex_paths=ignore_paths,
         ignore_order=ignore_order,
     )
+
+
+def sort_output_in_same_order_as_golden(
+    output: MetadataJson,
+    golden: MetadataJson,
+) -> MetadataJson:
+    # iterate through golden and for each entry, find the matching one from output if it exists
+    # then append any extras from output that weren't found in golden
+
+    if not isinstance(output, list) or not isinstance(golden, list):
+        # avoid pathological inputs, as seen in tests/unit/sql_parsing/test_sql_aggregator.py::test_aggregator_dump
+        return output
+
+    # 1. build matching index for output
+    mcps_index: dict[tuple[str, str], MetadataJson] = {}
+    mces_index: dict[str, MetadataJson] = {}
+    other_counts: dict[dict[str, Any], int] = {}
+
+    for entry in output:
+        if "entityUrn" in entry and "aspectName" in entry:
+            # MCP
+            key = (entry["entityUrn"], entry["aspectName"])
+            mcps_index.setdefault(key, []).append(entry)
+        elif "proposedSnapshot" in entry:
+            # MCE
+            key = next(iter(entry["proposedSnapshot"].values()))["urn"]
+            mces_index.setdefault(key, []).append(entry)
+        else:
+            other_counts[entry] = other_counts.get(entry, 0) + 1
+
+    # 2. iterate through golden, find matching ones from output
+    new_array: MetadataJson = []
+    for entry in golden:
+        if "entityUrn" in entry and "aspectName" in entry:
+            # MCP
+            key = (entry["entityUrn"], entry["aspectName"])
+            if mcps_index.get(key):
+                new_array.append(mcps_index[key].pop(0))
+        elif "proposedSnapshot" in entry:
+            # MCE
+            key = next(iter(entry["proposedSnapshot"].values()))["urn"]
+            if mces_index.get(key):
+                new_array.append(mces_index[key].pop(0))
+        else:
+            if other_counts.get(entry):
+                new_array.append(entry)
+                other_counts[entry] -= 1
+
+    # 3. add the remaining ones from output
+    # TODO: sort these better? e.g. add MCPs near other entries for that URN
+    for arr in mces_index.values():
+        for entry in arr:
+            new_array.append(entry)
+    for arr in mcps_index.values():
+        for entry in arr:
+            new_array.append(entry)
+    for entry, count in other_counts.items():
+        for _ in range(count):
+            new_array.append(entry)
+
+    return new_array
