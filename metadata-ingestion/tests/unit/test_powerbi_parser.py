@@ -1,5 +1,6 @@
 import pytest
 
+from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     AthenaPlatformOverride,
@@ -8,6 +9,7 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
+    ResolvePlatformInstanceFromServerToPlatformInstance,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
@@ -16,6 +18,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     AmazonAthenaLineage,
     MSSqlLineage,
+    OracleLineage,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
@@ -1231,3 +1234,138 @@ def test_athena_table_platform_override_known_platform_valid():
     )
     assert len(config.athena_table_platform_override) == 1
     assert config.athena_table_platform_override[0].platform == "mysql"
+
+
+def _make_oracle_invoke(server_literal: str, record_fields: dict[str, str]) -> dict:
+    elements: list = [
+        {
+            "kind": "LiteralExpression",
+            "literalKind": "Text",
+            "literal": f'"{server_literal}"',
+        }
+    ]
+    if record_fields:
+        record_elements = [
+            {
+                "kind": "GeneralizedIdentifierPairedExpression",
+                "key": {"literal": key},
+                "value": {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": f'"{value}"',
+                },
+            }
+            for key, value in record_fields.items()
+        ]
+        elements.append(
+            {
+                "kind": "RecordExpression",
+                "content": {"kind": "ArrayWrapper", "elements": record_elements},
+            }
+        )
+    return {
+        "kind": "InvokeExpression",
+        "content": {"kind": "ArrayWrapper", "elements": elements},
+    }
+
+
+@pytest.fixture
+def oracle_config_tns():
+    return PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        server_to_platform_instance={
+            "oracle-tns.example.com": PlatformDetail(platform_instance="oracle_prod"),
+        },
+    )
+
+
+@pytest.fixture
+def oracle_lineage_tns(oracle_config_tns):
+    return OracleLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=Table(name="orders", full_name="SALES.orders"),
+        reporter=PowerBiDashboardSourceReport(),
+        config=oracle_config_tns,
+        platform_instance_resolver=ResolvePlatformInstanceFromServerToPlatformInstance(
+            oracle_config_tns
+        ),
+    )
+
+
+def test_oracle_parse_tns_alias():
+    server, db = OracleLineage._get_server_and_db_name("oracle-tns.example.com")
+    assert server == "oracle-tns.example.com"
+    assert db is None
+
+
+def test_oracle_hierarchical_tns_with_platform_instance(oracle_lineage_tns):
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "ORDERS"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert len(lineage.upstreams) == 1
+    assert "oracle_prod.sales.orders" in lineage.upstreams[0].urn.lower()
+
+
+def test_oracle_native_query_tns_extracts_tables(oracle_lineage_tns):
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com",
+        {"Query": "SELECT * FROM SALES.ORDERS"},
+    )
+
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=None,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert len(lineage.upstreams) >= 1
+    assert any("orders" in u.urn.lower() for u in lineage.upstreams)
+
+
+def test_oracle_native_query_takes_precedence_over_hierarchical(oracle_lineage_tns):
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "SOME_OTHER_TABLE"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com",
+        {"Query": "SELECT * FROM SALES.ORDERS"},
+    )
+
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    # SQL path wins: ORDERS, not SOME_OTHER_TABLE
+    urns = [u.urn.lower() for u in lineage.upstreams]
+    assert any("orders" in u for u in urns)
+    assert not any("some_other_table" in u for u in urns)

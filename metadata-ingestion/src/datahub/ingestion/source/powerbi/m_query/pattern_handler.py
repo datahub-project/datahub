@@ -652,18 +652,15 @@ class OracleLineage(AbstractLineage):
 
     @staticmethod
     def _get_server_and_db_name(value: str) -> Tuple[Optional[str], Optional[str]]:
-        error_message: str = (
-            f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>["
-            ".<domain>]"
-        )
-        splitter_result: List[str] = value.split("/")
-        if len(splitter_result) != 2:
-            logger.debug(error_message)
-            return None, None
+        # JDBC-style host:port/servicename → (host:port, servicename)
+        # TNS alias / bare hostname → (hostname, None); caller omits db from qualified name
+        value = value.strip('"')
+        parts = value.split("/")
+        if len(parts) == 2:
+            db_name = parts[1].split(".")[0]
+            return parts[0], db_name
 
-        db_name = splitter_result[1].split(".")[0]
-
-        return splitter_result[0].strip('"'), db_name
+        return value, None
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -682,9 +679,26 @@ class OracleLineage(AbstractLineage):
 
         server, db_name = self._get_server_and_db_name(args[0])
 
-        if db_name is None or server is None:
+        if not server:
             return Lineage.empty()
 
+        # Check for inline SQL in record args, e.g.
+        # Oracle.Database("host", [Query="SELECT * FROM schema.table"])
+        record_fields = _get_record_args(
+            data_access_func_detail.node_map, data_access_func_detail.arg_list
+        )
+        query: Optional[str] = record_fields.get("Query")
+        if query:
+            return self.parse_custom_sql(
+                query=query,
+                server=server,
+                database=db_name,
+                schema=None,
+            )
+
+        # Hierarchical navigation path:
+        # Oracle.Database("host", [HierarchicalNavigation=true])
+        # followed by Source{[Schema="EDW"]}[Data]{[Name="TABLE_NAME"]}[Data]
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None or accessor.next is None:
             return Lineage.empty()
@@ -692,7 +706,13 @@ class OracleLineage(AbstractLineage):
         schema_name: Optional[str] = accessor.items.get("Schema")
         table_name: Optional[str] = accessor.next.items.get("Name")
 
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        # For TNS-style connections db_name is None, so qualified name is
+        # schema.table; the platform_instance prefix is applied by make_urn.
+        qualified_table_name: str = (
+            f"{db_name}.{schema_name}.{table_name}"
+            if db_name
+            else f"{schema_name}.{table_name}"
+        )
 
         urn = make_urn(
             config=self.config,

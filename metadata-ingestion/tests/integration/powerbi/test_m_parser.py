@@ -65,6 +65,8 @@ M_QUERIES = [
     'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
     'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
     'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [HierarchicalNavigation=true]),\n    SALES = Source{[Schema="SALES"]}[Data],\n    ORDERS = SALES{[Name="ORDERS"]}[Data]\nin\n    ORDERS',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [Query="SELECT * FROM SALES.ORDERS"])\nin\n    Source',
 ]
 
 
@@ -1400,4 +1402,78 @@ def test_athena_with_platform_instance():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
+    )
+
+
+_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE = {
+    "server_to_platform_instance": {
+        "oracle-tns.example.com": {
+            "platform_instance": "oracle_prod",
+            "env": "PROD",
+        }
+    }
+}
+
+
+@pytest.mark.integration
+def test_oracle_tns_hierarchical_with_platform_instance():
+    q: str = M_QUERIES[38]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config=_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_native_query_with_platform_instance():
+    q: str = M_QUERIES[39]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config=_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
     )
