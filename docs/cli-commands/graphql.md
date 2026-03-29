@@ -1,4 +1,4 @@
-# DataHub GraphQL CLI
+# datahub graphql
 
 The `datahub graphql` command provides a powerful interface to interact with DataHub's GraphQL API directly from the command line. This enables you to query metadata, perform mutations, and explore the GraphQL schema without writing custom applications.
 

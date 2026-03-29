@@ -1,4 +1,4 @@
-# DataHub Dataset Command
+# datahub dataset
 
 The `dataset` command allows you to interact with Dataset entities in DataHub. This includes creating, updating, retrieving, validating, and synchronizing Dataset metadata.
 

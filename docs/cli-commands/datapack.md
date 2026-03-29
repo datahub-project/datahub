@@ -1,4 +1,4 @@
-# DataHub Datapack Command
+# datahub datapack
 
 > **Experimental**: This command is under active development. Command surface and behavior may change in future releases.
 
