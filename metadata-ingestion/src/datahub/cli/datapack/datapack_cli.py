@@ -206,12 +206,12 @@ def load(
         check_version_compatibility(pack, force=force)
 
     # Download
-    pack_path = download_pack(pack, no_cache=no_cache)
+    file_entries = download_pack(pack, no_cache=no_cache)
 
     # Load
     load_pack_into_datahub(
         pack=pack,
-        pack_path=pack_path,
+        file_entries=file_entries,
         dry_run=dry_run,
         no_time_shift=no_time_shift,
         as_of=as_of,

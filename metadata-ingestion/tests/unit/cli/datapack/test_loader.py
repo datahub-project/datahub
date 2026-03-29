@@ -140,10 +140,11 @@ class TestDownloadPack:
         )
         cache_dir = tmp_path / "cache"
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
-            result = download_pack(pack)
+            entries = download_pack(pack)
 
-        assert result.exists()
-        assert json.loads(result.read_text()) == [{"test": True}]
+        assert len(entries) == 1
+        assert entries[0].path.exists()
+        assert json.loads(entries[0].path.read_text()) == [{"test": True}]
 
     def test_file_url_missing_file_raises(self, tmp_path: pathlib.Path) -> None:
         pack = DataPackInfo(
@@ -188,12 +189,12 @@ class TestDownloadPack:
         )
         cache_dir = tmp_path / "cache"
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
-            path1 = download_pack(pack)
+            entries1 = download_pack(pack)
             # Delete the source -- should still work from cache
             source.unlink()
-            path2 = download_pack(pack)
+            entries2 = download_pack(pack)
 
-        assert path1 == path2
+        assert entries1[0].path == entries2[0].path
 
     def test_no_cache_forces_redownload(self, tmp_path: pathlib.Path) -> None:
         source = tmp_path / "source.json"
@@ -309,37 +310,56 @@ class TestIndexFileResolution:
         data_file.write_text(json.dumps(data))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{data_file}")
-        result = _resolve_index_file(data_file, pack, no_cache=False)
-        assert result == data_file  # Array passes through unchanged
+        entries = _resolve_index_file(data_file, pack, no_cache=False)
+        assert len(entries) == 1
+        assert entries[0].path == data_file
+        assert not entries[0].wait_for_completion
 
-    def test_index_file_combines_data_files(self, tmp_path: pathlib.Path) -> None:
+    def test_index_file_returns_multiple_entries(self, tmp_path: pathlib.Path) -> None:
         from datahub.cli.datapack.loader import _resolve_index_file
 
-        # Create data files
         (tmp_path / "01-users.json").write_text(
             json.dumps([{"entityType": "corpuser", "aspectName": "corpUserKey"}])
         )
         (tmp_path / "02-datasets.json").write_text(
-            json.dumps(
-                [
-                    {"entityType": "dataset", "aspectName": "datasetKey"},
-                    {"entityType": "dataset", "aspectName": "status"},
-                ]
-            )
+            json.dumps([{"entityType": "dataset", "aspectName": "datasetKey"}])
         )
 
-        # Create index file
         index = {"files": ["01-users.json", "02-datasets.json"]}
         index_file = tmp_path / "index.json"
         index_file.write_text(json.dumps(index))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
-        result = _resolve_index_file(index_file, pack, no_cache=False)
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
+            entries = _resolve_index_file(index_file, pack, no_cache=False)
 
-        combined = json.loads(result.read_text())
-        assert len(combined) == 3
-        assert combined[0]["entityType"] == "corpuser"
-        assert combined[1]["entityType"] == "dataset"
+        assert len(entries) == 2
+        assert all(e.path.exists() for e in entries)
+
+    def test_index_with_wait_for_completion(self, tmp_path: pathlib.Path) -> None:
+        from datahub.cli.datapack.loader import _resolve_index_file
+
+        (tmp_path / "defs.json").write_text(
+            json.dumps([{"entityType": "structuredProperty"}])
+        )
+        (tmp_path / "data.json").write_text(json.dumps([{"entityType": "dataset"}]))
+
+        index = {
+            "files": [
+                {"path": "defs.json", "wait_for_completion": True},
+                {"path": "data.json"},
+            ]
+        }
+        index_file = tmp_path / "index.json"
+        index_file.write_text(json.dumps(index))
+
+        pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
+            entries = _resolve_index_file(index_file, pack, no_cache=False)
+
+        assert len(entries) == 2
+        assert entries[0].wait_for_completion is True
+        assert entries[1].wait_for_completion is False
 
     def test_index_skips_missing_files(self, tmp_path: pathlib.Path) -> None:
         from datahub.cli.datapack.loader import _resolve_index_file
@@ -353,10 +373,10 @@ class TestIndexFileResolution:
         index_file.write_text(json.dumps(index))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
-        result = _resolve_index_file(index_file, pack, no_cache=False)
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
+            entries = _resolve_index_file(index_file, pack, no_cache=False)
 
-        combined = json.loads(result.read_text())
-        assert len(combined) == 1
+        assert len(entries) == 1
 
     def test_unknown_object_passes_through(self, tmp_path: pathlib.Path) -> None:
         from datahub.cli.datapack.loader import _resolve_index_file
@@ -366,8 +386,64 @@ class TestIndexFileResolution:
         obj_file.write_text(json.dumps(obj))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{obj_file}")
-        result = _resolve_index_file(obj_file, pack, no_cache=False)
-        assert result == obj_file  # No "files" key, passes through
+        entries = _resolve_index_file(obj_file, pack, no_cache=False)
+        assert len(entries) == 1
+        assert entries[0].path == obj_file
+
+    def test_cache_hit_returns_same_entries(self, tmp_path: pathlib.Path) -> None:
+        """Cache hit returns the same entries on second call."""
+        source = tmp_path / "source.json"
+        source.write_text("[]")
+        sha = _sha256_file(source)
+
+        pack = DataPackInfo(
+            name="simple",
+            description="Test",
+            url=f"file://{source}",
+            sha256=sha,
+        )
+        cache_dir = tmp_path / "cache"
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            entries1 = download_pack(pack)
+            entries2 = download_pack(pack)
+            assert len(entries1) == 1
+            assert len(entries2) == 1
+            assert entries1[0].path == entries2[0].path
+
+
+class TestCheckVersionCompatibility:
+    def test_no_version_required_passes(self) -> None:
+        from datahub.cli.datapack.loader import check_version_compatibility
+
+        pack = DataPackInfo(name="t", description="t", url="https://x.com")
+        check_version_compatibility(pack)  # Should not raise
+
+    def test_connection_failure_without_force_raises(self) -> None:
+        from datahub.cli.datapack.loader import check_version_compatibility
+
+        pack = DataPackInfo(
+            name="t", description="t", url="https://x.com", min_server_version="0.14.0"
+        )
+        with (
+            patch(
+                "datahub.cli.datapack.loader.load_client_config",
+                side_effect=Exception("no config"),
+            ),
+            pytest.raises(click.ClickException, match="Could not connect"),
+        ):
+            check_version_compatibility(pack)
+
+    def test_connection_failure_with_force_passes(self) -> None:
+        from datahub.cli.datapack.loader import check_version_compatibility
+
+        pack = DataPackInfo(
+            name="t", description="t", url="https://x.com", min_server_version="0.14.0"
+        )
+        with patch(
+            "datahub.cli.datapack.loader.load_client_config",
+            side_effect=Exception("no config"),
+        ):
+            check_version_compatibility(pack, force=True)  # Should not raise
 
 
 class TestReferentialIntegrity:

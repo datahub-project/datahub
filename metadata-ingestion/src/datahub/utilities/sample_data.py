@@ -17,4 +17,5 @@ def download_sample_data() -> pathlib.Path:
     from datahub.cli.datapack.registry import get_pack
 
     pack = get_pack("bootstrap")
-    return download_pack(pack)
+    entries = download_pack(pack)
+    return entries[0].path

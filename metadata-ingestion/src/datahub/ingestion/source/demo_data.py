@@ -17,6 +17,7 @@ Usage in a recipe:
         no_time_shift: false
 """
 
+import pathlib
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 
@@ -112,11 +113,26 @@ class DemoDataSource(Source):
             trust_custom=config.trust_custom,
         )
 
-        # Download
-        pack_path = download_pack(pack, no_cache=config.no_cache)
+        # Download (combine all index entries into one file for GenericFileSource)
+        file_entries = download_pack(pack, no_cache=config.no_cache)
+        if len(file_entries) == 1:
+            effective_path = file_entries[0].path
+        else:
+            import json as _json
+            import tempfile as _tempfile
 
-        # Time-shift
-        effective_path = pack_path
+            all_mcps: list = []
+            for entry in file_entries:
+                with open(entry.path) as _f:
+                    mcps = _json.load(_f)
+                if isinstance(mcps, list):
+                    all_mcps.extend(mcps)
+            combined = _tempfile.NamedTemporaryFile(
+                suffix=".json", delete=False, prefix="demo-data-combined-"
+            )
+            _json.dump(all_mcps, combined)
+            combined.close()
+            effective_path = pathlib.Path(combined.name)
         if not config.no_time_shift and pack.reference_timestamp:
             target_ts = None
             if config.as_of:
@@ -126,7 +142,7 @@ class DemoDataSource(Source):
                 target_ts = int(as_of_dt.timestamp() * 1000)
 
             effective_path = time_shift_file(
-                input_path=pack_path,
+                input_path=effective_path,
                 reference_timestamp=pack.reference_timestamp,
                 target_timestamp=target_ts,
             )

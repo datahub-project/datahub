@@ -7,9 +7,11 @@ import os
 import pathlib
 import re
 import shutil
+import tempfile
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import urlparse
 
 import click
@@ -70,21 +72,13 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> pathlib.Path:
             actual = _sha256_file(cache_path)
             if actual == pack.sha256:
                 click.echo(f"Using cached pack: {cache_path}")
-                # If index was previously resolved, return the combined file
-                combined = cache_path.with_suffix(".combined.json")
-                if combined.exists():
-                    return combined
-                return cache_path
+                return _resolve_index_file(cache_path, pack, no_cache)
             else:
                 click.echo("Cached file checksum mismatch, re-downloading...")
 
         else:
             click.echo(f"Using cached pack: {cache_path}")
-            # If index was previously resolved, return the combined file
-            combined = cache_path.with_suffix(".combined.json")
-            if combined.exists():
-                return combined
-            return cache_path
+            return _resolve_index_file(cache_path, pack, no_cache)
 
     # Download (or copy for file:// URLs)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,46 +126,67 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> pathlib.Path:
         click.echo("SHA256 verified.")
 
     # Check if this is an index file (object with "files" key) or data file (array)
-    cache_path = _resolve_index_file(cache_path, pack, no_cache)
+    entries = _resolve_index_file(cache_path, pack, no_cache)
 
-    return cache_path
+    return entries
+
+
+@dataclass
+class IndexFileEntry:
+    """An entry in an index file, representing a data file to load."""
+
+    path: pathlib.Path
+    wait_for_completion: bool = False
 
 
 def _resolve_index_file(
     cache_path: pathlib.Path,
     pack: DataPackInfo,
     no_cache: bool,
-) -> pathlib.Path:
-    """If the downloaded file is an index, fetch all listed files and combine.
+) -> List[IndexFileEntry]:
+    """If the downloaded file is an index, fetch listed files and return entries.
 
-    Index files are JSON objects with a "files" key listing relative paths.
-    Data files are JSON arrays of MCPs. Returns the path to the combined
-    data file (or the original path if it was already a data file).
+    Index files are JSON objects with a "files" key. Each entry can be a
+    string (filename) or an object with "path" and optional "wait_for_completion".
+    Data files (JSON arrays) return a single entry.
+
+    Returns a list of IndexFileEntry objects, one per file to load.
     """
     try:
         with open(cache_path) as f:
             content = json.load(f)
     except (json.JSONDecodeError, OSError):
-        return cache_path  # Not valid JSON, let downstream handle it
+        return [IndexFileEntry(path=cache_path)]
 
     if isinstance(content, list):
-        return cache_path  # Already a data file (array of MCPs)
+        return [IndexFileEntry(path=cache_path)]
 
     if not isinstance(content, dict) or "files" not in content:
-        return cache_path  # Unknown format, pass through
+        return [IndexFileEntry(path=cache_path)]
 
-    # It's an index file -- fetch each listed file
     file_list = content["files"]
     if not file_list:
-        return cache_path
+        return [IndexFileEntry(path=cache_path)]
 
-    base_url = pack.url.rsplit("/", 1)[0]  # Directory of the index URL
+    base_url = pack.url.rsplit("/", 1)[0]
     click.echo(f"Index file detected with {len(file_list)} data files.")
 
-    all_mcps: list[dict] = []
-    for filename in file_list:
+    entries: List[IndexFileEntry] = []
+    for item in file_list:
+        # Support both string and object entries
+        if isinstance(item, str):
+            filename = item
+            wait = False
+        elif isinstance(item, dict):
+            filename = item["path"]
+            wait = item.get("wait_for_completion", False)
+        else:
+            continue
+
         file_url = f"{base_url}/{filename}"
-        click.echo(f"  Fetching {filename}...")
+        click.echo(
+            f"  Fetching {filename}{'  [wait_for_completion]' if wait else ''}..."
+        )
 
         parsed = urlparse(file_url)
         if parsed.scheme == "file":
@@ -179,29 +194,63 @@ def _resolve_index_file(
             if not file_path.exists():
                 logger.warning("Index references missing file: %s", file_path)
                 continue
-            with open(file_path) as f:
-                mcps = json.load(f)
+            # Copy to cache dir so path is stable
+            cached = pathlib.Path(CACHE_DIR) / f"{_cache_key(file_url)}.json"
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(file_path, cached)
+            entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
         else:
             try:
                 response = requests.get(file_url, timeout=120)
                 response.raise_for_status()
-                mcps = response.json()
+                cached = pathlib.Path(CACHE_DIR) / f"{_cache_key(file_url)}.json"
+                cached.parent.mkdir(parents=True, exist_ok=True)
+                with open(cached, "wb") as f:
+                    f.write(response.content)
+                entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
             except Exception:
                 logger.warning("Failed to fetch %s, skipping", file_url, exc_info=True)
-                continue
 
-        if isinstance(mcps, list):
-            all_mcps.extend(mcps)
-        else:
-            logger.debug("Skipping non-array file: %s", filename)
+    click.echo(f"Resolved {len(entries)} data files from index.")
+    return entries
 
-    # Write combined MCPs to a new cache file
-    combined_path = cache_path.with_suffix(".combined.json")
-    with open(combined_path, "w") as f:
-        json.dump(all_mcps, f)
 
-    click.echo(f"Combined {len(all_mcps)} MCPs from {len(file_list)} files.")
-    return combined_path
+def _wait_for_entities(
+    urns: set[str],
+    client_config: DatahubClientConfig,
+    timeout_seconds: int = 60,
+    poll_interval: float = 0.5,
+) -> None:
+    """Wait until all given URNs exist on the server."""
+    if not urns:
+        return
+
+    from datahub.ingestion.graph.client import DataHubGraph
+
+    graph = DataHubGraph(client_config)
+    pending = set(urns)
+    deadline = time.time() + timeout_seconds
+
+    click.echo(f"Waiting for {len(pending)} entities to be processed...")
+    while pending and time.time() < deadline:
+        still_pending = set()
+        for urn in pending:
+            try:
+                if not graph.exists(urn):
+                    still_pending.add(urn)
+            except Exception:
+                still_pending.add(urn)
+        pending = still_pending
+        if pending:
+            time.sleep(poll_interval)
+
+    if pending:
+        click.echo(
+            f"Warning: {len(pending)} entities not yet available after "
+            f"{timeout_seconds}s (proceeding anyway)"
+        )
+    else:
+        click.echo("All entities available.")
 
 
 def check_trust(
@@ -393,8 +442,6 @@ def _apply_schema_filter(
     for key, count in sorted(skipped_counts.items(), key=lambda x: -x[1]):
         click.echo(f"  {key}: {count} skipped")
 
-    import tempfile
-
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".json", delete=False, prefix="datapack-filtered-"
     ) as tmp:
@@ -532,18 +579,59 @@ def _check_referential_integrity(
         click.echo(f"  {ref_urn} (referenced by {len(referrers)} entities)")
 
 
+def _extract_urns_from_file(file_path: pathlib.Path) -> set[str]:
+    """Extract unique entity URNs from an MCP JSON file."""
+    try:
+        with open(file_path) as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return {m.get("entityUrn", "") for m in data if m.get("entityUrn")}
+    except Exception:
+        pass
+    return set()
+
+
+def _run_pipeline_for_file(
+    file_path: pathlib.Path,
+    run_id: str,
+    sink_config: dict[str, str],
+) -> None:
+    """Run an ingestion pipeline for a single data file."""
+    from datahub.ingestion.run.pipeline import Pipeline
+
+    pipeline_config = {
+        "run_id": run_id,
+        "source": {
+            "type": "file",
+            "config": {"path": str(file_path)},
+        },
+        "sink": {
+            "type": "datahub-rest",
+            "config": sink_config,
+        },
+    }
+    pipeline = Pipeline.create(pipeline_config)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    return pipeline
+
+
 def load_pack_into_datahub(
     pack: DataPackInfo,
-    pack_path: pathlib.Path,
+    file_entries: List[IndexFileEntry],
     dry_run: bool = False,
     no_time_shift: bool = False,
     as_of: Optional[datetime] = None,
 ) -> str:
-    """Build and run an ingestion pipeline to load the data pack.
+    """Build and run ingestion pipelines to load the data pack.
+
+    For index files with multiple entries, runs a separate pipeline per file.
+    Files marked with wait_for_completion=True will block until all emitted
+    entities exist on the server before proceeding to the next file.
 
     Args:
         pack: The data pack metadata.
-        pack_path: Path to the downloaded MCP/MCE JSON file.
+        file_entries: List of IndexFileEntry objects to load.
         dry_run: If True, preview without ingesting.
         no_time_shift: If True, skip time-shifting.
         as_of: Custom target time for time-shifting.
@@ -552,60 +640,66 @@ def load_pack_into_datahub(
         The run_id used for this load.
     """
     client_config = load_client_config()
-
-    # Apply schema compatibility filter (downshift)
-    effective_path = _apply_schema_filter(pack_path, client_config=client_config)
-
-    # Check referential integrity
-    _check_referential_integrity(effective_path, client_config=client_config)
-
-    # Apply time-shifting if applicable
-    if not no_time_shift and pack.reference_timestamp:
-        target_ts = int(as_of.timestamp() * 1000) if as_of else None
-        effective_path = time_shift_file(
-            input_path=effective_path,
-            reference_timestamp=pack.reference_timestamp,
-            target_timestamp=target_ts,
-        )
-
     run_id = _generate_run_id(pack.name)
 
-    # Build pipeline config
     sink_config: dict[str, str] = {"server": str(client_config.server)}
     if client_config.token:
         sink_config["token"] = client_config.token
 
-    pipeline_config = {
-        "run_id": run_id,
-        "source": {
-            "type": "file",
-            "config": {"path": str(effective_path)},
-        },
-        "sink": {
-            "type": "datahub-rest",
-            "config": sink_config,
-        },
-    }
+    # Process each file entry
+    last_pipeline = None
+    for i, entry in enumerate(file_entries):
+        file_label = entry.path.name
+        click.echo(f"\n--- File {i + 1}/{len(file_entries)}: {file_label} ---")
+
+        effective_path = entry.path
+
+        # Apply schema compatibility filter (downshift)
+        effective_path = _apply_schema_filter(
+            effective_path, client_config=client_config
+        )
+
+        # Check referential integrity (only on last file to avoid noise)
+        if i == len(file_entries) - 1:
+            _check_referential_integrity(effective_path, client_config=client_config)
+
+        # Apply time-shifting if applicable
+        if not no_time_shift and pack.reference_timestamp:
+            target_ts = int(as_of.timestamp() * 1000) if as_of else None
+            effective_path = time_shift_file(
+                input_path=effective_path,
+                reference_timestamp=pack.reference_timestamp,
+                target_timestamp=target_ts,
+            )
+
+        if dry_run:
+            click.echo(f"Dry run - would load {effective_path}")
+            continue
+
+        click.echo(f"Loading {file_label} into DataHub (run_id={run_id})...")
+
+        # Collect URNs before loading if we need to wait
+        urns_to_wait: set[str] = set()
+        if entry.wait_for_completion:
+            urns_to_wait = _extract_urns_from_file(effective_path)
+
+        last_pipeline = _run_pipeline_for_file(effective_path, run_id, sink_config)
+
+        # Wait for entities to be processed if flagged
+        if entry.wait_for_completion and urns_to_wait:
+            _wait_for_entities(urns_to_wait, client_config)
 
     if dry_run:
-        click.echo(f"Dry run - would load {effective_path} with run_id={run_id}")
-        click.echo(f"Pipeline config: {json.dumps(pipeline_config, indent=2)}")
+        click.echo(f"\nDry run complete for {len(file_entries)} files.")
         return run_id
-
-    click.echo(f"Loading data pack '{pack.name}' into DataHub (run_id={run_id})...")
-
-    from datahub.ingestion.run.pipeline import Pipeline
-
-    pipeline = Pipeline.create(pipeline_config)
-    pipeline.run()
-    pipeline.pretty_print_summary()
 
     # Save load record before raising so unload works even on partial failures
     save_load_record(pack, run_id)
 
-    pipeline.raise_from_status()
-    click.echo(f"Data pack '{pack.name}' loaded successfully.")
+    if last_pipeline:
+        last_pipeline.raise_from_status()
 
+    click.echo(f"Data pack '{pack.name}' loaded successfully.")
     return run_id
 
 
