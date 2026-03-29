@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from datahub.cli.datapack.loader import IndexFileEntry
 from datahub.ingestion.source.demo_data import DemoDataConfig, DemoDataSource
 
 
@@ -55,7 +56,7 @@ class TestDemoDataSource:
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
             json.dump([], f)
             f.flush()
-            mock_download.return_value = Path(f.name)
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
             ctx = MagicMock()
             config = DemoDataConfig()
@@ -73,7 +74,7 @@ class TestDemoDataSource:
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
             json.dump([], f)
             f.flush()
-            mock_download.return_value = Path(f.name)
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
             ctx = MagicMock()
             config = DemoDataConfig(pack_url="https://example.com/custom.json")
@@ -108,7 +109,7 @@ class TestDemoDataSource:
             json.dump([], f)
             f.flush()
             pack_path = Path(f.name)
-            mock_download.return_value = pack_path
+            mock_download.return_value = [IndexFileEntry(path=pack_path)]
 
             shifted_path = Path(f.name)
             mock_time_shift.return_value = shifted_path
@@ -141,7 +142,7 @@ class TestDemoDataSource:
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
             json.dump([], f)
             f.flush()
-            mock_download.return_value = Path(f.name)
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
             ctx = MagicMock()
             config = DemoDataConfig()  # default no_time_shift=True
