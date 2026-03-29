@@ -13,6 +13,20 @@ export const setIngestionRedesignFlags = (isOn) => {
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
       });
     }
+    if (isOn && hasOperationName(req, "batchGetStepStates")) {
+      // Override the response to mark all requested step IDs as already seen,
+      // preventing education modals (e.g. CreateSourceEducationModal) from
+      // appearing during ingestion tests. These tests don't exercise the
+      // onboarding flow.
+      const ids = req.body?.variables?.input?.ids || [];
+      req.reply((res) => {
+        res.body.data = {
+          batchGetStepStates: {
+            results: ids.map((id) => ({ id, properties: [] })),
+          },
+        };
+      });
+    }
   });
 };
 
@@ -24,6 +38,8 @@ const clickIfTestIdPresent = (dataTestId) => {
   cy.get("body", { timeout: 2000 }).then(($body) => {
     if ($body.find(`[data-testid="${dataTestId}"]`).length) {
       cy.get(`[data-testid="${dataTestId}"]`).click();
+      // Wait for the element (and its modal) to fully close before proceeding
+      cy.get(`[data-testid="${dataTestId}"]`).should("not.exist");
     }
   });
 };
@@ -196,7 +212,6 @@ export const createAndRunIngestionSource = (sourceName) => {
 
   // Wait for the source selection modal to appear and any loading to finish
   // Multi-step builder uses "Search..." while old builder uses "Search data sources..."
-  cy.wait(1000); // Wait for modal animations to complete
   cy.get('[placeholder="Search..."], [placeholder="Search data sources..."]', {
     timeout: 10000,
   })
