@@ -128,7 +128,7 @@ class DemoDataSource(Source):
                 if isinstance(mcps, list):
                     all_mcps.extend(mcps)
             combined = _tempfile.NamedTemporaryFile(
-                suffix=".json", delete=False, prefix="demo-data-combined-"
+                suffix=".json", delete=False, prefix="demo-data-combined-", mode="w"
             )
             _json.dump(all_mcps, combined)
             combined.close()

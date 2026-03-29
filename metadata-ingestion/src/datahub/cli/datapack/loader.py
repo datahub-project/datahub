@@ -613,7 +613,6 @@ def _run_pipeline_for_file(
     pipeline = Pipeline.create(pipeline_config)
     pipeline.run()
     pipeline.pretty_print_summary()
-    return pipeline
 
 
 def load_pack_into_datahub(
@@ -683,7 +682,7 @@ def load_pack_into_datahub(
         if entry.wait_for_completion:
             urns_to_wait = _extract_urns_from_file(effective_path)
 
-        last_pipeline = _run_pipeline_for_file(effective_path, run_id, sink_config)
+        _run_pipeline_for_file(effective_path, run_id, sink_config)
 
         # Wait for entities to be processed if flagged
         if entry.wait_for_completion and urns_to_wait:
