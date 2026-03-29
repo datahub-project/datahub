@@ -41,7 +41,6 @@ from datahub.cli.specific.group_cli import group
 from datahub.cli.specific.structuredproperties_cli import properties
 from datahub.cli.specific.user_cli import user
 from datahub.cli.state_cli import state
-from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.configuration.env_vars import get_password, get_username
@@ -508,7 +507,6 @@ datahub.add_command(lineage)
 datahub.add_command(put)
 datahub.add_command(search)
 datahub.add_command(state)
-datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
 datahub.add_command(user)
