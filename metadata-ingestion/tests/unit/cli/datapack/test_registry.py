@@ -30,10 +30,6 @@ class TestBundledRegistry:
         manifest = _load_bundled_registry()
         assert "bootstrap" in manifest.packs
 
-    def test_covid_bigquery_pack_exists(self) -> None:
-        manifest = _load_bundled_registry()
-        assert "covid-bigquery" in manifest.packs
-
     def test_showcase_ecommerce_pack_exists(self) -> None:
         manifest = _load_bundled_registry()
         assert "showcase-ecommerce" in manifest.packs
@@ -97,5 +93,4 @@ class TestListPacks:
         ):
             packs = list_packs()
         assert "bootstrap" in packs
-        assert "covid-bigquery" in packs
         assert "showcase-ecommerce" in packs

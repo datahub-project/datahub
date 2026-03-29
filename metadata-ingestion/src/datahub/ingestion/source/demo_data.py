@@ -13,7 +13,7 @@ Usage in a recipe:
     source:
       type: demo-data
       config:
-        pack_name: "covid-bigquery"
+        pack_name: "showcase-ecommerce"
         no_time_shift: false
 """
 
@@ -44,7 +44,7 @@ class DemoDataConfig(ConfigModel):
 
     pack_name: Optional[str] = Field(
         default="bootstrap",
-        description="Name of a data pack from the registry (e.g. 'bootstrap', 'covid-bigquery').",
+        description="Name of a data pack from the registry (e.g. 'bootstrap', 'showcase-ecommerce').",
     )
     pack_url: Optional[str] = Field(
         default=None,

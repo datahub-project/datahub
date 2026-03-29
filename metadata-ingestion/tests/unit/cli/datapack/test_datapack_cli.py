@@ -16,7 +16,7 @@ class TestListCommand:
         result = runner.invoke(datapack, ["list"])
         assert result.exit_code == 0
         assert "bootstrap" in result.output
-        assert "covid-bigquery" in result.output
+        assert "showcase-ecommerce" in result.output
 
     def test_list_json_output(self) -> None:
         runner = CliRunner()
@@ -27,9 +27,9 @@ class TestListCommand:
 
     def test_list_filter_by_tag(self) -> None:
         runner = CliRunner()
-        result = runner.invoke(datapack, ["list", "--tag", "covid"])
+        result = runner.invoke(datapack, ["list", "--tag", "showcase"])
         assert result.exit_code == 0
-        assert "covid-bigquery" in result.output
+        assert "showcase-ecommerce" in result.output
         assert "bootstrap" not in result.output
 
     def test_list_filter_by_nonexistent_tag(self) -> None:

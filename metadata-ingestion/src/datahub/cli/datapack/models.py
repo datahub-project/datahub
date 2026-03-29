@@ -20,7 +20,7 @@ class DataPackInfo(ConfigModel):
     """Metadata about a data pack available for loading into DataHub."""
 
     name: str = Field(
-        description="Pack identifier (e.g. 'bootstrap', 'covid-bigquery')"
+        description="Pack identifier (e.g. 'bootstrap', 'showcase-ecommerce')"
     )
     description: str = Field(
         description="Human-readable description of the pack contents"

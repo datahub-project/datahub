@@ -22,17 +22,6 @@
       "reference_timestamp": 1769615173327,
       "min_server_version": "0.14.0",
       "pack_format_version": "1"
-    },
-    "covid-bigquery": {
-      "name": "covid-bigquery",
-      "description": "COVID-19 BigQuery dataset with 215 MCEs including lineage and profiling",
-      "url": "https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-ingestion/examples/demo_data/demo_data.json",
-      "size_hint": "~3.2 MB",
-      "tags": ["demo", "bigquery", "covid"],
-      "trust": "verified",
-      "reference_timestamp": 1621882982738,
-      "min_server_version": "0.14.0",
-      "pack_format_version": "1"
     }
   }
 }
