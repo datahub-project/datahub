@@ -51,7 +51,15 @@ def is_cached(pack: DataPackInfo) -> bool:
     return _cached_path(pack).exists()
 
 
-def download_pack(pack: DataPackInfo, no_cache: bool = False) -> pathlib.Path:
+@dataclass
+class IndexFileEntry:
+    """An entry in an index file, representing a data file to load."""
+
+    path: pathlib.Path
+    wait_for_completion: bool = False
+
+
+def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileEntry]:
     """Download a data pack file, using local cache when available.
 
     Args:
@@ -59,7 +67,7 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> pathlib.Path:
         no_cache: If True, force re-download even if cached.
 
     Returns:
-        Path to the downloaded (or cached) data file.
+        List of IndexFileEntry objects for the pack's data files.
 
     Raises:
         click.ClickException: On download failure or SHA256 mismatch.
@@ -129,14 +137,6 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> pathlib.Path:
     entries = _resolve_index_file(cache_path, pack, no_cache)
 
     return entries
-
-
-@dataclass
-class IndexFileEntry:
-    """An entry in an index file, representing a data file to load."""
-
-    path: pathlib.Path
-    wait_for_completion: bool = False
 
 
 def _resolve_index_file(
