@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -65,7 +64,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
-@RequiredArgsConstructor
 @Accessors(chain = true)
 public class ESSearchDAO {
 
@@ -76,6 +74,26 @@ public class ESSearchDAO {
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final boolean testLoggingEnabled;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
+  @Nullable private final MetricUtils metricUtils;
+
+  public ESSearchDAO(
+      SearchClientShim<?> client,
+      boolean pointInTimeCreationEnabled,
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      boolean testLoggingEnabled,
+      @Nonnull SearchServiceConfiguration searchServiceConfig,
+      @Nullable MetricUtils metricUtils) {
+    this.client = client;
+    this.pointInTimeCreationEnabled = pointInTimeCreationEnabled;
+    this.searchConfiguration = searchConfiguration;
+    this.customSearchConfiguration = customSearchConfiguration;
+    this.queryFilterRewriteChain = queryFilterRewriteChain;
+    this.testLoggingEnabled = testLoggingEnabled;
+    this.searchServiceConfig = searchServiceConfig;
+    this.metricUtils = metricUtils;
+  }
 
   public ESSearchDAO(
       SearchClientShim<?> client,
@@ -91,7 +109,8 @@ public class ESSearchDAO {
         customSearchConfiguration,
         queryFilterRewriteChain,
         false,
-        searchServiceConfig);
+        searchServiceConfig,
+        null);
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
@@ -115,7 +134,7 @@ public class ESSearchDAO {
         "docCount",
         () -> {
           try {
-            return client.count(countRequest, RequestOptions.DEFAULT).getCount();
+            return timedEntityCount("count", countRequest);
           } catch (IOException e) {
             log.error("Count query failed:" + e.getMessage());
             throw new ESQueryException("Count query failed:", e);
@@ -142,7 +161,7 @@ public class ESSearchDAO {
           SearchResponse searchResponse = null;
           try {
             log.debug("Executing request {}: {}", id, searchRequest);
-            searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+            searchResponse = timedEntitySearch("search", searchRequest);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext.getSearchContext().getIndexConvention(),
@@ -255,8 +274,7 @@ public class ESSearchDAO {
         "executeAndExtract_scroll",
         () -> {
           try {
-            final SearchResponse searchResponse =
-                client.search(searchRequest, RequestOptions.DEFAULT);
+            final SearchResponse searchResponse = timedEntitySearch("search_scroll", searchRequest);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext.getSearchContext().getIndexConvention(),
@@ -432,7 +450,7 @@ public class ESSearchDAO {
       Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
           buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
       SearchResponse searchResponse =
-          client.search(searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
+          timedEntitySearch("autocomplete", searchRequestAndBuilder.getLeft());
       return searchRequestAndBuilder.getRight().extractResult(opContext, searchResponse, query);
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());
@@ -493,8 +511,7 @@ public class ESSearchDAO {
           try {
             final SearchRequest searchRequest =
                 buildAggregateByValue(opContext, entityNames, field, requestParams, limit);
-            final SearchResponse searchResponse =
-                client.search(searchRequest, RequestOptions.DEFAULT);
+            final SearchResponse searchResponse = timedEntitySearch("aggregate", searchRequest);
             // extract results, validated against document model as well
             return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
           } catch (Exception e) {
@@ -696,7 +713,7 @@ public class ESSearchDAO {
                         opContext.getSearchContext().getIndexConvention().getIndexName(indexName));
                 searchRequest.source(searchSourceBuilder);
 
-                return client.search(searchRequest, RequestOptions.DEFAULT);
+                return timedEntitySearch("raw", searchRequest);
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -731,8 +748,7 @@ public class ESSearchDAO {
                 SearchRequest searchRequest = new SearchRequest(indexName);
                 searchRequest.source(searchSourceBuilder);
 
-                return Map.entry(
-                    entry.getKey(), client.search(searchRequest, RequestOptions.DEFAULT));
+                return Map.entry(entry.getKey(), timedEntitySearch("raw_entity", searchRequest));
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -797,6 +813,32 @@ public class ESSearchDAO {
               mapper.writeValueAsString(mapper.readTree(searchRequest.source().toString()))));
     } catch (JsonProcessingException e) {
       log.warn("Error writing test log");
+    }
+  }
+
+  private SearchResponse timedEntitySearch(String operation, SearchRequest req) throws IOException {
+    if (metricUtils == null) {
+      return client.search(req, RequestOptions.DEFAULT);
+    }
+    long t0 = System.nanoTime();
+    try {
+      return client.search(req, RequestOptions.DEFAULT);
+    } finally {
+      metricUtils.recordElasticsearch(
+          System.nanoTime() - t0, MetricUtils.SUBSYSTEM_ELASTICSEARCH, operation);
+    }
+  }
+
+  private long timedEntityCount(String operation, CountRequest countRequest) throws IOException {
+    if (metricUtils == null) {
+      return client.count(countRequest, RequestOptions.DEFAULT).getCount();
+    }
+    long t0 = System.nanoTime();
+    try {
+      return client.count(countRequest, RequestOptions.DEFAULT).getCount();
+    } finally {
+      metricUtils.recordElasticsearch(
+          System.nanoTime() - t0, MetricUtils.SUBSYSTEM_ELASTICSEARCH, operation);
     }
   }
 }

@@ -41,7 +41,7 @@ import com.linkedin.view.DataHubViewType;
 import graphql.execution.DataFetcherResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;

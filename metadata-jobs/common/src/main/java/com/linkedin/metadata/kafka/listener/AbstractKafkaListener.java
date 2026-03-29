@@ -70,7 +70,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                 metricUtils
                     .getRegistry()
                     .timer(
-                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                        MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
                         "topic",
                         consumerRecord.topic(),
                         "consumer.group",
@@ -162,8 +162,10 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                     systemOperationContext
                         .getMetricUtils()
                         .ifPresent(
-                            metricUtils ->
-                                metricUtils.increment(this.getClass(), hookName + "_failure", 1));
+                            metricUtils -> {
+                              metricUtils.increment(this.getClass(), hookName + "_failure", 1);
+                              metricUtils.incrementHookFailure(hookName, consumerGroupId);
+                            });
                     log.error(
                         "Failed to execute hook with name {}",
                         hook.getClass().getCanonicalName(),

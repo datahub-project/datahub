@@ -59,7 +59,7 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
 
   private void configureComponents() {
     _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
-    _aspectDao = new CassandraAspectDao(_currentSession, List.of(), null);
+    _aspectDao = new CassandraAspectDao(_currentSession, List.of(), null, null);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);

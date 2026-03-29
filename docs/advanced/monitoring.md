@@ -23,8 +23,9 @@ DataHub's observability strategy consists of two complementary approaches:
    **Purpose:** Aggregate statistical data about system behavior over time
    **Technology:** Transitioning from DropWizard/JMX to Micrometer
 
-   **Current State:** DropWizard metrics exposed via JMX, collected by Prometheus
-   **Future Direction:** Native Micrometer integration for Spring-based metrics
+   **Current State:** Micrometer is primary for new metrics (Actuator `/actuator/prometheus`); legacy Dropwizard-style meters may still appear for older dashboards
+   **Direction:** Align alerts and Grafana with the [canonical metric taxonomy](#canonical-metric-taxonomy-prometheus); reduce reliance on JMX-only names
+   **Naming stability:** Actuator metric names and tags are still **evolving** and are not a compatibility guarantee across releases until called out explicitly in docs; legacy JMX-style series are the main backward-compatibility concern for existing panels.
    **Compatibility:** Prometheus-compatible format with support for other metrics backends
 
    Key Metrics Categories:
@@ -164,7 +165,7 @@ fieldLevelPaths: "/**/lineage/**,/**/relationships/**,/**/privileges"
 
 ### Architecture
 
-The GraphQL instrumentation is implemented through `GraphQLTimingInstrumentation`, which extends GraphQL Java's instrumentation framework. It provides:
+The GraphQL instrumentation is implemented through DataHub’s [`GraphQLTimingInstrumentation`](../../metadata-io/src/main/java/com/linkedin/metadata/system_telemetry/GraphQLTimingInstrumentation.java) (`com.linkedin.metadata.system_telemetry`), which extends GraphQL Java’s `SimplePerformantInstrumentation` and records Micrometer meters—it is **not** a Spring Framework class. It provides:
 
 - **Request-level metrics**: Overall query performance and error tracking
 - **Field-level metrics**: Detailed timing for individual field resolvers
@@ -454,20 +455,20 @@ Kafka queue time instrumentation is implemented across all DataHub consumers:
 - DataHubUsageEventsProcessor - Usage analytics events
 - PlatformEventProcessor - Platform operations & external consumers
 
-Each consumer automatically records queue time metrics using the message's embedded timestamp.
+Each consumer records **record age** at processing time: `now - ConsumerRecord.timestamp()` (Micrometer name `datahub.kafka.consumer.record_age`).
 
 ### Metrics Collected
 
 #### Core Metric
 
-Metric: `kafka.message.queue.time`
+Metric: `datahub.kafka.consumer.record_age`
 
 - Type: Timer with configurable percentiles and SLO buckets
-- Unit: Milliseconds
+- Unit: Seconds on Prometheus (`_seconds` suffix); source measurement is milliseconds
 - Tags:
   - topic: Kafka topic name (e.g., "MetadataChangeProposal_v1")
   - consumer.group: Consumer group ID (e.g., "generic-mce-consumer")
-- Use Case: Monitor end-to-end latency from message production to SQL transaction
+- Use Case: Consumer lag / record age from the Kafka record timestamp to when the consumer handles the message
 
 #### Statistical Distribution
 
@@ -503,8 +504,8 @@ SLA Compliance Monitoring:
 
 ```promql
 # Percentage of messages processed within 5-minute SLA
-sum(rate(kafka_message_queue_time_seconds_bucket{le="300"}[5m])) by (topic)
-/ sum(rate(kafka_message_queue_time_seconds_count[5m])) by (topic) * 100
+sum(rate(datahub_kafka_consumer_record_age_seconds_bucket{le="300"}[5m])) by (topic)
+/ sum(rate(datahub_kafka_consumer_record_age_seconds_count[5m])) by (topic) * 100
 ```
 
 Consumer Group Comparison:
@@ -513,7 +514,7 @@ Consumer Group Comparison:
 # P99 queue time by consumer group
 histogram_quantile(0.99,
   sum by (consumer_group, le) (
-    rate(kafka_message_queue_time_seconds_bucket[5m])
+    rate(datahub_kafka_consumer_record_age_seconds_bucket[5m])
   )
 )
 ```
@@ -534,16 +535,11 @@ Overhead Assessment:
 - Memory Impact: ~5KB per topic/consumer-group combination
 - Network Impact: Negligible - metrics aggregated before export
 
-#### Migration from Legacy Metrics
+#### Relation to legacy `kafkaLag`
 
-The new Micrometer-based queue time metrics coexist with the legacy DropWizard `kafkaLag` histogram:
+The Micrometer timer `datahub.kafka.consumer.record_age` is the **preferred** signal for consumer queue delay on the Prometheus path. A Dropwizard-style `kafkaLag` histogram may still be emitted for older JMX-oriented scrapes. Operators moving to `/actuator/prometheus` should use the Micrometer timer; **its name and tags are not locked** until observability is declared stable (see [Canonical metric taxonomy](#canonical-metric-taxonomy-prometheus)).
 
-- Legacy: `kafkaLag` histogram via JMX
-- New: `kafka.message.queue.time` timer via Micrometer
-- Migration: Both metrics collected during transition period
-- Future: Legacy metrics will be deprecated in favor of Micrometer
-
-The new metrics provide:
+Micrometer queue-time metrics provide:
 
 - Better percentile accuracy
 - SLO bucket tracking
@@ -582,7 +578,7 @@ Hook latency metrics are configured separately from Kafka consumer metrics to al
 ```yaml
 datahub:
   metrics:
-    # Measures the time from request to post-MCL hook execution
+    # MCL hook trace lag: trace timestamp in system metadata to successful hook completion
     hookLatency:
       # Percentiles to calculate for latency distribution
       percentiles: "0.5,0.95,0.99,0.999"
@@ -600,13 +596,13 @@ datahub:
 
 #### Core Metric
 
-Metric: `datahub.request.hook.queue.time`
+Metric: `datahub.mcl.hook.trace_lag`
 
 - Type: Timer with configurable percentiles and SLO buckets
-- Unit: Milliseconds
+- Unit: Seconds in Prometheus (`_seconds` suffix); recorded from wall-clock lag in the consumer
 - Tags:
   - `hook`: Name of the MCL hook being executed (e.g., "IngestionSchedulerHook", "SiblingsHook")
-- Use Case: Monitor the complete latency from request submission to hook exe
+- Use Case: Lag from the DataHub trace timestamp embedded in MCL system metadata to successful hook completion (not HTTP request latency)
 
 #### Key Monitoring Patterns
 
@@ -615,9 +611,9 @@ SLA Compliance by Hook:
 Monitor which hooks are meeting their latency SLAs:
 
 ```promql
-# Percentage of requests processed within 5-minute SLA per hook
-sum(rate(datahub_request_hook_queue_time_seconds_bucket{le="300"}[5m])) by (hook)
-/ sum(rate(datahub_request_hook_queue_time_seconds_count[5m])) by (hook) * 100
+# Percentage of hook completions within 5-minute trace-lag SLA per hook
+sum(rate(datahub_mcl_hook_trace_lag_seconds_bucket{le="300"}[5m])) by (hook)
+/ sum(rate(datahub_mcl_hook_trace_lag_seconds_count[5m])) by (hook) * 100
 ```
 
 Hook Performance Comparison:
@@ -628,7 +624,7 @@ Identify which hooks have the highest latency:
 # P99 latency by hook
 histogram_quantile(0.99,
   sum by (hook, le) (
-    rate(datahub_request_hook_queue_time_seconds_bucket[5m])
+    rate(datahub_mcl_hook_trace_lag_seconds_bucket[5m])
   )
 )
 ```
@@ -640,52 +636,53 @@ Track how hook latency changes over time:
 ```promql
 # Average hook latency trend
 avg by (hook) (
-  rate(datahub_request_hook_queue_time_seconds_sum[5m])
-  / rate(datahub_request_hook_queue_time_seconds_count[5m])
+  rate(datahub_mcl_hook_trace_lag_seconds_sum[5m])
+  / rate(datahub_mcl_hook_trace_lag_seconds_count[5m])
 )
 ```
 
 #### Implementation Details
 
-The hook latency metric leverages the trace ID embedded in the system metadata of each request:
+The hook trace-lag metric uses the trace ID embedded in MCL system metadata:
 
-1. Trace ID Generation: Each request generates a unique trace ID with an embedded timestamp
-1. Propagation: The trace ID flows through the entire processing pipeline via system metadata
-1. Measurement: When an MCL hook executes, the metric calculates the time difference between the current time and the trace ID timestamp
-1. Recording: The latency is recorded as a timer metric with the hook name as a tag
+1. Trace ID generation: A DataHub trace ID encodes a timestamp when the change is initiated
+1. Propagation: The trace ID flows through the pipeline via system metadata on the MCL
+1. Measurement: After a hook succeeds, the consumer records `now - trace_timestamp`
+1. Recording: The value is stored as a timer with the hook simple class name as tag `hook`
 
 #### Performance Considerations
 
 - Overhead: Minimal - only requires trace ID extraction and time calculation per hook execution
 - Cardinality: Low - only one tag (hook name) with typically < 20 unique values
-- Accuracy: High - measures actual wall-clock time from request to hook execution
+- Accuracy: High for DataHub trace IDs; omitted when trace ID is missing or not DataHub-shaped (e.g. some W3C-only IDs)
 
 #### Relationship to Kafka Queue Time Metrics
 
-While Kafka queue time metrics (`kafka.message.queue.time`) measure the time messages spend in Kafka topics, request hook
-latency metrics provide the complete picture:
+While Kafka record-age metrics (`datahub.kafka.consumer.record_age`) measure wall-clock lag from the record timestamp to consumption, MCL hook
+trace lag measures end-to-end pipeline delay from the trace timestamp:
 
-- Kafka Queue Time: Time from message production to consumption
-- Hook Latency: Time from initial request to final hook execution
+- Kafka queue time: Time from message production to consumption
+- MCL hook trace lag: Time from embedded trace timestamp to successful hook execution
 
 Together, these metrics help identify where delays occur:
 
-- High Kafka queue time but low hook latency: Bottleneck in Kafka consumption
-- Low Kafka queue time but high hook latency: Bottleneck in processing or persistence
+- High Kafka queue time but low MCL trace lag: Bottleneck in Kafka consumption
+- Low Kafka queue time but high MCL trace lag: Bottleneck in processing or persistence
 - Both high: System-wide performance issues
 
 ## Aspect Size Validation Metrics
 
 Emitted on all aspect writes (REST, GraphQL, MCP) to track sizes and detect oversized aspects.
 
-**Metrics:**
+**Metrics** (constants in [`MetricUtils`](../../metadata-utils/src/main/java/com/linkedin/metadata/utils/metrics/MetricUtils.java)):
 
-- `aspectSizeValidation.prePatch.sizeDistribution` - Size distribution of existing aspects (tags: aspectName, sizeBucket)
-- `aspectSizeValidation.postPatch.sizeDistribution` - Size distribution of aspects being written (tags: aspectName, sizeBucket)
-- `aspectSizeValidation.prePatch.oversized` - Oversized aspects found in database (tags: aspectName, remediation)
-- `aspectSizeValidation.postPatch.oversized` - Oversized aspects rejected during writes (tags: aspectName, remediation)
-- `aspectSizeValidation.prePatch.warning` - Aspects approaching limit in database (tags: aspectName)
-- `aspectSizeValidation.postPatch.warning` - Aspects approaching limit during writes (tags: aspectName)
+- `datahub.validation.aspect_size.pre_patch.size_distribution` — size distribution of existing aspects (tags: `aspectName`, `sizeBucket`)
+- `datahub.validation.aspect_size.post_patch.size_distribution` — size distribution of aspects being written (tags: `aspectName`, `sizeBucket`)
+- `datahub.validation.aspect_size.pre_patch.oversized` — oversized aspects found in database (tags: `aspectName`, `remediation`)
+- `datahub.validation.aspect_size.post_patch.oversized` — oversized aspects rejected during writes (tags: `aspectName`, `remediation`)
+- `datahub.validation.aspect_size.pre_patch.warning` — aspects approaching limit in database (tags: `aspectName`)
+- `datahub.validation.aspect_size.post_patch.warning` — aspects approaching limit during writes (tags: `aspectName`)
+- `datahub.validation.aspect_size.remediation_deletion.success` / `.failure` — DELETE remediation outcomes (EntityService)
 
 **Configuration:**
 
@@ -977,21 +974,195 @@ popular monitoring systems, allowing you to instrument your JVM-based applicatio
    - More flexible dashboards and alerts
    - Natural integration with cloud-native monitoring systems
 
+## Canonical metric taxonomy (Prometheus)
+
+This section is the **operator-facing catalog** for Micrometer meters that DataHub emits (or expects from Spring / JVM). Implementation work should match these names and tags; **do not add new meter names or labels** without updating this document and reviewing cardinality.
+
+**Stability:** Micrometer and Prometheus-exposed names/tags in this catalog are **not yet treated as a frozen public API**. DataHub can rename or retag them release-to-release for clarity, cardinality, or alignment with Spring defaults until observability is broadly finalized. Plan on checking [Updating DataHub](../how/updating-datahub.md) and this page when upgrading. **Backward-compatibility pressure applies mainly to legacy JMX / `metrics_com_*` scrape names** and existing dashboards that still target those—not to preserving every early Micrometer string forever.
+
+### Metric domains (hierarchy)
+
+Logical grouping for dashboards and alert routing:
+
+| Domain                    | Prefix / family                     | Components                    | Notes                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------- | ----------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GraphQL**               | `graphql.*`                         | GMS                           | DataHub’s GMS GraphQL API (`POST/GET /graphql`), instrumented by [`GraphQLTimingInstrumentation`](../../metadata-io/src/main/java/com/linkedin/metadata/system_telemetry/GraphQLTimingInstrumentation.java) (GraphQL Java + Micrometer). Meter **names** use the conventional `graphql.*` prefix (not `datahub.graphql.*`). See [Normalizing HTTP API metrics](#normalizing-http-api-metrics-graphql-vs-openapi). |
+| **OpenAPI (REST)**        | `http.server.requests`              | GMS                           | DataHub’s [OpenAPI v3](../api/openapi/openapi-usage-guide.md) tier (`/openapi/v3/**`, related Spring MVC routes). Uses Spring Boot **HTTP server observation**—no separate `openapi.*` prefix. See [Normalizing HTTP API metrics](#normalizing-http-api-metrics-graphql-vs-openapi).                                                                                                                              |
+| **Kafka consumer**        | `datahub.kafka.consumer.record_age` | GMS, MCE, MAE, …              | Timer; tags `topic`, `consumer.group` only.                                                                                                                                                                                                                                                                                                                                                                       |
+| **Pipeline hooks**        | `datahub.mcl.hook.trace_lag`        | GMS, MAE, …                   | Timer; tag `hook` (simple class name).                                                                                                                                                                                                                                                                                                                                                                            |
+| **Hook failures**         | `datahub.mcl.hook.failures`         | MAE (MCL listeners)           | Counter; tags `hook`, `consumer.group`. Class-scoped `*_failure` meters may still appear on the JMX/legacy path; prefer this family for Prometheus.                                                                                                                                                                                                                                                               |
+| **Auth / login**          | `datahub.auth.login_outcomes`       | GMS (`AuthServiceController`) | Counter; see auth row below.                                                                                                                                                                                                                                                                                                                                                                                      |
+| **API traffic**           | `datahub.api.traffic`               | GMS                           | Counter; tags `user_category`, `agent_class`, `request_api`, optional `agent_skill` / `agent_caller` from `X-DataHub-Context`. Actuator: `datahub_api_traffic_total`; legacy `requestContext_*` remains on JMX path.                                                                                                                                                                                              |
+| **Aspect validation**     | `datahub.validation.aspect_size.*`  | GMS                           | Optional aspect size checks; counters under `datahub.validation.aspect_size.*` (see [Aspect Size Validation Metrics](#aspect-size-validation-metrics)). High tag cardinality if misconfigured.                                                                                                                                                                                                                    |
+| **Storage (metadata)**    | `datahub.metadata_store`            | GMS (entity store)            | Ebean (SQL-backed) and Cassandra (CQL) access latency; same meter name—tags `subsystem` (`ebean`, `cassandra`) and `operation` (`get`, `batch_get`, `save`, …).                                                                                                                                                                                                                                                   |
+| **Graph (relationships)** | `datahub.graph`                     | GMS                           | Graph / lineage query latency; tags `subsystem` (`elasticsearch` today; `neo4j` when instrumented) and `operation` (`search`, `search_pit`). Same meter name for all graph backends.                                                                                                                                                                                                                              |
+| **Timeseries aspects**    | `datahub.timeseries_aspect`         | GMS                           | Timeseries-aspect read/write latency; tags `subsystem` (`elasticsearch` today) and `operation`.                                                                                                                                                                                                                                                                                                                   |
+| **Entity search + usage** | `datahub.search`                    | GMS                           | Search / usage-index latency (Elasticsearch today); tags `subsystem` (`elasticsearch`) and `operation` (entity paths use values such as `search`, `autocomplete`; usage index uses `usage_search`).                                                                                                                                                                                                               |
+| **Caches**                | `cache.*`                           | GMS, consumers                | Opt-in via `management.metrics.cache.enabled`.                                                                                                                                                                                                                                                                                                                                                                    |
+| **Platform**              | JVM, HTTP, Actuator                 | All JVM services              | Standard Spring Boot / Micrometer; scrape `/actuator/prometheus` where enabled.                                                                                                                                                                                                                                                                                                                                   |
+
+### Normalizing HTTP API metrics (GraphQL vs OpenAPI)
+
+GraphQL and OpenAPI are both HTTP APIs on GMS, but Micrometer exposes them through **different instrumentations**:
+
+- **GraphQL** — Operation-level timers and error counters (`graphql.request.*`, `graphql.field.*` if enabled). The same traffic also produces **one** `http.server.requests` series for the servlet path **`/graphql`**, optionally prefixed by GMS base path (see [Base path configuration](../deploy/BASE_PATH_CONFIGURATION.md)).
+- **OpenAPI** — **`http.server.requests`** only (per route pattern on `/openapi/...`).
+
+Do **not** treat `graphql.request.*` and `http.server.requests` for `/graphql` as interchangeable counts—they measure different layers (operation vs single HTTP exchange). For OpenAPI there is no separate `openapi.*` family today; **`http.server.requests` is the source of truth** for latency and status codes.
+
+**Recommended “normalized” view (query-time, low cardinality)**
+
+Use a **small, fixed set of surface labels** in Prometheus recording rules or dashboard queries—derive them from path prefixes and meter family, not from raw URNs or unbounded paths:
+
+| API surface | Primary SLO signals                                                  | Optional coarse HTTP view (`http.server.requests`)                              |
+| ----------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| GraphQL     | `graphql_request_duration_seconds_*`, `graphql_request_errors_total` | Match `uri` to `**/graphql` (include context path in the regex you deploy with) |
+| OpenAPI     | `http_server_requests_seconds_*` with `uri` matching `**/openapi/**` | Same series                                                                     |
+
+Example idea for a **unified error-pressure panel** (illustrative—adjust labels and regexes to your scrape):
+
+```promql
+# GraphQL: application-level errors (not HTTP 4xx/5xx on the wire only)
+sum(rate(graphql_request_errors_total[5m]))
+
+# OpenAPI: HTTP 5xx rate (narrow uri pattern to your deployment)
+sum(rate(http_server_requests_seconds_count{status=~"5..",uri=~".*/openapi/.*"}[5m]))
+```
+
+To **sum into one chart**, use `label_replace` or recording rules that attach a shared label such as `datahub_api_surface="graphql"` vs `openapi`—keep **only those two values** (plus `other` if you add more rules later) so cardinality stays bounded.
+
+**Optional future: normalize in the application**
+
+If query-time joins are too awkward, a follow-up can add a **single bounded tag** (e.g. `datahub.api.surface` with values `graphql` \| `openapi` \| `other`) on observations—design it explicitly so `uri` is never copied verbatim into new tags.
+
+**Prefix consistency:** Names are **not** all under `datahub.*` on purpose.
+
+- **Spring / Micrometer instrumentation names** — DataHub runs Spring Boot and enables standard instrumentation where the framework defines meters (e.g. **`http.server.requests`**, `cache.*`, JVM). GraphQL request/field timers use the conventional **`graphql.*`** names emitted by DataHub’s own [`GraphQLTimingInstrumentation`](../../metadata-io/src/main/java/com/linkedin/metadata/system_telemetry/GraphQLTimingInstrumentation.java), which aligns with common Micrometer GraphQL examples even though the class lives in this repo. Do **not** duplicate the same signals under `datahub.*`.
+- **DataHub-prefixed application metrics** — Use `datahub.*` for meters defined in DataHub code and listed here (e.g. `datahub.mcl.hook.trace_lag`, `datahub.mcl.hook.failures`, `datahub.auth.login_outcomes`, `datahub.validation.aspect_size.*`). **New** custom application meters should use this prefix unless they are clearly part of a Spring-managed family above.
+
+**Opt-in instrumentation:** Feature flags and environment variables turn on extra Micrometer meters (GraphQL field-level timers, cache stats, optional validation counters, Kafka hook failures, and similar). **Only code paths that actually run** register series—enabling a flag does not create a useful time series until traffic hits that instrumentation. After you opt in, scrape `/actuator/prometheus` and confirm the **catalog names** you expect (for example `graphql_request_duration_seconds_*` for GraphQL latency, not a parallel `datahub.graphql.*` duplicate).
+
+**Label-based routing:** Many deployments scrape **both** a JMX-exporter target (long `metrics_com_*` / Dropwizard-style names) **and** Spring Actuator on the same logical service. Prometheus `metric_relabel_configs`, recording rules, Grafana variables, or per-panel datasource routing then **choose which registry** backs a chart. When you move a panel to Micrometer, point that route at the Actuator scrape and rewrite PromQL to use **low-cardinality labels** (`operation`, `success`, `hook`, `topic`, …) on a **small set of families** (`graphql_request_duration_seconds_*`, `datahub_mcl_hook_failures_total`, …). Avoid perpetuating legacy patterns that regex-match dozens of `__name__` values (`*_Mean`, `*_95thPercentile`, typo’d percentile spellings, and so on) unless you still depend on the JMX path.
+
+**Prometheus mapping:** Java/Micrometer uses **dot-separated** logical names. Prometheus exposition typically maps dots to underscores (counters gain `_total`, e.g. `datahub_auth_login_outcomes_total`).
+
+### Domain meter names vs `subsystem` tag {#domain-meter-names-vs-subsystem-tags}
+
+Use **stable, domain-focused** meter names (`datahub.graph`, `datahub.search`, `datahub.timeseries_aspect`, …). Use **`subsystem` only for the backing technology** (e.g. `elasticsearch`, `neo4j`, `cassandra`, `ebean`)—the meter name already states the domain, so do not repeat it inside `subsystem` (avoid values like `graph_elasticsearch`). Add **`operation`** for coarse steps within that meter. **Do not** add a parallel `implementation` label on these timers.
+
+| Concept                | How it appears | Examples / notes                                                                                                                                                                     |
+| ---------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Backend technology** | `subsystem`    | `elasticsearch` (graph, timeseries, and search meters today), `neo4j` (graph when instrumented), `cassandra`, `ebean` (metadata entity store via Ebean on `datahub.metadata_store`). |
+| **Operation / role**   | `operation`    | Coarse step name inside the domain (not index names, not SQL text): `search`, `batch_get`, `search_pit`, `usage_search` (usage index on `datahub.search`).                           |
+
+**Legitimate split across multiple meter names:** When the **functional domain** differs—not only the backing vendor—separate meters are OK. Example: `datahub.graph`, `datahub.timeseries_aspect`, and `datahub.search` are different domains even when all use Elasticsearch today; each keeps its own meter name while **`subsystem`** carries the technology (`elasticsearch`, and later `neo4j` for graph if instrumented). For the metadata entity store, **one** meter (`datahub.metadata_store`) covers both Ebean and Cassandra; use **`subsystem`** (`ebean` vs `cassandra`) plus **`operation`**.
+
+**Spring-managed meters** (e.g. `http.server.requests`, `graphql.request.*`, `cache.*`) follow upstream Micrometer naming; this convention applies to **DataHub-defined** `datahub.*` application meters in [`MetricUtils`](../../metadata-utils/src/main/java/com/linkedin/metadata/utils/metrics/MetricUtils.java).
+
+### Cardinality rules
+
+- **Allowed tag keys** for new application meters: `hook`, `topic`, `consumer.group`, coarse `operation` / `resource`, `result`, `login_source`, `denial_reason` (enum-valued), for API traffic `user_category`, `agent_class`, `request_api`, and optional `agent_skill` / `agent_caller` (sanitized, allowlisted-header keys only—see [`DataHubContextParser`](../../metadata-operation-context/src/main/java/io/datahubproject/metadata/context/request/DataHubContextParser.java)), and for `datahub.metadata_store`, `datahub.graph`, `datahub.timeseries_aspect`, and `datahub.search` use **`subsystem`** (bounded **technology** values such as `elasticsearch`, `neo4j`, `ebean`, `cassandra`) plus coarse **`operation`**—**not** a separate `implementation` tag.
+- **Do not** use entity URNs, raw search text, SQL, exception messages, or unbounded strings as label values.
+- **GraphQL field-level metrics** multiply series; keep `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED=false` in production unless you explicitly accept the cost (see [Environment variables – GraphQL](../deploy/environment-vars.md#graphql-configuration)).
+- **HTTP `uri` (or route) tags** on `http.server.requests` can explode cardinality if raw paths are used. Prefer Spring’s templated patterns where possible; scope dashboards and alerts with conservative matchers (e.g. prefix on `/openapi/`).
+
+### Metric catalog
+
+| Meter (logical name)                              | Type            | Component       | Tags (allowed values)                                                        | Cardinality note                                                      | Typical consumer                                                                                                                                                                                                 |
+| ------------------------------------------------- | --------------- | --------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `graphql.request.duration`                        | Timer           | GMS             | `operation`, `operation.type`, `success`, `field.filtering`                  | Per-operation; bounded by registered operations                       | Dashboards, latency SLOs                                                                                                                                                                                         |
+| `graphql.request.errors`                          | Counter         | GMS             | `operation`, `operation.type`                                                | Same                                                                  | **GraphQL error-rate alerts** (replaces legacy `GraphQLController_error_Count` when queries are migrated)                                                                                                        |
+| `http.server.requests`                            | Timer           | GMS             | `method`, `status`, `uri` (and other Boot defaults)                          | Grows with distinct route patterns; watch `uri`                       | **OpenAPI parity:** latency and status for `/openapi/**` alongside GraphQL; example: `sum(rate(http_server_requests_seconds_count{uri=~"/openapi.*"}[5m])) by (status, method)`                                  |
+| `graphql.field.duration` / `graphql.field.errors` | Timer / counter | GMS             | Field-level tags (if enabled)                                                | **High** when field-level enabled                                     | Debugging only                                                                                                                                                                                                   |
+| `datahub.kafka.consumer.record_age`               | Timer           | Kafka consumers | `topic`, `consumer.group` only                                               | Topics × groups × histogram buckets                                   | Lag / queue delay vs legacy `kafkaLag`                                                                                                                                                                           |
+| `datahub.mcl.hook.trace_lag`                      | Timer           | GMS, MAE, …     | `hook`                                                                       | Bounded hook set × buckets                                            | Trace timestamp → successful MCL hook completion                                                                                                                                                                 |
+| `datahub.mcl.hook.failures`                       | Counter         | MAE             | `hook`, `consumer.group`                                                     | Hooks × groups                                                        | MCL hook invoke failures (`sum by (hook) (rate(...))`)                                                                                                                                                           |
+| `datahub.auth.login_outcomes`                     | Counter         | GMS             | `operation`, `result`, `login_source`, `denial_reason`                       | Fixed enums                                                           | Login success/failure dashboards; aligns with `LoginDenialReason` / `LoginSource`                                                                                                                                |
+| `datahub.api.traffic`                             | Counter         | GMS             | `user_category`, `agent_class`, `request_api`, `agent_skill`, `agent_caller` | Bounded agent dimension tags × tier × HTTP client class × API surface | **API usage on Actuator:** `datahub_api_traffic_total`; optional `X-DataHub-Context` header (`skill` / `caller` only). Legacy JMX path still emits `requestContext_*` without context dimensions.                |
+| `datahub.validation.aspect_size.*`                | Counter         | GMS             | `aspectName`, `sizeBucket`, `remediation` (varies by meter)                  | Can grow if enabled broadly                                           | Tier 3 / troubleshooting; see [Aspect Size Validation Metrics](#aspect-size-validation-metrics)                                                                                                                  |
+| `datahub.metadata_store`                          | Timer           | GMS             | `subsystem`, `operation`                                                     | `ebean` or `cassandra` × bounded op names                             | Metadata entity store: `EbeanAspectDao` (`subsystem=ebean`) and `CassandraAspectDao` (`subsystem=cassandra`)                                                                                                     |
+| `datahub.graph`                                   | Timer           | GMS             | `subsystem`, `operation`                                                     | `elasticsearch` today × bounded op names                              | Relationship / graph queries (ES graph index today; same meter for other backends)                                                                                                                               |
+| `datahub.timeseries_aspect`                       | Timer           | GMS             | `subsystem`, `operation`                                                     | `elasticsearch` today × bounded op names                              | Timeseries-aspect storage (`ElasticSearchTimeseriesAspectService` today)                                                                                                                                         |
+| `datahub.search`                                  | Timer           | GMS             | `subsystem`, `operation`                                                     | `elasticsearch` × bounded op names (usage index uses `usage_search`)  | Entity search (`ESSearchDAO`) and usage-event search (`DataHubUsageServiceImpl`); not graph index (see [`MetricUtils`](../../metadata-utils/src/main/java/com/linkedin/metadata/utils/metrics/MetricUtils.java)) |
+| `cache.*`                                         | Various         | GMS, clients    | Micrometer cache tags                                                        | Bounded                                                               | Cache hit/miss                                                                                                                                                                                                   |
+
+**`datahub.auth.login_outcomes` tags (intended contract):**
+
+- `operation`: `generate_session_token` \| `verify_native_user_credentials` (extend only when new instrumented endpoints ship).
+- `result`: `success` \| `failure`.
+- `login_source`: Value from [`LoginSource`](../../metadata-service/services/src/main/java/com/linkedin/metadata/datahubusage/event/LoginSource.java) (`passwordLogin`, `ssoLogin`, …), or `unknown` if missing / unrecognized header `X-DataHubLoginSource`.
+- `denial_reason`: `LoginDenialReason.name()` on failures; on success use `none` so PromQL can use a stable label set.
+
+**`datahub.api.traffic` tags (intended contract):**
+
+- `user_category`: `system` \| `admin` \| `service` \| `regular` — from actor URN in `RequestContext` (`system` / `admin` are exact matches; `service` when the URN has prefix `urn:li:corpuser:service:` for DataHub service accounts; otherwise `regular`).
+- `agent_skill`, `agent_caller`: from optional header `X-DataHub-Context` (`skill=...;caller=...`). Only allowlisted keys are recorded; values are normalized (length-capped, Prometheus-safe). Absent or invalid → `unspecified`. OpenTelemetry uses `agent.skill` and `agent.caller`.
+- `agent_class`: Lowercased agent classification from the user-agent parser (e.g. `browser`, `robot`, `sdk`, `unknown`).
+- `request_api`: `restli` \| `openapi` \| `graphql` (`test` traffic is excluded).
+
+### Remaining major observability surfaces (not fully covered above)
+
+Use this as a backlog for dashboards and future instrumentation:
+
+- **Graph backend (non-GraphQL)** — Lineage/relationship storage may be **Elasticsearch/OpenSearch** (graph index) or **Neo4j** when `graphService.type=neo4j`. Elasticsearch graph queries record **`datahub.graph`** with `subsystem=elasticsearch`; Neo4j sessions are not yet wrapped—when added, use the same meter with `subsystem=neo4j` (and coarse `operation`), not a new `datahub.neo4j.*` family.
+- **Elasticsearch writes / bulk indexing** — Entity and graph **write** paths (`ESWriteDAO`, bulk processors, `BulkListener_*` on the legacy JMX path) are not yet mirrored as **`datahub.search`** / **`datahub.graph`** timers for bulk flush latency or failure rates; hook failures and consumer record-age timers cover part of the pipeline but not every bulk round-trip.
+- **Rest.li entity APIs** — Ingest and entity resources often appear as legacy `metrics_com_*` timers; coarse coverage is available via `http.server.requests` and `datahub.api.traffic`, but per-resource Micrometer timers are not standardized yet.
+- **Kafka producers and non-consumer hooks** — Producer-side latency and MCP/MAE **write** paths to search indices are separate from consumer `datahub.kafka.consumer.record_age`.
+- **Secondary / semantic search indices** — Semantic or auxiliary indices share the same client bean; today’s **`datahub.search`** with `subsystem=elasticsearch` covers [`ESSearchDAO`](../../metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/query/ESSearchDAO.java) operations regardless of index name—split further only if you add explicit `operation` values or a dedicated meter.
+- **System metadata, browse, and scroll-heavy jobs** — Long-running scroll or reindex flows may need additional `operation` values or dedicated meters.
+- **Infrastructure outside the JVM** — MySQL/Ebean pool sizing (`metrics_ebeans_*`), Elasticsearch exporter series, and gateway recording rules remain operator-owned.
+
+### Legacy `metrics_com_*` → migration targets
+
+JMX-exporter-style names often look like `metrics_com_<class>_<metric>_...`. Prefer **PromQL/dashboard changes** to the **`graphql.*`** and other Micrometer families below instead of re-implementing those shapes in application code. **Column “Target” shows current Micrometer/Prometheus names**; they may change while the surface is still evolving (see **Stability** above)—always verify against your release’s scrape output.
+
+| Tier  | Legacy / dashboard signal                                                                 | Target                                                                                                                  |
+| ----- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **1** | `metrics_com_datahub_graphql_GraphQLController_error_Count` (e.g. GraphQLErrorRate alert) | `graphql_request_errors_total` with existing scrape labels (`namespace`, `container`, …)                                |
+| **2** | `metrics_com_*_kafkaLag_*` / per-topic lag panels                                         | `datahub_kafka_consumer_record_age_seconds_*` and/or Kafka exporter consumer lag; drop app `kafkaLag` after panels move |
+| **2** | Per-hook `*_failure_Count` on consumers                                                   | `datahub_mcl_hook_failures_total` with `sum by (hook)`                                                                  |
+| **2** | `GraphQLController_*` latency percentiles                                                 | `graphql_request_duration_seconds_*` by `operation` / `success`                                                         |
+| **2** | `metrics_requestContext_*` / `requestContext_*` usage counters (per combination in name)  | `datahub_api_traffic_total` with labels `user_category`, `agent_class`, `request_api`                                   |
+| **3** | `CacheableSearcher_*`, incident generator hooks, Avro conversion, Ebean                   | Defer or recording rules unless a panel is required                                                                     |
+
+### Staging checklist (operators)
+
+After upgrading GMS/consumers:
+
+1. Scrape `/actuator/prometheus` (or your equivalent) and confirm new series: `datahub_auth_login_outcomes_total`, `datahub_mcl_hook_failures_total`, `datahub_api_traffic_total` (after GMS has handled non-test API traffic).
+2. Estimate **extra** time series (especially histogram buckets) before enabling optional timers.
+3. If you scrape **both** JMX and Actuator for GMS/consumers, align **recording rules and dashboard datasources** so each panel (and alert) reads from the registry you intend after cutover—do not mix two names for the same SLO without an explicit bridge rule.
+4. Update your Prometheus alert rules, recording rules (if any), and Grafana dashboards to match the new series; re-run your usual rule/dashboard tests in CI or staging. Treat Alertmanager receiver URLs and other routing secrets as sensitive—do not paste them into tickets or public documentation.
+
+### Example Grafana dashboard patterns (legacy → Micrometer)
+
+Typical operator exports (for example **DataHub Overview**, **Lineage Performance**, **[WIP] API Usage**, **Aspects Dashboard**, **MySQL Health**) often still query JMX-style series. When Micrometer is enabled and you migrate, prefer the catalog families above and **labels instead of `__name__` gymnastics**:
+
+- **Overview-style boards** — Panels on `metrics_com_datahub_graphql_GraphQLController_*` percentiles, Rest.li `AspectResource` / `EntityResource` counters, per-hook `*_failure_Count`, app-registered `kafkaLag`, and `errorCode_*` counters should move to `graphql_request_duration_seconds_*` / `graphql_request_errors_total`, `datahub_mcl_hook_failures_total`, `datahub.kafka.consumer.record_age` (or Kafka-exporter lag), and coarse `http.server.requests` where that is the supported surface. Keep JVM (`jvm_*`), Elasticsearch, MySQL `information_schema`, and gateway recording rules (`api_gateway_*`, if you maintain them) as **infrastructure** signals—they are outside the `datahub.*` / `graphql.*` application catalog but still need consistent scrape labels (`namespace`, `job`, …).
+
+- **Lineage performance** — Heavy `label_replace` across `metrics_com_datahub_graphql_GraphQLController_searchAcrossLineage_*`, related scroll/download/aggregate operations, `ESGraphQueryDAO_*`, and `Relationships_getLineage_*` timeline names maps naturally to **one** histogram family with an `operation` (and related) tag on the Micrometer path; rebuild panels with `sum by (operation, …)(histogram_quantile(...))` rather than rediscovering each legacy suffix.
+
+- **API usage by client context** — On Actuator, use **`datahub_api_traffic_total`** with labels `user_category`, `agent_class`, `request_api` (logical meter `datahub.api.traffic`). Example: `sum by (user_category, agent_class, request_api) (rate(datahub_api_traffic_total[5m]))`. Legacy panels that match `metrics_requestContext_*` or `requestContext_*` per combination can be migrated without `label_replace` on `__name__`. Confirm GMS is receiving real API traffic (not only `RequestAPI.TEST`) so series exist.
+
+- **Aspect write rates** — `metrics_com_linkedin_metadata_entity_ebean_EbeanAspectDao_aspectWriteCount_<aspect>_Count` (often unpacked with `label_replace` to `aspectName`) is **tier 3** in the migration table unless a tagged Micrometer replacement exists in your release.
+
+- **MySQL / persistence dashboards** — Panels on `metrics_ebeans_connection_pool_size_main` and Elasticsearch `BulkListener_*` counters are **not** the same subsystem; pool metrics should align with whatever datasource pool Micrometer exposes for your config, while bulk indexing stays on ES exporter or legacy series until deliberately unified.
+
 ## Micrometer Transition Plan
 
 DataHub is undertaking a strategic transition from DropWizard metrics (exposed via JMX) to Micrometer, a modern vendor-neutral metrics facade.
-This transition aims to provide better cloud-native monitoring capabilities while maintaining backward compatibility for existing
-monitoring infrastructure.
+This transition aims to provide better cloud-native monitoring capabilities. **Existing JMX- and `metrics_com_*`-based dashboards** may need updates over time; **Micrometer meter names on the Prometheus endpoint are still evolving** and are not held to the same compatibility bar until the catalog is explicitly stabilized.
 
 ### Current State
 
-What We Have Now:
+What we have **today** (many deployments):
 
-- Primary System: DropWizard metrics exposed through JMX
-- Collection Method: Prometheus-JMX exporter scrapes JMX metrics
-- Dashboards: Grafana dashboards consuming JMX-sourced metrics
-- Code Pattern: MetricUtils class for creating counters and timers
-- Integration: Basic Spring integration with manual metric creation
+- **Prometheus-first path:** Spring Boot Actuator exposes Micrometer metrics at `/actuator/prometheus` (GraphQL, Kafka queue time, hook latency, auth outcomes, hook failures, etc.).
+- **Legacy path:** Dropwizard-style meters still registered with tag `dwizMetric=true` and long class-derived names for backward compatibility with older Grafana panels.
+- **Collection:** Prometheus scrapes either the Actuator endpoint, the JMX exporter, or both depending on your Helm/docker configuration.
+- **Code:** [`MetricUtils`](../../metadata-utils/src/main/java/com/linkedin/metadata/utils/metrics/MetricUtils.java) bridges legacy and Micrometer APIs.
+
+Alerts and dashboards should migrate from `metrics_com_*` toward the **canonical catalog** above.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/0f6ae5ae889ee4e780504ca566670867acf975ff/imgs/advanced/monitoring/monitoring_current.svg"/>
@@ -1024,13 +1195,14 @@ Key Decisions and Rationale:
 
 1. Dual Registry Approach
 
-   **Decision:** Run both systems in parallel with tag-based routing
+   **Decision:** Run both systems in parallel with tag-based routing (legacy Dropwizard/JMX vs Micrometer on Actuator).
 
    **Rationale:**
 
-   - Zero downtime or disruption
-   - Gradual migration at component level
-   - Easy rollback if issues arise
+   - Lets deployments that still scrape JMX keep old series while others move to Prometheus
+   - Gradual cutover of dashboards and alerts
+   - Micrometer naming can still be refined in application releases without treating early names as immutable
+   - Cutover PromQL should prefer **dimensional labels** on Micrometer families (see **Label-based routing** and **Example Grafana dashboard patterns** above) instead of replicating legacy `__name__` regex bridges
 
 2. Prometheus as Primary Target
 

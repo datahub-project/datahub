@@ -348,7 +348,7 @@ Example logs for a single request with tracing logging enabled:
 - GMS
 
 ```text
-i.d.metadata.context.RequestContext:53 - RequestContext{actorUrn='urn:li:corpuser:datahub', sourceIP='172.18.0.5', requestAPI=OPENAPI, requestID='createAspect([dataset])', userAgent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'}
+i.d.metadata.context.request.RequestContext:132 - RequestContext{actorUrn='urn:li:corpuser:datahub', sourceIP='172.18.0.5', requestAPI=OPENAPI, requestID='createAspect([dataset])', userAgent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'}
 i.d.metadata.context.TraceContext:366 - Trace: 00062c2c3e1403109bbaf3d2e39adcd0, SpanId: a2898a18f9f0c4f1, ParentId: dd746f079d1232ba, Name: ingestTimeseriesProposal, Duration: 0.03 ms
 i.d.metadata.context.TraceContext:376 - Trace: 00062c2c3e1403109bbaf3d2e39adcd0, Attributes: AttributesMap{data={async=true, batch.size=1}, capacity=128, totalAddedValues=2}
 i.d.metadata.context.TraceContext:366 - Trace: 00062c2c3e1403109bbaf3d2e39adcd0, SpanId: 02e058ff616e4c99, ParentId: 7ed88659811a8fdb, Name: produceMetadataChangeProposal, Duration: 0.03 ms

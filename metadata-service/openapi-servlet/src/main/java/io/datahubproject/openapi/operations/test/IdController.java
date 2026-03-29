@@ -4,7 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;

@@ -149,7 +149,7 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
     // Emit bucketed counter for size distribution tracking
     if (metricUtils != null) {
       metricUtils.incrementMicrometer(
-          "aspectSizeValidation.prePatch.sizeDistribution",
+          MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_SIZE_DISTRIBUTION,
           1,
           "aspectName",
           aspectName,
@@ -171,7 +171,7 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
       // Emit oversized counter metric
       if (metricUtils != null) {
         metricUtils.incrementMicrometer(
-            "aspectSizeValidation.prePatch.oversized",
+            MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED,
             1,
             "aspectName",
             aspectName,
@@ -211,7 +211,10 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
       // Emit warning counter metric
       if (metricUtils != null) {
         metricUtils.incrementMicrometer(
-            "aspectSizeValidation.prePatch.warning", 1, "aspectName", aspectName);
+            MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARNING,
+            1,
+            "aspectName",
+            aspectName);
       }
       // No throw - write proceeds
     }
@@ -236,7 +239,7 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
     // Emit bucketed counter for size distribution tracking
     if (metricUtils != null) {
       metricUtils.incrementMicrometer(
-          "aspectSizeValidation.postPatch.sizeDistribution",
+          MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_SIZE_DISTRIBUTION,
           1,
           "aspectName",
           systemAspect.getAspectSpec().getName(),
@@ -258,7 +261,7 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
       // Emit oversized counter metric
       if (metricUtils != null) {
         metricUtils.incrementMicrometer(
-            "aspectSizeValidation.postPatch.oversized",
+            MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED,
             1,
             "aspectName",
             systemAspect.getAspectSpec().getName(),
@@ -305,7 +308,7 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
       // Emit warning counter metric
       if (metricUtils != null) {
         metricUtils.incrementMicrometer(
-            "aspectSizeValidation.postPatch.warning",
+            MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARNING,
             1,
             "aspectName",
             systemAspect.getAspectSpec().getName());

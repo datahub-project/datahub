@@ -28,7 +28,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;

@@ -124,6 +124,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "consistencyChecks.checks.*.*",
           "consistencyChecks.gracePeriodSeconds",
 
+          // Request context header (single JSON string for allowlists)
+          "datahub.requestContext.contextHeader.valueAllowlistsJson",
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.displayName",
@@ -891,6 +893,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "server.servlet.context-path",
           "datahub.gms.basePath",
           "datahub.gms.basePathEnabled",
+          // X-DataHub-Context metrics dimensions (non-secret labels / allowlists)
+          "datahub.requestContext.contextHeader.unspecifiedLabel",
+          "datahub.requestContext.contextHeader.otherLabel",
+          "datahub.requestContext.contextHeader.maxValueLength",
           // Aspect size validation configuration
           "datahub.validation.aspectSize.prePatch.enabled",
           "datahub.validation.aspectSize.prePatch.warnSizeBytes",

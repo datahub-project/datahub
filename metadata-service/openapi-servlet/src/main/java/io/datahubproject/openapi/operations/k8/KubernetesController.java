@@ -8,7 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.operations.k8.models.ConfigMapUpdateRequest;
 import io.datahubproject.openapi.operations.k8.models.CronJobTriggerRequest;
 import io.datahubproject.openapi.operations.k8.models.DeploymentEnvUpdateRequest;

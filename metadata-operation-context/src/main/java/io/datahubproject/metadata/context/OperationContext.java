@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;

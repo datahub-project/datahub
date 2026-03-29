@@ -966,6 +966,8 @@ The following environment variables are used in the codebase but may not be expl
 | `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                        | GMS        |
 | `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics | GMS        |
 
+For production, keep **`GRAPHQL_METRICS_FIELD_LEVEL_ENABLED=false`** unless you need field-level series and accept the extra cardinality. GraphQL meter names, tag keys, and alert/dashboard migration guidance are documented in [Monitoring – Canonical metric taxonomy (Prometheus)](../advanced/monitoring.md#canonical-metric-taxonomy-prometheus).
+
 ### Chrome Extension Configuration
 
 | Environment Variable               | Default | Description                     | Components |

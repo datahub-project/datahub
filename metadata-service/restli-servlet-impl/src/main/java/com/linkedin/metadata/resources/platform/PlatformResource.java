@@ -22,7 +22,7 @@ import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;

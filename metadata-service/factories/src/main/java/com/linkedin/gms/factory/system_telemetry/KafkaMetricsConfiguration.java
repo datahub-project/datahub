@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.system_telemetry;
 
-import static com.linkedin.metadata.utils.metrics.MetricUtils.KAFKA_MESSAGE_QUEUE_TIME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MetricsOptions;
@@ -30,7 +30,7 @@ public class KafkaMetricsConfiguration {
                 @Override
                 public DistributionStatisticConfig configure(
                     @Nonnull Meter.Id id, @Nonnull DistributionStatisticConfig config) {
-                  if (id.getName().equals(KAFKA_MESSAGE_QUEUE_TIME)) {
+                  if (id.getName().equals(DATAHUB_KAFKA_CONSUMER_RECORD_AGE)) {
 
                     MetricsOptions metricOptions =
                         configurationProvider.getKafka().getConsumer().getMetrics();

@@ -29,12 +29,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.trace.SpanContext;
 import java.io.IOException;
 import java.util.Optional;
@@ -86,7 +89,33 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
   @Autowired private UserSessionEligibilityChecker mockUserSessionEligibilityChecker;
 
+  @Autowired private MetricUtils metricUtils;
+
   private final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
+
+  @BeforeMethod
+  public void clearAuthMetrics() {
+    if (metricUtils.getRegistry() instanceof SimpleMeterRegistry) {
+      ((SimpleMeterRegistry) metricUtils.getRegistry()).clear();
+    }
+  }
+
+  private double authSessionOutcomeCount(
+      String operation, String result, String loginSource, String denialReason) {
+    return metricUtils
+        .getRegistry()
+        .counter(
+            MetricUtils.DATAHUB_AUTH_LOGIN_OUTCOMES,
+            MetricUtils.TAG_AUTH_OPERATION,
+            operation,
+            MetricUtils.TAG_AUTH_RESULT,
+            result,
+            MetricUtils.TAG_AUTH_LOGIN_SOURCE,
+            loginSource,
+            MetricUtils.TAG_AUTH_DENIAL_REASON,
+            denialReason)
+        .count();
+  }
 
   @Test
   public void initTest() {
@@ -188,6 +217,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     Actor capturedActor = actorCaptor.getValue();
     assertEquals(userId, capturedActor.getId());
+    assertEquals(
+        1.0,
+        authSessionOutcomeCount(
+            MetricUtils.AUTH_OPERATION_GENERATE_SESSION_TOKEN,
+            MetricUtils.AUTH_RESULT_SUCCESS,
+            "unknown",
+            MetricUtils.AUTH_DENIAL_REASON_NONE));
   }
 
   @Test(expectedExceptions = CompletionException.class)
@@ -257,6 +293,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         LoginDenialReason.SOFT_DELETED.name(), responseJson.get("loginDenialReason").asText());
     verify(mockTokenService, never())
         .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
+    assertEquals(
+        1.0,
+        authSessionOutcomeCount(
+            MetricUtils.AUTH_OPERATION_GENERATE_SESSION_TOKEN,
+            MetricUtils.AUTH_RESULT_FAILURE,
+            "unknown",
+            LoginDenialReason.SOFT_DELETED.name()));
   }
 
   @Test
@@ -286,6 +329,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     JsonNode responseJson = objectMapper.readTree(response.getBody());
     assertTrue(responseJson.get("doesPasswordMatch").asBoolean());
     assertEquals(LoginDenialReason.INACTIVE.name(), responseJson.get("loginDenialReason").asText());
+    assertEquals(
+        1.0,
+        authSessionOutcomeCount(
+            MetricUtils.AUTH_OPERATION_VERIFY_NATIVE_USER_CREDENTIALS,
+            MetricUtils.AUTH_RESULT_FAILURE,
+            LoginSource.PASSWORD_LOGIN.getSource(),
+            LoginDenialReason.INACTIVE.name()));
   }
 
   @Test
@@ -537,6 +587,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     JsonNode responseJson = objectMapper.readTree(response.getBody());
     assertTrue(responseJson.has("doesPasswordMatch"));
     assertTrue(responseJson.get("doesPasswordMatch").asBoolean());
+    assertEquals(
+        1.0,
+        authSessionOutcomeCount(
+            MetricUtils.AUTH_OPERATION_VERIFY_NATIVE_USER_CREDENTIALS,
+            MetricUtils.AUTH_RESULT_SUCCESS,
+            LoginSource.PASSWORD_LOGIN.getSource(),
+            MetricUtils.AUTH_DENIAL_REASON_NONE));
   }
 
   @Test
@@ -571,6 +628,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(
         LoginDenialReason.INVALID_CREDENTIALS.name(),
         responseJson.get("loginDenialReason").asText());
+    assertEquals(
+        1.0,
+        authSessionOutcomeCount(
+            MetricUtils.AUTH_OPERATION_VERIFY_NATIVE_USER_CREDENTIALS,
+            MetricUtils.AUTH_RESULT_FAILURE,
+            LoginSource.PASSWORD_LOGIN.getSource(),
+            LoginDenialReason.INVALID_CREDENTIALS.name()));
   }
 
   @Test

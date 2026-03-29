@@ -20,7 +20,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;

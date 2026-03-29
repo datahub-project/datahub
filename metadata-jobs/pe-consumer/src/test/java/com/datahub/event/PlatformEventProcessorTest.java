@@ -459,7 +459,7 @@ public class PlatformEventProcessorTest {
       // Verify timer was recorded
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               "PlatformEvent_v1",
               "consumer.group",
@@ -518,7 +518,7 @@ public class PlatformEventProcessorTest {
       // Verify separate timers for different topics
       Timer timer1 =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               "PlatformEvent_v1",
               "consumer.group",
@@ -526,7 +526,7 @@ public class PlatformEventProcessorTest {
 
       Timer timer2 =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               "PlatformEvent_v2",
               "consumer.group",
@@ -576,7 +576,7 @@ public class PlatformEventProcessorTest {
       // Verify timer was still recorded despite hook failure
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               "PlatformEvent_v1",
               "consumer.group",
@@ -644,7 +644,7 @@ public class PlatformEventProcessorTest {
       // Verify timer was recorded with custom consumer group
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               "PlatformEvent_v1",
               "consumer.group",
@@ -692,7 +692,7 @@ public class PlatformEventProcessorTest {
       // Verify timer statistics
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               "PlatformEvent_v1",
               "consumer.group",
@@ -742,7 +742,7 @@ public class PlatformEventProcessorTest {
     // Verify timer was still recorded even for null record
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "PlatformEvent_v1",
             "consumer.group",

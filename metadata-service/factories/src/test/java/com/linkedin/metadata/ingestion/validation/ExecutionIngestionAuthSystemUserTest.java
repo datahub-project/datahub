@@ -28,7 +28,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package io.datahubproject.metadata.context;
+package io.datahubproject.metadata.context.request;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.requestcontext.RequestContextConfiguration;
 import lombok.Data;
 
 /** POJO representing the "datahub" configuration block in application.yaml. */
@@ -34,6 +35,8 @@ public class DataHubConfiguration {
   private S3Configuration s3;
 
   private ValidationConfiguration validation;
+
+  private RequestContextConfiguration requestContext;
 
   @Data
   public static class DataHubMetrics {
