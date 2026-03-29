@@ -88,11 +88,11 @@ datahub datapack unload showcase-ecommerce --hard
 
 ## Ingestion Source
 
-Data packs can also be loaded via ingestion recipes:
+Data packs can also be loaded via ingestion recipes using `demo-data`:
 
 ```yaml
 source:
-  type: datapack
+  type: demo-data
   config:
     pack_name: "showcase-ecommerce" # OR pack_url: "https://..."
     no_time_shift: false
@@ -101,3 +101,5 @@ source:
     trust_custom: false
     no_cache: false
 ```
+
+With no config, `demo-data` loads the `bootstrap` pack (backward compatible).

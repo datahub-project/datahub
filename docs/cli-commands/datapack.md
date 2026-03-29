@@ -157,11 +157,11 @@ SHA256 checksums in the registry provide integrity verification for community pa
 
 ## Ingestion Source
 
-Data packs can also be loaded via standard ingestion recipes using `type: datapack`:
+Data packs can also be loaded via standard ingestion recipes using the `demo-data` source type:
 
 ```yaml
 source:
-  type: datapack
+  type: demo-data
   config:
     pack_name: "showcase-ecommerce"
     # OR: pack_url: "https://example.com/data.json"
@@ -172,9 +172,28 @@ source:
     no_cache: false
 ```
 
+With no configuration, `demo-data` loads the `bootstrap` pack (backward compatible with existing recipes). Specify `pack_name` to load a different pack.
+
 This is useful for scheduled or automated loading via `datahub ingest`.
 
 ## Technical Details
+
+### Multi-File Index
+
+Data packs can consist of multiple files, referenced by an `index.json`:
+
+```json
+{
+  "files": [
+    { "path": "01-definitions.json", "wait_for_completion": true },
+    { "path": "02-data.json" }
+  ]
+}
+```
+
+Files are loaded sequentially. When `wait_for_completion` is set, the loader verifies all entities from that file exist on the server before proceeding to the next file. This ensures ordering dependencies are respected (e.g., structured property definitions must exist before assignments can reference them).
+
+Each entry in `files` can be a plain string (filename) or an object with `path` and optional `wait_for_completion`.
 
 ### Schema Downshift
 
@@ -182,7 +201,7 @@ When loading a pack, the CLI queries the server's entity registry (`/openapi/v1/
 
 ### Time-Shifting
 
-Each pack has a `reference_timestamp` indicating when it was captured. During load, all temporal fields (timestamps in system metadata, timeseries aspects, audit stamps) are shifted by `now - reference_timestamp` so the data appears fresh. Use `--as-of` to anchor to a different time, or `--no-time-shift` to keep original timestamps.
+Each pack has a `reference_timestamp` indicating when it was captured (set to the max timestamp in the data so the newest data appears as "just now" after shifting). During load, all temporal fields (timestamps in system metadata, timeseries aspects, audit stamps) are shifted by `now - reference_timestamp` so the data appears fresh. Use `--as-of` to anchor to a different time, or `--no-time-shift` to keep original timestamps.
 
 ### Caching
 
