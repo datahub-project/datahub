@@ -19,6 +19,7 @@ from datahub.cli.cli_utils import (
 )
 from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
 from datahub.cli.container_cli import container
+from datahub.cli.datapack.datapack_cli import datapack
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -40,7 +41,6 @@ from datahub.cli.specific.group_cli import group
 from datahub.cli.specific.structuredproperties_cli import properties
 from datahub.cli.specific.user_cli import user
 from datahub.cli.state_cli import state
-from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.configuration.env_vars import get_password, get_username
@@ -507,7 +507,6 @@ datahub.add_command(lineage)
 datahub.add_command(put)
 datahub.add_command(search)
 datahub.add_command(state)
-datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
 datahub.add_command(user)
@@ -520,6 +519,7 @@ datahub.add_command(datacontract)
 datahub.add_command(assertions)
 datahub.add_command(container)
 datahub.add_command(recording)
+datahub.add_command(datapack)
 
 try:
     from datahub.cli.iceberg_cli import iceberg

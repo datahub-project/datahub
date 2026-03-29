@@ -1077,10 +1077,11 @@ module.exports = {
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
       items: [
-        "docs/cli-commands/dataset",
-        "docs/cli-commands/graphql",
-        "docs/cli-commands/search",
-        "docs/datahub_lite",
+        { type: "doc", id: "docs/cli-commands/search", label: "search" },
+        { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
+        { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
+        { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },
     {
