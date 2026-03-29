@@ -24,7 +24,10 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -277,7 +280,9 @@ public class IngestionMetricsHook implements MetadataChangeLogHook {
           recordsWritten,
           warningsCount,
           failuresCount,
-          sinkFailuresCount);
+          sinkFailuresCount,
+          sourceReport,
+          sinkReport);
 
     } catch (Exception e) {
       log.error("Error recording metrics for {}: {}", executionRequestUrn, e.getMessage(), e);
@@ -403,7 +408,7 @@ public class IngestionMetricsHook implements MetadataChangeLogHook {
   @Nonnull
   private String extractHostname(@Nonnull String url) {
     try {
-      java.net.URI uri = new java.net.URI(url);
+      URI uri = new URI(url);
       String host = uri.getHost();
       return (host != null && !host.isEmpty()) ? host : "unknown";
     } catch (Exception e) {
@@ -645,11 +650,13 @@ public class IngestionMetricsHook implements MetadataChangeLogHook {
       long recordsWritten,
       int warningsCount,
       int failuresCount,
-      int sinkFailuresCount) {
+      int sinkFailuresCount,
+      @Nonnull JsonNode sourceReport,
+      @Nonnull JsonNode sinkReport) {
     try {
       Map<String, Object> event = new LinkedHashMap<>();
       event.put("pipeline", pipeline);
-      event.put("execution_request_urn", executionRequestUrn);
+      event.put("execution_id", extractIdFromUrn(executionRequestUrn));
       event.put("ingestion_source", ingestionSource);
       event.put("platform", platform);
       event.put("status", status);
@@ -662,11 +669,58 @@ public class IngestionMetricsHook implements MetadataChangeLogHook {
       event.put("warnings_count", warningsCount);
       event.put("failures_count", failuresCount);
       event.put("sink_failures_count", sinkFailuresCount);
+      event.put("failures", extractLogEntries(sourceReport, "failures"));
+      event.put("warnings", extractLogEntries(sourceReport, "warnings"));
+      event.put("sink_failures", extractLogEntries(sinkReport, "failures"));
 
       log.info("[INGESTION_RUN_EVENT] {}", OBJECT_MAPPER.writeValueAsString(event));
     } catch (Exception e) {
       log.warn("Failed to emit structured run event: {}", e.getMessage());
     }
+  }
+
+  /**
+   * Extracts structured log entries (title, message, context, category) from a JSON array field.
+   * Returns a list of maps for JSON serialization. The ingestion framework caps entries at 10 per
+   * level via LossyDict, so no additional cap is needed here.
+   */
+  @Nonnull
+  private List<Map<String, Object>> extractLogEntries(
+      @Nonnull JsonNode report, @Nonnull String fieldName) {
+    List<Map<String, Object>> entries = new ArrayList<>();
+    JsonNode array = report.path(fieldName);
+    if (array.isMissingNode() || !array.isArray()) {
+      return entries;
+    }
+    for (JsonNode entry : array) {
+      Map<String, Object> entryMap = new LinkedHashMap<>();
+      if (entry.isTextual()) {
+        // Sink failures are simple strings
+        entryMap.put("message", entry.asText());
+      } else if (entry.isObject()) {
+        // Source failures/warnings are StructuredLogEntry objects
+        if (entry.has("title") && !entry.get("title").isNull()) {
+          entryMap.put("title", entry.get("title").asText());
+        }
+        if (entry.has("message")) {
+          entryMap.put("message", entry.get("message").asText());
+        }
+        if (entry.has("context") && entry.get("context").isArray()) {
+          List<String> context = new ArrayList<>();
+          for (JsonNode c : entry.get("context")) {
+            context.add(c.asText());
+          }
+          entryMap.put("context", context);
+        }
+        if (entry.has("log_category") && !entry.get("log_category").isNull()) {
+          entryMap.put("category", entry.get("log_category").asText());
+        }
+      }
+      if (!entryMap.isEmpty()) {
+        entries.add(entryMap);
+      }
+    }
+    return entries;
   }
 
   /** Sanitizes tag values to ensure they are valid for Prometheus. */

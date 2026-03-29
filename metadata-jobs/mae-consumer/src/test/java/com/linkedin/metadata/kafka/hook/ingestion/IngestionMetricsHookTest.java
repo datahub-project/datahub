@@ -360,7 +360,7 @@ public class IngestionMetricsHookTest {
             + "},"
             + "\"Sink (datahub-rest)\": {"
             + "  \"total_records_written\": 90,"
-            + "  \"failures\": [{\"error\":\"write failed\"},{\"error\":\"timeout\"}]"
+            + "  \"failures\": [\"write failed\",\"timeout\"]"
             + "}"
             + "}";
 
@@ -492,18 +492,26 @@ public class IngestionMetricsHookTest {
     }
     result.setStartTimeMs(System.currentTimeMillis() - (durationMs != null ? durationMs : 0));
 
-    // Build structured report JSON
+    // Build structured report JSON using StructuredLogEntry format
     StringBuilder failuresJson = new StringBuilder("[");
     for (int i = 0; i < failures; i++) {
       if (i > 0) failuresJson.append(",");
-      failuresJson.append("{\"error\":\"test error ").append(i).append("\"}");
+      failuresJson
+          .append("{\"title\":\"Extraction error\",\"message\":\"test error ")
+          .append(i)
+          .append("\",\"context\":[\"ErrorType: detail ")
+          .append(i)
+          .append("\"]}");
     }
     failuresJson.append("]");
 
     StringBuilder warningsJson = new StringBuilder("[");
     for (int i = 0; i < warnings; i++) {
       if (i > 0) warningsJson.append(",");
-      warningsJson.append("{\"message\":\"test warning ").append(i).append("\"}");
+      warningsJson
+          .append("{\"title\":\"Config issue\",\"message\":\"test warning ")
+          .append(i)
+          .append("\",\"context\":[]}");
     }
     warningsJson.append("]");
 
@@ -561,18 +569,26 @@ public class IngestionMetricsHookTest {
     }
     result.setStartTimeMs(System.currentTimeMillis() - (durationMs != null ? durationMs : 0));
 
-    // Build structured report JSON in executor format
+    // Build structured report JSON in executor format using StructuredLogEntry format
     StringBuilder failuresJson = new StringBuilder("[");
     for (int i = 0; i < failures; i++) {
       if (i > 0) failuresJson.append(",");
-      failuresJson.append("{\"error\":\"test error ").append(i).append("\"}");
+      failuresJson
+          .append("{\"title\":\"Extraction error\",\"message\":\"test error ")
+          .append(i)
+          .append("\",\"context\":[\"ErrorType: detail ")
+          .append(i)
+          .append("\"]}");
     }
     failuresJson.append("]");
 
     StringBuilder warningsJson = new StringBuilder("[");
     for (int i = 0; i < warnings; i++) {
       if (i > 0) warningsJson.append(",");
-      warningsJson.append("{\"message\":\"test warning ").append(i).append("\"}");
+      warningsJson
+          .append("{\"title\":\"Config issue\",\"message\":\"test warning ")
+          .append(i)
+          .append("\",\"context\":[]}");
     }
     warningsJson.append("]");
 
