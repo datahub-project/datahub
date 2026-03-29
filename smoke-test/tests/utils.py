@@ -3,6 +3,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 import click
 import click.testing
@@ -64,6 +65,24 @@ def get_root_urn():
 
 def get_gms_url():
     return env_vars.get_gms_url() or f"http://localhost:8080{get_gms_base_path()}"
+
+
+def get_gms_prometheus_base_url():
+    """Base URL for /actuator/prometheus.
+
+    Docker images default to management on :4319 while GMS HTTP stays on :8080; when the GMS URL
+    uses port 8080, assume Micrometer is on the same host at 4319 unless DATAHUB_GMS_MANAGEMENT_URL
+    is set. For a local GMS with Actuator on the main port only, set DATAHUB_GMS_MANAGEMENT_URL
+    to your GMS base URL.
+    """
+    mgmt = env_vars.get_gms_management_url()
+    if mgmt:
+        return mgmt.rstrip("/")
+    base = get_gms_url().rstrip("/")
+    parsed = urlparse(base)
+    if parsed.port == 8080 and parsed.hostname is not None:
+        return urlunparse((parsed.scheme, f"{parsed.hostname}:4319", "", "", "", ""))
+    return base
 
 
 def get_frontend_url():

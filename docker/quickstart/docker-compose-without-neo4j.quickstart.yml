@@ -67,6 +67,8 @@ services:
     image: ${DATAHUB_FRONTEND_IMAGE:-acryldata/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
+    expose:
+    - 4319
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
@@ -111,6 +113,8 @@ services:
     image: ${DATAHUB_GMS_IMAGE:-acryldata/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
+    expose:
+    - 4319
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:

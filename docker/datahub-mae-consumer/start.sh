@@ -46,6 +46,8 @@ if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
   JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml"
 fi
 
+export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
+
 # JAR extraction optimization - extract to tmpfs for faster class loading
 JAR_EXTRACTION_OPTS=""
 if [[ $EXTRACT_JAR_ENABLED == true ]]; then

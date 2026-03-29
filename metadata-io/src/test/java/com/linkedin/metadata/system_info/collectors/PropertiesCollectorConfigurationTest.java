@@ -723,6 +723,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "management.metrics.export.jmx.enabled",
           "management.metrics.export.prometheus.enabled",
           "management.metrics.tags.application",
+          "management.server.port",
           "management.otlp.tracing.export.enabled",
           "management.simple.metrics.export.enabled",
           "management.tracing.enabled",
