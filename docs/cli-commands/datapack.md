@@ -144,7 +144,6 @@ datahub datapack unload showcase-ecommerce --hard
 | **bootstrap**          | Lightweight bootstrap data with basic datasets, dashboards, users, and tags         | ~50      | Kafka, Hive, HDFS                                               |
 | **showcase-ecommerce** | Rich e-commerce demo with lineage, governance, glossary, domains, and data products | ~1,050   | Snowflake, Looker, PowerBI, Tableau, dbt, Spark, PostgreSQL, S3 |
 
-
 ## Trust Model
 
 Data packs have three trust tiers:
