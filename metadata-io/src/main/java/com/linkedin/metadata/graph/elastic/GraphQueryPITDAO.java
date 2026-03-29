@@ -241,7 +241,14 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return client.search(searchRequest, RequestOptions.DEFAULT);
+                    long t0 = System.nanoTime();
+                    try {
+                      return client.search(searchRequest, RequestOptions.DEFAULT);
+                    } finally {
+                      if (metricUtils != null) {
+                        metricUtils.recordGraph(System.nanoTime() - t0, "search_pit");
+                      }
+                    }
                   } catch (Exception e) {
                     log.error("Search query failed", e);
                     throw new ESQueryException("Search query failed:", e);

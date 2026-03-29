@@ -31,6 +31,7 @@ import com.linkedin.metadata.auth.LoginIdentityMask;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
@@ -123,6 +124,9 @@ public class AuthServiceController {
   @Qualifier("systemOperationContext")
   private OperationContext systemOperationContext;
 
+  @Autowired(required = false)
+  private MetricUtils metricUtils;
+
   /**
    * Generates a JWT access token for as user UI session, provided a unique "user id" to generate
    * the token for inside a JSON POST body.
@@ -183,6 +187,11 @@ public class AuthServiceController {
                     userId.asText(),
                     eligibilityDenial.get(),
                     "generateSessionTokenForUser");
+                recordAuthSessionOutcome(
+                    MetricUtils.AUTH_OPERATION_GENERATE_SESSION_TOKEN,
+                    MetricUtils.AUTH_RESULT_FAILURE,
+                    resolveLoginSourceHeader(httpEntity),
+                    eligibilityDenial.get().name());
                 return new ResponseEntity<>(
                     buildLoginDenialJsonBody(eligibilityDenial.get()), HttpStatus.FORBIDDEN);
               }
@@ -217,6 +226,11 @@ public class AuthServiceController {
                       loginEventAttributes.put(SOURCE_IP, sourceIP.get(0));
                     }
                     Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
+                    recordAuthSessionOutcome(
+                        MetricUtils.AUTH_OPERATION_GENERATE_SESSION_TOKEN,
+                        MetricUtils.AUTH_RESULT_SUCCESS,
+                        resolveLoginSourceHeader(httpEntity),
+                        MetricUtils.AUTH_DENIAL_REASON_NONE);
                     return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
                   });
             } catch (Exception e) {
@@ -459,6 +473,11 @@ public class AuthServiceController {
                   userUrnString,
                   LoginDenialReason.INVALID_CREDENTIALS,
                   "verifyNativeUserCredentials");
+              recordAuthSessionOutcome(
+                  MetricUtils.AUTH_OPERATION_VERIFY_NATIVE_USER_CREDENTIALS,
+                  MetricUtils.AUTH_RESULT_FAILURE,
+                  LoginSource.PASSWORD_LOGIN.getSource(),
+                  LoginDenialReason.INVALID_CREDENTIALS.name());
             } else if (sessionDenial != null) {
               recordFailedNativeLoginUsageEvent(
                   httpEntity, userUrnString, sessionDenial, "failedLoginSessionEligibility");
@@ -467,6 +486,17 @@ public class AuthServiceController {
                   userUrnString,
                   sessionDenial,
                   "verifyNativeUserCredentials");
+              recordAuthSessionOutcome(
+                  MetricUtils.AUTH_OPERATION_VERIFY_NATIVE_USER_CREDENTIALS,
+                  MetricUtils.AUTH_RESULT_FAILURE,
+                  LoginSource.PASSWORD_LOGIN.getSource(),
+                  sessionDenial.name());
+            } else {
+              recordAuthSessionOutcome(
+                  MetricUtils.AUTH_OPERATION_VERIFY_NATIVE_USER_CREDENTIALS,
+                  MetricUtils.AUTH_RESULT_SUCCESS,
+                  LoginSource.PASSWORD_LOGIN.getSource(),
+                  MetricUtils.AUTH_DENIAL_REASON_NONE);
             }
 
             final LoginDenialReason denialForJson =
@@ -630,6 +660,36 @@ public class AuthServiceController {
           }
           Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
         });
+  }
+
+  private void recordAuthSessionOutcome(
+      final String operation,
+      final String result,
+      final String loginSource,
+      final String denialReason) {
+    if (metricUtils == null) {
+      return;
+    }
+    metricUtils.incrementMicrometer(
+        MetricUtils.DATAHUB_AUTH_LOGIN_OUTCOMES,
+        1,
+        MetricUtils.TAG_AUTH_OPERATION,
+        operation,
+        MetricUtils.TAG_AUTH_RESULT,
+        result,
+        MetricUtils.TAG_AUTH_LOGIN_SOURCE,
+        loginSource,
+        MetricUtils.TAG_AUTH_DENIAL_REASON,
+        denialReason);
+  }
+
+  private String resolveLoginSourceHeader(final HttpEntity<?> httpEntity) {
+    List<String> headers = httpEntity.getHeaders().getOrEmpty(DATAHUB_LOGIN_SOURCE_HEADER_NAME);
+    if (headers.isEmpty()) {
+      return "unknown";
+    }
+    LoginSource resolved = LoginSource.getSource(headers.get(0));
+    return resolved != null ? resolved.getSource() : "unknown";
   }
 
   private void emitLoginDenialLog(

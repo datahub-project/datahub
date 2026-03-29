@@ -124,10 +124,9 @@ public class MCLBatchKafkaListener
               if (requestEpochMillis != null) {
                 long queueTimeMs = System.currentTimeMillis() - requestEpochMillis;
 
-                // request
                 metricUtils
                     .getRegistry()
-                    .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
+                    .timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", hookName)
                     .record(Duration.ofMillis(queueTimeMs));
               }
             });
@@ -215,9 +214,12 @@ public class MCLBatchKafkaListener
                     systemOperationContext
                         .getMetricUtils()
                         .ifPresent(
-                            metricUtils ->
-                                metricUtils.increment(
-                                    this.getClass(), hookName + "_batch_failure", mcls.size()));
+                            metricUtils -> {
+                              metricUtils.increment(
+                                  this.getClass(), hookName + "_batch_failure", mcls.size());
+                              metricUtils.incrementHookFailure(
+                                  hookName, consumerGroupId, mcls.size());
+                            });
                     log.error(
                         "Failed to execute hook with name {} for batch of {} MCLs",
                         hook.getClass().getCanonicalName(),

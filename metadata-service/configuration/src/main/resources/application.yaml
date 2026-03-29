@@ -178,6 +178,16 @@ datahub:
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
 
+  requestContext:
+    contextHeader:
+      unspecifiedLabel: ${DATAHUB_CONTEXT_HEADER_UNSPECIFIED_LABEL:unspecified}
+      otherLabel: ${DATAHUB_CONTEXT_HEADER_OTHER_LABEL:other}
+      maxValueLength: ${DATAHUB_CONTEXT_HEADER_MAX_VALUE_LENGTH:48}
+      # X-DataHub-Context is unordered (key=value segments; first wins per key). Allowlists are one
+      # JSON string (array of {key, values}); Micrometer tags are ordered by key name, not header order.
+      # Default matches: skill=datahub-audit and caller=claude-code (same header, any segment order).
+      valueAllowlistsJson: '[{"key":"skill","values":["datahub-audit"]},{"key":"caller","values":["claude-code"]}]'
+
   validation:
     aspectSize:
       prePatch:
@@ -807,6 +817,8 @@ management:
       export:
         enabled: false
   # Micrometer Configuration
+  # management.server.port is not set here: use env MANAGEMENT_SERVER_PORT (Docker start.sh defaults to 4319).
+  # When unset, Actuator stays on the main application port.
   metrics:
     cache:
       enabled: false

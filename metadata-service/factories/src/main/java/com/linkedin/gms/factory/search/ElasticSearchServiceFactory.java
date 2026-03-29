@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
@@ -60,7 +61,8 @@ public class ElasticSearchServiceFactory {
       final ConfigurationProvider configurationProvider,
       final QueryFilterRewriteChain queryFilterRewriteChain,
       final ElasticSearchConfiguration elasticSearchConfiguration,
-      @Nullable final CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable final CustomSearchConfiguration customSearchConfiguration,
+      final MetricUtils metricUtils) {
 
     return new ESSearchDAO(
         components.getSearchClient(),
@@ -68,7 +70,9 @@ public class ElasticSearchServiceFactory {
         elasticSearchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
-        configurationProvider.getSearchService());
+        false,
+        configurationProvider.getSearchService(),
+        metricUtils);
   }
 
   @Bean

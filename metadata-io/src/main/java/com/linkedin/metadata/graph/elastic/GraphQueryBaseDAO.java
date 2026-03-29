@@ -132,7 +132,14 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(searchRequest, RequestOptions.DEFAULT);
+            long t0 = System.nanoTime();
+            try {
+              return getClient().search(searchRequest, RequestOptions.DEFAULT);
+            } finally {
+              if (metricUtils != null) {
+                metricUtils.recordGraph(System.nanoTime() - t0, "search");
+              }
+            }
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -674,7 +681,14 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(searchRequest, RequestOptions.DEFAULT);
+            long t0 = System.nanoTime();
+            try {
+              return getClient().search(searchRequest, RequestOptions.DEFAULT);
+            } finally {
+              if (metricUtils != null) {
+                metricUtils.recordGraph(System.nanoTime() - t0, usePIT ? "search_pit" : "search");
+              }
+            }
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

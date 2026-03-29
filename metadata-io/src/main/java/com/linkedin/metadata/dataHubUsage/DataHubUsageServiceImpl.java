@@ -13,6 +13,7 @@ import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -21,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -41,11 +43,20 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
 
   private final SearchClientShim<?> elasticClient;
   private final IndexConvention indexConvention;
+  @Nullable private final MetricUtils metricUtils;
 
   public DataHubUsageServiceImpl(
       SearchClientShim<?> elasticClient, IndexConvention indexConvention) {
+    this(elasticClient, indexConvention, null);
+  }
+
+  public DataHubUsageServiceImpl(
+      SearchClientShim<?> elasticClient,
+      IndexConvention indexConvention,
+      @Nullable MetricUtils metricUtils) {
     this.elasticClient = elasticClient;
     this.indexConvention = indexConvention;
+    this.metricUtils = metricUtils;
   }
 
   @Override
@@ -182,7 +193,18 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
 
   private SearchResponse executeAndExtractDocuments(SearchRequest searchRequest) {
     try {
-      return elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      if (metricUtils == null) {
+        return elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      }
+      long t0 = System.nanoTime();
+      try {
+        return elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      } finally {
+        metricUtils.recordElasticsearch(
+            System.nanoTime() - t0,
+            MetricUtils.SUBSYSTEM_ELASTICSEARCH,
+            MetricUtils.SEARCH_OPERATION_USAGE_SEARCH);
+      }
     } catch (Exception e) {
       log.error(String.format("Search query failed: %s", e.getMessage()));
       throw new RuntimeException("Search query failed:", e);

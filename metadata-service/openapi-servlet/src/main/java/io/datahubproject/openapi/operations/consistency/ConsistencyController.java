@@ -17,7 +17,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.ConsistencyChecksConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.operations.consistency.models.ConsistencyCheckInfo;
 import io.datahubproject.openapi.operations.consistency.models.ConsistencyCheckRequest;

@@ -350,7 +350,7 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify timer was recorded
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_v1",
             "consumer.group",
@@ -398,7 +398,7 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify separate timers for different topics
     Timer timer1 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_v1",
             "consumer.group",
@@ -406,7 +406,7 @@ public class MetadataChangeProposalsProcessorTest {
 
     Timer timer2 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_Timeseries",
             "consumer.group",
@@ -448,7 +448,7 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify timer was still recorded despite failure
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_v1",
             "consumer.group",
@@ -508,7 +508,7 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify timer statistics
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_v1",
             "consumer.group",

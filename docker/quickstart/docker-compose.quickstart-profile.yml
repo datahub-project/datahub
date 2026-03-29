@@ -102,6 +102,8 @@ services:
       THEME_V2_DEFAULT: 'true'
       UI_INGESTION_ENABLED: 'true'
       UI_INGESTION_DEFAULT_CLI_VERSION: ${UI_INGESTION_DEFAULT_CLI_VERSION}
+    expose:
+    - '4319'
     hostname: datahub-gms
     healthcheck:
       test:
@@ -120,6 +122,10 @@ services:
     - mode: ingress
       target: 8080
       published: ${DATAHUB_MAPPED_GMS_PORT:-8080}
+      protocol: tcp
+    - mode: ingress
+      target: 4319
+      published: '4319'
       protocol: tcp
     volumes:
     - type: bind
@@ -156,6 +162,8 @@ services:
       KAFKA_BOOTSTRAP_SERVER: broker:29092
       PLAY_HTTP_CONTEXT: /
       THEME_V2_DEFAULT: 'true'
+    expose:
+    - '4319'
     hostname: datahub-frontend-react
     image: acryldata/datahub-frontend-react:${DATAHUB_VERSION}
     networks:

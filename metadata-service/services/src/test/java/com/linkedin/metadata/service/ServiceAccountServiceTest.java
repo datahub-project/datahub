@@ -532,9 +532,8 @@ public class ServiceAccountServiceTest {
   }
 
   @Test
-  public void testServiceAccountPrefixCorrect() {
-    // Verify the prefix is correct
-    assertEquals(SERVICE_ACCOUNT_PREFIX, "service:");
+  public void testServiceAccountUsernamePrefixCorrect() {
+    assertEquals(SERVICE_ACCOUNT_USERNAME_PREFIX, "service:");
   }
 
   @Test

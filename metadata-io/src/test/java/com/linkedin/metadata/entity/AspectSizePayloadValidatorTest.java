@@ -18,6 +18,7 @@ import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
@@ -432,7 +433,7 @@ public class AspectSizePayloadValidatorTest {
     // Verify metrics were called for all three sizes with correct bucket labels
     verify(mockMetrics)
         .incrementMicrometer(
-            eq("aspectSizeValidation.postPatch.sizeDistribution"),
+            eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_SIZE_DISTRIBUTION),
             eq(1.0),
             eq("aspectName"),
             anyString(),
@@ -441,7 +442,7 @@ public class AspectSizePayloadValidatorTest {
 
     verify(mockMetrics)
         .incrementMicrometer(
-            eq("aspectSizeValidation.postPatch.sizeDistribution"),
+            eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_SIZE_DISTRIBUTION),
             eq(1.0),
             eq("aspectName"),
             anyString(),
@@ -450,7 +451,7 @@ public class AspectSizePayloadValidatorTest {
 
     verify(mockMetrics)
         .incrementMicrometer(
-            eq("aspectSizeValidation.postPatch.sizeDistribution"),
+            eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_SIZE_DISTRIBUTION),
             eq(1.0),
             eq("aspectName"),
             anyString(),
@@ -505,7 +506,10 @@ public class AspectSizePayloadValidatorTest {
     // Verify warning metric was emitted
     verify(mockMetrics)
         .incrementMicrometer(
-            eq("aspectSizeValidation.postPatch.warning"), eq(1.0), eq("aspectName"), anyString());
+            eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARNING),
+            eq(1.0),
+            eq("aspectName"),
+            anyString());
   }
 
   @Test
@@ -538,7 +542,7 @@ public class AspectSizePayloadValidatorTest {
     // Verify oversized metric was emitted with DELETE remediation
     verify(mockMetrics)
         .incrementMicrometer(
-            eq("aspectSizeValidation.postPatch.oversized"),
+            eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED),
             eq(1.0),
             eq("aspectName"),
             anyString(),
@@ -567,7 +571,7 @@ public class AspectSizePayloadValidatorTest {
     // Verify size distribution metric was emitted
     verify(metricUtils)
         .incrementMicrometer(
-            eq("aspectSizeValidation.prePatch.sizeDistribution"),
+            eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_SIZE_DISTRIBUTION),
             eq(1.0),
             eq("aspectName"),
             eq(STATUS_ASPECT_NAME),
@@ -594,7 +598,7 @@ public class AspectSizePayloadValidatorTest {
       // Verify both metrics were emitted
       verify(metricUtils)
           .incrementMicrometer(
-              eq("aspectSizeValidation.prePatch.sizeDistribution"),
+              eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_SIZE_DISTRIBUTION),
               eq(1.0),
               anyString(),
               anyString(),
@@ -602,7 +606,7 @@ public class AspectSizePayloadValidatorTest {
               anyString());
       verify(metricUtils)
           .incrementMicrometer(
-              eq("aspectSizeValidation.prePatch.oversized"),
+              eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED),
               eq(1.0),
               anyString(),
               anyString(),
@@ -636,7 +640,7 @@ public class AspectSizePayloadValidatorTest {
     // Verify warning metric was emitted
     verify(metricUtils)
         .incrementMicrometer(
-            eq("aspectSizeValidation.prePatch.warning"),
+            eq(MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARNING),
             eq(1.0),
             eq("aspectName"),
             eq(STATUS_ASPECT_NAME));

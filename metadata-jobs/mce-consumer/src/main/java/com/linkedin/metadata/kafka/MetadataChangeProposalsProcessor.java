@@ -94,7 +94,7 @@ public class MetadataChangeProposalsProcessor {
                 metricUtils
                     .getRegistry()
                     .timer(
-                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                        MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
                         "topic",
                         consumerRecord.topic(),
                         "consumer.group",

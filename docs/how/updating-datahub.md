@@ -33,7 +33,19 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- **Metrics (Prometheus / Micrometer):** Logical names and Prometheus series changed. Update alerts, dashboards, and recording rules. For renames below, the `was …` Prometheus series is what you had on the release before this change ships (net-new meters have no prior name):
+  - MCL hook trace lag: `datahub.request.hook.queue.time` → `datahub.mcl.hook.trace_lag` (`datahub_mcl_hook_trace_lag_seconds_*`, was `datahub_request_hook_queue_time_seconds_*`).
+  - Kafka consumer record age: `kafka.message.queue.time` → `datahub.kafka.consumer.record_age` (`datahub_kafka_consumer_record_age_seconds_*`, was `kafka_message_queue_time_seconds_*`).
+  - GMS API traffic: `datahub.request.context` → `datahub.api.traffic` (`datahub_api_traffic_total`, was `datahub_request_context_total`). Optional `X-DataHub-Context` dimensions use Micrometer tag keys `agent_skill` / `agent_caller` (OpenTelemetry `agent.skill` / `agent.caller`).
+  - Auth login outcomes (new on GMS): `datahub.auth.login_outcomes` (`datahub_auth_login_outcomes_total`).
+  - MCL hook failures: `datahub.kafka.hook.failures` → `datahub.mcl.hook.failures` (`datahub_mcl_hook_failures_total`, was `datahub_kafka_hook_failures_total`).
+  - Metadata store (Ebean + Cassandra): `datahub.metadata_store` with tag `subsystem=ebean` or `subsystem=cassandra` plus `operation` (`datahub_metadata_store_seconds_*`, new).
+  - Timeseries aspects: `datahub.timeseries_aspect` (`datahub_timeseries_aspect_seconds_*`, new; no prior shipped `datahub.timeseries` series).
+  - Entity search + usage index (new): `datahub.search` with `subsystem=elasticsearch` and coarse `operation` (`datahub_search_seconds_*`); usage-index queries use `operation=usage_search` so they do not collide with entity `search`. There is no separate `implementation` label on these timers.
+  - Graph and timeseries-aspect timers (`datahub_graph_seconds_*`, `datahub_timeseries_aspect_seconds_*`) use `subsystem=elasticsearch` for current Elasticsearch-backed paths (the meter name identifies graph vs timeseries). Panels that matched only `operation` should add the `subsystem` selector (or aggregate across it). See [Monitoring – Domain meter names vs `subsystem`](../advanced/monitoring.md#domain-meter-names-vs-subsystem-tags).
+- **Docker / Prometheus (Micrometer):** When using the stock DataHub Docker `start.sh` entrypoints, GMS, MAE consumer, MCE consumer, and the frontend expose Micrometer Actuator (including `GET /actuator/prometheus` and `/actuator/health`) on container port **4319** by default (`MANAGEMENT_SERVER_PORT`), separate from the main API/UI port. Profile compose ([docker/profiles/docker-compose.gms.yml](../../docker/profiles/docker-compose.gms.yml)) **`expose`s 4319** for on-network scraping and maps **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host for GMS (same pattern as **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`** for HTTP). Override `DATAHUB_GMS_MANAGEMENT_URL` in smoke tests if needed, or change the host port via `DATAHUB_MAPPED_GMS_MANAGEMENT_PORT`. Scrape from another container on the same compose network (e.g. `http://datahub-gms:4319/actuator/prometheus` as in [docker/monitoring/prometheus.yaml](../../docker/monitoring/prometheus.yaml)). MAE and MCE image **HEALTHCHECK** probes the management port first, then falls back to the main consumer port for older layouts. The JMX Prometheus Java agent remains on **4318**. If you previously scraped Micrometer from the GMS HTTP port (e.g. `8080`), update scrapes to the management listener. To keep Actuator on the main port, unset `MANAGEMENT_SERVER_PORT` in the container or set it equal to the main server port.
 - #16723 (Ingestion) Dataplex source configuration cleanup: `filter_config.entries.dataset_pattern` was removed, use `filter_config.entries.pattern` instead; `entries_location` was removed, use `entries_locations` (list) instead.
+- **Java (`metadata-operation-context`):** Request-scoped HTTP/API context and `X-DataHub-Context` parsing live under `io.datahubproject.metadata.context.request`: `RequestContext`, `DataHubContextParser`, `DataHubContextParsePolicy`, `DataHubContextKeyRule`, and `DataHubContextRulesHolder` (replacing the former `io.datahubproject.metadata.context` / `context.datahub` packages for these types). Update imports if you depend on them outside the repo.
 
 ### Known Issues
 
@@ -42,6 +54,20 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 ### Other Notable Changes
+
+- **Metrics (operators):** GMS emits Micrometer counters `datahub.auth.login_outcomes` (Prometheus: `datahub_auth_login_outcomes_total`) for session token generation and native password verification, and MAE emits `datahub.mcl.hook.failures` (`datahub_mcl_hook_failures_total`) for MCL hook failures; class-scoped per-hook counters may still appear on legacy JMX scrapes. **Micrometer/Prometheus names are not yet guaranteed stable across releases** (see [Monitoring – Canonical metric taxonomy](../advanced/monitoring.md#canonical-metric-taxonomy-prometheus)). Alerts and Grafana panels that query JMX-style names such as `metrics_com_datahub_graphql_GraphQLController_error_Count` should move to Spring GraphQL metrics, for example:
+
+  ```promql
+  sum(rate(graphql_request_errors_total[5m]))
+  ```
+
+  When you adopt this release, update your Prometheus alert rules and Grafana dashboards (and any tests you maintain for those definitions) so they query the new metric names instead of legacy `metrics_com_*` series.
+
+- **Aspect size validation metrics:** Micrometer counters previously named `aspectSizeValidation.*` are now `datahub.validation.aspect_size.*` (e.g. `datahub_validation_aspect_size_pre_patch_size_distribution_total`). Update any alerts or panels that referenced the old names.
+
+- **API traffic (Micrometer):** The GMS counter logical name is `datahub.api.traffic` (Prometheus: `datahub_api_traffic_total` with tags `user_category`, `agent_class`, `request_api`, and optional `agent_skill` / `agent_caller` from `X-DataHub-Context`), replacing earlier `datahub.request.context` / `datahub_request_context_total` and legacy `datahub_request_count_*`. The legacy Dropwizard-style `requestContext_*` counters remain for JMX-oriented scrapes.
+
+- **Storage / domain timers (Micrometer):** GMS records `datahub.metadata_store` with `subsystem=ebean` or `subsystem=cassandra` plus `operation`, and `datahub.graph` / `datahub.timeseries_aspect` / `datahub.search` with `subsystem=elasticsearch` today (meter name carries the domain; usage-index search uses `operation=usage_search`). See [Domain meter names vs `subsystem`](../advanced/monitoring.md#domain-meter-names-vs-subsystem-tags) and [Metric catalog](../advanced/monitoring.md#metric-catalog).
 
 ## v1.5.0
 

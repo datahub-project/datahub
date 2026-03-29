@@ -16,6 +16,12 @@ public class OpenTelemetryKeyConstants {
   public static final String ASPECT_NAME_ATTR = "aspect.name";
   public static final String LOGIN_SOURCE_ATTR = "login.source";
 
+  /** From {@code X-DataHub-Context} when {@code skill=} is present and sanitized. */
+  public static final String AGENT_SKILL_ATTR = "agent.skill";
+
+  /** From {@code X-DataHub-Context} when {@code caller=} is present and sanitized. */
+  public static final String AGENT_CALLER_ATTR = "agent.caller";
+
   /** Present on failed login span events; value is the {@code LoginDenialReason} enum name. */
   public static final String LOGIN_DENIAL_REASON_ATTR = "login.denial.reason";
 
