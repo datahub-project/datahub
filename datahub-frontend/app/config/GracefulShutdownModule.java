@@ -18,10 +18,17 @@ import org.slf4j.LoggerFactory;
 public class GracefulShutdownModule extends AbstractModule {
 
   private static final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
+  private final Config config;
+
+  public GracefulShutdownModule(Config config) {
+    this.config = config;
+  }
 
   @Override
   protected void configure() {
-    bind(FrontendShutdownHook.class).asEagerSingleton();
+    if (config.getBoolean("frontend.graceful_shutdown_enabled")) {
+      bind(FrontendShutdownHook.class).asEagerSingleton();
+    }
   }
 
   public static boolean isShuttingDown() {
@@ -37,13 +44,10 @@ public class GracefulShutdownModule extends AbstractModule {
   public static class FrontendShutdownHook {
 
     private static final Logger log = LoggerFactory.getLogger(FrontendShutdownHook.class);
-    private final boolean enableGracefulShutdown;
 
     @Inject
     public FrontendShutdownHook(
-        CoordinatedShutdown coordinatedShutdown, CloseableHttpClient httpClient, Config config) {
-
-      enableGracefulShutdown = config.getBoolean("frontend.graceful_shutdown_enabled");
+        CoordinatedShutdown coordinatedShutdown, CloseableHttpClient httpClient) {
 
       // Phase 1: before connections close — log intent
       coordinatedShutdown.addTask(
@@ -52,13 +56,8 @@ public class GracefulShutdownModule extends AbstractModule {
           () ->
               CompletableFuture.runAsync(
                       () -> {
-                        if (enableGracefulShutdown) {
-                          log.info("Frontend shutdown initiated - stopping new connections soon");
-                          isShuttingDown.set(true);
-                        } else {
-                          log.info(
-                              "Graceful shutdown disabled by configuration (frontend.graceful_shutdown_enabled=false)");
-                        }
+                        log.info("Frontend shutdown initiated - stopping new connections soon");
+                        isShuttingDown.set(true);
                       })
                   .thenApply(v -> Done.getInstance()));
 
@@ -69,13 +68,8 @@ public class GracefulShutdownModule extends AbstractModule {
               CompletableFuture.runAsync(
                       () -> {
                         try {
-                          if (enableGracefulShutdown) {
-                            log.info("Frontend shutdown initiated - shutting down open resources");
-                            httpClient.close();
-                          } else {
-                            log.info(
-                                "Graceful shutdown disabled by configuration (frontend.graceful_shutdown_enabled=false)");
-                          }
+                          log.info("Frontend shutdown initiated - shutting down open resources");
+                          httpClient.close();
                         } catch (IOException e) {
                           log.error("Error closing CloseableHttpClient during shutdown", e);
                         }
