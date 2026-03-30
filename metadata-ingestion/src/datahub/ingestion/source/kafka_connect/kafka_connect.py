@@ -81,7 +81,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             self.session.auth = (connect_username, connect_password)
         else:
             # For Confluent Cloud, authentication is required
-            if self._detect_confluent_cloud():
+            if self.config.is_confluent_cloud():
                 raise ValueError(
                     "Confluent Cloud detected but no Connect API credentials provided. "
                     "Confluent Cloud requires authentication credentials for API access."
@@ -93,7 +93,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         logger.info(f"Connection to {self.config.connect_uri} is ok")
 
         # Detect environment type for topic retrieval strategy
-        self._is_confluent_cloud = self._detect_confluent_cloud()
+        self._is_confluent_cloud = self.config.is_confluent_cloud()
         if self._is_confluent_cloud:
             logger.info(
                 "Detected Confluent Cloud - using comprehensive Kafka REST API topic retrieval"
@@ -328,13 +328,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             }
         )
         return session
-
-    def _detect_confluent_cloud(self) -> bool:
-        """Detect if we're running against Confluent Cloud.
-
-        Delegates to the config's is_confluent_cloud() to avoid duplicating detection logic.
-        """
-        return self.config.is_confluent_cloud()
 
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:
         """Get topics for a connector using environment-specific strategy.
