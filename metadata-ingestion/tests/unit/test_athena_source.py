@@ -12,6 +12,7 @@ from sqlalchemy_bigquery import STRUCT
 from sqlglot.dialects import Athena
 
 from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.athena import (
     AthenaConfig,
@@ -280,18 +281,21 @@ def test_athena_iceberg_siblings_emission():
     assert len(workunits) == 3
 
     # Athena entity is not primary, siblings include both Glue and Iceberg
+    assert isinstance(workunits[0].metadata, MetadataChangeProposalWrapper)
     athena_sibling_aspect = workunits[0].metadata.aspect
     assert isinstance(athena_sibling_aspect, Siblings)
     assert athena_sibling_aspect.primary is False
     assert athena_sibling_aspect.siblings == [glue_urn, iceberg_urn]
 
     # Glue entity is primary
+    assert isinstance(workunits[1].metadata, MetadataChangeProposalWrapper)
     glue_sibling_aspect = workunits[1].metadata.aspect
     assert isinstance(glue_sibling_aspect, Siblings)
     assert glue_sibling_aspect.primary is True
     assert glue_sibling_aspect.siblings == [athena_urn]
 
     # Iceberg entity is primary
+    assert isinstance(workunits[2].metadata, MetadataChangeProposalWrapper)
     iceberg_sibling_aspect = workunits[2].metadata.aspect
     assert isinstance(iceberg_sibling_aspect, Siblings)
     assert iceberg_sibling_aspect.primary is True
@@ -319,12 +323,14 @@ def test_athena_non_iceberg_siblings_emission():
     assert len(workunits) == 2
 
     # Athena entity is not primary
+    assert isinstance(workunits[0].metadata, MetadataChangeProposalWrapper)
     athena_sibling_aspect = workunits[0].metadata.aspect
     assert isinstance(athena_sibling_aspect, Siblings)
     assert athena_sibling_aspect.primary is False
     assert athena_sibling_aspect.siblings == [glue_urn]
 
     # Glue entity is primary
+    assert isinstance(workunits[1].metadata, MetadataChangeProposalWrapper)
     glue_sibling_aspect = workunits[1].metadata.aspect
     assert isinstance(glue_sibling_aspect, Siblings)
     assert glue_sibling_aspect.primary is True
