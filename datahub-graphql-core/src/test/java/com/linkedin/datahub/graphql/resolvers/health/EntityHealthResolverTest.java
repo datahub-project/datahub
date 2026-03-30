@@ -461,4 +461,57 @@ public class EntityHealthResolverTest {
     assertEquals(result.size(), 0);
     Mockito.verify(mockEntityClient, Mockito.times(0)).getV2(any(), any(), any(), any());
   }
+
+  @Test
+  public void testComputeTestsHealthMultipleFailingAndPassing() throws Exception {
+    EntityClient mockEntityClient = Mockito.mock(EntityClient.class);
+    GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
+    TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
+
+    TestResults testResults = new TestResults();
+    TestResult passing1 = new TestResult();
+    passing1.setTest(Urn.createFromString("urn:li:test:pass-1"));
+    passing1.setType(TestResultType.SUCCESS);
+    TestResult failing1 = new TestResult();
+    failing1.setTest(Urn.createFromString("urn:li:test:fail-1"));
+    failing1.setType(TestResultType.FAILURE);
+    TestResult failing2 = new TestResult();
+    failing2.setTest(Urn.createFromString("urn:li:test:fail-2"));
+    failing2.setType(TestResultType.FAILURE);
+    testResults.setPassing(new TestResultArray(ImmutableList.of(passing1)));
+    testResults.setFailing(new TestResultArray(ImmutableList.of(failing1, failing2)));
+
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        Constants.TEST_RESULTS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(testResults.data())));
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setAspects(aspectMap);
+
+    Mockito.when(mockEntityClient.getV2(any(), any(), any(), any())).thenReturn(entityResponse);
+
+    EntityHealthResolver resolver =
+        new EntityHealthResolver(
+            mockEntityClient,
+            mockGraphClient,
+            mockAspectService,
+            new EntityHealthResolver.Config(false, false, true));
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Dataset parentDataset = new Dataset();
+    parentDataset.setUrn(TEST_DATASET_URN);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDataset);
+
+    List<Health> result = resolver.get(mockEnv).get();
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getStatus(), HealthStatus.FAIL);
+    assertEquals(result.get(0).getType(), HealthStatusType.TESTS);
+    assertEquals(result.get(0).getMessage(), "2 of 3 tests failing");
+  }
 }
