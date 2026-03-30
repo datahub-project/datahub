@@ -13,6 +13,7 @@ import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
 import java.io.InputStream;
+import config.GracefulShutdownModule;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -122,6 +123,9 @@ public class Application extends Controller {
 
   @Nonnull
   public Result healthcheck() {
+    if (GracefulShutdownModule.isShuttingDown()) {
+      return status(SERVICE_UNAVAILABLE, "Shutting down");
+    }
     return ok("GOOD");
   }
 

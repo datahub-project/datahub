@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.config.HealthCheckConfiguration;
 import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -46,6 +47,8 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   @MockitoBean
   @Qualifier("bootstrapManager")
   private BootstrapManager bootstrapManager;
+
+  @MockitoBean private GracefulShutdownHandler shutdownHandler;
 
   @Autowired private MockMvc mockMvc;
 
@@ -283,5 +286,41 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
         .perform(get("/health/live"))
         // Then: Should still return 200
         .andExpect(status().isOk());
+  }
+
+  /**
+   * Test graceful shutdown scenario. When shutdown is in progress, health endpoint should return
+   * 503 to signal load balancer to remove this instance from rotation.
+   */
+  @Test
+  public void testHealthReturns503DuringGracefulShutdown() throws Exception {
+    // Given: Bootstrap is complete but shutdown is in progress
+    when(bootstrapManager.areBlockingStepsComplete()).thenReturn(true);
+    when(shutdownHandler.isShutdownInProgress()).thenReturn(true);
+
+    // When: Request /health endpoint during shutdown
+    mockMvc
+        .perform(get("/health"))
+        // Then: Should return 503 Service Unavailable (remove from load balancer)
+        .andExpect(status().isServiceUnavailable())
+        .andExpect(content().string(""));
+  }
+
+  /**
+   * Test shutdown takes precedence over bootstrap state. If shutdown is in progress, return 503
+   * regardless of bootstrap status.
+   */
+  @Test
+  public void testShutdownTakesPrecedenceOverBootstrap() throws Exception {
+    // Given: Bootstrap NOT complete AND shutdown is in progress
+    when(bootstrapManager.areBlockingStepsComplete()).thenReturn(false);
+    when(shutdownHandler.isShutdownInProgress()).thenReturn(true);
+
+    // When: Request /health endpoint
+    mockMvc
+        .perform(get("/health"))
+        // Then: Should return 503 (shutdown takes precedence)
+        .andExpect(status().isServiceUnavailable())
+        .andExpect(content().string(""));
   }
 }

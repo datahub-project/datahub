@@ -4,6 +4,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
@@ -43,6 +44,8 @@ public class HealthCheckController {
   @Qualifier("bootstrapManager")
   private BootstrapManager bootstrapManager;
 
+  @Autowired private GracefulShutdownHandler shutdownHandler;
+
   private final Supplier<ResponseEntity<String>> memoizedSupplier;
 
   public HealthCheckController(ConfigurationProvider config) {
@@ -79,12 +82,13 @@ public class HealthCheckController {
    */
   @GetMapping(path = "/health")
   public ResponseEntity<Void> getBootstrapAwareHealth() {
-    if (!bootstrapManager.areBlockingStepsComplete()) {
+    if (!bootstrapManager.areBlockingStepsComplete() || shutdownHandler.isShutdownInProgress()) {
+      // Service is either still bootstrapping or shutting down - not ready for traffic
       // Service is still bootstrapping - not ready for traffic
       return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
-    // Bootstrap complete - service ready for traffic
+    // Bootstrap complete and not shutting down - service ready for traffic
     return ResponseEntity.ok().build();
   }
 

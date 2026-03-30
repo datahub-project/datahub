@@ -745,6 +745,8 @@ neo4j:
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: ${GMS_LIFECYCLE_TIMEOUT:45s}
   error:
     include-message: never
     include-stacktrace: never
@@ -826,6 +828,7 @@ management:
 
 # GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
 server:
+  shutdown: graceful
   server-header: false
   servlet:
     context-path: ${DATAHUB_GMS_BASE_PATH:/}
@@ -1316,3 +1319,7 @@ eventsApi:
 icebergCatalog:
   enablePublicRead: ${ENABLE_PUBLIC_READ:false}
   publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+
+shutdown:
+  graceful:
+    enabled: ${GMS_GRACEFUL_SHUTDOWN_ENABLED:false}
