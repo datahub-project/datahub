@@ -44,7 +44,8 @@ public class HealthCheckController {
   @Qualifier("bootstrapManager")
   private BootstrapManager bootstrapManager;
 
-  @Autowired private GracefulShutdownHandler shutdownHandler;
+  @Autowired(required = false)
+  private GracefulShutdownHandler shutdownHandler;
 
   private final Supplier<ResponseEntity<String>> memoizedSupplier;
 
@@ -82,9 +83,9 @@ public class HealthCheckController {
    */
   @GetMapping(path = "/health")
   public ResponseEntity<Void> getBootstrapAwareHealth() {
-    if (!bootstrapManager.areBlockingStepsComplete() || shutdownHandler.isShutdownInProgress()) {
+    boolean isShuttingDown = shutdownHandler != null && shutdownHandler.isShutdownInProgress();
+    if (!bootstrapManager.areBlockingStepsComplete() || isShuttingDown) {
       // Service is either still bootstrapping or shutting down - not ready for traffic
-      // Service is still bootstrapping - not ready for traffic
       return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
