@@ -29,8 +29,7 @@ public class GracefulShutdownHandler {
   public void onApplicationClosed(ContextClosedEvent event) {
     log.info("Application context closing - initiating graceful shutdown");
     shutdownInProgress.set(true);
-
-    log.info("Graceful shutdown sequence complete, allowing application context close");
+    log.info("Shutdown flag set - health checks will now return 503");
   }
 
   /**

@@ -1320,7 +1320,3 @@ eventsApi:
 icebergCatalog:
   enablePublicRead: ${ENABLE_PUBLIC_READ:false}
   publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
-
-shutdown:
-  graceful:
-    enabled: ${GMS_GRACEFUL_SHUTDOWN_ENABLED:false}
