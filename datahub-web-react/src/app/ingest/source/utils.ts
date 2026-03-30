@@ -1,13 +1,11 @@
 import { colors } from '@components';
-import {
-    ArrowCounterClockwise,
-    ArrowsCounterClockwise,
-    Checks,
-    ClockClockwise,
-    Prohibit,
-    Spinner,
-    X,
-} from 'phosphor-react';
+import { ArrowCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
+import { ArrowsCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowsCounterClockwise';
+import { Checks } from '@phosphor-icons/react/dist/csr/Checks';
+import { ClockClockwise } from '@phosphor-icons/react/dist/csr/ClockClockwise';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
+import { Spinner } from '@phosphor-icons/react/dist/csr/Spinner';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import YAML from 'yamljs';
 
 import EntityRegistry from '@app/entity/EntityRegistry';

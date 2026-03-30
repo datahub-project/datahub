@@ -120,6 +120,7 @@ export function ScheduleSection() {
                 checked={scheduleEnabled}
                 onChange={(e) => setScheduleEnabled(e.target.checked)}
                 labelPosition="right"
+                data-testid="schedule-enabled-switch"
             />
             {!scheduleEnabled && (
                 <WarningContainer>

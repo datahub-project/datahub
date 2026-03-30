@@ -1,9 +1,10 @@
 /* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { CaretDown, CaretUp } from 'phosphor-react';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 

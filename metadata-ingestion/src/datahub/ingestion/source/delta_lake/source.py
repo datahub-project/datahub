@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 from deltalake import DeltaTable
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -29,6 +30,14 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
+from datahub.ingestion.source.azure.abs_folder_utils import list_folders
+from datahub.ingestion.source.azure.abs_utils import (
+    get_container_relative_path,
+    parse_azure_path,
+    strip_abs_prefix,
+    to_blob_https_uri,
+)
+from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
@@ -213,9 +222,21 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
 
         logger.debug(f"Ingesting table {table_name} from location {path}")
         if self.source_config.relative_path is None:
-            browse_path: str = (
-                strip_s3_prefix(path) if self.source_config.is_s3 else path.strip("/")
-            )
+            if self.source_config.is_s3:
+                browse_path = strip_s3_prefix(path)
+            elif self.source_config.is_azure:
+                browse_path = strip_abs_prefix(
+                    to_blob_https_uri(
+                        path,
+                        account_name=(
+                            self.source_config.azure.account_name
+                            if self.source_config.azure
+                            else None
+                        ),
+                    )
+                )
+            else:
+                browse_path = path.strip("/")
         else:
             browse_path = path.split(self.source_config.base_path)[1].strip("/")
 
@@ -311,6 +332,24 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             if aws_config.aws_endpoint_url:
                 opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
             return opts
+        elif self.source_config.is_azure:
+            path_parts = parse_azure_path(
+                self.source_config.complete_path,
+                account_name=(
+                    self.source_config.azure.account_name
+                    if self.source_config.azure
+                    else None
+                ),
+            )
+            if self.source_config.azure is not None:
+                return self.source_config.azure.build_storage_options(
+                    account_name=path_parts.account_name,
+                    container_name=path_parts.container_name,
+                )
+            return {
+                "account_name": path_parts.account_name,
+                "container_name": path_parts.container_name,
+            }
         else:
             return {}
 
@@ -327,6 +366,8 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
     def get_folders(self, path: str) -> Iterable[str]:
         if self.source_config.is_s3:
             return self.s3_get_folders(path)
+        elif self.source_config.is_azure:
+            return self.azure_get_folders(path)
         else:
             return self.local_get_folders(path)
 
@@ -345,6 +386,59 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             )
         for folder in os.listdir(path):
             yield os.path.join(path, folder)
+
+    def _build_azure_connection_config(
+        self, path: str
+    ) -> Optional[AzureConnectionConfig]:
+        if self.source_config.azure is None:
+            return None
+        account_name = self.source_config.azure.account_name
+        path_parts = parse_azure_path(
+            path,
+            account_name=account_name,
+        )
+
+        try:
+            return AzureConnectionConfig(
+                base_path=path_parts.object_path or "/",
+                container_name=path_parts.container_name,
+                account_name=path_parts.account_name,
+                account_key=self.source_config.azure.account_key,
+                sas_token=self.source_config.azure.sas_token,
+                client_id=self.source_config.azure.client_id,
+                client_secret=self.source_config.azure.client_secret,
+                tenant_id=self.source_config.azure.tenant_id,
+            )
+        except ConfigurationError as exc:
+            raise ValueError(
+                "Azure folder discovery reuses shared Azure Blob helpers and "
+                "requires static credentials in `source.config.azure`: "
+                "`account_key`, `sas_token`, or "
+                "`client_id` + `client_secret` + `tenant_id`. "
+                "`azure.credential` is only supported when `base_path` points "
+                "directly to a Delta table."
+            ) from exc
+
+    def azure_get_folders(self, path: str) -> Iterable[str]:
+        account_name = (
+            self.source_config.azure.account_name if self.source_config.azure else None
+        )
+        path_parts = parse_azure_path(
+            path,
+            account_name=account_name,
+        )
+        azure_config = self._build_azure_connection_config(path)
+        if azure_config is None:
+            raise ValueError(
+                "Azure credentials are required for folder discovery. Configure "
+                "`source.config.azure` with account_key, sas_token, or service principal fields."
+            )
+
+        prefix = get_container_relative_path(
+            to_blob_https_uri(path, account_name=account_name)
+        )
+        for folder in list_folders(path_parts.container_name, prefix, azure_config):
+            yield azure_config.get_abfss_url(folder)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [

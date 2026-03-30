@@ -29,8 +29,6 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect<0.10.0",
     "pydantic>=2.4.0,<3.0.0",
-    # 2.41.3 https://github.com/pydantic/pydantic-core/issues/1841
-    "pydantic_core!=2.41.3,<3.0.0",
     "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
@@ -50,8 +48,6 @@ framework_common = {
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
     "toml>=0.10.0,<=0.10.2",
-    # In Python 3.10+, importlib_metadata is included in the standard library.
-    "importlib_metadata>=4.0.0,<9.0.0; python_version < '3.10'",
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "avro-gen3==0.7.16",
@@ -78,13 +74,13 @@ framework_common = {
     # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
+    # Required for GraphQL query adaptation (used by search CLI)
+    "graphql-core>=3.0.0,<4.0.0",
 }
 
 rest_common = {
     "requests<3.0.0",
     "requests_file<4.0.0",
-    # Required for GraphQL query adaptation and schema introspection
-    "graphql-core>=3.0.0,<4.0.0",
 }
 
 kafka_common = {
@@ -128,8 +124,9 @@ sqlglot_lib = {
     # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
     # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
-    "sqlglot[c]==29.0.1",
-    "sqlglotc==29.0.1",
+    # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
+    # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
+    "sqlglot[c]==30.0.3",
     "patchy==2.8.0",
 }
 
@@ -240,11 +237,7 @@ looker_common = {
     "lkml>=1.3.4,<2.0.0",
     *sqlglot_lib,
     "GitPython>2,<4.0.0",
-    # python-liquid 2 includes a bunch of breaking changes.
-    # See https://jg-rp.github.io/liquid/migration/
-    # Eventually we should fully upgrade to v2, but that will require
-    # us to drop Python 3.8 support first.
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "deepmerge>=1.1.1,<3.0.0",
 }
 
@@ -310,14 +303,15 @@ snowflake_common = {
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
     #
-    # Upper bound <1.7.4 was (accidentally?) removed 
+    # Upper bound <1.7.4 was (accidentally?) removed
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
     "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
     "msal<2.0.0",
@@ -389,10 +383,11 @@ s3_base = {
     *pyarrow_common,
     "tableschema>=1.20.2,<2.0.0",
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
-    "ujson>=5.2.0,<6.0.0",
+    # >=5.12.0: fixes DoS (memory growth on parsing huge integers in 5.4–5.11; dumps() indent
+    # overflow/infinite loop GHSA-c8rr-9gxc-jprv). Keep <6 until major API review.
+    "ujson>=5.12.0,<6.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
-    # moto 5.0.0 drops support for Python 3.7
-    "moto[s3]<5.0.0",
+    "moto[s3]>=5.0.0,<6.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
@@ -417,7 +412,7 @@ abs_base = {
     *pyarrow_common,
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
-    "ujson>=5.2.0,<6.0.0",
+    "ujson>=5.12.0,<6.0.0",
     *path_spec_common,
 }
 
@@ -564,6 +559,11 @@ plugins: Dict[str, Set[str]] = {
     },
     "azure-ad": set(),
     "azure-data-factory": azure_data_factory,
+    "fabric-data-factory": {
+        "azure-core>=1.38.0,<2.0.0",
+        "azure-identity>=1.21.0,<2.0.0",
+        "requests>=2.28.0,<3.0",
+    },
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
         "pyodbc>=4.0,<5.0",
@@ -631,6 +631,7 @@ plugins: Dict[str, Set[str]] = {
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
     },
+    "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
     "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -662,7 +663,8 @@ plugins: Dict[str, Set[str]] = {
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    "kafka-connect": sql_common
+    | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -678,8 +680,9 @@ plugins: Dict[str, Set[str]] = {
         "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
+    "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
-    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"}
+    "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
     | cachetools_lib,
     "mongodb": {"pymongo[aws]>=4.8.0,<5.0.0", "packaging<26.0.0"},
@@ -744,7 +747,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"lark[regex]==1.1.4", "sqlparse<1.0.0", "more-itertools<11.0.0"}
+        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
         | threading_timeout_common
     ),
@@ -886,9 +889,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "confluence",
-            # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
-            # It's available as a separate extra and in the docs extra for doc generation
-            # TODO: Re-add datahub-documents here now that Python 3.9 support was dropped
+            "datahub-documents",
             "dataplex",
             "delta-lake",
             "dremio",
@@ -967,6 +968,7 @@ full_test_dev_requirements = {
         for plugin in [
             "athena",
             "azure-data-factory",
+            "fabric-data-factory",
             "fabric-onelake",
             "circuit-breaker",
             "clickhouse",
@@ -1014,6 +1016,7 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
+        "fabric-data-factory = datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
@@ -1031,6 +1034,7 @@ entry_points = {
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "excel = datahub.ingestion.source.excel.source:ExcelSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
+        "flink = datahub.ingestion.source.flink.source:FlinkSource",
         "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
@@ -1087,7 +1091,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
-        "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
+        "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
@@ -1205,9 +1209,10 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
-        "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
+        "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],
         "datahub.ingestion.autogenerated": ["*.json"],
         "datahub.cli.gql": ["*.gql"],
+        "datahub.cli.resources": ["*.md"],
     },
     # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
     # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
@@ -1232,6 +1237,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
                 ]
             )
         ),
+        "sso": list(framework_common | {"playwright>=1.40.0,<2.0.0"}),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
         "docs": list(

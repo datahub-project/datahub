@@ -369,6 +369,31 @@ def test_private_key_set_but_auth_not_changed():
         )
 
 
+def test_snowflake_connection_config_excludes_secrets_from_serialization():
+    """Ensure secret fields are excluded from model_dump() to prevent leaking
+    credentials in logs, reports, or the system info endpoint."""
+    from datahub.ingestion.source.snowflake.snowflake_connection import (
+        SnowflakeConnectionConfig,
+    )
+
+    config = SnowflakeConnectionConfig.model_validate(
+        {
+            "account_id": "acctname",
+            "username": "user",
+            "password": "hunter2",
+            "private_key": "-----BEGIN PRIVATE KEY-----\nfakekey\n-----END PRIVATE KEY-----\n",
+            "private_key_password": "keypassword",
+            "authentication_type": "KEY_PAIR_AUTHENTICATOR",
+        }
+    )
+
+    dumped = config.model_dump()
+    assert "password" not in dumped
+    assert "private_key" not in dumped
+    assert "private_key_password" not in dumped
+    assert dumped["username"] == "user"  # non-secret field still present
+
+
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():
     config_dict = default_config_dict.copy()
     config_dict["connect_args"] = {

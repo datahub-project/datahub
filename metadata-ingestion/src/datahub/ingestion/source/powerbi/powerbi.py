@@ -72,7 +72,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
     CorpUserInfoClass,
@@ -114,18 +113,6 @@ class Mapper:
     Transform PowerBi concepts Dashboard, Dataset and Tile to DataHub concepts Dashboard, Dataset and Chart
     """
 
-    class EquableMetadataWorkUnit(MetadataWorkUnit):
-        """
-        We can add EquableMetadataWorkUnit to set.
-        This will avoid passing same MetadataWorkUnit to DataHub Ingestion framework.
-        """
-
-        def __eq__(self, instance):
-            return self.id == instance.id
-
-        def __hash__(self):
-            return id(self.id)
-
     def __init__(
         self,
         ctx: PipelineContext,
@@ -154,49 +141,6 @@ class Mapper:
     def assets_urn_to_lowercase(self, value):
         return Mapper.urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
 
-    def new_mcp(
-        self,
-        entity_urn,
-        aspect,
-        change_type=ChangeTypeClass.UPSERT,
-    ):
-        """
-        Create MCP
-        """
-        return MetadataChangeProposalWrapper(
-            changeType=change_type,
-            entityUrn=entity_urn,
-            aspect=aspect,
-        )
-
-    def _to_work_unit(
-        self, mcp: MetadataChangeProposalWrapper, is_primary_source: bool = True
-    ) -> EquableMetadataWorkUnit:
-        return Mapper.EquableMetadataWorkUnit(
-            id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
-                PLATFORM=self.__config.platform_name,
-                ENTITY_URN=mcp.entityUrn,
-                ASPECT_NAME=mcp.aspectName,
-            ),
-            mcp=mcp,
-            is_primary_source=is_primary_source,
-        )
-
-    def _to_user_work_unit(
-        self, mcp: MetadataChangeProposalWrapper
-    ) -> EquableMetadataWorkUnit:
-        """
-        Create work unit for user entities with is_primary_source=False.
-
-        PowerBI is NOT the authoritative source for users (LDAP/Okta/SCIM are).
-        By marking is_primary_source=False, we prevent stateful ingestion from:
-        1. Tracking these user entities in its state
-        2. Soft-deleting them when they disappear from PowerBI
-
-        This follows the pattern used by dbt, Unity Catalog, and other non-authoritative sources.
-        """
-        return self._to_work_unit(mcp, is_primary_source=False)
-
     def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         """
         Generate DataPlatformInstanceClass aspect for PowerBI entities.
@@ -216,8 +160,8 @@ class Mapper:
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
         schema_metadata = self.to_datahub_schema(table)
-        schema_mcp = self.new_mcp(
-            entity_urn=ds_urn,
+        schema_mcp = MetadataChangeProposalWrapper(
+            entityUrn=ds_urn,
             aspect=schema_metadata,
         )
         return [schema_mcp]
@@ -577,8 +521,8 @@ class Mapper:
                     viewLogic=converted_expression,
                     viewLanguage="m_query",
                 )
-                view_prop_mcp = self.new_mcp(
-                    entity_urn=ds_urn,
+                view_prop_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=ds_urn,
                     aspect=view_properties,
                 )
                 dataset_mcps.extend([view_prop_mcp])
@@ -591,21 +535,21 @@ class Mapper:
                 },
             )
 
-            info_mcp = self.new_mcp(
-                entity_urn=ds_urn,
+            info_mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
                 aspect=ds_properties,
             )
 
             # Remove status mcp
-            status_mcp = self.new_mcp(
-                entity_urn=ds_urn,
+            status_mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
                 aspect=StatusClass(removed=False),
             )
             if self.__config.extract_dataset_schema:
                 dataset_mcps.extend(self.extract_dataset_schema(table, ds_urn))
 
-            subtype_mcp = self.new_mcp(
-                entity_urn=ds_urn,
+            subtype_mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
                 aspect=SubTypesClass(
                     typeNames=[
                         BIContainerSubTypes.POWERBI_DATASET_TABLE,
@@ -623,15 +567,15 @@ class Mapper:
                 owner_class = OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
                 # Dashboard owner MCP
                 ownership = OwnershipClass(owners=[owner_class])
-                owner_mcp = self.new_mcp(
-                    entity_urn=ds_urn,
+                owner_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=ds_urn,
                     aspect=ownership,
                 )
                 dataset_mcps.extend([owner_mcp])
 
             # DataPlatformInstance
-            data_platform_instance_mcp = self.new_mcp(
-                entity_urn=ds_urn,
+            data_platform_instance_mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
                 aspect=self._get_data_platform_instance_aspect(),
             )
 
@@ -772,14 +716,14 @@ class Mapper:
             customProperties=tile_custom_properties(tile),
         )
 
-        info_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        info_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=chart_info_instance,
         )
 
         # removed status mcp
-        status_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        status_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=StatusClass(removed=False),
         )
 
@@ -795,21 +739,21 @@ class Mapper:
         # Note: we previously would emit a ChartKey aspect with incorrect information.
         # Explicitly emitting this aspect isn't necessary, but we do it here to ensure that
         # the old, bad data gets overwritten.
-        chart_key_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        chart_key_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=ChartUrn.from_string(chart_urn).to_key_aspect(),
         )
 
         # Browse path
         browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
-        browse_path_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        browse_path_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=browse_path,
         )
 
         # DataPlatformInstance aspect
-        data_platform_instance_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        data_platform_instance_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=self._get_data_platform_instance_aspect(),
         )
 
@@ -880,14 +824,14 @@ class Mapper:
             dashboards=dashboard_edges,
         )
 
-        info_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        info_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
-        removed_status_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        removed_status_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
 
@@ -898,8 +842,8 @@ class Mapper:
         )
 
         # Dashboard key
-        dashboard_key_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        dashboard_key_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
 
@@ -914,8 +858,8 @@ class Mapper:
         if len(owners) > 0:
             # Dashboard owner MCP
             ownership = OwnershipClass(owners=owners)
-            owner_mcp = self.new_mcp(
-                entity_urn=dashboard_urn,
+            owner_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
                 aspect=ownership,
             )
 
@@ -923,14 +867,14 @@ class Mapper:
         browse_path = BrowsePathsClass(
             paths=[f"/{Constant.PLATFORM_NAME}/{dashboard.workspace_name}"]
         )
-        browse_path_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        browse_path_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=browse_path,
         )
 
         # DataPlatformInstance aspect
-        data_platform_instance_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        data_platform_instance_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=self._get_data_platform_instance_aspect(),
         )
 
@@ -1038,8 +982,8 @@ class Mapper:
         tags: List[str],
     ) -> None:
         if self.__config.extract_endorsements_to_tags and tags:
-            tags_mcp = self.new_mcp(
-                entity_urn=entity_urn,
+            tags_mcp = MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
                 aspect=self.transform_tags(tags),
             )
             list_of_mcps.append(tags_mcp)
@@ -1083,8 +1027,8 @@ class Mapper:
         )
 
         return [
-            self.new_mcp(entity_urn=user_urn, aspect=user_key),
-            self.new_mcp(entity_urn=user_urn, aspect=user_info),
+            MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_key),
+            MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_info),
         ]
 
     def _get_qualified_owners(
@@ -1207,7 +1151,7 @@ class Mapper:
         self,
         dashboard: powerbi_data_classes.Dashboard,
         workspace: powerbi_data_classes.Workspace,
-    ) -> List[EquableMetadataWorkUnit]:
+    ) -> List[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
         logger.info(
@@ -1252,20 +1196,22 @@ class Mapper:
         mcps.extend(dashboard_mcps)
 
         # Convert MCP to work_units
-        work_units: List[Mapper.EquableMetadataWorkUnit] = [
-            wu for wu in map(self._to_work_unit, mcps) if wu is not None
+        work_units: List[MetadataWorkUnit] = [
+            wu.as_workunit() for wu in mcps if wu is not None
         ]
 
         # Handle user MCPs separately with is_primary_source=False
         # This prevents stateful ingestion from tracking/soft-deleting users
         if self.__config.ownership.create_corp_user:
             user_work_units = [
-                wu for wu in map(self._to_user_work_unit, user_mcps) if wu is not None
+                wu.as_workunit(is_primary_source=False)
+                for wu in user_mcps
+                if wu is not None
             ]
             work_units.extend(user_work_units)
 
         # Return set of work_unit
-        return deduplicate_list(work_units)
+        return deduplicate_list(work_units, lambda wu: wu.id)
 
     def pages_to_chart(
         self,
@@ -1309,14 +1255,14 @@ class Mapper:
                 customProperties={Constant.ORDER: str(page.order)},
             )
 
-            info_mcp = self.new_mcp(
-                entity_urn=chart_urn,
+            info_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
                 aspect=chart_info_instance,
             )
 
             # removed status mcp
-            status_mcp = self.new_mcp(
-                entity_urn=chart_urn,
+            status_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
                 aspect=StatusClass(removed=False),
             )
             # Subtype mcp
@@ -1331,14 +1277,14 @@ class Mapper:
             browse_path = BrowsePathsClass(
                 paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
             )
-            browse_path_mcp = self.new_mcp(
-                entity_urn=chart_urn,
+            browse_path_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
                 aspect=browse_path,
             )
 
             # DataPlatformInstance aspect
-            data_platform_instance_mcp = self.new_mcp(
-                entity_urn=chart_urn,
+            data_platform_instance_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
                 aspect=self._get_data_platform_instance_aspect(),
             )
 
@@ -1399,14 +1345,14 @@ class Mapper:
             datasetEdges=dataset_edges,
         )
 
-        info_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        info_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
-        removed_status_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        removed_status_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
 
@@ -1417,8 +1363,8 @@ class Mapper:
         )
 
         # Dashboard key
-        dashboard_key_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        dashboard_key_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
         # Report Ownership
@@ -1432,8 +1378,8 @@ class Mapper:
         if len(owners) > 0:
             # Report owner MCP
             ownership = OwnershipClass(owners=owners)
-            owner_mcp = self.new_mcp(
-                entity_urn=dashboard_urn,
+            owner_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
                 aspect=ownership,
             )
 
@@ -1441,19 +1387,19 @@ class Mapper:
         browse_path = BrowsePathsClass(
             paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
         )
-        browse_path_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        browse_path_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=browse_path,
         )
 
-        sub_type_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        sub_type_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
         # DataPlatformInstance aspect
-        data_platform_instance_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        data_platform_instance_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=self._get_data_platform_instance_aspect(),
         )
 
@@ -1523,13 +1469,13 @@ class Mapper:
 
         # Convert primary MCPs to work units
         for mcp in mcps:
-            yield self._to_work_unit(mcp)
+            yield mcp.as_workunit()
 
         # Handle user MCPs separately with is_primary_source=False
         # This prevents stateful ingestion from tracking/soft-deleting users
         if self.__config.ownership.create_corp_user:
             for mcp in user_mcps:
-                yield self._to_user_work_unit(mcp)
+                yield mcp.as_workunit(is_primary_source=False)
 
 
 @platform_name("PowerBI")

@@ -114,7 +114,7 @@ describe("create and manage group", () => {
       .click();
     cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
     cy.clickOptionWithSpecificClass(".ant-typography", 0);
-    cy.clickOptionWithTestId("EditOutlinedIcon");
+    cy.clickOptionWithTestId("edit-group-profile-button");
     cy.get("#email").type(`${test_id}@testemail.com`);
     cy.get("#slack").type(`#${test_id}`);
     cy.get(".ant-form-item-control-input-content")
@@ -139,7 +139,7 @@ describe("create and manage group", () => {
       .should("be.visible")
       .click();
     cy.url().should("include", `/group/urn:li:corpGroup:${test_id}`);
-    cy.get('[data-testid="EditOutlinedIcon"]').eq(1).click();
+    cy.get('[data-testid="edit-about-button"]').click({ force: true });
     cy.contains("Test group description").should("be.visible").type(" EDITED");
     cy.clickOptionWithText("Test group");
     cy.get("body").click();

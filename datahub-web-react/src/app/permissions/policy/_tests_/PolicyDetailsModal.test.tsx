@@ -31,6 +31,7 @@ vi.mock('@app/useAppConfig', () => ({
                     },
                 ],
             },
+            featureFlags: { glossaryBasedPoliciesEnabled: true },
         },
     }),
 }));

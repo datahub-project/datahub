@@ -141,6 +141,7 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   // Finish creating source
   cy.contains("Sync Schedule").scrollIntoView().should("be.visible");
   if (options?.schedule) {
+    cy.get('[data-testid="schedule-enabled-switch"]').click();
     changeSchedule(options?.schedule);
   }
 
@@ -169,6 +170,7 @@ export const updateIngestionSource = (
     .type(`{selectall}{backspace}${updatedSourceName}`);
   cy.contains("Sync Schedule").scrollIntoView().should("be.visible");
   if (options?.schedule) {
+    cy.get('[data-testid="schedule-enabled-switch"]').click();
     changeSchedule(options?.schedule);
   }
 

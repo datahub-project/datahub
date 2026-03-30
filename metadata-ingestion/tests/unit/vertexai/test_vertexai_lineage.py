@@ -37,7 +37,7 @@ REGION = "us-west2"
 def source() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
+        config=VertexAIConfig(project_ids=[PROJECT_ID], region=REGION),
     )
 
 
@@ -74,7 +74,7 @@ def test_gen_run_execution_edges() -> None:
 
     source = VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id="p", region="r"),
+        config=VertexAIConfig(project_ids=["acryl-poc"], region="us-west2"),
     )
 
     mcps = list(
@@ -119,7 +119,7 @@ def test_training_job_external_lineage_edges() -> None:
 
     source = VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id="p", region="r"),
+        config=VertexAIConfig(project_ids=["acryl-poc"], region="us-west2"),
     )
 
     job = _Job()
@@ -234,8 +234,10 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
     }
 
     # Step 1: Process pipeline - this tracks the resource usage by artifact URI
-    with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
-        mock_list.return_value = [mock_pipeline]
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        return_value=[mock_pipeline],
+    ):
         list(source.pipeline_extractor.get_workunits())
 
     # Step 2: Simulate model processing to resolve resource name to URN
@@ -395,8 +397,10 @@ def test_model_group_downstream_lineage_from_pipeline_tasks(
     }
 
     # Step 1: Process pipeline - this tracks resource usage by artifact URI
-    with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
-        mock_list.return_value = [mock_pipeline]
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        return_value=[mock_pipeline],
+    ):
         list(source.pipeline_extractor.get_workunits())
 
     # Step 2: Simulate model processing to resolve resource name to URNs

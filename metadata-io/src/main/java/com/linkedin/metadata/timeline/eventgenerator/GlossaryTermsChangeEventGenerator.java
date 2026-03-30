@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -19,6 +20,7 @@ import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 
 public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerator<GlossaryTerms> {
@@ -60,6 +62,14 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
         ++targetGlossaryTermIdx;
       } else if (comparison < 0) {
         // GlossaryTerm got removed.
+        Map<String, Object> parameters =
+            ImmutableMap.of(
+                "termUrn",
+                baseGlossaryTermAssociation.getUrn().toString(),
+                "context",
+                baseGlossaryTermAssociation.getContext() != null
+                    ? baseGlossaryTermAssociation.getContext()
+                    : "{}");
         changeEvents.add(
             GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
                 .modifier(baseGlossaryTermAssociation.getUrn().toString())
@@ -72,12 +82,20 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                         GLOSSARY_TERM_REMOVED_FORMAT,
                         baseGlossaryTermAssociation.getUrn().getId(),
                         entityUrn))
-                .termUrn(baseGlossaryTermAssociation.getUrn())
+                .parameters(parameters)
                 .auditStamp(auditStamp)
                 .build());
         ++baseGlossaryTermIdx;
       } else {
         // GlossaryTerm got added.
+        Map<String, Object> parameters =
+            ImmutableMap.of(
+                "termUrn",
+                targetGlossaryTermAssociation.getUrn().toString(),
+                "context",
+                targetGlossaryTermAssociation.getContext() != null
+                    ? targetGlossaryTermAssociation.getContext()
+                    : "{}");
         changeEvents.add(
             GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
                 .modifier(targetGlossaryTermAssociation.getUrn().toString())
@@ -90,7 +108,7 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                         GLOSSARY_TERM_ADDED_FORMAT,
                         targetGlossaryTermAssociation.getUrn().getId(),
                         entityUrn))
-                .termUrn(targetGlossaryTermAssociation.getUrn())
+                .parameters(parameters)
                 .auditStamp(auditStamp)
                 .build());
         ++targetGlossaryTermIdx;
@@ -112,7 +130,14 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                       GLOSSARY_TERM_REMOVED_FORMAT,
                       baseGlossaryTermAssociation.getUrn().getId(),
                       entityUrn))
-              .termUrn(baseGlossaryTermAssociation.getUrn())
+              .parameters(
+                  ImmutableMap.of(
+                      "termUrn",
+                      baseGlossaryTermAssociation.getUrn().toString(),
+                      "context",
+                      baseGlossaryTermAssociation.getContext() != null
+                          ? baseGlossaryTermAssociation.getContext()
+                          : "{}"))
               .auditStamp(auditStamp)
               .build());
       ++baseGlossaryTermIdx;
@@ -133,7 +158,14 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                       GLOSSARY_TERM_ADDED_FORMAT,
                       targetGlossaryTermAssociation.getUrn().getId(),
                       entityUrn))
-              .termUrn(targetGlossaryTermAssociation.getUrn())
+              .parameters(
+                  ImmutableMap.of(
+                      "termUrn",
+                      targetGlossaryTermAssociation.getUrn().toString(),
+                      "context",
+                      targetGlossaryTermAssociation.getContext() != null
+                          ? targetGlossaryTermAssociation.getContext()
+                          : "{}"))
               .auditStamp(auditStamp)
               .build());
       ++targetGlossaryTermIdx;

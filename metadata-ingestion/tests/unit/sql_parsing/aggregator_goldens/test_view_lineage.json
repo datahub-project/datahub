@@ -18,7 +18,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.foo%2CPROD%29"
+                    "query": "urn:li:query:view_db3637dad7ab0ec7b09c7ecf6be2290593bc3ddc2959f5e47e50a1f2ac90df8d"
                 }
             ],
             "fineGrainedLineages": [
@@ -33,7 +33,7 @@
                     ],
                     "transformOperation": "COPY: \"bar\".\"a\" AS \"a\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.foo%2CPROD%29"
+                    "query": "urn:li:query:view_db3637dad7ab0ec7b09c7ecf6be2290593bc3ddc2959f5e47e50a1f2ac90df8d"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -46,7 +46,7 @@
                     ],
                     "transformOperation": "COPY: \"bar\".\"b\" AS \"b\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.foo%2CPROD%29"
+                    "query": "urn:li:query:view_db3637dad7ab0ec7b09c7ecf6be2290593bc3ddc2959f5e47e50a1f2ac90df8d"
                 }
             ]
         }
@@ -54,7 +54,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.foo%2CPROD%29",
+    "entityUrn": "urn:li:query:view_db3637dad7ab0ec7b09c7ecf6be2290593bc3ddc2959f5e47e50a1f2ac90df8d",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -78,7 +78,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.foo%2CPROD%29",
+    "entityUrn": "urn:li:query:view_db3637dad7ab0ec7b09c7ecf6be2290593bc3ddc2959f5e47e50a1f2ac90df8d",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -108,7 +108,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.foo%2CPROD%29",
+    "entityUrn": "urn:li:query:view_db3637dad7ab0ec7b09c7ecf6be2290593bc3ddc2959f5e47e50a1f2ac90df8d",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

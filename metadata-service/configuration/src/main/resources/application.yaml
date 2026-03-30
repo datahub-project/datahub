@@ -23,6 +23,8 @@ authentication:
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
 
+  verboseAuthFailureLogging: ${AUTH_VERBOSE_LOGGING:false}
+
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
@@ -133,6 +135,11 @@ datahub:
       path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
       password: ${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}} # Required if useSSL is true
       type: ${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:PKCS12}
+    keystore:
+      path: ${DATAHUB_GMS_SSL_KEYSTORE_PATH:#{null}}
+      password: ${DATAHUB_GMS_SSL_KEYSTORE_PASSWORD:#{null}}
+      type: ${DATAHUB_GMS_SSL_KEYSTORE_TYPE:PKCS12}
+      keyPassword: ${DATAHUB_GMS_SSL_KEY_PASSWORD:#{null}}
     async:
       request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 
@@ -319,7 +326,7 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:assets/platforms/datahublogo.png}
+    logoUrl: ${REACT_APP_LOGO_URL:assets/logos/datahublogo.svg} # we rely on this default constant in frontend - change in datahub-web-react/src/app/homeV2/layout/NavSidebar.tsx if updating
     faviconUrl: ${REACT_APP_FAVICON_URL:assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
@@ -547,6 +554,7 @@ elasticsearch:
         searchQueryTimeReservation: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SEARCH_QUERY_TIME_RESERVATION:0.2} # fraction (0.0-1.0) of total timeout to reserve for second query phase when partialResults is enabled. Default: 0.2 (20%)
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
+      sliceFutureDrainTimeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_SLICE_FUTURE_DRAIN_TIMEOUT_SECONDS:2} # seconds (single allOf wait) after canceling slice futures before PIT/scroll cleanup
     validation:
       enabled: ${SEARCH_VALIDATION_ENABLED:true}
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
@@ -1074,7 +1082,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
-  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:false} # Enables assets to belong to multiple data products simultaneously
+  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
 
 entityChangeEvents:

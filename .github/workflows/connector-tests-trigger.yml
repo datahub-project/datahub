@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
         with:
           app-id: ${{ secrets.CONNECTOR_TESTS_APP_ID }}
           private-key: ${{ secrets.CONNECTOR_TESTS_APP_PRIVATE_KEY }}
@@ -78,18 +78,11 @@ jobs:
       - name: Get PR info
         if: steps.check-both.outputs.both_passed == 'true'
         id: pr-info
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          REPO="${{ github.repository }}"
-          HEAD_OWNER="${{ github.event.workflow_run.head_repository.owner.login }}"
-
-          PR_NUMBER=$(gh api "/repos/${REPO}/pulls?head=${HEAD_OWNER}:${BRANCH}&state=open" \
-            --jq '.[0].number // empty')
+          PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
 
           if [ -z "$PR_NUMBER" ]; then
-            echo "No open PR found for branch ${BRANCH} — skipping"
+            echo "No open PR found — skipping"
             echo "has_pr=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_pr=true" >> "$GITHUB_OUTPUT"
@@ -137,22 +130,68 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check if connector-relevant files changed
+        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true' && steps.check-skip.outputs.skip != 'true'
+        id: path-check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
+        run: |
+          changed_files=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" \
+            --paginate --jq '.[].filename')
+
+          # Filter to only metadata-ingestion changes
+          mi_files=$(echo "$changed_files" | grep '^metadata-ingestion/' || true)
+
+          if [ -z "$mi_files" ]; then
+            echo "No metadata-ingestion changes — skipping connector tests"
+            echo "has_connector_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Strip out files that cannot affect connectors
+          connector_relevant_files=$(echo "$mi_files" | grep -v '^metadata-ingestion/tests/' | grep -v '\.md$' || true)
+
+          if [ -z "$connector_relevant_files" ]; then
+            echo "All metadata-ingestion changes are tests or docs only — skipping connector tests"
+            echo "has_connector_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Connector-relevant changes detected:"
+            echo "$connector_relevant_files"
+            echo "has_connector_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create skipped check run
-        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true' && steps.check-skip.outputs.skip == 'true'
+        if: >-
+          steps.check-both.outputs.both_passed == 'true' &&
+          steps.pr-info.outputs.has_pr == 'true' &&
+          (steps.check-skip.outputs.skip == 'true' || steps.path-check.outputs.has_connector_changes == 'false')
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          if [ "${{ steps.check-skip.outputs.skip }}" = "true" ]; then
+            REASON="Skipped via skip-connector-tests label on the PR."
+          else
+            REASON="Skipped because PR changes are limited to tests or docs in metadata-ingestion."
+          fi
+
           jq -nc \
             --arg sha "$SHA" \
             --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{name: "connector-tests", head_sha: $sha, status: "completed", conclusion: "skipped", completed_at: $completed_at, output: {title: "Connector tests skipped", summary: "Skipped via skip-connector-tests label on the PR."}}' \
+            --arg summary "$REASON" \
+            '{name: "connector-tests", head_sha: $sha, status: "completed", conclusion: "skipped", completed_at: $completed_at, output: {title: "Connector tests skipped", summary: $summary}}' \
           | gh api "/repos/${REPO}/check-runs" --input -
-          echo "Created skipped check run"
+          echo "Created skipped check run — ${REASON}"
 
       - name: Create pending check run
-        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true' && steps.check-skip.outputs.skip != 'true'
+        if: >-
+          steps.check-both.outputs.both_passed == 'true' &&
+          steps.pr-info.outputs.has_pr == 'true' &&
+          steps.check-skip.outputs.skip != 'true' &&
+          steps.path-check.outputs.has_connector_changes != 'false'
         id: check-run
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -168,7 +207,11 @@ jobs:
           echo "Created check run ${CHECK_RUN_ID}"
 
       - name: Dispatch to connector-tests
-        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true' && steps.check-skip.outputs.skip != 'true'
+        if: >-
+          steps.check-both.outputs.both_passed == 'true' &&
+          steps.pr-info.outputs.has_pr == 'true' &&
+          steps.check-skip.outputs.skip != 'true' &&
+          steps.path-check.outputs.has_connector_changes != 'false'
         env:
           # Fine-grained PAT scoped to acryldata/connector-tests with Contents: R/W.
           # To rotate: generate a new token and update this repo secret.

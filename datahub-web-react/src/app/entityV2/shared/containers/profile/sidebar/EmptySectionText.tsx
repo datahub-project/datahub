@@ -1,12 +1,10 @@
-import { colors } from '@components';
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-const EmptyContentMessage = styled(Typography.Text)`
+const EmptyContentMessage = styled.span`
     font-size: 12px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {
@@ -14,7 +12,7 @@ type Props = {
 };
 
 const EmptySectionText = ({ message }: Props) => {
-    return <EmptyContentMessage type="secondary">{message}.</EmptyContentMessage>;
+    return <EmptyContentMessage>{message}.</EmptyContentMessage>;
 };
 
 export default EmptySectionText;

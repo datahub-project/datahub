@@ -25,7 +25,7 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.8.1'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.13'
+  ext.springVersion = '6.2.17'
   ext.springBootVersion = '3.5.6'
   ext.springKafkaVersion = '3.3.8'
   ext.openTelemetryVersion = '1.56.0'
@@ -62,7 +62,7 @@ buildscript {
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
-  ext.nettyVersion = '4.1.130.Final' // CVE-2025-55163, CVE-2025-58056, CVE-2025-67735; align all io.netty modules
+  ext.nettyVersion = '4.1.132.Final' // align all io.netty modules
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -251,6 +251,9 @@ project.ext.externalDependency = [
     'playWs': "com.typesafe.play:play-ahc-ws-standalone_$playScalaVersion:2.1.10",
     'playDocs': "com.typesafe.play:play-docs_$playScalaVersion:$playVersion",
     'playGuice': "com.typesafe.play:play-guice_$playScalaVersion:$playVersion",
+    // Required at runtime for play.data.validation.Constraints (e.g. sign-up email validation);
+    // compile-only transitives do not land in the staged Play distribution lib/.
+    'playJavaForms': "com.typesafe.play:play-java-forms_$playScalaVersion:$playVersion",
     'playJavaJdbc': "com.typesafe.play:play-java-jdbc_$playScalaVersion:$playVersion",
     'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_$playScalaVersion:$playVersion",
     'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",

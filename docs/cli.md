@@ -517,6 +517,7 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
 - `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` (default `10`) - Maximum number of failure entries to include in the ingestion report. Increase to capture more failure samples when debugging.
 - `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` (default `10`) - Maximum number of warning entries to include in the ingestion report. Increase to capture more warning samples when debugging.
+- `DATAHUB_CALLER` (default: auto-detected) - Override the caller label sent in the User-Agent header to GMS. The CLI auto-detects common callers (e.g. coding agents, CI systems), but you can set this explicitly for custom tools or to distinguish environments (e.g. `airflow-prod-etl`).
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
