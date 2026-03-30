@@ -10,19 +10,21 @@ import org.springframework.stereotype.Component;
 /**
  * When SIGTERM is received, Kubernetes triggers ContextClosedEvent. This handler: 1. Sets shutdown
  * flag so health checks can return 503 2. Proceeds with normal Spring shutdown
+ *
+ * <p>Only registered when server.shutdown=graceful (or SERVER_SHUTDOWN_MODE=graceful env var).
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(
-    name = "shutdown.graceful.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
+@ConditionalOnProperty(name = "server.shutdown", havingValue = "graceful", matchIfMissing = false)
 public class GracefulShutdownHandler {
   private final AtomicBoolean shutdownInProgress = new AtomicBoolean(false);
 
   public GracefulShutdownHandler() {}
 
-  /** Called when Spring application context is closing (e.g., SIGTERM signal in Kubernetes). */
+  /**
+   * Called when Spring application context is closing (e.g., SIGTERM signal in Kubernetes). This
+   * handler only exists when server.shutdown=graceful is configured (see @ConditionalOnProperty).
+   */
   @EventListener(ContextClosedEvent.class)
   public void onApplicationClosed(ContextClosedEvent event) {
     log.info("Application context closing - initiating graceful shutdown");

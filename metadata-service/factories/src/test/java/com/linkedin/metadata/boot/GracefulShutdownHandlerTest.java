@@ -1,18 +1,16 @@
 package com.linkedin.metadata.boot;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for GracefulShutdownHandler, verifying that Kafka listeners are properly shut down
- * when the application context closes (SIGTERM received).
+ * Unit tests for GracefulShutdownHandler.
+ *
+ * <p>Note: This handler is only registered as a Spring bean when server.shutdown=graceful
+ * (via @ConditionalOnProperty). In tests, we instantiate it directly to verify its behavior.
  */
-@ExtendWith(MockitoExtension.class)
 class GracefulShutdownHandlerTest {
 
   private GracefulShutdownHandler handler;
@@ -31,7 +29,6 @@ class GracefulShutdownHandlerTest {
 
   @Test
   void testContextClosedEventTriggersShutdown() {
-
     // When: Application context closes (SIGTERM)
     // Note: Handler ignores the event argument, so we pass null to make intent clear
     handler.onApplicationClosed(null);
