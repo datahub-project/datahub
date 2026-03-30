@@ -1848,7 +1848,7 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.type == AssertionTypeClass.CUSTOM
     assert mcp.aspect.customAssertion is not None
     assert isinstance(mcp.aspect.customAssertion, CustomAssertionInfoClass)
-    assert mcp.aspect.customAssertion.type == "Freshness"
+    assert mcp.aspect.customAssertion.type == "dbt Freshness"
     assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
