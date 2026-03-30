@@ -32,13 +32,18 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
+import io.ebean.annotation.Platform;
 import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -532,4 +537,109 @@ public class EbeanAspectDaoTest {
         testDao.getAspect("urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Writes work after migration");
   }
+
+  // region padToNextBatchSize tests
+  @Test
+  public void testPadToNextBatchSizeForH2() {
+    // Given: The default H2 test database
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(3);
+
+    // When: padToNextBatchSize is called
+    List<EbeanAspectV2.PrimaryKey> result = testDao.padToNextBatchSize(originalList);
+
+    // Then: The list should be returned unchanged for H2
+    assertEquals(result.size(), 3);
+    assertEquals(result, originalList, "List should not be padded for H2 platform");
+  }
+
+  @Test
+  public void testPadToNextBatchSizeWithEmptyListForMySQL() {
+    // Given: MySQL platform and an empty list
+    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
+    List<EbeanAspectV2.PrimaryKey> originalList = new ArrayList<>();
+
+    // When: padToNextBatchSize is called
+    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
+
+    // Then: The empty list should be returned
+    assertTrue(result.isEmpty(), "Empty list should remain empty");
+  }
+
+  @Test
+  public void testPadToNextBatchSizeWhenSizeIsPowerOfTwoForMySQL() {
+    // Given: MySQL platform and a list with a size that is a power of two (e.g., 4)
+    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(4);
+
+    // When: padToNextBatchSize is called
+    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
+
+    // Then: The list should be returned unchanged
+    assertEquals(result.size(), 4);
+    assertEquals(result, originalList, "List with power-of-two size should not be padded");
+  }
+
+  @Test
+  public void testPadToNextBatchSizePadsToNextPowerOfTwoForMySQL() {
+    // Given: MySQL platform and a list with a size of 3
+    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(3);
+
+    // When: padToNextBatchSize is called
+    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
+
+    // Then: The list should be padded to the next power of two (4)
+    assertEquals(result.size(), 4, "List should be padded to the next power of two");
+  }
+
+  @Test
+  public void testPadToNextBatchSizeFillerElementForMySQL() {
+    // Given: MySQL platform and a list with a size of 5
+    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(5);
+    EbeanAspectV2.PrimaryKey lastElement = originalList.get(4);
+
+    // When: padToNextBatchSize is called
+    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
+
+    // Then: The list should be padded to 8, and the filler elements should be the last element
+    assertEquals(result.size(), 8, "List should be padded to 8");
+    assertEquals(
+        result.get(5),
+        lastElement,
+        "Padding element at index 5 should be the last element of the original list");
+    assertEquals(
+        result.get(6),
+        lastElement,
+        "Padding element at index 6 should be the last element of the original list");
+    assertEquals(
+        result.get(7),
+        lastElement,
+        "Padding element at index 7 should be the last element of the original list");
+  }
+
+  /** Helper method to create a list of PrimaryKey objects for testing. */
+  private List<EbeanAspectV2.PrimaryKey> createPrimaryKeyList(int size) {
+    return IntStream.range(0, size)
+        .mapToObj(
+            i -> new EbeanAspectV2.PrimaryKey("urn:li:test:" + i, "aspect", ASPECT_LATEST_VERSION))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Creates a new EbeanAspectDao instance with a mocked Database that reports the specified
+   * platform. This uses Mockito's deep stubs for a cleaner setup.
+   */
+  private EbeanAspectDao setupMockDaoWithPlatform(Platform platform) {
+    // Use deep stubs to avoid mocking the entire chain of objects manually
+    Database mockServer = mock(Database.class, Mockito.RETURNS_DEEP_STUBS);
+
+    // Define the behavior for the chained call
+    when(mockServer.platform().base()).thenReturn(platform);
+
+    return new EbeanAspectDao(
+        mockServer, EbeanConfiguration.testDefault, mock(MetricUtils.class), List.of(), null);
+  }
+
+  // endregion
 }

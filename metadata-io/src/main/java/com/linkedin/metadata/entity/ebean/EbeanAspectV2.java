@@ -120,17 +120,6 @@ public class EbeanAspectV2 extends Model {
   @Nonnull @EmbeddedId @Index protected PrimaryKey key;
 
   @Nonnull
-  @Column(name = URN_COLUMN, length = 500, nullable = false)
-  private String urn;
-
-  @Nonnull
-  @Column(name = ASPECT_COLUMN, length = 200, nullable = false)
-  private String aspect;
-
-  @Column(name = VERSION_COLUMN, nullable = false)
-  private long version;
-
-  @Nonnull
   @Lob
   @Column(name = METADATA_COLUMN, nullable = false)
   protected String metadata;
@@ -150,6 +139,19 @@ public class EbeanAspectV2 extends Model {
   @Lob
   protected String systemMetadata;
 
+  // Proxy getter method (API-compatibility)
+  public String getUrn() {
+    return getKey().getUrn();
+  }
+
+  public String getAspect() {
+    return getKey().getAspect();
+  }
+
+  public long getVersion() {
+    return getKey().getVersion();
+  }
+
   public EbeanAspectV2(
       String urn,
       String aspect,
@@ -161,9 +163,6 @@ public class EbeanAspectV2 extends Model {
       String systemMetadata) {
     this(
         new PrimaryKey(urn, aspect, version),
-        urn,
-        aspect,
-        version,
         metadata,
         createdOn,
         createdBy,

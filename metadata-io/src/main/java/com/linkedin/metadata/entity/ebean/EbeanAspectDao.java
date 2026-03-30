@@ -42,6 +42,7 @@ import io.ebean.SqlQuery;
 import io.ebean.SqlRow;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
+import io.ebean.annotation.Platform;
 import io.ebean.annotation.TxIsolation;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Table;
@@ -204,11 +205,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
             .collect(Collectors.toList());
 
+    // Pads the given list of primary keys to the next multiple of the batch size.
+    // This is often done to optimize batch operations or to meet specific API requirements.
+    final List<EbeanAspectV2.PrimaryKey> paddedBatch = padToNextBatchSize(keys);
     final List<EbeanAspectV2> results;
     if (forUpdate && canWrite) {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
+      results = server.find(EbeanAspectV2.class).where().idIn(paddedBatch).forUpdate().findList();
     } else {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).findList();
+      results = server.find(EbeanAspectV2.class).where().idIn(paddedBatch).findList();
     }
 
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
@@ -464,52 +468,24 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       boolean forUpdate) {
     validateConnection();
 
-    // Build a single SELECT with IN clause using composite key comparison
-    // Query will look like:
-    // SELECT * FROM metadata_aspect WHERE (urn, aspect, version) IN
-    // (('urn0', 'aspect0', 0), ('urn1', 'aspect1', 1))
-    final StringBuilder sb = new StringBuilder();
-    sb.append(
-        "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor ");
-    sb.append("FROM metadata_aspect_v2 WHERE (urn, aspect, version) IN (");
-
     final int end = Math.min(keys.size(), position + keysCount);
-    final Map<String, Object> params = new HashMap<>();
+    final List<EbeanAspectV2.PrimaryKey> batchKeys = keys.subList(position, end);
 
-    for (int index = position; index < end; index++) {
-      int paramIndex = index - position;
-      String urnParam = "urn" + paramIndex;
-      String aspectParam = "aspect" + paramIndex;
-      String versionParam = "version" + paramIndex;
+    // Applying padding to stabilize the SQL structure for the DB plan cache.
+    // In a Spring context, the step size could also be a @Value from application.properties.
+    final List<EbeanAspectV2.PrimaryKey> paddedBatch = padToNextBatchSize(batchKeys);
 
-      params.put(urnParam, keys.get(index).getUrn());
-      params.put(aspectParam, keys.get(index).getAspect());
-      params.put(versionParam, keys.get(index).getVersion());
+    final Query<EbeanAspectV2> query =
+        server
+            .find(EbeanAspectV2.class)
+            .setReadOnly(!forUpdate)
+            .setBufferFetchSizeHint(keys.size())
+            .where()
+            .idIn(paddedBatch)
+            .query();
 
-      sb.append("(:" + urnParam + ", :" + aspectParam + ", :" + versionParam + ")");
-
-      if (index != end - 1) {
-        sb.append(",");
-      }
-    }
-
-    sb.append(")");
-
-    if (forUpdate && canWrite) {
-      sb.append(" FOR UPDATE");
-    }
-
-    final RawSql rawSql =
-        RawSqlBuilder.parse(sb.toString())
-            .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
-            .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
-            .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
-            .create();
-
-    final Query<EbeanAspectV2> query = server.find(EbeanAspectV2.class).setRawSql(rawSql);
-
-    for (Map.Entry<String, Object> param : params.entrySet()) {
-      query.setParameter(param.getKey(), param.getValue());
+    if (forUpdate) {
+      query.forUpdate();
     }
 
     return query.findList();
@@ -905,7 +881,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (canWrite) {
       // Sorting is required to ensure consistent lock ordering and avoid deadlocks
       Collections.sort(forUpdateKeys);
-      server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
+      final List<EbeanAspectV2.PrimaryKey> paddedBatch = padToNextBatchSize(forUpdateKeys);
+      server.find(EbeanAspectV2.class).where().idIn(paddedBatch).forUpdate().findList();
     }
 
     Junction<EbeanAspectV2> queryJunction =
@@ -1067,5 +1044,65 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .stream()
         .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue(), opContext)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  /**
+   * Pads the input list to the next power of two. This is a workaround for MySQL to ensure a stable
+   * query plan by providing a fixed number of placeholders in the IN clause. This helps MySQL to
+   * reuse the execution plan (Soft Parsing). Other databases like PostgreSQL or H2 do not require
+   * this padding.
+   *
+   * @param list The original sublist of keys.
+   * @return A list padded to the next power of two, or the original list if not using MySQL.
+   */
+  // Package-private for testing purposes
+  List<EbeanAspectV2.PrimaryKey> padToNextBatchSize(List<EbeanAspectV2.PrimaryKey> list) {
+    if (list == null || list.isEmpty() || !isMysql()) {
+      return list;
+    }
+
+    int originalSize = list.size();
+
+    // Determine the next power of two using bit manipulation.
+    // Integer.highestOneBit finds the leftmost '1' bit (rounding down).
+    int targetSize = Integer.highestOneBit(originalSize);
+
+    // If originalSize is not already a power of two, shift left to find the next one.
+    if (targetSize < originalSize) {
+      targetSize <<= 1;
+    }
+
+    // Return early if no padding is required to save memory and processing time
+    if (targetSize == originalSize) {
+      return list;
+    }
+
+    // Initialize new list with the final capacity to prevent internal array re-allocations.
+    List<EbeanAspectV2.PrimaryKey> padded = new ArrayList<>(targetSize);
+    padded.addAll(list);
+
+    // Efficiently fill the remaining slots with the last element of the original list.
+    // Duplicate IDs in an IN-clause are ignored by the DB but allow for a fixed parameter count.
+    EbeanAspectV2.PrimaryKey filler = list.get(originalSize - 1);
+    int numMissing = targetSize - originalSize;
+
+    padded.addAll(Collections.nCopies(numMissing, filler));
+    return padded;
+  }
+
+  /**
+   * Checks if the currently configured Ebean database server is a MySQL variant.
+   *
+   * <p>This method is used to apply database-specific logic, such as workarounds or optimizations
+   * that are only required for MySQL (e.g., padding IN clauses to stabilize query plans).
+   *
+   * <p>The final comparison, {@code == Platform.MYSQL}, is a safe, type-checked way to verify if
+   * the underlying database belongs to the MySQL family.
+   *
+   * @return {@code true} if the underlying database is MySQL or a MySQL-compatible variant, {@code
+   *     false} otherwise (e.g., for PostgreSQL, H2).
+   */
+  private boolean isMysql() {
+    return server.platform().base() == Platform.MYSQL;
   }
 }
