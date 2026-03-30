@@ -84,7 +84,7 @@ public class GracefulShutdownModule extends AbstractModule {
                           log.info("Frontend shutdown initiated - stopping new connections soon");
                           isShuttingDown.set(true);
                         })
-                    .thenApply(v -> Done.getInstance()));
+                    .thenApply(v -> Done.done()));
 
         coordinatedShutdown.addTask(
             CoordinatedShutdown.PhaseServiceStop(),

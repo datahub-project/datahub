@@ -23,10 +23,7 @@ public class GracefulShutdownHandler {
 
   public GracefulShutdownHandler() {}
 
-  /**
-   * Called when Spring application context is closing (e.g., SIGTERM signal in Kubernetes).
-   * Initiates graceful shutdown of all Kafka listeners.
-   */
+  /** Called when Spring application context is closing (e.g., SIGTERM signal in Kubernetes). */
   @EventListener(ContextClosedEvent.class)
   public void onApplicationClosed(ContextClosedEvent event) {
     log.info("Application context closing - initiating graceful shutdown");

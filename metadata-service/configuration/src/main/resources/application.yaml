@@ -746,7 +746,7 @@ neo4j:
 
 spring:
   lifecycle:
-    timeout-per-shutdown-phase: ${GMS_LIFECYCLE_TIMEOUT:45s}
+    timeout-per-shutdown-phase: ${GMS_LIFECYCLE_TIMEOUT:65s}
   error:
     include-message: never
     include-stacktrace: never
