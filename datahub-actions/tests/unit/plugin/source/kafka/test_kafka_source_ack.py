@@ -48,7 +48,7 @@ class TestAckSyncMode:
             mock_commit.assert_called_once_with(event)
             mock_store.assert_not_called()
 
-    def test_sync_mode_commits_on_processed_false(self) -> None:
+    def test_sync_mode_does_not_commit_on_processed_false(self) -> None:
         source = _make_source(async_commit_enabled=False)
         event = _make_event_envelope()
 
@@ -58,7 +58,7 @@ class TestAckSyncMode:
         ):
             source.ack(event, processed=False)
 
-            mock_commit.assert_called_once_with(event)
+            mock_commit.assert_not_called()
             mock_store.assert_not_called()
 
 
@@ -79,7 +79,7 @@ class TestAckAsyncMode:
             mock_store.assert_called_once_with(event)
             mock_commit.assert_not_called()
 
-    def test_async_mode_stores_offset_on_processed_false(self) -> None:
+    def test_async_mode_does_not_store_offset_on_processed_false(self) -> None:
         source = _make_source(async_commit_enabled=True)
         event = _make_event_envelope()
 
@@ -89,5 +89,5 @@ class TestAckAsyncMode:
         ):
             source.ack(event, processed=False)
 
-            mock_store.assert_called_once_with(event)
+            mock_store.assert_not_called()
             mock_commit.assert_not_called()
