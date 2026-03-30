@@ -359,7 +359,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Supported for S3 and Iceberg tables",
+    "Supported via sibling relationships to Glue and Iceberg entities",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -367,7 +367,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Supported for S3 and Iceberg tables",
+    "Supported via sibling relationships to Glue and Iceberg entities",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -378,7 +378,7 @@ class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
-    - Lineage for S3 and Iceberg tables.
+    - Sibling relationships to Glue and Iceberg entities.
     - Profiling when enabled.
     """
 
