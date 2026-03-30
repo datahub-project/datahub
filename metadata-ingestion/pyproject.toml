@@ -354,6 +354,8 @@ datahub-documents = [
     "urllib3>=1.26,<3.0",
 ]
 
+datahub-gc = []
+
 datahub-kafka = [
     "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
     "fastavro>=1.2.0,<2.0.0",
@@ -541,6 +543,12 @@ excel = [
     "wcmatch<11.0.0",
 ]
 
+fabric-data-factory = [
+    "azure-core>=1.38.0,<2.0.0",
+    "azure-identity>=1.21.0,<2.0.0",
+    "requests>=2.28.0,<3.0",
+]
+
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
     "pyodbc>=4.0,<5.0",
@@ -573,13 +581,18 @@ fivetran = [
     "patchy==2.8.0",
     "pip",
     "schwifty<2026.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "tenacity>=8.0.1,<9.0.0",
     "wcmatch<11.0.0",
+]
+
+flink = [
+    "requests<3.0.0",
+    "tenacity>=8.0.1,<9.0.0",
 ]
 
 gcs = [
@@ -746,7 +759,7 @@ looker = [
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "patchy==2.8.0",
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "sqlglot[c]==30.0.3",
 ]
 
@@ -756,7 +769,7 @@ lookml = [
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "patchy==2.8.0",
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "sqlglot[c]==30.0.3",
 ]
 
@@ -796,7 +809,7 @@ mlflow = [
 mode = [
     "cachetools<6.0.0",
     "patchy==2.8.0",
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "requests<3.0.0",
     "sqlglot[c]==30.0.3",
     "tenacity>=8.0.1,<9.0.0",
@@ -938,7 +951,7 @@ postgres = [
 ]
 
 powerbi = [
-    "lark[regex]==1.1.4",
+    "mini-racer==0.14.1",
     "more-itertools<11.0.0",
     "msal>=1.31.1,<2.0.0",
     "patchy==2.8.0",
@@ -1125,7 +1138,7 @@ snowflake = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1149,7 +1162,7 @@ snowflake-queries = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1167,7 +1180,7 @@ snowflake-slim = [
     "pandas<3.0.0",
     "pip",
     "schwifty<2026.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
@@ -1187,7 +1200,7 @@ snowflake-summary = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1414,10 +1427,10 @@ all = [
     "jsonpath-ng==1.7.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "lark[regex]==1.1.4",
     "litellm==1.80.5",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
+    "mini-racer==0.14.1",
     "mlflow-skinny>=2.3.0,<2.21.0",
     "more-itertools>=8.12.0,<11.0.0",
     "moto[s3]>=5.0.0,<6.0.0",
@@ -1449,7 +1462,7 @@ all = [
     "pyOpenSSL<26.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
@@ -1463,7 +1476,7 @@ all = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1565,10 +1578,10 @@ dev = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "lark[regex]==1.1.4",
     "litellm==1.80.5",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
+    "mini-racer==0.14.1",
     "mixpanel>=4.9.0,<6.0.0",
     "mlflow-skinny>=2.3.0,<2.21.0",
     "more-itertools>=8.12.0,<11.0.0",
@@ -1614,7 +1627,7 @@ dev = [
     "python-dateutil>=2.8.0,<3.0.0",
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "PyYAML<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
@@ -1633,7 +1646,7 @@ dev = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1756,10 +1769,10 @@ docs = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "lark[regex]==1.1.4",
     "litellm==1.80.5",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
+    "mini-racer==0.14.1",
     "mixpanel>=4.9.0,<6.0.0",
     "mlflow-skinny>=2.3.0,<2.21.0",
     "more-itertools>=8.12.0,<11.0.0",
@@ -1805,7 +1818,7 @@ docs = [
     "python-dateutil>=2.8.0,<3.0.0",
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
-    "python-liquid<2",
+    "python-liquid>=2.0.0,<3.0.0",
     "PyYAML<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
@@ -1824,7 +1837,7 @@ docs = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1987,6 +2000,7 @@ athena = "datahub.ingestion.source.sql.athena:AthenaSource"
 azure-ad = "datahub.ingestion.source.identity.azure_ad:AzureADSource"
 azure-data-factory = "datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource"
 fabric-onelake = "datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource"
+fabric-data-factory = "datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource"
 bigquery = "datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source"
 bigquery-queries = "datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource"
 clickhouse = "datahub.ingestion.source.sql.clickhouse:ClickHouseSource"
@@ -2060,7 +2074,7 @@ presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"
 salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
-demo-data = "datahub.ingestion.source.demo_data.DemoDataSource"
+demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
@@ -2142,7 +2156,7 @@ datahub = ["py.typed"]
 "datahub.cli.gql" = ["*.gql"]
 "datahub.cli.resources" = ["*.md"]
 "datahub.ingestion.autogenerated" = ["*.json"]
-"datahub.ingestion.source.powerbi" = ["powerbi-lexical-grammar.rule"]
+"datahub.ingestion.source.powerbi.m_query.mquery_bridge" = ["bundle.js.gz"]
 "datahub.metadata" = ["schema.avsc"]
 "datahub.metadata.schemas" = ["*.avsc"]
 

@@ -27,7 +27,6 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
-from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
@@ -440,6 +439,13 @@ class BigQuerySchemaApi:
             self.report.num_list_tables_api_requests += 1
             self.report.list_tables_sec += current_timer.elapsed_seconds()
 
+    @staticmethod
+    def _bq_location_to_region(location: str) -> str:
+        # BigQuery INFORMATION_SCHEMA.TABLE_STORAGE is scoped to a region, not a dataset.
+        # The region identifier uses the format "region-<location>" (case-insensitive).
+        # E.g. "US" -> "region-us", "us-central1" -> "region-us-central1".
+        return f"region-{location.lower()}"
+
     def get_tables_for_dataset(
         self,
         project_id: str,
@@ -447,28 +453,34 @@ class BigQuerySchemaApi:
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
         with_partitions: bool = False,
+        location: Optional[str] = None,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
-            if with_partitions:
+            if with_partitions and location:
                 query_template = BigqueryQuery.tables_for_dataset
             else:
+                if with_partitions and not location:
+                    logger.warning(
+                        f"Dataset location not available for {project_id}.{dataset_name}, "
+                        "falling back to query without storage statistics."
+                    )
                 query_template = BigqueryQuery.tables_for_dataset_without_partition_data
+
+            query_args: Dict[str, str] = dict(
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table_filter=(
+                    f" and t.table_name in ({filter_clause})" if filter_clause else ""
+                ),
+            )
+            if location:
+                query_args["region"] = self._bq_location_to_region(location)
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
-            cur = self.get_query_result(
-                query_template.format(
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                    table_filter=(
-                        f" and t.table_name in ({filter_clause})"
-                        if filter_clause
-                        else ""
-                    ),
-                ),
-            )
+            cur = self.get_query_result(query_template.format(**query_args))
 
             for table in cur:
                 try:
@@ -510,7 +522,7 @@ class BigQuerySchemaApi:
             name=table.table_name,
             created=table.created,
             table_type=table.table_type,
-            last_altered=parse_ts_millis(table.get("last_altered")),
+            last_altered=table.get("last_altered"),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -539,16 +551,23 @@ class BigQuerySchemaApi:
         dataset_name: str,
         has_data_read: bool,
         report: BigQueryV2Report,
+        location: Optional[str] = None,
     ) -> Iterator[BigqueryView]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if has_data_read and location:
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        region=self._bq_location_to_region(location),
                     ),
                 )
             else:
+                if has_data_read and not location:
+                    logger.warning(
+                        f"Dataset location not available for {project_id}.{dataset_name}, "
+                        "falling back to query without storage statistics."
+                    )
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset_without_data_read.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -575,7 +594,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=(parse_ts_millis(view.get("last_altered"))),
+            last_altered=view.get("last_altered"),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -780,16 +799,23 @@ class BigQuerySchemaApi:
         dataset_name: str,
         has_data_read: bool,
         report: BigQueryV2Report,
+        location: Optional[str] = None,
     ) -> Iterator[BigqueryTableSnapshot]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if has_data_read and location:
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        region=self._bq_location_to_region(location),
                     ),
                 )
             else:
+                if has_data_read and not location:
+                    logger.warning(
+                        f"Dataset location not available for {project_id}.{dataset_name}, "
+                        "falling back to query without storage statistics."
+                    )
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset_without_data_read.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -816,7 +842,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=parse_ts_millis(snapshot.get("last_altered")),
+            last_altered=snapshot.get("last_altered"),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

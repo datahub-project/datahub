@@ -545,13 +545,15 @@ def format_table_output(results: Dict[str, Any]) -> str:
 
         # Extract platform
         platform = ""
-        if "platform" in entity:
-            platform = entity["platform"].get("name", "")
+        platform_info = entity.get("platform") or {}
+        if isinstance(platform_info, dict):
+            platform = platform_info.get("name", "")
 
         # Extract description (truncated); guard against null from GraphQL
         description = ""
-        if "properties" in entity:
-            desc = entity["properties"].get("description") or ""
+        properties = entity.get("properties") or {}
+        if isinstance(properties, dict):
+            desc = properties.get("description") or ""
             description = (
                 desc[:_DESC_TRUNCATE_AT] + "..."
                 if len(desc) > _DESC_TRUNCATE_MAX_LEN

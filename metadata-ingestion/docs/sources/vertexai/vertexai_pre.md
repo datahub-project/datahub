@@ -1,10 +1,21 @@
 ### Overview
 
-The `vertexai` module ingests metadata from Vertex AI into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
-
-Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
+The `vertexai` module ingests metadata from Vertex AI into DataHub. It extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI.
 
 The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. Use `env` (e.g., `PROD`, `DEV`, `STAGING`) to distinguish between environments. The optional `platform_instance` field namespaces resources to avoid URN collisions when ingesting from multiple Vertex AI setups.
+
+> **Deprecation Notice**: The `project_id` (singular) configuration field is deprecated and will be removed in a future release. Use `project_ids` (list) instead:
+>
+> ```yaml
+> # Deprecated
+> project_id: my-project
+>
+> # Preferred
+> project_ids:
+>   - my-project
+> ```
+>
+> **Migration behavior**: If `project_id` is set and `project_ids` is not, the value is automatically moved to `project_ids` and a deprecation warning is logged. If both are set with the same value, `project_id` is silently ignored. If both are set with conflicting values, ingestion fails with a validation error. No manual migration is required — update your recipe at your convenience to silence the warning.
 
 **Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
 

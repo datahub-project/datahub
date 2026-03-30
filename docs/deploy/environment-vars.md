@@ -618,59 +618,64 @@ Reference Links:
 Reference Links:
 
 - **Access Management**: [Access Management Feature](../features/feature-guides/access-roles.md)
+- **Asset Summaries**: [Asset Summaries](../features/feature-guides/custom-asset-summaries.md)
+- **Data Products**: [Data Products](../dataproducts.md)
 - **Structured Properties**: [Structured Properties Overview](../features/feature-guides/properties/overview.md)
 - **Lineage Features**: [Data Lineage](../features/feature-guides/lineage.md), [UI Lineage Management](../features/feature-guides/ui-lineage.md)
 - **Compliance Forms**: [Compliance Forms Overview](../features/feature-guides/compliance-forms/overview.md)
 - **Dataset Usage**: [Dataset Usage & Query History](../features/dataset-usage-and-query-history.md)
 - **MCP Server**: [DataHub MCP Server](../features/feature-guides/mcp.md)
 
-| Environment Variable                    | Default | Description                                                        | Components |
-| --------------------------------------- | ------- | ------------------------------------------------------------------ | ---------- |
-| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards | GMS        |
-| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query               | GMS        |
-| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                  | GMS        |
-| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API          | GMS        |
-| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                      | GMS        |
-| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                        | GMS        |
-| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                 | GMS        |
-| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                    | GMS        |
-| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                  | GMS        |
-| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                  | GMS        |
-| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                  | GMS        |
-| `LINEAGE_GRAPH_V2`                      | `true`  | Enable new lineage visualization                                   | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                    | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                         | GMS        |
-| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                           | GMS        |
-| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                         | GMS        |
-| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                      | GMS        |
-| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                              | GMS        |
-| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                   | GMS        |
-| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                      | GMS        |
-| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                               | GMS        |
-| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                     | GMS        |
-| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                        | GMS        |
-| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                          | GMS        |
-| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                            | GMS        |
-| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                              | GMS        |
-| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                            | GMS        |
-| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                  | GMS        |
-| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                           | GMS        |
-| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                        | GMS        |
-| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                        | GMS        |
-| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                           | GMS        |
-| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                      | GMS        |
-| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                               | GMS        |
-| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                            | GMS        |
-| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                   | GMS        |
-| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                       | GMS        |
-| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                    | GMS        |
-| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                           | GMS        |
-| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                         | GMS        |
-| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                | GMS        |
-| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                     | GMS        |
-| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                      | GMS        |
-| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                         | GMS        |
-| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                               | GMS        |
+| Environment Variable                    | Default | Description                                                                                     | Components |
+| --------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- | ---------- |
+| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards                              | GMS        |
+| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query                                            | GMS        |
+| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                                               | GMS        |
+| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API                                       | GMS        |
+| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                                                   | GMS        |
+| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                                                     | GMS        |
+| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                                              | GMS        |
+| `ASSET_SUMMARY_PAGE_V1`                 | `false` | Enable Asset Summary pages for Domains, Data Products, Glossary Terms, and Glossary Term Groups | GMS        |
+| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                                                 | GMS        |
+| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                                               | GMS        |
+| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                                               | GMS        |
+| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                                               | GMS        |
+| `LINEAGE_GRAPH_V2`                      | `true`  | Enable new lineage visualization                                                                | GMS        |
+| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                                                 | GMS        |
+| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                                                      | GMS        |
+| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                                                        | GMS        |
+| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                                                      | GMS        |
+| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                   | GMS        |
+| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                           | GMS        |
+| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                | GMS        |
+| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                   | GMS        |
+| `DATASET_SUMMARY_PAGE_V1`               | `false` | Enable Asset Summary pages for Datasets                                                         | GMS        |
+| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                            | GMS        |
+| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                  | GMS        |
+| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                                                     | GMS        |
+| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                                                       | GMS        |
+| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                                                         | GMS        |
+| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                                                           | GMS        |
+| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                                                         | GMS        |
+| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                                               | GMS        |
+| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                                                        | GMS        |
+| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                                                     | GMS        |
+| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                                                     | GMS        |
+| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                                                        | GMS        |
+| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                                                   | GMS        |
+| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                                                            | GMS        |
+| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                         | GMS        |
+| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                | GMS        |
+| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                                                    | GMS        |
+| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                 | GMS        |
+| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                        | GMS        |
+| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                      | GMS        |
+| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                                             | GMS        |
+| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                  | GMS        |
+| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                   | GMS        |
+| `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                 | GMS        |
+| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                      | GMS        |
+| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                            | GMS        |
 
 ## System Updates
 
@@ -1153,9 +1158,9 @@ Reference Links:
 
 ### Authentication Logging
 
-| Environment Variable   | Default | Description                           | Components |
-| ---------------------- | ------- | ------------------------------------- | ---------- |
-| `AUTH_VERBOSE_LOGGING` | `false` | Enable verbose authentication logging | Frontend   |
+| Environment Variable   | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Components    |
+| ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `AUTH_VERBOSE_LOGGING` | `false` | Binds to frontend `auth.verbose.logging` and GMS `authentication.verboseAuthFailureLogging`. Routine login denials (e.g. wrong password, inactive user) log at **INFO** with masked `userRef` and `loginDenialReason`; **WARN** is used for ambiguous cases (`UNKNOWN`, `SESSION_TOKEN_DENIED`), or when GMS returns 403 without a `loginDenialReason` field. When `true`, also logs a second line at the same level with **raw** `userRef` (sensitive). On the frontend, `true` also enables richer SSO redirect and JAAS debug. | Frontend, GMS |
 
 ### Session Configuration
 

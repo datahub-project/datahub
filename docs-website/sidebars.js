@@ -114,6 +114,21 @@ module.exports = {
               id: "docs/dev-guides/agent-context/snowflake",
             },
             {
+              label: "Cursor",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/cursor",
+            },
+            {
+              label: "Claude",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/claude",
+            },
+            {
+              label: "Gemini CLI",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/gemini-cli",
+            },
+            {
               label: "Microsoft Copilot Studio",
               type: "doc",
               id: "docs/dev-guides/agent-context/copilot-studio",
@@ -488,6 +503,11 @@ module.exports = {
           type: "doc",
           id: "docs/tags",
         },
+        {
+          label: "Views",
+          type: "doc",
+          id: "docs/features/feature-guides/views/overview",
+        },
       ],
     },
     // DataHub Cloud.
@@ -620,6 +640,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_17",
         "docs/managed-datahub/release-notes/v_0_3_16",
         "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
@@ -1056,10 +1077,11 @@ module.exports = {
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
       items: [
-        "docs/cli-commands/dataset",
-        "docs/cli-commands/graphql",
-        "docs/cli-commands/search",
-        "docs/datahub_lite",
+        { type: "doc", id: "docs/cli-commands/search", label: "search" },
+        { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
+        { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
+        { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },
     {

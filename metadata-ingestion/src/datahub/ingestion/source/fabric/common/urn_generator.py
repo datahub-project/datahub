@@ -7,6 +7,7 @@ making it easy to update the pattern in the future if needed.
 from typing import Optional
 
 import datahub.emitter.mce_builder as builder
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 
 # URN pattern configuration
 # Pattern: {workspaceGUID}.{itemGUID}.{schema}.{table}
@@ -89,6 +90,67 @@ def make_table_name(
         Table name string: {workspaceGUID}.{itemGUID}.{schema}.{table}
     """
     return f"{workspace_id}{URN_PATTERN_SEPARATOR}{item_id}{URN_PATTERN_SEPARATOR}{schema_name}{URN_PATTERN_SEPARATOR}{table_name}"
+
+
+def make_pipeline_flow_id(workspace_id: str, pipeline_id: str) -> str:
+    """Generate flow ID for a Fabric Data Pipeline.
+
+    Flow ID format: {workspaceGUID}.{pipelineGUID}
+    """
+    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{pipeline_id}"
+
+
+def make_pipeline_flow_urn(
+    workspace_id: str,
+    pipeline_id: str,
+    platform: str,
+    env: str,
+    platform_instance: Optional[str] = None,
+) -> DataFlowUrn:
+    """Generate a DataFlowUrn for a Fabric Data Pipeline."""
+    flow_id = make_pipeline_flow_id(workspace_id, pipeline_id)
+    return DataFlowUrn.create_from_ids(
+        orchestrator=platform,
+        flow_id=flow_id,
+        env=env,
+        platform_instance=platform_instance,
+    )
+
+
+def make_pipeline_run_id(run_id: str) -> str:
+    """Generate DPI ID for a Fabric Data Pipeline run."""
+    return run_id
+
+
+def make_activity_job_id(activity_name: str) -> str:
+    """Generate job ID for a pipeline activity DataJob.
+
+    Activity names are unique within a pipeline (enforced by Fabric),
+    so the name is used directly as the job ID.
+    """
+    return activity_name
+
+
+def make_activity_job_urn(
+    activity_name: str,
+    flow_urn: DataFlowUrn,
+) -> DataJobUrn:
+    """Generate a DataJobUrn for a pipeline activity."""
+    job_id = make_activity_job_id(activity_name)
+    return DataJobUrn.create_from_ids(
+        job_id=job_id,
+        data_flow_urn=str(flow_urn),
+    )
+
+
+def make_activity_run_id(pipeline_run_id: str, activity_run_id: str) -> str:
+    """Generate DPI ID for an activity run within a pipeline run.
+
+    Run ID format: {pipelineRunGUID}.{activityRunGUID}
+    Includes the pipeline run ID so the activity run has a direct
+    reference to the pipeline run it belongs to.
+    """
+    return f"{pipeline_run_id}{URN_PATTERN_SEPARATOR}{activity_run_id}"
 
 
 def make_onelake_urn(
