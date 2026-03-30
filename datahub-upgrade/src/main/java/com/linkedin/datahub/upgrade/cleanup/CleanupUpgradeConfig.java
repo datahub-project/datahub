@@ -21,7 +21,6 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 
 /**
@@ -48,11 +47,6 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.timeseries",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.system_telemetry"
-    },
-    excludeFilters = {
-      @ComponentScan.Filter(
-          type = FilterType.ASSIGNABLE_TYPE,
-          classes = {})
     })
 public class CleanupUpgradeConfig {
 
@@ -83,15 +77,16 @@ public class CleanupUpgradeConfig {
     List<UpgradeStep> steps = new ArrayList<>();
 
     // Order: ES first (so indices aren't queried during DB drop), then Kafka, then SQL
-    if (esEnabled && esComponents != null && configurationProvider != null) {
-      steps.add(new DeleteElasticsearchIndicesStep(esComponents, configurationProvider));
+    if (esEnabled && esComponents != null) {
+      steps.add(new DeleteElasticsearchIndicesStep(esComponents));
       log.info("Elasticsearch cleanup step enabled");
     } else if (esEnabled) {
       log.warn("Elasticsearch cleanup requested but ES components not available — skipping");
     }
 
-    if (kafkaEnabled && configurationProvider != null && kafkaProperties != null) {
-      KafkaConfiguration kafkaConfig = configurationProvider.getKafka();
+    KafkaConfiguration kafkaConfig =
+        configurationProvider != null ? configurationProvider.getKafka() : null;
+    if (kafkaEnabled && kafkaConfig != null && kafkaProperties != null) {
       steps.add(new DeleteKafkaTopicsStep(kafkaConfig, kafkaProperties));
       log.info("Kafka cleanup step enabled");
     } else if (kafkaEnabled) {

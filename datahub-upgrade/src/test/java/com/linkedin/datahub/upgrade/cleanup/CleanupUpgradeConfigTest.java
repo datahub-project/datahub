@@ -103,6 +103,20 @@ public class CleanupUpgradeConfigTest {
   }
 
   @Test
+  public void testKafkaStepSkippedWhenConfigProviderNull() throws Exception {
+    // kafkaConfig = null when configurationProvider is null → Kafka step skipped
+    CleanupUpgradeConfig config = new CleanupUpgradeConfig();
+    inject(config, "esComponents", esComponents);
+    inject(config, "kafkaProperties", kafkaProperties);
+    inject(config, "ebeanServer", ebeanServer);
+    inject(config, "sqlSetupArgs", makeSqlSetupArgs());
+
+    Cleanup cleanup = config.createCleanup();
+
+    assertEquals(cleanup.steps().size(), 2);
+  }
+
+  @Test
   public void testEsStepSkippedWhenDisabledViaSystemProperty() throws Exception {
     System.setProperty("CLEANUP_ELASTICSEARCH_ENABLED", "false");
 
