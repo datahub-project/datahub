@@ -209,6 +209,17 @@ See `docs-website/AGENTS.md` for full pipeline details.
 
 If `sidebars.js` is missing the entry, the build will warn about an unaccounted file.
 
+### Adding a DataHub Cloud release note
+
+Release notes live in `docs/managed-datahub/release-notes/` and follow the naming convention `v_0_3_<N>.md`.
+
+**CRITICAL**: Adding the markdown file alone is not enough — you must also add it to `sidebars.js`:
+
+1. Create `docs/managed-datahub/release-notes/v_0_3_<N>.md`
+2. Add `"docs/managed-datahub/release-notes/v_0_3_<N>"` as the **first entry** under `"DataHub Cloud Release History"` in `docs-website/sidebars.js` (newer releases go at the top)
+
+Forgetting step 2 means the release note is published but never appears in the sidebar navigation.
+
 ## Code Standards
 
 ### General Principles
@@ -418,7 +429,7 @@ When creating PRs, follow the template in `.github/pull_request_template.md`:
 <type>[optional scope]: <description>
 ```
 
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`, `chore`
 
 Example: `feat(parser): add ability to parse arrays`
 

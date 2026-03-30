@@ -33,8 +33,8 @@ FROZEN_TIME = "2021-09-23 12:00:00"  # Match SQL tests
 # Set RUN_KERBEROS_TESTS=1 to run Kerberos tests manually
 SKIP_KERBEROS = os.environ.get("RUN_KERBEROS_TESTS", "0") != "1"
 
-# CI tests use integration_batch_1 (same as SQL tests since they share docker-compose)
-pytestmark = pytest.mark.integration_batch_1
+# CI tests use integration_batch_3 (same as SQL tests since they share docker-compose)
+pytestmark = pytest.mark.integration_batch_3
 
 
 # =============================================================================

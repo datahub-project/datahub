@@ -1,5 +1,6 @@
-import { DatePicker as AntdDatePicker } from 'antd';
 import styled from 'styled-components';
+
+import AntdDatePicker from '@utils/DayjsDatePicker';
 
 export const StyledAntdDatePicker = styled(AntdDatePicker)<{ $noDefaultPaddings?: boolean }>`
     &.ant-picker {

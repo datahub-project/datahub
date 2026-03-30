@@ -10,7 +10,7 @@ from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_3
 
 FROZEN_TIME = "2021-12-03 12:00:00"
 

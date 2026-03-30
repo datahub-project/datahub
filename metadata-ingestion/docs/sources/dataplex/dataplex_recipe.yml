@@ -5,10 +5,11 @@ source:
     project_ids:
       - "my-gcp-project"
 
-    # Optional: GCP location for entries (Universal Catalog)
+    # Optional: GCP location(s) for entries (Universal Catalog)
     # Use multi-region locations (us, eu, asia) to access system entry groups like @bigquery
     # Default: "us"
-    entries_location: "us"
+    entries_locations:
+      - "us"
 
     # Optional: Environment (default: PROD)
     env: "PROD"
@@ -32,7 +33,7 @@ source:
     # Optional: Filtering patterns for entries
     # filter_config:
     #   entries:
-    #     dataset_pattern:
+    #     pattern:
     #       allow:
     #         - "bq_.*"      # Allow BigQuery entries
     #         - "pubsub_.*"  # Allow Pub/Sub entries

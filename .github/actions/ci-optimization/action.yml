@@ -11,6 +11,9 @@ outputs:
   backend-only:
     description: "Backend only change"
     value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'true' }}
+  connector-source-only:
+    description: "Only connector source/test files changed (no ingestion core, no backend, no frontend)"
+    value: ${{ steps.filter.outputs.ingestion == 'true' && steps.filter.outputs.ingestion-core == 'false' && steps.filter.outputs.backend == 'false' && steps.filter.outputs.frontend == 'false' }}
   backend-change:
     description: "Backend code has changed"
     value: ${{ steps.filter.outputs.backend == 'true' ||  steps.trigger.outputs.trigger == 'manual' }}
@@ -63,6 +66,27 @@ runs:
           ingestion:
             - "metadata-ingestion-modules/**"
             - "metadata-ingestion/**"
+            - "metadata-models/**"
+            - "docker/datahub-ingestion-base/**"
+            - "docker/datahub-ingestion/**"
+          ingestion-core:
+            - "metadata-ingestion/setup.py"
+            - "metadata-ingestion/pyproject.toml"
+            - "metadata-ingestion/constraints.txt"
+            - "metadata-ingestion/src/datahub/api/**"
+            - "metadata-ingestion/src/datahub/cli/**"
+            - "metadata-ingestion/src/datahub/configuration/**"
+            - "metadata-ingestion/src/datahub/emitter/**"
+            - "metadata-ingestion/src/datahub/ingestion/api/**"
+            - "metadata-ingestion/src/datahub/ingestion/graph/**"
+            - "metadata-ingestion/src/datahub/ingestion/run/**"
+            - "metadata-ingestion/src/datahub/ingestion/sink/**"
+            - "metadata-ingestion/src/datahub/metadata/**"
+            - "metadata-ingestion/src/datahub/sdk/**"
+            - "metadata-ingestion/src/datahub/sql_parsing/**"
+            - "metadata-ingestion/src/datahub/telemetry/**"
+            - "metadata-ingestion/src/datahub/utilities/**"
+            - "metadata-ingestion-modules/**"
             - "metadata-models/**"
             - "docker/datahub-ingestion-base/**"
             - "docker/datahub-ingestion/**"
