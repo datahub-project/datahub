@@ -1,26 +1,26 @@
 # Snowflake Cortex Code Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Snowflake Intelligence Integration](./snowflake.md) | [Google ADK Integration →](./google-adk.md)
 
 ## What Problem Does This Solve?
 
-Snowflake Cortex Code is an AI-powered coding assistant that lives in your terminal, but out of the box it only knows what your Snowflake account exposes — raw table and column names with no business context. Without metadata enrichment, Cortex Code:
+Snowflake Cortex Code is an AI-powered coding assistant that lives in your terminal. Out of the box, it only sees what your Snowflake account exposes — raw table and column names with no business context. This means Cortex Code:
 
-- ❌ Can't distinguish `customer_revenue` from `customer_revenue_archive`
-- ❌ Doesn't understand business glossary terms like "churn" or "LTV"
-- ❌ Can't surface which datasets are certified vs deprecated
-- ❌ Has no visibility into data ownership, documentation, or lineage
-- ❌ Hallucinates table names when answering questions about your data
+- Doesn't understand business definitions or hierarchies captured in glossary terms or domains
+- Can't tell how a column or metric is calculated from upstream inputs, or what depends on it downstream
+- Cannot surface which datasets are deprecated, certified, or owned by a specific team
 
-**DataHub's MCP server** solves this by giving Cortex Code direct access to your DataHub metadata catalog over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). Cortex Code calls DataHub MCP tools during reasoning, grounding its SQL generation and data discovery in your real metadata.
+**DataHub's MCP server** bridges this gap by giving Cortex Code direct access to your DataHub metadata catalog over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). Cortex Code calls DataHub MCP tools during reasoning, grounding its SQL generation and data discovery in real metadata.
 
 ### What You Can Do
 
-- ✅ **Semantic Search**: "Find all revenue tables owned by the finance team"
-- ✅ **Business Context**: "What's the business definition of 'churn'?"
-- ✅ **Quality Signals**: "Show me certified customer datasets"
-- ✅ **Documentation Access**: Search across data docs and descriptions
-- ✅ **Ownership Info**: Discover who owns and maintains datasets
+With the integration enabled, Cortex Code can:
+
+- **Search by meaning, not just names**: "Find all revenue tables owned by the finance team"
+- **Resolve business terminology**: "What's the business definition of 'churn'?"
+- **Surface quality signals**: "Show me certified customer datasets"
+- **Access documentation**: Search across data docs, descriptions, and glossary entries
+- **Identify ownership**: Discover who owns and maintains datasets
 
 ### Example Queries DataHub Enables
 
@@ -110,34 +110,6 @@ Cortex Code automatically uses the registered DataHub MCP tools when answering q
 "Write a query for top 10 customers by revenue"
 "List every table tagged PII = TRUE in ANALYTICS_DB"
 ```
-
-### Switching Models
-
-Use the `/model` command during a session to switch models:
-
-| Model               | Notes                                                               |
-| ------------------- | ------------------------------------------------------------------- |
-| `auto`              | Recommended — automatically selects highest-quality available model |
-| `claude-opus-4-6`   | Highest capability                                                  |
-| `claude-sonnet-4-6` | Balanced speed and capability                                       |
-| `claude-sonnet-4-5` |                                                                     |
-| `openai-gpt-5.2`    |                                                                     |
-
-### Cross-Region Inference
-
-If a model is unavailable in your Snowflake region, an `ACCOUNTADMIN` can enable cross-region inference:
-
-```sql
-ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'AWS_US';
-```
-
-| Setting      | Use Case                        |
-| ------------ | ------------------------------- |
-| `AWS_US`     | Best for Claude Opus 4.x models |
-| `AWS_EU`     | Claude access from EU regions   |
-| `AWS_APJ`    | Claude access from APJ regions  |
-| `ANY_REGION` | Global routing                  |
-| `AZURE_US`   | OpenAI GPT 5.2 access           |
 
 ## Agent Context
 

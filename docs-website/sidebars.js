@@ -146,7 +146,7 @@ module.exports = {
             {
               label: "Snowflake Cortex",
               type: "doc",
-              id: "docs/dev-guides/agent-context/cortex-code",
+              id: "docs/dev-guides/agent-context/snowflake-cortex-code",
             },
           ],
         },
