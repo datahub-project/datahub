@@ -23,7 +23,7 @@ class GracefulShutdownHandlerTest {
 
   @BeforeEach
   void setUp() {
-    handler = new GracefulShutdownHandler(true);
+    handler = new GracefulShutdownHandler();
   }
 
   @Test
@@ -41,15 +41,5 @@ class GracefulShutdownHandlerTest {
 
     // Then: Shutdown flag should be set
     assertTrue(handler.isShutdownInProgress());
-  }
-
-  @Test
-  void testFFEnabledFalse() {
-
-    GracefulShutdownHandler falseHandler = new GracefulShutdownHandler(true);
-    falseHandler.onApplicationClosed(mockEvent);
-
-    // Then: Shutdown flag should be set
-    assertFalse(handler.isShutdownInProgress());
   }
 }
