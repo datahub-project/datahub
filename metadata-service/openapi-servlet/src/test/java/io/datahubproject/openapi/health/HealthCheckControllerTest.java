@@ -307,11 +307,12 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   /**
-   * Test shutdown takes precedence over bootstrap state. If shutdown is in progress, return 503
-   * regardless of bootstrap status.
+   * Test that /health returns 503 when both bootstrap is incomplete and shutdown is in progress.
+   * Both bootstrap and shutdown conditions trigger 503 via OR logic — there is no precedence, both
+   * prevent ready responses.
    */
   @Test
-  public void testShutdownTakesPrecedenceOverBootstrap() throws Exception {
+  public void testHealthReturns503WhenBootstrapIncompleteAndShutdownInProgress() throws Exception {
     // Given: Bootstrap NOT complete AND shutdown is in progress
     when(bootstrapManager.areBlockingStepsComplete()).thenReturn(false);
     when(shutdownHandler.isShutdownInProgress()).thenReturn(true);
@@ -319,7 +320,7 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
     // When: Request /health endpoint
     mockMvc
         .perform(get("/health"))
-        // Then: Should return 503 (shutdown takes precedence)
+        // Then: Should return 503 (either condition alone would produce 503)
         .andExpect(status().isServiceUnavailable())
         .andExpect(content().string(""));
   }

@@ -9,8 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * When SIGTERM is received, Kubernetes triggers ContextClosedEvent. This handler: 1. Sets shutdown
- * flag so health checks can return 503 2. Allows current message batch to drain and offsets to
- * commit 4. Proceeds with normal Spring shutdown
+ * flag so health checks can return 503 2. Proceeds with normal Spring shutdown
  */
 @Slf4j
 @Component

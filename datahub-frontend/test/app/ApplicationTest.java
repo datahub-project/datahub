@@ -1386,8 +1386,10 @@ public class ApplicationTest extends WithBrowser {
 
   @Test
   public void testHealthCheckReturns503WhenShuttingDown() {
-    // Set shutdown flag using the @VisibleForTesting setter
-    GracefulShutdownModule.setShuttingDownForTesting(true);
+    // Get the singleton GracefulShutdownModule instance from the app injector
+    GracefulShutdownModule shutdownModule = app.injector().instanceOf(GracefulShutdownModule.class);
+    // Set shutdown flag via instance method
+    shutdownModule.setShuttingDown(true);
 
     try {
       Http.RequestBuilder request = fakeRequest(Helpers.GET, "/health");
@@ -1397,7 +1399,7 @@ public class ApplicationTest extends WithBrowser {
       assertEquals("Shutting down", content);
     } finally {
       // Reset the shutdown flag after test
-      GracefulShutdownModule.setShuttingDownForTesting(false);
+      shutdownModule.setShuttingDown(false);
     }
   }
 
@@ -1421,7 +1423,10 @@ public class ApplicationTest extends WithBrowser {
       Environment mockEnvironment = mock(Environment.class);
       when(mockEnvironment.resourceAsStream("public/index.html")).thenReturn(null);
 
-      return new controllers.Application(mockHttpClient, mockEnvironment, config);
+      // Mock GracefulShutdownModule for the test
+      GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
+      return new controllers.Application(
+          mockHttpClient, mockEnvironment, config, mockShutdownModule);
     }
 
     @Provides

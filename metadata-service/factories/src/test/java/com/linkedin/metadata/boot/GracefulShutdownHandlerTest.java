@@ -6,9 +6,7 @@ import static org.mockito.Mockito.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.event.ContextClosedEvent;
 
 /**
  * Unit tests for GracefulShutdownHandler, verifying that Kafka listeners are properly shut down
@@ -16,8 +14,6 @@ import org.springframework.context.event.ContextClosedEvent;
  */
 @ExtendWith(MockitoExtension.class)
 class GracefulShutdownHandlerTest {
-
-  @Mock private ContextClosedEvent mockEvent;
 
   private GracefulShutdownHandler handler;
 
@@ -37,7 +33,8 @@ class GracefulShutdownHandlerTest {
   void testContextClosedEventTriggersShutdown() {
 
     // When: Application context closes (SIGTERM)
-    handler.onApplicationClosed(mockEvent);
+    // Note: Handler ignores the event argument, so we pass null to make intent clear
+    handler.onApplicationClosed(null);
 
     // Then: Shutdown flag should be set
     assertTrue(handler.isShutdownInProgress());

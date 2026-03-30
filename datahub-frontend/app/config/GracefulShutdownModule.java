@@ -2,7 +2,6 @@ package config;
 
 import akka.Done;
 import akka.actor.CoordinatedShutdown;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 import com.typesafe.config.Config;
@@ -18,21 +17,21 @@ import org.slf4j.LoggerFactory;
 @Singleton
 public class GracefulShutdownModule extends AbstractModule {
 
-  private static final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
+  private final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
 
   @Override
   protected void configure() {
+    bind(GracefulShutdownModule.class).toInstance(this);
     bind(FrontendShutdownHook.class)
         .toProvider(FrontendShutdownHookProvider.class)
         .asEagerSingleton();
   }
 
-  public static boolean isShuttingDown() {
+  public boolean isShuttingDown() {
     return isShuttingDown.get();
   }
 
-  @VisibleForTesting
-  public static void setShuttingDownForTesting(boolean value) {
+  public void setShuttingDown(boolean value) {
     isShuttingDown.set(value);
   }
 
@@ -42,22 +41,27 @@ public class GracefulShutdownModule extends AbstractModule {
     private final Config config;
     private final CoordinatedShutdown coordinatedShutdown;
     private final CloseableHttpClient httpClient;
+    private final GracefulShutdownModule module;
 
     @Inject
     public FrontendShutdownHookProvider(
-        Config config, CoordinatedShutdown coordinatedShutdown, CloseableHttpClient httpClient) {
+        Config config,
+        CoordinatedShutdown coordinatedShutdown,
+        CloseableHttpClient httpClient,
+        GracefulShutdownModule module) {
       this.config = config;
       this.coordinatedShutdown = coordinatedShutdown;
       this.httpClient = httpClient;
+      this.module = module;
     }
 
     @Override
     public FrontendShutdownHook get() {
       if (config.getBoolean("frontend.graceful_shutdown_enabled")) {
-        return new FrontendShutdownHook(coordinatedShutdown, httpClient);
+        return new FrontendShutdownHook(coordinatedShutdown, httpClient, module);
       }
       // Return a no-op hook if disabled
-      return new FrontendShutdownHook(null, null);
+      return new FrontendShutdownHook(null, null, module);
     }
   }
 
@@ -67,11 +71,15 @@ public class GracefulShutdownModule extends AbstractModule {
     private static final Logger log = LoggerFactory.getLogger(FrontendShutdownHook.class);
     private final CoordinatedShutdown coordinatedShutdown;
     private final CloseableHttpClient httpClient;
+    private final GracefulShutdownModule module;
 
     public FrontendShutdownHook(
-        CoordinatedShutdown coordinatedShutdown, CloseableHttpClient httpClient) {
+        CoordinatedShutdown coordinatedShutdown,
+        CloseableHttpClient httpClient,
+        GracefulShutdownModule module) {
       this.coordinatedShutdown = coordinatedShutdown;
       this.httpClient = httpClient;
+      this.module = module;
 
       if (coordinatedShutdown != null) {
         // Phase 1: before connections close — log intent
@@ -82,7 +90,7 @@ public class GracefulShutdownModule extends AbstractModule {
                 CompletableFuture.runAsync(
                         () -> {
                           log.info("Frontend shutdown initiated - stopping new connections soon");
-                          isShuttingDown.set(true);
+                          module.setShuttingDown(true);
                         })
                     .thenApply(v -> Done.done()));
 
