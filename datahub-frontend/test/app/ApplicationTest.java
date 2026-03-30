@@ -1384,7 +1384,7 @@ public class ApplicationTest extends WithBrowser {
     assertEquals("no-cache", result.headers().get("Cache-Control"));
   }
 
-    @Test
+  @Test
   public void testHealthCheckReturns503WhenShuttingDown() {
     // Set shutdown flag using the @VisibleForTesting setter
     GracefulShutdownModule.setShuttingDownForTesting(true);
