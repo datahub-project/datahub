@@ -33,6 +33,7 @@ dependencies {
     play("com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion")
     play(externalDependency.jsonSmart)
     play("io.netty:netty-all:${rootProject.ext.nettyVersion}")
+    play(externalDependency.playJavaForms)
 
     implementation(externalDependency.nettyReactor) {
     }
@@ -85,6 +86,7 @@ dependencies {
   implementation externalDependency.playWs
   implementation externalDependency.playServer
   implementation externalDependency.playAkkaHttpServer
+  implementation externalDependency.playJavaForms
   implementation externalDependency.playFilters
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth
