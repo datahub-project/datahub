@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from threading import Lock
 from typing import (
@@ -21,7 +21,7 @@ from typing import (
 
 # This import verifies that the dependencies are available.
 import teradatasqlalchemy.types as custom_types
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
@@ -607,11 +607,20 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     column_extraction_watermark: Optional[datetime] = Field(
         default=None,
         description=(
-            "If set, skip column extraction for tables/views whose LastAlterTimeStamp is older than "
-            "this timestamp. Set to the start time of the last successful ingestion run to enable "
-            "incremental column extraction. Tables unchanged since the watermark will not have their "
-            "columns re-fetched, relying on previously ingested schema metadata instead. "
+            "Skip column extraction for tables/views whose LastAlterTimeStamp is older than this "
+            "timestamp. Set to the start time of the last successful ingestion run to enable "
+            "incremental column extraction. Mutually exclusive with column_extraction_days_back. "
             "At 13k tables where ~200 change per day this can reduce ingestion from hours to minutes."
+        ),
+    )
+
+    column_extraction_days_back: Optional[int] = Field(
+        default=None,
+        description=(
+            "Skip column extraction for tables/views not altered within the last N days. "
+            "Computed at runtime as now() - N days, so the recipe never needs updating. "
+            "A value of 3 for a daily schedule covers up to two missed runs with no gap risk. "
+            "Mutually exclusive with column_extraction_watermark."
         ),
     )
 
@@ -626,10 +635,20 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         strip the tzinfo after converting to UTC so the comparison is always safe.
         """
         if v is not None and v.tzinfo is not None:
-            from datetime import timezone
-
             v = v.astimezone(timezone.utc).replace(tzinfo=None)
         return v
+
+    @model_validator(mode="after")
+    def _validate_column_extraction_options(self) -> "TeradataConfig":
+        if (
+            self.column_extraction_watermark is not None
+            and self.column_extraction_days_back is not None
+        ):
+            raise ValueError(
+                "column_extraction_watermark and column_extraction_days_back are mutually exclusive. "
+                "Set one or the other, not both."
+            )
+        return self
 
     use_dbc_columns_for_views: bool = Field(
         default=False,
@@ -1508,6 +1527,14 @@ ORDER by DataBaseName, TableName;
                 )
 
                 watermark = self.config.column_extraction_watermark
+                if (
+                    watermark is None
+                    and self.config.column_extraction_days_back is not None
+                ):
+                    # Resolve relative window to a naive UTC datetime matching Teradata driver output
+                    watermark = datetime.now(tz=timezone.utc).replace(
+                        tzinfo=None
+                    ) - timedelta(days=self.config.column_extraction_days_back)
                 if watermark is not None:
                     # Initialise the set; only tables altered at or after the watermark are added
                     self._tables_needing_column_extraction = set()

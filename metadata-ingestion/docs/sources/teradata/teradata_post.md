@@ -8,11 +8,21 @@ For Teradata installations with thousands of tables the following options can si
 
 **Incremental column extraction**
 
-Set `column_extraction_watermark` to the start time of the last successful run. The connector compares each table's `LastAlterTimeStamp` against this value and skips column extraction for tables that have not changed. Only altered tables and tables with no recorded alter timestamp are re-extracted. At 13 000 tables where ~200 change per day this typically reduces a multi-hour run to minutes.
+The connector compares each table's `LastAlterTimeStamp` against a watermark and skips column extraction for tables that have not changed. Only altered tables and tables with no recorded alter timestamp are re-extracted. At 13 000 tables where ~200 change per day this typically reduces a multi-hour run to minutes.
 
-```yaml
-column_extraction_watermark: "2024-06-01T00:00:00Z"
-```
+Two mutually exclusive options control the watermark (setting both raises a validation error at startup):
+
+- **`column_extraction_days_back`** — recommended for scheduled pipelines. Set once and never update the recipe. A value of 3 covers up to two missed daily runs with no gap risk.
+
+  ```yaml
+  column_extraction_days_back: 3
+  ```
+
+- **`column_extraction_watermark`** — for stateful pipelines that track the exact timestamp of the last successful run programmatically.
+
+  ```yaml
+  column_extraction_watermark: "2024-06-01T00:00:00Z"
+  ```
 
 **Faster view column fetching**
 
@@ -42,7 +52,8 @@ Use `request_timeout_ms` and `connect_timeout_ms` to tune the Teradata driver ti
 ### Limitations
 
 - `use_dbc_columns_for_views` falls back to `HELP` for any view that contains derived expression columns. Views with _only_ explicit-type columns benefit most from this option.
-- `column_extraction_watermark` must be managed manually. Set it to the start time of the previous successful run. There is no automatic checkpoint update yet.
+- `column_extraction_watermark` must be managed manually — set it to the start time of the previous successful run. Use `column_extraction_days_back` instead if you want a self-maintaining schedule-relative window.
+- `column_extraction_watermark` and `column_extraction_days_back` are mutually exclusive. Setting both raises a validation error at startup.
 - Profiling capped by `profiling.limit` does not prioritise tables — they are profiled in the order they are returned by `dbc.TablesV`. Use `profile_pattern` to target specific schemas if order matters.
 
 ### Troubleshooting

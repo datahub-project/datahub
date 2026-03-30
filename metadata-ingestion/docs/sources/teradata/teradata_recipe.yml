@@ -16,8 +16,13 @@ source:
 
     # --- Performance options for large installations ---
 
-    # Skip column extraction for tables unchanged since this timestamp.
-    # Set to the start time of the last successful run for incremental ingestion.
+    # Skip column extraction for tables not altered in the last N days (recommended for
+    # scheduled pipelines — set once and never update the recipe).
+    #column_extraction_days_back: 3
+
+    # Alternative: skip column extraction for tables unchanged since an absolute timestamp.
+    # Set to the start time of the last successful run. Mutually exclusive with
+    # column_extraction_days_back.
     #column_extraction_watermark: "2024-06-01T00:00:00Z"
 
     # Use dbc.ColumnsV for view columns first (faster); fall back to HELP only

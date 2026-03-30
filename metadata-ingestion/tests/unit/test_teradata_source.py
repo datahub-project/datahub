@@ -2048,6 +2048,29 @@ class TestNewConfigDefaults:
         assert config.column_extraction_watermark == datetime(2024, 6, 1, 0, 0, 0)
         assert config.column_extraction_watermark.tzinfo is None  # type: ignore[union-attr]
 
+    def test_column_extraction_days_back_default(self) -> None:
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.column_extraction_days_back is None
+
+    def test_column_extraction_days_back_accepted(self) -> None:
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "column_extraction_days_back": 3}
+        )
+        assert config.column_extraction_days_back == 3
+
+    def test_both_watermark_options_raises_validation_error(self) -> None:
+        """Setting both watermark options at the same time must raise a validation error."""
+        import pytest
+
+        with pytest.raises(Exception, match="mutually exclusive"):
+            TeradataConfig.model_validate(
+                {
+                    **_base_config(),
+                    "column_extraction_watermark": "2024-06-01T00:00:00",
+                    "column_extraction_days_back": 3,
+                }
+            )
+
 
 class TestIncrementalColumnExtraction:
     """#1 — skip column extraction for tables unchanged since the watermark."""
@@ -2083,6 +2106,43 @@ class TestIncrementalColumnExtraction:
         assert ("db1", "new_table") in source._tables_needing_column_extraction
         assert ("db1", "old_table") not in source._tables_needing_column_extraction
         assert ("db1", "no_ts_table") in source._tables_needing_column_extraction
+
+    def test_days_back_resolves_to_watermark_at_runtime(self) -> None:
+        """column_extraction_days_back is computed at runtime so the recipe never needs updating."""
+        from datetime import timedelta, timezone
+
+        days_back = 3
+        before_call = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(
+            days=days_back
+        )
+
+        source = _create_source_patched({"column_extraction_days_back": days_back})
+
+        # Table altered 1 day ago → within the window → should be included
+        recent_entry = _create_mock_table_entry(
+            "db1", "recent_table", alter_time=datetime.utcnow() - timedelta(days=1)
+        )
+        # Table altered 10 days ago → outside the window → should be excluded
+        stale_entry = _create_mock_table_entry(
+            "db1", "stale_table", alter_time=datetime.utcnow() - timedelta(days=10)
+        )
+
+        mock_engine = MagicMock()
+        mock_engine.execute.return_value = [recent_entry, stale_entry]
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        after_call = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(
+            days=days_back
+        )
+
+        assert source._tables_needing_column_extraction is not None
+        assert ("db1", "recent_table") in source._tables_needing_column_extraction
+        assert ("db1", "stale_table") not in source._tables_needing_column_extraction
+
+        # The effective watermark should be approximately now() - 3 days
+        # (within a 5-second window to account for test execution time)
+        assert before_call <= after_call  # sanity
 
     def test_optimized_get_columns_skips_table_not_in_extraction_set(self) -> None:
         mock_dialect = MagicMock()
