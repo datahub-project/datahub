@@ -13,7 +13,6 @@ from sqlglot.dialects import Athena
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.athena import (
     AthenaConfig,
     AthenaSource,
@@ -171,7 +170,10 @@ def test_athena_get_table_properties():
         "serde.serialization.lib": "testSerde",
         "table_type": "testType",
     }
-    assert location == make_s3_urn("s3://testLocation", "PROD")
+    # Location is None — no S3 lineage; siblings to Glue are emitted instead
+    assert location is None
+    expected_glue_urn = make_dataset_urn("glue", f"{schema}.{table}")
+    assert source._sibling_urns[f"{schema}.{table}"] == [expected_glue_urn]
 
     # Test partition functionality
     partitions = source.get_partitions(
@@ -237,20 +239,25 @@ def test_athena_get_table_properties_iceberg_location():
     source = AthenaSource(config=config, ctx=ctx)
     source.cursor = mock_cursor
 
-    # Test table properties
+    # Test table properties — location should be None (no S3 lineage)
     _, _, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
+    assert location is None
+
+    # Verify sibling URNs include both Glue and Iceberg
+    expected_glue_urn = make_dataset_urn("glue", f"{schema}.{table}")
     expected_iceberg_urn = make_dataset_urn("iceberg", f"{schema}.{table}")
-    assert location == expected_iceberg_urn
-    # Verify sibling URN is also stored for later emission
-    assert source._sibling_urns[f"{schema}.{table}"] == expected_iceberg_urn
+    assert source._sibling_urns[f"{schema}.{table}"] == [
+        expected_glue_urn,
+        expected_iceberg_urn,
+    ]
 
 
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_athena_iceberg_siblings_emission():
-    """Verify that _gen_siblings_workunit emits bidirectional Siblings aspects."""
+    """Verify that _gen_siblings_workunits emits bidirectional Siblings aspects."""
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -264,22 +271,64 @@ def test_athena_iceberg_siblings_emission():
     athena_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:athena,default.test_iceberg_table,PROD)"
     )
+    glue_urn = make_dataset_urn("glue", "default.test_iceberg_table")
     iceberg_urn = make_dataset_urn("iceberg", "default.test_iceberg_table")
 
-    workunits = list(source._gen_siblings_workunit(athena_urn, iceberg_urn))
+    workunits = list(
+        source._gen_siblings_workunits(athena_urn, [glue_urn, iceberg_urn])
+    )
+    assert len(workunits) == 3
+
+    # Athena entity is not primary, siblings include both Glue and Iceberg
+    athena_sibling_aspect = workunits[0].metadata.aspect
+    assert isinstance(athena_sibling_aspect, Siblings)
+    assert athena_sibling_aspect.primary is False
+    assert athena_sibling_aspect.siblings == [glue_urn, iceberg_urn]
+
+    # Glue entity is primary
+    glue_sibling_aspect = workunits[1].metadata.aspect
+    assert isinstance(glue_sibling_aspect, Siblings)
+    assert glue_sibling_aspect.primary is True
+    assert glue_sibling_aspect.siblings == [athena_urn]
+
+    # Iceberg entity is primary
+    iceberg_sibling_aspect = workunits[2].metadata.aspect
+    assert isinstance(iceberg_sibling_aspect, Siblings)
+    assert iceberg_sibling_aspect.primary is True
+    assert iceberg_sibling_aspect.siblings == [athena_urn]
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_athena_non_iceberg_siblings_emission():
+    """Verify that non-Iceberg tables emit siblings only to Glue."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "s3_staging_dir": "s3://sample-staging-dir/",
+            "work_group": "test-workgroup",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    athena_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,default.test_table,PROD)"
+    glue_urn = make_dataset_urn("glue", "default.test_table")
+
+    workunits = list(source._gen_siblings_workunits(athena_urn, [glue_urn]))
     assert len(workunits) == 2
 
     # Athena entity is not primary
     athena_sibling_aspect = workunits[0].metadata.aspect
     assert isinstance(athena_sibling_aspect, Siblings)
     assert athena_sibling_aspect.primary is False
-    assert athena_sibling_aspect.siblings == [iceberg_urn]
+    assert athena_sibling_aspect.siblings == [glue_urn]
 
-    # Iceberg entity is primary
-    iceberg_sibling_aspect = workunits[1].metadata.aspect
-    assert isinstance(iceberg_sibling_aspect, Siblings)
-    assert iceberg_sibling_aspect.primary is True
-    assert iceberg_sibling_aspect.siblings == [athena_urn]
+    # Glue entity is primary
+    glue_sibling_aspect = workunits[1].metadata.aspect
+    assert isinstance(glue_sibling_aspect, Siblings)
+    assert glue_sibling_aspect.primary is True
+    assert glue_sibling_aspect.siblings == [athena_urn]
 
 
 def test_get_column_type_simple_types():

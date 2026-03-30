@@ -34,7 +34,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -391,7 +390,7 @@ class AthenaSource(SQLAlchemySource):
         self.cursor: Optional[BaseCursor] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
-        self._sibling_urns: Dict[str, str] = {}
+        self._sibling_urns: Dict[str, List[str]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -449,24 +448,21 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = None
+        # All Athena tables are backed by the Glue Data Catalog.
+        # Emit siblings to the corresponding Glue entity (and Iceberg entity
+        # for Iceberg tables) instead of lineage to S3 locations.
+        glue_urn = make_dataset_urn("glue", f"{schema}.{table}", self.config.env)
+        sibling_urns = [glue_urn]
 
         if metadata.parameters.get("table_type") == "ICEBERG":
             iceberg_urn = make_dataset_urn(
                 "iceberg", f"{schema}.{table}", self.config.env
             )
-            self._sibling_urns[f"{schema}.{table}"] = iceberg_urn
-            location = iceberg_urn
-        elif custom_properties.get("location"):
-            props_location = custom_properties["location"]
-            if props_location.startswith("s3://"):
-                location = make_s3_urn(props_location, self.config.env)
-            else:
-                logging.debug(
-                    f"Only s3 url supported for location. Skipping {props_location}"
-                )
+            sibling_urns.append(iceberg_urn)
 
-        return description, custom_properties, location
+        self._sibling_urns[f"{schema}.{table}"] = sibling_urns
+
+        return description, custom_properties, None
 
     @override
     def _process_table(
@@ -482,30 +478,32 @@ class AthenaSource(SQLAlchemySource):
             dataset_name, inspector, schema, table, sql_config, data_reader
         )
 
-        sibling_urn = self._sibling_urns.pop(f"{schema}.{table}", None)
-        if sibling_urn:
+        sibling_urns = self._sibling_urns.pop(f"{schema}.{table}", None)
+        if sibling_urns:
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
                 dataset_name,
                 self.config.platform_instance,
                 self.config.env,
             )
-            yield from self._gen_siblings_workunit(dataset_urn, sibling_urn)
+            yield from self._gen_siblings_workunits(dataset_urn, sibling_urns)
 
-    def _gen_siblings_workunit(
+    def _gen_siblings_workunits(
         self,
         dataset_urn: str,
-        sibling_urn: str,
+        sibling_urns: List[str],
     ) -> Iterable[MetadataWorkUnit]:
+        # Athena is a query layer; the underlying entities are primary.
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=Siblings(primary=False, siblings=[sibling_urn]),
+            aspect=Siblings(primary=False, siblings=sibling_urns),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=sibling_urn,
-            aspect=Siblings(primary=True, siblings=[dataset_urn]),
-        ).as_workunit()
+        for sibling_urn in sibling_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=sibling_urn,
+                aspect=Siblings(primary=True, siblings=[dataset_urn]),
+            ).as_workunit()
 
     def gen_database_containers(
         self,
