@@ -43,7 +43,6 @@ import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -738,28 +737,15 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
             .in(aspectNamesToLiterals(aspectNames))
             .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isLessThanOrEqualTo(literal(startTimeMillis))
+            .isGreaterThanOrEqualTo(literal(startTimeMillis))
             .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isGreaterThan(literal(endTimeMillis))
+            .isLessThan(literal(endTimeMillis))
             .allowFiltering()
             .build();
 
     ResultSet rs = _cqlSession.execute(ss);
 
     return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
-  }
-
-  /**
-   * Override required because Cassandra's {@link #getAspectsInRange} has inverted parameter
-   * semantics (startTimeMillis is the upper bound, endTimeMillis is the lower bound).
-   */
-  @Override
-  @Nonnull
-  public List<EntityAspect> getLatestAspects(
-      @Nonnull Urn urn, Set<String> aspectNames, int maxRows) {
-    List<EntityAspect> aspects = getAspectsInRange(urn, aspectNames, Long.MAX_VALUE, 0L);
-    aspects.sort(Comparator.comparing(EntityAspect::getCreatedOn).reversed());
-    return aspects.subList(0, Math.min(maxRows, aspects.size()));
   }
 
   private Iterable<Term> aspectNamesToLiterals(Set<String> aspectNames) {

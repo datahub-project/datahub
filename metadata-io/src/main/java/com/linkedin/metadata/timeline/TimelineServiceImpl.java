@@ -60,7 +60,6 @@ public class TimelineServiceImpl implements TimelineService {
 
   private static final long DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS =
       7 * 24 * 60 * 60 * 1000L; // 1 week lookback
-  private static final int ASPECT_ROW_MULTIPLIER = 10;
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
@@ -519,9 +518,16 @@ public class TimelineServiceImpl implements TimelineService {
         this._aspectDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
 
     return processAspectTimeline(
-        urn, elementNames, aspectNames, fullAspectNames, aspectsInRange, rawDiffRequested, -1);
+        urn, elementNames, aspectNames, fullAspectNames, aspectsInRange, rawDiffRequested);
   }
 
+  /**
+   * Simplified timeline query that delegates to the time-range overload with a full time window
+   * (startTime=0, endTime=0 which resolves to epoch → now) and caps the result to {@code
+   * maxChangeTransactions}. DataHub's retention policy already limits each (urn, aspect) pair to a
+   * small number of versions (default 20), so the result set is inherently bounded without needing
+   * a SQL LIMIT clause.
+   */
   @Nonnull
   @Override
   public List<ChangeTransaction> getTimeline(
@@ -530,28 +536,14 @@ public class TimelineServiceImpl implements TimelineService {
       int maxChangeTransactions,
       boolean rawDiffRequested) {
 
-    Set<String> aspectNames = getAspectsFromElements(urn.getEntityType(), elementNames);
+    List<ChangeTransaction> allTransactions =
+        getTimeline(urn, elementNames, 0, 0, null, null, rawDiffRequested);
 
-    EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
-    List<AspectSpec> aspectSpecs = entitySpec.getAspectSpecs();
-    Set<String> fullAspectNames =
-        aspectSpecs.stream()
-            .filter(aspectSpec -> !aspectSpec.isTimeseries())
-            .map(AspectSpec::getName)
-            .collect(Collectors.toSet());
-
-    int maxAspectRows = maxChangeTransactions * ASPECT_ROW_MULTIPLIER;
-    List<EntityAspect> latestAspects =
-        this._aspectDao.getLatestAspects(urn, fullAspectNames, maxAspectRows);
-
-    return processAspectTimeline(
-        urn,
-        elementNames,
-        aspectNames,
-        fullAspectNames,
-        latestAspects,
-        rawDiffRequested,
-        maxChangeTransactions);
+    if (maxChangeTransactions > 0 && allTransactions.size() > maxChangeTransactions) {
+      return allTransactions.subList(
+          allTransactions.size() - maxChangeTransactions, allTransactions.size());
+    }
+    return allTransactions;
   }
 
   private List<ChangeTransaction> processAspectTimeline(
@@ -560,8 +552,7 @@ public class TimelineServiceImpl implements TimelineService {
       @Nonnull final Set<String> aspectNames,
       @Nonnull final Set<String> fullAspectNames,
       @Nonnull final List<EntityAspect> fetchedAspects,
-      boolean rawDiffRequested,
-      int maxChangeTransactions) {
+      boolean rawDiffRequested) {
 
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap =
         constructAspectRowSetMap(urn, fullAspectNames, fetchedAspects);
@@ -586,13 +577,6 @@ public class TimelineServiceImpl implements TimelineService {
     List<ChangeTransaction> combinedChangeTransactions =
         combineTransactionsByTimestamp(changeTransactions, timestampVersionCache);
     combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
-
-    if (maxChangeTransactions > 0 && combinedChangeTransactions.size() > maxChangeTransactions) {
-      combinedChangeTransactions =
-          combinedChangeTransactions.subList(
-              combinedChangeTransactions.size() - maxChangeTransactions,
-              combinedChangeTransactions.size());
-    }
 
     return combinedChangeTransactions;
   }
