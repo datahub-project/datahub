@@ -692,7 +692,14 @@ class GlueSource(StatefulIngestionSourceBase):
                         f"Glue connection {connection_name!r} has no JDBC_CONNECTION_URL. Skipping",
                     )
                 else:
-                    result = self._parse_jdbc_url(jdbc_url)
+                    try:
+                        result = self._parse_jdbc_url(jdbc_url)
+                    except Exception as e:
+                        self.report_warning(
+                            flow_urn,
+                            f"Failed to parse JDBC URL for connection {connection_name!r}: {e}. Skipping",
+                        )
+                        result = None
             elif conn_type in GLUE_NATIVE_CONNECTION_TYPE_MAP:
                 platform = GLUE_NATIVE_CONNECTION_TYPE_MAP[conn_type]
                 database = props.get("DATABASE")
@@ -774,7 +781,9 @@ class GlueSource(StatefulIngestionSourceBase):
         self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
     ) -> Optional[List[str]]:
         connection_options = node_args.get("connection_options", {})
-        connection_name = connection_options["connectionName"]
+        connection_name = connection_options.get("connectionName")
+        if not connection_name:
+            return None
         node_label = f"{node['NodeType']}-{node['Id']}"
 
         resolved = self._resolve_glue_connection(connection_name, flow_urn)
