@@ -107,17 +107,16 @@ def _ingest_cleanup_data_impl(
                 "tags_and_terms"
             )
     """
-    print(f"deleting {test_name} test data for idempotency")
+    logger.info(f"deleting {test_name} test data for idempotency")
     delete_urns_from_file(graph_client, data_file)
-    print(f"ingesting {test_name} test data")
+    logger.info(f"ingesting {test_name} test data")
     ingest_file_via_rest(auth_session, data_file)
-    wait_for_writes_to_sync()
     yield
-    print(f"removing {test_name} test data")
+    logger.info(f"removing {test_name} test data")
     delete_urns_from_file(graph_client, data_file)
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
-    wait_for_writes_to_sync()
+        wait_for_writes_to_sync()
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -262,14 +261,21 @@ def pytest_collection_modifyitems(
 
                 # Check if this item's module is in the filtered list
                 # Need to handle both absolute and relative paths
-                if any(module_path.endswith(filtered_mod) for filtered_mod in filtered_modules):
+                if any(
+                    module_path.endswith(filtered_mod)
+                    for filtered_mod in filtered_modules
+                ):
                     filtered_items.append(item)
 
-            logger.info(f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)")
+            logger.info(
+                f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)"
+            )
             items[:] = filtered_items
             return
         except Exception as e:
-            logger.warning(f"Failed to read filtered tests file: {e}. Running all tests.")
+            logger.warning(
+                f"Failed to read filtered tests file: {e}. Running all tests."
+            )
             # Fall through to normal batching logic
 
     # Get batch configuration

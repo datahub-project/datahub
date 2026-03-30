@@ -49,7 +49,7 @@ import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-import AcrylIcon from '@images/acryl-light-mark.svg?react';
+import AcrylIcon from '@images/datahublogo.svg?react';
 
 const Container = styled.div`
     height: 100vh;
@@ -117,7 +117,7 @@ const CustomLogo = styled.img`
     min-width: 20px;
 `;
 
-const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/datahublogo.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
