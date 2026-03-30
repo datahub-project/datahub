@@ -40,7 +40,7 @@ export const Routes = (): JSX.Element => {
 
     return (
         <Switch>
-            <Route path={PageRoutes.LOG_IN} component={LoginV2} />
+            <Route path={PageRoutes.LOG_IN} component={LoginV2} exact />
             <Route path={PageRoutes.SIGN_UP} component={SignUpV2} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentialsV2} />
             <ProtectedRoute
