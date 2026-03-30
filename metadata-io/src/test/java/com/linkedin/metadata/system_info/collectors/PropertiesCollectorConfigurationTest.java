@@ -440,7 +440,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "spring.jmx.enabled",
           "spring.mvc.servlet.path",
           "spring.mvc.throw-exception-if-no-handler-found",
-          "spring.lifecycle.timeout-per-shutdown-phase"
+          "spring.lifecycle.timeout-per-shutdown-phase",
           "spring.web.resources.add-mappings",
           "server.server-header",
           "server.shutdown",
