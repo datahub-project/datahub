@@ -18,7 +18,11 @@ from sqlalchemy_bigquery import STRUCT
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -31,6 +35,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     SourceCapabilityModifier,
@@ -41,6 +46,7 @@ from datahub.ingestion.source.sql.athena_properties_extractor import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -51,6 +57,7 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_database_key,
 )
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
+from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -384,6 +391,7 @@ class AthenaSource(SQLAlchemySource):
         self.cursor: Optional[BaseCursor] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
+        self._sibling_urns: Dict[str, str] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -444,7 +452,11 @@ class AthenaSource(SQLAlchemySource):
         location: Optional[str] = None
 
         if metadata.parameters.get("table_type") == "ICEBERG":
-            location = make_dataset_urn("iceberg", f"{schema}.{table}", self.config.env)
+            iceberg_urn = make_dataset_urn(
+                "iceberg", f"{schema}.{table}", self.config.env
+            )
+            self._sibling_urns[f"{schema}.{table}"] = iceberg_urn
+            location = iceberg_urn
         elif custom_properties.get("location"):
             props_location = custom_properties["location"]
             if props_location.startswith("s3://"):
@@ -455,6 +467,45 @@ class AthenaSource(SQLAlchemySource):
                 )
 
         return description, custom_properties, location
+
+    @override
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        )
+
+        sibling_urn = self._sibling_urns.pop(f"{schema}.{table}", None)
+        if sibling_urn:
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            yield from self._gen_siblings_workunit(dataset_urn, sibling_urn)
+
+    def _gen_siblings_workunit(
+        self,
+        dataset_urn: str,
+        sibling_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=Siblings(primary=False, siblings=[sibling_urn]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=sibling_urn,
+            aspect=Siblings(primary=True, siblings=[dataset_urn]),
+        ).as_workunit()
 
     def gen_database_containers(
         self,

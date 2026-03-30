@@ -20,6 +20,7 @@ from datahub.ingestion.source.sql.athena import (
     CustomAthenaRestDialect,
     Partitionitem,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -240,7 +241,45 @@ def test_athena_get_table_properties_iceberg_location():
     _, _, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
-    assert location == make_dataset_urn("iceberg", f"{schema}.{table}")
+    expected_iceberg_urn = make_dataset_urn("iceberg", f"{schema}.{table}")
+    assert location == expected_iceberg_urn
+    # Verify sibling URN is also stored for later emission
+    assert source._sibling_urns[f"{schema}.{table}"] == expected_iceberg_urn
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_athena_iceberg_siblings_emission():
+    """Verify that _gen_siblings_workunit emits bidirectional Siblings aspects."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "s3_staging_dir": "s3://sample-staging-dir/",
+            "work_group": "test-workgroup",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    athena_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:athena,default.test_iceberg_table,PROD)"
+    )
+    iceberg_urn = make_dataset_urn("iceberg", "default.test_iceberg_table")
+
+    workunits = list(source._gen_siblings_workunit(athena_urn, iceberg_urn))
+    assert len(workunits) == 2
+
+    # Athena entity is not primary
+    athena_sibling_aspect = workunits[0].metadata.aspect
+    assert isinstance(athena_sibling_aspect, Siblings)
+    assert athena_sibling_aspect.primary is False
+    assert athena_sibling_aspect.siblings == [iceberg_urn]
+
+    # Iceberg entity is primary
+    iceberg_sibling_aspect = workunits[1].metadata.aspect
+    assert isinstance(iceberg_sibling_aspect, Siblings)
+    assert iceberg_sibling_aspect.primary is True
+    assert iceberg_sibling_aspect.siblings == [athena_urn]
 
 
 def test_get_column_type_simple_types():
