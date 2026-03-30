@@ -50,6 +50,12 @@ public class Constants {
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
+  /**
+   * Default schema version for aspects that were written before schema versioning was introduced,
+   * or whose {@code @Aspect} annotation does not specify a {@code schemaVersion}.
+   */
+  public static final long DEFAULT_SCHEMA_VERSION = 1L;
+
   // Forces indexing for no-ops, enabled for restore indices calls. Only
   // considered in the no-op
   // case
