@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.pinecone.pinecone_source import PineconeSource
 from datahub.testing import mce_helpers
 
 pytestmark = pytest.mark.integration_batch_0
@@ -143,7 +144,7 @@ def test_pinecone_ingest(
         pytestconfig=pytestconfig,
         output_path=sink_file,
         golden_path=golden_path,
-        ignore_paths=mce_helpers.IGNORE_PATH_DEFAULTS,
+        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
     )
 
 
@@ -175,10 +176,10 @@ def test_pinecone_ingest_no_schema_inference(
     pipeline.raise_from_status()
 
     source = pipeline.source
-    assert source.report.indexes_scanned == 2
-    assert (
-        source.report.datasets_generated == 3
-    )  # 2 namespaces in product + 1 default in document
+    assert isinstance(source, PineconeSource)
+    assert source.get_report().indexes_scanned == 2
+    # 2 namespaces in product + 1 default in document
+    assert source.get_report().datasets_generated == 3
 
 
 @pytest.mark.freeze_time(FROZEN_TIME)
@@ -212,5 +213,6 @@ def test_pinecone_ingest_with_index_filter(
     pipeline.raise_from_status()
 
     source = pipeline.source
-    assert source.report.indexes_scanned == 1
-    assert source.report.indexes_filtered == 1
+    assert isinstance(source, PineconeSource)
+    assert source.get_report().indexes_scanned == 1
+    assert source.get_report().indexes_filtered == 1

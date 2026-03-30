@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("pinecone")
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.pinecone.config import PineconeConfig
 from datahub.ingestion.source.pinecone.pinecone_client import (

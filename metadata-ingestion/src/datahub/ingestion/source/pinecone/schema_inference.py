@@ -11,6 +11,7 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
+    SchemalessClass,
     SchemaMetadataClass,
     StringTypeClass,
 )
@@ -81,7 +82,7 @@ class MetadataSchemaInferrer:
             platform=f"urn:li:dataPlatform:{platform}",
             version=0,
             hash="",
-            platformSchema=None,
+            platformSchema=SchemalessClass(),
             fields=schema_fields,
         )
 
