@@ -828,7 +828,9 @@ management:
 
 # GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
 server:
-  shutdown: graceful
+  shutdown: graceful. # Always on — Spring Boot drains in-flight requests.
+                      # GMS_GRACEFUL_SHUTDOWN_ENABLED controls readiness probe only (503 response).
+                      # To disable graceful shutdown entirely, change to "immediate".
   server-header: false
   servlet:
     context-path: ${DATAHUB_GMS_BASE_PATH:/}
@@ -1244,6 +1246,16 @@ graphQL:
     # These are usually very fast and numerous, so excluding them reduces metric volume
     # Only enable if you suspect performance issues with object property access
     trivialDataFetchersEnabled: ${GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED:false}
+
+  # Shape logging: threshold-based structured logging for GraphQL requests/responses
+  # Monitors query complexity, field counts, duration, response size, and errors
+  # Expensive response analysis only runs when at least one threshold is crossed
+  shapeLogging:
+    enabled: ${GRAPHQL_SHAPE_LOGGING_ENABLED:false}
+    fieldCountThreshold: ${GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD:100}
+    durationThresholdMs: ${GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS:3000}
+    responseSizeThresholdBytes: ${GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES:1048576}
+    errorCountThreshold: ${GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD:1}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
