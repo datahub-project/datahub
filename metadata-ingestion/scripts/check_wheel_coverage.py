@@ -10,6 +10,11 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore[no-redef]
+
 METADATA_INGESTION_DIR = Path(__file__).resolve().parent.parent
 
 # Update when requires-python or Docker base image changes.
@@ -19,34 +24,23 @@ KNOWN_EXCEPTIONS = {
     "kerberos",  # Unmaintained, source-only. Needs replacement with krb5/gssapi.
     "python-ldap",  # Source-only, requires OpenLDAP headers.
     "scipy",  # 1.17+ dropped 3.10; Docker uses 3.10.
-    "sqlalchemy",  # No 3.12 wheels but builds from source with a C compiler.
+    "sqlalchemy",  # 1.4.x (required by db2 plugin, <2) has no 3.12 wheels; builds from source.
 }
 
 
 def parse_uv_lock():
-    text = (METADATA_INGESTION_DIR / "uv.lock").read_text()
+    data = tomllib.loads((METADATA_INGESTION_DIR / "uv.lock").read_text())
     packages = []
-    current = None
-
-    for line in text.splitlines():
-        name_match = re.match(r'^name = "(.+)"$', line)
-        if name_match:
-            if current:
-                packages.append(current)
-            current = {"name": name_match.group(1), "version": "", "wheels": []}
-            continue
-        if current is None:
-            continue
-        version_match = re.match(r'^version = "(.+)"$', line)
-        if version_match:
-            current["version"] = version_match.group(1)
-            continue
-        wheel_match = re.search(r'/([^/]+\.whl)"', line)
-        if wheel_match:
-            current["wheels"].append(wheel_match.group(1))
-
-    if current:
-        packages.append(current)
+    for pkg in data.get("package", []):
+        wheels = []
+        for wheel in pkg.get("wheels", []):
+            url = wheel.get("url", "")
+            m = re.search(r"/([^/]+\.whl)$", url)
+            if m:
+                wheels.append(m.group(1))
+        packages.append(
+            {"name": pkg["name"], "version": pkg.get("version", ""), "wheels": wheels}
+        )
     return packages
 
 
@@ -56,6 +50,7 @@ def get_supported_minors(wheels, max_minor):
     for whl in wheels:
         if "py3-none-any" in whl or "py2.py3-none-any" in whl:
             return True, set()
+        # py3-none-<platform>: Python-version-agnostic but platform-specific (e.g. ruff, jdk4py)
         if re.search(r"py3-none-(?!any)", whl):
             return True, set()
         # abi3: cp311-abi3 means 3.11+
