@@ -10,10 +10,7 @@ import re
 import sys
 from pathlib import Path
 
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore[no-redef]
+import toml
 
 METADATA_INGESTION_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,7 +26,7 @@ KNOWN_EXCEPTIONS = {
 
 
 def parse_uv_lock():
-    data = tomllib.loads((METADATA_INGESTION_DIR / "uv.lock").read_text())
+    data = toml.loads((METADATA_INGESTION_DIR / "uv.lock").read_text())
     packages = []
     for pkg in data.get("package", []):
         wheels = []
