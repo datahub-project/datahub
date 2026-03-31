@@ -201,11 +201,12 @@ public class EbeanAspectDaoTest {
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
     if (canWrite) {
       assertTrue(
-          sql.get(0).contains("FOR UPDATE;"),
+          sql.get(0).toUpperCase().contains("FOR UPDATE;"),
           String.format("Did not find `for update` in %s ", sql));
     } else {
       assertFalse(
-          sql.get(0).contains("FOR UPDATE;"), String.format("Found `for update` in %s ", sql));
+          sql.get(0).toUpperCase().contains("FOR UPDATE;"),
+          String.format("Found `for update` in %s ", sql));
     }
   }
 

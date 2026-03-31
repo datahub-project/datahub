@@ -468,6 +468,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       boolean forUpdate) {
     validateConnection();
 
+    final boolean isUpdateRequired = forUpdate && canWrite;
+
     final int end = Math.min(keys.size(), position + keysCount);
     final List<EbeanAspectV2.PrimaryKey> batchKeys = keys.subList(position, end);
 
@@ -478,13 +480,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     final Query<EbeanAspectV2> query =
         server
             .find(EbeanAspectV2.class)
-            .setReadOnly(!forUpdate)
+            .setReadOnly(!isUpdateRequired)
             .setBufferFetchSizeHint(keys.size())
             .where()
             .idIn(paddedBatch)
             .query();
 
-    if (forUpdate) {
+    if (isUpdateRequired) {
       query.forUpdate();
     }
 
