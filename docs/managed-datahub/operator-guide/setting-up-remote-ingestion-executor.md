@@ -197,20 +197,15 @@ For AWS EKS: Provide the IAM principal that will pull from the ECR repository
 - For Google Cloud: Provide the cluster's IAM service account
 - For other platforms: Contact DataHub team for specific requirements
 
-2. **Configure Secrets**
+2. **Configure Access Token Secret**
 
-Create the required secrets in your Kubernetes cluster:
+Create the required secret in your Kubernetes cluster:
 
 ```bash
 # Create DataHub PAT secret (required)
 # Generate token from Settings > Access Tokens in DataHub UI
 kubectl create secret generic datahub-access-token-secret \
   --from-literal=datahub-access-token-secret-key=<DATAHUB-ACCESS-TOKEN>
-
-# Create source credentials (optional)
-kubectl create secret generic datahub-secret-store \
-  --from-literal=REDSHIFT_PASSWORD=password \
-  --from-literal=SNOWFLAKE_PASSWORD=password
 ```
 
 3. **Install Helm Chart**
@@ -240,15 +235,11 @@ Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Se
 
 Create a Kubernetes secret:
 
-```yaml
-# secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: datahub-secret-store
-data:
-  REDSHIFT_PASSWORD: <base64-encoded-password>
-  SNOWFLAKE_PASSWORD: <base64-encoded-password>
+```bash
+# Create source credentials (optional)
+kubectl create secret generic datahub-secret-store \
+  --from-literal=REDSHIFT_PASSWORD=password \
+  --from-literal=SNOWFLAKE_PASSWORD=password
 ```
 
 Mount the secret in your `values.yaml`:

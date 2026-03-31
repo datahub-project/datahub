@@ -1,4 +1,4 @@
-import { Database } from '@phosphor-icons/react';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { VerticalDivider } from '@remirror/react';
 import React from 'react';
 import styled from 'styled-components';

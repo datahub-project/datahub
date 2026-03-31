@@ -292,6 +292,75 @@ tables_2 = [
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "795586375822",
     },
+    {
+        "Name": "test_iceberg",
+        "DatabaseName": "test-database",
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "UpdateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "LastAccessTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "yr",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "1",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "quarter",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "2",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "month",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "3",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "dayofmonth",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "4",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+            ],
+            "Location": "s3://crawler-public-us-west-2/flight/iceberg/",
+            "AdditionalLocations": [
+                "s3://crawler-public-us-west-2/flight/iceberg/data",
+            ],
+            "Compressed": False,
+            "NumberOfBuckets": 0,
+            "SortColumns": [],
+            "StoredAsSubDirectories": False,
+        },
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {
+            "previous_metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00006-1cbe9a83-a663-4494-a97d-925660cf7780.metadata.json",
+            "target_table_region": "us-east-1",
+            "metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00007-4041d9f9-51f7-4887-8801-26a5d003d3d5.metadata.json",
+            "table_type": "ICEBERG",
+        },
+        "CreatedBy": "arn:aws:sts::795586375822:assumed-role/AWSGlueServiceRole-test-crawler/AWS-Crawler",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "795586375822",
+        "VersionId": "7",
+        "IsMultiDialectView": False,
+    },
 ]
 get_tables_response_2 = {"TableList": tables_2}
 get_jobs_response_empty: Dict[str, Any] = {

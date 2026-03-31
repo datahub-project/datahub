@@ -20,7 +20,7 @@ function typeInMonacoEditor(text) {
 
 describe("run managed ingestion", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });

@@ -5,6 +5,7 @@ import functools
 import logging
 import threading
 import uuid
+from datetime import timedelta
 from enum import auto
 from typing import List, Optional, Tuple, Union
 
@@ -81,6 +82,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
+    min_process_interval_seconds: pydantic.PositiveFloat = 30
 
     @field_validator("max_per_batch", mode="before")
     @classmethod
@@ -198,6 +200,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 max_pending=self.config.max_pending_requests,
                 process_batch=self._emit_batch_wrapper,
                 max_per_batch=self.config.max_per_batch,
+                min_process_interval=timedelta(
+                    seconds=self.config.min_process_interval_seconds
+                ),
             )
         else:
             self.executor = PartitionExecutor(

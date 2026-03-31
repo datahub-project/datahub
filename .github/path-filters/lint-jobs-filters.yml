@@ -1,0 +1,31 @@
+lint-job:
+  - modified: ".github/workflows/lint-jobs.yml"
+  - ".github/path-filters/lint-job-filter.yml"
+markdown:
+  - added|modified: "**/*.md"
+github-actions:
+  - added|modified: ".github/**/*.yml"
+  - added|modified: ".github/**/*.yaml"
+workflow-files:
+  - added|modified: ".github/workflows/**"
+workflow-validation:
+  - ".github/workflows/**"
+  - ".github/scripts/validate_post_workflow_list.py"
+code-check-sources:
+  - "metadata-io/**"
+  - "datahub-web-react/**"
+  - "metadata-service/war/src/main/resources/boot/policies.json"
+  - "**/build.gradle"
+  - "**/build.gradle.kts"
+  - "**/gradle.lockfile"
+  - ".github/scripts/check_*.py"
+smoke-test-python:
+  - added|modified: "smoke-test/**/*.py"
+  - "smoke-test/pyproject.toml"
+  - "smoke-test/requirements.txt"
+  - "smoke-test/build.gradle"
+smoke-test-cypress:
+  - "smoke-test/tests/cypress/**"
+datahub-web-react:
+  - added|modified: "datahub-web-react/**"
+  - "!datahub-web-react/**/*.md"

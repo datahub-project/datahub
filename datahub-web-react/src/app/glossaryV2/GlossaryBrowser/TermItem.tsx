@@ -6,6 +6,7 @@ import styled from 'styled-components/macro';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
+import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
@@ -14,6 +15,7 @@ const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 24 + 12 : 18)}px);
     background-color: ${(props) => props.$isSelected && props.theme.colors.bgActive}};
     display: flex;
+    align-items: center;
 
     &:hover {
         background-color: ${colors.gray[100]};
@@ -77,10 +79,11 @@ interface Props {
     includeActiveTabPath?: boolean;
     areChildrenVisible?: boolean;
     depth: number;
+    selectedUrns?: string[];
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath, areChildrenVisible } = props;
+    const { term, isSelecting, selectTerm, includeActiveTabPath, areChildrenVisible, selectedUrns } = props;
 
     const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
@@ -96,6 +99,8 @@ function TermItem(props: Props) {
     const isOnEntityPage = entityData && entityData.urn === term.urn;
 
     const isActivelyEditing = activeTabPath.includes(EDITING_DOCUMENTATION_URL_PARAM);
+
+    const isSelected = isSelecting && selectedUrns?.includes(term.urn);
 
     return (
         <TermWrapper $isSelected={entityData?.urn === term.urn} $depth={props.depth}>
@@ -116,6 +121,7 @@ function TermItem(props: Props) {
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
                 </NameWrapper>
             )}
+            {isSelected && <SelectedMark />}
         </TermWrapper>
     );
 }

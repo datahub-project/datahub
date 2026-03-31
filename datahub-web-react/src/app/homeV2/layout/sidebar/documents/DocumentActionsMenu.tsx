@@ -1,3 +1,4 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -123,8 +124,7 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                 <MenuButton
                     data-testid="document-actions-menu-button"
                     icon={{
-                        icon: 'DotsThreeVertical',
-                        source: 'phosphor',
+                        icon: DotsThreeVertical,
                         size: '2xl',
                         color: 'gray',
                         colorLevel: 1800,

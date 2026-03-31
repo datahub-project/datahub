@@ -7,7 +7,7 @@ from freezegun import freeze_time
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
-pytestmark = pytest.mark.integration_batch_3
+pytestmark = pytest.mark.integration_batch_5
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 

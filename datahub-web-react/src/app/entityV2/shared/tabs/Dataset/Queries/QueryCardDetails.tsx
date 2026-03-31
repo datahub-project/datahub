@@ -68,7 +68,7 @@ const EmptyText = styled.div`
     }
 `;
 
-export type Props = {
+type Props = {
     urn?: string;
     title?: string;
     description?: string;

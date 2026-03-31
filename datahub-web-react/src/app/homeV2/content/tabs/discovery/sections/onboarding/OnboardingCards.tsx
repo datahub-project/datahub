@@ -1,5 +1,7 @@
 import { Button, Card, colors } from '@components';
-import { Globe, Plugs, UserPlus } from '@phosphor-icons/react';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { UserPlus } from '@phosphor-icons/react/dist/csr/UserPlus';
 import React, { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 

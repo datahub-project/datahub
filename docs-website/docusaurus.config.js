@@ -307,6 +307,10 @@ module.exports = {
               to: "https://demo.datahub.com/",
             },
             {
+              label: "Free Trial",
+              href: "https://datahub.com/free-trial/",
+            },
+            {
               label: "Roadmap",
               href: "https://feature-requests.datahubproject.io/roadmap",
             },

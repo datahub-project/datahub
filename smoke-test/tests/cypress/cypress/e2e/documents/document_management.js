@@ -61,7 +61,6 @@ describe("Document Management End-to-End Test", () => {
   beforeEach(() => {
     // Set up intercepts FIRST before any navigation
     enableContextDocuments();
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

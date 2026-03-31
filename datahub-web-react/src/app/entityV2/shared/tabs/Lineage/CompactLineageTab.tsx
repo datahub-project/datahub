@@ -1,12 +1,12 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { Icon, Tooltip } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { UnionType } from '@app/search/utils/constants';
@@ -24,7 +24,7 @@ const Container = styled.div`
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
         background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
-        color: ${(props) => (props.$isSelected ? '#ffffff' : ANTD_GRAY[7])};
+        color: ${(props) => (props.$isSelected ? props.theme.colors.bg : props.theme.colors.textTertiary)};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
@@ -63,19 +63,22 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : ANTD_GRAY[7])};
-    border: 1px solid ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : ANTD_GRAY[7])};
+    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    border: 1px solid
+        ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
     &:hover {
         opacity: 0.8;
         cursor: pointer;
     }
 `;
 
+// eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once success color token is added
+const ADVANCED_FILTER_ACTIVE_COLOR = '#00615F';
 const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     && {
         padding: 0px 4px;
         font-size: 16px;
-        color: ${(props) => (props.$isSelected ? '#00615F' : ANTD_GRAY[7])};
+        color: ${(props) => (props.$isSelected ? ADVANCED_FILTER_ACTIVE_COLOR : props.theme.colors.textTertiary)};
     }
 `;
 
@@ -232,7 +235,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                         $isSelected={showAdvancedFilters}
                         onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     >
-                        <Icon icon="MagnifyingGlass" source="phosphor" />
+                        <Icon icon={MagnifyingGlass} />
                     </AdvancedFiltersButton>
                 </Tooltip>
             </Filters>

@@ -1,5 +1,6 @@
 import { colors } from '@components';
-import { CaretLeft, CaretRight } from 'phosphor-react';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 

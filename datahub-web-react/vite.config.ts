@@ -123,21 +123,29 @@ export default defineConfig(async ({ mode }) => {
             }),
             viteStaticCopy({
                 targets: [
-                    // Copy monaco-editor files to the build directory
-                    // Because of the structured option, specifying dest .
-                    // means that it will mirror the node_modules/... structure
-                    // in the build directory.
+                    // Selective Monaco Editor files — only what DataHub actually uses (YAML + SQL).
+                    // structured: true mirrors the node_modules/... path into the build directory,
+                    // so Monaco's AMD loader can find files at /node_modules/monaco-editor/min/vs/*.
+                    // The language/ directory (TS/CSS/HTML/JSON IntelliSense, ~7 MB) and min-maps/
+                    // (~11 MB) are intentionally excluded — they are never requested at runtime.
+                    { src: 'node_modules/monaco-editor/min/vs/loader.js', dest: '.' },
                     {
-                        src: 'node_modules/monaco-editor/min/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.js',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.css',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.nls.js',
+                        ],
                         dest: '.',
                     },
+                    // base/ contains workerMain.js and the codicon font — required by the editor core.
+                    { src: 'node_modules/monaco-editor/min/vs/base/', dest: '.' },
+                    // Only the two language tokenizers DataHub uses.
                     {
-                        src: 'node_modules/monaco-editor/min-maps/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/basic-languages/yaml/',
+                            'node_modules/monaco-editor/min/vs/basic-languages/sql/',
+                        ],
                         dest: '.',
-                        rename: (name, ext, fullPath) => {
-                            console.log(name, ext, fullPath);
-                            return name;
-                        },
                     },
                 ],
                 structured: true,

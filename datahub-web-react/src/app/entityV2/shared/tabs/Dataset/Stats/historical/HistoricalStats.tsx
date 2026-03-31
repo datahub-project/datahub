@@ -49,7 +49,7 @@ const getLookbackWindowSize = (window: LookbackWindow) => {
     return window.windowSize;
 };
 
-export type Props = {
+type Props = {
     urn: string;
     lookbackWindow: LookbackWindow;
 };

@@ -131,7 +131,9 @@ azure-storage-blob==12.28.0
 azure-storage-file-datalake==12.23.0
     # via acryl-datahub
 babel==2.18.0
-    # via jupyterlab-server
+    # via
+    #   jupyterlab-server
+    #   python-liquid
 backoff==2.2.1
     # via
     #   gql
@@ -637,10 +639,8 @@ importlib-metadata==8.7.1
     #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
-importlib-resources==6.5.2
-    # via
-    #   python-liquid
-    #   schwifty
+importlib-resources==6.5.2 ; python_full_version < '3.12'
+    # via schwifty
 iniconfig==2.3.0
     # via pytest
 ipaddress==1.0.23
@@ -782,8 +782,6 @@ langcodes==3.5.1
     # via spacy
 langdetect==1.0.9
     # via unstructured
-lark==1.1.4
-    # via acryl-datahub
 leb128==1.0.9
     # via asynch
 linear-tsv==1.1.0
@@ -826,6 +824,7 @@ markupsafe==3.0.3
     #   jinja2
     #   mako
     #   nbconvert
+    #   python-liquid
     #   werkzeug
 marshmallow==3.26.2
     # via
@@ -840,6 +839,8 @@ mdit-py-plugins==0.5.0
 mdurl==0.1.2
     # via markdown-it-py
 memray==1.19.1
+    # via acryl-datahub
+mini-racer==0.14.1
     # via acryl-datahub
 mistune==3.2.0
     # via
@@ -859,7 +860,7 @@ more-itertools==10.8.0
     #   jaraco-classes
     #   jaraco-functools
     #   simple-salesforce
-moto==4.2.14
+moto==5.1.22
     # via acryl-datahub
 msal==1.35.1
     # via
@@ -1124,7 +1125,7 @@ pure-sasl==0.6.2
     # via
     #   acryl-pyhive
     #   thrift-sasl
-py-partiql-parser==0.5.0
+py-partiql-parser==0.6.3
     # via moto
 py4j==0.10.9.9
     # via pyspark
@@ -1179,9 +1180,7 @@ pydantic==2.11.10
     #   unstructured-ingest
     #   weasel
 pydantic-core==2.33.2
-    # via
-    #   acryl-datahub
-    #   pydantic
+    # via pydantic
 pydash==8.0.6
     # via okta
 pydeequ==1.5.0
@@ -1217,7 +1216,7 @@ pymysql==1.1.2
     # via acryl-datahub
 pyodata==1.11.2
     # via acryl-datahub
-pyodbc==4.0.39
+pyodbc==5.3.0
     # via acryl-datahub
 pyopenssl==25.3.0
     # via
@@ -1297,7 +1296,7 @@ python-json-logger==4.0.0
     #   jupyter-events
 python-ldap==3.4.5
     # via acryl-datahub
-python-liquid==1.13.0
+python-liquid==2.1.0
     # via acryl-datahub
 python-magic==0.4.27
     # via unstructured
@@ -1322,6 +1321,7 @@ pytz==2026.1.post1
     #   croniter
     #   neo4j
     #   pandas
+    #   python-liquid
     #   redshift-connector
     #   snowflake-connector-python
     #   trino
@@ -1372,7 +1372,6 @@ referencing==0.37.0
     #   jupyter-events
 regex==2026.2.28
     # via
-    #   lark
     #   nltk
     #   tiktoken
 requests==2.32.5
@@ -1546,7 +1545,7 @@ sniffio==1.3.1
     # via
     #   google-genai
     #   openai
-snowflake-connector-python==4.3.0
+snowflake-connector-python==4.4.0
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
@@ -1600,12 +1599,10 @@ sqlalchemy2-stubs==0.0.2a38
     # via
     #   acryl-datahub
     #   sqlalchemy
-sqlglot==29.0.1
+sqlglot==30.0.3
     # via acryl-datahub
-sqlglotc==29.0.1
-    # via
-    #   acryl-datahub
-    #   sqlglot
+sqlglotc==30.0.3
+    # via sqlglot
 sqlparse==0.5.5
     # via
     #   acryl-datahub
@@ -1830,7 +1827,6 @@ typing-extensions==4.15.0
     #   pyopenssl
     #   pypdf
     #   pytest-asyncio
-    #   python-liquid
     #   python-oxmsg
     #   python-utils
     #   referencing
@@ -1868,7 +1864,7 @@ tzlocal==5.3.1
     #   trino
 uc-micro-py==2.0.0
     # via linkify-it-py
-ujson==5.11.0
+ujson==5.12.0
     # via acryl-datahub
 unicodecsv==0.14.1
     # via

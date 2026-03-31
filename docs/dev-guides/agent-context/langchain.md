@@ -1,6 +1,6 @@
 # LangChain Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [Snowflake Integration →](./snowflake.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Gemini CLI Integration](./gemini-cli.md) | [Snowflake Intelligence Integration →](./snowflake.md)
 
 ## What Problem Does This Solve?
 

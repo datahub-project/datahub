@@ -1,5 +1,6 @@
 import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { AppWindow, ListBullets } from '@phosphor-icons/react';
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';

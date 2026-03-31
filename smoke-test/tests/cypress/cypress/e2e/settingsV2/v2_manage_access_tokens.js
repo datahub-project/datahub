@@ -15,8 +15,6 @@ describe("manage access tokens", () => {
         req.alias = "gqlappConfigQuery";
         req.on("response", (res) => {
           res.body.data.appConfig.authConfig.tokenAuthEnabled = isOn;
-          res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Default = true;
         });
       }
     });
@@ -25,8 +23,7 @@ describe("manage access tokens", () => {
   it("create and revoke access token", () => {
     // create access token, verify token on ui
     setTokenAuthEnabledFlag(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToAccessTokenSettings();
     cy.clickOptionWithTestId("add-token-button");
     cy.clickOptionWithText("Personal Token");

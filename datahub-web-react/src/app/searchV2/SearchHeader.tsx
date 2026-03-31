@@ -1,9 +1,9 @@
-import { ArrowRight } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
@@ -99,7 +99,7 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: center;
 
     font-family: Mulish;
@@ -115,7 +115,7 @@ const StyledButton = styled(Button)`
     &:hover,
     :active,
     :focus {
-        color: ${REDESIGN_COLORS.GREY_300};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 

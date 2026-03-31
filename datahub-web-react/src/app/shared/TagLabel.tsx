@@ -12,7 +12,7 @@ const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
-export const StyledDiv = styled.div<{ $color: any; $colorHash?: string }>`
+const StyledDiv = styled.div<{ $color: any; $colorHash?: string }>`
     ${(props) =>
         props.$colorHash &&
         css`

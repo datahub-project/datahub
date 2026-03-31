@@ -1,4 +1,7 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Card, Icon, Text, colors } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -33,7 +36,7 @@ interface Props {
     item: StructuredReportLogEntry;
     color: string;
     textColor?: string;
-    icon?: string;
+    icon?: React.ComponentType<any>;
     defaultActiveKey?: string;
 }
 
@@ -50,13 +53,8 @@ export function StructuredReportItem({ item, color, textColor, icon, defaultActi
             onClick={toggleExpanded}
             icon={
                 <HeaderContainer>
-                    {icon && <Icon icon={icon} source="phosphor" style={{ color: textColor }} size="md" />}
-                    <ChevronIcon
-                        icon={isExpanded ? 'CaretUp' : 'CaretDown'}
-                        source="phosphor"
-                        style={{ color: textColor }}
-                        size="md"
-                    />
+                    {icon && <Icon icon={icon} style={{ color: textColor }} size="md" />}
+                    <ChevronIcon icon={isExpanded ? CaretUp : CaretDown} style={{ color: textColor }} size="md" />
                 </HeaderContainer>
             }
             title={
