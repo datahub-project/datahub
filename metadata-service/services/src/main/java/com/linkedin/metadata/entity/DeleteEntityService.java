@@ -425,7 +425,7 @@ public class DeleteEntityService {
       Urn urn,
       String aspectName,
       RecordTemplate prevAspect,
-      CascadeOperationContext cascade) {
+      @Nonnull CascadeOperationContext cascade) {
     final Optional<RollbackResult> rollbackResult =
         _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
     if (rollbackResult.isEmpty() || rollbackResult.get().getNewValue() != null) {
@@ -456,7 +456,7 @@ public class DeleteEntityService {
       String aspectName,
       RecordTemplate prevAspect,
       RecordTemplate newAspect,
-      CascadeOperationContext cascade) {
+      @Nonnull CascadeOperationContext cascade) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setChangeType(ChangeType.UPSERT);
