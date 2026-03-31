@@ -1014,25 +1014,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
             .collect(Collectors.toList());
 
-    Iterable<List<MCPItem>> iterable =
-        () ->
-            Iterators.partition(
-                AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())
-                    .iterator(),
-                MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-    StreamSupport.stream(iterable.spliterator(), false)
-        .forEach(
-            sideEffects -> {
-              long count =
-                  ingestProposalAsync(
-                          opContext,
-                          AspectsBatchImpl.builder()
-                              .items(sideEffects)
-                              .retrieverContext(opContext.getRetrieverContext())
-                              .build(opContext))
-                      .count();
-              log.debug("Generated {} MCP SideEffects for async processing", count);
-            });
+    try (Stream<MCPItem> sideEffectStream =
+        AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())) {
+      Iterable<List<MCPItem>> iterable =
+          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+      StreamSupport.stream(iterable.spliterator(), false)
+          .forEach(
+              sideEffects -> {
+                long count =
+                    ingestProposalAsync(
+                            opContext,
+                            AspectsBatchImpl.builder()
+                                .items(sideEffects)
+                                .retrieverContext(opContext.getRetrieverContext())
+                                .build(opContext))
+                        .count();
+                log.debug("Generated {} MCP SideEffects for async processing", count);
+              });
+    }
   }
 
   /**
