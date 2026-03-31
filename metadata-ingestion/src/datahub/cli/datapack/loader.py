@@ -108,8 +108,14 @@ def _is_index_url(url: str) -> bool:
     return path.endswith("/index.json")
 
 
-def _fetch_index_version(pack: DataPackInfo) -> Optional[str]:
-    """Fetch the remote index file and return its version field, or None."""
+def _fetch_index_version(pack: DataPackInfo) -> tuple[bool, Optional[str]]:
+    """Fetch the remote index file and return (success, version).
+
+    Returns:
+        (True, version_string) if fetched and version field exists.
+        (True, None) if fetched but no version field in the index.
+        (False, None) if the fetch itself failed (network error, etc.).
+    """
     try:
         parsed = urlparse(pack.url)
         if parsed.scheme == "file":
@@ -120,10 +126,11 @@ def _fetch_index_version(pack: DataPackInfo) -> Optional[str]:
             response.raise_for_status()
             content = response.json()
         if isinstance(content, dict):
-            return content.get("version")
+            return True, content.get("version")
+        return True, None
     except Exception:
         logger.debug("Failed to check remote index version", exc_info=True)
-    return None
+        return False, None
 
 
 def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileEntry]:
@@ -148,21 +155,24 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
     if not no_cache and cache_path.exists():
         # For index-based packs, check remote version before using cache
         if _is_index_url(pack.url):
-            remote_version = _fetch_index_version(pack)
+            fetch_ok, remote_version = _fetch_index_version(pack)
             cached_version = _cached_index_version(pack)
-            if remote_version and cached_version and remote_version == cached_version:
+            if not fetch_ok:
+                # Network error — use cache as fallback
+                click.echo("Using cached pack (could not reach remote).")
+                return _resolve_index_file(cache_path, pack, no_cache=False)
+            elif remote_version and cached_version and remote_version == cached_version:
                 click.echo(f"Using cached pack (version {cached_version}).")
                 return _resolve_index_file(cache_path, pack, no_cache=False)
-            elif remote_version:
+            elif remote_version and cached_version:
                 click.echo(
                     f"Pack updated ({cached_version} -> {remote_version}), "
                     "re-downloading..."
                 )
                 # Fall through to re-download
             else:
-                # Could not fetch remote version — use cache as fallback
-                click.echo("Using cached pack (could not check remote version).")
-                return _resolve_index_file(cache_path, pack, no_cache=False)
+                # No version field or no cached version — always re-download
+                pass
 
         # For non-index packs, verify checksum if available
         elif pack.sha256:
