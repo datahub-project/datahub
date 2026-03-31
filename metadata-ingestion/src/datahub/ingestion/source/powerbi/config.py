@@ -295,7 +295,7 @@ class DataBricksPlatformDetail(PlatformDetail):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=False,
+        default=True,
         description=(
             "Whether to create user entities from PowerBI data. "
             "When False (RECOMMENDED): PowerBI emits ownership URNs only (soft references). "

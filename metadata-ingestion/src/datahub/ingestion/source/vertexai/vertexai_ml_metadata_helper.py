@@ -1,9 +1,9 @@
+import functools
 import itertools
 import logging
 from contextlib import AbstractContextManager, nullcontext
-from typing import List, Optional, Sequence, Union
+from typing import Iterable, List, Optional, Sequence, Union
 
-from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
@@ -39,29 +39,20 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     LineageMetadata,
     MLMetadataConfig,
 )
-from datahub.ingestion.source.vertexai.vertexai_utils import format_api_error_message
+from datahub.ingestion.source.vertexai.vertexai_utils import (
+    create_vertex_retry_without_429,
+    format_api_error_message,
+    rate_limited_paged_call,
+)
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
-# Retry only on quota exceeded (429 ResourceExhausted), mirroring the
-# google.api_core.retry.Retry approach used in the BigQuery connector.
-# ServiceUnavailable (503) is intentionally excluded: in credential-less
-# environments it manifests as a persistent error that retrying won't fix,
-# and it is already handled gracefully by the caller exception handlers.
-_METADATA_RETRY = api_retry.Retry(
-    predicate=api_retry.if_exception_type(ResourceExhausted),
-    initial=MLMetadataDefaults.RETRY_INITIAL_WAIT_SECS,
-    maximum=MLMetadataDefaults.RETRY_MAXIMUM_WAIT_SECS,
-    multiplier=MLMetadataDefaults.RETRY_MULTIPLIER,
-    deadline=MLMetadataDefaults.RETRY_DEADLINE_SECS,
-)
+_METADATA_RETRY = create_vertex_retry_without_429()
 
 
 class MLMetadataHelper:
-    """Encapsulates ML Metadata API operations for lineage and metrics extraction."""
-
     def __init__(
         self,
         metadata_client: MetadataServiceClient,
@@ -74,6 +65,13 @@ class MLMetadataHelper:
         self.uri_parser = uri_parser
         self.rate_limiter = rate_limiter
         self._execution_cache: Optional[List[Execution]] = None
+
+    def _list_executions(self, request: ListExecutionsRequest) -> Iterable[Execution]:
+        return rate_limited_paged_call(
+            functools.partial(self.client.list_executions, retry=_METADATA_RETRY),
+            request,
+            self.rate_limiter,
+        )
 
     def get_job_lineage_metadata(
         self, job: VertexAiResourceNoun
@@ -152,10 +150,7 @@ class MLMetadataHelper:
         filter_str = f'display_name="{job.display_name}"'
         request = ListExecutionsRequest(parent=parent, filter=filter_str)
 
-        with self.rate_limiter:
-            executions: List[Execution] = list(
-                self.client.list_executions(request=request, retry=_METADATA_RETRY)
-            )
+        executions: List[Execution] = list(self._list_executions(request))
 
         if not executions:
             matching = self._find_executions_by_schema_and_name(
@@ -195,14 +190,12 @@ class MLMetadataHelper:
             parent=parent,
             filter=filter_str,
             order_by="LAST_UPDATE_TIME desc",
-            page_size=MLMetadataDefaults.MAX_PAGE_SIZE,  # API max is 100 per page
+            page_size=MLMetadataDefaults.MAX_PAGE_SIZE,
         )
 
-        with self.rate_limiter:
-            paged_response = self.client.list_executions(
-                request=request, retry=_METADATA_RETRY
-            )
-        executions = list(itertools.islice(paged_response, max_to_retrieve))
+        executions = list(
+            itertools.islice(self._list_executions(request), max_to_retrieve)
+        )
         logger.info(
             f"Loaded {len(executions)} executions into cache for ML Metadata matching"
         )

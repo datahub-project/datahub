@@ -54,6 +54,8 @@ if [[ $ENABLE_PROMETHEUS == true ]]; then
   PROMETHEUS_AGENT="-javaagent:/datahub/datahub-upgrade/lib/jmx_prometheus_javaagent.jar=4318:/datahub/datahub-gms/scripts/prometheus-config.yaml "
 fi
 
+export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
+
 COMMON="
     $WAIT_FOR_EBEAN \
     $WAIT_FOR_CASSANDRA \

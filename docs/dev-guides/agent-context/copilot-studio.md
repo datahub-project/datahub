@@ -1,6 +1,6 @@
 # Microsoft Copilot Studio Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [LangChain Integration →](./langchain.md) | [Snowflake Integration →](./snowflake.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Google Vertex AI Integration](./google-vertex-ai.md)
 
 ## What Problem Does This Solve?
 
