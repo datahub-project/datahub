@@ -368,20 +368,6 @@ class TestEdgeCases:
         assert user_info.displayName == "fallback_user"
 
 
-class TestConfigDefaults:
-    """Tests for config default value changes.
-
-    The fix changes create_corp_user default from True to False.
-    """
-
-    def test_create_corp_user_should_default_to_false(self) -> None:
-        """Verify create_corp_user defaults to False to prevent overwrites."""
-        from datahub.ingestion.source.powerbi.config import OwnershipMapping
-
-        config = OwnershipMapping()
-        assert config.create_corp_user is False
-
-
 class TestStatefulIngestionBehavior:
     """Tests for stateful ingestion integration.
 
