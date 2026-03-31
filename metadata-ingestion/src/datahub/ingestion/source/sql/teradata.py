@@ -1531,10 +1531,19 @@ ORDER by DataBaseName, TableName;
                     watermark is None
                     and self.config.column_extraction_days_back is not None
                 ):
-                    # Resolve relative window to a naive UTC datetime matching Teradata driver output
-                    watermark = datetime.now(tz=timezone.utc).replace(
-                        tzinfo=None
-                    ) - timedelta(days=self.config.column_extraction_days_back)
+                    # Use Teradata's CURRENT_TIMESTAMP so the watermark is in the same
+                    # time reference as LastAlterTimeStamp. Using the client clock risks
+                    # skew when the client and server are in different timezones.
+                    with engine.connect() as conn:
+                        ts_row = conn.execute(
+                            text("SELECT CURRENT_TIMESTAMP(0)")
+                        ).fetchone()
+                    td_now = ts_row[0] if ts_row else datetime.now()
+                    if hasattr(td_now, "tzinfo") and td_now.tzinfo is not None:
+                        td_now = td_now.replace(tzinfo=None)
+                    watermark = td_now - timedelta(
+                        days=self.config.column_extraction_days_back
+                    )
                 if watermark is not None:
                     # Initialise the set; only tables altered at or after the watermark are added
                     self._tables_needing_column_extraction = set()

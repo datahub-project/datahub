@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -2108,41 +2108,44 @@ class TestIncrementalColumnExtraction:
         assert ("db1", "no_ts_table") in source._tables_needing_column_extraction
 
     def test_days_back_resolves_to_watermark_at_runtime(self) -> None:
-        """column_extraction_days_back is computed at runtime so the recipe never needs updating."""
-        from datetime import timedelta, timezone
+        """column_extraction_days_back uses the Teradata server clock, not the client clock."""
 
         days_back = 3
-        before_call = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(
-            days=days_back
-        )
+        # Simulate the Teradata server returning a timezone-aware timestamp
+        # (Teradata drivers often return timezone-aware datetimes).
+        # effective watermark = 2024-06-12 12:00:00 (server_now - 3 days, tzinfo stripped)
+        td_server_now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
 
         source = _create_source_patched({"column_extraction_days_back": days_back})
 
-        # Table altered 1 day ago → within the window → should be included
+        # Table altered 1 day before server_now → within the 3-day window → included
         recent_entry = _create_mock_table_entry(
-            "db1", "recent_table", alter_time=datetime.utcnow() - timedelta(days=1)
+            "db1", "recent_table", alter_time=datetime(2024, 6, 14, 12, 0, 0)
         )
-        # Table altered 10 days ago → outside the window → should be excluded
+        # Table altered 10 days before server_now → outside the window → excluded
         stale_entry = _create_mock_table_entry(
-            "db1", "stale_table", alter_time=datetime.utcnow() - timedelta(days=10)
+            "db1", "stale_table", alter_time=datetime(2024, 6, 5, 12, 0, 0)
         )
+
+        # Mock the engine: engine.connect() returns a context manager whose conn
+        # handles the CURRENT_TIMESTAMP query; engine.execute() returns table rows.
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchone.return_value = (td_server_now,)
+
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = MagicMock(return_value=mock_conn)
+        mock_ctx.__exit__ = MagicMock(return_value=False)
 
         mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_ctx
         mock_engine.execute.return_value = [recent_entry, stale_entry]
+
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
-
-        after_call = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(
-            days=days_back
-        )
 
         assert source._tables_needing_column_extraction is not None
         assert ("db1", "recent_table") in source._tables_needing_column_extraction
         assert ("db1", "stale_table") not in source._tables_needing_column_extraction
-
-        # The effective watermark should be approximately now() - 3 days
-        # (within a 5-second window to account for test execution time)
-        assert before_call <= after_call  # sanity
 
     def test_optimized_get_columns_skips_table_not_in_extraction_set(self) -> None:
         mock_dialect = MagicMock()
