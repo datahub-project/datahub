@@ -239,12 +239,12 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     // mark visited
     visitedUrns.addAll(queryUrns);
 
+    if (cascade != null && !nextUrns.isEmpty()) {
+      cascade.recordEntitiesProcessed(nextUrns.size());
+    }
     if (earlyExitCriteria.get()) {
       visitedUrns.addAll(nextUrns);
     } else if (!nextUrns.isEmpty()) {
-      if (cascade != null) {
-        cascade.recordEntitiesProcessed(nextUrns.size());
-      }
       // next hop
       scrollGraph(
           graphRetriever,
