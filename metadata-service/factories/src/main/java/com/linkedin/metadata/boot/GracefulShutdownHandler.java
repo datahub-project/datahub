@@ -19,8 +19,6 @@ import org.springframework.stereotype.Component;
 public class GracefulShutdownHandler {
   private final AtomicBoolean shutdownInProgress = new AtomicBoolean(false);
 
-  public GracefulShutdownHandler() {}
-
   /**
    * Called when Spring application context is closing (e.g., SIGTERM signal in Kubernetes). This
    * handler only exists when server.shutdown=graceful is configured (see @ConditionalOnProperty).

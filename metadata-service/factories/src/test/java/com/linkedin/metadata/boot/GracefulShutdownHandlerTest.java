@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
  * <p>Note: This handler is only registered as a Spring bean when server.shutdown=graceful
  * (via @ConditionalOnProperty). In tests, we instantiate it directly to verify its behavior.
  */
-class GracefulShutdownHandlerTest {
+public class GracefulShutdownHandlerTest {
 
   private GracefulShutdownHandler handler;
 
@@ -30,8 +30,11 @@ class GracefulShutdownHandlerTest {
   @Test
   void testContextClosedEventTriggersShutdown() {
     // When: Application context closes (SIGTERM)
-    // Note: Handler ignores the event argument, so we pass null to make intent clear
-    handler.onApplicationClosed(null);
+    // Create a minimal mock to avoid NPE if implementation changes to use the event
+    org.springframework.context.event.ContextClosedEvent mockEvent =
+        new org.springframework.context.event.ContextClosedEvent(
+            org.mockito.Mockito.mock(org.springframework.context.ApplicationContext.class));
+    handler.onApplicationClosed(mockEvent);
 
     // Then: Shutdown flag should be set
     assertTrue(handler.isShutdownInProgress());

@@ -44,6 +44,16 @@ public class HealthCheckController {
   @Qualifier("bootstrapManager")
   private BootstrapManager bootstrapManager;
 
+  /**
+   * Graceful shutdown handler for detecting when service is shutting down.
+   *
+   * <p>Only present when {@code server.shutdown=graceful} is configured (via @ConditionalOnProperty
+   * in GracefulShutdownHandler). When null (immediate shutdown mode), the health endpoint does not
+   * check shutdown state. This dual-mechanism design allows shutdown behavior to be toggled via
+   * configuration.
+   *
+   * <p>Uses {@code required = false} to gracefully handle both enabled and disabled modes.
+   */
   @Autowired(required = false)
   private GracefulShutdownHandler shutdownHandler;
 
