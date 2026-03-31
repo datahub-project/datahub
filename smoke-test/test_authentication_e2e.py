@@ -37,6 +37,7 @@ from tests.utils import (
     TestSessionWrapper,
     get_admin_credentials,
     get_frontend_url,
+    get_gms_prometheus_base_url,
     get_gms_url,
     login_as,
 )
@@ -132,7 +133,7 @@ def test_health_endpoint_with_invalid_token() -> None:
 
 def test_actuator_prometheus_no_auth() -> None:
     """Prometheus metrics should work without authentication (excluded path)."""
-    response = requests.get(f"{get_gms_url()}/actuator/prometheus")
+    response = requests.get(f"{get_gms_prometheus_base_url()}/actuator/prometheus")
     # Might be 200 or 404 depending on setup, but should NOT be 401
     assert response.status_code != 401
     logger.info(f"✅ /actuator/prometheus without auth: {response.status_code}")
@@ -666,7 +667,11 @@ def test_authentication_behavior_summary(auth_session: TestSessionWrapper) -> No
     public_endpoints = ["/health", "/actuator/prometheus", "/config"]
     for endpoint in public_endpoints:
         try:
-            response = requests.get(f"{get_gms_url()}{endpoint}")
+            if endpoint == "/actuator/prometheus":
+                url = f"{get_gms_prometheus_base_url()}/actuator/prometheus"
+            else:
+                url = f"{get_gms_url()}{endpoint}"
+            response = requests.get(url)
             if response.status_code != 401:
                 test_results["public_endpoints"] += 1
                 logger.info(f"  Public endpoint {endpoint}: {response.status_code}")

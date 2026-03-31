@@ -1,6 +1,6 @@
 # Cursor Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [Claude Integration →](./claude.md) | [Copilot Studio Integration →](./copilot-studio.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [Claude Integration →](./claude.md)
 
 Connect [Cursor](https://www.cursor.com/) to DataHub so the AI agent can search your data catalog, inspect schemas, and trace lineage — all without leaving the editor.
 

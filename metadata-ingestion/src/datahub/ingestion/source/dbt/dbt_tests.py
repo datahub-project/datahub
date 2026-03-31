@@ -327,7 +327,9 @@ def make_assertion_from_freshness(
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=custom_props,
-        customAssertion=CustomAssertionInfoClass(type="Freshness", entity=upstream_urn),
+        customAssertion=CustomAssertionInfoClass(
+            type="dbt Freshness", entity=upstream_urn
+        ),
     )
 
     return MetadataChangeProposalWrapper(

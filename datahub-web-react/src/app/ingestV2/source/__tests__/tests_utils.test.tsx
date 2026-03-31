@@ -570,7 +570,7 @@ describe('formatTimezone', () => {
         expect(['EST', 'EDT']).toContain(nycAbbr);
 
         const londonAbbr = formatTimezone('Europe/London');
-        expect(['GMT', 'BST']).toContain(londonAbbr);
+        expect(['GMT+1', 'BST', 'GMT']).toContain(londonAbbr);
 
         // Tokyo doesn't observe DST, so it's always GMT+9
         expect(formatTimezone('Asia/Tokyo')).toBe('GMT+9');

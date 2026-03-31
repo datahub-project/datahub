@@ -1,26 +1,26 @@
 # Snowflake Intelligence Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← LangChain Integration](./langchain.md) | [Copilot Studio Integration →](./copilot-studio.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← LangChain Integration](./langchain.md) | [Snowflake Cortex Code Integration →](./snowflake-cortex-code.md)
 
 ## What Problem Does This Solve?
 
 Snowflake Intelligence provides powerful text-to-SQL capabilities, but it only sees raw table and column names. Without business context, your Snowflake Intelligence agents:
 
-- ❌ Can't distinguish `customer_revenue` from `customer_revenue_archive`
-- ❌ Don't understand business glossary terms like "churn" or "LTV"
-- ❌ Can't discover "all tables about customers" across schemas
-- ❌ Don't know which datasets are certified vs deprecated
-- ❌ Have no context about data ownership or documentation
+- Doesn't understand business definitions or hierarchies captured in glossary terms or domains
+- Can't tell how a column or metric is calculated from upstream inputs, or what depends on it downstream
+- Cannot surface which datasets are deprecated, certified, or owned by a specific team
 
-**DataHub's Snowflake Context Connector** solves this by providing Snowflake Intelligence with access to your DataHub metadata through User-Defined Functions (UDFs). This enables:
+**DataHub's Snowflake Context Connector** bridges this gap by providing Snowflake Intelligence with access to your DataHub metadata through User-Defined Functions (UDFs).
 
 ### What You Can Do
 
-- ✅ **Semantic Search**: "Find all revenue tables owned by finance"
-- ✅ **Business Context**: "What's the business definition of 'churn'?"
-- ✅ **Quality Signals**: "Show me certified customer datasets"
-- ✅ **Documentation Access**: Search across data docs and descriptions
-- ✅ **Ownership Info**: Discover who owns and maintains datasets
+With the integration enabled, Snowflake Intelligence agents can:
+
+- **Search by meaning, not just names**: "Find all revenue tables owned by the finance team"
+- **Resolve business terminology**: "What's the business definition of 'churn'?"
+- **Surface quality signals**: "Show me certified customer datasets"
+- **Access documentation**: Search across data docs, descriptions, and glossary entries
+- **Identify ownership**: Discover who owns and maintains datasets
 
 ### Example Queries DataHub Enables
 
