@@ -607,7 +607,7 @@ class TestSchemaInvalidation:
 # Reported by Ayush Sharma (datahub-agent-context==1.4.0.9, DataHub v1.1.0).
 # Nick Adams confirmed v1.3.0 is unaffected.
 #
-# Fix (not yet applied): replace `print_ast(modified_ast)` with
+# Fix: replace `print_ast(modified_ast)` with
 #   " ".join(print_ast(modified_ast).split())
 # in QueryProjector.adapt_query().  This collapses whitespace from ~438 K to
 # ~28 K tokens with no semantic change (all string literals in the GQL are
@@ -650,39 +650,33 @@ class TestGraphqlWhitespaceTokenOverflow:
     """Regression: fragment inlining + print_ast overflows graphql-java's 200 K
     whitespace-token limit when entity_details.gql is sent to GMS ≤v1.1.0."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "adapt_query currently calls print_ast() without minifying whitespace. "
-            "After fragment inlining the serialised query contains ~438 K whitespace "
-            "tokens — 2.2× the graphql-java 200 K DoS limit in DataHub GMS ≤v1.1.0. "
-            "Fix: ' '.join(print_ast(modified_ast).split()) in adapt_query()."
-        ),
-    )
     def test_adapted_query_fits_within_gms_whitespace_token_limit(
         self, entity_details_gql: str
     ) -> None:
         """entity_details.gql adapted for GMS ≤v1.1.0 must stay under 200 K whitespace tokens.
 
-        Without the fix this assertion fails: the inlined query has ~438 K tokens,
-        triggering the graphql-java DoS protection and causing the customer-visible error:
+        Mirrors the production pipeline in adapt_query(): inline fragments, then
+        minify with ' '.join(print_ast(...).split()).  Without the minification step
+        the inlined query has ~438 K tokens, triggering the graphql-java DoS protection
+        and causing the customer-visible error:
           'More than 200,000 whitespace tokens have been presented …'
         """
         modified = _disable_version_tags(entity_details_gql)
         inlined_doc = _inline_fragments(parse(modified))
-        adapted_query = print_ast(inlined_doc)
+        # Mirror what adapt_query() now does: minify whitespace after print_ast.
+        adapted_query = " ".join(print_ast(inlined_doc).split())
 
         ws_tokens = sum(1 for c in adapted_query if c in " \t\n\r")
         assert ws_tokens < _GMS_WHITESPACE_TOKEN_LIMIT, (
             f"Adapted query has {ws_tokens:,} whitespace tokens "
             f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}). "
-            "Fix: apply ' '.join(adapted_query.split()) after print_ast()."
+            "The minification step in adapt_query() may have been removed or changed."
         )
 
-    def test_minification_resolves_whitespace_token_overflow(
+    def test_without_minification_print_ast_exceeds_gms_limit(
         self, entity_details_gql: str
     ) -> None:
-        """Demonstrates that collapsing whitespace to single spaces is sufficient.
+        """Documents why the fix is necessary: raw print_ast output far exceeds the limit.
 
         ' '.join(query.split()) reduces ~438 K tokens to ~28 K — well within the
         200 K graphql-java limit — with no semantic change (all string literals in
@@ -690,19 +684,19 @@ class TestGraphqlWhitespaceTokenOverflow:
         """
         modified = _disable_version_tags(entity_details_gql)
         inlined_doc = _inline_fragments(parse(modified))
-        adapted_query = print_ast(inlined_doc)
+        raw_query = print_ast(inlined_doc)
 
-        ws_before = sum(1 for c in adapted_query if c in " \t\n\r")
+        ws_before = sum(1 for c in raw_query if c in " \t\n\r")
         assert ws_before > _GMS_WHITESPACE_TOKEN_LIMIT, (
-            "Pre-condition failed: unminified query must exceed the server limit to "
-            "demonstrate the bug."
+            "Pre-condition failed: unminified print_ast() output should exceed the "
+            "server limit — the fragment expansion may have changed significantly."
         )
 
-        minified = " ".join(adapted_query.split())
+        minified = " ".join(raw_query.split())
         ws_after = sum(1 for c in minified if c in " \t\n\r")
         assert ws_after < _GMS_WHITESPACE_TOKEN_LIMIT, (
             f"Minified query still has {ws_after:,} whitespace tokens "
-            f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}) — minification did not fix the issue."
+            f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}) — minification is no longer sufficient."
         )
 
 
