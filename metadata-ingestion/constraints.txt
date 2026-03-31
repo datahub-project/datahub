@@ -1374,7 +1374,7 @@ regex==2026.2.28
     # via
     #   nltk
     #   tiktoken
-requests==2.32.5
+requests==2.33.0
     # via
     #   acryl-datahub
     #   acryl-great-expectations

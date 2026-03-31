@@ -546,13 +546,13 @@ excel = [
 fabric-data-factory = [
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
-    "requests>=2.28.0,<3.0",
+    "requests<3.0,>=2.28.0",
 ]
 
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
     "pyodbc>=4.0,<5.0",
-    "requests>=2.28.0,<3.0",
+    "requests<3.0,>=2.28.0",
     "sqlalchemy>=1.4,<3.0",
 ]
 
@@ -1026,7 +1026,7 @@ qlik-sense = [
 
 rdf = [
     "rdflib==6.3.2",
-    "requests==2.32.5",
+    "requests==2.33.0",
     "requests_file==3.0.1",
 ]
 
@@ -1467,7 +1467,7 @@ all = [
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
     "requests-gssapi<2.0.0",
-    "requests>=2.28.0,==2.32.5,<3.0.0",
+    "requests==2.33.0",
     "requests_file==3.0.1",
     "requests_ntlm<2.0.0",
     "schwifty<2026.0.0",
@@ -1634,7 +1634,7 @@ dev = [
     "redshift-connector>=2.1.5,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests==2.32.5,<3.0.0",
+    "requests==2.33.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.19.0",
@@ -1825,7 +1825,7 @@ docs = [
     "redshift-connector>=2.1.5,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests==2.32.5,<3.0.0",
+    "requests==2.33.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.19.0",
@@ -1955,7 +1955,7 @@ integration-tests = [
     "pyzipper>=0.3.6,<1.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "requests>=2.28.0,==2.32.5,<3.0.0",
+    "requests==2.33.0",
     "requests_file==3.0.1",
     "responses>=0.25.0,<1.0",
     "schwifty<2026.0.0",
