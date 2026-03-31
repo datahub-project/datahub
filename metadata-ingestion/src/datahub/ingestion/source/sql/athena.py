@@ -441,9 +441,8 @@ class AthenaSource(SQLAlchemySource):
         )
 
         # All Athena tables are backed by the Glue Data Catalog.
-        # Emit upstream lineage to the appropriate entity instead of S3 locations:
-        # - Iceberg tables → Iceberg entity (has full schema + table metadata)
-        # - Non-Iceberg tables → Glue entity (the catalog entry)
+        # Iceberg tables → upstream lineage to the Iceberg entity
+        # Non-Iceberg tables → upstream lineage to the Glue entity
         if metadata.parameters.get("table_type") == "ICEBERG":
             iceberg_urn = make_dataset_urn(
                 "iceberg", f"{schema}.{table}", self.config.env
