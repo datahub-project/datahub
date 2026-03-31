@@ -94,8 +94,7 @@ public class TracingInterceptorTest {
     assertTrue(result);
     verify(response)
         .setHeader(
-            eq("traceparent"),
-            eq("00-aabbccddeeff00112233445566778899-0011223344556677-00"));
+            eq("traceparent"), eq("00-aabbccddeeff00112233445566778899-0011223344556677-00"));
   }
 
   @Test
@@ -111,8 +110,7 @@ public class TracingInterceptorTest {
     assertTrue(result);
     verify(response)
         .setHeader(
-            eq("traceparent"),
-            eq("00-aabbccddeeff00112233445566778899-0011223344556677-01"));
+            eq("traceparent"), eq("00-aabbccddeeff00112233445566778899-0011223344556677-01"));
   }
 
   @Test
