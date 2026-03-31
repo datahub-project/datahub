@@ -22,7 +22,6 @@ import lombok.Setter;
 /** Schema definition for the new aspect table. */
 @Getter
 @Setter
-@NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "metadata_aspect_v2")
@@ -43,6 +42,7 @@ public class EbeanAspectV2 extends Model {
   /** Key for an aspect in the table. */
   @Embeddable
   @Getter
+  @Setter
   @NoArgsConstructor
   public static class PrimaryKey implements Serializable, Comparable<PrimaryKey> {
 
@@ -67,6 +67,14 @@ public class EbeanAspectV2 extends Model {
     @Index
     @Column(name = VERSION_COLUMN, nullable = false)
     private long version;
+
+    public void setUrn(@Nonnull String urn) {
+      this.urn = urn.stripTrailing();
+    }
+
+    public void setAspect(@Nonnull String aspect) {
+      this.aspect = aspect.stripTrailing();
+    }
 
     public static PrimaryKey fromAspectIdentifier(EntityAspectIdentifier key) {
       return new PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
@@ -139,7 +147,11 @@ public class EbeanAspectV2 extends Model {
   @Lob
   protected String systemMetadata;
 
-  // Proxy getter method (API-compatibility)
+  public EbeanAspectV2() {
+    key = new PrimaryKey();
+  }
+
+  // Proxy getter, setter method (API-compatibility)
   public String getUrn() {
     return getKey().getUrn();
   }
@@ -150,6 +162,18 @@ public class EbeanAspectV2 extends Model {
 
   public long getVersion() {
     return getKey().getVersion();
+  }
+
+  public void setUrn(String urn) {
+    getKey().setUrn(urn);
+  }
+
+  public void setAspect(String aspect) {
+    getKey().setAspect(aspect);
+  }
+
+  public void setVersion(long version) {
+    getKey().setVersion(version);
   }
 
   public EbeanAspectV2(
