@@ -60,4 +60,5 @@ public class FeatureFlags {
   private boolean contextDocumentsEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
   private boolean zduStage10 = false;
+  private boolean zduStage20 = false;
 }
