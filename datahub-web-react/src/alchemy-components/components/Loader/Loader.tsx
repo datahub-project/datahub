@@ -24,7 +24,7 @@ export function Loader({
             $alignItems={alignItems || 'none'}
             $padding={padding}
         >
-            <StyledSpinner $height={loaderSize} />
+            <StyledSpinner $height={loaderSize} aria-label="loading" />
         </LoaderWrapper>
     );
 }
