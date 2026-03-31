@@ -1218,7 +1218,7 @@ pyodata==1.11.2
     # via acryl-datahub
 pyodbc==5.3.0
     # via acryl-datahub
-pyopenssl==25.3.0
+pyopenssl==26.0.0
     # via
     #   acryl-datahub
     #   snowflake-connector-python
