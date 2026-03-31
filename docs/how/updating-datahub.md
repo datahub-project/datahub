@@ -133,6 +133,30 @@ Requirements:
 - #16265 (Ingestion) Azure Data Factory: Column lineage extraction for Copy activity.
 - #16235 (Ingestion) Airflow plugin: Multi-statement SQL parsing support for lineage extraction.
 
+## v1.5.0.2
+
+### Bug Fixes
+
+- #15748 (Ingestion) PowerBI: Reverted `create_corp_user` default back to `True` (was changed to `False` in v1.5.0). Customers on v1.5.0 or v1.5.0.1 with stateful ingestion enabled and without explicitly setting `ownership.create_corp_user: true` in their recipe may have had PowerBI-discovered users soft-deleted.
+
+  **Remediation** — if users were already soft-deleted, restore them using one of:
+
+  - Re-ingest from your authoritative source (LDAP/Okta/SCIM) — recommended.
+  - CLI: `datahub delete --urn "urn:li:corpuser:<email>" --soft --undelete` for each affected user.
+  - Python SDK: emit `StatusClass(removed=False)` for each affected user URN.
+
+  **Behavior with `create_corp_user: true` (new default):**
+  PowerBI creates CorpUser entities with display name and email. These are marked as non-primary (`is_primary_source=False`), so stateful ingestion will **not** soft-delete them if they disappear from PowerBI. Note: PowerBI user info may overwrite richer profiles from authoritative sources like LDAP/Okta. If this is a concern, follow the migration steps below to switch to `false`.
+
+  **If you want `create_corp_user: false`** (to avoid overwriting LDAP/Okta profiles):
+  Do **not** switch directly to `false` — this will cause the same soft-deletion bug. Instead:
+
+  1. Upgrade to this version and run **at least one ingestion** with `create_corp_user: true` (the default). This updates the stateful ingestion checkpoint to mark user URNs as non-primary.
+  2. After that run completes, set `ownership.create_corp_user: false` in your recipe.
+  3. On subsequent runs, users will no longer be emitted, but stateful ingestion will safely skip them (they were already marked non-primary in the checkpoint).
+
+  Skipping step 1 and going directly to `false` means the checkpoint still has users marked as primary from the old code, and stateful ingestion will soft-delete them.
+
 ## v1.4.0
 
 ### Breaking Changes
