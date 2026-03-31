@@ -47,7 +47,6 @@ dependencies = [
     "Deprecated<2.0.0",
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
-    "graphql-core>=3.0.0,<4.0.0",
     "humanfriendly<11.0.0",
     "ijson<4.0.0",
     "jsonref<2.0.0",
@@ -370,6 +369,7 @@ datahub-lite = [
 ]
 
 datahub-rest = [
+    "graphql-core>=3.0.0,<4.0.0",
     "requests<3.0.0",
 ]
 
@@ -551,7 +551,7 @@ fabric-data-factory = [
 
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
-    "pyodbc>=4.0,<5.0",
+    "pyodbc>=4.0,<6.0.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
 ]
@@ -1416,6 +1416,7 @@ all = [
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "gql[requests]>=4.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
@@ -1458,7 +1459,7 @@ all = [
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "pyodbc>=4.0,<5.0",
+    "pyodbc>=4.0,<6.0.0",
     "pyOpenSSL<26.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
@@ -1948,7 +1949,7 @@ integration-tests = [
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodbc>=4.0,<5.0",
+    "pyodbc>=4.0,<6.0.0",
     "pyOpenSSL<26.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",

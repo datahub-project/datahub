@@ -4,6 +4,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
@@ -41,9 +42,13 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.aws.S3Util;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.List;
@@ -1174,5 +1179,152 @@ public class DeleteEntityServiceTest {
     } finally {
       serviceLogger.detachAppender(logAppender);
     }
+  }
+
+  /**
+   * Verifies that MCPs generated during deleteReferencesTo carry cascade operation IDs in their
+   * SystemMetadata for downstream Kafka correlation. Tests both the search-ref phase (forms
+   * cleanup) and the graph-ref phase (updateAspect). Also verifies that cascade metrics are
+   * emitted.
+   */
+  @Test
+  public void testCascadeIdPropagatedOnMCPs() {
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(
+            mockEntityService, _graphService, mockSearchService, null, metricUtils);
+
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
+    final Urn form = UrnUtils.getUrn("urn:li:form:cascade-test");
+
+    // Mock file entity searches to return empty results
+    ScrollResult emptyFileScrollResult = new ScrollResult();
+    emptyFileScrollResult.setEntities(new SearchEntityArray());
+    emptyFileScrollResult.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set != null && set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq("5m"),
+                Mockito.anyInt()))
+        .thenReturn(emptyFileScrollResult);
+
+    // Mock search scroll returning one dataset referencing the form
+    ScrollResult scrollResult = new ScrollResult();
+    SearchEntityArray entities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(dataset);
+    entities.add(searchEntity);
+    scrollResult.setEntities(entities);
+    scrollResult.setNumEntities(1);
+    scrollResult.setScrollId("1");
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set == null || !set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq("5m"),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult);
+
+    // Second scroll page returns empty (end of results)
+    ScrollResult scrollResult2 = new ScrollResult();
+    scrollResult2.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set == null || !set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq("1"),
+                Mockito.eq("5m"),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult2);
+
+    // Mock forms aspect on the dataset
+    Forms formsAspect = new Forms();
+    FormAssociationArray incompleteForms = new FormAssociationArray();
+    FormAssociation formAssociation = new FormAssociation();
+    formAssociation.setUrn(form);
+    incompleteForms.add(formAssociation);
+    formsAspect.setIncompleteForms(incompleteForms);
+    formsAspect.setCompletedForms(new FormAssociationArray());
+    formsAspect.setVerifications(new FormVerificationAssociationArray());
+    Mockito.when(
+            mockEntityService.getLatestAspect(
+                Mockito.any(OperationContext.class), Mockito.eq(dataset), Mockito.eq("forms")))
+        .thenReturn(formsAspect);
+
+    // No graph relationships for this form
+    Mockito.when(
+            _graphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", form.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
+
+    // Execute the deletion
+    deleteEntityService.deleteReferencesTo(opContext, form, false);
+
+    // Capture the MCP that was ingested for the search-ref cleanup
+    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    Mockito.verify(mockEntityService, Mockito.atLeastOnce())
+        .ingestProposal(
+            any(), mcpCaptor.capture(), Mockito.any(AuditStamp.class), Mockito.eq(true));
+
+    // Verify cascade operation ID is present on the MCP's SystemMetadata
+    MetadataChangeProposal capturedMcp = mcpCaptor.getValue();
+    SystemMetadata systemMetadata = capturedMcp.getSystemMetadata();
+    assertNotNull(systemMetadata, "MCP should have SystemMetadata set");
+    assertNotNull(systemMetadata.getProperties(), "SystemMetadata should have properties");
+    assertTrue(
+        systemMetadata
+            .getProperties()
+            .containsKey(CascadeOperationContext.SYSTEM_METADATA_CASCADE_ID_KEY),
+        "SystemMetadata should contain cascadeOperationId");
+    String cascadeId =
+        systemMetadata.getProperties().get(CascadeOperationContext.SYSTEM_METADATA_CASCADE_ID_KEY);
+    assertNotNull(cascadeId, "cascadeOperationId should not be null");
+    assertFalse(cascadeId.isEmpty(), "cascadeOperationId should not be empty");
+
+    // Verify cascade metrics were emitted
+    assertNotNull(
+        meterRegistry
+            .find("datahub.cascade.duration")
+            .tag("operation_type", "deleteReferencesTo")
+            .timer(),
+        "cascade duration timer should be emitted");
+    assertNotNull(
+        meterRegistry
+            .find("datahub.cascade.entities_processed")
+            .tag("operation_type", "deleteReferencesTo")
+            .counter(),
+        "cascade entities_processed counter should be emitted");
   }
 }
