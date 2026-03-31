@@ -1,6 +1,6 @@
 # Google Vertex AI Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [Google ADK Integration →](./google-adk.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Google ADK Integration](./google-adk.md) | [Copilot Studio Integration →](./copilot-studio.md)
 
 ## What Problem Does This Solve?
 

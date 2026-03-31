@@ -23,6 +23,9 @@ public class GMSConfiguration {
   /** Truststore configuration for SSL */
   private TruststoreConfiguration truststore;
 
+  /** Keystore configuration for SSL client authentication (mTLS) */
+  private KeystoreConfiguration keystore;
+
   /** Async request configuration */
   private AsyncConfiguration async;
 
@@ -42,6 +45,21 @@ public class GMSConfiguration {
 
     /** Type of the truststore (e.g., PKCS12) */
     private String type;
+  }
+
+  @Data
+  public static class KeystoreConfiguration {
+    /** Path to the keystore file */
+    private String path;
+
+    /** Password for the keystore */
+    private String password;
+
+    /** Type of the keystore (e.g., PKCS12) */
+    private String type;
+
+    /** Password for the private key; defaults to keystore password when unset */
+    private String keyPassword;
   }
 
   @Data

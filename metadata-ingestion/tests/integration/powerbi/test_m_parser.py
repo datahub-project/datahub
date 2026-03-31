@@ -23,6 +23,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
 )
+from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -684,6 +685,39 @@ def test_redshift_native_query():
     )
 
 
+def test_bigquery_native_query():
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from public.my_table where is_active and created_at >= date_add(current_date(), interval -60 days)", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+    config.native_query_parsing = True
+    config.enable_advance_lineage_sql_construct = True
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.public.my_table,PROD)"
+    )
+
+
 def test_sqlglot_parser():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[24],
@@ -925,7 +959,7 @@ def test_snowflake_double_double_quotes():
     )
 
 
-def test_databricks_multicloud():
+def test_databricks_native_query():
     q = M_QUERIES[31]
 
     lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
@@ -1401,3 +1435,30 @@ def test_athena_with_platform_instance():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
     )
+
+
+@pytest.mark.integration
+def test_if_expression_walks_both_branches():
+    """IfExpression should produce lineage from both true and false branches."""
+    q = (
+        "let\n"
+        "    Source = if true\n"
+        '        then Sql.Database("prod-server", "prod_db")\n'
+        '        else Sql.Database("dev-server", "dev_db"),\n'
+        '    mytable = Source{[Schema="dbo",Item="employees"]}[Data]\n'
+        "in\n"
+        "    mytable"
+    )
+    lineage = get_data_platform_tables_with_dummy_table(q=q)
+    assert len(lineage) == 2
+    urns = {lin.upstreams[0].urn for lin in lineage}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,prod_db.dbo.employees,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dev_db.dbo.employees,PROD)",
+    }
+
+
+def test_native_query_mssql_and_postgres_supported():
+    assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
+    assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
+    assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")
