@@ -178,7 +178,8 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     SqlSetup sqlSetup = sqlSetupConfig.createInstance(mockDatabase, setupArgs);
@@ -234,7 +235,8 @@ public class SqlSetupConfigTest {
             null, // createUserPassword - no password means IAM auth
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     // Should not throw exception - IAM auth is valid without role
@@ -257,7 +259,8 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -279,7 +282,8 @@ public class SqlSetupConfigTest {
             "testpass", // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     try {
@@ -306,7 +310,8 @@ public class SqlSetupConfigTest {
             null, // createUserPassword - Missing createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     try {
@@ -333,7 +338,8 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     // Should not throw exception
@@ -356,7 +362,8 @@ public class SqlSetupConfigTest {
             "testpass", // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     // Should not throw exception
@@ -449,7 +456,8 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     // Test IAM auth without password is valid (no exception expected)
@@ -470,7 +478,8 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     // Test IAM auth without password is valid (no exception expected)
@@ -491,7 +500,8 @@ public class SqlSetupConfigTest {
             "testpass", // createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     try {
@@ -516,7 +526,8 @@ public class SqlSetupConfigTest {
             "   ", // createUserPassword - Whitespace-only createUserPassword
             "localhost", // host
             0, // port
-            "datahub" // databaseName
+            "datahub", // databaseName
+            false // createSchemaVersionIndex
             );
 
     try {

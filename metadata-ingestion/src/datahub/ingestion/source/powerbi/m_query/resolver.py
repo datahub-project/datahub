@@ -185,6 +185,30 @@ def _walk(
             )
         return
 
+    # -- IfExpression (conditional data source selection, e.g. dev/prod switching) --
+    if kind == "IfExpression":
+        _walk(
+            node_map,
+            node.get("trueExpression"),
+            current_let,
+            current_let_id,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+        )
+        _walk(
+            node_map,
+            node.get("falseExpression"),
+            current_let,
+            current_let_id,
+            accessor_chain,
+            results,
+            seen.copy(),
+            parameters,
+        )
+        return
+
     logger.debug("Unhandled node kind '%s', returning empty for this branch", kind)
 
 

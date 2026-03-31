@@ -143,6 +143,11 @@ module.exports = {
               type: "doc",
               id: "docs/dev-guides/agent-context/google-adk",
             },
+            {
+              label: "Snowflake Cortex",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/snowflake-cortex-code",
+            },
           ],
         },
         {
