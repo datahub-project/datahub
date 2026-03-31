@@ -18,11 +18,7 @@ from sqlalchemy_bigquery import STRUCT
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-    make_dataset_urn_with_platform_instance,
-)
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -34,7 +30,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     SourceCapabilityModifier,
@@ -45,7 +40,6 @@ from datahub.ingestion.source.sql.athena_properties_extractor import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -56,7 +50,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_database_key,
 )
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
-from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -359,7 +352,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Supported via sibling relationships to Glue and Iceberg entities",
+    "Supported via upstream lineage to Glue and Iceberg entities",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -367,7 +360,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Supported via sibling relationships to Glue and Iceberg entities",
+    "Supported via upstream lineage to Glue and Iceberg entities",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -378,7 +371,7 @@ class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
-    - Sibling relationships to Glue and Iceberg entities.
+    - Upstream lineage to Glue and Iceberg entities.
     - Profiling when enabled.
     """
 
@@ -390,7 +383,6 @@ class AthenaSource(SQLAlchemySource):
         self.cursor: Optional[BaseCursor] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
-        self._sibling_urns: Dict[str, List[str]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -449,61 +441,17 @@ class AthenaSource(SQLAlchemySource):
         )
 
         # All Athena tables are backed by the Glue Data Catalog.
-        # Emit siblings to the corresponding Glue entity (and Iceberg entity
-        # for Iceberg tables) instead of lineage to S3 locations.
-        glue_urn = make_dataset_urn("glue", f"{schema}.{table}", self.config.env)
-        sibling_urns = [glue_urn]
-
+        # Emit upstream lineage to the appropriate entity instead of S3 locations:
+        # - Iceberg tables → Iceberg entity (has full schema + table metadata)
+        # - Non-Iceberg tables → Glue entity (the catalog entry)
         if metadata.parameters.get("table_type") == "ICEBERG":
             iceberg_urn = make_dataset_urn(
                 "iceberg", f"{schema}.{table}", self.config.env
             )
-            sibling_urns.append(iceberg_urn)
+            return description, custom_properties, iceberg_urn
 
-        self._sibling_urns[f"{schema}.{table}"] = sibling_urns
-
-        return description, custom_properties, None
-
-    @override
-    def _process_table(
-        self,
-        dataset_name: str,
-        inspector: Inspector,
-        schema: str,
-        table: str,
-        sql_config: SQLCommonConfig,
-        data_reader: Optional[DataReader],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        yield from super()._process_table(
-            dataset_name, inspector, schema, table, sql_config, data_reader
-        )
-
-        sibling_urns = self._sibling_urns.pop(f"{schema}.{table}", None)
-        if sibling_urns:
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            yield from self._gen_siblings_workunits(dataset_urn, sibling_urns)
-
-    def _gen_siblings_workunits(
-        self,
-        dataset_urn: str,
-        sibling_urns: List[str],
-    ) -> Iterable[MetadataWorkUnit]:
-        # Athena is a query layer; the underlying entities are primary.
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=Siblings(primary=False, siblings=sibling_urns),
-        ).as_workunit()
-
-        for sibling_urn in sibling_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=sibling_urn,
-                aspect=Siblings(primary=True, siblings=[dataset_urn]),
-            ).as_workunit()
+        glue_urn = make_dataset_urn("glue", f"{schema}.{table}", self.config.env)
+        return description, custom_properties, glue_urn
 
     def gen_database_containers(
         self,
