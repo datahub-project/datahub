@@ -1083,6 +1083,8 @@ glue = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "cachetools" },
+    { name = "patchy" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "urllib3" },
 ]
 grafana = [
@@ -2669,6 +2671,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'dremio'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'druid'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'fivetran'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'glue'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'grafana'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'hana'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'hive'", specifier = "==2.8.0" },
@@ -3178,6 +3181,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'dremio'", specifier = "==30.0.3" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'druid'", specifier = "==30.0.3" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'fivetran'", specifier = "==30.0.3" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'glue'", specifier = "==30.0.3" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'grafana'", specifier = "==30.0.3" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hana'", specifier = "==30.0.3" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive'", specifier = "==30.0.3" },

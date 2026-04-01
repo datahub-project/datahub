@@ -745,6 +745,8 @@ neo4j:
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: ${GMS_LIFECYCLE_TIMEOUT:65s}
   error:
     include-message: never
     include-stacktrace: never
@@ -828,6 +830,7 @@ management:
 
 # GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
 server:
+  shutdown: ${SERVER_SHUTDOWN_MODE:immediate}
   server-header: false
   servlet:
     context-path: ${DATAHUB_GMS_BASE_PATH:/}
@@ -1245,6 +1248,7 @@ graphQL:
     # These are usually very fast and numerous, so excluding them reduces metric volume
     # Only enable if you suspect performance issues with object property access
     trivialDataFetchersEnabled: ${GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED:false}
+
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}

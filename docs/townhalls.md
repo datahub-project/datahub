@@ -10,6 +10,12 @@ Join us for community gatherings where we discuss roadmap updates, demo new feat
 
 ## 📺 Recent Town Halls
 
+**March 2026: Agents, Apps & the Art of Extension**
+- 📺 [Watch recording](https://www.youtube.com/watch?v=MAyldt2n3R8)
+
+**February 2026: Lineage in Action: Extending Reach, Enriching Context**
+- 📺 [Watch recording](https://www.youtube.com/watch?v=vXJd2ho0i-o)
+
 **January 2026: Powering AI Agents with DataHub Context**
 
 - 📺 [Watch recording](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9)
