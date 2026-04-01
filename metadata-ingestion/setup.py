@@ -74,13 +74,13 @@ framework_common = {
     # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
-    # Required for GraphQL query adaptation (used by search CLI)
-    "graphql-core>=3.0.0,<4.0.0",
 }
 
 rest_common = {
     "requests<3.0.0",
     "requests_file<4.0.0",
+    # Required for GraphQL query adaptation and schema introspection
+    "graphql-core>=3.0.0,<4.0.0",
 }
 
 kafka_common = {
@@ -368,7 +368,7 @@ iceberg_common = {
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
     "sqlalchemy-pytds>=0.3,<2.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
 }
 
 postgres_common = {
@@ -566,7 +566,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
-        "pyodbc>=4.0,<5.0",
+        "pyodbc>=4.0,<6.0.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
@@ -633,7 +633,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
-    "glue": aws_common | cachetools_lib,
+    "glue": aws_common | cachetools_lib | sqlglot_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -830,7 +830,7 @@ mypy_stubs = {
     "types-tabulate<0.10.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
-    "types-pyOpenSSL<26.0.0",
+    "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
     "types-click-spinner>=0.1.13.1,<=0.1.13.20250809",
     "types-ujson>=5.2.0,<6.0.0",
     "types-Deprecated<2.0.0",

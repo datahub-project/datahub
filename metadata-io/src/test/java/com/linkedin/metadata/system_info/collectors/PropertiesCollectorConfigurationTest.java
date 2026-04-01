@@ -440,8 +440,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "spring.jmx.enabled",
           "spring.mvc.servlet.path",
           "spring.mvc.throw-exception-if-no-handler-found",
+          "spring.lifecycle.timeout-per-shutdown-phase",
           "spring.web.resources.add-mappings",
           "server.server-header",
+          "server.shutdown",
           // DataHub configuration
           "datahub.gms.async.request-timeout-ms",
           "datahub.gms.host",
@@ -723,6 +725,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "management.metrics.export.jmx.enabled",
           "management.metrics.export.prometheus.enabled",
           "management.metrics.tags.application",
+          "management.server.port",
           "management.otlp.tracing.export.enabled",
           "management.simple.metrics.export.enabled",
           "management.tracing.enabled",
