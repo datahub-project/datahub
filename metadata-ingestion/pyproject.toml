@@ -904,15 +904,15 @@ notion = [
     "urllib3>=1.26,<3.0",
 ]
 
-omni = [
-    "PyYAML>=5.4,<7.0.0",
-    "requests<3.0.0",
-]
-
 okta = [
     "flatdict!=4.0.1",
     "nest-asyncio<2.0.0",
     "okta~=1.7.0,<2.0.0",
+]
+
+omni = [
+    "PyYAML>=5.4,<7.0.0",
+    "requests<3.0.0",
 ]
 
 oracle = [
