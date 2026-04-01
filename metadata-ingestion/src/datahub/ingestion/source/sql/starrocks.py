@@ -100,6 +100,10 @@ class StarRocksConfig(StarRocksConnectionConfig, BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default via stateful ingestion",
+)
+@capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
     subtype_modifier=[
@@ -232,8 +236,7 @@ class StarRocksSource(SQLAlchemySource):
 
         try:
             with engine.connect() as conn:
-                conn.execute(text(f"SET CATALOG `{catalog.name}`"))
-                result = conn.execute(text("SHOW DATABASES"))
+                result = conn.execute(text(f"SHOW DATABASES FROM `{catalog.name}`"))
                 for row in result:
                     db_name = row[0]
                     databases.append(db_name)
@@ -253,7 +256,6 @@ class StarRocksSource(SQLAlchemySource):
             platform=self.platform,
             instance=self.config.platform_instance,
             env=self.config.env,
-            backcompat_env_as_instance=True,
         )
 
     def gen_catalog_containers(

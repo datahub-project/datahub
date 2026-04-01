@@ -29,5 +29,9 @@ source:
     #     - "^information_schema$"
     #     - "^_statistics_$"
 
+    # Stateful ingestion for soft-deleting stale entities
+    # stateful_ingestion:
+    #   enabled: true
+
 sink:
   # sink configs
