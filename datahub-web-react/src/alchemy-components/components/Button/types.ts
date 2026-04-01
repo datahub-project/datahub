@@ -22,6 +22,7 @@ export interface ButtonPropsDefaults {
     isCircle: boolean;
     isLoading: boolean;
     isActive: boolean;
+    accessibilityMode: boolean;
 }
 
 export interface ButtonProps
