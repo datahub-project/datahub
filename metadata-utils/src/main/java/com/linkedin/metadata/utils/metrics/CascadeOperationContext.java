@@ -60,9 +60,11 @@ public class CascadeOperationContext implements AutoCloseable {
   private final long startNanos;
   private final long slowThresholdMs;
   private final boolean manageMDC;
+  private final String metricPrefix;
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private final AtomicInteger entitiesProcessed = new AtomicInteger(0);
   private final AtomicInteger errorCount = new AtomicInteger(0);
+  private final AtomicInteger hopsCompleted = new AtomicInteger(0);
   private volatile String lastErrorType;
 
   // Saved MDC state for restore-on-close (supports nesting)
@@ -73,10 +75,11 @@ public class CascadeOperationContext implements AutoCloseable {
   private CascadeOperationContext(
       @Nullable MetricUtils metricUtils,
       String operationType,
-      Urn triggerUrn,
+      @Nullable Urn triggerUrn,
       int estimatedTotal,
       long slowThresholdMs,
-      boolean manageMDC) {
+      boolean manageMDC,
+      String metricPrefix) {
     this.metricUtils = metricUtils;
     this.operationType = operationType;
     this.triggerUrnType = triggerUrn != null ? triggerUrn.getEntityType() : "unknown";
@@ -84,6 +87,7 @@ public class CascadeOperationContext implements AutoCloseable {
     this.startNanos = System.nanoTime();
     this.slowThresholdMs = slowThresholdMs;
     this.manageMDC = manageMDC;
+    this.metricPrefix = metricPrefix;
 
     if (manageMDC) {
       // Save previous MDC values to restore on close (supports nesting)
@@ -120,9 +124,37 @@ public class CascadeOperationContext implements AutoCloseable {
    * @return a new context that should be closed when the cascade completes
    */
   public static CascadeOperationContext begin(
-      @Nullable MetricUtils metricUtils, String operationType, Urn triggerUrn, int estimatedTotal) {
+      @Nullable MetricUtils metricUtils,
+      String operationType,
+      @Nullable Urn triggerUrn,
+      int estimatedTotal) {
+    return begin(metricUtils, operationType, triggerUrn, estimatedTotal, "datahub.cascade");
+  }
+
+  /**
+   * Begin tracking a cascade operation with MDC context and a custom metric prefix.
+   *
+   * @param metricUtils Micrometer metric utilities (nullable — metrics become no-ops if null)
+   * @param operationType identifies the cascade type (e.g., "deleteReferencesTo")
+   * @param triggerUrn the URN that triggered the cascade
+   * @param estimatedTotal estimated number of entities to process (for logging only)
+   * @param metricPrefix prefix for all emitted metrics (e.g., "datahub.lineage")
+   * @return a new context that should be closed when the cascade completes
+   */
+  public static CascadeOperationContext begin(
+      @Nullable MetricUtils metricUtils,
+      String operationType,
+      @Nullable Urn triggerUrn,
+      int estimatedTotal,
+      String metricPrefix) {
     return new CascadeOperationContext(
-        metricUtils, operationType, triggerUrn, estimatedTotal, DEFAULT_SLOW_THRESHOLD_MS, true);
+        metricUtils,
+        operationType,
+        triggerUrn,
+        estimatedTotal,
+        DEFAULT_SLOW_THRESHOLD_MS,
+        true,
+        metricPrefix);
   }
 
   /**
@@ -131,14 +163,52 @@ public class CascadeOperationContext implements AutoCloseable {
    * .onClose(cascade::close)}). Metrics and logging still work; only thread-local MDC is skipped.
    */
   public static CascadeOperationContext beginWithoutMDC(
-      @Nullable MetricUtils metricUtils, String operationType, Urn triggerUrn, int estimatedTotal) {
+      @Nullable MetricUtils metricUtils,
+      String operationType,
+      @Nullable Urn triggerUrn,
+      int estimatedTotal) {
+    return beginWithoutMDC(
+        metricUtils, operationType, triggerUrn, estimatedTotal, "datahub.cascade");
+  }
+
+  /**
+   * Begin tracking a cascade operation without MDC management and with a custom metric prefix.
+   *
+   * @param metricUtils Micrometer metric utilities (nullable — metrics become no-ops if null)
+   * @param operationType identifies the cascade type (e.g., "deleteReferencesTo")
+   * @param triggerUrn the URN that triggered the cascade
+   * @param estimatedTotal estimated number of entities to process (for logging only)
+   * @param metricPrefix prefix for all emitted metrics (e.g., "datahub.lineage")
+   */
+  public static CascadeOperationContext beginWithoutMDC(
+      @Nullable MetricUtils metricUtils,
+      String operationType,
+      @Nullable Urn triggerUrn,
+      int estimatedTotal,
+      String metricPrefix) {
     return new CascadeOperationContext(
-        metricUtils, operationType, triggerUrn, estimatedTotal, DEFAULT_SLOW_THRESHOLD_MS, false);
+        metricUtils,
+        operationType,
+        triggerUrn,
+        estimatedTotal,
+        DEFAULT_SLOW_THRESHOLD_MS,
+        false,
+        metricPrefix);
   }
 
   /** Record that one entity was successfully processed. */
   public void recordEntityProcessed() {
     entitiesProcessed.incrementAndGet();
+  }
+
+  /** Record completion of one BFS hop or recursion level. */
+  public void recordHop() {
+    hopsCompleted.incrementAndGet();
+  }
+
+  /** Record multiple entities processed in bulk (e.g., per-hop batch count). */
+  public void recordEntitiesProcessed(int count) {
+    entitiesProcessed.addAndGet(count);
   }
 
   /**
@@ -190,10 +260,12 @@ public class CascadeOperationContext implements AutoCloseable {
       int errors = errorCount.get();
       String status = errors > 0 ? "completed_with_errors" : "completed";
 
+      int hops = hopsCompleted.get();
+
       // Emit metrics (always, regardless of log level)
       if (metricUtils != null) {
         metricUtils.recordTimer(
-            "datahub.cascade.duration",
+            metricPrefix + ".duration",
             durationNanos,
             "operation_type",
             operationType,
@@ -202,15 +274,24 @@ public class CascadeOperationContext implements AutoCloseable {
             "status",
             status);
         metricUtils.incrementMicrometer(
-            "datahub.cascade.entities_processed",
+            metricPrefix + ".entities_processed",
             processed,
             "operation_type",
             operationType,
             "trigger_urn_type",
             triggerUrnType);
+        if (hops > 0) {
+          metricUtils.incrementMicrometer(
+              metricPrefix + ".hops",
+              hops,
+              "operation_type",
+              operationType,
+              "trigger_urn_type",
+              triggerUrnType);
+        }
         if (errors > 0) {
           metricUtils.incrementMicrometer(
-              "datahub.cascade.errors",
+              metricPrefix + ".errors",
               errors,
               "operation_type",
               operationType,
@@ -224,22 +305,25 @@ public class CascadeOperationContext implements AutoCloseable {
       // Conditional logging per PR #16577/#16578 guidelines
       if (errors > 0) {
         log.warn(
-            "Cascade completed with errors: type={}, entities={}, errors={}, duration={}ms",
+            "Cascade completed with errors: type={}, entities={}, hops={}, errors={}, duration={}ms",
             operationType,
             processed,
+            hops,
             errors,
             durationMs);
       } else if (durationMs >= slowThresholdMs) {
         log.info(
-            "Cascade completed (slow): type={}, entities={}, duration={}ms",
+            "Cascade completed (slow): type={}, entities={}, hops={}, duration={}ms",
             operationType,
             processed,
+            hops,
             durationMs);
       } else {
         log.debug(
-            "Cascade completed: type={}, entities={}, duration={}ms",
+            "Cascade completed: type={}, entities={}, hops={}, duration={}ms",
             operationType,
             processed,
+            hops,
             durationMs);
       }
     } catch (Exception e) {

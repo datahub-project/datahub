@@ -338,4 +338,111 @@ public class CascadeOperationContextTest {
     // MDC should still be cleaned up
     assertNull(MDC.get("cascade.operation.id"));
   }
+
+  @Test
+  public void testCustomMetricPrefix() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
+    String opType = "customPrefixTest";
+
+    try (CascadeOperationContext ctx =
+        CascadeOperationContext.begin(metricUtils, opType, triggerUrn, 10, "datahub.lineage")) {
+      ctx.recordEntityProcessed();
+      ctx.recordEntityProcessed();
+    }
+
+    // Verify metrics are emitted under the custom prefix
+    Counter entitiesCounter =
+        meterRegistry
+            .find("datahub.lineage.entities_processed")
+            .tag("operation_type", opType)
+            .counter();
+    assertNotNull(entitiesCounter, "entities_processed counter should exist under custom prefix");
+    assertEquals(entitiesCounter.count(), 2.0);
+
+    Timer durationTimer =
+        meterRegistry.find("datahub.lineage.duration").tag("operation_type", opType).timer();
+    assertNotNull(durationTimer, "duration timer should exist under custom prefix");
+
+    // Verify the default prefix was NOT used for this operation type
+    Counter defaultCounter =
+        meterRegistry
+            .find("datahub.cascade.entities_processed")
+            .tag("operation_type", opType)
+            .counter();
+    assertNull(
+        defaultCounter, "default prefix counter should not exist for custom prefix operation");
+  }
+
+  @Test
+  public void testRecordHop() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
+    String opType = "hopTrackingTest";
+    String prefix = "datahub.lineage.graph_walk";
+
+    try (CascadeOperationContext ctx =
+        CascadeOperationContext.begin(metricUtils, opType, triggerUrn, -1, prefix)) {
+      ctx.recordHop();
+      ctx.recordEntitiesProcessed(100);
+      ctx.recordHop();
+      ctx.recordEntitiesProcessed(50);
+      ctx.recordHop();
+    }
+
+    Counter hopsCounter =
+        meterRegistry.find(prefix + ".hops").tag("operation_type", opType).counter();
+    assertNotNull(hopsCounter, "hops counter should exist");
+    assertEquals(hopsCounter.count(), 3.0);
+
+    Counter entitiesCounter =
+        meterRegistry.find(prefix + ".entities_processed").tag("operation_type", opType).counter();
+    assertNotNull(entitiesCounter, "entities_processed counter should exist");
+    assertEquals(entitiesCounter.count(), 150.0);
+  }
+
+  @Test
+  public void testHopsNotEmittedWhenZero() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
+    String opType = "noHopsTest";
+
+    try (CascadeOperationContext ctx =
+        CascadeOperationContext.begin(metricUtils, opType, triggerUrn, 5)) {
+      ctx.recordEntityProcessed();
+      // No recordHop() calls
+    }
+
+    Counter hopsCounter =
+        meterRegistry.find("datahub.cascade.hops").tag("operation_type", opType).counter();
+    assertNull(hopsCounter, "hops counter should not exist when no hops were recorded");
+  }
+
+  @Test
+  public void testNullTriggerUrn() {
+    String opType = "nullTriggerTest";
+    String prefix = "datahub.filter_rewrite";
+
+    try (CascadeOperationContext ctx =
+        CascadeOperationContext.begin(metricUtils, opType, null, 10, prefix)) {
+      ctx.recordEntityProcessed();
+      ctx.recordHop();
+    }
+
+    Counter entitiesCounter =
+        meterRegistry
+            .find(prefix + ".entities_processed")
+            .tag("operation_type", opType)
+            .tag("trigger_urn_type", "unknown")
+            .counter();
+    assertNotNull(
+        entitiesCounter, "entities_processed counter should exist with trigger_urn_type=unknown");
+    assertEquals(entitiesCounter.count(), 1.0);
+
+    Counter hopsCounter =
+        meterRegistry
+            .find(prefix + ".hops")
+            .tag("operation_type", opType)
+            .tag("trigger_urn_type", "unknown")
+            .counter();
+    assertNotNull(hopsCounter, "hops counter should exist with trigger_urn_type=unknown");
+    assertEquals(hopsCounter.count(), 1.0);
+  }
 }
