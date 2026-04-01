@@ -1811,9 +1811,13 @@ ORDER by DataBaseName, TableName;
         else:
             scoped_databases = []
 
+        # Use NOT CASESPECIFIC so the filter matches regardless of how the database
+        # name is stored in DBC.QryLogV (Teradata stores it uppercase by default).
         databases_filter = (
-            "and l.DefaultDatabase in ({databases})".format(
-                databases=",".join([f"'{db}'" for db in scoped_databases])
+            "and l.DefaultDatabase (NOT CASESPECIFIC) in ({databases})".format(
+                databases=",".join(
+                    [f"'{db}' (NOT CASESPECIFIC)" for db in scoped_databases]
+                )
             )
             if scoped_databases
             else ""
