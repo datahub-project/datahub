@@ -11,7 +11,7 @@ This guide assumes you have already set up your local development environment pe
 ## Installing datahub-skills
 
 ```bash
-npx skills add acryldata/datahub-skills
+npx skills add datahub-project/datahub-skills
 ```
 
 After installation, confirm the plugin is registered:
