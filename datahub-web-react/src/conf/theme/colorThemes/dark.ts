@@ -229,6 +229,21 @@ const darkTheme: ColorTheme = {
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
     colorPickerDefault: colors.gray1200,
+    // Glossary Color Palette
+    glossaryPaletteViolet: colors.violet400,
+    glossaryPalettePurple: colors.violet500,
+    glossaryPaletteLightBlue: colors.trueblue100,
+    glossaryPaletteBlue: colors.trueblue300,
+    glossaryPaletteTeal: colors.cyan200,
+    glossaryPaletteGreen: colors.mudgreen500,
+    glossaryPaletteLime: colors.olive200,
+    glossaryPaletteLightOrange: colors.trueyellow200,
+    glossaryPaletteMustard: colors.yellow600,
+    glossaryPaletteOrange: colors.orange400,
+    glossaryPalettePeach: colors.orange300,
+    glossaryPaletteRed: colors.wine600,
+    glossaryPaletteMagenta: colors.pink300,
+    glossaryPaletteColdGrey: colors.gray600,
 };
 
 export default darkTheme;
