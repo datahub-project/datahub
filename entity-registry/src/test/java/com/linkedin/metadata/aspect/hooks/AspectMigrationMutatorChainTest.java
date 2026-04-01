@@ -248,6 +248,10 @@ public class AspectMigrationMutatorChainTest {
     private final long sourceVersion;
     private final long targetVersion;
 
+    TestOwnershipMutator() {
+      this(1L, 2L);
+    }
+
     TestOwnershipMutator(long sourceVersion, long targetVersion) {
       this.sourceVersion = sourceVersion;
       this.targetVersion = targetVersion;
