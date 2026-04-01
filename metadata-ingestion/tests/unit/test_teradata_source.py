@@ -926,10 +926,16 @@ class TestLineageQuerySeparation:
 
             assert len(queries) == 1
 
-            # UNION query should have database filters for both current and historical parts
+            # UNION query should have case-insensitive database filters for both parts
             union_query = queries[0]
-            assert "l.DefaultDatabase in ('test_db1','test_db2')" in union_query
-            assert "h.DefaultDatabase in ('test_db1','test_db2')" in union_query
+            assert (
+                "l.DefaultDatabase (NOT CASESPECIFIC) in ('test_db1' (NOT CASESPECIFIC),'test_db2' (NOT CASESPECIFIC))"
+                in union_query
+            )
+            assert (
+                "h.DefaultDatabase (NOT CASESPECIFIC) in ('test_db1' (NOT CASESPECIFIC),'test_db2' (NOT CASESPECIFIC))"
+                in union_query
+            )
 
     def test_fetch_lineage_entries_chunked_multiple_queries(self):
         """Test that _fetch_lineage_entries_chunked handles multiple queries correctly."""

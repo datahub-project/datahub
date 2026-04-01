@@ -45,6 +45,19 @@ profile_pattern:
 
 When `databases` is not set the connector automatically scopes `DBC.QryLogV` queries to the databases discovered during metadata extraction, filtered by `database_pattern`. This avoids scanning the entire audit log. You can further restrict the scope with an explicit `databases` list.
 
+**SQL parse cache size**
+
+When usage statistics or lineage are enabled, every query row from `DBC.QryLogV` is parsed with sqlglot to extract table references. Identical query text in a session (e.g. a BI dashboard query that runs thousands of times per day) hits an LRU cache and avoids re-parsing. The default cache holds 1 000 entries, which is too small for production Teradata installations where hundreds of distinct queries each execute thousands of times.
+
+Set the `DATAHUB_SQL_PARSE_CACHE_SIZE` environment variable before running the pipeline to increase the cache:
+
+```bash
+export DATAHUB_SQL_PARSE_CACHE_SIZE=50000
+datahub ingest -c teradata_recipe.yml
+```
+
+Each cache entry holds a parsed query result in memory. 50 000 entries typically uses 200–500 MB of additional heap depending on query complexity. Start with 10 000 if memory is constrained and increase until cache hit rates stabilise (visible in the ingestion report under `sql_parsing_cache_stats`).
+
 **Connection timeouts**
 
 Use `request_timeout_ms` and `connect_timeout_ms` to tune the Teradata driver timeouts. Increase `request_timeout_ms` (default: 120 000 ms) if lineage queries against large `DBC.QryLogV` tables time out silently.
