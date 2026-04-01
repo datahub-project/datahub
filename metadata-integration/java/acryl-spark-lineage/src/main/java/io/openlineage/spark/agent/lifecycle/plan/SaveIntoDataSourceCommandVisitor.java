@@ -1,5 +1,5 @@
 /*
-/* Copyright 2018-2025 contributors to the OpenLineage project
+/* Copyright 2018-2026 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
 
@@ -261,7 +261,7 @@ public class SaveIntoDataSourceCommandVisitor
   public Optional<String> jobNameSuffix(SaveIntoDataSourceCommand command) {
     if (command.dataSource().getClass().getName().contains("DeltaDataSource")
         && command.options().contains("path")) {
-      return Optional.of(trimPath(command.options().get("path").get()));
+      return Optional.of(trimPath(context, command.options().get("path").get()));
     } else if (KustoRelationVisitor.isKustoSource(command.dataSource())) {
       return Optional.ofNullable(command.options().get("kustotable"))
           .filter(Option::isDefined)

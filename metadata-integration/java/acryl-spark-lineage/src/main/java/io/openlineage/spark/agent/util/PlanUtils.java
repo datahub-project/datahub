@@ -1,5 +1,5 @@
 /*
-/* Copyright 2018-2025 contributors to the OpenLineage project
+/* Copyright 2018-2026 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
 
@@ -12,6 +12,7 @@ import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkLineageConf;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
 import io.openlineage.client.OpenLineage;
+import io.openlineage.client.utils.DatasetIdentifier;
 import io.openlineage.spark.agent.Versions;
 import io.openlineage.spark.api.naming.NameNormalizer;
 import java.io.IOException;
@@ -327,16 +328,30 @@ public class PlanUtils {
 
   /**
    * Given a list of RDDs, it collects list of data location directories. For each RDD, a parent
-   * directory is taken and list of distinct locations is returned.
+   * directory is taken and list of distinct locations is returned, converted to DatasetIdentifiers.
    *
-   * @param fileRdds
+   * @param rdds
    * @return
    */
-  public static List<Path> findRDDPaths(List<RDD<?>> fileRdds) {
-    return fileRdds.stream()
-        .flatMap(RddPathUtils::findRDDPaths)
+  public static List<DatasetIdentifier> findDatasetIdentifiers(List<RDD<?>> rdds) {
+    return rdds.stream()
+        .flatMap(RddDatasetInfoExtractor::findDatasetIdentifiers)
         .distinct()
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Attempts to find schema from a list of RDDs. Returns the first schema found.
+   *
+   * @param rdds the list of RDDs to extract schema from
+   * @return an Optional containing the schema if available, empty otherwise
+   */
+  public static Optional<StructType> findSchema(List<RDD<?>> rdds) {
+    return rdds.stream()
+        .map(RddDatasetInfoExtractor::findSchema)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .findFirst();
   }
 
   /**

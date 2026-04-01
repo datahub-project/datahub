@@ -90,7 +90,7 @@ buildscript {
   ext.bucket4jVersion = '8.14.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.38.0'
+  ext.openLineageVersion = '1.45.0'
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.16.4'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
