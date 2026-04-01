@@ -1,0 +1,46 @@
+pipeline_name: langsmith-ingestion
+
+source:
+  type: langsmith
+  config:
+    # Required: LangSmith API key (Personal Access Token or Service Key)
+    api_key: "${LANGSMITH_API_KEY}"
+
+    # Optional: LangSmith API endpoint (default: US region)
+    # Use https://eu.api.smith.langchain.com for EU workspaces
+    api_url: "https://api.smith.langchain.com"
+
+    # Optional: filter projects by name (regex patterns).
+    # Remove or leave blank to ingest all projects.
+    # project_pattern:
+    #   allow:
+    #     - "prod-.*"
+    #     - "staging-.*"
+    #   deny:
+    #     - "test-.*"
+
+    # Optional: limit traces ingested per project (default: 1000)
+    max_traces_per_project: 500
+
+    # Optional: only ingest traces started on or after this date
+    # trace_start_time: "2024-01-01T00:00:00Z"
+
+    # Optional: ingest LangSmith evaluation datasets (default: true)
+    include_datasets: true
+
+    # Optional: embed feedback scores as properties on traces (default: true)
+    include_feedback_on_traces: true
+
+    # Optional: ingest child spans (LLM calls, retrievers, tool calls) within
+    # each trace as nested DataProcessInstances with parent-child lineage edges.
+    # Increases entity volume. (default: false)
+    include_child_spans: true
+
+    # Stateful ingestion - soft-delete entities removed from LangSmith
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

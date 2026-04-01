@@ -227,6 +227,10 @@ class MLAssetSubTypes(StrEnum):
     LANGFUSE_TRACE = "Langfuse Trace"
     LANGFUSE_GENERATION = "Langfuse Generation"
 
+    LANGSMITH_PROJECT = "LangSmith Project"
+    LANGSMITH_TRACE = "LLM Trace"
+    LANGSMITH_SPAN = "LLM Span"
+
 
 class DocumentSubTypes(StrEnum):
     # Documents that stand for a folder in the source system, matching the value

@@ -790,6 +790,9 @@ plugins: Dict[str, Set[str]] = {
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
     },
+    "langsmith": {
+        "langsmith>=0.1.0,<1.0.0",
+    },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
@@ -1099,6 +1102,7 @@ base_dev_requirements = {
             "iceberg-catalog",
             "microstrategy",
             "mlflow",
+            "langsmith",
             "mongodb",
             "json-schema",
             "ldap",
@@ -1291,6 +1295,7 @@ entry_points = {
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "dataplex = datahub.ingestion.source.dataplex.dataplex:DataplexSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
+        "langsmith = datahub.ingestion.source.langsmith:LangSmithSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
