@@ -1063,6 +1063,23 @@ redshift = [
     "wcmatch<11.0.0",
 ]
 
+redshift-slim = [
+    "acryl-datahub-classify==0.0.11",
+    "cachetools<6.0.0",
+    "db-dtypes",
+    "GeoAlchemy2<0.19.0",
+    "numpy<2",
+    "parse>=1.19.0,<2.0.0",
+    "patchy==2.8.0",
+    "pip",
+    "redshift-connector>=2.1.5,<3.0.0",
+    "schwifty<2026.0.0",
+    "sqlalchemy-redshift>=0.8.3,<=0.8.14",
+    "sqlglot[c]==30.0.3",
+    "sqlparse<0.6.0",
+    "wcmatch<11.0.0",
+]
+
 s3 = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
