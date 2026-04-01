@@ -6,6 +6,7 @@ agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 ## Code Navigation (LSP)
 
 Prefer LSP tools over Grep for code navigation tasks:
+
 - Use `goToDefinition` to find where something is defined
 - Use `findReferences` to find all call sites
 - Use `workspaceSymbol` to find symbols by name
