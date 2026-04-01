@@ -213,7 +213,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public long countEntities() {
     validateConnection();
-
     return server
         .find(EbeanAspectV2.class)
         .setDistinct(true)
@@ -1052,9 +1051,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .select(
                 String.join(
                     ", ",
-                    EbeanAspectV2.URN_COLUMN,
-                    EbeanAspectV2.ASPECT_COLUMN,
-                    EbeanAspectV2.VERSION_COLUMN,
                     EbeanAspectV2.METADATA_COLUMN,
                     "systemMetadata",
                     EbeanAspectV2.CREATED_ON_COLUMN,
