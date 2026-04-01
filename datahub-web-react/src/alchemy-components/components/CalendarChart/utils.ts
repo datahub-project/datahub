@@ -12,7 +12,6 @@ import {
     WeekData,
 } from '@components/components/CalendarChart/types';
 
-import colors from '@src/conf/theme/colorThemes/color';
 import dayjs from '@utils/dayjs';
 
 export function prepareCalendarData<ValueType>(
@@ -181,6 +180,8 @@ export function generateMockData(
         });
 }
 
+// Disabling no hardcoded colors rule because this is a mock utility used only in stories files, need not be mapped to theme tokens
+/* eslint-disable rulesdir/no-hardcoded-colors */
 export function getMockedProps(
     startDate = '2024-01-01',
     endDate = '2024-12-31',
@@ -192,14 +193,14 @@ export function getMockedProps(
         {
             insertsAndUpdates: {
                 valueAccessor: (datum) => datum.inserts + datum.updates,
-                colors: [colors.violet200, colors.violet500, colors.violet900],
+                colors: ['#CAC3F1', '#705EE4', '#3E2F9D'],
             },
             deletes: {
                 valueAccessor: (datum) => datum.deletes,
-                colors: [colors.wine200, colors.wine600, colors.wine800],
+                colors: ['#f1c3ca', '#CF6D6D', '#ab4242'],
             },
         },
-        colors.gray100,
+        '#EBECF0',
     );
 
     return {
@@ -209,3 +210,4 @@ export function getMockedProps(
         colorAccessor,
     };
 }
+/* eslint-enable rulesdir/no-hardcoded-colors */

@@ -1895,3 +1895,74 @@ class TestOwnershipExtraction:
         # The work unit should contain ownership with user URN
         # Verify by checking the work unit was created (indicates make_user_urn was called)
         assert isinstance(work_units[0], MetadataWorkUnit)
+
+
+class TestTeradataGetIdentifier:
+    """Test get_identifier lowercasing behaviour.
+
+    Teradata returns object names in UPPERCASE. The schema resolver is populated
+    during Phase 1 (schema extraction) using the identifier returned by
+    get_identifier(). sqlglot normalises all identifiers to lowercase during
+    Phase 2 (view SQL parsing). If the two phases use different cases the schema
+    resolver lookup is always a miss and column-level lineage is never generated.
+
+    get_identifier() must apply convert_urns_to_lowercase at the point the
+    identifier is constructed so that both phases use the same case.
+    """
+
+    def _make_source(self, convert_urns_to_lowercase: bool) -> TeradataSource:
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "convert_urns_to_lowercase": convert_urns_to_lowercase,
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+    def test_get_identifier_lowercase_when_flag_enabled(self):
+        """Identifiers must be lowercased when convert_urns_to_lowercase is True.
+
+        Teradata returns names like C3_T / MRCH_PRFL. With the flag on,
+        get_identifier() must return c3_t.mrch_prfl so the schema resolver is
+        populated with the same key that sqlglot produces during view SQL parsing.
+        """
+        source = self._make_source(convert_urns_to_lowercase=True)
+        inspector = MagicMock()
+
+        result = source.get_identifier(
+            schema="C3_T", entity="MRCH_PRFL", inspector=inspector
+        )
+
+        assert result == "c3_t.mrch_prfl"
+
+    def test_get_identifier_preserves_case_when_flag_disabled(self):
+        """Identifiers must not be modified when convert_urns_to_lowercase is False."""
+        source = self._make_source(convert_urns_to_lowercase=False)
+        inspector = MagicMock()
+
+        result = source.get_identifier(
+            schema="C3_T", entity="MRCH_PRFL", inspector=inspector
+        )
+
+        assert result == "C3_T.MRCH_PRFL"
+
+    def test_get_identifier_schema_resolver_key_matches_sqlglot_output(self):
+        """The identifier returned must match what sqlglot produces from the same SQL.
+
+        sqlglot always normalises unquoted identifiers to lowercase. The schema
+        resolver key must be the same lowercase string so that Phase 2 lookups
+        find the schema registered during Phase 1.
+        """
+        source = self._make_source(convert_urns_to_lowercase=True)
+        inspector = MagicMock()
+
+        identifier = source.get_identifier(
+            schema="C3_T", entity="MRCH_PRFL", inspector=inspector
+        )
+
+        # Simulate what sqlglot produces from "SELECT ... FROM C3_T.MRCH_PRFL"
+        sqlglot_normalized = "c3_t.mrch_prfl"
+        assert identifier == sqlglot_normalized

@@ -19,7 +19,7 @@ export const StyledBarSeries = styled(BarSeries)<{
         ${(props) => props.$hasSelectedItem && 'opacity: 0.3;'}
 
         :hover {
-            filter: drop-shadow(0px -2px 5px rgba(33, 23, 95, 0.3));
+            filter: drop-shadow(0px -2px 5px ${({ theme }) => theme.colors.shadowDropBrandColor});
             opacity: 1;
         }
 

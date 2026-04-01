@@ -49,7 +49,13 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    group: ['@components/theme/foundations/colors', '**/alchemy-components/theme/foundations/colors'],
+                    group: ['**/alchemy-components/theme/foundations/colors'],
+                    message:
+                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    group: ['@components', '@components/*'],
+                    importNames: ['colors'],
                     message:
                         'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
