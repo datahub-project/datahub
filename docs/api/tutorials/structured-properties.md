@@ -729,7 +729,7 @@ If successful, you should see `Update succeeded for urn:li:dataset:...`
 <TabItem value="OpenAPI v2" label="OpenAPI v2">
 
 Following command will set structured properties `retentionTime` as `60.0` to a dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
-Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using `datahub datapack load showcase-ecommerce`)
+Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using the `datahub docker ingest-sample-data`)
 
 ```shell
 curl -X 'POST' -v \
@@ -753,7 +753,7 @@ curl -X 'POST' -v \
 <TabItem value="OpenAPI v3" label="OpenAPI v3">
 
 Following command will set structured properties `retentionTime` as `60.0` to a dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
-Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using `datahub datapack load showcase-ecommerce`)
+Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using the `datahub docker ingest-sample-data`)
 
 ```shell
 curl -X 'POST' -v \
