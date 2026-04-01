@@ -23,12 +23,12 @@ buildscript {
   ext.junitJupiterVersion = '5.12.2'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.74.2'
-  ext.mavenVersion = '3.8.1'
+  ext.mavenVersion = '3.9.14'
   ext.versionGradle = '8.14.3'
   ext.springVersion = '6.2.17'
   ext.springBootVersion = '3.5.6'
   ext.springKafkaVersion = '3.3.8'
-  ext.openTelemetryVersion = '1.56.0'
+  ext.openTelemetryVersion = '1.60.1'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
@@ -240,7 +240,7 @@ project.ext.externalDependency = [
     'opentelemetryExporter': 'io.opentelemetry:opentelemetry-exporter-otlp:' + openTelemetryVersion,
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.20.1',
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.26.1',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     // 1.16.0+ shades jackson 2.19.2 in parquet-jackson (GHSA-72hv-8253-57qq fix; 1.15.2 had 2.18.1)
     'parquet': 'org.apache.parquet:parquet-avro:1.16.0',

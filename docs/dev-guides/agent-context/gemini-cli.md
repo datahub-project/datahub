@@ -1,6 +1,6 @@
 # Gemini CLI Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [Cursor Integration →](./cursor.md) | [Claude Integration →](./claude.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Claude Integration](./claude.md) | [LangChain Integration →](./langchain.md)
 
 Connect [Gemini CLI](https://github.com/google-gemini/gemini-cli) to DataHub so the AI agent can search your data catalog, inspect schemas, and trace lineage — right from the terminal.
 

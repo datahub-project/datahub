@@ -6,6 +6,8 @@ if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
   PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub-frontend/client-prometheus-config.yaml"
 fi
 
+export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
+
 OTEL_AGENT=""
 if [[ ${ENABLE_OTEL:-false} == true ]]; then
   OTEL_AGENT="-javaagent:/opentelemetry-javaagent.jar"
