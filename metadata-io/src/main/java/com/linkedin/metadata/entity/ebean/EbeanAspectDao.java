@@ -205,22 +205,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
             .collect(Collectors.toList());
 
-    // Pads the given list of primary keys to the next multiple of the batch size.
-    // This is often done to optimize batch operations or to meet specific API requirements.
-    final List<EbeanAspectV2.PrimaryKey> paddedBatch = padToNextBatchSize(keys);
-    final List<EbeanAspectV2> results;
-    if (forUpdate && canWrite) {
-      results = server.find(EbeanAspectV2.class).where().idIn(paddedBatch).forUpdate().findList();
-    } else {
-      results = server.find(EbeanAspectV2.class).where().idIn(paddedBatch).findList();
-    }
-
+    boolean isUpdateRequired = forUpdate && canWrite;
+    final List<EbeanAspectV2> results = findByPrimaryKeys(keys, isUpdateRequired);
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
   @Override
   public long countEntities() {
     validateConnection();
+
     return server
         .find(EbeanAspectV2.class)
         .setDistinct(true)
@@ -473,24 +466,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     final int end = Math.min(keys.size(), position + keysCount);
     final List<EbeanAspectV2.PrimaryKey> batchKeys = keys.subList(position, end);
 
-    // Applying padding to stabilize the SQL structure for the DB plan cache.
-    // In a Spring context, the step size could also be a @Value from application.properties.
-    final List<EbeanAspectV2.PrimaryKey> paddedBatch = padToNextBatchSize(batchKeys);
-
-    final Query<EbeanAspectV2> query =
-        server
-            .find(EbeanAspectV2.class)
-            .setReadOnly(!isUpdateRequired)
-            .setBufferFetchSizeHint(keys.size())
-            .where()
-            .idIn(paddedBatch)
-            .query();
-
-    if (isUpdateRequired) {
-      query.forUpdate();
-    }
-
-    return query.findList();
+    return findByPrimaryKeys(batchKeys, isUpdateRequired);
   }
 
   @Override
@@ -883,8 +859,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (canWrite) {
       // Sorting is required to ensure consistent lock ordering and avoid deadlocks
       Collections.sort(forUpdateKeys);
-      final List<EbeanAspectV2.PrimaryKey> paddedBatch = padToNextBatchSize(forUpdateKeys);
-      server.find(EbeanAspectV2.class).where().idIn(paddedBatch).forUpdate().findList();
+
+      findByPrimaryKeys(forUpdateKeys, canWrite);
     }
 
     Junction<EbeanAspectV2> queryJunction =
@@ -1046,6 +1022,53 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .stream()
         .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue(), opContext)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  /**
+   * Finds a list of aspects by their primary keys, applying MySQL-specific padding internally. This
+   * method centralizes the batch-get logic and ensures that the padding optimization is
+   * consistently applied where needed.
+   *
+   * @param keys The list of primary keys to fetch.
+   * @param forUpdate Whether to lock the rows for an update (SELECT ... FOR UPDATE).
+   * @return A list of found EbeanAspectV2 entities.
+   */
+  private List<EbeanAspectV2> findByPrimaryKeys(
+      @Nonnull List<EbeanAspectV2.PrimaryKey> keys, boolean forUpdate) {
+    if (keys.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    final List<EbeanAspectV2.PrimaryKey> paddedBatch = padToNextBatchSize(keys);
+
+    // We manually select all columns here.
+    // Reason: The EbeanAspectV2 entity uses a composite primary key. Without explicit
+    // selection, Ebean's default behavior would generate duplicate columns in the
+    // SQL (one for the PK object and one for the property itself).
+
+    final Query<EbeanAspectV2> query =
+        server
+            .find(EbeanAspectV2.class)
+            .select(
+                String.join(
+                    ", ",
+                    EbeanAspectV2.URN_COLUMN,
+                    EbeanAspectV2.ASPECT_COLUMN,
+                    EbeanAspectV2.VERSION_COLUMN,
+                    EbeanAspectV2.METADATA_COLUMN,
+                    "systemMetadata",
+                    EbeanAspectV2.CREATED_ON_COLUMN,
+                    EbeanAspectV2.CREATED_BY_COLUMN,
+                    EbeanAspectV2.CREATED_FOR_COLUMN))
+            .setReadOnly(!forUpdate)
+            .where()
+            .idIn(paddedBatch)
+            .query();
+
+    if (forUpdate) {
+      query.forUpdate();
+    }
+    return query.findList();
   }
 
   /**

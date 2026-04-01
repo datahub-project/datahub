@@ -540,87 +540,71 @@ public class EbeanAspectDaoTest {
   }
 
   // region padToNextBatchSize tests
-  @Test
-  public void testPadToNextBatchSizeForH2() {
+
+  @DataProvider(name = "h2PaddingDataProvider")
+  public Object[][] h2PaddingDataProvider() {
+    return new Object[][] {
+      {0, 0, "Empty list"},
+      {1, 1, "Single item"},
+      {3, 3, "Non-power-of-two size"},
+      {4, 4, "Power-of-two size"}
+    };
+  }
+
+  @Test(dataProvider = "h2PaddingDataProvider")
+  public void testPadToNextBatchSizeForH2(int inputSize, int expectedSize, String description) {
     // Given: The default H2 test database
-    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(3);
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(inputSize);
 
     // When: padToNextBatchSize is called
     List<EbeanAspectV2.PrimaryKey> result = testDao.padToNextBatchSize(originalList);
 
     // Then: The list should be returned unchanged for H2
-    assertEquals(result.size(), 3);
-    assertEquals(result, originalList, "List should not be padded for H2 platform");
+    assertEquals(result.size(), expectedSize, "Test case: " + description);
+    if (!originalList.isEmpty()) {
+      assertEquals(result, originalList, "List should not be padded for H2 platform");
+    }
   }
 
-  @Test
-  public void testPadToNextBatchSizeWithEmptyListForMySQL() {
-    // Given: MySQL platform and an empty list
+  @DataProvider(name = "mysqlPaddingDataProvider")
+  public Object[][] mysqlPaddingDataProvider() {
+    return new Object[][] {
+      {0, 0, "Empty list"},
+      {1, 1, "Size 1 -> 1"},
+      {2, 2, "Size 2 -> 2"},
+      {3, 4, "Size 3 -> 4"},
+      {4, 4, "Size 4 -> 4"},
+      {5, 8, "Size 5 -> 8"},
+      {15, 16, "Size 15 -> 16"},
+      {16, 16, "Size 16 -> 16"}
+    };
+  }
+
+  @Test(dataProvider = "mysqlPaddingDataProvider")
+  public void testPadToNextBatchSizeForMySQL(int inputSize, int expectedSize, String description) {
+    // Given: A DAO configured to simulate a MySQL platform
     EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
-    List<EbeanAspectV2.PrimaryKey> originalList = new ArrayList<>();
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(inputSize);
 
     // When: padToNextBatchSize is called
     List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
 
-    // Then: The empty list should be returned
-    assertTrue(result.isEmpty(), "Empty list should remain empty");
-  }
+    // Then: The list should be padded to the expected size
+    assertEquals(result.size(), expectedSize, "Test case: " + description);
 
-  @Test
-  public void testPadToNextBatchSizeWhenSizeIsPowerOfTwoForMySQL() {
-    // Given: MySQL platform and a list with a size that is a power of two (e.g., 4)
-    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
-    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(4);
-
-    // When: padToNextBatchSize is called
-    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
-
-    // Then: The list should be returned unchanged
-    assertEquals(result.size(), 4);
-    assertEquals(result, originalList, "List with power-of-two size should not be padded");
-  }
-
-  @Test
-  public void testPadToNextBatchSizePadsToNextPowerOfTwoForMySQL() {
-    // Given: MySQL platform and a list with a size of 3
-    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
-    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(3);
-
-    // When: padToNextBatchSize is called
-    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
-
-    // Then: The list should be padded to the next power of two (4)
-    assertEquals(result.size(), 4, "List should be padded to the next power of two");
-  }
-
-  @Test
-  public void testPadToNextBatchSizeFillerElementForMySQL() {
-    // Given: MySQL platform and a list with a size of 5
-    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
-    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(5);
-    EbeanAspectV2.PrimaryKey lastElement = originalList.get(4);
-
-    // When: padToNextBatchSize is called
-    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
-
-    // Then: The list should be padded to 8, and the filler elements should be the last element
-    assertEquals(result.size(), 8, "List should be padded to 8");
-    assertEquals(
-        result.get(5),
-        lastElement,
-        "Padding element at index 5 should be the last element of the original list");
-    assertEquals(
-        result.get(6),
-        lastElement,
-        "Padding element at index 6 should be the last element of the original list");
-    assertEquals(
-        result.get(7),
-        lastElement,
-        "Padding element at index 7 should be the last element of the original list");
+    if (inputSize > 0 && inputSize != expectedSize) {
+      EbeanAspectV2.PrimaryKey lastElement = originalList.get(inputSize - 1);
+      assertTrue(
+          result.stream().skip(inputSize).allMatch(filler -> filler.equals(lastElement)),
+          "All padding elements should be the last element of the original list");
+    }
   }
 
   /** Helper method to create a list of PrimaryKey objects for testing. */
   private List<EbeanAspectV2.PrimaryKey> createPrimaryKeyList(int size) {
+    if (size == 0) {
+      return new ArrayList<>();
+    }
     return IntStream.range(0, size)
         .mapToObj(
             i -> new EbeanAspectV2.PrimaryKey("urn:li:test:" + i, "aspect", ASPECT_LATEST_VERSION))
