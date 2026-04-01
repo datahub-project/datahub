@@ -296,7 +296,12 @@ public class PlanUtils {
 
   // This method was replaced to support Datahub PathSpecs
   public static Path getDirectoryPath(Path p, Configuration hadoopConf) {
-    SparkConf conf = SparkEnv.get().conf();
+    SparkEnv sparkEnv = SparkEnv.get();
+    if (sparkEnv == null) {
+      log.warn("SparkEnv is not available; falling back to original path resolution for {}", p);
+      return getDirectoryPathOl(p, hadoopConf);
+    }
+    SparkConf conf = sparkEnv.conf();
     String propertiesString =
         Arrays.stream(conf.getAllWithPrefix("spark.datahub."))
             .map(tup -> tup._1 + "= \"" + tup._2 + "\"")
@@ -304,12 +309,16 @@ public class PlanUtils {
     Config datahubConfig = ConfigFactory.parseString(propertiesString);
     SparkLineageConf sparkLineageConf =
         SparkLineageConf.toSparkLineageConf(datahubConfig, null, null);
-    HdfsPathDataset hdfsPath = null;
     try {
       URI uri = new URI(p.toString());
-      hdfsPath = HdfsPathDataset.create(uri, sparkLineageConf.getOpenLineageConf());
-      log.debug("Path {} transformed to {}", p, hdfsPath.getDatasetPath());
-      return new Path(hdfsPath.getDatasetPath());
+      HdfsPathDataset hdfsPath = HdfsPathDataset.create(uri, sparkLineageConf.getOpenLineageConf());
+      String datasetPath = hdfsPath.getDatasetPath();
+      if (datasetPath == null) {
+        log.warn("HdfsPathDataset.getDatasetPath() returned null for {}; using original path", p);
+        return p;
+      }
+      log.debug("Path {} transformed to {}", p, datasetPath);
+      return new Path(datasetPath);
     } catch (InstantiationException | URISyntaxException e) {
       log.warn("Unable to convert path to hdfs path {} the exception was {}", p, e.getMessage());
       return p;

@@ -155,6 +155,11 @@ public class SaveIntoDataSourceCommandVisitor
         .getClass()
         .getCanonicalName()
         .equals(JdbcRelationProvider.class.getCanonicalName())) {
+      if (!command.options().get("dbtable").isDefined()
+          || !command.options().get("url").isDefined()) {
+        log.warn("JDBC SaveIntoDataSource missing 'dbtable' or 'url' option; skipping lineage");
+        return Collections.emptyList();
+      }
       String tableName = command.options().get("dbtable").get();
       String url = command.options().get("url").get();
       DatasetIdentifier identifier =
