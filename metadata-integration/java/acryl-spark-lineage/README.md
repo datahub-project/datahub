@@ -495,6 +495,10 @@ The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and pr
   - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
 - _Fixes_:
   - **Dependency Relocation Fix** ([#14989](https://github.com/datahub-project/datahub/issues/14989)): Fixed shadow JAR packaging to properly relocate all transitive dependencies, preventing classloading conflicts with other Spark extensions. All dependencies except `io.openlineage` (which contains customized classes) and `datahub.spark` (the public API) are now properly relocated under `io.acryl.shaded` namespace. This resolves conflicts with libraries like ANTLR, Apache Avro, and others that could clash with Delta Lake and other Spark components.
+  - **Missing Output Lineage Fix**: Fixed an issue where `outputDatasetEdges` in the `dataJobInputOutput` aspect could be empty when using coalesced emission with the REST emitter. Early coalesced emissions (e.g., on START events) sent an UPSERT with empty edge arrays, which clobbered later PATCH emissions that contained actual output edges. The fix skips emitting `dataJobInputOutput` when all edges are empty.
+  - **SparkEnv NPE Fix**: Added null-check for `SparkEnv.get()` in `PlanUtils.getDirectoryPath()` to prevent `NullPointerException` during Spark shutdown or in test contexts.
+  - **URISyntaxException Crash Fix**: `RemovePathPatternUtils.removePathPattern()` no longer throws `RuntimeException` for dataset names that are not valid URIs. Instead, it logs a warning and returns the original name.
+  - **JDBC Option Guard**: `SaveIntoDataSourceCommandVisitor` now checks that `dbtable` and `url` options are present before accessing them, preventing `NoSuchElementException` for query-based JDBC sinks.
 
 ### Version 0.2.18
 
