@@ -5,7 +5,6 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import DomainSearchResultItem from '@app/domainV2/DomainSearchResultItem';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -18,12 +17,9 @@ const DomainSearchWrapper = styled.div`
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
     position: absolute;
     max-height: 210px;
@@ -46,7 +42,7 @@ const InputWrapper = styled.div`
 `;
 
 const SearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.text};
     padding: 16px;
     width: 100%;
     font-size: 20px;
