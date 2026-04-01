@@ -22,7 +22,7 @@ FILES=(
   "spark/agent/util/AwsUtils.java"
   "spark/agent/util/PathUtils.java"
   "spark/agent/util/PlanUtils.java"
-  "spark/agent/util/RddPathUtils.java"
+  "spark/agent/util/RddDatasetInfoExtractor.java"
   "spark/agent/util/RemovePathPatternUtils.java"
   "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
   "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
@@ -41,14 +41,14 @@ if [ ! -d "$UPSTREAM_DIR" ]; then
   exit 1
 fi
 
-# Create output directory for patches
-mkdir -p "$PATCHES_DIR/datahub-customizations"
+# Create versioned output directory for patches
+mkdir -p "$PATCHES_DIR/datahub-customizations/v${UPSTREAM_VERSION}"
 
 # Generate patches for each file
 for file in "${FILES[@]}"; do
   UPSTREAM_FILE="$UPSTREAM_DIR/$file"
   DATAHUB_FILE="$DATAHUB_SRC/$file"
-  PATCH_FILE="$PATCHES_DIR/datahub-customizations/$(basename "$file" .java).patch"
+  PATCH_FILE="$PATCHES_DIR/datahub-customizations/v${UPSTREAM_VERSION}/$(basename "$file" .java).patch"
 
   if [ ! -f "$UPSTREAM_FILE" ]; then
     echo "Warning: Upstream file not found: $UPSTREAM_FILE (skipping)"
