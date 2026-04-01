@@ -25,6 +25,8 @@ public enum ChangeCategory {
   // Run event
   RUN,
 
+  STRUCTURED_PROPERTY,
+
   BUSINESS_ATTRIBUTE,
   // Parent relationship changes (for hierarchical entities like documents)
   PARENT,

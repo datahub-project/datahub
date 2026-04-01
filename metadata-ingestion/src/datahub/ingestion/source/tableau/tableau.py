@@ -2764,7 +2764,7 @@ class TableauSiteSource:
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
             self.platform, datasource_id, self.config.platform_instance, self.config.env
         )
-        if datasource_id not in self.datasource_ids_being_used:
+        if not is_embedded_ds and datasource_id not in self.datasource_ids_being_used:
             self.datasource_ids_being_used.append(datasource_id)
 
         dataset_snapshot = DatasetSnapshot(

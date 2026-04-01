@@ -1,11 +1,5 @@
-import sys
+from importlib.metadata import EntryPoint, entry_points
 from typing import List, Optional
-
-if sys.version_info < (3, 10):
-    from importlib_metadata import EntryPoint, entry_points
-else:
-    from importlib.metadata import EntryPoint, entry_points
-
 
 _CUSTOM_PACKAGE_GROUP_KEY = "datahub.custom_packages"
 

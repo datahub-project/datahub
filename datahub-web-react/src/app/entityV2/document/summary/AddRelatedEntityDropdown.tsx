@@ -36,7 +36,7 @@ const AddButton = styled(Button)`
     }
 `;
 
-export interface AddRelatedEntityDropdownProps {
+interface AddRelatedEntityDropdownProps {
     entityTypes: EntityType[];
     existingUrns: Set<string>;
     documentUrn: string;

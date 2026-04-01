@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import '@conf/monaco';
 import { Editor as MarkdownEditor } from '@src/alchemy-components';
 
 const EditorWrapper = styled.div`

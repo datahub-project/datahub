@@ -3,7 +3,7 @@ import { useHelpers } from '@remirror/react';
 import { Button, ButtonProps, Tooltip } from 'antd';
 import React, { MouseEventHandler, useCallback } from 'react';
 
-export interface CommandButtonProps extends Omit<ButtonProps, 'type'> {
+interface CommandButtonProps extends Omit<ButtonProps, 'type'> {
     active?: boolean;
     children?: React.ReactNode;
     commandName?: string;

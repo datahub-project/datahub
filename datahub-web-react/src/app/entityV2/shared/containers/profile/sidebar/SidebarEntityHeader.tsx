@@ -18,16 +18,16 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, EntityType, Post } from '@types';
 
-const TitleContainer = styled(HorizontalScroller)`
+const TitleContainer = styled(HorizontalScroller)<{ $hasPlatform: boolean }>`
     display: flex;
-    gap: 5px;
+    gap: 8px;
+    padding: 0 ${(props) => (props.$hasPlatform ? '16px' : '20px')};
 `;
 
 const EntityDetailsContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 5px;
-    margin-left: 8px;
 `;
 
 const NameWrapper = styled.div`
@@ -56,12 +56,14 @@ const SidebarEntityHeader = () => {
         return <EntityTitleLoadingSection />;
     }
     return (
-        <TitleContainer scrollButtonSize={18} scrollButtonOffset={15}>
-            <PlatformHeaderIcons
-                platform={platform as DataPlatform}
-                platforms={platforms as DataPlatform[]}
-                size={24}
-            />
+        <TitleContainer scrollButtonSize={18} scrollButtonOffset={15} $hasPlatform={!!platform}>
+            {platform && (
+                <PlatformHeaderIcons
+                    platform={platform as DataPlatform}
+                    platforms={platforms as DataPlatform[]}
+                    size={24}
+                />
+            )}
             <EntityDetailsContainer>
                 <NameWrapper>
                     <EntityName isNameEditable={false} />

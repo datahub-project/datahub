@@ -10,6 +10,7 @@ import { buildUpdateLineagePayload } from '@app/lineageV3/manualLineage/buildUpd
 import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
 import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
+import { toTitleCase } from '@app/lineageV3/utils/toTitleCase';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal, colors } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
@@ -17,7 +18,6 @@ import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
 import ClickOutside from '@src/app/shared/ClickOutside';
 
-import { toTitleCase } from '@graphql-mock/helper';
 import { useUpdateLineageMutation } from '@graphql/mutations.generated';
 import { Entity, EntityType, LineageDirection } from '@types';
 

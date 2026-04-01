@@ -1,9 +1,5 @@
 import { scaleLinear } from '@visx/scale';
 import * as d3interpolate from '@visx/vendor/d3-interpolate';
-import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import isoWeek from 'dayjs/plugin/isoWeek';
-import utc from 'dayjs/plugin/utc';
 
 import { CALENDAR_DATE_FORMAT } from '@components/components/CalendarChart/constants';
 import { DAYS_IN_WEEK, MIN_DAYS_IN_WEEK } from '@components/components/CalendarChart/private/constants';
@@ -16,9 +12,7 @@ import {
     WeekData,
 } from '@components/components/CalendarChart/types';
 
-dayjs.extend(isoWeek);
-dayjs.extend(utc);
-dayjs.extend(advancedFormat);
+import dayjs from '@utils/dayjs';
 
 export function prepareCalendarData<ValueType>(
     data: CalendarData<ValueType>[],
@@ -186,6 +180,8 @@ export function generateMockData(
         });
 }
 
+// Disabling no hardcoded colors rule because this is a mock utility used only in stories files, need not be mapped to theme tokens
+/* eslint-disable rulesdir/no-hardcoded-colors */
 export function getMockedProps(
     startDate = '2024-01-01',
     endDate = '2024-12-31',
@@ -214,3 +210,4 @@ export function getMockedProps(
         colorAccessor,
     };
 }
+/* eslint-enable rulesdir/no-hardcoded-colors */

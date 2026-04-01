@@ -16,13 +16,13 @@ import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 import { AccessTokenType, DataHubRole, ServiceAccount } from '@types';
 
-export const ServiceAccountContainer = styled.div`
+const ServiceAccountContainer = styled.div`
     display: flex;
     flex-direction: column;
     margin-top: 16px;
 `;
 
-export const TableContainer = styled.div`
+const TableContainer = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -30,20 +30,20 @@ export const TableContainer = styled.div`
     overflow: hidden;
 `;
 
-export const FiltersHeader = styled.div`
+const FiltersHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
 `;
 
-export const SearchContainer = styled.div`
+const SearchContainer = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
 `;
 
-export const ActionsContainer = styled.div`
+const ActionsContainer = styled.div`
     display: flex;
     align-items: right;
     justify-content: flex-end;
@@ -74,7 +74,7 @@ const ActionsButtonStyle = {
     boxShadow: 'none',
 };
 
-export const EmptyStateContainer = styled.div`
+const EmptyStateContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -88,7 +88,7 @@ type ServiceAccountNameCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-export const ServiceAccountNameCell = ({ serviceAccount }: ServiceAccountNameCellProps) => {
+const ServiceAccountNameCell = ({ serviceAccount }: ServiceAccountNameCellProps) => {
     const displayName = serviceAccount.displayName || serviceAccount.name;
 
     return (
@@ -107,7 +107,7 @@ type ServiceAccountDescriptionCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
     return (
         <Text color="gray" size="md">
             {serviceAccount.description || '-'}
@@ -122,7 +122,7 @@ type ServiceAccountRoleCellProps = {
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
 };
 
-export const ServiceAccountRoleCell = ({
+const ServiceAccountRoleCell = ({
     serviceAccount,
     selectRoleOptions,
     optimisticRoleUrn,
@@ -159,7 +159,7 @@ type ServiceAccountActionsMenuProps = {
     onDelete: (urn: string) => void;
 };
 
-export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
+const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
     const history = useHistory();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);

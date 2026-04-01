@@ -408,6 +408,25 @@ class TestEdgeCases:
         output = format_table_output(results)
         assert "(unnamed)" in output
 
+    def test_format_table_output_null_platform_and_properties(self):
+        results = {
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:test",
+                        "platform": None,
+                        "properties": None,
+                    }
+                }
+            ],
+            "total": 1,
+            "start": 0,
+        }
+        output = format_table_output(results)
+        assert "urn:li:dataset:test" in output
+        assert "(unnamed)" in output
+        assert "Showing 1-1 of 1 results" in output
+
     def test_format_table_output_long_description(self):
         long_desc = "x" * 100
         results = {

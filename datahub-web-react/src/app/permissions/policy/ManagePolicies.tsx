@@ -94,7 +94,7 @@ const EmptyContainer = styled.div`
     padding: 40px;
 `;
 
-export enum StatusType {
+enum StatusType {
     ALL = 'ALL',
     ACTIVE = 'ACTIVE',
     INACTIVE = 'INACTIVE',

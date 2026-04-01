@@ -114,7 +114,7 @@ interface OwnerOption {
     imageUrl: string | undefined;
 }
 
-export enum StatusType {
+enum StatusType {
     ALL,
     EXPIRED,
 }

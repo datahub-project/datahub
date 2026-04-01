@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export interface IngestionContextType {
+interface IngestionContextType {
     createdOrUpdatedSource?: string | undefined;
     setCreatedOrUpdatedSource: (urn: string | undefined) => void;
     shouldRunCreatedOrUpdatedSource?: boolean;

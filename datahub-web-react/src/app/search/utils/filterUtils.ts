@@ -1,8 +1,7 @@
 import { FilterSet } from '@app/entity/shared/components/styled/search/types';
-import { QuickFilterField } from '@app/search/autoComplete/quickFilters/utils';
 import { UnionType } from '@app/search/utils/constants';
 
-import { AndFilterInput, EntityType, FacetFilterInput, QuickFilter } from '@types';
+import { AndFilterInput, FacetFilterInput, QuickFilter } from '@types';
 
 /**
  * Combines 2 sets of conjunctive filters in Disjunctive Normal Form
@@ -179,18 +178,4 @@ export function getFiltersWithQuickFilter(selectedQuickFilter: QuickFilter | nul
         filters.push(generateFilterInputFromQuickFilter(selectedQuickFilter));
     }
     return filters;
-}
-
-export function getAutoCompleteInputFromQuickFilter(selectedQuickFilter: QuickFilter | null) {
-    const filters: FacetFilterInput[] = [];
-    const types: EntityType[] = [];
-    if (selectedQuickFilter) {
-        if (selectedQuickFilter.field === QuickFilterField.Entity) {
-            types.push(selectedQuickFilter.value as EntityType);
-        } else if (selectedQuickFilter.field === QuickFilterField.Platform) {
-            filters.push(generateFilterInputFromQuickFilter(selectedQuickFilter));
-        }
-    }
-
-    return { filters, types };
 }

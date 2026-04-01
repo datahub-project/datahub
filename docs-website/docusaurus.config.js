@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><span>March Town Hall 3/26</span><a href="https://luma.com/lxl6exxr?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>March Townhall</span><a href="https://youtu.be/MAyldt2n3R8?si=uCrPBd80IjomzjTm?utm_term=docs" target="_blank" class="button"><div>Watch the Recording<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -305,6 +305,10 @@ module.exports = {
             {
               label: "Demo",
               to: "https://demo.datahub.com/",
+            },
+            {
+              label: "Free Trial",
+              href: "https://datahub.com/free-trial/",
             },
             {
               label: "Roadmap",

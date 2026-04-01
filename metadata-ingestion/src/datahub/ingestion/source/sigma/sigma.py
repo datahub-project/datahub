@@ -558,7 +558,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma Workbook to Datahub container
         """
-        owner_username = self.sigma_api.get_user_name(workbook.createdBy)
+        owner_username = self.sigma_api.get_user_name(workbook.ownerId)
 
         dashboard_urn = self._gen_dashboard_urn(workbook.workbookId)
 

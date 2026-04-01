@@ -32,5 +32,5 @@ export interface ButtonProps
 
 export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'> & {
     hasChildren: boolean;
-    theme?: Theme;
+    theme: Theme;
 };

@@ -9,7 +9,7 @@ import { DataHubRole } from '@types';
 
 export const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
 
-export interface RoleAssignmentState {
+interface RoleAssignmentState {
     isViewingAssignRole: boolean;
     actorUrn: string;
     actorName: string;

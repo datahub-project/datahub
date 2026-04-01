@@ -46,6 +46,7 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_ACR_VALUES = "auth.oidc.acrValues";
   public static final String OIDC_HTTP_RETRY_ATTEMPTS = "auth.oidc.httpRetryAttempts";
   public static final String OIDC_HTTP_RETRY_DELAY = "auth.oidc.httpRetryDelay";
+  public static final String OIDC_ACCESS_DENIED_REDIRECT_URL = "auth.oidc.accessDeniedRedirectUrl";
 
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
@@ -89,6 +90,7 @@ public class OidcConfigs extends SsoConfigs {
   private final Optional<String> acrValues;
   private final String httpRetryAttempts;
   private final String httpRetryDelay;
+  private final Optional<String> accessDeniedRedirectUrl;
 
   public OidcConfigs(Builder builder) {
     super(builder);
@@ -116,6 +118,7 @@ public class OidcConfigs extends SsoConfigs {
     this.grantType = builder.grantType;
     this.httpRetryAttempts = builder.httpRetryAttempts;
     this.httpRetryDelay = builder.httpRetryDelay;
+    this.accessDeniedRedirectUrl = builder.accessDeniedRedirectUrl;
   }
 
   public String getHttpRetryAttempts() {
@@ -154,6 +157,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> acrValues = Optional.empty();
     private String httpRetryAttempts = DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS;
     private String httpRetryDelay = DEFAULT_OIDC_HTTP_RETRY_DELAY;
+    private Optional<String> accessDeniedRedirectUrl = Optional.empty();
 
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
@@ -206,6 +210,7 @@ public class OidcConfigs extends SsoConfigs {
       httpRetryAttempts =
           getOptional(configs, OIDC_HTTP_RETRY_ATTEMPTS, DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS);
       httpRetryDelay = getOptional(configs, OIDC_HTTP_RETRY_DELAY, DEFAULT_OIDC_HTTP_RETRY_DELAY);
+      accessDeniedRedirectUrl = getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL);
       return this;
     }
 
