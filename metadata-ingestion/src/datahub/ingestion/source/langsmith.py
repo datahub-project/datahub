@@ -201,17 +201,30 @@ class LangSmithSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
+    # Platform logos for known providers (platform_name -> (displayName, logoUrl))
+    _PLATFORM_LOGOS = {
+        "langsmith": (
+            "LangSmith",
+            "https://unpkg.com/@lobehub/icons-static-svg@1.84.0/icons/langsmith-color.svg",
+        ),
+        "anthropic": (
+            "Anthropic",
+            "https://unpkg.com/@lobehub/icons-static-svg@1.84.0/icons/claude-color.svg",
+        ),
+    }
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=make_data_platform_urn(self.platform),
-            aspect=DataPlatformInfoClass(
-                name=self.platform,
-                displayName="LangSmith",
-                type=PlatformTypeClass.OTHERS,
-                datasetNameDelimiter=".",
-                logoUrl="https://unpkg.com/@lobehub/icons-static-svg@1.84.0/icons/langsmith-color.svg",
-            ),
-        ).as_workunit()
+        for platform_name, (display_name, logo_url) in self._PLATFORM_LOGOS.items():
+            yield MetadataChangeProposalWrapper(
+                entityUrn=make_data_platform_urn(platform_name),
+                aspect=DataPlatformInfoClass(
+                    name=platform_name,
+                    displayName=display_name,
+                    type=PlatformTypeClass.OTHERS,
+                    datasetNameDelimiter=".",
+                    logoUrl=logo_url,
+                ),
+            ).as_workunit()
         # Datasets first so _dataset_urns is populated before trace assertion emission
         if self.config.include_datasets:
             yield from self._get_dataset_workunits()
