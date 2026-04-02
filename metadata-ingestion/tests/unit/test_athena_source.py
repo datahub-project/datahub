@@ -150,6 +150,11 @@ def test_athena_get_table_properties():
     ]
     mock_cursor.fetchall.side_effect = [OperationalError("First call fails")]
 
+    # Mock get_data_catalog to return GLUE type
+    mock_cursor._connection.client.get_data_catalog.return_value = {
+        "DataCatalog": {"Name": "awsdatacatalog", "Type": "GLUE"}
+    }
+
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
     source.cursor = mock_cursor
@@ -169,7 +174,7 @@ def test_athena_get_table_properties():
         "serde.serialization.lib": "testSerde",
         "table_type": "testType",
     }
-    # Non-Iceberg tables get Glue URN as upstream lineage location
+    # Glue catalog → Glue URN as upstream lineage
     expected_glue_urn = make_dataset_urn("glue", f"{schema}.{table}")
     assert location == expected_glue_urn
 
@@ -232,17 +237,20 @@ def test_athena_get_table_properties_iceberg_location():
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
+    mock_cursor._connection.client.get_data_catalog.return_value = {
+        "DataCatalog": {"Name": "awsdatacatalog", "Type": "GLUE"}
+    }
 
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
     source.cursor = mock_cursor
 
-    # Iceberg tables get Iceberg URN as upstream lineage location
+    # Iceberg tables also get Glue URN — Iceberg lineage is handled by Glue connector
     _, _, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
-    expected_iceberg_urn = make_dataset_urn("iceberg", f"{schema}.{table}")
-    assert location == expected_iceberg_urn
+    expected_glue_urn = make_dataset_urn("glue", f"{schema}.{table}")
+    assert location == expected_glue_urn
 
 
 def test_get_column_type_simple_types():

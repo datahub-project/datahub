@@ -352,7 +352,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Supported via upstream lineage to Glue and Iceberg entities",
+    "Supported via upstream lineage to Glue entities",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -360,7 +360,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Supported via upstream lineage to Glue and Iceberg entities",
+    "Supported via upstream lineage to Glue entities",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -371,7 +371,7 @@ class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
-    - Upstream lineage to Glue and Iceberg entities.
+    - Upstream lineage to Glue entities (when using a Glue-backed catalog).
     - Profiling when enabled.
     """
 
@@ -383,6 +383,7 @@ class AthenaSource(SQLAlchemySource):
         self.cursor: Optional[BaseCursor] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
+        self._is_glue_catalog: Optional[bool] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -400,6 +401,28 @@ class AthenaSource(SQLAlchemySource):
         with engine.connect() as conn:
             inspector = inspect(conn)
             yield inspector
+
+    def _get_catalog_type(self) -> Optional[str]:
+        """Query the Athena API to get the catalog type (GLUE, LAMBDA, HIVE, FEDERATED)."""
+        assert self.cursor
+        try:
+            client = self.cursor._connection.client
+            response = client.get_data_catalog(Name=self.config.catalog_name)
+            return response.get("DataCatalog", {}).get("Type")
+        except Exception as e:
+            logger.warning(
+                f"Failed to determine catalog type for '{self.config.catalog_name}': {e}"
+            )
+
+    @property
+    def is_glue_catalog(self) -> bool:
+        if self._is_glue_catalog is None:
+            catalog_type = self._get_catalog_type()
+            if catalog_type is not None:
+                self._is_glue_catalog = catalog_type == "GLUE"
+            else:
+                return False
+        return self._is_glue_catalog
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         schema, _view = dataset_identifier.split(".", 1)
@@ -440,17 +463,13 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        # All Athena tables are backed by the Glue Data Catalog.
-        # Iceberg tables → upstream lineage to the Iceberg entity
-        # Non-Iceberg tables → upstream lineage to the Glue entity
-        if metadata.parameters.get("table_type") == "ICEBERG":
-            iceberg_urn = make_dataset_urn(
-                "iceberg", f"{schema}.{table}", self.config.env
-            )
-            return description, custom_properties, iceberg_urn
+        # Emit upstream lineage to Glue when the catalog is Glue-backed.
+        # Iceberg lineage is handled by the Glue connector.
+        location: Optional[str] = None
+        if self.is_glue_catalog:
+            location = make_dataset_urn("glue", f"{schema}.{table}", self.config.env)
 
-        glue_urn = make_dataset_urn("glue", f"{schema}.{table}", self.config.env)
-        return description, custom_properties, glue_urn
+        return description, custom_properties, location
 
     def gen_database_containers(
         self,
