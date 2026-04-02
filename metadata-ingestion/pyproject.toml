@@ -1378,6 +1378,10 @@ vertexai = [
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
 ]
 
+pinecone = [
+    "pinecone-client>=3.0.0,<6.0.0",
+]
+
 vertica = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -1468,6 +1472,7 @@ all = [
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "protobuf>=5.0.0,<7.0.0",
     "psycopg2-binary<3.0.0",
@@ -1624,6 +1629,7 @@ dev = [
     "patchy==2.8.0",
     "pip",
     "progressbar2<5.0.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psutil>=5.8.0,<8.0.0",
     "psycopg2-binary<3.0.0",
@@ -1814,6 +1820,7 @@ docs = [
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
     "pip",
+    "pinecone-client>=3.0.0,<6.0.0",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psutil>=5.8.0,<8.0.0",
@@ -1961,6 +1968,7 @@ integration-tests = [
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
@@ -2111,6 +2119,7 @@ cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
 
 [project.entry-points."datahub.ingestion.transformer.plugins"]
 pattern_cleanup_ownership = "datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership"
