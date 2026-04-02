@@ -280,8 +280,11 @@ scalaVersions.each { sv ->
     relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
     relocate 'io.github', 'io.acryl.shaded.io.github'
     relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
-    // NOTE: Do NOT relocate io.openlineage - we have customized OpenLineage classes in src/main/java/io/openlineage/
-    // that must remain at io.openlineage package to properly override the upstream dependency
+    // Relocate io.openlineage to prevent conflicts when another openlineage-spark version
+    // is on the classpath (Databricks, EMR, Glue). DataHub's customized classes in
+    // src/main/java/io/openlineage/ are also relocated by the shadow plugin, so the
+    // override mechanism (project classes beat dependency classes) still works.
+    relocate 'io.openlineage', 'io.acryl.shaded.io.openlineage'
     relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
 
     // Relocate packages that conflict with Spark's runtime classpath
