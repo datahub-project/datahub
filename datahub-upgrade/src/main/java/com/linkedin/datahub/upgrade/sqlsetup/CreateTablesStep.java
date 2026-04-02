@@ -74,9 +74,16 @@ public class CreateTablesStep implements UpgradeStep {
     }
 
     // Create metadata_aspect_v2 table and indexes
-    java.util.List<String> createTableStatements = dbOps.createTableSqlStatements();
+    java.util.List<String> createTableStatements =
+        dbOps.createTableSqlStatements(args.createSchemaVersionIndex());
     for (String sql : createTableStatements) {
       server.sqlUpdate(sql).execute();
+    }
+
+    if (args.createSchemaVersionIndex()) {
+      try (Connection connection = server.dataSource().getConnection()) {
+        dbOps.postSetup(connection);
+      }
     }
     result.setTablesCreated(1);
 

@@ -3,6 +3,17 @@
 This is the canonical reference for working with the DataHub codebase. It applies to all coding
 agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 
+## Code Navigation (LSP)
+
+Prefer LSP tools over Grep for code navigation tasks:
+
+- Use `goToDefinition` to find where something is defined
+- Use `findReferences` to find all call sites
+- Use `workspaceSymbol` to find symbols by name
+- Use diagnostics after any edit to catch type errors immediately
+
+See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
+
 ## Essential Commands
 
 **Build and test:**

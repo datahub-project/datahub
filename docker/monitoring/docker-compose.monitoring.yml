@@ -10,6 +10,8 @@ services:
       - OTEL_SERVICE_NAME=datahub-gms
     ports:
       - '4318'
+    expose:
+      - 4319
   datahub-gms:
     environment:
       - ENABLE_PROMETHEUS=true
@@ -20,6 +22,8 @@ services:
       - OTEL_SERVICE_NAME=datahub-gms
     ports:
       - '4318'
+    expose:
+      - 4319
   grafana:
     image: grafana/grafana:9.1.4
     ports:

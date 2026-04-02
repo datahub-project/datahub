@@ -263,7 +263,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983629"
+                "value": "1774630901"
             },
             {
                 "op": "add",
@@ -283,7 +283,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             }
         ]
     },
@@ -492,7 +492,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983632"
+                "value": "1774630904"
             },
             {
                 "op": "add",
@@ -507,7 +507,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             }
         ]
     },
@@ -686,7 +686,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983632"
+                "value": "1774630904"
             },
             {
                 "op": "add",
@@ -701,7 +701,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             }
         ]
     },
@@ -899,7 +899,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983622"
+                "value": "1774630894"
             },
             {
                 "op": "add",
@@ -914,7 +914,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             },
             {
                 "op": "add",
@@ -1107,7 +1107,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983625"
+                "value": "1774630897"
             },
             {
                 "op": "add",
@@ -1122,7 +1122,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             }
         ]
     },
@@ -1310,7 +1310,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983631"
+                "value": "1774630904"
             },
             {
                 "op": "add",
@@ -1325,7 +1325,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             }
         ]
     },
@@ -1528,7 +1528,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983625"
+                "value": "1774630897"
             },
             {
                 "op": "add",
@@ -1543,7 +1543,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             }
         ]
     },
@@ -1718,7 +1718,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1765983632"
+                "value": "1774630904"
             },
             {
                 "op": "add",
@@ -1733,7 +1733,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-12-17"
+                "value": "2026-03-27"
             }
         ]
     },
@@ -2111,7 +2111,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),property_id)"
                     ],
                     "transformOperation": "COPY: `array_struct_test`.`property_id` AS `property_id`",
-                    "confidenceScore": 0.2,
+                    "confidenceScore": 0.9,
                     "query": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa"
                 },
                 {
@@ -2124,7 +2124,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service)"
                     ],
                     "transformOperation": "COPY: `array_struct_test`.`service` AS `service`",
-                    "confidenceScore": 0.2,
+                    "confidenceScore": 0.9,
                     "query": "urn:li:query:view_7ad46f9aa44fc70f1934fc8c076fa55dbc411c62a9f6b0caf3bf124111339bfa"
                 }
             ]

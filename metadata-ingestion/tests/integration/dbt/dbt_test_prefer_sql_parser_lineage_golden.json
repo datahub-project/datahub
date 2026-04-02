@@ -5196,7 +5196,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
             }
         }
@@ -5278,7 +5278,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)"
             }
         }
@@ -5360,7 +5360,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)"
             }
         }
@@ -5442,7 +5442,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)"
             }
         }
@@ -5524,7 +5524,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)"
             }
         }
@@ -5606,7 +5606,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)"
             }
         }
@@ -5688,7 +5688,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)"
             }
         }
@@ -5770,7 +5770,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)"
             }
         }
@@ -5852,7 +5852,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)"
             }
         }
@@ -5934,7 +5934,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)"
             }
         }
@@ -6016,7 +6016,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)"
             }
         }
@@ -6098,7 +6098,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)"
             }
         }
