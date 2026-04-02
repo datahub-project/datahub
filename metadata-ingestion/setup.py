@@ -699,7 +699,13 @@ plugins: Dict[str, Set[str]] = {
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
     | pyhive_common
-    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
+    | {
+        "psycopg2-binary<3.0.0",
+        "pymysql>=1.0.2,<2.0.0",
+        "pymetastore>=0.4.2,<1.0.0",
+        "tenacity>=8.0.1,<9.0.0",
+        "kerberos>=1.3.0,<2.0.0",
+    },
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
