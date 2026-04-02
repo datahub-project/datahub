@@ -571,6 +571,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.preAliasSwapLagRetryMaxBackoffMs",
           "elasticsearch.buildIndices.preAliasSwapLagStepRetries",
           "elasticsearch.buildIndices.preAliasSwapMaxMclLagTotal",
+          "elasticsearch.buildIndices.dualWritePollIntervalSeconds",
           "elasticsearch.bulkDelete.batchSize",
           "elasticsearch.bulkDelete.numRetries",
           "elasticsearch.bulkDelete.pollInterval",

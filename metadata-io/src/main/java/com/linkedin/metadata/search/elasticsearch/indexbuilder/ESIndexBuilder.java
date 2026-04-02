@@ -934,12 +934,28 @@ public class ESIndexBuilder {
 
   // --- Shared helper methods used by both legacy reindex() and incremental path ---
 
-  /** Extract target shard count from a ReindexConfig's target settings. */
+  /**
+   * Extract target shard count from a ReindexConfig's target settings. Handles both the nested
+   * structure from {@code buildReindexConfig} ({@code {"index": {"number_of_shards": N}}}) and the
+   * flat structure ({@code {"number_of_shards": N}}).
+   */
   public static int extractTargetShards(ReindexConfig indexState) {
-    return Optional.ofNullable(indexState.targetSettings().get("index"))
-        .filter(Map.class::isInstance)
-        .map(Map.class::cast)
-        .map(indexMap -> indexMap.get(NUMBER_OF_SHARDS))
+    Map<String, Object> settings = indexState.targetSettings();
+
+    // Try nested: {"index": {"number_of_shards": N}}
+    Optional<Integer> nested =
+        Optional.ofNullable(settings.get("index"))
+            .filter(Map.class::isInstance)
+            .map(Map.class::cast)
+            .map(indexMap -> indexMap.get(NUMBER_OF_SHARDS))
+            .map(Object::toString)
+            .map(Integer::parseInt);
+    if (nested.isPresent()) {
+      return nested.get();
+    }
+
+    // Try flat: {"number_of_shards": N}
+    return Optional.ofNullable(settings.get(NUMBER_OF_SHARDS))
         .map(Object::toString)
         .map(Integer::parseInt)
         .orElseThrow(() -> new IllegalArgumentException("Number of shards not specified"));
