@@ -1,6 +1,7 @@
 import logging
 import time
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -270,22 +271,22 @@ class LangSmithSource(StatefulIngestionSourceBase):
                     yield from self._emit_assertion_workunits(run, assertion_dataset_urn)
                 else:
                     self.report.assertions_skipped_no_dataset += 1
-            root_dpi_urn = self._make_dpi_urn(run.id)
-            # input_edge_urns: dest_urn -> EdgeClass, deduped across all spans
-            input_edge_urns: Dict[str, EdgeClass] = {}
-            # Collect edges from the root trace itself (if root is llm or retriever)
-            yield from self._collect_run_edges(project, run, input_edge_urns)
             if self.config.include_child_spans:
-                yield from self._get_child_span_workunits(project, run, input_edge_urns)
-            # Single DataProcessInstanceInput with all upstream edges
-            if input_edge_urns:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=root_dpi_urn,
-                    aspect=DataProcessInstanceInputClass(
-                        inputs=[],
-                        inputEdges=list(input_edge_urns.values()),
-                    ),
-                ).as_workunit()
+                # Child span mode: flow graph handles all lineage including root inputEdges
+                yield from self._get_child_span_workunits(project, run)
+            else:
+                # No child spans: collect asset edges directly on root trace
+                root_dpi_urn = self._make_dpi_urn(run.id)
+                input_edge_urns: Dict[str, EdgeClass] = {}
+                yield from self._collect_run_edges(project, run, input_edge_urns)
+                if input_edge_urns:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=root_dpi_urn,
+                        aspect=DataProcessInstanceInputClass(
+                            inputs=[],
+                            inputEdges=list(input_edge_urns.values()),
+                        ),
+                    ).as_workunit()
             count += 1
             self.report.traces_ingested += 1
 
@@ -296,10 +297,15 @@ class LangSmithSource(StatefulIngestionSourceBase):
         self,
         project: LangSmithProject,
         root_run: LangSmithRun,
-        input_edge_urns: Dict[str, EdgeClass],
     ) -> Iterable[MetadataWorkUnit]:
         root_dpi_urn = self._make_dpi_urn(root_run.id)
-        for child_run in self.client.list_runs(trace_id=root_run.id, is_root=False):
+
+        # Collect all children first -- needed to build the flow graph
+        all_children = list(self.client.list_runs(trace_id=root_run.id, is_root=False))
+
+        # Phase 1: Emit DPI aspects for each child; collect per-child asset edges
+        child_asset_edges: Dict[uuid.UUID, List[EdgeClass]] = {}
+        for child_run in all_children:
             parent_dpi_urn = self._make_dpi_urn(child_run.parent_run_id)
             yield from self._emit_run(
                 project,
@@ -309,7 +315,98 @@ class LangSmithSource(StatefulIngestionSourceBase):
                 root_dpi_urn=root_dpi_urn,
             )
             self.report.spans_ingested += 1
-            yield from self._collect_run_edges(project, child_run, input_edge_urns)
+            asset_edges: Dict[str, EdgeClass] = {}
+            yield from self._collect_run_edges(project, child_run, asset_edges)
+            if asset_edges:
+                child_asset_edges[child_run.id] = list(asset_edges.values())
+
+        # Phase 2: Compute execution flow graph from span timestamps
+        flow_upstreams = self._compute_flow_graph(root_run, all_children)
+
+        # Phase 3: Emit DataProcessInstanceInput for each child that has edges
+        for child_run in all_children:
+            edges: List[EdgeClass] = []
+            for upstream_id in flow_upstreams.get(child_run.id, []):
+                edges.append(EdgeClass(destinationUrn=self._make_dpi_urn(upstream_id)))
+            edges.extend(child_asset_edges.get(child_run.id, []))
+            if edges:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self._make_dpi_urn(child_run.id),
+                    aspect=DataProcessInstanceInputClass(inputs=[], inputEdges=edges),
+                ).as_workunit()
+
+        # Phase 4: Emit DataProcessInstanceInput on root (terminal children + own asset edges)
+        root_upstream_ids = flow_upstreams.get(root_run.id, [])
+        root_edges: List[EdgeClass] = [
+            EdgeClass(destinationUrn=self._make_dpi_urn(uid)) for uid in root_upstream_ids
+        ]
+        root_own_assets: Dict[str, EdgeClass] = {}
+        yield from self._collect_run_edges(project, root_run, root_own_assets)
+        root_edges.extend(root_own_assets.values())
+        if root_edges:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=root_dpi_urn,
+                aspect=DataProcessInstanceInputClass(inputs=[], inputEdges=root_edges),
+            ).as_workunit()
+
+    def _compute_flow_graph(
+        self,
+        root_run: LangSmithRun,
+        child_runs: List[LangSmithRun],
+    ) -> Dict[uuid.UUID, List[uuid.UUID]]:
+        """Compute execution flow edges for a trace's span tree.
+
+        Returns a mapping of run_id -> list of upstream run_ids.
+        The root_run.id entry lists the terminal children of the trace (last step).
+        Sibling order is inferred from start_time; overlapping siblings are
+        treated as a parallel group (fan-in to the next sequential step).
+        """
+        children_by_parent: Dict[uuid.UUID, List[LangSmithRun]] = defaultdict(list)
+        for child in child_runs:
+            children_by_parent[child.parent_run_id].append(child)
+
+        flow_upstreams: Dict[uuid.UUID, List[uuid.UUID]] = defaultdict(list)
+
+        def _process_node(parent_id: uuid.UUID) -> None:
+            siblings = children_by_parent.get(parent_id, [])
+            if not siblings:
+                return
+
+            siblings.sort(key=lambda r: r.start_time)
+
+            # Group into sequential steps; overlapping siblings share a step
+            steps: List[List[LangSmithRun]] = []
+            current_group: List[LangSmithRun] = [siblings[0]]
+            current_end = siblings[0].end_time or siblings[0].start_time
+
+            for sib in siblings[1:]:
+                if sib.start_time < current_end:
+                    # Overlapping -- same parallel group
+                    current_group.append(sib)
+                    if sib.end_time and sib.end_time > current_end:
+                        current_end = sib.end_time
+                else:
+                    steps.append(current_group)
+                    current_group = [sib]
+                    current_end = sib.end_time or sib.start_time
+            steps.append(current_group)
+
+            # Sequential flow: every member of step[i] is upstream of every member of step[i+1]
+            for i in range(1, len(steps)):
+                for consumer in steps[i]:
+                    for producer in steps[i - 1]:
+                        flow_upstreams[consumer.id].append(producer.id)
+
+            # Terminal step feeds the parent
+            for terminal in steps[-1]:
+                flow_upstreams[parent_id].append(terminal.id)
+
+            # Recurse into each child's own subtree
+            for sib in siblings:
+                _process_node(sib.id)
+
+        _process_node(root_run.id)
+        return dict(flow_upstreams)
 
     def _emit_run(
         self,

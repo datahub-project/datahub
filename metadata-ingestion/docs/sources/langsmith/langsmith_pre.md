@@ -24,9 +24,26 @@
 | **LLM model**        | MLModel                                  | Stub entity from span metadata; upstream lineage     |
 | **Feedback score**   | Assertion + AssertionRunEvent            | One assertion per (feedback key, run name); pass/fail by threshold; opt-in |
 | Feedback (inline)    | Properties on DataProcessInstance        | Aggregated scores embedded as custom properties      |
+| **Span execution flow** | DataProcessInstanceInput (inputEdges) | DPI-to-DPI lineage edges showing call graph; opt-in via include_child_spans |
 
 Token usage (prompt/completion/total tokens) is captured as ML metrics on each trace,
 enabling cost and usage tracking within DataHub.
+
+### Span Execution Lineage
+
+When `include_child_spans: true` is set, the connector computes an execution flow
+graph from the span timestamps and emits `DataProcessInstanceInput.inputEdges` on
+each span DPI. This makes the full call graph visible in the DataHub **Lineage** tab.
+
+Execution order among sibling spans is inferred from `start_time`/`end_time`.
+Non-overlapping siblings are treated as sequential steps; overlapping siblings are
+treated as a parallel group (fan-in). For typical synchronous LangChain pipelines
+(e.g. a RAG chain with a retriever, prompt, LLM, and parser), the ordering is
+unambiguous and matches the actual call sequence.
+
+Asset edges (Dataset for retrievers, MLModel for LLM calls) are attached to the
+span that owns them rather than to the root trace, so the lineage graph shows
+`[Dataset] -> [Retriever span] -> ... -> [Root trace]` rather than a flat star.
 
 ### Assertions from Feedback Scores
 

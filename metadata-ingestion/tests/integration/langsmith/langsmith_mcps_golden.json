@@ -744,7 +744,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:275fb2525a4fd00db4927f1bb6fed272",
+    "entityUrn": "urn:li:dataProcessInstance:5f9426c742e356ffee56e501f39547cf",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -754,8 +754,54 @@
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:langsmith,qa-pipeline/keyword,PROD)"
                 },
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:langsmith,qa-pipeline/keyword,PROD)"
+                },
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:langsmith,qa-pipeline/keyword,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "langsmith-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:3798674f43307d1cd7fb6de4827a39be",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [],
+            "inputEdges": [
                 {
                     "destinationUrn": "urn:li:mlModel:(urn:li:dataPlatform:anthropic,claude-haiku-4-5-20251001,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "langsmith-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:275fb2525a4fd00db4927f1bb6fed272",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataProcessInstance:5f9426c742e356ffee56e501f39547cf"
+                },
+                {
+                    "destinationUrn": "urn:li:dataProcessInstance:3798674f43307d1cd7fb6de4827a39be"
                 }
             ]
         }
@@ -1092,7 +1138,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f3d86200e1b39fea7328290503449123",
+    "entityUrn": "urn:li:dataProcessInstance:5f69704589fb8595e5986524501fd0aa",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -1101,6 +1147,27 @@
             "inputEdges": [
                 {
                     "destinationUrn": "urn:li:mlModel:(urn:li:dataPlatform:anthropic,claude-haiku-4-5-20251001,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "langsmith-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:f3d86200e1b39fea7328290503449123",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataProcessInstance:5f69704589fb8595e5986524501fd0aa"
                 }
             ]
         }

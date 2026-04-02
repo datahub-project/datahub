@@ -528,7 +528,7 @@ def test_get_child_span_workunits_links_to_parent():
 
     source.client.list_runs = MagicMock(return_value=iter([llm_child, retriever_child]))
 
-    wus = list(source._get_child_span_workunits(project, root_run, {}))
+    wus = list(source._get_child_span_workunits(project, root_run))
 
     # Two spans => two relationships aspects
     rel_aspects = [
@@ -565,7 +565,7 @@ def test_get_child_span_workunits_nested_parent():
 
     source.client.list_runs = MagicMock(return_value=iter([tool_run, nested_llm]))
 
-    wus = list(source._get_child_span_workunits(project, root_run, {}))
+    wus = list(source._get_child_span_workunits(project, root_run))
 
     rel_aspects = {
         wu.metadata.entityUrn: wu.metadata.aspect
@@ -721,7 +721,7 @@ def test_retriever_uses_vector_store_provider_as_platform():
 
 
 def test_retriever_input_edge_entity_urn_is_root_when_provided():
-    """Input edge must land on root trace DPI when retriever is a child span."""
+    """Retriever child gets dataset edge; root gets DPI flow edge to the retriever span."""
     source = _make_source(_make_config(include_child_spans=True))
     project = _make_project()
     root_run = _make_run()
@@ -736,19 +736,24 @@ def test_retriever_input_edge_entity_urn_is_root_when_provided():
 
     wus = list(source._get_trace_workunits(project))
     root_dpi_urn = source._make_dpi_urn(RUN_ID)
+    retriever_dpi_urn = source._make_dpi_urn(RETRIEVER_RUN_ID)
 
     input_wus = {
         wu.metadata.entityUrn: wu.metadata.aspect
         for wu in wus
         if isinstance(wu.metadata.aspect, DataProcessInstanceInputClass)
     }
-    assert len(input_wus) == 1
+    # Retriever span gets the dataset edge; root gets a DPI flow edge to retriever
+    assert len(input_wus) == 2
+    assert retriever_dpi_urn in input_wus
+    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
     assert root_dpi_urn in input_wus
     assert len(input_wus[root_dpi_urn].inputEdges) == 1
+    assert input_wus[root_dpi_urn].inputEdges[0].destinationUrn == retriever_dpi_urn
 
 
 def test_get_child_span_workunits_retriever_edge_on_root_trace():
-    """Input edge lands on root trace DPI when retriever is a child span (end-to-end)."""
+    """Dataset edge lands on retriever span; root gets DPI flow edge pointing to retriever."""
     source = _make_source(_make_config(include_child_spans=True))
     project = _make_project()
     root_run = _make_run()
@@ -763,15 +768,20 @@ def test_get_child_span_workunits_retriever_edge_on_root_trace():
 
     wus = list(source._get_trace_workunits(project))
     root_dpi_urn = source._make_dpi_urn(RUN_ID)
+    retriever_dpi_urn = source._make_dpi_urn(RETRIEVER_RUN_ID)
 
     input_wus = {
         wu.metadata.entityUrn: wu.metadata.aspect
         for wu in wus
         if isinstance(wu.metadata.aspect, DataProcessInstanceInputClass)
     }
-    assert len(input_wus) == 1
+    assert len(input_wus) == 2
+    # Dataset edge is on the retriever span, not root
+    assert retriever_dpi_urn in input_wus
+    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
+    # Root gets a DPI flow edge to the retriever span
     assert root_dpi_urn in input_wus
-    assert len(input_wus[root_dpi_urn].inputEdges) == 1
+    assert input_wus[root_dpi_urn].inputEdges[0].destinationUrn == retriever_dpi_urn
 
 
 # -------------------------------------------------------------------------
@@ -868,8 +878,7 @@ def test_build_model_stub_metadata_model_fallback():
 
 
 def test_retriever_and_llm_produce_combined_edge():
-    """Trace with both retriever + LLM children produces a single DataProcessInstanceInput
-    with 2 inputEdges on the root DPI."""
+    """Retriever child gets dataset edge, LLM child gets model edge; root gets DPI flow edges to both."""
     source = _make_source(_make_config(include_child_spans=True))
     project = _make_project()
     root_run = _make_run()
@@ -885,33 +894,38 @@ def test_retriever_and_llm_produce_combined_edge():
 
     wus = list(source._get_trace_workunits(project))
     root_dpi_urn = source._make_dpi_urn(RUN_ID)
+    retriever_dpi_urn = source._make_dpi_urn(RETRIEVER_RUN_ID)
+    llm_dpi_urn = source._make_dpi_urn(LLM_RUN_ID)
 
     input_wus = {
         wu.metadata.entityUrn: wu.metadata.aspect
         for wu in wus
         if isinstance(wu.metadata.aspect, DataProcessInstanceInputClass)
     }
-    assert len(input_wus) == 1
+    # Three DataProcessInstanceInput aspects: retriever span, llm span, root
+    assert len(input_wus) == 3
+    # Each child span gets its own asset edge
+    assert retriever_dpi_urn in input_wus
+    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
+    assert llm_dpi_urn in input_wus
+    assert any("mlModel" in e.destinationUrn for e in input_wus[llm_dpi_urn].inputEdges)
+    # Root gets DPI flow edges to both terminal children (parallel execution)
     assert root_dpi_urn in input_wus
-    edge_urns = {e.destinationUrn for e in input_wus[root_dpi_urn].inputEdges}
-    assert len(edge_urns) == 2
-    assert any("dataset" in u for u in edge_urns)
-    assert any("mlModel" in u for u in edge_urns)
+    root_edge_urns = {e.destinationUrn for e in input_wus[root_dpi_urn].inputEdges}
+    assert len(root_edge_urns) == 2
+    assert retriever_dpi_urn in root_edge_urns
+    assert llm_dpi_urn in root_edge_urns
 
 
 def test_duplicate_model_calls_deduplicated():
-    """Multiple LLM children calling the same model produce only 1 model edge."""
+    """Two LLM children calling the same model each get their own model edge on their span."""
+    llm1_id = uuid.UUID("aaaaaaaa-0000-0000-0000-000000000001")
+    llm2_id = uuid.UUID("aaaaaaaa-0000-0000-0000-000000000002")
     source = _make_source(_make_config(include_child_spans=True))
     project = _make_project()
     root_run = _make_run()
-    llm_run_1 = _make_llm_run(
-        parent_run_id=RUN_ID,
-        run_id=uuid.UUID("aaaaaaaa-0000-0000-0000-000000000001"),
-    )
-    llm_run_2 = _make_llm_run(
-        parent_run_id=RUN_ID,
-        run_id=uuid.UUID("aaaaaaaa-0000-0000-0000-000000000002"),
-    )
+    llm_run_1 = _make_llm_run(parent_run_id=RUN_ID, run_id=llm1_id)
+    llm_run_2 = _make_llm_run(parent_run_id=RUN_ID, run_id=llm2_id)
 
     source.client.list_runs = MagicMock(
         side_effect=[
@@ -922,19 +936,26 @@ def test_duplicate_model_calls_deduplicated():
 
     wus = list(source._get_trace_workunits(project))
     root_dpi_urn = source._make_dpi_urn(RUN_ID)
+    llm1_dpi_urn = source._make_dpi_urn(llm1_id)
+    llm2_dpi_urn = source._make_dpi_urn(llm2_id)
 
     input_wus = {
         wu.metadata.entityUrn: wu.metadata.aspect
         for wu in wus
         if isinstance(wu.metadata.aspect, DataProcessInstanceInputClass)
     }
-    assert len(input_wus) == 1
-    assert len(input_wus[root_dpi_urn].inputEdges) == 1
-    assert source.report.models_emitted == 2  # both processed; edge deduped
+    # Each LLM span gets its own model edge; root gets DPI flow edges to both
+    assert llm1_dpi_urn in input_wus
+    assert any("mlModel" in e.destinationUrn for e in input_wus[llm1_dpi_urn].inputEdges)
+    assert llm2_dpi_urn in input_wus
+    assert any("mlModel" in e.destinationUrn for e in input_wus[llm2_dpi_urn].inputEdges)
+    assert root_dpi_urn in input_wus
+    assert len(input_wus[root_dpi_urn].inputEdges) == 2
+    assert source.report.models_emitted == 2
 
 
 def test_llm_child_without_model_metadata_no_edge():
-    """LLM child with no ls_model_name in metadata produces no input edge."""
+    """LLM child with no ls_model_name produces no mlModel edge; root gets only DPI flow edge."""
     source = _make_source(_make_config(include_child_spans=True))
     project = _make_project()
     root_run = _make_run()
@@ -948,13 +969,23 @@ def test_llm_child_without_model_metadata_no_edge():
     )
 
     wus = list(source._get_trace_workunits(project))
+    root_dpi_urn = source._make_dpi_urn(RUN_ID)
+    llm_dpi_urn = source._make_dpi_urn(llm_run.id)
 
-    input_aspects = [
-        wu.metadata.aspect
+    input_wus = {
+        wu.metadata.entityUrn: wu.metadata.aspect
         for wu in wus
         if isinstance(wu.metadata.aspect, DataProcessInstanceInputClass)
-    ]
-    assert len(input_aspects) == 0
+    }
+    # Root gets a DPI flow edge to the terminal llm span, no model or dataset edges
+    assert root_dpi_urn in input_wus
+    root_edges = input_wus[root_dpi_urn].inputEdges
+    assert len(root_edges) == 1
+    assert root_edges[0].destinationUrn == llm_dpi_urn
+    assert not any("mlModel" in e.destinationUrn for e in root_edges)
+    assert not any("dataset" in e.destinationUrn for e in root_edges)
+    # LLM span itself has no DataProcessInstanceInput (no upstream flow, no model edge)
+    assert llm_dpi_urn not in input_wus
 
 
 # -------------------------------------------------------------------------
@@ -1174,3 +1205,155 @@ def test_assertions_not_emitted_when_disabled():
 
     assert not any(isinstance(w.metadata.aspect, AssertionInfoClass) for w in wus)
     assert not any(isinstance(w.metadata.aspect, AssertionRunEventClass) for w in wus)
+
+
+# -------------------------------------------------------------------------
+# _compute_flow_graph tests
+# -------------------------------------------------------------------------
+
+
+def test_flow_graph_serial_siblings():
+    """Three non-overlapping children produce a chain: c1 -> c2 -> c3 -> root."""
+    source = _make_source()
+    t0 = datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    t1 = datetime(2024, 1, 1, 10, 0, 1, tzinfo=timezone.utc)
+    t2 = datetime(2024, 1, 1, 10, 0, 2, tzinfo=timezone.utc)
+    t3 = datetime(2024, 1, 1, 10, 0, 3, tzinfo=timezone.utc)
+    t4 = datetime(2024, 1, 1, 10, 0, 4, tzinfo=timezone.utc)
+
+    root_id = uuid.UUID("cc000000-0000-0000-0000-000000000000")
+    c1_id = uuid.UUID("cc000000-0000-0000-0000-000000000001")
+    c2_id = uuid.UUID("cc000000-0000-0000-0000-000000000002")
+    c3_id = uuid.UUID("cc000000-0000-0000-0000-000000000003")
+
+    def _r(rid, pid, start, end):
+        return LangSmithRun(
+            id=rid, name=str(rid), run_type="chain", status="success",
+            start_time=start, end_time=end, tags=[], inputs={}, outputs={},
+            parent_run_id=pid,
+        )
+
+    root = _r(root_id, None, t0, t4)
+    c1 = _r(c1_id, root_id, t0, t1)
+    c2 = _r(c2_id, root_id, t1, t2)  # starts when c1 ends (non-overlapping)
+    c3 = _r(c3_id, root_id, t2, t3)
+
+    result = source._compute_flow_graph(root, [c1, c2, c3])
+
+    assert c1_id in result[c2_id]    # c2 is downstream of c1
+    assert c2_id in result[c3_id]    # c3 is downstream of c2
+    assert c3_id in result[root_id]  # c3 is terminal, feeds root
+    assert c1_id not in result.get(root_id, [])  # c1 is not terminal
+    assert c2_id not in result.get(root_id, [])  # c2 is not terminal
+
+
+def test_flow_graph_parallel_siblings():
+    """Two overlapping children form a parallel group -- both feed root, no inter-sibling edge."""
+    source = _make_source()
+    t0 = datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    t1 = datetime(2024, 1, 1, 10, 0, 1, tzinfo=timezone.utc)
+    t2 = datetime(2024, 1, 1, 10, 0, 2, tzinfo=timezone.utc)
+
+    root_id = uuid.UUID("dd000000-0000-0000-0000-000000000000")
+    c1_id = uuid.UUID("dd000000-0000-0000-0000-000000000001")
+    c2_id = uuid.UUID("dd000000-0000-0000-0000-000000000002")
+
+    def _r(rid, pid, start, end):
+        return LangSmithRun(
+            id=rid, name=str(rid), run_type="chain", status="success",
+            start_time=start, end_time=end, tags=[], inputs={}, outputs={},
+            parent_run_id=pid,
+        )
+
+    root = _r(root_id, None, t0, t2)
+    c1 = _r(c1_id, root_id, t0, t2)   # long-running
+    c2 = _r(c2_id, root_id, t1, t2)   # starts before c1 ends -> parallel
+
+    result = source._compute_flow_graph(root, [c1, c2])
+
+    # No inter-sibling edges
+    assert c1_id not in result.get(c2_id, [])
+    assert c2_id not in result.get(c1_id, [])
+    # Both are terminal and feed root
+    assert c1_id in result.get(root_id, [])
+    assert c2_id in result.get(root_id, [])
+
+
+def test_flow_graph_nested_tree():
+    """Nested tree: root -> [chain, prompt, llm] serial; chain -> [retriever, formatter] serial."""
+    source = _make_source()
+    times = [datetime(2024, 1, 1, 10, 0, i, tzinfo=timezone.utc) for i in range(7)]
+    t0, t1, t2, t3, t4, t5, t6 = times
+
+    root_id = uuid.UUID("ee000000-0000-0000-0000-000000000000")
+    chain_id = uuid.UUID("ee000000-0000-0000-0000-000000000001")
+    retriever_id = uuid.UUID("ee000000-0000-0000-0000-000000000002")
+    formatter_id = uuid.UUID("ee000000-0000-0000-0000-000000000003")
+    prompt_id = uuid.UUID("ee000000-0000-0000-0000-000000000004")
+    llm_id = uuid.UUID("ee000000-0000-0000-0000-000000000005")
+
+    def _r(rid, pid, start, end):
+        return LangSmithRun(
+            id=rid, name=str(rid), run_type="chain", status="success",
+            start_time=start, end_time=end, tags=[], inputs={}, outputs={},
+            parent_run_id=pid,
+        )
+
+    root = _r(root_id, None, t0, t6)
+    chain = _r(chain_id, root_id, t0, t2)
+    retriever = _r(retriever_id, chain_id, t0, t1)
+    formatter = _r(formatter_id, chain_id, t1, t2)
+    prompt = _r(prompt_id, root_id, t2, t4)
+    llm = _r(llm_id, root_id, t4, t5)
+
+    result = source._compute_flow_graph(root, [chain, retriever, formatter, prompt, llm])
+
+    # Top-level serial flow: chain -> prompt -> llm -> root
+    assert chain_id in result.get(prompt_id, [])
+    assert prompt_id in result.get(llm_id, [])
+    assert llm_id in result.get(root_id, [])
+    assert chain_id not in result.get(root_id, [])  # chain is not terminal at root level
+    # Nested under chain: retriever -> formatter -> chain
+    assert retriever_id in result.get(formatter_id, [])
+    assert formatter_id in result.get(chain_id, [])
+    assert retriever_id not in result.get(chain_id, [])  # retriever is not terminal at chain level
+
+
+def test_asset_edges_on_child_spans():
+    """Retriever child gets dataset edge; LLM child gets model edge; root gets DPI flow edges."""
+    source = _make_source(_make_config(include_child_spans=True))
+    project = _make_project()
+    root_run = _make_run()
+    retriever_run = _make_retriever_run()
+    llm_run = _make_llm_run(parent_run_id=RUN_ID)
+
+    source.client.list_runs = MagicMock(
+        side_effect=[
+            iter([root_run]),
+            iter([retriever_run, llm_run]),
+        ]
+    )
+
+    wus = list(source._get_trace_workunits(project))
+    root_dpi_urn = source._make_dpi_urn(RUN_ID)
+    retriever_dpi_urn = source._make_dpi_urn(RETRIEVER_RUN_ID)
+    llm_dpi_urn = source._make_dpi_urn(LLM_RUN_ID)
+
+    input_wus = {
+        wu.metadata.entityUrn: wu.metadata.aspect
+        for wu in wus
+        if isinstance(wu.metadata.aspect, DataProcessInstanceInputClass)
+    }
+
+    # Retriever span gets dataset edge
+    assert retriever_dpi_urn in input_wus
+    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
+    # LLM span gets model edge
+    assert llm_dpi_urn in input_wus
+    assert any("mlModel" in e.destinationUrn for e in input_wus[llm_dpi_urn].inputEdges)
+    # Root trace gets DPI flow edges to terminal children, not raw asset URNs
+    assert root_dpi_urn in input_wus
+    root_edge_urns = {e.destinationUrn for e in input_wus[root_dpi_urn].inputEdges}
+    assert not any("dataset" in u for u in root_edge_urns)
+    assert not any("mlModel" in u for u in root_edge_urns)
+    assert retriever_dpi_urn in root_edge_urns or llm_dpi_urn in root_edge_urns

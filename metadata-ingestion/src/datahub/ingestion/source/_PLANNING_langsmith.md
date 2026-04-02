@@ -240,6 +240,46 @@ potential mitigation: config option to normalize names or revert to per-key-only
 | ------------------------------ | --------------------------- | ---------------------------------------------- |
 | **Feedback score on trace**    | `Assertion` + `AssertionRunEvent` | Custom assertion type; one per feedback key |
 
+## v1.5 Scope (implemented) - Span execution flow as DataHub lineage
+
+**Goal:** Show the LangSmith execution call graph in the DataHub Lineage tab using
+DPI-to-DPI lineage edges. Activated by `include_child_spans: true`.
+
+### Approach
+
+`DataProcessInstanceInput.inputEdges` supports `dataProcessInstance` as a target
+and is marked `isLineage: true` in the DataHub schema, making DPI-to-DPI lineage
+first-class.
+
+For each trace, sibling span execution order is inferred from `start_time`/`end_time`:
+non-overlapping siblings are serial (each step is upstream of the next); overlapping
+siblings are treated as a parallel group (fan-in). For standard synchronous LangChain
+pipelines the ordering is unambiguous.
+
+Asset edges (Dataset for retriever spans, MLModel for LLM spans) are now emitted on
+the owning child span rather than on the root trace, so the lineage graph reads:
+`[Dataset] -> [Retriever] -> ... -> [Root trace]`.
+
+### Known limitation
+
+When a `RunnableParallel` with synchronous branches happens to run serially (all
+branches on the same thread), the timing heuristic sees them as sequential rather
+than fan-in. This is temporally correct but loses the pipeline-parallel structure.
+
+### Changes
+
+- `langsmith.py`: added `from collections import defaultdict`; new `_compute_flow_graph`
+  method; refactored `_get_child_span_workunits` (collect all children first, emit DPI
+  flow edges per child and root); updated `_get_trace_workunits` to branch on
+  `include_child_spans` (flow graph mode vs. flat root-only mode)
+- Unit tests: 4 new tests (`test_flow_graph_serial_siblings`,
+  `test_flow_graph_parallel_siblings`, `test_flow_graph_nested_tree`,
+  `test_asset_edges_on_child_spans`); 6 updated tests to reflect asset edges on child
+  spans and DPI flow edges on root
+- Golden file: regenerated (`DataProcessInstanceInput` now on each child span + root;
+  asset URNs replaced by DPI URNs on root)
+- `langsmith_pre.md`: added span execution lineage section and table row
+
 ## v2 Candidates (not implemented)
 
 - **DataJob as pipeline template** - emit a `DataJob` per distinct run name/type
