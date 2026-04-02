@@ -182,6 +182,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return rs.one() != null;
   }
 
+  @Override
+  public boolean hasAspectsNeedingMigration(
+      @Nonnull String aspectName, @Nonnull Set<Long> sourceVersions) {
+    throw new UnsupportedOperationException(
+        "hasAspectsNeedingMigration not supported for Cassandra");
+  }
+
   private Map<String, Pair<Long, Long>> getVersionRanges(
       @Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
     SimpleStatement ss =
@@ -600,6 +607,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
+    // Not implemented
+    return null;
+  }
+
+  @Nonnull
+  @Override
+  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+      @Nonnull java.util.Map<String, Long> aspectTargetVersions,
+      long afterCreatedOnMs,
+      int batchSize,
+      int limit) {
     // Not implemented
     return null;
   }

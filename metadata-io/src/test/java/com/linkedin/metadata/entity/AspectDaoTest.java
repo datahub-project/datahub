@@ -483,6 +483,12 @@ public class AspectDaoTest {
     }
 
     @Override
+    public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+        Map<String, Long> aspectTargetVersions, long afterCreatedOnMs, int batchSize, int limit) {
+      return null;
+    }
+
+    @Override
     public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
       return null;
     }
