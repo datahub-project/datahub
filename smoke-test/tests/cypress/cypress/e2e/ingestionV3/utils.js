@@ -194,7 +194,61 @@ export const updateIngestionSource = (
   cy.waitTextVisible("Successfully updated ingestion source!");
 };
 
+// Cancel any running execution for an ingestion source before deleting it.
+// Without this, the executor keeps processing the run after the source is
+// deleted, consuming memory and causing OOM crashes when runs pile up.
+const cancelRunningExecution = (sourceName) => {
+  cy.request({
+    method: "POST",
+    url: "/api/v2/graphql",
+    body: {
+      query: `query listIngestionSources($input: ListIngestionSourcesInput!) {
+        listIngestionSources(input: $input) {
+          ingestionSources {
+            urn
+            name
+            executions(start: 0, count: 1) {
+              executionRequests {
+                urn
+                result { status }
+              }
+            }
+          }
+        }
+      }`,
+      variables: { input: { start: 0, count: 100, query: sourceName } },
+    },
+    failOnStatusCode: false,
+  }).then((resp) => {
+    if (resp.status !== 200 || !resp.body?.data) return;
+    const sources = resp.body.data.listIngestionSources?.ingestionSources || [];
+    const source = sources.find((s) => s.name === sourceName);
+    if (!source) return;
+    const lastExec = source.executions?.executionRequests?.[0];
+    if (!lastExec) return;
+    const status = lastExec.result?.status;
+    if (status && status !== "RUNNING" && status !== "PENDING") return;
+    cy.request({
+      method: "POST",
+      url: "/api/v2/graphql",
+      body: {
+        query: `mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequestInput!) {
+          cancelIngestionExecutionRequest(input: $input)
+        }`,
+        variables: {
+          input: {
+            ingestionSourceUrn: source.urn,
+            executionRequestUrn: lastExec.urn,
+          },
+        },
+      },
+      failOnStatusCode: false,
+    });
+  });
+};
+
 export const deleteIngestionSource = (sourceName) => {
+  cancelRunningExecution(sourceName);
   cy.contains("td", sourceName)
     .siblings("td")
     .find('[data-testid="ingestion-more-options"]')
