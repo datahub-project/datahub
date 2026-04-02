@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
@@ -91,7 +90,7 @@ export const Table = <T,>({
         return (
             <LoadingContainer>
                 <LoadingOutlined />
-                <Text color="gray">Loading data...</Text>
+                <Text>Loading data...</Text>
             </LoadingContainer>
         );
     }

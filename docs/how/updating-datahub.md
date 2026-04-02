@@ -33,6 +33,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- **Docker / Prometheus (Micrometer):** When using the stock DataHub Docker `start.sh` entrypoints, GMS, MAE consumer, MCE consumer, and the frontend expose Micrometer Actuator (including `GET /actuator/prometheus` and `/actuator/health`) on container port **4319** by default (`MANAGEMENT_SERVER_PORT`), separate from the main API/UI port. Profile compose ([docker/profiles/docker-compose.gms.yml](../../docker/profiles/docker-compose.gms.yml)) **`expose`s 4319** for on-network scraping and maps **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host for GMS (same pattern as **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`** for HTTP). Override `DATAHUB_GMS_MANAGEMENT_URL` in smoke tests if needed, or change the host port via `DATAHUB_MAPPED_GMS_MANAGEMENT_PORT`. Scrape from another container on the same compose network (e.g. `http://datahub-gms:4319/actuator/prometheus` as in [docker/monitoring/prometheus.yaml](../../docker/monitoring/prometheus.yaml)). MAE and MCE image **HEALTHCHECK** probes the management port first, then falls back to the main consumer port for older layouts. The JMX Prometheus Java agent remains on **4318**. If you previously scraped Micrometer from the GMS HTTP port (e.g. `8080`), update scrapes to the management listener. To keep Actuator on the main port, unset `MANAGEMENT_SERVER_PORT` in the container or set it equal to the main server port.
+- (Operations / monitoring) Docker images that bundle the **JMX Prometheus Java agent** (`datahub-gms`, `datahub-frontend-react`, `datahub-mae-consumer`, `datahub-mce-consumer`, `datahub-upgrade`) now ship **`jmx_prometheus_javaagent` 1.0.1** (previously 0.20.0). The agent uses **Prometheus client_java 1.x**; upgrade scrapers and dashboards accordingly.
+  - **HTTP scrape path:** Metrics are exposed at **`/metrics`**, not at **`/`**. If you scrape the JMX port directly (often **4318** when Prometheus export is enabled), set your Prometheus `metrics_path` (or Kubernetes `ServiceMonitor` / `PodMonitor` `path`) to **`/metrics`**. Anything still requesting **`/`** will receive the default HTML page, not the metrics exposition.
+  - **JVM metrics:** Some built-in JVM metric **names** changed to align with OpenMetrics (for example, memory-related series). Update Grafana panels, recording rules, and alerts that referenced the old names. See the [client_java JVM migration notes](https://prometheus.github.io/client_java/migration/simpleclient/#jvm-metrics).
+  - **Labels:** When multiple MBeans map to the same metric name, series may include an **`_objectname`** label; adjust queries or aggregations if you previously assumed a single series per name.
 - #16723 (Ingestion) Dataplex source configuration cleanup: `filter_config.entries.dataset_pattern` was removed, use `filter_config.entries.pattern` instead; `entries_location` was removed, use `entries_locations` (list) instead.
 
 ### Known Issues
@@ -67,6 +72,7 @@ Requirements:
 - #16149 (Ingestion) DataHub source: now uses URN pattern filtering to exclude environment-specific entities by default. This prevents copying credentials and creating invalid entities.
   - **Default behavior change**: Previously `exclude_aspects` contained `dataHubIngestionSourceInfo`, `dataHubSecretValue`, `dataHubExecutionRequestInput`, `globalSettingsInfo`. Now `urn_pattern.deny` contains `urn:li:dataHubIngestionSource:.*`, `urn:li:dataHubSecret:.*`, `urn:li:globalSettings:.*`, `urn:li:dataHubExecutionRequest:.*` to exclude entire entity types instead of individual aspects.
   - **Note**: If you override `urn_pattern` or `exclude_aspects` in recipe, carefully configure them based on your requirements to avoid syncing sensitive data or creating invalid entities. Recommended to keep new defaults.
+- #16333 (Ingestion) Sigma: Owner urns are now created from the email address of the user. Any existing references to the urns of firstName_lastName will break.
 - (Ingestion) Kafka Connect: The Debezium SQL Server connector now reports its platform as `mssql` instead of `sqlserver`, matching DataHub's canonical platform name. This fixes column-level lineage when using `use_schema_resolver: true`, as the SchemaResolver now correctly queries for `platform=mssql`. If you have `platform_instance_map` or `connect_to_platform_map` entries keyed on `"sqlserver"` for Debezium SQL Server connectors, update them to use `"mssql"` instead.
 - #16385 Default token signing key and salt have been removed from `metadata-service/configuration/src/main/resources/application.yaml`. It is recommended to set `authentication.tokenService.signingKey` or env var `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `authentication.tokenService.salt` or env var `DATAHUB_TOKEN_SERVICE_SALT` before starting DataHub. Refer the linked pages to know this is handled for [local development](../developers.md) and [CLI quickstart](../quickstart.md).
   - If you are using helm to deploy DataHub you should be unaffected as the helm charts don't use the default values in application.yaml but rather generate a random secret to use.
@@ -127,6 +133,30 @@ Requirements:
 - #16058 (Ingestion) Snowflake: Support for ingesting external data metric function (DMF) assertions.
 - #16265 (Ingestion) Azure Data Factory: Column lineage extraction for Copy activity.
 - #16235 (Ingestion) Airflow plugin: Multi-statement SQL parsing support for lineage extraction.
+
+## v1.5.0.2
+
+### Bug Fixes
+
+- #15748 (Ingestion) PowerBI: Reverted `create_corp_user` default back to `True` (was changed to `False` in v1.5.0). Customers on v1.5.0 or v1.5.0.1 with stateful ingestion enabled and without explicitly setting `ownership.create_corp_user: true` in their recipe may have had PowerBI-discovered users soft-deleted.
+
+  **Remediation** — if users were already soft-deleted, restore them using one of:
+
+  - Re-ingest from your authoritative source (LDAP/Okta/SCIM) — recommended.
+  - CLI: `datahub delete --urn "urn:li:corpuser:<email>" --soft --undelete` for each affected user.
+  - Python SDK: emit `StatusClass(removed=False)` for each affected user URN.
+
+  **Behavior with `create_corp_user: true` (new default):**
+  PowerBI creates CorpUser entities with display name and email. These are marked as non-primary (`is_primary_source=False`), so stateful ingestion will **not** soft-delete them if they disappear from PowerBI. Note: PowerBI user info may overwrite richer profiles from authoritative sources like LDAP/Okta. If this is a concern, follow the migration steps below to switch to `false`.
+
+  **If you want `create_corp_user: false`** (to avoid overwriting LDAP/Okta profiles):
+  Do **not** switch directly to `false` — this will cause the same soft-deletion bug. Instead:
+
+  1. Upgrade to this version and run **at least one ingestion** with `create_corp_user: true` (the default). This updates the stateful ingestion checkpoint to mark user URNs as non-primary.
+  2. After that run completes, set `ownership.create_corp_user: false` in your recipe.
+  3. On subsequent runs, users will no longer be emitted, but stateful ingestion will safely skip them (they were already marked non-primary in the checkpoint).
+
+  Skipping step 1 and going directly to `false` means the checkpoint still has users marked as primary from the old code, and stateful ingestion will soft-delete them.
 
 ## v1.4.0
 

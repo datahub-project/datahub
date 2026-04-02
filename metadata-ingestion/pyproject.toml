@@ -47,7 +47,6 @@ dependencies = [
     "Deprecated<2.0.0",
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
-    "graphql-core>=3.0.0,<4.0.0",
     "humanfriendly<11.0.0",
     "ijson<4.0.0",
     "jsonref<2.0.0",
@@ -370,6 +369,7 @@ datahub-lite = [
 ]
 
 datahub-rest = [
+    "graphql-core>=3.0.0,<4.0.0",
     "requests<3.0.0",
 ]
 
@@ -551,7 +551,7 @@ fabric-data-factory = [
 
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
-    "pyodbc<6.0.0",
+    "pyodbc>=4.0,<6.0.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
 ]
@@ -581,7 +581,7 @@ fivetran = [
     "patchy==2.8.0",
     "pip",
     "schwifty<2026.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
@@ -631,6 +631,8 @@ glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
+    "patchy==2.8.0",
+    "sqlglot[c]==30.0.3",
     "urllib3>=1.26,<3.0",
 ]
 
@@ -829,7 +831,7 @@ mssql = [
     "numpy<2",
     "patchy==2.8.0",
     "pip",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
@@ -850,7 +852,7 @@ mssql-odbc = [
     "patchy==2.8.0",
     "pip",
     "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
@@ -1000,16 +1002,19 @@ presto-on-hive = [
     "greenlet<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
+    "kerberos>=1.3.0,<2.0.0",
     "numpy<2",
     "patchy==2.8.0",
     "pip",
     "psycopg2-binary<3.0.0",
+    "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
+    "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
 
@@ -1058,6 +1063,23 @@ redshift = [
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
+    "wcmatch<11.0.0",
+]
+
+redshift-slim = [
+    "acryl-datahub-classify==0.0.11",
+    "cachetools<6.0.0",
+    "db-dtypes",
+    "GeoAlchemy2<0.19.0",
+    "numpy<2",
+    "parse>=1.19.0,<2.0.0",
+    "patchy==2.8.0",
+    "pip",
+    "redshift-connector>=2.1.5,<3.0.0",
+    "schwifty<2026.0.0",
+    "sqlalchemy-redshift>=0.8.3,<=0.8.14",
+    "sqlglot[c]==30.0.3",
+    "sqlparse<0.6.0",
     "wcmatch<11.0.0",
 ]
 
@@ -1138,7 +1160,7 @@ snowflake = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1162,7 +1184,7 @@ snowflake-queries = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1180,7 +1202,7 @@ snowflake-slim = [
     "pandas<3.0.0",
     "pip",
     "schwifty<2026.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
@@ -1200,7 +1222,7 @@ snowflake-summary = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
@@ -1416,6 +1438,7 @@ all = [
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "gql[requests]>=4.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
@@ -1458,8 +1481,8 @@ all = [
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyodbc>=4.0,<6.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
@@ -1476,7 +1499,7 @@ all = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1615,7 +1638,7 @@ dev = [
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
@@ -1646,7 +1669,7 @@ dev = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1675,7 +1698,7 @@ dev = [
     "types-Deprecated<2.0.0",
     "types-protobuf>=4.21.0.1,<7.0.0",
     "types-PyMySQL<2.0.0",
-    "types-pyOpenSSL<26.0.0",
+    "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
     "types-python-dateutil<3.0.0",
     "types-pytz<2026.0.0",
     "types-PyYAML<7.0.0",
@@ -1806,7 +1829,7 @@ docs = [
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
@@ -1837,7 +1860,7 @@ docs = [
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
-    "snowflake-connector-python>=4.0.0,<5.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
@@ -1866,7 +1889,7 @@ docs = [
     "types-Deprecated<2.0.0",
     "types-protobuf>=4.21.0.1,<7.0.0",
     "types-PyMySQL<2.0.0",
-    "types-pyOpenSSL<26.0.0",
+    "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
     "types-python-dateutil<3.0.0",
     "types-pytz<2026.0.0",
     "types-PyYAML<7.0.0",
@@ -1948,8 +1971,8 @@ integration-tests = [
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyodbc>=4.0,<6.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "pyzipper>=0.3.6,<1.0",
@@ -2074,7 +2097,7 @@ presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"
 salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
-demo-data = "datahub.ingestion.source.demo_data.DemoDataSource"
+demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"

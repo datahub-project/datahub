@@ -8,3 +8,12 @@ scrape_configs:
         - 'datahub-mae-consumer:4318'
         - 'datahub-mce-consumer:4318'
         - 'datahub-frontend-react:4318'
+  - job_name: 'micrometer'
+    scrape_interval: 10s
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+        - 'datahub-gms:4319'
+        - 'datahub-mae-consumer:4319'
+        - 'datahub-mce-consumer:4319'
+        - 'datahub-frontend-react:4319'
