@@ -826,7 +826,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
         .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(false));
   }
 
-  private void stubPhase1ForIncrementalAliasSwap() {
+  private void stubPhase1ForIncrementalAliasSwap() throws Exception {
     Urn upgradeUrn =
         BootstrapStep.getUpgradeUrn(IncrementalReindexState.UPGRADE_ID_PREFIX + "_0.0.0-test-0");
     Map<String, String> phase1Map =
