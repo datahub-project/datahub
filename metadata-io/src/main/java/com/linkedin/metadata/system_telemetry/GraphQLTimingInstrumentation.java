@@ -173,8 +173,7 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
 
     // Extract actorUrn for caller attribution (best-effort)
     try {
-      Object actorContext =
-          parameters.getGraphQLContext().getOrDefault(GRAPHQL_CONTEXT_ACTOR_KEY, null);
+      Object actorContext = parameters.getGraphQLContext().get(GRAPHQL_CONTEXT_ACTOR_KEY);
       if (actorContext instanceof Actor actor) {
         timingState.actorUrn = actor.toUrnStr();
       }
