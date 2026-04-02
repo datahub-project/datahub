@@ -6,8 +6,6 @@ GraphQL shape logging provides visibility into query and response complexity thr
 
 ## Metrics Dashboard
 
-Monitor these three key metrics in Grafana (see `graphql-shape-metrics.json` for dashboard):
-
 1. **graphql.shape.requests.total** — Counter of GraphQL requests by shape
 
    - **Dimensions**: `top_level_fields` (bounded), `operation_type` (query/mutation/subscription)
@@ -283,7 +281,6 @@ Threshold selection affects volume:
   - `QueryShapeAnalyzer.java` — Query shape extraction and hashing
   - `ResponseShapeAnalyzer.java` — Response shape analysis and sampling
   - `GraphQLTimingInstrumentation.java` — Metric emission and threshold evaluation
-- **Dashboard**: `metadata-service/docs/graphql-shape-metrics.json` — Grafana import
 
 ## FAQ
 
@@ -295,6 +292,3 @@ A: Not currently. Filter in Grafana or post-process logs if needed.
 
 **Q: What's the difference between field count and response field count?**
 A: `fieldCount` = selections in query (e.g., `{a b c}` = 3). `responseFieldCount` = leaf values in response (e.g., array of 100 with 3 fields each = 300).
-
-**Q: How often should I review thresholds?**
-A: Monthly in dev/staging; quarterly in production (less volatility).
