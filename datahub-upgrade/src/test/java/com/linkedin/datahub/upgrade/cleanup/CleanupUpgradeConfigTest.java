@@ -184,6 +184,7 @@ public class CleanupUpgradeConfigTest {
         null,
         "localhost",
         3306,
-        "testdb");
+        "testdb",
+        false);
   }
 }

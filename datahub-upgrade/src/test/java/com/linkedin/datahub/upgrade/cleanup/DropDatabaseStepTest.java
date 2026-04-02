@@ -60,7 +60,8 @@ public class DropDatabaseStepTest {
         "userpass",
         "localhost",
         dbType == DatabaseType.POSTGRES ? 5432 : 3306,
-        dbName);
+        dbName,
+        false);
   }
 
   @Test
