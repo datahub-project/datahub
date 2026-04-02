@@ -193,9 +193,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     # Low-level helpers
     # ------------------------------------------------------------------
 
-    def _as_wu(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
-        return mcp.as_workunit()
-
     def _emit_platform_metadata(self) -> Iterator[MetadataWorkUnit]:
         platform_info = DataPlatformInfoClass(
             name=self.PLATFORM,
@@ -204,12 +201,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             displayName="Omni",
             logoUrl=self.DEFAULT_LOGO_URL,
         )
-        yield self._as_wu(
-            MetadataChangeProposalWrapper(
-                entityUrn=make_data_platform_urn(self.PLATFORM),
-                aspect=platform_info,
-            )
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=make_data_platform_urn(self.PLATFORM),
+            aspect=platform_info,
+        ).as_workunit()
 
     def _emit_upstream_lineage(
         self,
@@ -227,18 +222,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             fineGrainedLineages=fine_grained_lineages or None,
         )
         self.report.dataset_lineage_edges_emitted += len(upstreams)
-        yield self._as_wu(
-            MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=lineage)
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=lineage
+        ).as_workunit()
 
     def _clear_upstream_lineage(self, dataset_urn: str) -> Iterator[MetadataWorkUnit]:
         """Emit an explicit empty lineage to clear stale edges from prior runs."""
-        yield self._as_wu(
-            MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=UpstreamLineageClass(upstreams=[], fineGrainedLineages=None),
-            )
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineageClass(upstreams=[], fineGrainedLineages=None),
+        ).as_workunit()
 
     # ------------------------------------------------------------------
     # Schema / type helpers
@@ -1274,12 +1267,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             dashboard_dataset_urn = make_dataset_urn(
                 self.PLATFORM, doc_id, self.config.env
             )
-            yield self._as_wu(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_dataset_urn,
-                    aspect=SubTypesClass(typeNames=["Dashboard"]),
-                )
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_dataset_urn,
+                aspect=SubTypesClass(typeNames=["Dashboard"]),
+            ).as_workunit()
 
             dashboard_url = (
                 document.get("url")
