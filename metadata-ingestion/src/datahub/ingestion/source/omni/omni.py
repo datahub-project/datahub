@@ -77,6 +77,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Chart, Dashboard, Dataset
+from datahub.utilities.sentinels import unset
 
 logger = logging.getLogger(__name__)
 
@@ -361,7 +362,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             external_url=external_url,
             dashboard_url=external_url,
             custom_properties=custom_properties,
-            **({"parent_container": [folder_urn]} if folder_urn else {}),
+            parent_container=[folder_urn] if folder_urn else unset,
         )
         dashboard.set_charts(chart_urns)
         if updated_at:
@@ -768,7 +769,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     seen_fields.add(fn)
                 expr = measure.get("dialect_sql") or measure.get("display_sql") or ""
                 refs = extract_field_refs(expr)
-                confidence = "exact" if refs else "derived" if expr else "unresolved"
+                confidence: FieldConfidence = (
+                    "exact" if refs else "derived" if expr else "unresolved"
+                )
                 key = self._canonical_semantic_field_key(model_id, view_name, fn)
                 sf = SemanticField(
                     model_id=model_id,
