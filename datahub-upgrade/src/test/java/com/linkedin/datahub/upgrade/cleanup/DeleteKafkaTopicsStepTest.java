@@ -88,7 +88,7 @@ public class DeleteKafkaTopicsStepTest {
     AdminClient mockAdminClient = mock(AdminClient.class);
     DeleteTopicsResult mockDeleteResult = mock(DeleteTopicsResult.class);
     KafkaFuture<Void> mockFuture = mock(KafkaFuture.class);
-    when(mockFuture.get()).thenReturn(null);
+    when(mockFuture.get(anyLong(), any(java.util.concurrent.TimeUnit.class))).thenReturn(null);
     when(mockDeleteResult.all()).thenReturn(mockFuture);
     when(mockAdminClient.deleteTopics(anyCollection())).thenReturn(mockDeleteResult);
     doReturn(mockAdminClient).when(step).createAdminClient();
@@ -150,7 +150,7 @@ public class DeleteKafkaTopicsStepTest {
     AdminClient mockAdminClient = mock(AdminClient.class);
     DeleteTopicsResult mockDeleteResult = mock(DeleteTopicsResult.class);
     KafkaFuture<Void> mockFuture = mock(KafkaFuture.class);
-    when(mockFuture.get()).thenReturn(null);
+    when(mockFuture.get(anyLong(), any(java.util.concurrent.TimeUnit.class))).thenReturn(null);
     when(mockDeleteResult.all()).thenReturn(mockFuture);
     when(mockAdminClient.deleteTopics(anyCollection())).thenReturn(mockDeleteResult);
     doReturn(mockAdminClient).when(step).createAdminClient();

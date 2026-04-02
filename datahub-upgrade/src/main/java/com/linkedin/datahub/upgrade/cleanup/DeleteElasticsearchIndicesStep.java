@@ -16,7 +16,6 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
-import java.io.IOException;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.Request;
@@ -107,11 +106,15 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
       for (String indexName : response.getIndices()) {
         safeDeleteIndex(client, indexName);
       }
-    } catch (IOException e) {
-      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+    } catch (ResponseException e) {
+      if (e.getResponse().getStatusLine().getStatusCode() == 404) {
         log.info("No indices matching pattern {} (already absent)", pattern);
       } else {
-        log.warn("Failed to enumerate indices for pattern {}: {}", pattern, e.getMessage());
+        log.warn(
+            "Failed to enumerate indices for pattern {} (HTTP {}): {}",
+            pattern,
+            e.getResponse().getStatusLine().getStatusCode(),
+            e.getMessage());
       }
     } catch (Exception e) {
       log.warn("Failed to enumerate indices for pattern {}: {}", pattern, e.getMessage());

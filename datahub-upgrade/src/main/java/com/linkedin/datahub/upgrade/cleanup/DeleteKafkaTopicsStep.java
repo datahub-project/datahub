@@ -12,6 +12,7 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -68,7 +69,9 @@ public class DeleteKafkaTopicsStep implements UpgradeStep {
       log.info("Deleting {} Kafka topics: {}", topicNames.size(), topicNames);
 
       try (AdminClient adminClient = createAdminClient()) {
-        adminClient.deleteTopics(topicNames).all().get();
+        // 60 s matches Kafka's own default.api.timeout.ms — topic deletion is a metadata-only
+        // operation so this is ample even on large clusters.
+        adminClient.deleteTopics(topicNames).all().get(60, TimeUnit.SECONDS);
         log.info("Successfully deleted {} Kafka topics", topicNames.size());
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Exception e) {

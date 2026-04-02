@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import javax.sql.DataSource;
@@ -25,6 +26,7 @@ public class DropDatabaseStepTest {
   @Mock private DataSource mockDataSource;
   @Mock private Connection mockConnection;
   @Mock private Statement mockStatement;
+  @Mock private PreparedStatement mockPreparedStatement;
 
   private UpgradeContext mockContext;
 
@@ -35,6 +37,7 @@ public class DropDatabaseStepTest {
     when(mockDatabase.dataSource()).thenReturn(mockDataSource);
     when(mockDataSource.getConnection()).thenReturn(mockConnection);
     when(mockConnection.createStatement()).thenReturn(mockStatement);
+    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
   }
 
   private SqlSetupArgs makeArgs(
@@ -114,8 +117,9 @@ public class DropDatabaseStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    // Postgres should terminate connections first, then drop
-    verify(mockStatement).execute(contains("pg_terminate_backend"));
+    // pg_terminate_backend uses a PreparedStatement to avoid SQL injection
+    verify(mockPreparedStatement).setString(1, "testdb");
+    verify(mockPreparedStatement).execute();
     verify(mockStatement).execute(contains("DROP DATABASE IF EXISTS \"testdb\""));
   }
 
@@ -204,9 +208,8 @@ public class DropDatabaseStepTest {
 
   @Test
   public void testPostgresTerminateConnectionsFailureDoesNotBlock() throws SQLException {
-    // First call (pg_terminate_backend) throws, second call (DROP DATABASE) succeeds
-    when(mockStatement.execute(contains("pg_terminate_backend")))
-        .thenThrow(new SQLException("No permission to terminate"));
+    // pg_terminate_backend uses PreparedStatement; failure is swallowed, DROP DATABASE proceeds
+    when(mockPreparedStatement.execute()).thenThrow(new SQLException("No permission to terminate"));
     SqlSetupArgs args = makeArgs(DatabaseType.POSTGRES, "testdb", false, null, false, null);
     DropDatabaseStep step = new DropDatabaseStep(mockDatabase, args);
 

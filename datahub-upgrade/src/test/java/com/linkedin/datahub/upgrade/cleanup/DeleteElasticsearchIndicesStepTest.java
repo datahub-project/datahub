@@ -55,8 +55,12 @@ public class DeleteElasticsearchIndicesStepTest {
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn("test_*aspect_v1");
     when(indexConvention.getIndexName(anyString())).thenAnswer(inv -> "test_" + inv.getArgument(0));
 
-    // Default: patterns match no indices (index_not_found_exception)
-    doThrow(new IOException("index_not_found_exception")).when(searchClient).getIndex(any(), any());
+    // Default: patterns match no indices — simulate the 404 ResponseException the real client
+    // throws
+    org.opensearch.client.Response notFoundResponse = mock(org.opensearch.client.Response.class);
+    when(notFoundResponse.getStatusLine()).thenReturn(createStatusLine(404, "Not Found"));
+    when(responseException.getResponse()).thenReturn(notFoundResponse);
+    doThrow(responseException).when(searchClient).getIndex(any(), any());
 
     // Default: low-level requests succeed
     when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));

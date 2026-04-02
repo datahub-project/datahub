@@ -9,6 +9,7 @@ import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -63,22 +64,24 @@ public class DropDatabaseStep implements UpgradeStep {
   }
 
   private void dropDatabase(Connection conn, String dbName) throws Exception {
+    validateIdentifier(dbName);
     boolean isPostgres = setupArgs.getDbType() == DatabaseType.POSTGRES;
 
     if (isPostgres) {
-      // Terminate active connections before dropping
+      // Use a parameterized query to avoid SQL injection in the WHERE clause.
+      // DROP DATABASE cannot be parameterized, but this SELECT can and should be.
       String terminateSql =
-          String.format(
-              "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                  + "WHERE datname = '%s' AND pid <> pg_backend_pid()",
-              dbName);
-      try (Statement stmt = conn.createStatement()) {
-        stmt.execute(terminateSql);
+          "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+              + "WHERE datname = ? AND pid <> pg_backend_pid()";
+      try (PreparedStatement pstmt = conn.prepareStatement(terminateSql)) {
+        pstmt.setString(1, dbName);
+        pstmt.execute();
       } catch (Exception e) {
         log.warn("Failed to terminate connections to {}: {}", dbName, e.getMessage());
       }
     }
 
+    // DDL identifiers cannot be parameterized in JDBC; identifier is validated above.
     String dropSql;
     if (isPostgres) {
       dropSql = String.format("DROP DATABASE IF EXISTS \"%s\"", dbName);
@@ -112,6 +115,14 @@ public class DropDatabaseStep implements UpgradeStep {
   }
 
   private void dropUser(Connection conn, String username, boolean isPostgres) {
+    try {
+      validateIdentifier(username);
+    } catch (IllegalArgumentException e) {
+      log.warn("Skipping user drop — invalid identifier '{}': {}", username, e.getMessage());
+      return;
+    }
+
+    // DDL identifiers cannot be parameterized in JDBC; identifier is validated above.
     String sql;
     if (isPostgres) {
       sql = String.format("DROP USER IF EXISTS \"%s\"", username);
@@ -125,6 +136,17 @@ public class DropDatabaseStep implements UpgradeStep {
       log.info("Successfully dropped user: {}", username);
     } catch (Exception e) {
       log.warn("Failed to drop user {}: {}", username, e.getMessage());
+    }
+  }
+
+  /**
+   * Validates that a SQL identifier contains only safe characters. DDL statements (DROP DATABASE,
+   * DROP USER) cannot use parameterized placeholders in JDBC, so the identifier must be validated
+   * before being interpolated into the statement string.
+   */
+  private static void validateIdentifier(String name) {
+    if (name == null || !name.matches("[a-zA-Z0-9_\\-]+")) {
+      throw new IllegalArgumentException("SQL identifier contains unsafe characters: " + name);
     }
   }
 }
