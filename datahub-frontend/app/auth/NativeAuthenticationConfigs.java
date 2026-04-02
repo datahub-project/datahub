@@ -12,16 +12,11 @@ public class NativeAuthenticationConfigs {
 
   public NativeAuthenticationConfigs(final com.typesafe.config.Config configs) {
     if (configs.hasPath(NATIVE_AUTHENTICATION_ENABLED_CONFIG_PATH)) {
-      isEnabled =
-          Boolean.parseBoolean(
-              configs.getValue(NATIVE_AUTHENTICATION_ENABLED_CONFIG_PATH).toString());
+      isEnabled = configs.getBoolean(NATIVE_AUTHENTICATION_ENABLED_CONFIG_PATH);
     }
     if (configs.hasPath(NATIVE_AUTHENTICATION_ENFORCE_VALID_EMAIL_ENABLED_CONFIG_PATH)) {
       isEnforceValidEmailEnabled =
-          Boolean.parseBoolean(
-              configs
-                  .getValue(NATIVE_AUTHENTICATION_ENFORCE_VALID_EMAIL_ENABLED_CONFIG_PATH)
-                  .toString());
+          configs.getBoolean(NATIVE_AUTHENTICATION_ENFORCE_VALID_EMAIL_ENABLED_CONFIG_PATH);
     }
   }
 

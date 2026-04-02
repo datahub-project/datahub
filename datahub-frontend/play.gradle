@@ -33,6 +33,7 @@ dependencies {
     play("com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion")
     play(externalDependency.jsonSmart)
     play("io.netty:netty-all:${rootProject.ext.nettyVersion}")
+    play(externalDependency.playJavaForms)
 
     implementation(externalDependency.nettyReactor) {
     }
@@ -53,6 +54,8 @@ dependencies {
   implementation project(":metadata-service:auth-config")
   implementation project(":metadata-service:configuration")
   implementation project(":metadata-utils")
+
+  implementation externalDependency.micrometerPrometheus
 
   implementation externalDependency.springCore
   implementation externalDependency.springBeans
@@ -85,6 +88,7 @@ dependencies {
   implementation externalDependency.playWs
   implementation externalDependency.playServer
   implementation externalDependency.playAkkaHttpServer
+  implementation externalDependency.playJavaForms
   implementation externalDependency.playFilters
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth

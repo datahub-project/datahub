@@ -1,6 +1,6 @@
 from collections import defaultdict
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +15,9 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataSource,
     TeradataTable,
     get_schema_columns,
+    get_schema_foreign_keys,
     get_schema_pk_constraints,
+    optimized_get_columns,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -924,10 +926,16 @@ class TestLineageQuerySeparation:
 
             assert len(queries) == 1
 
-            # UNION query should have database filters for both current and historical parts
+            # UNION query should have case-insensitive database filters for both parts
             union_query = queries[0]
-            assert "l.DefaultDatabase in ('test_db1','test_db2')" in union_query
-            assert "h.DefaultDatabase in ('test_db1','test_db2')" in union_query
+            assert (
+                "l.DefaultDatabase (NOT CASESPECIFIC) in ('test_db1' (NOT CASESPECIFIC),'test_db2' (NOT CASESPECIFIC))"
+                in union_query
+            )
+            assert (
+                "h.DefaultDatabase (NOT CASESPECIFIC) in ('test_db1' (NOT CASESPECIFIC),'test_db2' (NOT CASESPECIFIC))"
+                in union_query
+            )
 
     def test_fetch_lineage_entries_chunked_multiple_queries(self):
         """Test that _fetch_lineage_entries_chunked handles multiple queries correctly."""
@@ -1895,3 +1903,559 @@ class TestOwnershipExtraction:
         # The work unit should contain ownership with user URN
         # Verify by checking the work unit was created (indicates make_user_urn was called)
         assert isinstance(work_units[0], MetadataWorkUnit)
+
+
+class TestTeradataGetIdentifier:
+    """Test get_identifier lowercasing behaviour.
+
+    Teradata returns object names in UPPERCASE. The schema resolver is populated
+    during Phase 1 (schema extraction) using the identifier returned by
+    get_identifier(). sqlglot normalises all identifiers to lowercase during
+    Phase 2 (view SQL parsing). If the two phases use different cases the schema
+    resolver lookup is always a miss and column-level lineage is never generated.
+
+    get_identifier() must apply convert_urns_to_lowercase at the point the
+    identifier is constructed so that both phases use the same case.
+    """
+
+    def _make_source(self, convert_urns_to_lowercase: bool) -> TeradataSource:
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "convert_urns_to_lowercase": convert_urns_to_lowercase,
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+    def test_get_identifier_lowercase_when_flag_enabled(self):
+        """Identifiers must be lowercased when convert_urns_to_lowercase is True.
+
+        Teradata returns names like C3_T / MRCH_PRFL. With the flag on,
+        get_identifier() must return c3_t.mrch_prfl so the schema resolver is
+        populated with the same key that sqlglot produces during view SQL parsing.
+        """
+        source = self._make_source(convert_urns_to_lowercase=True)
+        inspector = MagicMock()
+
+        result = source.get_identifier(
+            schema="C3_T", entity="MRCH_PRFL", inspector=inspector
+        )
+
+        assert result == "c3_t.mrch_prfl"
+
+    def test_get_identifier_preserves_case_when_flag_disabled(self):
+        """Identifiers must not be modified when convert_urns_to_lowercase is False."""
+        source = self._make_source(convert_urns_to_lowercase=False)
+        inspector = MagicMock()
+
+        result = source.get_identifier(
+            schema="C3_T", entity="MRCH_PRFL", inspector=inspector
+        )
+
+        assert result == "C3_T.MRCH_PRFL"
+
+    def test_get_identifier_schema_resolver_key_matches_sqlglot_output(self):
+        """The identifier returned must match what sqlglot produces from the same SQL.
+
+        sqlglot always normalises unquoted identifiers to lowercase. The schema
+        resolver key must be the same lowercase string so that Phase 2 lookups
+        find the schema registered during Phase 1.
+        """
+        source = self._make_source(convert_urns_to_lowercase=True)
+        inspector = MagicMock()
+
+        identifier = source.get_identifier(
+            schema="C3_T", entity="MRCH_PRFL", inspector=inspector
+        )
+
+        # Simulate what sqlglot produces from "SELECT ... FROM C3_T.MRCH_PRFL"
+        sqlglot_normalized = "c3_t.mrch_prfl"
+        assert identifier == sqlglot_normalized
+
+
+# ---------------------------------------------------------------------------
+# Tests for the 6 performance / scalability improvements
+# ---------------------------------------------------------------------------
+
+
+def _create_source_patched(
+    extra_config: Optional[Dict[str, Any]] = None,
+) -> TeradataSource:
+    """Create a TeradataSource with cache_tables_and_views patched out."""
+    config = TeradataConfig.model_validate({**_base_config(), **(extra_config or {})})
+    with patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+    ) as mock_class:
+        mock_class.return_value = MagicMock()
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+
+class TestNewConfigDefaults:
+    """New config fields have correct defaults and accept custom values."""
+
+    def test_column_extraction_watermark_default(self) -> None:
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.column_extraction_watermark is None
+
+    def test_use_dbc_columns_for_views_default(self) -> None:
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.use_dbc_columns_for_views is False
+
+    def test_request_timeout_ms_default(self) -> None:
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.request_timeout_ms == 120000
+
+    def test_custom_timeout_values_accepted(self) -> None:
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "request_timeout_ms": 300000,
+                "connect_timeout_ms": 60000,
+            }
+        )
+        assert config.request_timeout_ms == 300000
+        assert config.connect_timeout_ms == 60000
+
+    def test_watermark_timezone_aware_is_normalised_to_naive_utc(self) -> None:
+        """A tz-aware watermark must be normalised to naive UTC.
+
+        Teradata returns LastAlterTimeStamp as a timezone-naive datetime.
+        Comparing aware vs naive raises TypeError at runtime; the validator
+        prevents this by stripping tzinfo after converting to UTC.
+        """
+
+        aware_watermark = "2024-06-01T12:00:00+05:30"  # IST = 06:30 UTC
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "column_extraction_watermark": aware_watermark}
+        )
+        result = config.column_extraction_watermark
+        assert result is not None
+        assert result.tzinfo is None  # must be naive
+        assert result == datetime(2024, 6, 1, 6, 30, 0)  # converted to UTC
+
+    def test_watermark_naive_datetime_is_unchanged(self) -> None:
+        """A timezone-naive watermark passes through unchanged."""
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "column_extraction_watermark": "2024-06-01T00:00:00",
+            }
+        )
+        assert config.column_extraction_watermark == datetime(2024, 6, 1, 0, 0, 0)
+        assert config.column_extraction_watermark.tzinfo is None  # type: ignore[union-attr]
+
+    def test_column_extraction_days_back_accepted(self) -> None:
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "column_extraction_days_back": 3}
+        )
+        assert config.column_extraction_days_back == 3
+
+    def test_both_watermark_options_raises_validation_error(self) -> None:
+        """Setting both watermark options at the same time must raise a validation error."""
+        with pytest.raises(Exception, match="mutually exclusive"):
+            TeradataConfig.model_validate(
+                {
+                    **_base_config(),
+                    "column_extraction_watermark": "2024-06-01T00:00:00",
+                    "column_extraction_days_back": 3,
+                }
+            )
+
+
+class TestIncrementalColumnExtraction:
+    """#1 — skip column extraction for tables unchanged since the watermark."""
+
+    def test_no_watermark_leaves_extraction_set_none(self) -> None:
+        source = _create_source_patched()
+        assert source._tables_needing_column_extraction is None
+
+    def test_watermark_classifies_changed_and_unchanged_tables(self) -> None:
+        watermark = datetime(2024, 6, 1)
+        source = _create_source_patched(
+            {"column_extraction_watermark": watermark.isoformat()}
+        )
+
+        entries = [
+            _create_mock_table_entry(
+                "db1", "new_table", alter_time=datetime(2024, 6, 2)
+            ),  # after watermark → include
+            _create_mock_table_entry(
+                "db1", "old_table", alter_time=datetime(2024, 5, 1)
+            ),  # before watermark → exclude
+            _create_mock_table_entry(
+                "db1", "no_ts_table"
+            ),  # None timestamp → include (conservative)
+        ]
+
+        mock_engine = MagicMock()
+        mock_engine.execute.return_value = entries
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert source._tables_needing_column_extraction is not None
+        assert ("db1", "new_table") in source._tables_needing_column_extraction
+        assert ("db1", "old_table") not in source._tables_needing_column_extraction
+        assert ("db1", "no_ts_table") in source._tables_needing_column_extraction
+
+    def test_days_back_resolves_to_watermark_at_runtime(self) -> None:
+        """column_extraction_days_back uses the Teradata server clock, not the client clock."""
+
+        days_back = 3
+        # Simulate the Teradata server returning a timezone-aware timestamp
+        # (Teradata drivers often return timezone-aware datetimes).
+        # effective watermark = 2024-06-12 12:00:00 (server_now - 3 days, tzinfo stripped)
+        td_server_now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+        source = _create_source_patched({"column_extraction_days_back": days_back})
+
+        # Table altered 1 day before server_now → within the 3-day window → included
+        recent_entry = _create_mock_table_entry(
+            "db1", "recent_table", alter_time=datetime(2024, 6, 14, 12, 0, 0)
+        )
+        # Table altered 10 days before server_now → outside the window → excluded
+        stale_entry = _create_mock_table_entry(
+            "db1", "stale_table", alter_time=datetime(2024, 6, 5, 12, 0, 0)
+        )
+
+        # Mock the engine: engine.connect() returns a context manager whose conn
+        # handles the CURRENT_TIMESTAMP query; engine.execute() returns table rows.
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchone.return_value = (td_server_now,)
+
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = MagicMock(return_value=mock_conn)
+        mock_ctx.__exit__ = MagicMock(return_value=False)
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_ctx
+        mock_engine.execute.return_value = [recent_entry, stale_entry]
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert source._tables_needing_column_extraction is not None
+        assert ("db1", "recent_table") in source._tables_needing_column_extraction
+        assert ("db1", "stale_table") not in source._tables_needing_column_extraction
+
+    def test_optimized_get_columns_skips_table_not_in_extraction_set(self) -> None:
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "mydb": [
+                TeradataTable(
+                    database="mydb",
+                    name="unchanged",
+                    description=None,
+                    object_type="Table",
+                    create_timestamp=datetime.now(),
+                    last_alter_name=None,
+                    last_alter_timestamp=None,
+                    request_text=None,
+                )
+            ]
+        }
+        tables_needing_extraction = {("mydb", "other_table")}  # "unchanged" absent
+
+        result = optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "unchanged",
+            "mydb",
+            tables_cache=tables_cache,
+            tables_needing_extraction=tables_needing_extraction,
+        )
+
+        assert result == []
+        mock_dialect._get_column_help.assert_not_called()
+        mock_dialect.get_schema_columns.assert_not_called()
+
+    def test_optimized_get_columns_proceeds_for_changed_table(self) -> None:
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect.get_schema_columns.return_value = {"my_table": []}
+        mock_dialect._get_column_info.return_value = {"name": "col1"}
+
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "mydb": [
+                TeradataTable(
+                    database="mydb",
+                    name="my_table",
+                    description=None,
+                    object_type="Table",
+                    create_timestamp=datetime.now(),
+                    last_alter_name=None,
+                    last_alter_timestamp=None,
+                    request_text=None,
+                )
+            ]
+        }
+        tables_needing_extraction = {("mydb", "my_table")}
+
+        # Should not short-circuit; get_schema_columns will be reached
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_table",
+            "mydb",
+            tables_cache=tables_cache,
+            tables_needing_extraction=tables_needing_extraction,
+        )
+
+        mock_dialect.get_schema_columns.assert_called_once()
+
+    def test_none_extraction_set_processes_all_tables(self) -> None:
+        """tables_needing_extraction=None (no watermark) means extract everything."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect.get_schema_columns.return_value = {"my_table": []}
+
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "mydb": [
+                TeradataTable(
+                    database="mydb",
+                    name="my_table",
+                    description=None,
+                    object_type="Table",
+                    create_timestamp=datetime.now(),
+                    last_alter_name=None,
+                    last_alter_timestamp=None,
+                    request_text=None,
+                )
+            ]
+        }
+
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_table",
+            "mydb",
+            tables_cache=tables_cache,
+            tables_needing_extraction=None,
+        )
+
+        mock_dialect.get_schema_columns.assert_called_once()
+
+
+class TestDbcColumnsForViews:
+    """#2 — bulk dbc.ColumnsV for views with HELP fallback for derived columns."""
+
+    def _view_table(self, name: str = "my_view", schema: str = "mydb") -> TeradataTable:
+        return TeradataTable(
+            database=schema,
+            name=name,
+            description=None,
+            object_type="View",
+            create_timestamp=datetime.now(),
+            last_alter_name=None,
+            last_alter_timestamp=None,
+            request_text=None,
+        )
+
+    def test_uses_dbc_columns_when_all_types_present(self) -> None:
+        """No HELP call when every column has a non-null ColumnType."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+
+        mock_row = MagicMock()
+        mock_row.ColumnType = "CV"  # explicit type present
+        mock_dialect.get_schema_columns.return_value = {"my_view": [mock_row]}
+        mock_dialect._get_column_info.return_value = {"name": "col1"}
+
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_view",
+            "mydb",
+            tables_cache={"mydb": [self._view_table()]},
+            use_dbc_columns_for_views=True,
+        )
+
+        mock_dialect._get_column_help.assert_not_called()
+        mock_dialect.get_schema_columns.assert_called_once()
+
+    def test_falls_back_to_help_when_column_type_is_null(self) -> None:
+        """Falls back to HELP when a column has null ColumnType (derived expression)."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+
+        mock_row = MagicMock()
+        mock_row.ColumnType = None
+        mock_dialect.get_schema_columns.return_value = {"my_view": [mock_row]}
+        mock_dialect._get_column_help.return_value = []
+
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_view",
+            "mydb",
+            tables_cache={"mydb": [self._view_table()]},
+            use_dbc_columns_for_views=True,
+        )
+
+        mock_dialect._get_column_help.assert_called_once()
+
+    def test_falls_back_to_help_when_column_type_is_empty_string(self) -> None:
+        """Empty ColumnType string is also treated as unknown."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+
+        mock_row = MagicMock()
+        mock_row.ColumnType = "   "  # whitespace-only
+        mock_dialect.get_schema_columns.return_value = {"my_view": [mock_row]}
+        mock_dialect._get_column_help.return_value = []
+
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_view",
+            "mydb",
+            tables_cache={"mydb": [self._view_table()]},
+            use_dbc_columns_for_views=True,
+        )
+
+        mock_dialect._get_column_help.assert_called_once()
+
+    def test_conservative_default_always_uses_help(self) -> None:
+        """When use_dbc_columns_for_views=False, HELP is always used for views."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect._get_column_help.return_value = []
+
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_view",
+            "mydb",
+            tables_cache={"mydb": [self._view_table()]},
+            use_dbc_columns_for_views=False,
+        )
+
+        mock_dialect._get_column_help.assert_called_once()
+        mock_dialect.get_schema_columns.assert_not_called()
+
+
+class TestLruCacheSize:
+    """#3 — caches are unbounded (maxsize=None) so multi-database runs don't lose entries."""
+
+    def test_all_schema_caches_are_bounded_at_32(self) -> None:
+        # 32 covers any realistic number of concurrently active schemas without
+        # allowing unbounded accumulation of entries for dead connections.
+        assert get_schema_columns.cache_info().maxsize == 32
+        assert get_schema_pk_constraints.cache_info().maxsize == 32
+        assert get_schema_foreign_keys.cache_info().maxsize == 32
+
+    def test_multiple_schemas_are_all_retained(self) -> None:
+        """All schemas stay cached; switching databases does not evict earlier results."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+
+        get_schema_columns.cache_clear()
+        try:
+            get_schema_columns(None, mock_conn, "columnsV", "schema_a")
+            get_schema_columns(None, mock_conn, "columnsV", "schema_b")
+            get_schema_columns(None, mock_conn, "columnsV", "schema_c")
+
+            info = get_schema_columns.cache_info()
+            assert info.currsize == 3
+            assert info.misses == 3
+            # Repeated call for schema_a should be a cache hit, not a miss
+            get_schema_columns(None, mock_conn, "columnsV", "schema_a")
+            assert get_schema_columns.cache_info().hits == 1
+        finally:
+            get_schema_columns.cache_clear()
+
+
+class TestLineageQueryScoping:
+    """#4 — lineage queries are scoped to discovered databases via database_pattern."""
+
+    def test_scopes_to_discovered_databases_filtered_by_pattern(self) -> None:
+        source = _create_source_patched(
+            {
+                "start_time": "2024-01-01T00:00:00Z",
+                "end_time": "2024-01-02T00:00:00Z",
+            }
+        )
+        # Simulate what cache_tables_and_views populates
+        source._tables_cache["sales_db"] = []
+        source._tables_cache["hr_db"] = []
+        # "All" is in EXCLUDED_DATABASES, so database_pattern.allowed("All") is False
+        source._tables_cache["All"] = []
+
+        with patch.object(source, "_check_historical_table_exists", return_value=False):
+            queries = source._make_lineage_queries()
+
+        query = queries[0]
+        assert "sales_db" in query
+        assert "hr_db" in query
+        assert "'All'" not in query
+
+    def test_config_databases_takes_precedence_over_cache(self) -> None:
+        source = _create_source_patched(
+            {
+                "databases": ["explicit_db"],
+                "start_time": "2024-01-01T00:00:00Z",
+                "end_time": "2024-01-02T00:00:00Z",
+            }
+        )
+        source._tables_cache["other_db"] = []
+
+        with patch.object(source, "_check_historical_table_exists", return_value=False):
+            queries = source._make_lineage_queries()
+
+        query = queries[0]
+        assert "explicit_db" in query
+        assert "other_db" not in query
+
+    def test_no_database_filter_when_cache_is_empty(self) -> None:
+        """Lineage-only runs (empty cache) should not produce an empty IN clause."""
+        source = _create_source_patched(
+            {
+                "start_time": "2024-01-01T00:00:00Z",
+                "end_time": "2024-01-02T00:00:00Z",
+            }
+        )
+        assert len(source._tables_cache) == 0
+
+        with patch.object(source, "_check_historical_table_exists", return_value=False):
+            queries = source._make_lineage_queries()
+
+        assert len(queries) == 1
+        assert "DefaultDatabase in" not in queries[0]
+
+
+class TestConfigurableTimeouts:
+    """#6 — request_timeout_ms / connect_timeout_ms flow through to Teradata connect_args."""
+
+    def _get_connect_args(self, extra_config: Dict[str, Any]) -> Dict[str, str]:
+        source = _create_source_patched(extra_config)
+        captured: Dict[str, Any] = {}
+
+        def capture(url: Any, **kwargs: Any) -> MagicMock:
+            captured.update(kwargs)
+            return MagicMock()
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.create_engine", side_effect=capture
+        ):
+            source._get_or_create_pooled_engine()
+
+        return captured.get("connect_args", {})
+
+    def test_default_timeouts_used(self) -> None:
+        connect_args = self._get_connect_args({})
+        assert connect_args["request_timeout"] == "120000"
+        assert connect_args["connect_timeout"] == "30000"
+
+    def test_custom_timeouts_propagated(self) -> None:
+        connect_args = self._get_connect_args(
+            {"request_timeout_ms": 300000, "connect_timeout_ms": 60000}
+        )
+        assert connect_args["request_timeout"] == "300000"
+        assert connect_args["connect_timeout"] == "60000"

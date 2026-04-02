@@ -113,7 +113,7 @@ Starting up DataHub...
  ✔ Container datahub-datahub-actions-quickstart-1  Started                                                                                             42.1s
 
 ✔ DataHub is now running
-Ingest some demo data using `datahub docker ingest-sample-data`,
+Load sample data: run `datahub init` then `datahub datapack load showcase-ecommerce`,
 or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
 Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
@@ -157,20 +157,19 @@ password: datahub
 
 To change the default credentials, please refer to [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart).
 
-### Ingest Sample Data
+### Load Sample Data
 
-To ingest the sample metadata, run the following CLI command from your terminal
+First, configure the CLI to talk to your local DataHub instance:
 
 ```bash
-datahub docker ingest-sample-data
+datahub init --username datahub --password datahub
 ```
 
-:::note Token Authentication
+Then load the **showcase-ecommerce** data pack — a rich set of ~1,050 entities across Snowflake, Looker, PowerBI, Tableau, dbt, and Spark with lineage, governance, glossary terms, domains, data products, and structured properties:
 
-If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
-using the `--token <token>` parameter in the command.
-
-:::
+```bash
+datahub datapack load showcase-ecommerce
+```
 
 That's it! Now feel free to play around with DataHub!
 

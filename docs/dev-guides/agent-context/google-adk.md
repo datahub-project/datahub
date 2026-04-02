@@ -1,6 +1,6 @@
 # Google ADK Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [LangChain Integration →](./langchain.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Snowflake Cortex Code Integration](./snowflake-cortex-code.md) | [Google Vertex AI Integration →](./google-vertex-ai.md)
 
 ## What Problem Does This Solve?
 

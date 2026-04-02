@@ -70,6 +70,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -1013,25 +1014,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
             .collect(Collectors.toList());
 
-    Iterable<List<MCPItem>> iterable =
-        () ->
-            Iterators.partition(
-                AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())
-                    .iterator(),
-                MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-    StreamSupport.stream(iterable.spliterator(), false)
-        .forEach(
-            sideEffects -> {
-              long count =
-                  ingestProposalAsync(
-                          opContext,
-                          AspectsBatchImpl.builder()
-                              .items(sideEffects)
-                              .retrieverContext(opContext.getRetrieverContext())
-                              .build(opContext))
-                      .count();
-              log.debug("Generated {} MCP SideEffects for async processing", count);
-            });
+    try (Stream<MCPItem> sideEffectStream =
+        AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())) {
+      Iterable<List<MCPItem>> iterable =
+          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+      StreamSupport.stream(iterable.spliterator(), false)
+          .forEach(
+              sideEffects -> {
+                long count =
+                    ingestProposalAsync(
+                            opContext,
+                            AspectsBatchImpl.builder()
+                                .items(sideEffects)
+                                .retrieverContext(opContext.getRetrieverContext())
+                                .build(opContext))
+                        .count();
+                log.debug("Generated {} MCP SideEffects for async processing", count);
+              });
+    }
   }
 
   /**
@@ -2515,7 +2515,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
             : null;
     return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
-        || Objects.equals(newAspect, oldAspect);
+        || ValidationApiUtils.normalizedEqual(oldAspect, newAspect);
   }
 
   public void produceFailedMCPs(

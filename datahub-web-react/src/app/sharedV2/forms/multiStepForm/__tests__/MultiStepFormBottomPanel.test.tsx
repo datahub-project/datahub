@@ -5,12 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { MultiStepFormBottomPanel } from '@app/sharedV2/forms/multiStepForm/MultiStepFormBottomPanel';
 import { MultiStepFormProvider, useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { Step } from '@app/sharedV2/forms/multiStepForm/types';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 // Define a test state type
 interface TestState {
     name?: string;
     count?: number;
 }
+
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
 
 describe('MultiStepFormBottomPanel', () => {
     const mockStep1: Step = {
@@ -32,7 +35,7 @@ describe('MultiStepFormBottomPanel', () => {
     };
 
     it('renders without crashing', () => {
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1]}>
                 <MultiStepFormBottomPanel />
             </MultiStepFormProvider>,
@@ -44,7 +47,7 @@ describe('MultiStepFormBottomPanel', () => {
     it('displays step counter correctly with multiple steps', () => {
         const steps = [mockStep1, mockStep2, mockStep3];
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={steps}>
                 <MultiStepFormBottomPanel />
             </MultiStepFormProvider>,
@@ -58,7 +61,7 @@ describe('MultiStepFormBottomPanel', () => {
         const mockSubmit = vi.fn();
         const mockCancel = vi.fn();
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={steps} onSubmit={mockSubmit} onCancel={mockCancel}>
                 <MultiStepFormBottomPanel />
             </MultiStepFormProvider>,
@@ -83,7 +86,7 @@ describe('MultiStepFormBottomPanel', () => {
             return <MultiStepFormBottomPanel />;
         };
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2, mockStep3]}>
                 <TestComponent />
             </MultiStepFormProvider>,
@@ -112,7 +115,7 @@ describe('MultiStepFormBottomPanel', () => {
             return <MultiStepFormBottomPanel showSubmitButton />;
         };
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]} onSubmit={() => Promise.resolve()}>
                 <TestComponent />
             </MultiStepFormProvider>,
@@ -145,7 +148,7 @@ describe('MultiStepFormBottomPanel', () => {
             return <MultiStepFormBottomPanel showSubmitButton />;
         };
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]} onSubmit={mockSubmit}>
                 <TestComponent />
             </MultiStepFormProvider>,
@@ -167,7 +170,7 @@ describe('MultiStepFormBottomPanel', () => {
     it('executes cancel when cancel button is clicked', () => {
         const mockCancel = vi.fn();
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]} onCancel={mockCancel}>
                 <MultiStepFormBottomPanel />
             </MultiStepFormProvider>,
@@ -189,7 +192,7 @@ describe('MultiStepFormBottomPanel', () => {
             return <MultiStepFormBottomPanel />;
         };
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
                 <TestComponent />
             </MultiStepFormProvider>,
@@ -218,7 +221,7 @@ describe('MultiStepFormBottomPanel', () => {
             return <MultiStepFormBottomPanel />;
         };
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
                 <TestComponent />
             </MultiStepFormProvider>,
@@ -251,7 +254,7 @@ describe('MultiStepFormBottomPanel', () => {
             return <MultiStepFormBottomPanel showSubmitButton />;
         };
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
                 <TestComponent />
             </MultiStepFormProvider>,
@@ -286,7 +289,7 @@ describe('MultiStepFormBottomPanel', () => {
             return <MultiStepFormBottomPanel showSubmitButton />;
         };
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
                 <TestComponent />
             </MultiStepFormProvider>,
@@ -316,7 +319,7 @@ describe('MultiStepFormBottomPanel', () => {
     it('calls renderLeftButtons when provided', async () => {
         const mockRenderLeftButtons = vi.fn((buttons) => <div data-testid="custom-left">{buttons}</div>);
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
                 <MultiStepFormBottomPanel renderLeftButtons={mockRenderLeftButtons} />
             </MultiStepFormProvider>,
@@ -341,7 +344,7 @@ describe('MultiStepFormBottomPanel', () => {
     it('calls renderRightButtons when provided', () => {
         const mockRenderRightButtons = vi.fn((buttons) => <div data-testid="custom-right">{buttons}</div>);
 
-        render(
+        renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
                 <MultiStepFormBottomPanel renderRightButtons={mockRenderRightButtons} />
             </MultiStepFormProvider>,

@@ -49,7 +49,13 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    group: ['@components/theme/foundations/colors', '**/alchemy-components/theme/foundations/colors'],
+                    group: ['**/alchemy-components/theme/foundations/colors'],
+                    message:
+                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    group: ['@components', '@components/*'],
+                    importNames: ['colors'],
                     message:
                         'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
@@ -217,14 +223,14 @@ module.exports = {
             rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
         },
         // Semantic color enforcement — only on files changed in the current branch
-        // ...(changedTsFiles.length > 0
-        //     ? [
-        //           {
-        //               files: changedTsFiles,
-        //               excludedFiles: COLOR_RULE_EXCLUDED_FILES,
-        //               rules: COLOR_ENFORCEMENT_RULES,
-        //           },
-        //       ]
-        //     : []),
+        ...(changedTsFiles.length > 0
+            ? [
+                  {
+                      files: changedTsFiles,
+                      excludedFiles: COLOR_RULE_EXCLUDED_FILES,
+                      rules: COLOR_ENFORCEMENT_RULES,
+                  },
+              ]
+            : []),
     ],
 };

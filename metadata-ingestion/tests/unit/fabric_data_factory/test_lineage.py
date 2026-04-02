@@ -312,6 +312,29 @@ class TestResolveOnelakeUrn:
         assert result is not None
         assert pipeline_ws in result
 
+    def test_linked_service_type_properties(self) -> None:
+        """linkedService.properties.typeProperties provides artifactId and workspaceId."""
+        ds = {
+            "linkedService": {
+                "name": "ConnectorTestLakehouse",
+                "properties": {
+                    "type": "Lakehouse",
+                    "typeProperties": {
+                        "workspaceId": WS_ID,
+                        "artifactId": ARTIFACT_ID,
+                        "rootFolder": "Tables",
+                    },
+                },
+            },
+            "typeProperties": {"schema": "dbo", "table": "Employee"},
+        }
+        result = self.extractor._resolve_onelake_urn(
+            ds, _make_activity(), "fallback-ws"
+        )
+        assert result is not None
+        assert "fabric-onelake" in result
+        assert f"{WS_ID}.{ARTIFACT_ID}.dbo.Employee" in result
+
 
 class TestCopyExtractLineage:
     """End-to-end tests for CopyActivityLineageExtractor.extract_lineage."""
