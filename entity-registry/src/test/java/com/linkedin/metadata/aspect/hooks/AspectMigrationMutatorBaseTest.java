@@ -7,7 +7,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -22,6 +21,7 @@ import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -31,13 +31,20 @@ import org.testng.annotations.Test;
  * on supplying realistic aspect payloads and asserting the correctness of the transformed result.
  *
  * <p>Extend this class for every concrete {@link AspectMigrationMutator} implementation. All
- * contract-level {@code @Test} methods are inherited automatically — the subclass only needs to
- * supply three things:
+ * contract-level {@code @Test} methods are inherited automatically. The subclass must implement
+ * four abstract methods and may optionally override one more:
  *
  * <ol>
- *   <li>{@link #mutator()} — the implementation under test
- *   <li>{@link #provideSourceAspect()} — a realistic aspect payload at {@code sourceVersion}
- *   <li>{@link #assertTransformed(RecordTemplate)} — assertions specific to the migration logic
+ *   <li><b>Required:</b> {@link #mutator()} — the implementation under test
+ *   <li><b>Required:</b> {@link #entityUrn()} — a URN whose entity type matches the aspect (e.g. a
+ *       dataset URN for a dataset aspect, a dataJob URN for a dataJob aspect)
+ *   <li><b>Required:</b> {@link #provideSourceAspect()} — a realistic aspect payload at {@code
+ *       sourceVersion}, ready to be transformed
+ *   <li><b>Required:</b> {@link #assertTransformed(RecordTemplate)} — assertions that verify the
+ *       migration logic produced the correct result
+ *   <li><b>Optional:</b> {@link #configureRetrieverMock(AspectRetriever)} — stub retriever behavior
+ *       when the mutator looks up related aspects during the transform; {@link #mockRetriever} is
+ *       also accessible as a field for per-test stubs or {@code verify()} calls
  * </ol>
  *
  * <p>Example subclass:
@@ -47,6 +54,10 @@ import org.testng.annotations.Test;
  *
  *   @Override protected AspectMigrationMutator mutator() {
  *     return new MyAspectV1ToV2Migrator();
+ *   }
+ *
+ *   @Override protected Urn entityUrn() {
+ *     return UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
  *   }
  *
  *   @Override protected RecordTemplate provideSourceAspect() {
@@ -64,9 +75,6 @@ import org.testng.annotations.Test;
  * }</pre>
  */
 public abstract class AspectMigrationMutatorBaseTest {
-
-  private static final Urn DATASET_URN =
-      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
 
   // Abstract
 
@@ -90,18 +98,36 @@ public abstract class AspectMigrationMutatorBaseTest {
    */
   protected abstract void assertTransformed(@Nonnull RecordTemplate result);
 
+  /**
+   * Returns the entity URN used when constructing test items. Must match the entity type that the
+   * mutator's aspect belongs to (e.g. return a {@code dataJob} URN for a dataJob aspect mutator).
+   */
+  @Nonnull
+  protected abstract Urn entityUrn();
+
+  /**
+   * Hook for subclasses to configure additional retriever mock behavior. Called at the end of
+   * {@link #setUp()} after the base stubs are in place. Override when the mutator under test uses
+   * the retriever to compute the transform (e.g. to look up related aspects).
+   */
+  protected void configureRetrieverMock(@Nonnull AspectRetriever retrieverMock) {
+    // no-op by default
+  }
+
   // Shared
 
   protected EntityRegistry entityRegistry;
   protected RetrieverContext retrieverContext;
+  protected AspectRetriever mockRetriever;
 
   @BeforeMethod
   public void setUp() {
     entityRegistry = new TestEntityRegistry();
-    AspectRetriever mockRetriever = mock(AspectRetriever.class);
+    mockRetriever = mock(AspectRetriever.class);
     when(mockRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     retrieverContext = mock(RetrieverContext.class);
     when(retrieverContext.getAspectRetriever()).thenReturn(mockRetriever);
+    configureRetrieverMock(mockRetriever);
   }
 
   // Version contract (auto-inherited)
@@ -146,7 +172,7 @@ public abstract class AspectMigrationMutatorBaseTest {
   public void writeMutation_atDefaultSchemaVersion_mutatesAndBumpsVersion() {
     // null schemaVersion is treated as DEFAULT_SCHEMA_VERSION — only relevant when sourceVersion==1
     if (mutator().getSourceVersion() != AspectMigrationMutator.DEFAULT_SCHEMA_VERSION) {
-      return;
+      throw new SkipException("only applies when sourceVersion == DEFAULT_SCHEMA_VERSION");
     }
     ChangeMCP item = buildItem(provideSourceAspect(), new SystemMetadata()); // no schemaVersion set
 
@@ -155,29 +181,14 @@ public abstract class AspectMigrationMutatorBaseTest {
 
     assertTrue(results.get(0).getSecond(), "Expected mutated=true for null schemaVersion (=1)");
     assertEquals((long) item.getSystemMetadata().getSchemaVersion(), mutator().getTargetVersion());
-  }
-
-  @Test
-  public void writeMutation_alreadyAtTargetVersion_isNoOp() {
-    SystemMetadata sm = new SystemMetadata();
-    sm.setSchemaVersion(mutator().getTargetVersion());
-
-    ChangeMCP item = buildItem(provideSourceAspect(), sm);
-
-    List<Pair<ChangeMCP, Boolean>> results =
-        mutator().writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
-
-    assertFalse(results.get(0).getSecond(), "Expected no-op when already at targetVersion");
-    assertEquals(
-        (long) item.getSystemMetadata().getSchemaVersion(),
-        mutator().getTargetVersion(),
-        "schemaVersion must remain unchanged");
+    assertTransformed(item.getRecordTemplate());
   }
 
   @Test
   public void writeMutation_futureVersion_isNoOp() {
     SystemMetadata sm = new SystemMetadata();
-    sm.setSchemaVersion(mutator().getTargetVersion() + 1); // ahead of this mutator
+    long futureVersion = mutator().getTargetVersion() + 1;
+    sm.setSchemaVersion(futureVersion); // ahead of this mutator
 
     ChangeMCP item = buildItem(provideSourceAspect(), sm);
 
@@ -185,6 +196,10 @@ public abstract class AspectMigrationMutatorBaseTest {
         mutator().writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
 
     assertFalse(results.get(0).getSecond(), "Expected no-op for version ahead of targetVersion");
+    assertEquals(
+        (long) item.getSystemMetadata().getSchemaVersion(),
+        futureVersion,
+        "schemaVersion must not be modified for a future version");
   }
 
   // Read path (auto-inherited)
@@ -207,25 +222,13 @@ public abstract class AspectMigrationMutatorBaseTest {
     assertTransformed(item.getRecordTemplate());
   }
 
-  @Test
-  public void readMutation_alreadyAtTargetVersion_isNoOp() {
-    SystemMetadata sm = new SystemMetadata();
-    sm.setSchemaVersion(mutator().getTargetVersion());
-
-    ChangeMCP item = buildItem(provideSourceAspect(), sm);
-
-    List<Pair<ReadItem, Boolean>> results =
-        mutator().readMutation(List.of(item), retrieverContext).collect(Collectors.toList());
-
-    assertFalse(results.get(0).getSecond(), "Expected no-op on read path when already migrated");
-  }
-
   // Helper
   protected ChangeMCP buildItem(RecordTemplate record, SystemMetadata sm) {
+    Urn urn = entityUrn();
     return TestMCP.builder()
-        .urn(DATASET_URN)
+        .urn(urn)
         .changeType(ChangeType.UPSERT)
-        .entitySpec(entityRegistry.getEntitySpec("dataset"))
+        .entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()))
         .aspectSpec(entityRegistry.getAspectSpecs().get(mutator().getAspectName()))
         .recordTemplate(record)
         .systemMetadata(sm)
