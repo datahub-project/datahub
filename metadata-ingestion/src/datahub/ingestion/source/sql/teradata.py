@@ -1585,7 +1585,10 @@ ORDER by DataBaseName, TableName;
                             )
 
                     # Track which tables need column extraction under incremental mode
-                    if self._tables_needing_column_extraction is not None:
+                    if (
+                        watermark is not None
+                        and self._tables_needing_column_extraction is not None
+                    ):
                         last_alter = table.last_alter_timestamp
                         # Include when timestamp is missing (conservative) or at/after watermark
                         if last_alter is None or last_alter >= watermark:

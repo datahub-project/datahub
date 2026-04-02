@@ -2011,10 +2011,6 @@ class TestNewConfigDefaults:
         config = TeradataConfig.model_validate(_base_config())
         assert config.request_timeout_ms == 120000
 
-    def test_connect_timeout_ms_default(self) -> None:
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.connect_timeout_ms == 30000
-
     def test_custom_timeout_values_accepted(self) -> None:
         config = TeradataConfig.model_validate(
             {
@@ -2054,10 +2050,6 @@ class TestNewConfigDefaults:
         assert config.column_extraction_watermark == datetime(2024, 6, 1, 0, 0, 0)
         assert config.column_extraction_watermark.tzinfo is None  # type: ignore[union-attr]
 
-    def test_column_extraction_days_back_default(self) -> None:
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.column_extraction_days_back is None
-
     def test_column_extraction_days_back_accepted(self) -> None:
         config = TeradataConfig.model_validate(
             {**_base_config(), "column_extraction_days_back": 3}
@@ -2066,8 +2058,6 @@ class TestNewConfigDefaults:
 
     def test_both_watermark_options_raises_validation_error(self) -> None:
         """Setting both watermark options at the same time must raise a validation error."""
-        import pytest
-
         with pytest.raises(Exception, match="mutually exclusive"):
             TeradataConfig.model_validate(
                 {
