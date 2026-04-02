@@ -213,6 +213,7 @@ def test_athena_get_table_properties_iceberg_location():
             "aws_region": "us-west-1",
             "s3_staging_dir": "s3://sample-staging-dir/",
             "work_group": "test-workgroup",
+            "catalog_name": "my-hive-catalog",
         }
     )
     schema: str = "default"
@@ -238,19 +239,21 @@ def test_athena_get_table_properties_iceberg_location():
         response=table_metadata
     )
     mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
+        "DataCatalogsSummary": [
+            {"CatalogName": "my-hive-catalog", "Type": "HIVE"},
+        ]
     }
 
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
     source.cursor = mock_cursor
 
-    # Iceberg tables also get Glue URN — Iceberg lineage is handled by Glue connector
+    # Non-Glue Iceberg tables get Iceberg URN as upstream lineage
     _, _, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
-    expected_glue_urn = make_dataset_urn("glue", f"{schema}.{table}")
-    assert location == expected_glue_urn
+    expected_iceberg_urn = make_dataset_urn("iceberg", f"{schema}.{table}")
+    assert location == expected_iceberg_urn
 
 
 def test_get_column_type_simple_types():

@@ -476,18 +476,22 @@ class AthenaSource(SQLAlchemySource):
 
         location: Optional[str] = None
         if self.is_glue_catalog:
-            # Emit upstream lineage to Glue when the catalog is Glue-backed.
             location = make_dataset_urn("glue", f"{schema}.{table}", self.config.env)
         else:
-            # Fall back to S3 lineage for non-Glue catalogs.
-            s3_location = custom_properties.get("location")
-            if s3_location is not None:
-                if s3_location.startswith("s3://"):
-                    location = make_s3_urn(s3_location, self.config.env)
-                else:
-                    logging.debug(
-                        f"Only s3 url supported for location. Skipping {s3_location}"
-                    )
+            is_iceberg = metadata.parameters.get("table_type", "").upper() == "ICEBERG"
+            if is_iceberg:
+                location = make_dataset_urn(
+                    "iceberg", f"{schema}.{table}", self.config.env
+                )
+            else:
+                s3_location = custom_properties.get("location")
+                if s3_location is not None:
+                    if s3_location.startswith("s3://"):
+                        location = make_s3_urn(s3_location, self.config.env)
+                    else:
+                        logging.debug(
+                            f"Only s3 url supported for location. Skipping {s3_location}"
+                        )
 
         return description, custom_properties, location
 
