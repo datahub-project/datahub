@@ -134,7 +134,8 @@ def test_omni_ingestion_golden_file(
         }
     )
     # inject fake client before running
-    pipeline.source.client = FakeOmniClientFull()
+    assert isinstance(pipeline.source, OmniSource)
+    pipeline.source.client = FakeOmniClientFull()  # type: ignore[assignment]
     pipeline.run()
     pipeline.raise_from_status()
 
