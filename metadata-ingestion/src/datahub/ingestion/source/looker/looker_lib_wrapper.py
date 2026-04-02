@@ -14,7 +14,9 @@ from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardBase,
     DBConnection,
+    DependencyGraph,
     Folder,
+    FolderBase,
     Look,
     LookmlModel,
     LookmlModelExplore,
@@ -79,6 +81,7 @@ class LookerAPIStats(BaseModel):
     search_dashboards_calls: int = 0
     all_user_calls: int = 0
     generate_sql_query_calls: int = 0
+    all_folders_calls: int = 0
 
 
 class LookerAPI:
@@ -270,6 +273,11 @@ class LookerAPI:
         # Folder ancestors not found
         return []
 
+    def graph_derived_tables_for_model(self, model: str) -> DependencyGraph:
+        return self.client.graph_derived_tables_for_model(
+            model, transport_options=self.transport_options
+        )
+
     def all_connections(self):
         self.client_stats.all_connections_calls += 1
         return self.client.all_connections(transport_options=self.transport_options)
@@ -301,6 +309,15 @@ class LookerAPI:
         self.client_stats.all_dashboards_calls += 1
         return self.client.all_dashboards(
             fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
+    def all_folders(
+        self, fields: Optional[Union[str, List[str]]] = None
+    ) -> Sequence[FolderBase]:
+        self.client_stats.all_folders_calls += 1
+        return self.client.all_folders(
+            fields=self.__fields_mapper(fields) if fields else None,
             transport_options=self.transport_options,
         )
 

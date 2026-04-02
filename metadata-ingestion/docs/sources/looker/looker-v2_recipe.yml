@@ -1,0 +1,27 @@
+source:
+  type: "looker-v2"
+  config:
+    # Coordinates
+    base_url: "https://<company>.cloud.looker.com"
+
+    # Credentials
+    client_id: ${LOOKER_CLIENT_ID}
+    client_secret: ${LOOKER_CLIENT_SECRET}
+
+    # What to extract
+    extract_dashboards: true
+    extract_looks: false        # requires stateful_ingestion.enabled=true
+    extract_explores: true
+    extract_views: false        # requires base_folder or git_info
+
+    # Stateful ingestion (required when extract_looks=true)
+    # stateful_ingestion:
+    #   enabled: true
+
+    # Lineage (requires 'develop' permission)
+    enable_api_sql_lineage: true
+
+    # Usage history
+    extract_usage_history: true
+    extract_usage_history_for_interval: "30 days"
+# sink configs

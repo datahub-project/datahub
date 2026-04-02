@@ -241,6 +241,27 @@ looker_common = {
     "deepmerge>=1.1.1,<3.0.0",
 }
 
+looker_v2_common = {
+    # Looker Python SDK — API 4.0; bumped from 23.0 to match constraints.txt (25.20.0)
+    "looker-sdk>=25.0.0,<26.0.0",
+    # LookML parser; bumped from 1.3.4 to match constraints.txt (1.3.7)
+    # This version contains a fix for parsing lists with spaces before commas.
+    # See https://github.com/joshtemple/lkml/issues/73.
+    "lkml>=1.3.7,<2.0.0",
+    *sqlglot_lib,
+    # Git cloning for LookML repos; bumped from >2 to match constraints.txt (3.1.46)
+    "GitPython>=3.1.0,<4.0.0",
+    # Jinja2 for LookMLSQLResolver (replaces python-liquid transformer pipeline)
+    # bumped from 3.0.0 to match constraints.txt (3.1.6)
+    "jinja2>=3.1.0,<4.0.0",
+    # deepmerge; bumped from 1.1.1 to match constraints.txt (2.0)
+    "deepmerge>=2.0,<3.0.0",
+    # python-liquid is a transitive dependency: looker_v2_source imports from
+    # looker_common, which imports looker_dataclasses, which imports
+    # looker_template_language at module level (from liquid import Undefined).
+    "python-liquid>=2.0.0,<3.0.0",
+}
+
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<4.0.0",
@@ -667,6 +688,7 @@ plugins: Dict[str, Set[str]] = {
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
+    "looker-v2": looker_v2_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
     "mlflow": {
@@ -1059,6 +1081,7 @@ entry_points = {
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
+        "looker-v2 = datahub.ingestion.source.looker_v2.looker_v2_source:LookerV2Source",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",

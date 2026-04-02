@@ -2011,6 +2011,72 @@
       "platform_name": "Looker",
       "support_status": "CERTIFIED"
     },
+    "looker-v2": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Model",
+            "LookML Project",
+            "Folder"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, configured using `extract_column_level_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Enabled by default, configured using `extract_usage_history`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default, configured using `extract_owners`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Use the `platform_instance` field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.looker_v2.looker_v2_source.LookerV2Source",
+      "platform_id": "looker",
+      "platform_name": "Looker",
+      "support_status": "INCUBATING"
+    },
     "lookml": {
       "capabilities": [
         {

@@ -1765,6 +1765,9 @@ class LookerUserRegistry:
     def __init__(self, looker_api: LookerAPI, report: LookerDashboardSourceReport):
         self.looker_api_wrapper = looker_api
         self.report = report
+        # Instance-level dict — prevents cross-test cache pollution when the class-level
+        # default is mutated by a prior test run (class variables are shared across instances).
+        self._user_cache: Dict[str, LookerUser] = {}
         self._initialize_user_cache()
 
     def _initialize_user_cache(self) -> None:

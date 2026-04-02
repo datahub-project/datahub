@@ -1,0 +1,414 @@
+[
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "Sales Dashboard",
+            "description": "Sales metrics dashboard",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(looker,dashboard_elements.101)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "https://looker.company.com/dashboards/1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+                    "urn": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "looker",
+                "env": "PROD",
+                "folder_id": "1"
+            },
+            "name": "Shared",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.explore.order_items,PROD),order_items.count)",
+                    "schemaField": {
+                        "fieldPath": "order_items.count",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "embed",
+    "aspect": {
+        "json": {
+            "renderUrl": "https://looker.company.com/embed/dashboards/1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Dimension",
+            "description": "A tag that is applied to all dimension fields."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Temporal",
+            "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Measure",
+            "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:1cec84235c544a141e63dd2077da2562",
+    "changeType": "UPSERT",
+    "aspectName": "platformResourceInfo",
+    "aspect": {
+        "json": {
+            "resourceType": "USER_ID_MAPPING",
+            "primaryKey": "",
+            "value": {
+                "blob": "{}",
+                "contentType": "JSON"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:1cec84235c544a141e63dd2077da2562",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "platformResource",
+    "entityUrn": "urn:li:platformResource:1cec84235c544a141e63dd2077da2562",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-v2-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
