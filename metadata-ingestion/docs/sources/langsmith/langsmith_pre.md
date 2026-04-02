@@ -15,15 +15,39 @@
 
 ### Concepts
 
-| LangSmith Concept    | DataHub Entity                           | Notes                                           |
-| -------------------- | ---------------------------------------- | ----------------------------------------------- |
-| **Project**          | Container (subtype: LangSmith Project)   | Top-level grouping of traces                    |
-| **Trace** (root run) | DataProcessInstance (subtype: LLM Trace) | Full end-to-end LLM invocation                  |
-| **Dataset**          | Dataset                                  | Evaluation datasets for LLM testing             |
-| Feedback             | Properties on DataProcessInstance        | Aggregated scores embedded as custom properties |
+| LangSmith Concept    | DataHub Entity                           | Notes                                                |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------- |
+| **Project**          | Container (subtype: LangSmith Project)   | Top-level grouping of traces                         |
+| **Trace** (root run) | DataProcessInstance (subtype: LLM Trace) | Full end-to-end LLM invocation                       |
+| **Child span**       | DataProcessInstance (subtype: LLM Span)  | Retriever, LLM, tool, chain spans; opt-in            |
+| **Dataset**          | Dataset                                  | Evaluation datasets for LLM testing                  |
+| **LLM model**        | MLModel                                  | Stub entity from span metadata; upstream lineage     |
+| **Feedback score**   | Assertion + AssertionRunEvent            | One assertion per (feedback key, run name); pass/fail by threshold; opt-in |
+| Feedback (inline)    | Properties on DataProcessInstance        | Aggregated scores embedded as custom properties      |
 
 Token usage (prompt/completion/total tokens) is captured as ML metrics on each trace,
 enabling cost and usage tracking within DataHub.
+
+### Assertions from Feedback Scores
+
+When `include_assertions: true` is set, the connector maps LangSmith feedback scores
+to DataHub Assertion entities. Each unique (feedback key, run name) pair becomes one
+Assertion entity -- for example, `correctness | rag-run-01` and
+`correctness | rag-run-06` are separate assertions, each with their own current
+pass/fail status. This means each named evaluation scenario is independently
+monitored: failing scenarios appear as failing assertions in the Quality tab
+immediately, rather than being hidden by later passing runs.
+
+Each trace emits an `AssertionRunEvent` with a SUCCESS or FAILURE result, determined
+by `assertion_score_threshold` (default: 0.7).
+
+Assertions are linked to the eval dataset (auto-detected from ingested LangSmith
+datasets, or set explicitly via `assertion_dataset_urn`). The Quality tab on the
+dataset entity in DataHub shows each scenario's current pass/fail status and
+numeric score.
+
+To generate feedback scores, use `langsmith.Client.create_feedback()` in your
+application code, or run LangSmith evaluators against your traces.
 
 ### Required Permissions
 

@@ -1,8 +1,11 @@
+import logging
 import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 import langsmith
 from langsmith.schemas import (
@@ -16,6 +19,7 @@ from pydantic.fields import Field
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
+from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
@@ -43,8 +47,17 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
+    AssertionSourceClass,
+    AssertionSourceTypeClass,
+    AssertionTypeClass,
     AuditStampClass,
     ContainerClass,
+    CustomAssertionInfoClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
@@ -98,6 +111,24 @@ class LangSmithConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         "as nested DataProcessInstances with parent-child lineage edges. Increases entity "
         "volume significantly.",
     )
+    include_assertions: bool = Field(
+        default=False,
+        description="Emit DataHub Assertion entities from LangSmith feedback scores on traces. "
+        "Each unique (feedback key, run name) pair becomes one Assertion entity targeting the "
+        "eval dataset, so each named scenario has its own current pass/fail status in the "
+        "DataHub Quality tab. Each trace emits an AssertionRunEvent. Requires "
+        "include_datasets=True or assertion_dataset_urn to be set.",
+    )
+    assertion_score_threshold: float = Field(
+        default=0.7,
+        description="Minimum avg feedback score (0.0-1.0) for an assertion to pass. "
+        "Scores >= threshold yield SUCCESS; scores below yield FAILURE.",
+    )
+    assertion_dataset_urn: Optional[str] = Field(
+        default=None,
+        description="Explicit dataset URN to use as the assertion target (assertee). "
+        "Auto-detected from ingested LangSmith datasets when not set.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
@@ -111,6 +142,9 @@ class LangSmithSourceReport(StaleEntityRemovalSourceReport):
     datasets_ingested: int = 0
     projects_filtered: int = 0
     traces_skipped_limit: int = 0
+    assertions_emitted: int = 0
+    assertion_run_events_emitted: int = 0
+    assertions_skipped_no_dataset: int = 0
 
 
 @platform_name("LangSmith")
@@ -145,6 +179,8 @@ class LangSmithSource(StatefulIngestionSourceBase):
             api_url=self.config.api_url,
             api_key=self.config.api_key.get_secret_value(),
         )
+        self._dataset_urns: Dict[str, str] = {}
+        self._assertion_urns_emitted: set = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "LangSmithSource":
@@ -163,9 +199,10 @@ class LangSmithSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self._get_project_workunits()
+        # Datasets first so _dataset_urns is populated before trace assertion emission
         if self.config.include_datasets:
             yield from self._get_dataset_workunits()
+        yield from self._get_project_workunits()
 
     # -------------------------------------------------------------------------
     # Project (Container) extraction
@@ -224,6 +261,15 @@ class LangSmithSource(StatefulIngestionSourceBase):
                 self.report.traces_skipped_limit += 1
                 continue
             yield from self._emit_run(project, run)
+            # Assertions from feedback scores
+            if not run.feedback_stats:
+                logger.debug("run %s (%s) has no feedback_stats", run.name, run.id)
+            if self.config.include_assertions and run.feedback_stats:
+                assertion_dataset_urn = self._resolve_assertion_dataset_urn()
+                if assertion_dataset_urn:
+                    yield from self._emit_assertion_workunits(run, assertion_dataset_urn)
+                else:
+                    self.report.assertions_skipped_no_dataset += 1
             root_dpi_urn = self._make_dpi_urn(run.id)
             # input_edge_urns: dest_urn -> EdgeClass, deduped across all spans
             input_edge_urns: Dict[str, EdgeClass] = {}
@@ -505,6 +551,9 @@ class LangSmithSource(StatefulIngestionSourceBase):
     def _make_trace_url(
         self, project: LangSmithProject, run: LangSmithRun
     ) -> Optional[str]:
+        return self._run_url(run)
+
+    def _run_url(self, run: LangSmithRun) -> Optional[str]:
         # Use app_path from the run object if available (e.g. "/o/<org>/projects/p/<id>/r/<run_id>")
         if run.app_path:
             base = self.config.api_url.replace("api.", "").replace("/api", "")
@@ -535,7 +584,107 @@ class LangSmithSource(StatefulIngestionSourceBase):
             description=ls_dataset.description,
             custom_properties=custom_props,
         )
+        self._dataset_urns[ls_dataset.name] = str(dataset.urn)
         yield from dataset.as_workunits()
+
+    # -------------------------------------------------------------------------
+    # Assertion extraction
+    # -------------------------------------------------------------------------
+
+    def _resolve_assertion_dataset_urn(self) -> Optional[str]:
+        """Return the dataset URN to use as the assertion assertee."""
+        if self.config.assertion_dataset_urn:
+            return self.config.assertion_dataset_urn
+        if self._dataset_urns:
+            return next(iter(self._dataset_urns.values()))
+        return None
+
+    def _emit_assertion_workunits(
+        self, run: LangSmithRun, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit AssertionInfo + AssertionRunEvent for each feedback key on a run."""
+        for key, stats in (run.feedback_stats or {}).items():
+            if not isinstance(stats, dict) or "avg" not in stats:
+                continue
+            avg_score = float(stats["avg"])
+            count = int(stats.get("n", 1))
+
+            run_name = run.name or str(run.id)
+            assertion_id = datahub_guid(
+                {
+                    "platform": self.platform,
+                    "feedback_key": key,
+                    "dataset": dataset_urn,
+                    "run_name": run_name,
+                }
+            )
+            assertion_urn = make_assertion_urn(assertion_id)
+
+            # AssertionInfo: emit once per unique assertion URN
+            if assertion_urn not in self._assertion_urns_emitted:
+                self._assertion_urns_emitted.add(assertion_urn)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=assertion_urn,
+                    aspect=AssertionInfoClass(
+                        type=AssertionTypeClass.CUSTOM,
+                        customAssertion=CustomAssertionInfoClass(
+                            type=key.replace("_", " ").title(),
+                            entity=dataset_urn,
+                        ),
+                        source=AssertionSourceClass(
+                            type=AssertionSourceTypeClass.EXTERNAL,
+                        ),
+                        description=f"{run_name}: {key.replace('_', ' ')} score >= {self.config.assertion_score_threshold}",
+                        customProperties={
+                            "feedback_key": key,
+                            "threshold": str(self.config.assertion_score_threshold),
+                            "langsmith_platform": self.platform,
+                            "run_name": run_name,
+                        },
+                    ),
+                ).as_workunit()
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=assertion_urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=str(DataPlatformUrn(platform_name=self.platform))
+                    ),
+                ).as_workunit()
+                self.report.assertions_emitted += 1
+
+            # AssertionRunEvent: one per (assertion, trace)
+            result_type = (
+                AssertionResultTypeClass.SUCCESS
+                if avg_score >= self.config.assertion_score_threshold
+                else AssertionResultTypeClass.FAILURE
+            )
+            timestamp_ms = (
+                int(run.end_time.timestamp() * 1000)
+                if run.end_time
+                else int(time.time() * 1000)
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=assertion_urn,
+                aspect=AssertionRunEventClass(
+                    timestampMillis=timestamp_ms,
+                    runId=str(run.id),
+                    asserteeUrn=dataset_urn,
+                    assertionUrn=assertion_urn,
+                    status=AssertionRunStatusClass.COMPLETE,
+                    result=AssertionResultClass(
+                        type=result_type,
+                        actualAggValue=avg_score,
+                        nativeResults={
+                            "feedback_key": key,
+                            "avg_score": str(avg_score),
+                            "count": str(count),
+                            "threshold": str(self.config.assertion_score_threshold),
+                            "run_name": run.name or str(run.id),
+                        },
+                        externalUrl=self._run_url(run),
+                    ),
+                ),
+            ).as_workunit()
+            self.report.assertion_run_events_emitted += 1
 
     # -------------------------------------------------------------------------
     # Utility

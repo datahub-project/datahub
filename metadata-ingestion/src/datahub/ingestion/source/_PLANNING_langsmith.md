@@ -144,6 +144,102 @@ Emit stub `MLModel` entities for LLM child spans, creating lineage:
 | ---------------------------------- | -------------- | ------- | ---------------------------------------- |
 | **LLM model** (from span metadata) | `MLModel`      | n/a     | Stub entity; platform from `ls_provider` |
 
+## v1.3 Scope (implemented) - Assertions from feedback scores
+
+Emit DataHub Assertion entities from LangSmith feedback scores on traces.
+
+- One `Assertion` entity per unique feedback key (e.g. `correctness`, `helpfulness`)
+- Linked to the eval dataset via `CustomAssertionInfo.entity` (PDL constraint: must be `dataset`)
+- One `AssertionRunEvent` per trace with feedback for that key
+- Pass/fail determined by `assertion_score_threshold` (default 0.7)
+- `AssertionResult.actualAggValue` carries the avg score float
+- Dataset ingested before projects in `get_workunits_internal` so `_dataset_urns` is
+  populated for assertion target resolution before trace processing
+- Assertion URN: `make_assertion_urn(datahub_guid({"platform", "feedback_key", "dataset"}))`
+  - Deterministic and stable across ingestions
+- Auto-detects assertion target from ingested datasets; configurable override via
+  `assertion_dataset_urn`
+- New config: `include_assertions: bool = False`, `assertion_score_threshold: float = 0.7`,
+  `assertion_dataset_urn: Optional[str] = None`
+- New report fields: `assertions_emitted`, `assertion_run_events_emitted`,
+  `assertions_skipped_no_dataset`
+- Seed script updated: LLM-as-judge evaluation feedback on RAG traces
+  (`correctness` + `helpfulness`), status-based feedback on agent traces
+  (`task_completion`)
+- 56 unit tests (10 new), golden file updated (62 MCPs: +8 assertion MCPs,
+  dataset MCPs now precede project MCPs)
+
+### Live testing note: async Kafka reliability in quickstart
+
+When running against a local DataHub quickstart, use `mode: SYNC` in the recipe
+sink config. The default `datahub-rest` sink uses `ASYNC_BATCH` mode, which
+queues regular aspects (e.g. `assertionInfo`, `dataPlatformInstance`) on the
+Kafka MCP topic. If the Kafka group coordinator is rebalancing at ingest time,
+those proposals are silently dropped. Timeseries aspects (`AssertionRunEvent`)
+are written synchronously by GMS regardless of mode and are not affected.
+
+```yaml
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    mode: SYNC
+```
+
+The recipe comment in `langsmith_recipe.yml` documents this.
+
+## v1.4 Scope (implemented) - Per-run-name assertion identity
+
+Changed assertion identity from one-per-feedback-key to one-per-(feedback_key, run_name).
+
+### Problem
+
+The DataHub Quality tab shows only the latest run event's status per assertion.
+With one assertion per feedback key and 72 traces flowing through it, only the
+last trace's result was visible -- 16 correctness failures (on rag-run-01 and
+rag-run-06) were buried in run history and invisible. As observed: "like saying
+all planes in the fleet are airworthy because the last one inspected passed."
+
+### Fix
+
+Include `run.name` in the `datahub_guid` dict for assertion URN generation:
+
+```python
+# Before
+datahub_guid({"platform": ..., "feedback_key": key, "dataset": dataset_urn})
+
+# After
+datahub_guid({"platform": ..., "feedback_key": key, "dataset": dataset_urn, "run_name": run_name})
+```
+
+Each named scenario now has its own assertion entity with its own current status.
+The description and `customProperties` also include `run_name`.
+
+- `assertions_emitted` count increases: from 3 to ~26 in demo data
+  (8 run names x 2 RAG keys + 10 run names x 1 agent key)
+- All existing assertion URNs changed -- stale entity removal soft-deletes old ones
+- No new config flag; this is the default behavior
+
+### Architecture note: name cardinality
+
+If run names are dynamic (timestamps, user IDs, etc.), assertion entity count
+could grow unboundedly. Unlikely for LangSmith eval projects where run names
+reflect chain/agent definitions. Revisit if users report high cardinality --
+potential mitigation: config option to normalize names or revert to per-key-only.
+
+### Changes
+
+- `langsmith.py:_emit_assertion_workunits` -- added `run_name` to guid dict,
+  description, and customProperties; updated `include_assertions` field description
+- Unit tests: renamed dedup test, added 3 new tests (per-name, dedup-same-name,
+  description, customProperties)
+- Golden file: regenerated (assertion URNs + description + customProperties changed)
+- `langsmith_pre.md`: updated entity mapping table and assertions section
+
+| LangSmith Concept              | DataHub Entity              | Notes                                          |
+| ------------------------------ | --------------------------- | ---------------------------------------------- |
+| **Feedback score on trace**    | `Assertion` + `AssertionRunEvent` | Custom assertion type; one per feedback key |
+
 ## v2 Candidates (not implemented)
 
 - **DataJob as pipeline template** - emit a `DataJob` per distinct run name/type

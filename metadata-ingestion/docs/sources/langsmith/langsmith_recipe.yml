@@ -36,6 +36,17 @@ source:
     # Increases entity volume. (default: false)
     include_child_spans: true
 
+    # Optional: emit DataHub Assertion entities from LangSmith feedback scores.
+    # Each unique feedback key becomes one Assertion on the eval dataset.
+    # Requires include_datasets=true or assertion_dataset_urn to be set. (default: false)
+    include_assertions: true
+
+    # Optional: minimum avg feedback score for an assertion to pass. (default: 0.7)
+    # assertion_score_threshold: 0.7
+
+    # Optional: explicit dataset URN for assertion target. Auto-detected when not set.
+    # assertion_dataset_urn: "urn:li:dataset:(urn:li:dataPlatform:langsmith,my-eval-dataset,PROD)"
+
     # Stateful ingestion - soft-delete entities removed from LangSmith
     stateful_ingestion:
       enabled: true
@@ -44,3 +55,4 @@ sink:
   type: datahub-rest
   config:
     server: "http://localhost:8080"
+    # mode: SYNC  # Recommended for dev/quickstart to avoid async Kafka reliability issues

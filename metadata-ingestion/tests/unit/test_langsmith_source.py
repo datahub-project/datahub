@@ -14,6 +14,9 @@ from pydantic import ValidationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.langsmith import LangSmithConfig, LangSmithSource
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
     ContainerClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
@@ -952,3 +955,222 @@ def test_llm_child_without_model_metadata_no_edge():
         if isinstance(wu.metadata.aspect, DataProcessInstanceInputClass)
     ]
     assert len(input_aspects) == 0
+
+
+# -------------------------------------------------------------------------
+# Assertion tests
+# -------------------------------------------------------------------------
+
+DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:langsmith,eval-dataset,PROD)"
+
+
+def _make_source_with_assertions(**extra_kwargs) -> LangSmithSource:
+    config = _make_config(include_assertions=True, **extra_kwargs)
+    source = _make_source(config)
+    source._dataset_urns["eval-dataset"] = DATASET_URN
+    return source
+
+
+def test_config_include_assertions_default_false():
+    config = _make_config()
+    assert config.include_assertions is False
+
+
+def test_config_assertion_score_threshold_default():
+    config = _make_config()
+    assert config.assertion_score_threshold == 0.7
+
+
+def test_assertion_emitted_for_feedback():
+    """A run with feedback_stats emits AssertionInfo + AssertionRunEvent."""
+    source = _make_source_with_assertions()
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
+
+    wus = list(source._emit_assertion_workunits(run, DATASET_URN))
+
+    info_wus = [w for w in wus if isinstance(w.metadata.aspect, AssertionInfoClass)]
+    event_wus = [w for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass)]
+
+    assert len(info_wus) == 1
+    assert len(event_wus) == 1
+    assert source.report.assertions_emitted == 1
+    assert source.report.assertion_run_events_emitted == 1
+
+
+def test_assertion_result_success_above_threshold():
+    """Score 0.85 >= threshold 0.7 produces SUCCESS."""
+    source = _make_source_with_assertions(assertion_score_threshold=0.7)
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
+
+    wus = list(source._emit_assertion_workunits(run, DATASET_URN))
+    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    assert event.result.type == AssertionResultTypeClass.SUCCESS
+
+
+def test_assertion_result_failure_below_threshold():
+    """Score 0.5 < threshold 0.7 produces FAILURE."""
+    source = _make_source_with_assertions(assertion_score_threshold=0.7)
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.5, "n": 5}})
+
+    wus = list(source._emit_assertion_workunits(run, DATASET_URN))
+    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    assert event.result.type == AssertionResultTypeClass.FAILURE
+
+
+def test_assertion_result_exact_threshold_is_success():
+    """Score exactly equal to threshold is SUCCESS (>=)."""
+    source = _make_source_with_assertions(assertion_score_threshold=0.7)
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.7, "n": 5}})
+
+    wus = list(source._emit_assertion_workunits(run, DATASET_URN))
+    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    assert event.result.type == AssertionResultTypeClass.SUCCESS
+
+
+def test_assertion_actual_agg_value():
+    """AssertionResult.actualAggValue carries the avg score."""
+    source = _make_source_with_assertions()
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
+
+    wus = list(source._emit_assertion_workunits(run, DATASET_URN))
+    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    assert event.result.actualAggValue == pytest.approx(0.85)
+
+
+def test_assertion_info_emitted_per_run_name():
+    """Two runs with different names but same feedback key produce 2 AssertionInfo + 2 AssertionRunEvents."""
+    source = _make_source_with_assertions()
+    run1 = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.9, "n": 3}})
+    run2 = LangSmithRun(
+        id=uuid.UUID("55555555-5555-5555-5555-555555555555"),
+        name="run-2",
+        run_type="chain",
+        status="success",
+        start_time=START_TIME,
+        end_time=END_TIME,
+        tags=[],
+        feedback_stats={"correctness": {"avg": 0.6, "n": 2}},
+        app_path=None,
+        inputs={},
+        outputs={},
+    )
+
+    wus1 = list(source._emit_assertion_workunits(run1, DATASET_URN))
+    wus2 = list(source._emit_assertion_workunits(run2, DATASET_URN))
+    all_wus = wus1 + wus2
+
+    info_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionInfoClass)]
+    event_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionRunEventClass)]
+
+    assert len(info_wus) == 2
+    assert len(event_wus) == 2
+    assert source.report.assertions_emitted == 2
+    assert source.report.assertion_run_events_emitted == 2
+
+
+def test_assertion_info_dedup_same_name():
+    """Two runs with same name and same feedback key produce 1 AssertionInfo + 2 AssertionRunEvents."""
+    source = _make_source_with_assertions()
+    run1 = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.9, "n": 3}})
+    run2 = LangSmithRun(
+        id=uuid.UUID("55555555-5555-5555-5555-555555555555"),
+        name="test-chain",
+        run_type="chain",
+        status="success",
+        start_time=START_TIME,
+        end_time=END_TIME,
+        tags=[],
+        feedback_stats={"correctness": {"avg": 0.6, "n": 2}},
+        app_path=None,
+        inputs={},
+        outputs={},
+    )
+
+    wus1 = list(source._emit_assertion_workunits(run1, DATASET_URN))
+    wus2 = list(source._emit_assertion_workunits(run2, DATASET_URN))
+    all_wus = wus1 + wus2
+
+    info_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionInfoClass)]
+    event_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionRunEventClass)]
+
+    assert len(info_wus) == 1
+    assert len(event_wus) == 2
+    assert source.report.assertions_emitted == 1
+    assert source.report.assertion_run_events_emitted == 2
+
+
+def test_assertion_run_name_in_description():
+    """AssertionInfo description is '<run_name>: <key> score >= <threshold>'."""
+    source = _make_source_with_assertions()
+    run = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
+    wus = list(source._emit_assertion_workunits(run, DATASET_URN))
+    info = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionInfoClass))
+    assert info.description == "test-chain: correctness score >= 0.7"
+
+
+def test_assertion_run_name_in_custom_properties():
+    """AssertionInfo customProperties includes run_name."""
+    source = _make_source_with_assertions()
+    run = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
+    wus = list(source._emit_assertion_workunits(run, DATASET_URN))
+    info = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionInfoClass))
+    assert info.customProperties.get("run_name") == "test-chain"
+
+
+
+
+def test_assertion_skipped_when_no_dataset():
+    """With no dataset URN available, assertions are skipped and counter incremented."""
+    source = _make_source(_make_config(include_assertions=True))
+    # _dataset_urns is empty; no assertion_dataset_urn configured
+    project = _make_project()
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.9, "n": 5}})
+
+    source.client.list_runs = MagicMock(return_value=iter([run]))
+
+    list(source._get_trace_workunits(project))
+
+    assert source.report.assertions_skipped_no_dataset == 1
+    assert source.report.assertions_emitted == 0
+
+
+def test_assertion_uses_explicit_dataset_urn():
+    """assertion_dataset_urn config overrides auto-detected dataset."""
+    explicit_urn = "urn:li:dataset:(urn:li:dataPlatform:langsmith,explicit-ds,PROD)"
+    source = _make_source(_make_config(
+        include_assertions=True,
+        assertion_dataset_urn=explicit_urn,
+    ))
+    # Also populate _dataset_urns - explicit should win
+    source._dataset_urns["other-dataset"] = DATASET_URN
+
+    assert source._resolve_assertion_dataset_urn() == explicit_urn
+
+
+def test_assertion_urn_deterministic():
+    """Same inputs always produce the same assertion URN."""
+    source1 = _make_source_with_assertions()
+    source2 = _make_source_with_assertions()
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.9, "n": 5}})
+
+    wus1 = list(source1._emit_assertion_workunits(run, DATASET_URN))
+    wus2 = list(source2._emit_assertion_workunits(run, DATASET_URN))
+
+    urns1 = {w.metadata.entityUrn for w in wus1}
+    urns2 = {w.metadata.entityUrn for w in wus2}
+    assert urns1 == urns2
+
+
+def test_assertions_not_emitted_when_disabled():
+    """include_assertions=False produces no assertion MCPs even with feedback."""
+    source = _make_source(_make_config(include_assertions=False))
+    source._dataset_urns["eval-dataset"] = DATASET_URN
+    project = _make_project()
+    run = _make_run(feedback_stats={"correctness": {"avg": 0.9, "n": 5}})
+
+    source.client.list_runs = MagicMock(return_value=iter([run]))
+
+    wus = list(source._get_trace_workunits(project))
+
+    assert not any(isinstance(w.metadata.aspect, AssertionInfoClass) for w in wus)
+    assert not any(isinstance(w.metadata.aspect, AssertionRunEventClass) for w in wus)
