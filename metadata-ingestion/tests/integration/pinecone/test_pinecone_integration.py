@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("pinecone")
+
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.pinecone.pinecone_source import PineconeSource
 from datahub.testing import mce_helpers

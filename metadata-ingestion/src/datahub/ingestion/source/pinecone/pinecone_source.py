@@ -70,6 +70,8 @@ class PineconeSource(StatefulIngestionSourceBase):
     (Index -> Namespace -> Dataset).
     """
 
+    report: PineconeSourceReport
+
     def __init__(self, config: PineconeConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
