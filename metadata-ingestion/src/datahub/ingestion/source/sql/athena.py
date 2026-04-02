@@ -406,13 +406,14 @@ class AthenaSource(SQLAlchemySource):
         """Query the Athena API to get the catalog type (GLUE, LAMBDA, HIVE, FEDERATED)."""
         assert self.cursor
         try:
-            client = self.cursor._connection.client
-            response = client.get_data_catalog(Name=self.config.catalog_name)
+            client = self.cursor._connection.client  # type: ignore[union-attr]
+            response = client.get_data_catalog(Name=self.config.catalog_name)  # type: ignore[attr-defined]
             return response.get("DataCatalog", {}).get("Type")
         except Exception as e:
             logger.warning(
                 f"Failed to determine catalog type for '{self.config.catalog_name}': {e}"
             )
+            return None
 
     @property
     def is_glue_catalog(self) -> bool:
