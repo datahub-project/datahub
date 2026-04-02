@@ -5,7 +5,7 @@ import lombok.Data;
 /**
  * Configuration for GraphQL query/response shape logging.
  *
- * <p>When enabled, emits structured JSON log entries (at DEBUG level via the {@code
+ * <p>When enabled, emits structured JSON log entries (at INFO level via the {@code
  * com.datahub.graphql.shape} logger) whenever at least one threshold is crossed. Cheap Micrometer
  * shape metrics are emitted regardless of thresholds.
  */

@@ -45,7 +45,7 @@ public final class ResponseShapeAnalyzer {
    *
    * <ul>
    *   <li>{@code normalizedShape} — string representation of the response data structure, capped at
-   *       {@value MAX_SHAPE_LENGTH} chars.
+   *       {@value GraphQLShapeConstants#MAX_RESPONSE_SHAPE_LENGTH} chars.
    *   <li>{@code fieldCount} — total number of scalar (leaf) values in the response.
    *   <li>{@code heavyFields} — list of heavy fields (arrays with size > 1), extracted during AST
    *       traversal. Sorted by size descending, capped at top 10 arrays.
@@ -88,9 +88,12 @@ public final class ResponseShapeAnalyzer {
       StringBuilder sb = new StringBuilder(GraphQLShapeConstants.INITIAL_SHAPE_BUILDER_CAPACITY);
       appendValue(sb, data, 0, counts, "", heavyFieldsQueue);
 
-      // Extract top N: pop from min-heap (ascending), then reverse for descending order
-      List<HeavyField> heavyFields = new ArrayList<>(heavyFieldsQueue);
-      Collections.reverse(heavyFields);
+      // Extract top N: drain min-heap via poll() (gives ascending), then reverse for descending
+      List<HeavyField> heavyFields = new ArrayList<>(heavyFieldsQueue.size());
+      while (!heavyFieldsQueue.isEmpty()) {
+        heavyFields.add(heavyFieldsQueue.poll());
+      }
+      Collections.reverse(heavyFields); // Now in descending order by size
 
       String shape = sb.toString();
       if (shape.length() > GraphQLShapeConstants.MAX_RESPONSE_SHAPE_LENGTH) {

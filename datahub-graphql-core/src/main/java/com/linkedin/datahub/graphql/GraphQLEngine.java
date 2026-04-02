@@ -129,7 +129,7 @@ public class GraphQLEngine {
                     LegacyCoercingInputInterceptor.migratesValues(),
                     QueryContext.class,
                     context,
-                    "actor",
+                    GraphQLTimingInstrumentation.GRAPHQL_CONTEXT_ACTOR_KEY,
                     context != null && context.getActor() != null
                         ? context.getActor()
                         : "no_actor_present")) // need this to log actor in logging/instrumentation

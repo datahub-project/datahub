@@ -21,7 +21,13 @@ import graphql.schema.GraphQLTypeUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -42,8 +48,11 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
   /** Dedicated logger for shape log entries — inherits the ASYNC_GRAPHQL_DEBUG_FILE appender. */
   private static final Logger SHAPE_LOG = LoggerFactory.getLogger("com.datahub.graphql.shape");
 
-  /** Used only for serialising shape log payloads — instantiated once per instrumentation. */
-  private final ObjectMapper shapeObjectMapper = new ObjectMapper();
+  /** Context map key for actor identity. */
+  public static final String GRAPHQL_CONTEXT_ACTOR_KEY = "actor";
+
+  /** Used only for serialising shape log payloads. ObjectMapper is thread-safe and stateless. */
+  private static final ObjectMapper shapeObjectMapper = new ObjectMapper();
 
   // Inner class for path matching
   private static class PathMatcher {
@@ -164,13 +173,14 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
 
     // Extract actorUrn for caller attribution (best-effort)
     try {
-      Object actorContext = parameters.getGraphQLContext().getOrDefault("actor", null);
+      Object actorContext =
+          parameters.getGraphQLContext().getOrDefault(GRAPHQL_CONTEXT_ACTOR_KEY, null);
       if (actorContext instanceof Actor actor) {
         timingState.actorUrn = actor.toUrnStr();
       }
     } catch (Exception innerEx) {
-      // ActorUrn extraction is optional — log and continue
-      SHAPE_LOG.error("Could not extract actorUrn from ExecutionContext", innerEx);
+      // ActorUrn extraction is optional — log at debug (not error, to avoid flooding error logs)
+      SHAPE_LOG.debug("Could not extract actorUrn from ExecutionContext", innerEx);
     }
     return SimpleInstrumentationContext.whenCompleted(
         (result, t) -> {
