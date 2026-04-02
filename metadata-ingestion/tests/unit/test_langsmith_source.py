@@ -712,12 +712,92 @@ def test_non_retriever_span_no_input_edge():
 
 
 def test_retriever_uses_vector_store_provider_as_platform():
-    """When ls_vector_store_provider is present, it becomes the dataset platform."""
+    """When ls_vector_store_provider is set: platform matches and project prefix is dropped."""
     source = _make_source()
     project = _make_project()
     run = _make_retriever_run(ls_vector_store_provider="Chroma")
     ds_urn, _ = source._build_retriever_stub(project, run)
     assert "chroma" in ds_urn
+    # Project prefix must be absent so the URN aligns with the provider's own source.
+    assert "my-project" not in ds_urn
+
+
+def test_retriever_no_provider_keeps_project_prefix():
+    """Without ls_vector_store_provider, dataset name is {project}/{retriever_name}."""
+    source = _make_source()
+    project = _make_project()
+    run = _make_retriever_run()
+    ds_urn, _ = source._build_retriever_stub(project, run)
+    assert "my-project" in ds_urn
+    assert "keyword" in ds_urn
+
+
+def _make_tool_run(
+    tool_name: str = "lookup_fact",
+    ls_data_source_platform: Optional[str] = None,
+    ls_data_source_name: Optional[str] = None,
+) -> LangSmithRun:
+    metadata: dict = {}
+    if ls_data_source_platform:
+        metadata["ls_data_source_platform"] = ls_data_source_platform
+    if ls_data_source_name:
+        metadata["ls_data_source_name"] = ls_data_source_name
+    return LangSmithRun(
+        id=uuid.UUID("99999999-9999-9999-9999-999999999999"),
+        name=tool_name,
+        run_type="tool",
+        status="success",
+        start_time=START_TIME,
+        end_time=END_TIME,
+        extra={"metadata": metadata} if metadata else {},
+    )
+
+
+def test_tool_with_data_source_emits_dataset_edge():
+    """Tool span with ls_data_source_* metadata produces a dataset lineage edge."""
+    source = _make_source()
+    project = _make_project()
+    run = _make_tool_run(
+        ls_data_source_platform="elasticsearch",
+        ls_data_source_name="fact-database",
+    )
+    input_edge_urns: dict = {}
+    list(source._collect_run_edges(project, run, input_edge_urns))
+
+    assert len(input_edge_urns) == 1
+    edge = list(input_edge_urns.values())[0]
+    assert "elasticsearch" in edge.destinationUrn
+    assert "fact-database" in edge.destinationUrn
+    assert source.report.tool_data_sources_emitted == 1
+
+
+def test_tool_without_data_source_emits_no_edge():
+    """Tool span without ls_data_source_* metadata produces no lineage edge."""
+    source = _make_source()
+    project = _make_project()
+    run = _make_tool_run()
+    input_edge_urns: dict = {}
+    list(source._collect_run_edges(project, run, input_edge_urns))
+
+    assert len(input_edge_urns) == 0
+    assert source.report.tool_data_sources_emitted == 0
+
+
+def test_tool_data_source_stub_dataset_urn():
+    """_build_tool_data_source_stub returns dataset URN on the correct platform."""
+    source = _make_source()
+    run = _make_tool_run(
+        ls_data_source_platform="Elasticsearch",
+        ls_data_source_name="fact-database",
+    )
+    result = source._build_tool_data_source_stub(run)
+
+    assert result is not None
+    ds_urn, stub_wus = result
+    wus = list(stub_wus)
+    assert len(wus) > 0
+    assert "elasticsearch" in ds_urn
+    assert "fact-database" in ds_urn
 
 
 def test_retriever_input_edge_entity_urn_is_root_when_provided():
@@ -746,7 +826,9 @@ def test_retriever_input_edge_entity_urn_is_root_when_provided():
     # Retriever span gets the dataset edge; root gets a DPI flow edge to retriever
     assert len(input_wus) == 2
     assert retriever_dpi_urn in input_wus
-    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
+    assert any(
+        "dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges
+    )
     assert root_dpi_urn in input_wus
     assert len(input_wus[root_dpi_urn].inputEdges) == 1
     assert input_wus[root_dpi_urn].inputEdges[0].destinationUrn == retriever_dpi_urn
@@ -778,7 +860,9 @@ def test_get_child_span_workunits_retriever_edge_on_root_trace():
     assert len(input_wus) == 2
     # Dataset edge is on the retriever span, not root
     assert retriever_dpi_urn in input_wus
-    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
+    assert any(
+        "dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges
+    )
     # Root gets a DPI flow edge to the retriever span
     assert root_dpi_urn in input_wus
     assert input_wus[root_dpi_urn].inputEdges[0].destinationUrn == retriever_dpi_urn
@@ -906,7 +990,9 @@ def test_retriever_and_llm_produce_combined_edge():
     assert len(input_wus) == 3
     # Each child span gets its own asset edge
     assert retriever_dpi_urn in input_wus
-    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
+    assert any(
+        "dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges
+    )
     assert llm_dpi_urn in input_wus
     assert any("mlModel" in e.destinationUrn for e in input_wus[llm_dpi_urn].inputEdges)
     # Root gets DPI flow edges to both terminal children (parallel execution)
@@ -946,9 +1032,13 @@ def test_duplicate_model_calls_deduplicated():
     }
     # Each LLM span gets its own model edge; root gets DPI flow edges to both
     assert llm1_dpi_urn in input_wus
-    assert any("mlModel" in e.destinationUrn for e in input_wus[llm1_dpi_urn].inputEdges)
+    assert any(
+        "mlModel" in e.destinationUrn for e in input_wus[llm1_dpi_urn].inputEdges
+    )
     assert llm2_dpi_urn in input_wus
-    assert any("mlModel" in e.destinationUrn for e in input_wus[llm2_dpi_urn].inputEdges)
+    assert any(
+        "mlModel" in e.destinationUrn for e in input_wus[llm2_dpi_urn].inputEdges
+    )
     assert root_dpi_urn in input_wus
     assert len(input_wus[root_dpi_urn].inputEdges) == 2
     assert source.report.models_emitted == 2
@@ -1020,7 +1110,9 @@ def test_assertion_emitted_for_feedback():
     wus = list(source._emit_assertion_workunits(run, DATASET_URN))
 
     info_wus = [w for w in wus if isinstance(w.metadata.aspect, AssertionInfoClass)]
-    event_wus = [w for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass)]
+    event_wus = [
+        w for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass)
+    ]
 
     assert len(info_wus) == 1
     assert len(event_wus) == 1
@@ -1034,7 +1126,11 @@ def test_assertion_result_success_above_threshold():
     run = _make_run(feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
 
     wus = list(source._emit_assertion_workunits(run, DATASET_URN))
-    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    event = next(
+        w.metadata.aspect
+        for w in wus
+        if isinstance(w.metadata.aspect, AssertionRunEventClass)
+    )
     assert event.result.type == AssertionResultTypeClass.SUCCESS
 
 
@@ -1044,7 +1140,11 @@ def test_assertion_result_failure_below_threshold():
     run = _make_run(feedback_stats={"correctness": {"avg": 0.5, "n": 5}})
 
     wus = list(source._emit_assertion_workunits(run, DATASET_URN))
-    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    event = next(
+        w.metadata.aspect
+        for w in wus
+        if isinstance(w.metadata.aspect, AssertionRunEventClass)
+    )
     assert event.result.type == AssertionResultTypeClass.FAILURE
 
 
@@ -1054,7 +1154,11 @@ def test_assertion_result_exact_threshold_is_success():
     run = _make_run(feedback_stats={"correctness": {"avg": 0.7, "n": 5}})
 
     wus = list(source._emit_assertion_workunits(run, DATASET_URN))
-    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    event = next(
+        w.metadata.aspect
+        for w in wus
+        if isinstance(w.metadata.aspect, AssertionRunEventClass)
+    )
     assert event.result.type == AssertionResultTypeClass.SUCCESS
 
 
@@ -1064,14 +1168,20 @@ def test_assertion_actual_agg_value():
     run = _make_run(feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
 
     wus = list(source._emit_assertion_workunits(run, DATASET_URN))
-    event = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionRunEventClass))
+    event = next(
+        w.metadata.aspect
+        for w in wus
+        if isinstance(w.metadata.aspect, AssertionRunEventClass)
+    )
     assert event.result.actualAggValue == pytest.approx(0.85)
 
 
 def test_assertion_info_emitted_per_run_name():
     """Two runs with different names but same feedback key produce 2 AssertionInfo + 2 AssertionRunEvents."""
     source = _make_source_with_assertions()
-    run1 = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.9, "n": 3}})
+    run1 = _make_run(
+        name="test-chain", feedback_stats={"correctness": {"avg": 0.9, "n": 3}}
+    )
     run2 = LangSmithRun(
         id=uuid.UUID("55555555-5555-5555-5555-555555555555"),
         name="run-2",
@@ -1091,7 +1201,9 @@ def test_assertion_info_emitted_per_run_name():
     all_wus = wus1 + wus2
 
     info_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionInfoClass)]
-    event_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionRunEventClass)]
+    event_wus = [
+        w for w in all_wus if isinstance(w.metadata.aspect, AssertionRunEventClass)
+    ]
 
     assert len(info_wus) == 2
     assert len(event_wus) == 2
@@ -1102,7 +1214,9 @@ def test_assertion_info_emitted_per_run_name():
 def test_assertion_info_dedup_same_name():
     """Two runs with same name and same feedback key produce 1 AssertionInfo + 2 AssertionRunEvents."""
     source = _make_source_with_assertions()
-    run1 = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.9, "n": 3}})
+    run1 = _make_run(
+        name="test-chain", feedback_stats={"correctness": {"avg": 0.9, "n": 3}}
+    )
     run2 = LangSmithRun(
         id=uuid.UUID("55555555-5555-5555-5555-555555555555"),
         name="test-chain",
@@ -1122,7 +1236,9 @@ def test_assertion_info_dedup_same_name():
     all_wus = wus1 + wus2
 
     info_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionInfoClass)]
-    event_wus = [w for w in all_wus if isinstance(w.metadata.aspect, AssertionRunEventClass)]
+    event_wus = [
+        w for w in all_wus if isinstance(w.metadata.aspect, AssertionRunEventClass)
+    ]
 
     assert len(info_wus) == 1
     assert len(event_wus) == 2
@@ -1133,21 +1249,31 @@ def test_assertion_info_dedup_same_name():
 def test_assertion_run_name_in_description():
     """AssertionInfo description is '<run_name>: <key> score >= <threshold>'."""
     source = _make_source_with_assertions()
-    run = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
+    run = _make_run(
+        name="test-chain", feedback_stats={"correctness": {"avg": 0.85, "n": 5}}
+    )
     wus = list(source._emit_assertion_workunits(run, DATASET_URN))
-    info = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionInfoClass))
+    info = next(
+        w.metadata.aspect
+        for w in wus
+        if isinstance(w.metadata.aspect, AssertionInfoClass)
+    )
     assert info.description == "test-chain: correctness score >= 0.7"
 
 
 def test_assertion_run_name_in_custom_properties():
     """AssertionInfo customProperties includes run_name."""
     source = _make_source_with_assertions()
-    run = _make_run(name="test-chain", feedback_stats={"correctness": {"avg": 0.85, "n": 5}})
+    run = _make_run(
+        name="test-chain", feedback_stats={"correctness": {"avg": 0.85, "n": 5}}
+    )
     wus = list(source._emit_assertion_workunits(run, DATASET_URN))
-    info = next(w.metadata.aspect for w in wus if isinstance(w.metadata.aspect, AssertionInfoClass))
+    info = next(
+        w.metadata.aspect
+        for w in wus
+        if isinstance(w.metadata.aspect, AssertionInfoClass)
+    )
     assert info.customProperties.get("run_name") == "test-chain"
-
-
 
 
 def test_assertion_skipped_when_no_dataset():
@@ -1168,10 +1294,12 @@ def test_assertion_skipped_when_no_dataset():
 def test_assertion_uses_explicit_dataset_urn():
     """assertion_dataset_urn config overrides auto-detected dataset."""
     explicit_urn = "urn:li:dataset:(urn:li:dataPlatform:langsmith,explicit-ds,PROD)"
-    source = _make_source(_make_config(
-        include_assertions=True,
-        assertion_dataset_urn=explicit_urn,
-    ))
+    source = _make_source(
+        _make_config(
+            include_assertions=True,
+            assertion_dataset_urn=explicit_urn,
+        )
+    )
     # Also populate _dataset_urns - explicit should win
     source._dataset_urns["other-dataset"] = DATASET_URN
 
@@ -1228,8 +1356,15 @@ def test_flow_graph_serial_siblings():
 
     def _r(rid, pid, start, end):
         return LangSmithRun(
-            id=rid, name=str(rid), run_type="chain", status="success",
-            start_time=start, end_time=end, tags=[], inputs={}, outputs={},
+            id=rid,
+            name=str(rid),
+            run_type="chain",
+            status="success",
+            start_time=start,
+            end_time=end,
+            tags=[],
+            inputs={},
+            outputs={},
             parent_run_id=pid,
         )
 
@@ -1240,8 +1375,8 @@ def test_flow_graph_serial_siblings():
 
     result = source._compute_flow_graph(root, [c1, c2, c3])
 
-    assert c1_id in result[c2_id]    # c2 is downstream of c1
-    assert c2_id in result[c3_id]    # c3 is downstream of c2
+    assert c1_id in result[c2_id]  # c2 is downstream of c1
+    assert c2_id in result[c3_id]  # c3 is downstream of c2
     assert c3_id in result[root_id]  # c3 is terminal, feeds root
     assert c1_id not in result.get(root_id, [])  # c1 is not terminal
     assert c2_id not in result.get(root_id, [])  # c2 is not terminal
@@ -1260,14 +1395,21 @@ def test_flow_graph_parallel_siblings():
 
     def _r(rid, pid, start, end):
         return LangSmithRun(
-            id=rid, name=str(rid), run_type="chain", status="success",
-            start_time=start, end_time=end, tags=[], inputs={}, outputs={},
+            id=rid,
+            name=str(rid),
+            run_type="chain",
+            status="success",
+            start_time=start,
+            end_time=end,
+            tags=[],
+            inputs={},
+            outputs={},
             parent_run_id=pid,
         )
 
     root = _r(root_id, None, t0, t2)
-    c1 = _r(c1_id, root_id, t0, t2)   # long-running
-    c2 = _r(c2_id, root_id, t1, t2)   # starts before c1 ends -> parallel
+    c1 = _r(c1_id, root_id, t0, t2)  # long-running
+    c2 = _r(c2_id, root_id, t1, t2)  # starts before c1 ends -> parallel
 
     result = source._compute_flow_graph(root, [c1, c2])
 
@@ -1294,8 +1436,15 @@ def test_flow_graph_nested_tree():
 
     def _r(rid, pid, start, end):
         return LangSmithRun(
-            id=rid, name=str(rid), run_type="chain", status="success",
-            start_time=start, end_time=end, tags=[], inputs={}, outputs={},
+            id=rid,
+            name=str(rid),
+            run_type="chain",
+            status="success",
+            start_time=start,
+            end_time=end,
+            tags=[],
+            inputs={},
+            outputs={},
             parent_run_id=pid,
         )
 
@@ -1306,17 +1455,23 @@ def test_flow_graph_nested_tree():
     prompt = _r(prompt_id, root_id, t2, t4)
     llm = _r(llm_id, root_id, t4, t5)
 
-    result = source._compute_flow_graph(root, [chain, retriever, formatter, prompt, llm])
+    result = source._compute_flow_graph(
+        root, [chain, retriever, formatter, prompt, llm]
+    )
 
     # Top-level serial flow: chain -> prompt -> llm -> root
     assert chain_id in result.get(prompt_id, [])
     assert prompt_id in result.get(llm_id, [])
     assert llm_id in result.get(root_id, [])
-    assert chain_id not in result.get(root_id, [])  # chain is not terminal at root level
+    assert chain_id not in result.get(
+        root_id, []
+    )  # chain is not terminal at root level
     # Nested under chain: retriever -> formatter -> chain
     assert retriever_id in result.get(formatter_id, [])
     assert formatter_id in result.get(chain_id, [])
-    assert retriever_id not in result.get(chain_id, [])  # retriever is not terminal at chain level
+    assert retriever_id not in result.get(
+        chain_id, []
+    )  # retriever is not terminal at chain level
 
 
 def test_asset_edges_on_child_spans():
@@ -1347,7 +1502,9 @@ def test_asset_edges_on_child_spans():
 
     # Retriever span gets dataset edge
     assert retriever_dpi_urn in input_wus
-    assert any("dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges)
+    assert any(
+        "dataset" in e.destinationUrn for e in input_wus[retriever_dpi_urn].inputEdges
+    )
     # LLM span gets model edge
     assert llm_dpi_urn in input_wus
     assert any("mlModel" in e.destinationUrn for e in input_wus[llm_dpi_urn].inputEdges)

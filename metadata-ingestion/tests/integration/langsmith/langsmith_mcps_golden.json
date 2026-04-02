@@ -1,5 +1,45 @@
 [
 {
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:langsmith",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+        "json": {
+            "name": "langsmith",
+            "displayName": "LangSmith",
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+            "logoUrl": "https://unpkg.com/@lobehub/icons-static-svg@1.84.0/icons/langsmith-color.svg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "langsmith-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:anthropic",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+        "json": {
+            "name": "anthropic",
+            "displayName": "Anthropic",
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+            "logoUrl": "https://unpkg.com/@lobehub/icons-static-svg@1.84.0/icons/claude-color.svg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "langsmith-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:langsmith,qa-eval-dataset,PROD)",
     "changeType": "UPSERT",

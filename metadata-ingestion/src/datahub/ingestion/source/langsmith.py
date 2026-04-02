@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple
 
-logger = logging.getLogger(__name__)
-
 import langsmith
 from langsmith.schemas import (
     Dataset as LangSmithDataset,
@@ -20,7 +18,11 @@ from pydantic.fields import Field
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
-from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn, make_data_platform_urn
+from datahub.emitter.mce_builder import (
+    datahub_guid,
+    make_assertion_urn,
+    make_data_platform_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
@@ -78,6 +80,8 @@ from datahub.metadata.urns import DataPlatformUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.mlmodel import MLModel
+
+logger = logging.getLogger(__name__)
 
 
 class LangSmithConfig(StatefulIngestionConfigBase, EnvConfigMixin):
@@ -142,6 +146,7 @@ class LangSmithSourceReport(StaleEntityRemovalSourceReport):
     spans_ingested: int = 0
     retriever_datasets_emitted: int = 0
     models_emitted: int = 0
+    tool_data_sources_emitted: int = 0
     datasets_ingested: int = 0
     projects_filtered: int = 0
     traces_skipped_limit: int = 0
@@ -214,11 +219,11 @@ class LangSmithSource(StatefulIngestionSourceBase):
     }
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        for platform_name, (display_name, logo_url) in self._PLATFORM_LOGOS.items():
+        for platform_id, (display_name, logo_url) in self._PLATFORM_LOGOS.items():
             yield MetadataChangeProposalWrapper(
-                entityUrn=make_data_platform_urn(platform_name),
+                entityUrn=make_data_platform_urn(platform_id),
                 aspect=DataPlatformInfoClass(
-                    name=platform_name,
+                    name=platform_id,
                     displayName=display_name,
                     type=PlatformTypeClass.OTHERS,
                     datasetNameDelimiter=".",
@@ -293,7 +298,9 @@ class LangSmithSource(StatefulIngestionSourceBase):
             if self.config.include_assertions and run.feedback_stats:
                 assertion_dataset_urn = self._resolve_assertion_dataset_urn()
                 if assertion_dataset_urn:
-                    yield from self._emit_assertion_workunits(run, assertion_dataset_urn)
+                    yield from self._emit_assertion_workunits(
+                        run, assertion_dataset_urn
+                    )
                 else:
                     self.report.assertions_skipped_no_dataset += 1
             if self.config.include_child_spans:
@@ -363,7 +370,8 @@ class LangSmithSource(StatefulIngestionSourceBase):
         # Phase 4: Emit DataProcessInstanceInput on root (terminal children + own asset edges)
         root_upstream_ids = flow_upstreams.get(root_run.id, [])
         root_edges: List[EdgeClass] = [
-            EdgeClass(destinationUrn=self._make_dpi_urn(uid)) for uid in root_upstream_ids
+            EdgeClass(destinationUrn=self._make_dpi_urn(uid))
+            for uid in root_upstream_ids
         ]
         root_own_assets: Dict[str, EdgeClass] = {}
         yield from self._collect_run_edges(project, root_run, root_own_assets)
@@ -571,9 +579,15 @@ class LangSmithSource(StatefulIngestionSourceBase):
         ) or run.name.lower().replace(" ", "-")
         provider = run_metadata.get("ls_vector_store_provider")
         platform = provider.lower() if provider else self.platform
+        # When the retriever has a real external vector store, use only the
+        # retriever name so the URN matches what the provider's own DataHub
+        # source produces (e.g. elasticsearch source uses just the index name).
+        dataset_name = (
+            retriever_name if provider else f"{project.name}/{retriever_name}"
+        )
         source_dataset = Dataset(
             platform=platform,
-            name=f"{project.name}/{retriever_name}",
+            name=dataset_name,
         )
         return (str(source_dataset.urn), source_dataset.as_workunits())
 
@@ -623,6 +637,25 @@ class LangSmithSource(StatefulIngestionSourceBase):
         )
         return (str(model.urn), model.as_workunits())
 
+    def _build_tool_data_source_stub(
+        self,
+        run: LangSmithRun,
+    ) -> Optional[Tuple[str, Iterable[MetadataWorkUnit]]]:
+        """Build a stub Dataset entity from tool span metadata. Returns (urn, workunits) or None.
+
+        Tools that reference an external data source should set these metadata keys
+        (using BaseTool.metadata, which LangSmith records in run.extra.metadata):
+          ls_data_source_platform  -- DataHub platform name (e.g. "elasticsearch")
+          ls_data_source_name      -- Dataset name (e.g. "fact-database")
+        """
+        run_metadata = (run.extra or {}).get("metadata") or {}
+        platform = run_metadata.get("ls_data_source_platform")
+        name = run_metadata.get("ls_data_source_name")
+        if not platform or not name:
+            return None
+        source_dataset = Dataset(platform=platform.lower(), name=name)
+        return (str(source_dataset.urn), source_dataset.as_workunits())
+
     def _collect_run_edges(
         self,
         project: LangSmithProject,
@@ -644,6 +677,14 @@ class LangSmithSource(StatefulIngestionSourceBase):
                 if model_urn not in input_edge_urns:
                     input_edge_urns[model_urn] = EdgeClass(destinationUrn=model_urn)
                 self.report.models_emitted += 1
+        if run.run_type == "tool":
+            result = self._build_tool_data_source_stub(run)
+            if result is not None:
+                ds_urn, stub_wus = result
+                yield from stub_wus
+                if ds_urn not in input_edge_urns:
+                    input_edge_urns[ds_urn] = EdgeClass(destinationUrn=ds_urn)
+                self.report.tool_data_sources_emitted += 1
 
     def _get_token_metrics(self, run: LangSmithRun) -> List[MLMetricClass]:
         metrics = []

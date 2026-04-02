@@ -53,7 +53,10 @@ def _make_mock_client() -> MagicMock:
         prompt_tokens=512,
         completion_tokens=128,
         total_tokens=640,
-        feedback_stats={"correctness": {"avg": 0.9, "n": 5}, "helpfulness": {"avg": 0.6, "n": 3}},
+        feedback_stats={
+            "correctness": {"avg": 0.9, "n": 5},
+            "helpfulness": {"avg": 0.6, "n": 3},
+        },
         app_path=f"/o/{TENANT_ID}/projects/p/{PROJECT_ID}/r/{RUN_ID_1}",
         inputs={"question": "What is DataHub?"},
         outputs={"answer": "DataHub is a metadata platform."},
