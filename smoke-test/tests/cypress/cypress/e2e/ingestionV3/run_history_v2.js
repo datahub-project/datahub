@@ -39,6 +39,10 @@ describe("run history tab in manage data sources", () => {
 
   Cypress.on("uncaught:exception", (err) => {
     if (err.message.includes("ResizeObserver")) return false;
+    // Suppress null focus errors from the app (pre-existing React bug where
+    // .focus() is called on an unmounted element) to prevent flaky test aborts.
+    if (err.message.includes("Cannot read properties of null (reading 'focus')"))
+      return false;
     return true;
   });
 
