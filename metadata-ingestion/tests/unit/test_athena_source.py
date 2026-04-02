@@ -150,9 +150,9 @@ def test_athena_get_table_properties():
     ]
     mock_cursor.fetchall.side_effect = [OperationalError("First call fails")]
 
-    # Mock get_data_catalog to return GLUE type
-    mock_cursor._connection.client.get_data_catalog.return_value = {
-        "DataCatalog": {"Name": "awsdatacatalog", "Type": "GLUE"}
+    # Mock list_data_catalogs to return GLUE type
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
     }
 
     ctx = PipelineContext(run_id="test")
@@ -237,8 +237,8 @@ def test_athena_get_table_properties_iceberg_location():
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
-    mock_cursor._connection.client.get_data_catalog.return_value = {
-        "DataCatalog": {"Name": "awsdatacatalog", "Type": "GLUE"}
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
     }
 
     ctx = PipelineContext(run_id="test")

@@ -30,6 +30,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     SourceCapabilityModifier,
@@ -407,8 +408,17 @@ class AthenaSource(SQLAlchemySource):
         assert self.cursor
         try:
             client = self.cursor._connection.client  # type: ignore[union-attr]
-            response = client.get_data_catalog(Name=self.config.catalog_name)  # type: ignore[attr-defined]
-            return response.get("DataCatalog", {}).get("Type")
+            response = client.list_data_catalogs()  # type: ignore[attr-defined]
+            for catalog in response.get("DataCatalogsSummary", []):
+                if (
+                    catalog.get("CatalogName", "").lower()
+                    == self.config.catalog_name.lower()
+                ):
+                    return catalog.get("Type")
+            logger.warning(
+                f"Catalog '{self.config.catalog_name}' not found in ListDataCatalogs response"
+            )
+            return None
         except Exception as e:
             logger.warning(
                 f"Failed to determine catalog type for '{self.config.catalog_name}': {e}"
@@ -464,11 +474,20 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        # Emit upstream lineage to Glue when the catalog is Glue-backed.
-        # Iceberg lineage is handled by the Glue connector.
         location: Optional[str] = None
         if self.is_glue_catalog:
+            # Emit upstream lineage to Glue when the catalog is Glue-backed.
             location = make_dataset_urn("glue", f"{schema}.{table}", self.config.env)
+        else:
+            # Fall back to S3 lineage for non-Glue catalogs.
+            s3_location = custom_properties.get("location")
+            if s3_location is not None:
+                if s3_location.startswith("s3://"):
+                    location = make_s3_urn(s3_location, self.config.env)
+                else:
+                    logging.debug(
+                        f"Only s3 url supported for location. Skipping {s3_location}"
+                    )
 
         return description, custom_properties, location
 
