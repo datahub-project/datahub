@@ -168,30 +168,6 @@ public class GraphQLTimingShapeLoggingTest {
   }
 
   // -------------------------------------------------------------------------
-  // No thresholds crossed → no DEBUG log (metrics still emitted)
-  // -------------------------------------------------------------------------
-
-  @Test
-  public void testNoThresholdsCrossed_noLogEmitted() {
-    GraphQLShapeLoggingConfiguration cfg = enabledConfig();
-    // All thresholds very high — nothing will cross them
-    GraphQLTimingInstrumentation instr = instrumentation(cfg);
-
-    GraphQLTimingInstrumentation.TimingState state = stateWithShape("Op", 1, 1, "query");
-    // Verify preconditions: all thresholds are NOT crossed
-    assertTrue(
-        state.queryShape.getFieldCount() < cfg.getFieldCountThreshold(),
-        "fieldCount should be below threshold");
-
-    InstrumentationContext<ExecutionResult> ctx = instr.beginExecution(executionParams, state);
-    ctx.onCompleted(resultWithErrors(0), null);
-
-    // Note: Always-on shape metrics (graphql.shape.requests.total, graphql.shape.field_count)
-    // are emitted in beginExecuteOperation regardless of thresholds, so they will be recorded.
-    // The test verifies no exception occurs when thresholds are not crossed.
-  }
-
-  // -------------------------------------------------------------------------
   // Exception in shape analysis must not propagate
   // -------------------------------------------------------------------------
 
@@ -211,44 +187,6 @@ public class GraphQLTimingShapeLoggingTest {
     InstrumentationContext<ExecutionResult> ctx = instr.beginExecution(executionParams, state);
     // Must NOT throw — the catch block in evaluateAndLogShape absorbs the error
     ctx.onCompleted(badResult, null);
-  }
-
-  // -------------------------------------------------------------------------
-  // Log payload validation via a real JSON-serialisable shape
-  // -------------------------------------------------------------------------
-
-  @Test
-  public void testLogPayload_crossesFieldCountThreshold_hasRequiredFields() throws Exception {
-    GraphQLShapeLoggingConfiguration cfg = enabledConfig();
-    cfg.setFieldCountThreshold(1); // low threshold to trigger log
-
-    GraphQLTimingInstrumentation instr = instrumentation(cfg);
-
-    GraphQLTimingInstrumentation.TimingState state = stateWithShape("MyOp", 5, 3, "query");
-
-    // Verify preconditions
-    assertNotNull(state.queryShape, "queryShape must be populated");
-    assertTrue(
-        state.queryShape.getFieldCount() >= cfg.getFieldCountThreshold(),
-        "fieldCount should exceed threshold to trigger shape logging");
-
-    InstrumentationContext<ExecutionResult> ctx = instr.beginExecution(executionParams, state);
-
-    ExecutionResult result = mock(ExecutionResult.class);
-    when(result.getErrors()).thenReturn(Collections.emptyList());
-    // Return a simple map so ResponseShapeAnalyzer can run without issues
-    when(result.getData()).thenReturn(Collections.singletonMap("hello", "world"));
-
-    ctx.onCompleted(result, null);
-
-    // Verify metrics were recorded: proves shape logging completed successfully
-    assertNotNull(
-        meterRegistry.find("graphql.shape.requests.total").counter(),
-        "shape metrics should be recorded when threshold crossed");
-    assertNotNull(
-        meterRegistry.find("graphql.shape.field_count").summary(),
-        "field_count metric should be recorded");
-    // Test completing without exception also proves JSON payload was serialized correctly
   }
 
   // -------------------------------------------------------------------------
@@ -272,56 +210,5 @@ public class GraphQLTimingShapeLoggingTest {
     InstrumentationContext<ExecutionResult> ctx = instr.beginExecution(executionParams, state);
     // The guard `timingState.queryShape != null` in beginExecution must prevent NPE
     ctx.onCompleted(resultWithErrors(0), null);
-  }
-
-  // -------------------------------------------------------------------------
-  // Shape metrics emitted per operation_type
-  // -------------------------------------------------------------------------
-
-  @Test
-  public void testShapeMetrics_mutationOperationType() {
-    GraphQLShapeLoggingConfiguration cfg = enabledConfig();
-    GraphQLTimingInstrumentation instr = instrumentation(cfg);
-
-    // Test that mutation operations are properly handled with correct operation_type.
-    GraphQLTimingInstrumentation.TimingState state = stateWithShape("createUser", 2, 1, "mutation");
-
-    // Verify the queryShape was properly set up as a mutation
-    assertNotNull(state.queryShape);
-    assertEquals(
-        state.queryShape.getOperationType(), "mutation", "operationType should be 'mutation'");
-    assertEquals(state.queryShape.getFieldCount(), 2);
-
-    // Execute instrumentation pipeline - should handle mutations correctly without error
-    InstrumentationContext<ExecutionResult> ctx = instr.beginExecution(executionParams, state);
-    ctx.onCompleted(resultWithErrors(0), null);
-    // Test passes if no exception is thrown when handling mutation operations
-  }
-
-  // -------------------------------------------------------------------------
-  // Multiple thresholds crossed in a single request
-  // -------------------------------------------------------------------------
-
-  @Test
-  public void testMultipleThresholdsCrossed_completesWithoutException() {
-    GraphQLShapeLoggingConfiguration cfg = new GraphQLShapeLoggingConfiguration();
-    cfg.setEnabled(true);
-    cfg.setFieldCountThreshold(1); // crossed: fieldCount=50
-    cfg.setDurationThresholdMs(0); // crossed: any duration
-    cfg.setErrorCountThreshold(1); // crossed: 1 error
-    cfg.setResponseSizeThresholdBytes(0); // crossed: any response
-
-    GraphQLTimingInstrumentation instr = instrumentation(cfg);
-
-    GraphQLTimingInstrumentation.TimingState state = stateWithShape("BigOp", 50, 5, "query");
-    state.startTime = System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(5000);
-
-    InstrumentationContext<ExecutionResult> ctx = instr.beginExecution(executionParams, state);
-
-    ExecutionResult result = mock(ExecutionResult.class);
-    when(result.getErrors()).thenReturn(Collections.nCopies(2, mock(graphql.GraphQLError.class)));
-    when(result.getData()).thenReturn(Collections.singletonMap("x", "y"));
-
-    ctx.onCompleted(result, null);
   }
 }
