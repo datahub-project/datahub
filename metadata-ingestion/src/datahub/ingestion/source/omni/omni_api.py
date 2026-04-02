@@ -2,13 +2,13 @@ import logging
 import time
 from typing import Any, Dict, Iterator, List, Optional
 
+import pydantic
+import requests
+
 logger = logging.getLogger(__name__)
 
 # Safety cap: avoids unbounded requests if cursor pagination misbehaves.
 _MAX_PAGINATION_PAGES = 1000
-
-import pydantic
-import requests
 
 
 class OmniClient:
