@@ -128,12 +128,12 @@ describe('createColorAccessors', () => {
         expect(response[customType](getSampleOfOperationsData(25))).toBe('rgb(158, 146, 233)');
         expect(response[customType](getSampleOfOperationsData(50))).toBe('rgb(119, 103, 218)');
 
-        expect(response[OperationType.Delete](getSampleOfOperationsData(0))).toBe('#F2998D');
-        expect(response[OperationType.Delete](getSampleOfOperationsData(25))).toBe('rgb(217, 113, 99)');
-        expect(response[OperationType.Delete](getSampleOfOperationsData(50))).toBe('rgb(195, 80, 64)');
+        expect(response[OperationType.Delete](getSampleOfOperationsData(0))).toBe('#ECA5A5');
+        expect(response[OperationType.Delete](getSampleOfOperationsData(25))).toBe('rgb(222, 113, 113)');
+        expect(response[OperationType.Delete](getSampleOfOperationsData(50))).toBe('rgb(203, 70, 70)');
 
-        expect(response[OperationType.Drop](getSampleOfOperationsData(0))).toBe('#F2998D');
-        expect(response[OperationType.Drop](getSampleOfOperationsData(25))).toBe('rgb(217, 113, 99)');
-        expect(response[OperationType.Drop](getSampleOfOperationsData(50))).toBe('rgb(195, 80, 64)');
+        expect(response[OperationType.Drop](getSampleOfOperationsData(0))).toBe('#ECA5A5');
+        expect(response[OperationType.Drop](getSampleOfOperationsData(25))).toBe('rgb(222, 113, 113)');
+        expect(response[OperationType.Drop](getSampleOfOperationsData(50))).toBe('rgb(203, 70, 70)');
     });
 });
