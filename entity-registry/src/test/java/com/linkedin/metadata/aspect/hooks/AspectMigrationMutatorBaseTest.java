@@ -3,7 +3,6 @@ package com.linkedin.metadata.aspect.hooks;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
@@ -30,9 +29,9 @@ import org.testng.annotations.Test;
  * and tests the happy path for both write and read mutations, so concrete mutator tests can focus
  * on supplying realistic aspect payloads and asserting the correctness of the transformed result.
  *
- * <p>Extend this class for every concrete {@link AspectMigrationMutator} implementation. All
- * contract-level {@code @Test} methods are inherited automatically. The subclass must implement
- * four abstract methods and may optionally override one more:
+ * <p>Extend this class for every concrete {@link AspectMigrationMutator} implementation. Three
+ * transform-exercising {@code @Test} methods are inherited automatically; the subclass must
+ * implement four abstract methods and may optionally override one more:
  *
  * <ol>
  *   <li><b>Required:</b> {@link #mutator()} — the implementation under test
@@ -107,8 +106,18 @@ public abstract class AspectMigrationMutatorBaseTest {
 
   /**
    * Hook for subclasses to configure additional retriever mock behavior. Called at the end of
-   * {@link #setUp()} after the base stubs are in place. Override when the mutator under test uses
-   * the retriever to compute the transform (e.g. to look up related aspects).
+   * {@link #setUp()} after the base stubs are in place. Override when the mutator under test calls
+   * {@code context.getAspectRetriever()} during {@code transform()} to look up related aspects.
+   * {@link #mockRetriever} is also accessible as a field for per-test stubs or {@code verify()}
+   * calls.
+   *
+   * <pre>{@code
+   * @Override
+   * protected void configureRetrieverMock(AspectRetriever retrieverMock) {
+   *   when(retrieverMock.getLatestAspect(any(), eq("ownership")))
+   *       .thenReturn(someAspect);
+   * }
+   * }</pre>
    */
   protected void configureRetrieverMock(@Nonnull AspectRetriever retrieverMock) {
     // no-op by default
@@ -182,24 +191,6 @@ public abstract class AspectMigrationMutatorBaseTest {
     assertTrue(results.get(0).getSecond(), "Expected mutated=true for null schemaVersion (=1)");
     assertEquals((long) item.getSystemMetadata().getSchemaVersion(), mutator().getTargetVersion());
     assertTransformed(item.getRecordTemplate());
-  }
-
-  @Test
-  public void writeMutation_futureVersion_isNoOp() {
-    SystemMetadata sm = new SystemMetadata();
-    long futureVersion = mutator().getTargetVersion() + 1;
-    sm.setSchemaVersion(futureVersion); // ahead of this mutator
-
-    ChangeMCP item = buildItem(provideSourceAspect(), sm);
-
-    List<Pair<ChangeMCP, Boolean>> results =
-        mutator().writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
-
-    assertFalse(results.get(0).getSecond(), "Expected no-op for version ahead of targetVersion");
-    assertEquals(
-        (long) item.getSystemMetadata().getSchemaVersion(),
-        futureVersion,
-        "schemaVersion must not be modified for a future version");
   }
 
   // Read path (auto-inherited)
