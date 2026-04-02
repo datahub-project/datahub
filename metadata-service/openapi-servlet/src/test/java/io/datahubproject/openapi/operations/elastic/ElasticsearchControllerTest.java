@@ -21,18 +21,27 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -763,6 +772,87 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
         .andExpect(status().isOk());
   }
 
+  @Test
+  public void testAliasSwapSuccess() throws Exception {
+    stubPhase1ForIncrementalAliasSwap();
+    when(mockSearchService.validateAndSwapAlias(
+            eq("datasetindex_v2"), eq("datasetindex_v2_next_123")))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/alias/swap")
+                .param("expectedBackingIndex", "datasetindex_v2_next_123")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(true));
+  }
+
+  @Test
+  public void testAliasSwapDocCountMismatch() throws Exception {
+    stubPhase1ForIncrementalAliasSwap();
+    when(mockSearchService.validateAndSwapAlias(
+            eq("datasetindex_v2"), eq("datasetindex_v2_next_123")))
+        .thenReturn(false);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/alias/swap")
+                .param("expectedBackingIndex", "datasetindex_v2_next_123")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isConflict())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(false));
+  }
+
+  @Test
+  public void testAliasSwapError() throws Exception {
+    stubPhase1ForIncrementalAliasSwap();
+    when(mockSearchService.validateAndSwapAlias(
+            eq("datasetindex_v2"), eq("datasetindex_v2_next_123")))
+        .thenThrow(new RuntimeException("ES connection failed"));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/alias/swap")
+                .param("expectedBackingIndex", "datasetindex_v2_next_123")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isInternalServerError())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(false));
+  }
+
+  private void stubPhase1ForIncrementalAliasSwap() {
+    Urn upgradeUrn =
+        BootstrapStep.getUpgradeUrn(IncrementalReindexState.UPGRADE_ID_PREFIX + "_0.0.0-test-0");
+    Map<String, String> phase1Map =
+        IncrementalReindexState.setPhase1State(
+            null,
+            "datasetindex_v2",
+            "datasetindex_v2_next_123",
+            1L,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    DataHubUpgradeResult dur = new DataHubUpgradeResult();
+    dur.setState(DataHubUpgradeState.SUCCEEDED);
+    dur.setResult(new StringMap(phase1Map));
+    when(mockEntityService.getLatestAspect(
+            any(), eq(upgradeUrn), eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME)))
+        .thenReturn(dur);
+    when(mockEntityService.getLatestEnvelopedAspect(
+            any(),
+            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
+            eq(upgradeUrn),
+            eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME)))
+        .thenReturn(DataHubUpgradeResultConditionalPersist.toEnveloped(dur, "1"));
+    when(mockEntityService.ingestProposal(any(), any(), any(), anyBoolean()))
+        .thenReturn(mock(IngestResult.class));
+  }
+
   @SpringBootConfiguration
   @Import({ElasticsearchControllerTestConfig.class, TracingInterceptor.class})
   @ComponentScan(basePackages = {"io.datahubproject.openapi.operations.elastic"})
@@ -823,6 +913,16 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
+    }
+
+    @Bean
+    public GitVersion gitVersion() {
+      return new GitVersion("0.0.0-test", "abc123", Optional.empty());
+    }
+
+    @Bean(name = "revision")
+    public String revision() {
+      return "0";
     }
 
     @Bean

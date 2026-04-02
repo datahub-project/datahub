@@ -7,12 +7,13 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.datahub.upgrade.system.elasticsearch.IncrementalReindexState;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -43,7 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BuildIndicesIncrementalStep implements UpgradeStep {
 
-  static final String UPGRADE_ID_PREFIX = "BuildIndicesIncremental";
+  static final String UPGRADE_ID_PREFIX = IncrementalReindexState.UPGRADE_ID_PREFIX;
 
   private final OperationContext opContext;
   private final List<ElasticSearchIndexed> indexedServices;
@@ -85,7 +86,8 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     return (context) -> {
       try {
         List<ReindexConfig> configsNeedingReindex =
-            IndexUtils.getIndicesNeedingReindex(context.opContext(), indexedServices, structuredProperties);
+            IndexUtils.getIndicesNeedingReindex(
+                context.opContext(), indexedServices, structuredProperties);
         if (configsNeedingReindex.isEmpty()) {
           log.info("No indices require incremental reindex");
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -121,23 +123,20 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               && existingStatus.get() == IncrementalReindexState.Status.IN_PROGRESS
               && existingNextIndex.isPresent()
               && !existingNextIndex.get().isEmpty()) {
-            log.info(
-                "Resuming polling for index {} -> {}",
-                config.name(),
-                existingNextIndex.get());
+            log.info("Resuming polling for index {} -> {}", config.name(), existingNextIndex.get());
             int targetShards = ESIndexBuilder.extractTargetShards(config);
             // On resume, reindexInfo from the original submission is not available — use empty map.
             // Stall-retry will re-submit with fresh optimal settings if needed.
             ESIndexBuilder.PollReindexResult pollResult =
                 indexBuilder.pollReindexCompletion(
-                    config.name(),
-                    existingNextIndex.get(),
-                    targetShards,
-                    new HashMap<>(),
-                    "");
+                    config.name(), existingNextIndex.get(), targetShards, new HashMap<>(), "");
             upgradeState =
                 handlePollResult(
-                    context, upgradeState, config.name(), existingNextIndex.get(), indexBuilder,
+                    context,
+                    upgradeState,
+                    config.name(),
+                    existingNextIndex.get(),
+                    indexBuilder,
                     pollResult.completed());
             if (!pollResult.completed()) {
               return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
@@ -151,7 +150,8 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           // Fresh start for this index
           log.info("Starting incremental reindex for index: {}", config.name());
 
-          IncrementalReindexResult result = indexBuilder.buildIndexIncremental(config, upgradeVersion);
+          IncrementalReindexResult result =
+              indexBuilder.buildIndexIncremental(config, upgradeVersion);
 
           upgradeState =
               IncrementalReindexState.setPhase1State(
@@ -181,7 +181,11 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                   result.taskId());
           upgradeState =
               handlePollResult(
-                  context, upgradeState, config.name(), result.nextIndexName(), indexBuilder,
+                  context,
+                  upgradeState,
+                  config.name(),
+                  result.nextIndexName(),
+                  indexBuilder,
                   pollResult.completed());
           if (!pollResult.completed()) {
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
@@ -191,10 +195,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               result.nextIndexName(), config, pollResult.latestReindexInfo());
         }
 
-        // Also handle indices that don't need reindex but need mapping/settings updates, note that while we call the
+        // Also handle indices that don't need reindex but need mapping/settings updates, note that
+        // while we call the
         // get again it avoids reprocessing so has minimal cost.
         List<ReindexConfig> configsNoReindex =
-            getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties).stream()
+            getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties)
+                .stream()
                 .filter(c -> !c.requiresReindex())
                 .filter(c -> c.requiresApplyMappings() || c.requiresApplySettings())
                 .collect(Collectors.toList());
@@ -202,7 +208,8 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         for (ReindexConfig config : configsNoReindex) {
           ESIndexBuilder indexBuilder = findIndexBuilder(config.name());
           if (indexBuilder != null) {
-            // Since these do not require reindexing this will just do the non-disruptive settings/mappings apply
+            // Since these do not require reindexing this will just do the non-disruptive
+            // settings/mappings apply
             indexBuilder.buildIndex(config);
           }
         }
@@ -253,10 +260,16 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   }
 
   private void checkpoint(
-      UpgradeContext context,
-      Map<String, String> upgradeState,
-      DataHubUpgradeState state) {
-    context.upgrade().setUpgradeResult(opContext, upgradeIdUrn, entityService, state, upgradeState);
+      UpgradeContext context, Map<String, String> upgradeState, DataHubUpgradeState state) {
+    try {
+      DataHubUpgradeResultConditionalPersist.mergeAndPersist(
+          opContext,
+          entityService,
+          upgradeIdUrn,
+          DataHubUpgradeResultConditionalPersist.replaceEntireResult(upgradeState, state));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private Map<String, String> loadPreviousState(UpgradeContext context) {

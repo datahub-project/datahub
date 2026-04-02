@@ -17,12 +17,12 @@ import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -67,7 +67,10 @@ public class BuildIndices implements BlockingSystemUpgrade {
 
     _incrementalReindexEnabled =
         configurationProvider.getElasticSearch().getBuildIndices() != null
-            && configurationProvider.getElasticSearch().getBuildIndices().isIncrementalReindexEnabled();
+            && configurationProvider
+                .getElasticSearch()
+                .getBuildIndices()
+                .isIncrementalReindexEnabled();
 
     _steps =
         buildSteps(
@@ -124,7 +127,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
     steps.add(new CreateUsageEventIndicesStep(baseElasticSearchComponents, configurationProvider));
 
     if (_incrementalReindexEnabled) {
-      // Incremental path: create next indices + _reindex without blocking writes or swapping aliases
+      // Incremental path: create next indices + _reindex without blocking writes or swapping
+      // aliases
       steps.add(
           new BuildIndicesIncrementalStep(
               opContext, indexedServices, _structuredProperties, entityService, upgradeVersion));

@@ -22,6 +22,16 @@ public class BuildIndicesConfiguration {
   /** Default wait in seconds between getCount retries. */
   public static final int DEFAULT_COUNT_RETRY_WAIT_SECONDS = 5;
 
+  /**
+   * Default ceiling for combined median MCL lag (versioned + timeseries) before auto alias swap.
+   * Raise (e.g. to {@link Long#MAX_VALUE}) to effectively disable the gate.
+   */
+  public static final long DEFAULT_PRE_ALIAS_SWAP_MAX_MCL_LAG_TOTAL = 5000L;
+
+  public static final long DEFAULT_PRE_ALIAS_SWAP_LAG_RETRY_INITIAL_BACKOFF_MS = 5000L;
+
+  public static final long DEFAULT_PRE_ALIAS_SWAP_LAG_RETRY_MAX_BACKOFF_MS = 60_000L;
+
   private boolean cloneIndices;
   private boolean allowDocCountMismatch;
   private String retentionUnit;
@@ -75,4 +85,42 @@ public class BuildIndicesConfiguration {
    * triggered manually via the operations API.
    */
   private boolean autoAliasSwapEnabled;
+
+  /**
+   * How often (in seconds) the MAE consumer's dual-write strategy polls the upgrade state to detect
+   * indices marked as ALIAS_SWAPPED. Defaults to 300 seconds (5 minutes).
+   */
+  private long dualWritePollIntervalSeconds = 300;
+
+  /**
+   * Maximum combined median MCL lag (versioned + timeseries topics) before automatic alias swap.
+   * Consumer group matches {@code METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID} / {@code
+   * MCLKafkaListenerRegistrar}. Default {@link #DEFAULT_PRE_ALIAS_SWAP_MAX_MCL_LAG_TOTAL}. Set very
+   * high (e.g. {@link Long#MAX_VALUE}) to effectively disable the gate.
+   */
+  private long preAliasSwapMaxMclLagTotal = DEFAULT_PRE_ALIAS_SWAP_MAX_MCL_LAG_TOTAL;
+
+  /**
+   * When lag exceeds {@link #preAliasSwapMaxMclLagTotal} (or Kafka admin fails), the pre-alias lag
+   * step re-checks after exponential backoff; this is the number of <em>additional</em> attempts
+   * after the first (total attempts = {@code 1 + preAliasSwapLagStepRetries}). Default {@code 5}.
+   * Retries run inside the step (see {@code IncrementalReindexPreAliasSwapLagStep}); {@link
+   * com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager} {@code retryCount} for this step is
+   * {@code 0}.
+   */
+  private int preAliasSwapLagStepRetries = 5;
+
+  /**
+   * Milliseconds to wait before the second lag measurement; doubles each subsequent failure until
+   * capped by {@link #preAliasSwapLagRetryMaxBackoffMs}. Default {@link
+   * #DEFAULT_PRE_ALIAS_SWAP_LAG_RETRY_INITIAL_BACKOFF_MS}.
+   */
+  private long preAliasSwapLagRetryInitialBackoffMs =
+      DEFAULT_PRE_ALIAS_SWAP_LAG_RETRY_INITIAL_BACKOFF_MS;
+
+  /**
+   * Maximum backoff between lag check attempts. Default {@link
+   * #DEFAULT_PRE_ALIAS_SWAP_LAG_RETRY_MAX_BACKOFF_MS}.
+   */
+  private long preAliasSwapLagRetryMaxBackoffMs = DEFAULT_PRE_ALIAS_SWAP_LAG_RETRY_MAX_BACKOFF_MS;
 }

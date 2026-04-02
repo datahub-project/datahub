@@ -280,7 +280,8 @@ public class ReindexConfig {
         // Detect new or modified non-structured-property fields that require DB backfill.
         // New fields: _reindex won't populate them (they didn't exist in the source index).
         // Modified fields: _reindex with conflicts:proceed may skip docs with incompatible values,
-        // and partial doc upserts from MCLs won't fix them unless the owning aspect is re-processed.
+        // and partial doc upserts from MCLs won't fix them unless the owning aspect is
+        // re-processed.
         Set<String> newNonStructuredPropertyFields =
             mappingsDiff.entriesOnlyOnRight().keySet().stream()
                 .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))

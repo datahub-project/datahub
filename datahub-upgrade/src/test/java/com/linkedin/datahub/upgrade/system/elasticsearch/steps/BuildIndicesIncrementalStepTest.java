@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -13,16 +14,17 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.data.template.StringMap;
-import com.linkedin.datahub.upgrade.system.elasticsearch.IncrementalReindexState;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.PollReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -30,8 +32,6 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +65,9 @@ public class BuildIndicesIncrementalStepTest {
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+    when(entityService.getLatestEnvelopedAspect(any(), any(), any(), any())).thenReturn(null);
+    when(entityService.ingestProposal(any(), any(), any(), anyBoolean()))
+        .thenReturn(mock(IngestResult.class));
 
     // Default: service returns the index builder for our test index
     ReindexConfig reindexConfig = mockReindexConfig(INDEX_NAME, true);
@@ -73,11 +76,7 @@ public class BuildIndicesIncrementalStepTest {
 
     step =
         new BuildIndicesIncrementalStep(
-            opContext,
-            List.of(indexedService),
-            Set.of(),
-            entityService,
-            UPGRADE_VERSION);
+            opContext, List.of(indexedService), Set.of(), entityService, UPGRADE_VERSION);
   }
 
   @Test
@@ -115,7 +114,7 @@ public class BuildIndicesIncrementalStepTest {
     verify(indexBuilder).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
     verify(indexBuilder).undoReindexOptimalSettings(eq(NEXT_INDEX_NAME), any(), anyMap());
     // Should checkpoint at least twice: after index creation (IN_PROGRESS) and final (SUCCEEDED)
-    verify(upgrade, times(3)).setUpgradeResult(any(), any(), any(), any(), anyMap());
+    verify(entityService, times(3)).ingestProposal(any(), any(), any(), anyBoolean());
   }
 
   @Test
@@ -128,7 +127,8 @@ public class BuildIndicesIncrementalStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // Should not poll or undo settings for empty index
-    verify(indexBuilder, never()).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder, never())
+        .pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
     verify(indexBuilder, never()).undoReindexOptimalSettings(any(), any(), anyMap());
   }
 
@@ -200,7 +200,8 @@ public class BuildIndicesIncrementalStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // Should not build or poll — index was already done
     verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
-    verify(indexBuilder, never()).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder, never())
+        .pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
   }
 
   @Test
@@ -235,7 +236,10 @@ public class BuildIndicesIncrementalStepTest {
     when(config.requiresDataBackfill()).thenReturn(requiresReindex);
     when(config.targetSettings())
         .thenReturn(
-            ImmutableMap.of("index", ImmutableMap.of("number_of_shards", 1, "number_of_replicas", 1, "refresh_interval", "1s")));
+            ImmutableMap.of(
+                "index",
+                ImmutableMap.of(
+                    "number_of_shards", 1, "number_of_replicas", 1, "refresh_interval", "1s")));
     return config;
   }
 }

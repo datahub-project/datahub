@@ -60,16 +60,18 @@ public class IndexUtils {
     _reindexConfigs = new ArrayList<>();
   }
 
-  public static List<ReindexConfig> getIndicesNeedingReindex(OperationContext opContext,
-      List<ElasticSearchIndexed> services, Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
+  public static List<ReindexConfig> getIndicesNeedingReindex(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> services,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
       throws IOException {
     final List<ReindexConfig> reindexConfigs =
         getAllReindexConfigs(opContext, services, structuredProperties);
 
     // Get indices to update
     return reindexConfigs.stream()
-            .filter(ReindexConfig::requiresReindex)
-            .collect(Collectors.toList());
+        .filter(ReindexConfig::requiresReindex)
+        .collect(Collectors.toList());
   }
 
   public static List<ReindexConfig> getAllReindexConfigs(

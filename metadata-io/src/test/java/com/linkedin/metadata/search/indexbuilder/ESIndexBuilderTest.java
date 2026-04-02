@@ -1135,8 +1135,7 @@ public class ESIndexBuilderTest {
 
   @Test
   void testGetIncrementalNextIndexNameSanitizesVersion() {
-    String result =
-        ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "1.2.3-4", 1000L);
+    String result = ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "1.2.3-4", 1000L);
     assertEquals(result, "datasetindex_v2_1_2_3-4_1000");
   }
 

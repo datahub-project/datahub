@@ -4,22 +4,32 @@ import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_T
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +42,10 @@ import lombok.extern.slf4j.Slf4j;
  * versions, and writes to them alongside the primary index strategies (V2/V3). It records the
  * dual-write start time on the first successful write for each index, which Phase 2's catch-up step
  * uses to determine its query window.
+ *
+ * <p>Periodically polls the persisted upgrade state to detect indices marked as {@code
+ * ALIAS_SWAPPED} and stops dual-writing to them. The poller shuts down once all targets are
+ * removed.
  *
  * <p>This strategy is a no-op when no incremental reindex is in progress.
  */
@@ -52,23 +66,26 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
    */
   private final ConcurrentHashMap<String, AtomicBoolean> dualWriteStartTimeRecorded;
 
-  /**
-   * Callback to persist dual-write start time. Injected by the factory so the strategy doesn't need
-   * direct access to EntityService.
-   */
   @Nullable private final DualWriteStartTimeCallback dualWriteStartTimeCallback;
+  @Nullable private final ScheduledExecutorService statePoller;
+
+  private static final long DEFAULT_POLL_INTERVAL_SECONDS = 300;
 
   /** Callback interface for persisting dual-write start time to upgrade result. */
   @FunctionalInterface
   public interface DualWriteStartTimeCallback {
-    void onDualWriteStarted(String indexName, long startTimeMillis);
+    void onDualWriteStarted(String entityName, long startTimeMillis);
   }
 
   public UpdateIndicesUpgradeStrategy(
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull Map<String, String> nextIndexTargets,
-      @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback) {
+      @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback,
+      @Nullable OperationContext opContext,
+      @Nullable EntityService<?> entityService,
+      @Nullable Urn upgradeIdUrn,
+      long pollIntervalSeconds) {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.nextIndexTargets = new ConcurrentHashMap<>(nextIndexTargets);
@@ -80,8 +97,28 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
           "UpdateIndicesUpgradeStrategy initialized with {} next index targets: {}",
           nextIndexTargets.size(),
           nextIndexTargets);
+
+      if (opContext != null && entityService != null && upgradeIdUrn != null) {
+        statePoller =
+            Executors.newSingleThreadScheduledExecutor(
+                r -> {
+                  Thread t = new Thread(r, "incremental-reindex-state-poller");
+                  t.setDaemon(true);
+                  return t;
+                });
+        long interval =
+            pollIntervalSeconds > 0 ? pollIntervalSeconds : DEFAULT_POLL_INTERVAL_SECONDS;
+        statePoller.scheduleAtFixedRate(
+            () -> pollForSwappedIndices(opContext, entityService, upgradeIdUrn),
+            interval,
+            interval,
+            TimeUnit.SECONDS);
+      } else {
+        statePoller = null;
+      }
     } else {
       log.info("UpdateIndicesUpgradeStrategy initialized with no active upgrade targets");
+      statePoller = null;
     }
   }
 
@@ -112,8 +149,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     }
   }
 
-  private void processUpdateEvent(
-      @Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+  private void processUpdateEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
     String nextIndex = nextIndexTargets.get(entityName);
     if (nextIndex == null) {
@@ -158,8 +194,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     }
   }
 
-  private void processDeleteEvent(
-      @Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+  private void processDeleteEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
     String nextIndex = nextIndexTargets.get(entityName);
     if (nextIndex == null) {
@@ -169,7 +204,6 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     boolean isDeletingKey =
         event.getEntitySpec().getKeyAspectSpec().getName().equals(event.getAspectName());
     if (!isDeletingKey) {
-      // Non-key aspect deletion: re-transform remaining aspects and upsert
       processUpdateEvent(opContext, event);
       return;
     }
@@ -207,17 +241,92 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
             entityName,
             now);
       } catch (Exception e) {
-        log.error("Failed to persist dual-write start time for index '{}': {}", nextIndex, e.getMessage());
+        log.error(
+            "Failed to persist dual-write start time for index '{}': {}",
+            nextIndex,
+            e.getMessage());
         recorded.set(false); // allow retry
       }
     }
   }
 
-  /** Remove a next index target after alias swap completes. */
+  /**
+   * Remove a next index target after alias swap completes. Shuts down poller when no targets
+   * remain.
+   */
   public void removeTarget(String entityName) {
     String removed = nextIndexTargets.remove(entityName);
     if (removed != null) {
       log.info("Removed upgrade dual-write target for entity '{}' (was '{}')", entityName, removed);
+      if (nextIndexTargets.isEmpty()) {
+        shutdownPoller();
+      }
+    }
+  }
+
+  // Package-private for testing
+  void pollForSwappedIndices(
+      OperationContext opContext, EntityService<?> entityService, Urn upgradeIdUrn) {
+    try {
+      Optional<DataHubUpgradeResult> result =
+          getUpgradeResult(opContext, entityService, upgradeIdUrn);
+      if (result.isEmpty() || result.get().getResult() == null) {
+        return;
+      }
+
+      Map<String, Map<String, String>> allStates =
+          IncrementalReindexState.getAllIndexStates(result.get().getResult());
+      IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+
+      Set<String> swappedEntities =
+          allStates.entrySet().stream()
+              .filter(
+                  e ->
+                      IncrementalReindexState.Status.ALIAS_SWAPPED
+                          .name()
+                          .equals(e.getValue().get(IncrementalReindexState.STATUS)))
+              .map(e -> indexConvention.getEntityName(e.getKey()))
+              .filter(Optional::isPresent)
+              .map(Optional::get)
+              .collect(Collectors.toSet());
+
+      Set<String> toRemove =
+          nextIndexTargets.keySet().stream()
+              .filter(swappedEntities::contains)
+              .collect(Collectors.toSet());
+
+      for (String entityName : toRemove) {
+        removeTarget(entityName);
+      }
+    } catch (Exception e) {
+      log.warn("Failed to poll for swapped indices: {}", e.getMessage());
+    }
+  }
+
+  private Optional<DataHubUpgradeResult> getUpgradeResult(
+      OperationContext opContext, EntityService<?> entityService, Urn upgradeIdUrn) {
+    try {
+      EntityResponse response =
+          entityService.getEntityV2(
+              opContext,
+              upgradeIdUrn.getEntityType(),
+              upgradeIdUrn,
+              Set.of("dataHubUpgradeResult"));
+      if (response != null && response.getAspects().containsKey("dataHubUpgradeResult")) {
+        return Optional.of(
+            new DataHubUpgradeResult(
+                response.getAspects().get("dataHubUpgradeResult").getValue().data()));
+      }
+    } catch (Exception e) {
+      log.debug("Could not fetch upgrade result for {}: {}", upgradeIdUrn, e.getMessage());
+    }
+    return Optional.empty();
+  }
+
+  private void shutdownPoller() {
+    if (statePoller != null && !statePoller.isShutdown()) {
+      log.info("All dual-write targets removed, shutting down state poller");
+      statePoller.shutdown();
     }
   }
 

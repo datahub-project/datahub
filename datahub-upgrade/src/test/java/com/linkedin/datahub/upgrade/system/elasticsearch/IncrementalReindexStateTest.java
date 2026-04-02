@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch;
 
 import static org.testng.Assert.*;
 
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +42,12 @@ public class IncrementalReindexStateTest {
   public void testSetPhase1StateAndRead() {
     Map<String, String> state =
         IncrementalReindexState.setPhase1State(
-            null, INDEX_NAME, NEXT_INDEX, 1679000000000L, true, IncrementalReindexState.Status.IN_PROGRESS);
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            1679000000000L,
+            true,
+            IncrementalReindexState.Status.IN_PROGRESS);
 
     assertEquals(
         IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.NEXT_INDEX_NAME),
@@ -50,7 +56,8 @@ public class IncrementalReindexStateTest {
         IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.REINDEX_START_TIME),
         Optional.of("1679000000000"));
     assertEquals(
-        IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.REQUIRES_DATA_BACKFILL),
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.REQUIRES_DATA_BACKFILL),
         Optional.of("true"));
     assertEquals(
         IncrementalReindexState.getStatus(state, INDEX_NAME),
@@ -81,7 +88,8 @@ public class IncrementalReindexStateTest {
     state = IncrementalReindexState.setReindexCompleteTime(state, INDEX_NAME, 200L);
 
     assertEquals(
-        IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.REINDEX_COMPLETE_TIME),
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.REINDEX_COMPLETE_TIME),
         Optional.of("200"));
     assertEquals(
         IncrementalReindexState.getStatus(state, INDEX_NAME),
@@ -97,7 +105,8 @@ public class IncrementalReindexStateTest {
     state = IncrementalReindexState.setDualWriteStartTime(state, INDEX_NAME, 300L);
 
     assertEquals(
-        IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.DUAL_WRITE_START_TIME),
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.DUAL_WRITE_START_TIME),
         Optional.of("300"));
     // Status should not change
     assertEquals(
@@ -131,10 +140,20 @@ public class IncrementalReindexStateTest {
   public void testGetAllIndexStatesMultipleIndices() {
     Map<String, String> state =
         IncrementalReindexState.setPhase1State(
-            null, "datasetindex_v2", "dataset_next_1", 100L, true, IncrementalReindexState.Status.COMPLETED);
+            null,
+            "datasetindex_v2",
+            "dataset_next_1",
+            100L,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
     state =
         IncrementalReindexState.setPhase1State(
-            state, "chartindex_v2", "chart_next_1", 200L, false, IncrementalReindexState.Status.IN_PROGRESS);
+            state,
+            "chartindex_v2",
+            "chart_next_1",
+            200L,
+            false,
+            IncrementalReindexState.Status.IN_PROGRESS);
 
     Map<String, Map<String, String>> allStates = IncrementalReindexState.getAllIndexStates(state);
 
@@ -143,9 +162,12 @@ public class IncrementalReindexStateTest {
     assertTrue(allStates.containsKey("chartindex_v2"));
 
     assertEquals(allStates.get("datasetindex_v2").get(IncrementalReindexState.STATUS), "COMPLETED");
-    assertEquals(allStates.get("datasetindex_v2").get(IncrementalReindexState.REQUIRES_DATA_BACKFILL), "true");
+    assertEquals(
+        allStates.get("datasetindex_v2").get(IncrementalReindexState.REQUIRES_DATA_BACKFILL),
+        "true");
 
     assertEquals(allStates.get("chartindex_v2").get(IncrementalReindexState.STATUS), "IN_PROGRESS");
-    assertEquals(allStates.get("chartindex_v2").get(IncrementalReindexState.REINDEX_START_TIME), "200");
+    assertEquals(
+        allStates.get("chartindex_v2").get(IncrementalReindexState.REINDEX_START_TIME), "200");
   }
 }

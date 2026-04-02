@@ -1,19 +1,24 @@
-package com.linkedin.datahub.upgrade.system.elasticsearch;
+package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 /**
- * Manages per-index state for incremental reindex upgrades, stored in {@link DataHubUpgradeResult}'s
- * flat {@code Map<String, String>} result field.
+ * Manages per-index state for incremental reindex upgrades, stored in {@link
+ * DataHubUpgradeResult}'s flat {@code Map<String, String>} result field.
  *
  * <p>Keys are prefixed by the index name (e.g. {@code "datasetindex_v2.nextIndexName"}) so multiple
  * indices can be tracked in a single upgrade result.
  */
 public final class IncrementalReindexState {
+
+  public static final String UPGRADE_ID_PREFIX = "BuildIndicesIncremental";
 
   private IncrementalReindexState() {}
 
@@ -113,8 +118,23 @@ public final class IncrementalReindexState {
   }
 
   /**
-   * Extract all index names that have state tracked in the result map by finding keys ending in
-   * the status suffix.
+   * Merge for Phase 1 {@link DataHubUpgradeResult} after a successful alias swap for {@code
+   * indexName}.
+   */
+  @Nonnull
+  public static DataHubUpgradeResultConditionalPersist.Merge persistAliasSwappedMerge(
+      @Nonnull String indexName, @Nullable DataHubUpgradeState phaseState) {
+    return (map, existingState) -> {
+      Map<String, String> updated = setAliasSwapped(new HashMap<>(map), indexName);
+      map.clear();
+      map.putAll(updated);
+      return existingState != null ? existingState : phaseState;
+    };
+  }
+
+  /**
+   * Extract all index names that have state tracked in the result map by finding keys ending in the
+   * status suffix.
    */
   public static Map<String, Map<String, String>> getAllIndexStates(
       @Nullable Map<String, String> resultMap) {

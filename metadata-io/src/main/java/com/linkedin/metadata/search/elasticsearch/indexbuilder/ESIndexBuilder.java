@@ -770,7 +770,8 @@ public class ESIndexBuilder {
   public IncrementalReindexResult buildIndexIncremental(
       ReindexConfig indexState, String upgradeVersion) throws Throwable {
     final long startTime = System.currentTimeMillis();
-    String nextIndexName = getIncrementalNextIndexName(indexState.name(), upgradeVersion, startTime);
+    String nextIndexName =
+        getIncrementalNextIndexName(indexState.name(), upgradeVersion, startTime);
     int targetShards = extractTargetShards(indexState);
 
     createIndex(nextIndexName, indexState);
@@ -857,7 +858,8 @@ public class ESIndexBuilder {
     long estimatedMinutesRemaining = 0;
 
     while (System.currentTimeMillis() < timeoutAt) {
-      log.info("Task: {} - Reindexing from {} to {} in progress...", taskId, sourceIndex, destIndex);
+      log.info(
+          "Task: {} - Reindexing from {} to {} in progress...", taskId, sourceIndex, destIndex);
 
       Pair<Long, Long> latestCounts = getDocumentCounts(sourceIndex, destIndex);
 
@@ -1232,6 +1234,40 @@ public class ESIndexBuilder {
     //    }
   }
 
+  /**
+   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
+   * alias to point to the new index.
+   *
+   * @param aliasName the alias to swap
+   * @param newBackingIndex the physical index to point the alias to
+   * @return true if swapped, false if doc counts didn't match
+   * @throws Exception if the swap operation fails
+   */
+  public boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+      throws Exception {
+    long currentCount = getCount(aliasName);
+    long nextCount = getCount(newBackingIndex);
+
+    if (currentCount != nextCount) {
+      log.warn(
+          "Doc count mismatch for alias swap {} -> {}: current={}, next={}",
+          aliasName,
+          newBackingIndex,
+          currentCount,
+          nextCount);
+      return false;
+    }
+
+    log.info(
+        "Doc counts match for {} -> {}: count={}. Swapping alias.",
+        aliasName,
+        newBackingIndex,
+        currentCount);
+    renameReindexedIndices(
+        searchClient, aliasName, null, newBackingIndex, false, requestOptionsLong);
+    return true;
+  }
+
   public static void renameReindexedIndices(
       SearchClientShim<?> searchClient,
       String originalName,
@@ -1268,7 +1304,7 @@ public class ESIndexBuilder {
     updateAliasWithRetry(searchClient, removeAction, addAction, delinfo, requestOptions);
   }
 
-  private static RequestOptions buildRequestOptionsLong(
+  public static RequestOptions buildRequestOptionsLong(
       @Nullable ElasticSearchConfiguration elasticSearchConfiguration) {
     int timeoutSec = BuildIndicesConfiguration.DEFAULT_SLOW_OPERATION_TIMEOUT_SECONDS;
     if (elasticSearchConfiguration != null

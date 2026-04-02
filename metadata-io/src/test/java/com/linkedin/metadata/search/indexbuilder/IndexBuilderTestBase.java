@@ -50,9 +50,9 @@ import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.indices.GetIndexRequest;
@@ -1291,11 +1291,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         new ESIndexBuilder(
             getSearchClient(),
             testDefaultConfig.toBuilder()
-                .index(
-                    testDefaultConfig.getIndex().toBuilder()
-                        .numShards(2)
-                        .numReplicas(1)
-                        .build())
+                .index(testDefaultConfig.getIndex().toBuilder().numShards(2).numReplicas(1).build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
@@ -1369,10 +1365,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Step 10: Verify settings were restored (replicas back to target, refresh interval restored)
     String replicas =
-        nextIndexResponse.getSetting(
-            incrementalResult.nextIndexName(), "index.number_of_replicas");
+        nextIndexResponse.getSetting(incrementalResult.nextIndexName(), "index.number_of_replicas");
     assertNotEquals(replicas, "0", "Replicas should be restored after reindex");
-
   }
 
   @Test
@@ -1408,9 +1402,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Next index should still be created (with correct mappings/settings)
     assertTrue(
         getSearchClient()
-            .indexExists(
-                new GetIndexRequest(result.nextIndexName()), RequestOptions.DEFAULT),
+            .indexExists(new GetIndexRequest(result.nextIndexName()), RequestOptions.DEFAULT),
         "Next index should exist even when source is empty");
-
   }
 }

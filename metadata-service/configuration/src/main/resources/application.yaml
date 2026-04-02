@@ -514,6 +514,11 @@ elasticsearch:
     createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:false} # non-blocking incremental reindex with dual-write
     autoAliasSwapEnabled: ${ELASTICSEARCH_BUILD_INDICES_AUTO_ALIAS_SWAP_ENABLED:false} # auto-swap alias when next index catches up
+    dualWritePollIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_DUAL_WRITE_POLL_INTERVAL_SECONDS:300} # how often MAE consumer checks for completed alias swaps
+    preAliasSwapMaxMclLagTotal: ${ELASTICSEARCH_BUILD_INDICES_PRE_ALIAS_SWAP_MAX_MCL_LAG_TOTAL:5000} # combined median lag cap; raise (e.g. Long.MAX_VALUE) to effectively disable
+    preAliasSwapLagStepRetries: ${ELASTICSEARCH_BUILD_INDICES_PRE_ALIAS_SWAP_LAG_STEP_RETRIES:5} # extra lag checks after first failure (total attempts = 1 + this); backoff between attempts
+    preAliasSwapLagRetryInitialBackoffMs: ${ELASTICSEARCH_BUILD_INDICES_PRE_ALIAS_SWAP_LAG_RETRY_INITIAL_BACKOFF_MS:5000} # first backoff between lag rechecks; doubles each failure until max
+    preAliasSwapLagRetryMaxBackoffMs: ${ELASTICSEARCH_BUILD_INDICES_PRE_ALIAS_SWAP_LAG_RETRY_MAX_BACKOFF_MS:60000} # cap (1 minute) for exponential backoff between lag checks
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
