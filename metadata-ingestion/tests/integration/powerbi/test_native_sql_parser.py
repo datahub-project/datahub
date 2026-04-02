@@ -74,12 +74,29 @@ def test_remove_tsql_control_statements_go():
     assert "SELECT col FROM dbo.TableB" in actual
 
 
-def test_remove_tsql_control_statements_select_into_global_temp():
-    # SELECT … INTO ##global_temp — double-hash global temp table must also be stripped
-    query = "SELECT col\nINTO ##GlobalTemp\nFROM dbo.SourceTable"
-    actual = native_sql_parser.remove_tsql_control_statements(query)
-    assert "##GlobalTemp" not in actual
-    assert "FROM dbo.SourceTable" in actual
+def test_remove_tsql_control_statements_select_into():
+    # SELECT … INTO #temp: stripped in both single-line and multi-line forms.
+    # INSERT INTO #temp: must never be stripped (confirmed present in real log data).
+    # SELECT in one statement must not reach INSERT INTO in the next statement.
+    single_line = "SELECT col INTO #TempA FROM dbo.SourceTable"
+    assert "#TempA" not in native_sql_parser.remove_tsql_control_statements(single_line)
+
+    multi_line = "SELECT col\nINTO ##GlobalTemp\nFROM dbo.SourceTable"
+    assert "##GlobalTemp" not in native_sql_parser.remove_tsql_control_statements(
+        multi_line
+    )
+
+    insert_into = "INSERT INTO #Output SELECT col FROM dbo.SourceTable"
+    assert "INSERT INTO #Output" in native_sql_parser.remove_tsql_control_statements(
+        insert_into
+    )
+
+    cross_statement = (
+        "SELECT col FROM dbo.TableA\n\nINSERT INTO #Output SELECT col FROM dbo.TableB"
+    )
+    assert "INSERT INTO #Output" in native_sql_parser.remove_tsql_control_statements(
+        cross_statement
+    )
 
 
 def test_tsql_cleanup_requires_special_chars_expansion_first():

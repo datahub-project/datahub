@@ -85,16 +85,23 @@ def remove_tsql_control_statements(query: str) -> str:
         r"^\s*SET\s+\w+\s+(?:ON|OFF)\s*;?\s*$",
         # GO — T-SQL batch separator
         r"^\s*GO\s*$",
-        # INTO #<temp_table> within SELECT … INTO — redirects output to temp table;
-        # strip only the INTO clause so FROM/WHERE lineage remains parseable.
-        # ##name = global temp table, #name = local temp table.
-        r"\s+INTO\s+##?\w+",
     ]
 
     new_query = query
 
     for pattern in patterns:
         new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE | re.MULTILINE)
+
+    # SELECT … INTO #<temp> — strip only the INTO clause so FROM/WHERE lineage remains
+    # parseable. Anchored to SELECT so INSERT INTO and MERGE INTO are never matched.
+    # [^;\n] stops at semicolons and uses \n(?!\s*\n) to not cross blank lines,
+    # preventing a SELECT in one statement from reaching an INSERT INTO in the next.
+    new_query = re.sub(
+        r"(SELECT\b(?:[^;\n]|\n(?!\s*\n))*?)\s+INTO\s+##?\w+",
+        r"\1",
+        new_query,
+        flags=re.IGNORECASE,
+    )
 
     # Leading semicolon before WITH — T-SQL defensive pattern (;WITH ...) used to ensure
     # the previous statement is terminated before a CTE. Strip only the semicolon,
