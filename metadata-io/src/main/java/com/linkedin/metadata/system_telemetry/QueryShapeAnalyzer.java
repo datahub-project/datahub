@@ -242,7 +242,7 @@ public final class QueryShapeAnalyzer {
       @Nonnull final int[] counts) {
 
     if (depth > GraphQLShapeConstants.MAX_QUERY_DEPTH) {
-      sb.append("...truncated at depth ").append(GraphQLShapeConstants.MAX_QUERY_DEPTH);
+      ShapeFormatter.appendDepthTruncation(sb, GraphQLShapeConstants.MAX_QUERY_DEPTH);
       return;
     }
 
@@ -250,11 +250,11 @@ public final class QueryShapeAnalyzer {
       return;
     }
 
-    sb.append('{');
+    ShapeFormatter.appendObjectStart(sb);
     boolean first = true;
     for (Selection<?> selection : selectionSet.getSelections()) {
       if (!first) {
-        sb.append(' ');
+        ShapeFormatter.appendFieldSeparator(sb);
       }
       first = false;
 
@@ -269,17 +269,17 @@ public final class QueryShapeAnalyzer {
         sb.append(field.getName());
         // Append argument structure (field names and cardinalities) without values
         if (!field.getArguments().isEmpty()) {
-          sb.append('(');
+          ShapeFormatter.appendArgumentsStart(sb);
           boolean firstArg = true;
           for (graphql.language.Argument arg : field.getArguments()) {
             if (!firstArg) {
-              sb.append(", ");
+              ShapeFormatter.appendArgumentSeparator(sb);
             }
             firstArg = false;
-            sb.append(arg.getName()).append(": ");
+            ShapeFormatter.appendArgumentNameValue(sb, arg.getName());
             appendArgumentStructure(sb, arg.getValue());
           }
-          sb.append(')');
+          ShapeFormatter.appendArgumentsEnd(sb);
         }
         appendSelectionSet(
             sb, field.getSelectionSet(), fragments, visitedFragments, newDepth, counts);
@@ -303,13 +303,13 @@ public final class QueryShapeAnalyzer {
         if (inline.getTypeCondition() != null) {
           sb.append(inline.getTypeCondition().getName());
         } else {
-          sb.append("*"); // Anonymous fragment (rare)
+          ShapeFormatter.appendAnonymousFragment(sb);
         }
         appendSelectionSet(
             sb, inline.getSelectionSet(), fragments, visitedFragments, depth + 1, counts);
       }
     }
-    sb.append('}');
+    ShapeFormatter.appendObjectEnd(sb);
   }
 
   /**
@@ -347,17 +347,18 @@ public final class QueryShapeAnalyzer {
     }
 
     if (value == null) {
-      sb.append("{}");
+      ShapeFormatter.appendObjectStart(sb);
+      ShapeFormatter.appendObjectEnd(sb);
       return;
     }
 
     if (value instanceof ObjectValue) {
       ObjectValue obj = (ObjectValue) value;
-      sb.append('{');
+      ShapeFormatter.appendObjectStart(sb);
       boolean first = true;
       for (ObjectField field : obj.getObjectFields()) {
         if (!first) {
-          sb.append(' ');
+          ShapeFormatter.appendFieldSeparator(sb);
         }
         first = false;
         sb.append(field.getName());
@@ -368,21 +369,23 @@ public final class QueryShapeAnalyzer {
           appendArgumentStructure(sb, fieldVal, depth + 1);
         }
       }
-      sb.append('}');
+      ShapeFormatter.appendObjectEnd(sb);
 
     } else if (value instanceof ArrayValue) {
       ArrayValue arr = (ArrayValue) value;
-      sb.append('[').append(arr.getValues().size()).append(']');
+      ShapeFormatter.appendArraySize(sb, arr.getValues().size());
       // Show structure of first array element to understand what's inside
       if (!arr.getValues().isEmpty()) {
         appendArgumentStructure(sb, arr.getValues().get(0), depth + 1);
       } else {
-        sb.append("{}"); // Empty array has empty structure
+        ShapeFormatter.appendObjectStart(sb);
+        ShapeFormatter.appendObjectEnd(sb);
       }
 
     } else {
       // Scalar value (String, Int, Boolean, etc.) — omit actual value
-      sb.append("{}");
+      ShapeFormatter.appendObjectStart(sb);
+      ShapeFormatter.appendObjectEnd(sb);
     }
   }
 

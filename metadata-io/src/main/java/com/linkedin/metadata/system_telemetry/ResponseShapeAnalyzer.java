@@ -114,7 +114,7 @@ public final class ResponseShapeAnalyzer {
   private static void appendDotNotationIfMap(
       @Nonnull final StringBuilder sb, @Nullable final Object value) {
     if (value instanceof Map) {
-      sb.append('.');
+      ShapeFormatter.appendDotNotation(sb);
     }
   }
 
@@ -149,7 +149,7 @@ public final class ResponseShapeAnalyzer {
     } else if (value instanceof List) {
       List<Object> list = (List<Object>) value;
       int size = list.size();
-      sb.append('[').append(size).append(']');
+      ShapeFormatter.appendArraySize(sb, size);
 
       // Track heavy fields (arrays with > 1 element) in priority queue
       if (size >= GraphQLShapeConstants.RESPONSE_HEAVY_FIELD_MIN_SIZE && !path.isEmpty()) {
@@ -202,14 +202,7 @@ public final class ResponseShapeAnalyzer {
         // Append combined shapes: shape1 | shape2 | shape3
         appendDotNotationIfMap(sb, list.get(0));
         if (!uniqueShapes.isEmpty()) {
-          boolean first = true;
-          for (String shape : uniqueShapes) {
-            if (!first) {
-              sb.append(" | ");
-            }
-            first = false;
-            sb.append(shape);
-          }
+          sb.append(ShapeFormatter.joinArrayShapeUnion(new ArrayList<>(uniqueShapes)));
         }
 
         // Estimate total field count based on average across sampled elements
@@ -225,7 +218,7 @@ public final class ResponseShapeAnalyzer {
     } else {
       // Scalar leaf
       counts[0]++;
-      sb.append('_');
+      ShapeFormatter.appendScalarMarker(sb);
     }
   }
 
@@ -238,11 +231,11 @@ public final class ResponseShapeAnalyzer {
       @Nonnull final String path,
       @Nonnull final PriorityQueue<HeavyField> heavyFieldsQueue) {
 
-    sb.append('{');
+    ShapeFormatter.appendObjectStart(sb);
     boolean first = true;
     for (Map.Entry<String, Object> entry : map.entrySet()) {
       if (!first) {
-        sb.append(' ');
+        ShapeFormatter.appendFieldSeparator(sb);
       }
       first = false;
       String key = entry.getKey();
@@ -251,6 +244,6 @@ public final class ResponseShapeAnalyzer {
       String newPath = path.isEmpty() ? key : path + PATH_SEPARATOR + key;
       appendValue(sb, entry.getValue(), depth + 1, counts, newPath, heavyFieldsQueue);
     }
-    sb.append('}');
+    ShapeFormatter.appendObjectEnd(sb);
   }
 }
