@@ -20,7 +20,7 @@ from pydantic.fields import Field
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
-from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn
+from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
@@ -59,6 +59,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
     CustomAssertionInfoClass,
+    DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
@@ -69,6 +70,7 @@ from datahub.metadata.schema_classes import (
     EdgeClass,
     MLMetricClass,
     MLTrainingRunPropertiesClass,
+    PlatformTypeClass,
     SubTypesClass,
     _Aspect,
 )
@@ -200,6 +202,16 @@ class LangSmithSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=make_data_platform_urn(self.platform),
+            aspect=DataPlatformInfoClass(
+                name=self.platform,
+                displayName="LangSmith",
+                type=PlatformTypeClass.OTHERS,
+                datasetNameDelimiter=".",
+                logoUrl="https://unpkg.com/@lobehub/icons-static-svg@1.84.0/icons/langsmith-color.svg",
+            ),
+        ).as_workunit()
         # Datasets first so _dataset_urns is populated before trace assertion emission
         if self.config.include_datasets:
             yield from self._get_dataset_workunits()
