@@ -284,6 +284,17 @@ scalaVersions.each { sv ->
     // that must remain at io.openlineage package to properly override the upstream dependency
     relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
 
+    // Relocate packages that conflict with Spark's runtime classpath
+    relocate 'org.apache.kafka', 'io.acryl.shaded.org.apache.kafka'
+    relocate 'org.apache.http', 'io.acryl.shaded.org.apache.http'  // httpcomponents 4.x (not caught by org.apache.hc rule)
+    relocate 'org.apache.log4j', 'io.acryl.shaded.org.apache.log4j'
+    relocate 'org.apache.commons.text', 'io.acryl.shaded.org.apache.commons.text'
+    relocate 'com.google.re2j', 'io.acryl.shaded.com.google.re2j'
+    relocate 'org.eclipse.parsson', 'io.acryl.shaded.org.eclipse.parsson'
+    relocate 'org.codehaus.plexus', 'io.acryl.shaded.org.codehaus.plexus'
+    relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
+    relocate 'org.jspecify', 'io.acryl.shaded.org.jspecify'
+
     // Debug output to verify we're using the right dependency
     doFirst {
       println "Building JAR for Scala ${sv}"
