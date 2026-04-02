@@ -294,6 +294,10 @@ scalaVersions.each { sv ->
     relocate 'org.codehaus.plexus', 'io.acryl.shaded.org.codehaus.plexus'
     relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
     relocate 'org.jspecify', 'io.acryl.shaded.org.jspecify'
+    // NOTE: Do NOT relocate com.linkedin — Pegasus data framework uses reflection/class names
+    // internally for serialization. Relocating it breaks DataEncodingException.
+    // com.datahub also references com.linkedin types so must stay unrelocated too.
+    relocate 'com.google.thirdparty', 'io.acryl.shaded.com.google.thirdparty'
 
     // Debug output to verify we're using the right dependency
     doFirst {
