@@ -1968,7 +1968,6 @@ integration-tests = [
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
