@@ -222,28 +222,35 @@ def test_connections_emitted_as_datasets() -> None:
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_topics_emitted_with_cleared_upstream_lineage() -> None:
-    """Topics must have an upstreamLineage with empty upstreams (stale edge clear)."""
+def test_topics_emit_stale_edge_clear_before_real_lineage() -> None:
+    """Topics must emit an empty upstreamLineage first to clear stale edges."""
     source = _build_source()
     events = _collect_workunits(source)
 
-    topic_lineage = [
-        e
-        for e in events
-        if ".topic." in e.get("entityUrn", "") and e["aspectName"] == "upstreamLineage"
-    ]
+    # Group upstreamLineage MCPs by topic URN, preserving order
+    topic_lineage: Dict[str, list] = {}
+    for e in events:
+        if ".topic." in e.get("entityUrn", "") and e["aspectName"] == "upstreamLineage":
+            topic_lineage.setdefault(e["entityUrn"], []).append(e)
+
     assert topic_lineage, "No upstreamLineage aspect found on topic entities"
-    for event in topic_lineage:
-        upstreams = event["aspect"].get("upstreams", [])
-        assert upstreams == [], (
-            f"Topic {event['entityUrn']} should have empty upstreams to prevent "
-            f"circular lineage, got: {upstreams}"
+    for urn, lineage_events in topic_lineage.items():
+        # First MCP should be the stale edge clear (empty upstreams)
+        assert lineage_events[0]["aspect"].get("upstreams", []) == [], (
+            f"Topic {urn} should emit empty upstreams first to clear stale edges"
+        )
+        # Second MCP should have real view upstreams
+        assert len(lineage_events) >= 2, (
+            f"Topic {urn} should emit view upstreams after the clear"
+        )
+        assert lineage_events[-1]["aspect"].get("upstreams", []) != [], (
+            f"Topic {urn} should have view upstreams in final lineage"
         )
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_semantic_views_are_downstream_of_topics() -> None:
-    """Semantic view datasets must list their topic as upstream."""
+def test_topics_list_views_as_upstreams() -> None:
+    """Topics curate views — each topic must list its views as upstreams."""
     source = _build_source()
     events = _collect_workunits(source)
 
@@ -251,30 +258,36 @@ def test_semantic_views_are_downstream_of_topics() -> None:
     topic_urn_customers = source._topic_dataset_urn("shared-model-1", "customers")
 
     orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    order_items_view_urn = source._semantic_dataset_urn("shared-model-1", "order_items")
     customers_view_urn = source._semantic_dataset_urn("shared-model-1", "customers")
 
     def _upstreams_of(entity_urn: str) -> set:
+        result: set = set()
         for e in events:
             if e["entityUrn"] == entity_urn and e["aspectName"] == "upstreamLineage":
-                return {u["dataset"] for u in e["aspect"].get("upstreams", [])}
-        return set()
+                result.update(u["dataset"] for u in e["aspect"].get("upstreams", []))
+        return result
 
-    orders_upstreams = _upstreams_of(orders_view_urn)
-    assert topic_urn_orders in orders_upstreams, (
-        f"orders view should be downstream of orders topic; "
-        f"actual upstreams: {orders_upstreams}"
+    orders_topic_upstreams = _upstreams_of(topic_urn_orders)
+    assert orders_view_urn in orders_topic_upstreams, (
+        f"orders topic should list orders view as upstream; "
+        f"actual upstreams: {orders_topic_upstreams}"
+    )
+    assert order_items_view_urn in orders_topic_upstreams, (
+        f"orders topic should list order_items view as upstream; "
+        f"actual upstreams: {orders_topic_upstreams}"
     )
 
-    customers_upstreams = _upstreams_of(customers_view_urn)
-    assert topic_urn_customers in customers_upstreams, (
-        f"customers view should be downstream of customers topic; "
-        f"actual upstreams: {customers_upstreams}"
+    customers_topic_upstreams = _upstreams_of(topic_urn_customers)
+    assert customers_view_urn in customers_topic_upstreams, (
+        f"customers topic should list customers view as upstream; "
+        f"actual upstreams: {customers_topic_upstreams}"
     )
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_physical_tables_downstream_of_semantic_views() -> None:
-    """Physical Snowflake tables must list semantic views as their upstream."""
+def test_semantic_views_upstream_of_physical_tables() -> None:
+    """Semantic views must list their physical source tables as upstreams."""
     source = _build_source()
     events = _collect_workunits(source)
 
@@ -283,20 +296,17 @@ def test_physical_tables_downstream_of_semantic_views() -> None:
         "snowflake", "ANALYTICS_PROD", "PUBLIC", "ORDERS", platform_instance="snowflake"
     )
 
-    physical_lineage = [
+    view_lineage = [
         e
         for e in events
-        if e["entityUrn"] == orders_physical_urn
-        and e["aspectName"] == "upstreamLineage"
+        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "upstreamLineage"
     ]
-    assert physical_lineage, (
-        f"No upstreamLineage emitted for physical table {orders_physical_urn}"
+    assert view_lineage, (
+        f"No upstreamLineage emitted for semantic view {orders_view_urn}"
     )
-    upstreams = {
-        u["dataset"] for u in physical_lineage[0]["aspect"].get("upstreams", [])
-    }
-    assert orders_view_urn in upstreams, (
-        f"Physical ORDERS table should be downstream of semantic orders view; "
+    upstreams = {u["dataset"] for u in view_lineage[-1]["aspect"].get("upstreams", [])}
+    assert orders_physical_urn in upstreams, (
+        f"Semantic orders view should list physical ORDERS table as upstream; "
         f"actual upstreams: {upstreams}"
     )
 

@@ -244,26 +244,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
@@ -392,8 +372,8 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-                    "type": "TRANSFORMED"
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
+                    "type": "COPY"
                 }
             ]
         }
@@ -428,6 +408,26 @@
         "json": {
             "typeNames": [
                 "View"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
             ]
         }
     }
@@ -497,26 +497,6 @@
         "json": {
             "platform": "urn:li:dataPlatform:snowflake",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
         }
     }
 },
@@ -652,8 +632,8 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-                    "type": "TRANSFORMED"
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
+                    "type": "COPY"
                 }
             ]
         }
@@ -701,26 +681,6 @@
         "json": {
             "platform": "urn:li:dataPlatform:snowflake",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
         }
     }
 },
@@ -844,8 +804,8 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-                    "type": "TRANSFORMED"
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
+                    "type": "COPY"
                 }
             ]
         }
@@ -880,6 +840,34 @@
         "json": {
             "typeNames": [
                 "View"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
             ]
         }
     }
@@ -1022,62 +1010,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-                    "type": "TRANSFORMED"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
-                    "type": "TRANSFORMED"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -1097,11 +1029,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),customer_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.customer_id)"
                     ],
                     "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
                     "confidenceScore": 1.0
@@ -1121,11 +1053,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.total_revenue)"
                     ],
                     "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
                     "confidenceScore": 1.0
@@ -1133,11 +1065,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.total_revenue)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
                     ],
                     "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
                     "confidenceScore": 1.0

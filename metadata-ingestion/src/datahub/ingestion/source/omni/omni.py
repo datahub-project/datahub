@@ -48,6 +48,7 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.omni.omni_api import OmniClient
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 from datahub.ingestion.source.omni.omni_lineage_parser import (
+    FieldRef,
     extract_field_refs,
     parse_field_list,
 )
@@ -641,6 +642,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.report.semantic_datasets_emitted += 1
 
+        topic_view_urns: Set[str] = set()
         views_raw = topic.get("views", [])
         views = views_raw if isinstance(views_raw, list) else []
         for view in views:
@@ -699,14 +701,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     subtype="Table",
                     platform=platform,
                     platform_instance=platform_instance,
-                    upstreams=UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=semantic_urn,
-                                type=DatasetLineageTypeClass.TRANSFORMED,
-                            )
-                        ]
-                    ),
                 )
                 self.report.physical_datasets_emitted += 1
 
@@ -792,6 +786,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if model_custom_properties:
                 view_props.update(model_custom_properties)
 
+            view_upstreams: Optional[UpstreamLineageClass] = None
+            if physical_urn:
+                view_upstreams = UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=physical_urn,
+                            type=DatasetLineageTypeClass.COPY,
+                        )
+                    ]
+                )
             yield from self._emit_dataset(
                 name=f"{model_id}.{view_name}",
                 display_name=f"{readable_model}.{view_name}",
@@ -799,15 +803,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 custom_properties=view_props,
                 subtype="View",
                 schema_fields=schema_fields or None,
-                upstreams=UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=topic_urn, type=DatasetLineageTypeClass.TRANSFORMED
-                        )
-                    ]
-                ),
+                upstreams=view_upstreams,
             )
+            topic_view_urns.add(semantic_urn)
             self.report.semantic_datasets_emitted += 1
+
+        # Topic is built from its views — emit topic upstream lineage
+        if topic_view_urns:
+            yield from self._emit_upstream_lineage(topic_urn, topic_view_urns)
 
     # ------------------------------------------------------------------
     # Top-level ingestion stages
@@ -1087,13 +1090,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         doc_id: str,
         dashboard_url: str,
         dashboard_title: str,
-        fields_by_dashboard: Set[Any],
+        fields_by_dashboard: Set[FieldRef],
         chart_ids: List[str],
         chart_inputs: Dict[str, Set[str]],
         chart_titles: Dict[str, str],
         chart_urls: Dict[str, str],
         dashboard_topics: Set[str],
         dashboard_topic_urns: Set[str],
+        view_to_topic_urns: Dict[str, Set[str]],
     ) -> Iterator[MetadataWorkUnit]:
         """Fetch dashboard payload and populate tile/topic state dicts.
 
@@ -1114,7 +1118,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     qp.get("name") or f"{dashboard_title} - tile {idx + 1}"
                 )
                 query = qp.get("query") or {}
-                fields_by_dashboard.update(parse_field_list(query.get("fields", [])))
+                tile_fields = parse_field_list(query.get("fields", []))
+                fields_by_dashboard.update(tile_fields)
                 topic_name = qp.get("topicName") or query.get(
                     "join_paths_from_topic_name"
                 )
@@ -1144,6 +1149,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         self.report.semantic_datasets_emitted += 1
                     chart_inputs[qp_id].add(topic_urn)
                     dashboard_topic_urns.add(topic_urn)
+                    # Track which topic each view belongs to
+                    for field_ref in tile_fields:
+                        view_to_topic_urns.setdefault(field_ref.view, set()).add(
+                            topic_urn
+                        )
                 chart_urls[qp_id] = f"{dashboard_url}?queryPresentationId={qp_id}"
         except Exception as exc:
             self.report.warning(
@@ -1154,21 +1164,23 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_inferred_view_datasets(
         self,
         model_id: str,
-        fields_by_dashboard: Set[Any],
-        dashboard_topic_urns: Set[str],
+        fields_by_dashboard: Set[FieldRef],
+        view_to_topic_urns: Dict[str, Set[str]],
         dashboard_dataset_urn: str,
         fine_grained_lineages: List[FineGrainedLineageClass],
         fine_grained_dedupe: Set[tuple],
     ) -> Iterator[MetadataWorkUnit]:
         """Emit inferred semantic view datasets and compute fine-grained lineage."""
         inferred_fields_by_view: Dict[str, Set[str]] = {}
-        inferred_view_topic_links: Dict[str, Set[str]] = {}
+        # Track inferred views per topic so we can add them as topic upstreams
+        topic_to_inferred_views: Dict[str, Set[str]] = {}
 
         for field_ref in fields_by_dashboard:
             inferred_fields_by_view.setdefault(field_ref.view, set()).add(
                 field_ref.field
             )
             semantic_view_urn = self._semantic_dataset_urn(model_id, field_ref.view)
+            view_topic_urns = view_to_topic_urns.get(field_ref.view, set())
             if semantic_view_urn not in self._semantic_dataset_urns:
                 self._semantic_dataset_urns.add(semantic_view_urn)
                 inferred_schema_fields = [
@@ -1180,16 +1192,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     for fn in sorted(inferred_fields_by_view.get(field_ref.view, set()))
                 ]
-                view_upstreams: Optional[UpstreamLineageClass] = None
-                if dashboard_topic_urns:
-                    view_upstreams = UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=t, type=DatasetLineageTypeClass.TRANSFORMED
-                            )
-                            for t in sorted(dashboard_topic_urns)
-                        ]
-                    )
                 yield from self._emit_dataset(
                     name=f"{model_id}.{field_ref.view}",
                     description="Omni semantic view inferred from dashboard query fields.",
@@ -1200,13 +1202,13 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     },
                     subtype="View",
                     schema_fields=inferred_schema_fields or None,
-                    upstreams=view_upstreams,
                 )
                 self.report.semantic_datasets_emitted += 1
-            elif dashboard_topic_urns:
-                inferred_view_topic_links.setdefault(semantic_view_urn, set()).update(
-                    dashboard_topic_urns
-                )
+                # Register this inferred view as upstream of its topic(s)
+                for topic_urn in view_topic_urns:
+                    topic_to_inferred_views.setdefault(topic_urn, set()).add(
+                        semantic_view_urn
+                    )
 
             if not self.config.include_column_lineage:
                 continue
@@ -1246,9 +1248,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 self.report.fine_grained_lineage_edges_unresolved += 1
 
-        for sv_urn, topic_ups in inferred_view_topic_links.items():
-            if topic_ups:
-                yield from self._emit_upstream_lineage(sv_urn, topic_ups)
+        # Emit topic upstream lineage for inferred views
+        for topic_urn, view_urns in topic_to_inferred_views.items():
+            yield from self._emit_upstream_lineage(topic_urn, view_urns)
 
     def _ingest_documents(self) -> Iterator[MetadataWorkUnit]:
         for document in self.client.list_documents(
@@ -1306,7 +1308,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     self._connections_by_id.get(document_connection_id),
                 )
 
-            fields_by_dashboard: Set[Any] = set()
+            fields_by_dashboard: Set[FieldRef] = set()
             fine_grained_lineages: List[FineGrainedLineageClass] = []
             fine_grained_dedupe: Set[tuple] = set()
             chart_ids: List[str] = []
@@ -1316,6 +1318,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             chart_titles: Dict[str, str] = {}
             chart_urls: Dict[str, str] = {}
             dashboard_topic_urns: Set[str] = set()
+            view_to_topic_urns: Dict[str, Set[str]] = {}
 
             if has_dashboard:
                 yield from self._collect_tile_data(
@@ -1329,6 +1332,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     chart_urls,
                     dashboard_topics,
                     dashboard_topic_urns,
+                    view_to_topic_urns,
                 )
                 model_id_from_dashboard = self._current_tile_model_id
 
@@ -1362,7 +1366,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._emit_inferred_view_datasets(
                     model_id=model_id_from_dashboard,
                     fields_by_dashboard=fields_by_dashboard,
-                    dashboard_topic_urns=dashboard_topic_urns,
+                    view_to_topic_urns=view_to_topic_urns,
                     dashboard_dataset_urn=dashboard_dataset_urn,
                     fine_grained_lineages=fine_grained_lineages,
                     fine_grained_dedupe=fine_grained_dedupe,
