@@ -986,22 +986,17 @@ public class ElasticsearchController {
       name = "ElasticSearch Operations",
       description = "An API for managing your elasticsearch instance")
   @PostMapping(
-      path = "/incrementalReindex/entity/{entityName}/alias/swap",
+      path = "/incrementalReindex/entity/{entityName}/dualWrite/disable",
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      summary = "Swap index alias (incremental reindex)",
+      summary = "Disable rollback dual-write (incremental reindex)",
       description =
-          "Resolves the search index name for the given entity from Phase 1 incremental reindex"
-              + " state, validates doc counts between the current alias target and the configured"
-              + " next index, then swaps the alias. Marks the index as ALIAS_SWAPPED in Phase 1"
-              + " upgrade state (with optimistic concurrency) so the MAE consumer stops"
-              + " dual-writing (within ~5 minutes by default). Optional query parameter"
-              + " expectedBackingIndex must match the next index from Phase 1 when provided.")
-  public ResponseEntity<String> swapIndexAliasForEntity(
-      HttpServletRequest request,
-      @PathVariable("entityName") @Nonnull String entityName,
-      @RequestParam(value = "expectedBackingIndex", required = false) @Nullable
-          String expectedBackingIndex) {
+          "Marks the index for the given entity as DUAL_WRITE_DISABLED in Phase 1 upgrade state"
+              + " so the MAE consumer stops dual-writing to the old backing index. Call this after"
+              + " confirming that rollback to the previous version is no longer needed. The alias"
+              + " swap itself happens during Phase 1 (blocking system update).")
+  public ResponseEntity<String> disableDualWriteForEntity(
+      HttpServletRequest request, @PathVariable("entityName") @Nonnull String entityName) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
@@ -1009,7 +1004,7 @@ public class ElasticsearchController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "swapIndexAliasForEntity", List.of()),
+                .buildOpenapi(actorUrnStr, request, "disableDualWriteForEntity", List.of()),
             authorizerChain,
             authentication,
             true);
@@ -1017,7 +1012,7 @@ public class ElasticsearchController {
     if (!AuthUtil.isAPIOperationsAuthorized(
         opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
-          .body(actorUrnStr + " is not authorized to perform alias swap");
+          .body(actorUrnStr + " is not authorized to disable dual-write");
     }
 
     try {
@@ -1036,15 +1031,18 @@ public class ElasticsearchController {
                     .toString());
       }
       Map<String, String> result = phase1.get().getResult();
-      String nextIndexName =
-          result.get(
-              IncrementalReindexState.key(indexName, IncrementalReindexState.NEXT_INDEX_NAME));
       String statusStr =
           result.get(IncrementalReindexState.key(indexName, IncrementalReindexState.STATUS));
-      if (nextIndexName == null
-          || nextIndexName.isEmpty()
-          || statusStr == null
-          || !IncrementalReindexState.Status.COMPLETED.name().equals(statusStr)) {
+
+      if (IncrementalReindexState.Status.DUAL_WRITE_DISABLED.name().equals(statusStr)) {
+        return ResponseEntity.ok(
+            new JSONObject()
+                .put("success", true)
+                .put("message", "Dual-write already disabled for index " + indexName)
+                .toString());
+      }
+
+      if (statusStr == null || !IncrementalReindexState.Status.COMPLETED.name().equals(statusStr)) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(
                 new JSONObject()
@@ -1055,31 +1053,7 @@ public class ElasticsearchController {
                             + entityName
                             + "' (index "
                             + indexName
-                            + ") is not in COMPLETED incremental reindex state with a next index")
-                    .toString());
-      }
-      if (expectedBackingIndex != null
-          && !expectedBackingIndex.isEmpty()
-          && !expectedBackingIndex.equals(nextIndexName)) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(
-                new JSONObject()
-                    .put("success", false)
-                    .put(
-                        "message",
-                        "expectedBackingIndex does not match Phase 1 next index: " + nextIndexName)
-                    .toString());
-      }
-
-      boolean swapped = searchService.validateAndSwapAlias(indexName, nextIndexName);
-      if (!swapped) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(
-                new JSONObject()
-                    .put("success", false)
-                    .put(
-                        "message",
-                        "Doc count mismatch between " + indexName + " and " + nextIndexName)
+                            + ") is not in COMPLETED state")
                     .toString());
       }
 
@@ -1088,19 +1062,19 @@ public class ElasticsearchController {
           opContext,
           entityService,
           incrementalReindexUpgradeUrn,
-          IncrementalReindexState.persistAliasSwappedMerge(indexName, phaseState));
+          IncrementalReindexState.persistDualWriteDisabledMerge(indexName, phaseState));
 
       return ResponseEntity.ok(
           new JSONObject()
               .put("success", true)
-              .put("message", "Alias swapped: " + indexName + " -> " + nextIndexName)
+              .put("message", "Dual-write disabled for index " + indexName)
               .toString());
     } catch (Exception e) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(
               new JSONObject()
                   .put("success", false)
-                  .put("message", "Alias swap failed: " + e.getMessage())
+                  .put("message", "Failed to disable dual-write: " + e.getMessage())
                   .toString());
     }
   }

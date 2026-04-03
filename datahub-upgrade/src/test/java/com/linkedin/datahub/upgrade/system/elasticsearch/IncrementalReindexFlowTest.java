@@ -17,11 +17,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.datahub.upgrade.system.elasticsearch.steps.IncrementalReindexAliasSwapStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.IncrementalReindexCatchUpStep;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
@@ -32,9 +28,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -57,9 +51,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * Integration test verifying the full incremental reindex flow: Phase 1 state is consumed by Phase
- * 2 (catch-up) and Phase 3 (alias swap). Uses an in-memory state store to simulate the upgrade
- * result persistence that flows between steps.
+ * Integration test verifying the incremental reindex flow: Phase 1 state is consumed by Phase 2
+ * (catch-up). Uses an in-memory state store to simulate the upgrade result persistence that flows
+ * between steps.
  */
 public class IncrementalReindexFlowTest {
 
@@ -70,7 +64,6 @@ public class IncrementalReindexFlowTest {
   private OperationContext opContext;
   private EntityService<?> entityService;
   private AspectDao aspectDao;
-  private ESIndexBuilder indexBuilder;
   private UpgradeContext upgradeContext;
   private Upgrade upgrade;
   private MockedStatic<EntityUtils> entityUtilsMock;
@@ -85,31 +78,10 @@ public class IncrementalReindexFlowTest {
     opContext = TestOperationContexts.systemContextNoValidate();
     entityService = mock(EntityService.class);
     aspectDao = mock(AspectDao.class);
-    indexBuilder = mock(ESIndexBuilder.class);
     upgradeContext = mock(UpgradeContext.class);
     upgrade = mock(Upgrade.class);
     stateStore.clear();
     phase1EnvelopeVersion.set(1);
-
-    when(entityService.getLatestEnvelopedAspect(
-            eq(opContext),
-            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
-            org.mockito.ArgumentMatchers.argThat(
-                urn -> urn != null && urn.toString().contains("BuildIndicesIncremental")),
-            eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME)))
-        .thenAnswer(
-            invocation -> {
-              Urn urn = invocation.getArgument(2);
-              DataHubUpgradeResult stored = stateStore.get(urn.toString());
-              if (stored == null) {
-                return null;
-              }
-              EnvelopedAspect ea = new EnvelopedAspect();
-              ea.setValue(new Aspect(stored.data()));
-              ea.setSystemMetadata(
-                  new SystemMetadata().setVersion(String.valueOf(phase1EnvelopeVersion.get())));
-              return ea;
-            });
 
     org.mockito.Mockito.doAnswer(
             invocation -> {
@@ -161,35 +133,29 @@ public class IncrementalReindexFlowTest {
 
   @AfterMethod
   public void tearDown() {
-    // Static mocks hold state across tests if not closed
     if (entityUtilsMock != null) {
       entityUtilsMock.close();
     }
   }
 
   @Test
-  public void testFullFlowPhase1ThroughPhase3() throws Exception {
+  public void testCatchUpConsumesPhase1State() throws Exception {
     Map<String, String> phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setPhase1State(
-                null,
-                INDEX_NAME,
-                NEXT_INDEX_NAME,
-                1000L,
-                true,
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                    .Status.COMPLETED);
-    phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setReindexCompleteTime(phase1State, INDEX_NAME, 2000L);
-    phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setDualWriteStartTime(phase1State, INDEX_NAME, 1500L);
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX_NAME,
+            null,
+            1000L,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setReindexCompleteTime(phase1State, INDEX_NAME, 2000L);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 1500L);
     seedPhase1State(phase1State);
 
-    // --- Phase 2: Catch-Up ---
     IncrementalReindexCatchUpStep catchUpStep =
-        new IncrementalReindexCatchUpStep(opContext, entityService, aspectDao, UPGRADE_VERSION);
+        new IncrementalReindexCatchUpStep(
+            opContext, entityService, aspectDao, List.of(), Set.of(), UPGRADE_VERSION, false);
 
     UpgradeStepResult catchUpResult = catchUpStep.executable().apply(upgradeContext);
     assertEquals(catchUpResult.result(), DataHubUpgradeState.SUCCEEDED);
@@ -202,147 +168,31 @@ public class IncrementalReindexFlowTest {
     assertEquals(capturedArgs.lePitEpochMs, 1500L);
     assertTrue(capturedArgs.urnBasedPagination);
     assertEquals(capturedArgs.urnLike, "urn:li:dataset:%");
-
-    // --- Phase 3: Alias Swap ---
-    when(indexBuilder.validateAndSwapAlias(INDEX_NAME, NEXT_INDEX_NAME)).thenReturn(true);
-
-    IncrementalReindexAliasSwapStep aliasSwapStep = createAliasSwapStep();
-
-    UpgradeStepResult swapResult = aliasSwapStep.executable().apply(upgradeContext);
-    assertEquals(swapResult.result(), DataHubUpgradeState.SUCCEEDED);
-
-    verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
-
-    Urn aliasSwapUrn =
-        BootstrapStep.getUpgradeUrn("IncrementalReindexAliasSwap_" + UPGRADE_VERSION);
-    assertTrue(stateStore.containsKey(aliasSwapUrn.toString()));
-    DataHubUpgradeResult swapState = stateStore.get(aliasSwapUrn.toString());
-    assertEquals(swapState.getState(), DataHubUpgradeState.SUCCEEDED);
-    assertEquals(
-        swapState
-            .getResult()
-            .get(
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState.key(
-                    INDEX_NAME,
-                    com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                        .STATUS)),
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState.Status
-            .ALIAS_SWAPPED
-            .name());
-  }
-
-  @Test
-  public void testPhase3SkipsWhenPhase1NotCompleted() throws Exception {
-    Map<String, String> phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setPhase1State(
-                null,
-                INDEX_NAME,
-                NEXT_INDEX_NAME,
-                1000L,
-                true,
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                    .Status.IN_PROGRESS);
-    seedPhase1State(phase1State);
-
-    IncrementalReindexAliasSwapStep aliasSwapStep = createAliasSwapStep();
-
-    UpgradeStepResult result = aliasSwapStep.executable().apply(upgradeContext);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-
-    verify(indexBuilder, org.mockito.Mockito.never()).validateAndSwapAlias(any(), any());
-  }
-
-  @Test
-  public void testPhase3IdempotentOnRerun() throws Exception {
-    Map<String, String> phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setPhase1State(
-                null,
-                INDEX_NAME,
-                NEXT_INDEX_NAME,
-                1000L,
-                true,
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                    .Status.ALIAS_SWAPPED);
-    seedPhase1State(phase1State);
-
-    IncrementalReindexAliasSwapStep aliasSwapStep = createAliasSwapStep();
-
-    UpgradeStepResult result = aliasSwapStep.executable().apply(upgradeContext);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-
-    verify(indexBuilder, org.mockito.Mockito.never()).validateAndSwapAlias(any(), any());
-  }
-
-  @Test
-  public void testMultipleIndicesPartialSwap() throws Exception {
-    String index2 = "chartindex_v2";
-    String nextIndex2 = "chartindex_v2_0_14_0-0_100";
-
-    Map<String, String> phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setPhase1State(
-                null,
-                INDEX_NAME,
-                NEXT_INDEX_NAME,
-                1000L,
-                true,
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                    .Status.COMPLETED);
-    phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setPhase1State(
-                phase1State,
-                index2,
-                nextIndex2,
-                1000L,
-                true,
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                    .Status.IN_PROGRESS);
-    seedPhase1State(phase1State);
-
-    when(indexBuilder.validateAndSwapAlias(INDEX_NAME, NEXT_INDEX_NAME)).thenReturn(true);
-
-    IncrementalReindexAliasSwapStep aliasSwapStep = createAliasSwapStep();
-
-    UpgradeStepResult result = aliasSwapStep.executable().apply(upgradeContext);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-
-    verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
-    verify(indexBuilder, org.mockito.Mockito.never())
-        .validateAndSwapAlias(eq(index2), eq(nextIndex2));
   }
 
   @Test
   public void testCatchUpCheckpointMergesAcrossIndices() throws Exception {
     String index2 = "chartindex_v2";
     Map<String, String> phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setPhase1State(
-                null,
-                INDEX_NAME,
-                NEXT_INDEX_NAME,
-                1000L,
-                true,
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                    .Status.COMPLETED);
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX_NAME,
+            null,
+            1000L,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
     phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
-    phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setPhase1State(
-                phase1State,
-                index2,
-                "chartindex_v2_0_14_0-0_100",
-                1000L,
-                true,
-                com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-                    .Status.COMPLETED);
-    phase1State =
-        com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState
-            .setDualWriteStartTime(phase1State, index2, 2000L);
+        IncrementalReindexState.setPhase1State(
+            phase1State,
+            index2,
+            "chartindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, index2, 2000L);
     seedPhase1State(phase1State);
 
     SystemAspect datasetAspect = createMockSystemAspect("urn:li:dataset:ds1");
@@ -384,7 +234,8 @@ public class IncrementalReindexFlowTest {
             });
 
     IncrementalReindexCatchUpStep catchUpStep =
-        new IncrementalReindexCatchUpStep(opContext, entityService, aspectDao, UPGRADE_VERSION);
+        new IncrementalReindexCatchUpStep(
+            opContext, entityService, aspectDao, List.of(), Set.of(), UPGRADE_VERSION, false);
 
     UpgradeStepResult result = catchUpStep.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -412,17 +263,6 @@ public class IncrementalReindexFlowTest {
     phase1Result.setState(DataHubUpgradeState.SUCCEEDED);
     phase1Result.setResult(new StringMap(phase1State));
     stateStore.put(phase1Urn.toString(), phase1Result);
-  }
-
-  private IncrementalReindexAliasSwapStep createAliasSwapStep() throws Exception {
-    ElasticSearchIndexed mockService = mock(ElasticSearchIndexed.class);
-    ReindexConfig mockConfig = mock(ReindexConfig.class);
-    when(mockConfig.name()).thenReturn(INDEX_NAME);
-    when(mockService.buildReindexConfigs(any(), any())).thenReturn(List.of(mockConfig));
-    when(mockService.getIndexBuilder()).thenReturn(indexBuilder);
-
-    return new IncrementalReindexAliasSwapStep(
-        opContext, entityService, List.of(mockService), Set.of(), UPGRADE_VERSION);
   }
 
   private SystemAspect createMockSystemAspect(String urnStr) {

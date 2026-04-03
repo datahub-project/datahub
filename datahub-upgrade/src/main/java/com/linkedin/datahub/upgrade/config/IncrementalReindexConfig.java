@@ -13,9 +13,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -38,10 +36,7 @@ public class IncrementalReindexConfig {
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final GitVersion gitVersion,
-      @Qualifier("revision") final String revision,
-      @Value("${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}")
-          final String metadataChangeLogKafkaConsumerGroupId,
-      final KafkaProperties kafkaProperties) {
+      @Qualifier("revision") final String revision) {
 
     String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
     return new IncrementalReindex(
@@ -53,8 +48,6 @@ public class IncrementalReindexConfig {
         aspectDao,
         opContext,
         entityService,
-        upgradeVersion,
-        kafkaProperties,
-        metadataChangeLogKafkaConsumerGroupId);
+        upgradeVersion);
   }
 }

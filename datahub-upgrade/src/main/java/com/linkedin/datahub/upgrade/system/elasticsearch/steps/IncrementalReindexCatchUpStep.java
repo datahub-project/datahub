@@ -14,8 +14,16 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
@@ -24,11 +32,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
 
 /**
  * Phase 2 non-blocking upgrade step that closes the T0 gap created during Phase 1. Queries aspects
@@ -49,10 +61,15 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   private static final int DEFAULT_BATCH_SIZE = 500;
   public static final String LAST_URN_KEY = "lastUrn";
 
+  private static final String TIMESERIES_TIMESTAMP_FIELD = "@timestamp";
+
   private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final AspectDao aspectDao;
+  private final List<ElasticSearchIndexed> indexedServices;
+  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
   private final String upgradeVersion;
+  private final boolean rollbackDualWriteEnabled;
   private final Urn upgradeIdUrn;
   private final Urn phase1UpgradeIdUrn;
   private final int batchSize;
@@ -61,16 +78,22 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
+      List<ElasticSearchIndexed> indexedServices,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       String upgradeVersion,
+      boolean rollbackDualWriteEnabled,
       int batchSize) {
     this.opContext = opContext;
     this.entityService = entityService;
     this.aspectDao = aspectDao;
+    this.indexedServices = indexedServices;
+    this.structuredProperties = structuredProperties;
     this.upgradeVersion = upgradeVersion;
+    this.rollbackDualWriteEnabled = rollbackDualWriteEnabled;
     this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
     this.phase1UpgradeIdUrn =
         BootstrapStep.getUpgradeUrn(
-            BuildIndicesIncrementalStep.UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+            IncrementalReindexState.UPGRADE_ID_PREFIX + "_" + upgradeVersion);
     this.batchSize = batchSize;
   }
 
@@ -78,8 +101,19 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
-      String upgradeVersion) {
-    this(opContext, entityService, aspectDao, upgradeVersion, DEFAULT_BATCH_SIZE);
+      List<ElasticSearchIndexed> indexedServices,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
+      String upgradeVersion,
+      boolean rollbackDualWriteEnabled) {
+    this(
+        opContext,
+        entityService,
+        aspectDao,
+        indexedServices,
+        structuredProperties,
+        upgradeVersion,
+        rollbackDualWriteEnabled,
+        DEFAULT_BATCH_SIZE);
   }
 
   @Override
@@ -139,28 +173,76 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
             continue;
           }
 
-          Optional<String> entityNameOpt =
-              opContext.getSearchContext().getIndexConvention().getEntityName(indexName);
-          if (entityNameOpt.isEmpty()) {
-            log.warn("Could not resolve entity name for index '{}', skipping catch-up", indexName);
-            continue;
+          IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+          String nextIndexName = indexState.get(IncrementalReindexState.NEXT_INDEX_NAME);
+          Optional<String> entityNameOpt = indexConvention.getEntityName(indexName);
+
+          if (entityNameOpt.isPresent()) {
+            // Entity index — emit MCLs from SQL for the gap window, scoped by entity type
+            String entityName = entityNameOpt.get();
+            log.info(
+                "Catch-up for entity index {} (entity {}): window [{}, {}]",
+                indexName,
+                entityName,
+                reindexStartTime,
+                dualWriteStartTime);
+            emitMCLsForTimeRange(
+                context,
+                indexName,
+                "urn:li:" + entityName + ":%",
+                reindexStartTime,
+                dualWriteStartTime);
+          } else if (indexConvention.getEntityAndAspectName(indexName).isPresent()
+              && nextIndexName != null) {
+            // Timeseries index — filtered _reindex from current to next for the gap window
+            log.info(
+                "Catch-up for timeseries index {}: _reindex window [{}, {}]",
+                indexName,
+                reindexStartTime,
+                dualWriteStartTime);
+            reindexTimeseriesGap(indexName, nextIndexName, reindexStartTime, dualWriteStartTime);
+          } else if (isGlobalIndex(indexName)) {
+            // Graph or system metadata index — emit MCLs for ALL entities in the gap window.
+            // These indices are not entity-scoped, so we need to cover all entity types.
+            // The RESTATE MCLs flow through UpdateIndicesService which updates graph, system
+            // metadata, and search indices.
+            log.info(
+                "Catch-up for global index {}: window [{}, {}]",
+                indexName,
+                reindexStartTime,
+                dualWriteStartTime);
+            emitMCLsForTimeRange(context, indexName, "%", reindexStartTime, dualWriteStartTime);
+          } else {
+            log.warn(
+                "Could not resolve index '{}' as entity, timeseries, or global, skipping",
+                indexName);
           }
+        }
 
-          String entityName = entityNameOpt.get();
-          log.info(
-              "Catch-up for index {} (entity {}): window [{}, {}]",
-              indexName,
-              entityName,
-              reindexStartTime,
-              dualWriteStartTime);
-
-          emitMCLsForTimeRange(
-              context, indexName, entityName, reindexStartTime, dualWriteStartTime);
+        // If rollback dual-write is not enabled, mark all completed indices as
+        // DUAL_WRITE_DISABLED to prevent a later enable of the flag from writing to stale or
+        // deleted old indices.
+        if (!rollbackDualWriteEnabled) {
+          for (Map.Entry<String, Map<String, String>> entry : allIndexStates.entrySet()) {
+            String indexName = entry.getKey();
+            String status = entry.getValue().get(IncrementalReindexState.STATUS);
+            if (IncrementalReindexState.Status.COMPLETED.name().equals(status)) {
+              DataHubUpgradeState phaseState = phase1Result.get().getState();
+              DataHubUpgradeResultConditionalPersist.mergeAndPersist(
+                  opContext,
+                  entityService,
+                  phase1UpgradeIdUrn,
+                  IncrementalReindexState.persistDualWriteDisabledMerge(indexName, phaseState));
+              log.info(
+                  "Marked index {} as DUAL_WRITE_DISABLED (rollbackDualWriteEnabled=false)",
+                  indexName);
+            }
+          }
         }
 
         BootstrapStep.setUpgradeResult(opContext, upgradeIdUrn, entityService);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
-      } catch (Exception e) {
+      } catch (Throwable e) {
         log.error("IncrementalReindexCatchUpStep failed", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
@@ -168,17 +250,17 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   }
 
   /**
-   * Streams aspects (version 0) for a specific entity type modified in the given time range and
-   * emits RESTATE MCLs for each. Uses URN-based cursor pagination with per-index checkpointing for
-   * resumption.
+   * Streams aspects (version 0) modified in the given time range and emits RESTATE MCLs for each.
+   * Uses URN-based cursor pagination with per-index checkpointing for resumption.
    *
    * @param indexName the ES index name, used as a prefix for per-index resume state
-   * @param entityName the entity type name, used to scope the DB query via urnLike
+   * @param urnLikePattern the SQL LIKE pattern to scope the DB query (e.g. "urn:li:dataset:%" for
+   *     entity-scoped, "%" for global indices like graph/system metadata)
    */
   private void emitMCLsForTimeRange(
       UpgradeContext context,
       String indexName,
-      String entityName,
+      String urnLikePattern,
       long fromEpochMs,
       long toEpochMs) {
     String lastUrnKey = indexName + "." + LAST_URN_KEY;
@@ -204,7 +286,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
             .batchSize(batchSize)
             .gePitEpochMs(fromEpochMs)
             .lePitEpochMs(toEpochMs)
-            .urnLike("urn:li:" + entityName + ":%")
+            .urnLike(urnLikePattern)
             .lastUrn(resumeUrn)
             .urnBasedPagination(true);
 
@@ -278,5 +360,72 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       return new HashMap<>(current.get().getResult());
     }
     return new HashMap<>();
+  }
+
+  /**
+   * Copies timeseries documents from the current index to the next index for the T0 gap window
+   * using a filtered ES _reindex. Timeseries data is not in SQL so MCL-based catch-up doesn't work.
+   * Polls until the reindex completes and throws on failure.
+   */
+  private void reindexTimeseriesGap(
+      String currentIndex, String nextIndex, long fromEpochMs, long toEpochMs) throws Throwable {
+    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = findIndexBuilderAndConfig(currentIndex);
+    if (builderAndConfig == null) {
+      log.warn("No index builder found for timeseries index {}, skipping catch-up", currentIndex);
+      return;
+    }
+
+    ESIndexBuilder indexBuilder = builderAndConfig.getFirst();
+    ReindexConfig config = builderAndConfig.getSecond();
+    int targetShards = ESIndexBuilder.extractTargetShards(config);
+
+    RangeQueryBuilder timeRangeFilter =
+        QueryBuilders.rangeQuery(TIMESERIES_TIMESTAMP_FIELD).gte(fromEpochMs).lt(toEpochMs);
+
+    String taskId =
+        indexBuilder.submitFilteredReindex(currentIndex, nextIndex, timeRangeFilter, targetShards);
+    log.info(
+        "Submitted timeseries catch-up _reindex for {} -> {} (task {}, shards {})",
+        currentIndex,
+        nextIndex,
+        taskId,
+        targetShards);
+
+    ESIndexBuilder.PollReindexResult pollResult =
+        indexBuilder.pollReindexCompletion(
+            currentIndex, nextIndex, targetShards, new HashMap<>(), taskId);
+    if (!pollResult.completed()) {
+      throw new RuntimeException(
+          "Timeseries catch-up _reindex did not complete for " + currentIndex + " -> " + nextIndex);
+    }
+    log.info("Timeseries catch-up _reindex completed for {} -> {}", currentIndex, nextIndex);
+  }
+
+  /**
+   * Returns true for indices that are not entity-scoped and require a global (all-entity) catch-up.
+   * These are the graph and system metadata indices.
+   */
+  private boolean isGlobalIndex(String indexName) {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String systemMetadataIndexName =
+        indexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME);
+    return indexName.equals(graphIndexName) || indexName.equals(systemMetadataIndexName);
+  }
+
+  @Nullable
+  private Pair<ESIndexBuilder, ReindexConfig> findIndexBuilderAndConfig(String indexName) {
+    for (ElasticSearchIndexed service : indexedServices) {
+      try {
+        for (ReindexConfig config : service.buildReindexConfigs(opContext, structuredProperties)) {
+          if (config.name().equals(indexName)) {
+            return Pair.of(service.getIndexBuilder(), config);
+          }
+        }
+      } catch (Exception e) {
+        log.warn("Error checking service for index {}: {}", indexName, e.getMessage());
+      }
+    }
+    return null;
   }
 }

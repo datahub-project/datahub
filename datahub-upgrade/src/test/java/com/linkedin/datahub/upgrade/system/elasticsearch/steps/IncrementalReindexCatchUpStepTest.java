@@ -12,7 +12,6 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -24,8 +23,10 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -49,14 +50,15 @@ public class IncrementalReindexCatchUpStepTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    IndexUtils.clearReindexConfigCache();
     opContext = TestOperationContexts.systemContextNoValidate();
 
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
 
-    step = new IncrementalReindexCatchUpStep(opContext, entityService, aspectDao, UPGRADE_VERSION);
+    step =
+        new IncrementalReindexCatchUpStep(
+            opContext, entityService, aspectDao, List.of(), Set.of(), UPGRADE_VERSION, false);
   }
 
   @Test
@@ -77,6 +79,7 @@ public class IncrementalReindexCatchUpStepTest {
             null,
             INDEX_NAME,
             "datasetindex_v2_0_14_0-0_100",
+            null,
             100L,
             false, // requiresDataBackfill = false
             IncrementalReindexState.Status.COMPLETED);
@@ -110,6 +113,7 @@ public class IncrementalReindexCatchUpStepTest {
             null,
             INDEX_NAME,
             "datasetindex_v2_0_14_0-0_100",
+            null,
             100L,
             true,
             IncrementalReindexState.Status.COMPLETED);
@@ -176,6 +180,7 @@ public class IncrementalReindexCatchUpStepTest {
             null,
             INDEX_NAME,
             "datasetindex_v2_0_14_0-0_100",
+            null,
             1000L,
             true,
             IncrementalReindexState.Status.COMPLETED);
@@ -211,6 +216,7 @@ public class IncrementalReindexCatchUpStepTest {
             null,
             INDEX_NAME,
             "datasetindex_v2_0_14_0-0_100",
+            null,
             1000L,
             true,
             IncrementalReindexState.Status.COMPLETED);
@@ -220,6 +226,7 @@ public class IncrementalReindexCatchUpStepTest {
             phase1State,
             index2,
             "chartindex_v2_0_14_0-0_100",
+            null,
             1000L,
             true,
             IncrementalReindexState.Status.COMPLETED);

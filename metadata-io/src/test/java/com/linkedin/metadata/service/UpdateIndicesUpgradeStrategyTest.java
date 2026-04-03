@@ -308,15 +308,16 @@ public class UpdateIndicesUpgradeStrategyTest {
 
     assertTrue(strategy.isEnabled());
 
-    // Build upgrade state with ALIAS_SWAPPED for datasetindex_v2
+    // Build upgrade state with DUAL_WRITE_DISABLED for datasetindex_v2
     Map<String, String> upgradeState =
         IncrementalReindexState.setPhase1State(
             null,
             "datasetindex_v2",
             "datasetindex_v2_next_123",
+            null,
             100L,
             true,
-            IncrementalReindexState.Status.ALIAS_SWAPPED);
+            IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
 
     DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult();
     upgradeResult.setState(DataHubUpgradeState.SUCCEEDED);

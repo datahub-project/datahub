@@ -8,7 +8,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -73,6 +72,8 @@ public class BuildIndicesIncrementalStepTest {
     ReindexConfig reindexConfig = mockReindexConfig(INDEX_NAME, true);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(reindexConfig));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexBuilder.getBackingIndices(anyString())).thenReturn(Set.of("datasetindex_v2_old"));
+    when(indexBuilder.validateAndSwapAlias(anyString(), anyString())).thenReturn(true);
 
     step =
         new BuildIndicesIncrementalStep(
@@ -113,8 +114,7 @@ public class BuildIndicesIncrementalStepTest {
     verify(indexBuilder).buildIndexIncremental(any(), eq(UPGRADE_VERSION));
     verify(indexBuilder).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
     verify(indexBuilder).undoReindexOptimalSettings(eq(NEXT_INDEX_NAME), any(), anyMap());
-    // Should checkpoint at least twice: after index creation (IN_PROGRESS) and final (SUCCEEDED)
-    verify(entityService, times(3)).ingestProposal(any(), any(), any(), anyBoolean());
+    verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
   }
 
   @Test
@@ -157,6 +157,7 @@ public class BuildIndicesIncrementalStepTest {
             null,
             INDEX_NAME,
             NEXT_INDEX_NAME,
+            null,
             1679000000000L,
             false,
             IncrementalReindexState.Status.IN_PROGRESS);
@@ -177,6 +178,7 @@ public class BuildIndicesIncrementalStepTest {
     verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
     verify(indexBuilder).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
     verify(indexBuilder).undoReindexOptimalSettings(eq(NEXT_INDEX_NAME), any(), anyMap());
+    verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
   }
 
   @Test
@@ -187,6 +189,7 @@ public class BuildIndicesIncrementalStepTest {
             null,
             INDEX_NAME,
             NEXT_INDEX_NAME,
+            null,
             1679000000000L,
             false,
             IncrementalReindexState.Status.COMPLETED);

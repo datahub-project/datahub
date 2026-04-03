@@ -35,19 +35,21 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Update indices strategy for the incremental reindex upgrade. Dual-writes search documents to
- * 'next' indices that were created during Phase 1 (blocking system update).
+ * Update indices strategy for rollback dual-write during incremental reindex. After Phase 1 swaps
+ * the alias to the next index, this strategy dual-writes search documents to the OLD backing index
+ * so that rollback to the previous code version remains possible.
  *
- * <p>This strategy reads the Phase 1 upgrade result to discover which indices have pending 'next'
- * versions, and writes to them alongside the primary index strategies (V2/V3). It records the
- * dual-write start time on the first successful write for each index, which Phase 2's catch-up step
- * uses to determine its query window.
+ * <p>This strategy reads the Phase 1 upgrade result to discover which indices have old backing
+ * index names recorded, and writes to them alongside the primary index strategies (V2/V3). It
+ * records the dual-write start time on the first successful write for each index, which Phase 2's
+ * catch-up step uses to determine its query window.
  *
  * <p>Periodically polls the persisted upgrade state to detect indices marked as {@code
- * ALIAS_SWAPPED} and stops dual-writing to them. The poller shuts down once all targets are
+ * DUAL_WRITE_DISABLED} and stops writing to them. The poller shuts down once all targets are
  * removed.
  *
- * <p>This strategy is a no-op when no incremental reindex is in progress.
+ * <p>This strategy is a no-op when no incremental reindex is in progress or when rollback
+ * dual-write is not enabled.
  */
 @Slf4j
 public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
@@ -56,13 +58,13 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
   private final SearchDocumentTransformer searchDocumentTransformer;
 
   /**
-   * Map of entity name → next index physical name. Populated on startup from Phase 1 upgrade
-   * result. Entries are removed when alias swap completes.
+   * Map of entity name → old backing index physical name. Populated on startup from Phase 1 upgrade
+   * result. Entries are removed when dual-write is disabled.
    */
-  private final ConcurrentHashMap<String, String> nextIndexTargets;
+  private final ConcurrentHashMap<String, String> oldIndexTargets;
 
   /**
-   * Tracks whether dual-write start time has been recorded for each index. Key is next index name.
+   * Tracks whether dual-write start time has been recorded for each index. Key is old index name.
    */
   private final ConcurrentHashMap<String, AtomicBoolean> dualWriteStartTimeRecorded;
 
@@ -80,7 +82,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
   public UpdateIndicesUpgradeStrategy(
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull Map<String, String> nextIndexTargets,
+      @Nonnull Map<String, String> oldIndexTargets,
       @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback,
       @Nullable OperationContext opContext,
       @Nullable EntityService<?> entityService,
@@ -88,15 +90,15 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       long pollIntervalSeconds) {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
-    this.nextIndexTargets = new ConcurrentHashMap<>(nextIndexTargets);
+    this.oldIndexTargets = new ConcurrentHashMap<>(oldIndexTargets);
     this.dualWriteStartTimeRecorded = new ConcurrentHashMap<>();
     this.dualWriteStartTimeCallback = dualWriteStartTimeCallback;
 
-    if (!nextIndexTargets.isEmpty()) {
+    if (!oldIndexTargets.isEmpty()) {
       log.info(
-          "UpdateIndicesUpgradeStrategy initialized with {} next index targets: {}",
-          nextIndexTargets.size(),
-          nextIndexTargets);
+          "UpdateIndicesUpgradeStrategy initialized with {} old index targets for rollback dual-write: {}",
+          oldIndexTargets.size(),
+          oldIndexTargets);
 
       if (opContext != null && entityService != null && upgradeIdUrn != null) {
         statePoller =
@@ -124,7 +126,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   @Override
   public boolean isEnabled() {
-    return !nextIndexTargets.isEmpty();
+    return !oldIndexTargets.isEmpty();
   }
 
   @Override
@@ -133,7 +135,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       @Nonnull Map<Urn, List<MCLItem>> groupedEvents,
       boolean structuredPropertiesHookEnabled) {
 
-    if (nextIndexTargets.isEmpty()) {
+    if (oldIndexTargets.isEmpty()) {
       return;
     }
 
@@ -151,8 +153,8 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processUpdateEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
-    String nextIndex = nextIndexTargets.get(entityName);
-    if (nextIndex == null) {
+    String oldIndex = oldIndexTargets.get(entityName);
+    if (oldIndex == null) {
       return;
     }
 
@@ -174,21 +176,21 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
           opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
       String document = searchDocument.get().toString();
 
-      elasticSearchService.upsertDocumentByIndexName(nextIndex, document, docId);
+      elasticSearchService.upsertDocumentByIndexName(oldIndex, document, docId);
 
-      recordDualWriteStartIfNeeded(entityName, nextIndex);
+      recordDualWriteStartIfNeeded(entityName, oldIndex);
 
       log.debug(
-          "Upgrade dual-write: upserted doc to '{}' for entity '{}', urn '{}'",
-          nextIndex,
+          "Rollback dual-write: upserted doc to '{}' for entity '{}', urn '{}'",
+          oldIndex,
           entityName,
           event.getUrn());
     } catch (Exception e) {
       log.error(
-          "Upgrade dual-write failed for entity '{}', urn '{}', next index '{}': {}",
+          "Rollback dual-write failed for entity '{}', urn '{}', old index '{}': {}",
           entityName,
           event.getUrn(),
-          nextIndex,
+          oldIndex,
           e.getMessage(),
           e);
     }
@@ -196,8 +198,8 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processDeleteEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
-    String nextIndex = nextIndexTargets.get(entityName);
-    if (nextIndex == null) {
+    String oldIndex = oldIndexTargets.get(entityName);
+    if (oldIndex == null) {
       return;
     }
 
@@ -211,11 +213,11 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     try {
       String docId =
           opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
-      elasticSearchService.deleteDocumentByIndexName(nextIndex, docId);
+      elasticSearchService.deleteDocumentByIndexName(oldIndex, docId);
 
       log.debug(
-          "Upgrade dual-write: deleted doc from '{}' for entity '{}', urn '{}'",
-          nextIndex,
+          "Rollback dual-write: deleted doc from '{}' for entity '{}', urn '{}'",
+          oldIndex,
           entityName,
           event.getUrn());
     } catch (Exception e) {
@@ -228,37 +230,36 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     }
   }
 
-  private void recordDualWriteStartIfNeeded(String entityName, String nextIndex) {
+  private void recordDualWriteStartIfNeeded(String entityName, String oldIndex) {
     AtomicBoolean recorded =
-        dualWriteStartTimeRecorded.computeIfAbsent(nextIndex, k -> new AtomicBoolean(false));
+        dualWriteStartTimeRecorded.computeIfAbsent(oldIndex, k -> new AtomicBoolean(false));
     if (recorded.compareAndSet(false, true) && dualWriteStartTimeCallback != null) {
       long now = System.currentTimeMillis();
       try {
         dualWriteStartTimeCallback.onDualWriteStarted(entityName, now);
         log.info(
             "Recorded dual-write start time for index '{}' (entity '{}'): {}",
-            nextIndex,
+            oldIndex,
             entityName,
             now);
       } catch (Exception e) {
         log.error(
-            "Failed to persist dual-write start time for index '{}': {}",
-            nextIndex,
-            e.getMessage());
+            "Failed to persist dual-write start time for index '{}': {}", oldIndex, e.getMessage());
         recorded.set(false); // allow retry
       }
     }
   }
 
   /**
-   * Remove a next index target after alias swap completes. Shuts down poller when no targets
+   * Remove an old index target after dual-write is disabled. Shuts down poller when no targets
    * remain.
    */
   public void removeTarget(String entityName) {
-    String removed = nextIndexTargets.remove(entityName);
+    String removed = oldIndexTargets.remove(entityName);
     if (removed != null) {
-      log.info("Removed upgrade dual-write target for entity '{}' (was '{}')", entityName, removed);
-      if (nextIndexTargets.isEmpty()) {
+      log.info(
+          "Removed rollback dual-write target for entity '{}' (was '{}')", entityName, removed);
+      if (oldIndexTargets.isEmpty()) {
         shutdownPoller();
       }
     }
@@ -282,7 +283,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
           allStates.entrySet().stream()
               .filter(
                   e ->
-                      IncrementalReindexState.Status.ALIAS_SWAPPED
+                      IncrementalReindexState.Status.DUAL_WRITE_DISABLED
                           .name()
                           .equals(e.getValue().get(IncrementalReindexState.STATUS)))
               .map(e -> indexConvention.getEntityName(e.getKey()))
@@ -291,7 +292,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
               .collect(Collectors.toSet());
 
       Set<String> toRemove =
-          nextIndexTargets.keySet().stream()
+          oldIndexTargets.keySet().stream()
               .filter(swappedEntities::contains)
               .collect(Collectors.toSet());
 

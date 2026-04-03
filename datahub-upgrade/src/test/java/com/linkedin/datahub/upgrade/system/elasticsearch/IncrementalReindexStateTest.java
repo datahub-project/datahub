@@ -45,6 +45,7 @@ public class IncrementalReindexStateTest {
             null,
             INDEX_NAME,
             NEXT_INDEX,
+            null,
             1679000000000L,
             true,
             IncrementalReindexState.Status.IN_PROGRESS);
@@ -71,7 +72,13 @@ public class IncrementalReindexStateTest {
 
     Map<String, String> state =
         IncrementalReindexState.setPhase1State(
-            existing, INDEX_NAME, NEXT_INDEX, 100L, false, IncrementalReindexState.Status.PENDING);
+            existing,
+            INDEX_NAME,
+            NEXT_INDEX,
+            null,
+            100L,
+            false,
+            IncrementalReindexState.Status.PENDING);
 
     assertEquals(state.get("someOtherKey"), "someValue");
     assertEquals(
@@ -83,7 +90,13 @@ public class IncrementalReindexStateTest {
   public void testSetReindexCompleteTime() {
     Map<String, String> state =
         IncrementalReindexState.setPhase1State(
-            null, INDEX_NAME, NEXT_INDEX, 100L, false, IncrementalReindexState.Status.IN_PROGRESS);
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            null,
+            100L,
+            false,
+            IncrementalReindexState.Status.IN_PROGRESS);
 
     state = IncrementalReindexState.setReindexCompleteTime(state, INDEX_NAME, 200L);
 
@@ -100,7 +113,13 @@ public class IncrementalReindexStateTest {
   public void testSetDualWriteStartTime() {
     Map<String, String> state =
         IncrementalReindexState.setPhase1State(
-            null, INDEX_NAME, NEXT_INDEX, 100L, false, IncrementalReindexState.Status.COMPLETED);
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            null,
+            100L,
+            false,
+            IncrementalReindexState.Status.COMPLETED);
 
     state = IncrementalReindexState.setDualWriteStartTime(state, INDEX_NAME, 300L);
 
@@ -115,16 +134,22 @@ public class IncrementalReindexStateTest {
   }
 
   @Test
-  public void testSetAliasSwapped() {
+  public void testSetDualWriteDisabled() {
     Map<String, String> state =
         IncrementalReindexState.setPhase1State(
-            null, INDEX_NAME, NEXT_INDEX, 100L, false, IncrementalReindexState.Status.COMPLETED);
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            null,
+            100L,
+            false,
+            IncrementalReindexState.Status.COMPLETED);
 
-    state = IncrementalReindexState.setAliasSwapped(state, INDEX_NAME);
+    state = IncrementalReindexState.setDualWriteDisabled(state, INDEX_NAME);
 
     assertEquals(
         IncrementalReindexState.getStatus(state, INDEX_NAME),
-        Optional.of(IncrementalReindexState.Status.ALIAS_SWAPPED));
+        Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
   }
 
   @Test
@@ -143,6 +168,7 @@ public class IncrementalReindexStateTest {
             null,
             "datasetindex_v2",
             "dataset_next_1",
+            null,
             100L,
             true,
             IncrementalReindexState.Status.COMPLETED);
@@ -151,6 +177,7 @@ public class IncrementalReindexStateTest {
             state,
             "chartindex_v2",
             "chart_next_1",
+            null,
             200L,
             false,
             IncrementalReindexState.Status.IN_PROGRESS);

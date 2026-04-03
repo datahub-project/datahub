@@ -4,7 +4,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -35,14 +34,9 @@ public class UpdateIndicesUpgradeStrategyFactory {
 
   private static final String UPGRADE_ID_PREFIX = "BuildIndicesIncremental";
 
-  // State key constants matching IncrementalReindexState
-  private static final String SEPARATOR = ".";
-  private static final String NEXT_INDEX_NAME = "nextIndexName";
-  private static final String STATUS = "status";
-
   @Bean("updateIndicesUpgradeStrategy")
   @ConditionalOnProperty(
-      name = "elasticsearch.buildIndices.incrementalReindexEnabled",
+      name = "elasticsearch.buildIndices.rollbackDualWriteEnabled",
       havingValue = "true")
   @Nonnull
   protected UpdateIndicesStrategy createUpdateIndicesUpgradeStrategy(
@@ -51,14 +45,13 @@ public class UpdateIndicesUpgradeStrategyFactory {
       EntityService<?> entityService,
       @Qualifier("systemOperationContext") OperationContext systemOpContext,
       GitVersion gitVersion,
-      @Qualifier("revision") String revision,
-      ElasticSearchConfiguration esConfig) {
+      @Qualifier("revision") String revision) {
 
     String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
     Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
 
-    Map<String, String> indexTargets =
-        loadNextIndexTargets(entityService, systemOpContext, upgradeIdUrn);
+    Map<String, String> oldIndexTargets =
+        loadOldIndexTargets(entityService, systemOpContext, upgradeIdUrn);
 
     UpdateIndicesUpgradeStrategy.DualWriteStartTimeCallback callback =
         (entityName, startTimeMillis) -> {
@@ -71,33 +64,28 @@ public class UpdateIndicesUpgradeStrategyFactory {
               entityService, systemOpContext, upgradeIdUrn, originalIndexName, startTimeMillis);
         };
 
-    long pollIntervalSeconds =
-        esConfig.getBuildIndices() != null
-            ? esConfig.getBuildIndices().getDualWritePollIntervalSeconds()
-            : 300;
-
     return new UpdateIndicesUpgradeStrategy(
         elasticSearchService,
         searchDocumentTransformer,
-        indexTargets,
+        oldIndexTargets,
         callback,
         systemOpContext,
         entityService,
         upgradeIdUrn,
-        pollIntervalSeconds);
+        0);
   }
 
   /**
-   * Reads Phase 1 upgrade result and builds entity name → index mappings for indices that completed
-   * Phase 1 but haven't had their alias swapped yet.
+   * Reads Phase 1 upgrade result and builds entity name → old backing index mappings. After Phase 1
+   * swaps the alias to the next index, dual-write keeps the OLD backing index current for rollback.
    *
    * <p>Phase 1 state is keyed by index name (e.g. "datasetindex_v2"), but the dual-write strategy
-   * matches MCL events by entity name (e.g. "dataset"). This method resolves the mapping by
-   * iterating all entity specs and matching their index names against the upgrade state.
+   * matches MCL events by entity name (e.g. "dataset"). This method resolves the mapping using the
+   * index convention.
    */
-  private Map<String, String> loadNextIndexTargets(
+  private Map<String, String> loadOldIndexTargets(
       EntityService<?> entityService, OperationContext opContext, Urn upgradeIdUrn) {
-    Map<String, String> entityToNextIndex = new HashMap<>();
+    Map<String, String> entityToOldIndex = new HashMap<>();
 
     try {
       Optional<DataHubUpgradeResult> upgradeResult =
@@ -105,45 +93,41 @@ public class UpdateIndicesUpgradeStrategyFactory {
 
       if (upgradeResult.isEmpty() || upgradeResult.get().getResult() == null) {
         log.info("No Phase 1 incremental reindex state found");
-        return entityToNextIndex;
+        return entityToOldIndex;
       }
 
-      Map<String, String> resultMap = upgradeResult.get().getResult();
-
-      // Collect index names with COMPLETED status and their next index names
-      Map<String, String> completedIndices = new HashMap<>();
-      String statusSuffix = SEPARATOR + STATUS;
-      for (Map.Entry<String, String> entry : resultMap.entrySet()) {
-        if (entry.getKey().endsWith(statusSuffix) && "COMPLETED".equals(entry.getValue())) {
-          String indexName =
-              entry.getKey().substring(0, entry.getKey().length() - statusSuffix.length());
-          String nextIndexName = resultMap.get(indexName + SEPARATOR + NEXT_INDEX_NAME);
-          if (nextIndexName != null && !nextIndexName.isEmpty()) {
-            completedIndices.put(indexName, nextIndexName);
-          }
-        }
-      }
-
-      if (completedIndices.isEmpty()) {
-        return entityToNextIndex;
-      }
-
-      // Resolve index names to entity names
+      Map<String, Map<String, String>> allStates =
+          IncrementalReindexState.getAllIndexStates(upgradeResult.get().getResult());
       IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-      for (Map.Entry<String, String> completed : completedIndices.entrySet()) {
-        Optional<String> entityName = indexConvention.getEntityName(completed.getKey());
-        entityName.ifPresent(name -> entityToNextIndex.put(name, completed.getValue()));
+
+      for (Map.Entry<String, Map<String, String>> entry : allStates.entrySet()) {
+        String indexName = entry.getKey();
+        Map<String, String> indexState = entry.getValue();
+
+        String status = indexState.get(IncrementalReindexState.STATUS);
+        String oldBackingIndexName = indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
+
+        // Only dual-write to indices that completed Phase 1 and have an old backing index recorded
+        if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
+          continue;
+        }
+        if (!IncrementalReindexState.Status.COMPLETED.name().equals(status)) {
+          continue;
+        }
+
+        Optional<String> entityName = indexConvention.getEntityName(indexName);
+        entityName.ifPresent(name -> entityToOldIndex.put(name, oldBackingIndexName));
       }
 
       log.info(
-          "Loaded {} next index targets from Phase 1 upgrade state: {}",
-          entityToNextIndex.size(),
-          entityToNextIndex);
+          "Loaded {} old index targets for rollback dual-write: {}",
+          entityToOldIndex.size(),
+          entityToOldIndex);
     } catch (Exception e) {
       log.warn("Failed to load Phase 1 incremental reindex state: {}", e.getMessage());
     }
 
-    return entityToNextIndex;
+    return entityToOldIndex;
   }
 
   private void persistDualWriteStartTime(

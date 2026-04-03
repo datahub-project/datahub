@@ -935,6 +935,30 @@ public class ESIndexBuilder {
   // --- Shared helper methods used by both legacy reindex() and incremental path ---
 
   /**
+   * Submits an async ES _reindex from source to destination with an optional filter query. Does not
+   * swap aliases or block writes. Useful for copying a subset of documents (e.g. a time range) from
+   * one index to another.
+   *
+   * @return the ES task ID for the submitted reindex
+   */
+  public String submitFilteredReindex(
+      @Nonnull String sourceIndex,
+      @Nonnull String destIndex,
+      @Nullable QueryBuilder filterQuery,
+      int targetShards)
+      throws IOException {
+    Map<String, Object> reinfo =
+        submitReindex(
+            new String[] {sourceIndex},
+            destIndex,
+            getReindexBatchSize(),
+            null,
+            filterQuery,
+            targetShards);
+    return (String) reinfo.get("taskId");
+  }
+
+  /**
    * Extract target shard count from a ReindexConfig's target settings. Handles both the nested
    * structure from {@code buildReindexConfig} ({@code {"index": {"number_of_shards": N}}}) and the
    * flat structure ({@code {"number_of_shards": N}}).
@@ -1248,6 +1272,16 @@ public class ESIndexBuilder {
     //    if (reinfo.containsKey(ORIGINALPREFIX + setting)) {
     //      setClusterSettings(setting, (String) reinfo.get(ORIGINALPREFIX + setting));
     //    }
+  }
+
+  /**
+   * Returns the physical backing index name(s) that the given alias currently points to. Returns an
+   * empty set if the name is not an alias.
+   */
+  public Set<String> getBackingIndices(@Nonnull String aliasName) throws IOException {
+    GetAliasesResponse response =
+        searchClient.getIndexAliases(new GetAliasesRequest(aliasName), requestOptionsLong);
+    return response.getAliases().keySet();
   }
 
   /**

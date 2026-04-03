@@ -100,10 +100,14 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           Optional<IncrementalReindexState.Status> existingStatus =
               IncrementalReindexState.getStatus(upgradeState, config.name());
 
-          // Skip indices that already completed in a previous run
+          // Skip indices that already completed or were swapped in a previous run
           if (existingStatus.isPresent()
-              && existingStatus.get() == IncrementalReindexState.Status.COMPLETED) {
-            log.info("Index {} already completed in previous run, skipping", config.name());
+              && (existingStatus.get() == IncrementalReindexState.Status.COMPLETED
+                  || existingStatus.get() == IncrementalReindexState.Status.DUAL_WRITE_DISABLED)) {
+            log.info(
+                "Index {} already {} in previous run, skipping",
+                config.name(),
+                existingStatus.get());
             continue;
           }
 
@@ -144,11 +148,28 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             // Restore settings after successful resume
             indexBuilder.undoReindexOptimalSettings(
                 existingNextIndex.get(), config, pollResult.latestReindexInfo());
+
+            // Swap alias to next index so new code reads from the updated schema
+            boolean swapped =
+                indexBuilder.validateAndSwapAlias(config.name(), existingNextIndex.get());
+            if (!swapped) {
+              log.error(
+                  "Alias swap failed for {} -> {} after resume: doc count mismatch",
+                  config.name(),
+                  existingNextIndex.get());
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
+            log.info("Alias swapped: {} -> {}", config.name(), existingNextIndex.get());
             continue;
           }
 
           // Fresh start for this index
           log.info("Starting incremental reindex for index: {}", config.name());
+
+          // Resolve old backing index before creating the next one
+          Set<String> oldBackingIndices = indexBuilder.getBackingIndices(config.name());
+          String oldBackingIndexName =
+              oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
 
           IncrementalReindexResult result =
               indexBuilder.buildIndexIncremental(config, upgradeVersion);
@@ -158,6 +179,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                   upgradeState,
                   config.name(),
                   result.nextIndexName(),
+                  oldBackingIndexName,
                   result.reindexStartTime(),
                   requiresDataBackfill,
                   IncrementalReindexState.Status.IN_PROGRESS);
@@ -168,7 +190,20 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                 IncrementalReindexState.setReindexCompleteTime(
                     upgradeState, config.name(), System.currentTimeMillis());
             checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
-            log.info("Index {} had 0 docs, next index created as empty", config.name());
+
+            // Still need to swap the alias so new code reads from the next index with correct
+            // mappings, even though both indices have 0 docs.
+            boolean swapped =
+                indexBuilder.validateAndSwapAlias(config.name(), result.nextIndexName());
+            if (!swapped) {
+              log.error(
+                  "Alias swap failed for {} -> {} (empty index): doc count mismatch",
+                  config.name(),
+                  result.nextIndexName());
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
+            log.info(
+                "Index {} had 0 docs, next index created as empty, alias swapped", config.name());
             continue;
           }
 
@@ -193,6 +228,18 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           // Restore normal index settings after successful reindex
           indexBuilder.undoReindexOptimalSettings(
               result.nextIndexName(), config, pollResult.latestReindexInfo());
+
+          // Swap alias to next index so new code reads from the updated schema
+          boolean swapped =
+              indexBuilder.validateAndSwapAlias(config.name(), result.nextIndexName());
+          if (!swapped) {
+            log.error(
+                "Alias swap failed for {} -> {} after reindex: doc count mismatch",
+                config.name(),
+                result.nextIndexName());
+            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+          }
+          log.info("Alias swapped: {} -> {}", config.name(), result.nextIndexName());
         }
 
         // Also handle indices that don't need reindex but need mapping/settings updates, note that

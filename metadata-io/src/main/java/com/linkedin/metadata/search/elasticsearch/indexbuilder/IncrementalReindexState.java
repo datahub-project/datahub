@@ -27,6 +27,9 @@ public final class IncrementalReindexState {
   /** Physical name of the next index created during Phase 1. */
   public static final String NEXT_INDEX_NAME = "nextIndexName";
 
+  /** Physical name of the old backing index that the alias pointed to before the Phase 1 swap. */
+  public static final String OLD_BACKING_INDEX_NAME = "oldBackingIndexName";
+
   /** Epoch millis when the ES _reindex task was submitted (T0). */
   public static final String REINDEX_START_TIME = "reindexStartTime";
 
@@ -50,7 +53,7 @@ public final class IncrementalReindexState {
     IN_PROGRESS,
     COMPLETED,
     FAILED,
-    ALIAS_SWAPPED
+    DUAL_WRITE_DISABLED
   }
 
   /** Build a prefixed key for a given index. */
@@ -80,12 +83,16 @@ public final class IncrementalReindexState {
       @Nullable Map<String, String> existing,
       @Nonnull String indexName,
       @Nonnull String nextIndexName,
+      @Nullable String oldBackingIndexName,
       long reindexStartTime,
       boolean requiresDataBackfill,
       @Nonnull Status status) {
 
     Map<String, String> result = existing != null ? new HashMap<>(existing) : new HashMap<>();
     result.put(key(indexName, NEXT_INDEX_NAME), nextIndexName);
+    if (oldBackingIndexName != null) {
+      result.put(key(indexName, OLD_BACKING_INDEX_NAME), oldBackingIndexName);
+    }
     result.put(key(indexName, REINDEX_START_TIME), String.valueOf(reindexStartTime));
     result.put(key(indexName, REQUIRES_DATA_BACKFILL), String.valueOf(requiresDataBackfill));
     result.put(key(indexName, STATUS), status.name());
@@ -109,23 +116,23 @@ public final class IncrementalReindexState {
     return result;
   }
 
-  /** Mark an index as having completed alias swap. */
-  public static Map<String, String> setAliasSwapped(
+  /** Mark an index as having dual-write disabled (rollback no longer needed or not enabled). */
+  public static Map<String, String> setDualWriteDisabled(
       @Nonnull Map<String, String> existing, @Nonnull String indexName) {
     Map<String, String> result = new HashMap<>(existing);
-    result.put(key(indexName, STATUS), Status.ALIAS_SWAPPED.name());
+    result.put(key(indexName, STATUS), Status.DUAL_WRITE_DISABLED.name());
     return result;
   }
 
   /**
-   * Merge for Phase 1 {@link DataHubUpgradeResult} after a successful alias swap for {@code
+   * Merge for Phase 1 {@link DataHubUpgradeResult} after disabling dual-write for {@code
    * indexName}.
    */
   @Nonnull
-  public static DataHubUpgradeResultConditionalPersist.Merge persistAliasSwappedMerge(
+  public static DataHubUpgradeResultConditionalPersist.Merge persistDualWriteDisabledMerge(
       @Nonnull String indexName, @Nullable DataHubUpgradeState phaseState) {
     return (map, existingState) -> {
-      Map<String, String> updated = setAliasSwapped(new HashMap<>(map), indexName);
+      Map<String, String> updated = setDualWriteDisabled(new HashMap<>(map), indexName);
       map.clear();
       map.putAll(updated);
       return existingState != null ? existingState : phaseState;
@@ -151,6 +158,7 @@ public final class IncrementalReindexState {
         for (String prop :
             new String[] {
               NEXT_INDEX_NAME,
+              OLD_BACKING_INDEX_NAME,
               REINDEX_START_TIME,
               REINDEX_COMPLETE_TIME,
               STATUS,
