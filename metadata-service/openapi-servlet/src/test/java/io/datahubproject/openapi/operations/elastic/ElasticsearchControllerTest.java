@@ -834,6 +834,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
             null,
             "datasetindex_v2",
             "datasetindex_v2_next_123",
+            "datasetindex_v2_current_123",
             1L,
             true,
             IncrementalReindexState.Status.COMPLETED);
