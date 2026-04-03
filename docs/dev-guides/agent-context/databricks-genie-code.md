@@ -3,7 +3,7 @@
 Give [Genie Code](https://docs.databricks.com/en/genie/genie-code.html) access to your enterprise data context in DataHub — find trustworthy data, understand lineage, look up ownership, and generate better SQL queries, all without leaving your notebook.
 
 <p align="center">
-  <img width="70%" src="/img/databricks/genie-code-datahub-query.png" alt="Genie Code querying DataHub catalog"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/databricks/genie-code-datahub-query.png" alt="Genie Code querying DataHub catalog"/>
 </p>
 
 ## Prerequisites
@@ -44,7 +44,7 @@ Once created, the connection shows up under **Agents > MCP Servers** in your wor
 3. Select **External MCP servers** and choose the `datahub` connection you created above.
 
 <p align="center">
-  <img width="70%" src="/img/databricks/genie-code-add-mcp-servers.png" alt="Add MCP Servers dialog showing External MCP: datahub"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/databricks/genie-code-add-mcp-servers.png" alt="Add MCP Servers dialog showing External MCP: datahub"/>
 </p>
 
 4. Click **Save**.
