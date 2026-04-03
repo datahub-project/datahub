@@ -20,6 +20,7 @@ This creates a Unity Catalog HTTP connection to your DataHub [MCP server](../../
 1. In your Databricks workspace, go to **Catalog > Connections > Create connection**.
 
 2. Configure the connection:
+
    - **Name**: `datahub` (or your preferred name)
    - **Connection type**: HTTP
    - **Auth type**: Bearer Token
