@@ -149,11 +149,6 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           String indexName = entry.getKey();
           Map<String, String> indexState = entry.getValue();
 
-          if (!Boolean.parseBoolean(
-              indexState.get(IncrementalReindexState.REQUIRES_DATA_BACKFILL))) {
-            continue;
-          }
-
           String reindexStartTimeStr = indexState.get(IncrementalReindexState.REINDEX_START_TIME);
           String dualWriteStartTimeStr =
               indexState.get(IncrementalReindexState.DUAL_WRITE_START_TIME);

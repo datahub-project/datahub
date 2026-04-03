@@ -68,14 +68,10 @@ public class ReindexConfig {
   private final boolean hasNewStructuredProperty;
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
-
   /**
    * True when the mapping diff contains new or modified fields that are NOT structured properties.
    * New fields come from new {@code @Searchable} annotations and require backfill because the ES
-   * {@code _reindex} API only copies existing doc fields. Modified fields (type changes) require
-   * backfill because {@code _reindex} with {@code conflicts: proceed} may skip docs with
-   * incompatible values, and the MAE consumer's partial doc upserts won't fix them unless the
-   * specific owning aspect is re-processed.
+   * {@code _reindex} API only copies existing doc fields.
    */
   private final boolean requiresDataBackfill;
 

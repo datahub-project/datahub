@@ -73,37 +73,36 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
-  public void testSkipsIndicesNotRequiringBackfill() {
+  public void testCatchesUpSettingsOnlyIndices() {
+    // Even settings-only reindexes (requiresDataBackfill=false) need catch-up for the T0 gap
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(
             null,
             INDEX_NAME,
             "datasetindex_v2_0_14_0-0_100",
             null,
-            100L,
+            1000L,
             false, // requiresDataBackfill = false
             IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
 
-    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
-    when(phase1Result.getResult()).thenReturn(new StringMap(phase1State));
-    when(phase1Result.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
+    setupPhase1Result(phase1State);
 
-    // Return phase1 result for the Phase 1 URN, empty for catch-up's own URN
-    when(upgrade.getUpgradeResult(any(), any(), any()))
-        .thenAnswer(
-            invocation -> {
-              Object urnArg = invocation.getArgument(1);
-              if (urnArg.toString().contains("BuildIndicesIncremental")) {
-                return Optional.of(phase1Result);
-              }
-              return Optional.empty();
-            });
+    when(aspectDao.streamAspectBatches(any()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Should not have streamed any aspects
-    verify(aspectDao, never()).streamAspectBatches(any());
+    // Should still stream aspects for the T0 gap window
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao).streamAspectBatches(argsCaptor.capture());
+    RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
+    assertEquals(capturedArgs.urnLike, "urn:li:dataset:%");
+    assertEquals(capturedArgs.gePitEpochMs, 1000L);
+    assertEquals(capturedArgs.lePitEpochMs, 2000L);
   }
 
   @Test
