@@ -5,7 +5,6 @@ import styled from 'styled-components';
 const ACCEPTED_EXTENSIONS = new Set([
     '.md',
     '.txt',
-    '.pdf',
     '.docx',
     '.html',
     '.htm',

@@ -124,9 +124,13 @@ public class DocumentResolvers {
                   new com.linkedin.datahub.graphql.resolvers.knowledge
                       .UpdateDocumentSettingsResolver(documentService));
           if (documentImportService != null) {
-            typeWiring.dataFetcher(
-                "importDocumentsFromGitHub",
-                new ImportDocumentsFromGitHubResolver(documentImportService));
+            typeWiring
+                .dataFetcher(
+                    "importDocumentsFromGitHub",
+                    new ImportDocumentsFromGitHubResolver(documentImportService))
+                .dataFetcher(
+                    "importDocumentsFromFiles",
+                    new ImportDocumentsFromFilesResolver(documentImportService));
           }
           return typeWiring;
         });

@@ -103,59 +103,6 @@ public class DocumentImportService {
         opContext, candidates, useCase, showInGlobalContext, parentDocumentUrn, actorUrn);
   }
 
-  // -- File upload operations --
-
-  /**
-   * Import documents from uploaded files. Each file becomes one Document entity.
-   *
-   * @param parentDocumentUrn optional parent — all uploaded files become children of this document.
-   *     Null means import at root level.
-   */
-  @Nonnull
-  public ImportResult importFromFiles(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<Map.Entry<String, byte[]>> files,
-      @Nonnull ImportUseCase useCase,
-      boolean showInGlobalContext,
-      @Nullable Urn parentDocumentUrn,
-      @Nonnull Urn actorUrn) {
-
-    List<DocumentCandidate> candidates = new ArrayList<>();
-    for (Map.Entry<String, byte[]> file : files) {
-      String filename = file.getKey();
-      byte[] content = file.getValue();
-
-      String text = TextExtractors.extract(content, filename);
-      if (text == null) {
-        log.warn("Skipping file {} — unsupported format or empty", filename);
-        continue;
-      }
-
-      String ext = TextExtractors.getExtension(filename);
-      Map<String, String> props = new HashMap<>();
-      props.put("import_source", "file_upload");
-      props.put("original_filename", filename);
-      props.put("file_extension", ext);
-
-      candidates.add(
-          DocumentCandidate.builder()
-              .title(TextExtractors.titleFromFilename(filename))
-              .text(text)
-              .sourceId(makeFileSourceId(filename))
-              .customProperties(props)
-              .build());
-    }
-
-    log.info("Parsed {} documents from {} uploaded files", candidates.size(), files.size());
-    return importDocuments(
-        opContext, candidates, useCase, showInGlobalContext, parentDocumentUrn, actorUrn);
-  }
-
-  @Nonnull
-  public List<String> getSupportedFileExtensions() {
-    return TextExtractors.getSupportedExtensions();
-  }
-
   // -- Core import logic --
 
   /**
@@ -325,7 +272,7 @@ public class DocumentImportService {
   // -- ID generation --
 
   @Nonnull
-  static String makeDocumentId(@Nonnull String sourceId) {
+  public static String makeDocumentId(@Nonnull String sourceId) {
     String safe = UNSAFE_CHARS.matcher(sourceId).replaceAll("-");
     safe = MULTI_DASH.matcher(safe).replaceAll("-");
     safe = safe.replaceAll("^-+|-+$", "").toLowerCase();
@@ -336,7 +283,7 @@ public class DocumentImportService {
   }
 
   @Nonnull
-  static String makeFileSourceId(@Nonnull String filename) {
+  public static String makeFileSourceId(@Nonnull String filename) {
     String basename = filename;
     int slash = basename.lastIndexOf('/');
     if (slash >= 0) basename = basename.substring(slash + 1);

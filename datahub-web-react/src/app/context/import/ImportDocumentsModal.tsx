@@ -208,7 +208,7 @@ export default function ImportDocumentsModal({
                                 </SourceIcon>
                                 <Text weight="semiBold">Upload Files</Text>
                                 <Text color="gray" colorLevel={1700} size="sm">
-                                    Upload .md, .txt, .pdf, .docx files
+                                    Upload .md, .txt, .docx files
                                 </Text>
                             </SourceCard>
                             <SourceCard
@@ -275,10 +275,13 @@ export default function ImportDocumentsModal({
                                         Import Complete
                                     </Text>
                                     <Text color="gray" colorLevel={600}>
-                                        {totalImported > 0 && `${totalImported} created`}
+                                        {totalImported > 0 &&
+                                            `${totalImported} document${totalImported !== 1 ? 's' : ''} created`}
                                         {totalImported > 0 && totalUpdated > 0 && ', '}
-                                        {totalUpdated > 0 && `${totalUpdated} updated`}
-                                        {totalFailed > 0 && `, ${totalFailed} failed`}
+                                        {totalUpdated > 0 &&
+                                            `${totalUpdated} document${totalUpdated !== 1 ? 's' : ''} updated`}
+                                        {totalFailed > 0 &&
+                                            `, ${totalFailed} document${totalFailed !== 1 ? 's' : ''} failed`}
                                         {totalImported === 0 &&
                                             totalUpdated === 0 &&
                                             totalFailed === 0 &&

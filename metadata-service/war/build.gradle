@@ -30,7 +30,7 @@ dependencies {
   runtimeOnly project(':metadata-jobs:pe-consumer')
 
   // Optional PDF text extraction for document import (loaded reflectively)
-  runtimeOnly 'org.apache.pdfbox:pdfbox:2.0.32'
+
 
   runtimeOnly externalDependency.awsSecretsManagerJdbc
   runtimeOnly externalDependency.h2

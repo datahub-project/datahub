@@ -397,6 +397,16 @@ mutation importDocumentsFromGitHub($input: ImportDocumentsFromGitHubInput!) {
     }
 }
 
+mutation importDocumentsFromFiles($input: ImportDocumentsFromFilesInput!) {
+    importDocumentsFromFiles(input: $input) {
+        createdCount
+        updatedCount
+        failedCount
+        errors
+        documentUrns
+    }
+}
+
 query previewDocumentsFromGitHub($input: ImportDocumentsFromGitHubInput!) {
     previewDocumentsFromGitHub(input: $input) {
         files {

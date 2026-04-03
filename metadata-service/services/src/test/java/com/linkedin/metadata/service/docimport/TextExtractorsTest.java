@@ -23,8 +23,8 @@ public class TextExtractorsTest {
     assertTrue(TextExtractors.isSupported(".MD"));
     assertTrue(TextExtractors.isSupported(".txt"));
     assertTrue(TextExtractors.isSupported(".html"));
-    assertTrue(TextExtractors.isSupported(".docx"));
-    assertTrue(TextExtractors.isSupported(".pdf"));
+    assertFalse(TextExtractors.isSupported(".docx"));
+    assertFalse(TextExtractors.isSupported(".pdf"));
     assertFalse(TextExtractors.isSupported(".exe"));
     assertFalse(TextExtractors.isSupported(".png"));
   }
@@ -35,8 +35,8 @@ public class TextExtractorsTest {
     assertTrue(exts.contains(".md"));
     assertTrue(exts.contains(".txt"));
     assertTrue(exts.contains(".html"));
-    assertTrue(exts.contains(".docx"));
-    assertTrue(exts.contains(".pdf"));
+    assertFalse(exts.contains(".docx"));
+    assertFalse(exts.contains(".pdf"));
     // Should be sorted
     assertEquals(exts, exts.stream().sorted().collect(java.util.stream.Collectors.toList()));
   }

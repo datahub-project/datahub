@@ -833,10 +833,6 @@ spring:
       enabled: false
   jmx:
     enabled: true
-  servlet:
-    multipart:
-      max-file-size: ${SPRING_MULTIPART_MAX_FILE_SIZE:50MB}
-      max-request-size: ${SPRING_MULTIPART_MAX_REQUEST_SIZE:100MB}
   web:
     resources:
       add-mappings: false # do not serve static files
