@@ -68,6 +68,7 @@ public class ReindexConfig {
   private final boolean hasNewStructuredProperty;
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
+
   /**
    * True when the mapping diff contains new or modified fields that are NOT structured properties.
    * New fields come from new {@code @Searchable} annotations and require backfill because the ES
