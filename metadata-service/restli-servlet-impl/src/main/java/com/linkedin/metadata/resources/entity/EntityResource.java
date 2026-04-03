@@ -27,7 +27,7 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import com.linkedin.data.template.SetMode;
 import io.datahubproject.metadata.context.OperationContext;

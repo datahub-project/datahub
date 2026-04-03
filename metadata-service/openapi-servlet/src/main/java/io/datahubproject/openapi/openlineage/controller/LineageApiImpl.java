@@ -9,7 +9,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
 import io.openlineage.client.OpenLineage;

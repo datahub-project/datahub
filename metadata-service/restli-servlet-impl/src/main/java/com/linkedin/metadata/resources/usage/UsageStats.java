@@ -44,7 +44,7 @@ import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
 import java.util.Map;

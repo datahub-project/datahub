@@ -115,10 +115,9 @@ public class MCLKafkaListener
               if (requestEpochMillis != null) {
                 long queueTimeMs = System.currentTimeMillis() - requestEpochMillis;
 
-                // request
                 metricUtils
                     .getRegistry()
-                    .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
+                    .timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", hookName)
                     .record(Duration.ofMillis(queueTimeMs));
               }
             });

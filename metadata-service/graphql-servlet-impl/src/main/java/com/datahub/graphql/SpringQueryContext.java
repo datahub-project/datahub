@@ -10,7 +10,7 @@ import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
 import graphql.language.OperationDefinition;
 import graphql.parser.Parser;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Objects;

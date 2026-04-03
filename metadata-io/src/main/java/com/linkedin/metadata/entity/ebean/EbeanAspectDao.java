@@ -166,19 +166,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final EbeanAspectV2 ebeanAspect,
       final boolean insert) {
     validateConnection();
-    if (txContext != null && txContext.tx() != null) {
-      if (insert) {
-        server.insert(ebeanAspect, txContext.tx());
-      } else {
-        server.update(ebeanAspect, txContext.tx());
-      }
-    } else {
-      if (insert) {
-        server.insert(ebeanAspect);
-      } else {
-        server.update(ebeanAspect);
-      }
-    }
+    timeEbean(
+        "save",
+        () -> {
+          if (txContext != null && txContext.tx() != null) {
+            if (insert) {
+              server.insert(ebeanAspect, txContext.tx());
+            } else {
+              server.update(ebeanAspect, txContext.tx());
+            }
+          } else {
+            if (insert) {
+              server.insert(ebeanAspect);
+            } else {
+              server.update(ebeanAspect);
+            }
+          }
+        });
   }
 
   @Nonnull
@@ -204,12 +208,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
             .collect(Collectors.toList());
 
-    final List<EbeanAspectV2> results;
-    if (forUpdate && canWrite) {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
-    } else {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).findList();
-    }
+    final List<EbeanAspectV2> results =
+        timeEbean(
+            "get_latest_aspects",
+            () -> {
+              if (forUpdate && canWrite) {
+                return server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
+              }
+              return server.find(EbeanAspectV2.class).where().idIn(keys).findList();
+            });
 
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
@@ -245,10 +252,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nullable
   public EntityAspect getAspect(@Nonnull final EntityAspectIdentifier key) {
     validateConnection();
-    EbeanAspectV2.PrimaryKey primaryKey =
-        new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
-    EbeanAspectV2 ebeanAspect = server.find(EbeanAspectV2.class, primaryKey);
-    return ebeanAspect == null ? null : ebeanAspect.toEntityAspect();
+    return timeEbean(
+        "get",
+        () -> {
+          EbeanAspectV2.PrimaryKey primaryKey =
+              new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
+          EbeanAspectV2 ebeanAspect = server.find(EbeanAspectV2.class, primaryKey);
+          return ebeanAspect == null ? null : ebeanAspect.toEntityAspect();
+        });
   }
 
   @Override
@@ -312,20 +323,25 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return Collections.emptyMap();
     }
 
-    final Set<EbeanAspectV2.PrimaryKey> ebeanKeys =
-        keys.stream()
-            .map(EbeanAspectV2.PrimaryKey::fromAspectIdentifier)
-            .collect(Collectors.toSet());
-    final List<EbeanAspectV2> records;
-    if (queryKeysCount == 0) {
-      records = batchGet(ebeanKeys, ebeanKeys.size(), forUpdate);
-    } else {
-      records = batchGet(ebeanKeys, queryKeysCount, forUpdate);
-    }
-    return records.stream()
-        .collect(
-            Collectors.toMap(
-                record -> record.getKey().toAspectIdentifier(), EbeanAspectV2::toEntityAspect));
+    return timeEbean(
+        "batch_get",
+        () -> {
+          final Set<EbeanAspectV2.PrimaryKey> ebeanKeys =
+              keys.stream()
+                  .map(EbeanAspectV2.PrimaryKey::fromAspectIdentifier)
+                  .collect(Collectors.toSet());
+          final List<EbeanAspectV2> records;
+          if (queryKeysCount == 0) {
+            records = batchGet(ebeanKeys, ebeanKeys.size(), forUpdate);
+          } else {
+            records = batchGet(ebeanKeys, queryKeysCount, forUpdate);
+          }
+          return records.stream()
+              .collect(
+                  Collectors.toMap(
+                      record -> record.getKey().toAspectIdentifier(),
+                      EbeanAspectV2::toEntityAspect));
+        });
   }
 
   /**
@@ -1067,5 +1083,30 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .stream()
         .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue(), opContext)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private void timeEbean(String operation, Runnable action) {
+    if (metricUtils == null) {
+      action.run();
+      return;
+    }
+    long t0 = System.nanoTime();
+    try {
+      action.run();
+    } finally {
+      metricUtils.recordEbean(System.nanoTime() - t0, operation);
+    }
+  }
+
+  private <T> T timeEbean(String operation, java.util.function.Supplier<T> supplier) {
+    if (metricUtils == null) {
+      return supplier.get();
+    }
+    long t0 = System.nanoTime();
+    try {
+      return supplier.get();
+    } finally {
+      metricUtils.recordEbean(System.nanoTime() - t0, operation);
+    }
   }
 }

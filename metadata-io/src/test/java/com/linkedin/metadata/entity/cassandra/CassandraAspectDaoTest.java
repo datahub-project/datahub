@@ -44,7 +44,7 @@ public class CassandraAspectDaoTest {
   @BeforeMethod
   public void setupTest() {
     mockSession = mock(CqlSession.class);
-    testDao = new CassandraAspectDao(mockSession, List.of(), null);
+    testDao = new CassandraAspectDao(mockSession, List.of(), null, null);
     testDao.setConnectionValidated(true); // Skip connection validation in tests
   }
 
@@ -335,7 +335,7 @@ public class CassandraAspectDaoTest {
     // Create a new DAO without validating connection
     CqlSession mockSessionInvalid = mock(CqlSession.class);
     CassandraAspectDao daoWithInvalidConnection =
-        new CassandraAspectDao(mockSessionInvalid, List.of(), null);
+        new CassandraAspectDao(mockSessionInvalid, List.of(), null, null);
 
     // Don't set connection as validated (simulates validation failure)
     // The DAO should still allow reads but block writes implicitly through validation

@@ -1,6 +1,8 @@
-package io.datahubproject.metadata.context;
+package io.datahubproject.metadata.context.request;
 
 import static com.linkedin.metadata.Constants.DATAHUB_ACTOR;
+import static com.linkedin.metadata.Constants.DATAHUB_CONTEXT_HEADER_NAME;
+import static com.linkedin.metadata.Constants.SERVICE_ACCOUNT_ACTOR_URN_PREFIX;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_API_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_ID_ATTR;
@@ -9,10 +11,13 @@ import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_
 import com.google.common.net.HttpHeaders;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.server.ResourceContext;
+import io.datahubproject.metadata.context.ContextInterface;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.context.Context;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -63,21 +68,30 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String userAgent;
   @Nonnull private final String agentClass;
   @Nonnull private final String agentName;
+
+  /**
+   * Parsed {@value com.linkedin.metadata.Constants#DATAHUB_CONTEXT_HEADER_NAME} dimensions for
+   * metrics and tracing (policy from {@link DataHubContextRulesHolder} at parse time).
+   */
+  @Nonnull private final DataHubContextParser.Parsed dataHubContextParsed;
+
   @Nullable private final MetricUtils metricUtils;
   @Nullable private final String traceId;
 
   public RequestContext(
-      MetricUtils metricUtils,
+      @Nullable MetricUtils metricUtils,
       @Nonnull String actorUrn,
       @Nonnull String sourceIP,
       @Nonnull RequestAPI requestAPI,
       @Nonnull String requestID,
-      @Nonnull String userAgent) {
+      @Nonnull String userAgent,
+      @Nonnull DataHubContextParser.Parsed dataHubContextParsed) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
     this.requestID = requestID;
     this.userAgent = userAgent;
+    this.dataHubContextParsed = dataHubContextParsed;
     this.metricUtils = metricUtils;
 
     /*
@@ -128,16 +142,41 @@ public class RequestContext implements ContextInterface {
     return Optional.empty();
   }
 
+  @Nonnull
+  public String getContextSkill() {
+    return dataHubContextParsed.getSkill();
+  }
+
+  @Nonnull
+  public String getContextCaller() {
+    return dataHubContextParsed.getCaller();
+  }
+
   public static class RequestContextBuilder {
 
+    @Nullable private String dataHubContextHeader;
+
+    public RequestContextBuilder dataHubContextHeader(@Nullable String dataHubContextHeader) {
+      this.dataHubContextHeader = dataHubContextHeader;
+      return this;
+    }
+
     public RequestContext build() {
-      // Add context for tracing
+      DataHubContextParser.Parsed dhContext =
+          DataHubContextParser.parse(this.dataHubContextHeader, DataHubContextRulesHolder.get());
       Span currentSpan = Span.current();
       if (currentSpan != null) {
         currentSpan
             .setAttribute(USER_ID_ATTR, this.actorUrn)
             .setAttribute(REQUEST_API_ATTR, this.requestAPI.toString())
             .setAttribute(REQUEST_ID_ATTR, this.requestID);
+        String unspecified = dhContext.getPolicy().getUnspecifiedLabel();
+        for (DataHubContextKeyRule rule : dhContext.getPolicy().getRules()) {
+          String v = dhContext.getForHeaderKey(rule.getHeaderKey());
+          if (!unspecified.equals(v)) {
+            currentSpan.setAttribute("context." + rule.getHeaderKey(), v);
+          }
+        }
       }
       Optional.ofNullable(Context.current().get(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY))
           .ifPresent(eventSource -> eventSource.set(requestAPI.toString()));
@@ -150,7 +189,8 @@ public class RequestContext implements ContextInterface {
           this.sourceIP,
           this.requestAPI,
           this.requestID,
-          this.userAgent);
+          this.userAgent,
+          dhContext);
     }
 
     public RequestContextBuilder buildGraphql(
@@ -163,6 +203,7 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.GRAPHQL);
       requestID(buildRequestId(queryName, Set.of()));
       userAgent(extractUserAgent(request));
+      dataHubContextHeader(extractDataHubContext(request));
       return this;
     }
 
@@ -202,6 +243,7 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.RESTLI);
       requestID(buildRequestId(action, entityNames));
       userAgent(resourceContext == null ? "" : extractUserAgent(resourceContext));
+      dataHubContextHeader(resourceContext == null ? null : extractDataHubContext(resourceContext));
       return this;
     }
 
@@ -224,6 +266,7 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.OPENAPI);
       requestID(buildRequestId(action, entityNames));
       userAgent(request == null ? "" : extractUserAgent(request));
+      dataHubContextHeader(request == null ? null : extractDataHubContext(request));
       return this;
     }
 
@@ -254,33 +297,50 @@ public class RequestContext implements ContextInterface {
               resourceContext.getRequestHeaders().get(HttpHeaders.X_FORWARDED_FOR))
           .orElse(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR").toString());
     }
+
+    private static String extractDataHubContext(@Nonnull HttpServletRequest request) {
+      return Optional.ofNullable(request.getHeader(DATAHUB_CONTEXT_HEADER_NAME)).orElse(null);
+    }
+
+    private static String extractDataHubContext(@Nonnull ResourceContext resourceContext) {
+      return Optional.ofNullable(
+              resourceContext.getRequestHeaders().get(DATAHUB_CONTEXT_HEADER_NAME))
+          .orElse(null);
+    }
   }
 
   private static void captureAPIMetrics(MetricUtils metricUtils, RequestContext requestContext) {
-    // System user?
     final String userCategory;
     if (SYSTEM_ACTOR.equals(requestContext.actorUrn)) {
       userCategory = "system";
     } else if (DATAHUB_ACTOR.equals(requestContext.actorUrn)) {
       userCategory = "admin";
+    } else if (requestContext.actorUrn.startsWith(SERVICE_ACCOUNT_ACTOR_URN_PREFIX)) {
+      // Matches corpusers provisioned via ServiceAccountService (urn:li:corpuser:service:...);
+      // no SubTypes fetch on the request path.
+      userCategory = "service";
     } else {
       userCategory = "regular";
     }
 
     if (requestContext.getRequestAPI() != RequestAPI.TEST && metricUtils != null) {
       String agentClass = requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", "");
-      String requestAPI = requestContext.getRequestAPI().toString().toLowerCase();
+      String requestAPIStr = requestContext.getRequestAPI().toString().toLowerCase();
       metricUtils.increment(
-          String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);
+          String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPIStr), 1);
+      List<String> tagList = new ArrayList<>(8);
+      tagList.add(MetricUtils.TAG_REQUEST_USER_CATEGORY);
+      tagList.add(userCategory);
+      tagList.add(MetricUtils.TAG_REQUEST_AGENT_CLASS);
+      tagList.add(agentClass);
+      tagList.add(MetricUtils.TAG_REQUEST_API);
+      tagList.add(requestAPIStr);
+      String[] ctxPairs = requestContext.getDataHubContextParsed().flatMicrometerTagPairs();
+      for (String p : ctxPairs) {
+        tagList.add(p);
+      }
       metricUtils.incrementMicrometer(
-          MetricUtils.DATAHUB_REQUEST_COUNT,
-          1,
-          "user_category",
-          userCategory,
-          "agent_class",
-          agentClass,
-          "request_api",
-          requestAPI);
+          MetricUtils.DATAHUB_API_TRAFFIC, 1, tagList.toArray(new String[0]));
     }
   }
 
@@ -303,6 +363,12 @@ public class RequestContext implements ContextInterface {
         + '\''
         + ", agentClass='"
         + agentClass
+        + '\''
+        + ", contextSkill='"
+        + getContextSkill()
+        + '\''
+        + ", contextCaller='"
+        + getContextCaller()
         + '\''
         + ", traceId='"
         + traceId

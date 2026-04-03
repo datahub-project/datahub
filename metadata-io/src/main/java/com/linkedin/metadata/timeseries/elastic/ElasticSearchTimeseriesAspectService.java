@@ -468,7 +468,7 @@ public class ElasticSearchTimeseriesAspectService
           SearchHits hits;
           try {
             final SearchResponse searchResponse =
-                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                timedTimeseriesSearch("search_aspect_values", searchRequest);
             hits = searchResponse.getHits();
           } catch (Exception e) {
             log.error("Search query failed:", e);
@@ -831,8 +831,7 @@ public class ElasticSearchTimeseriesAspectService
             searchRequest.indices(indexName);
 
             // Execute search
-            SearchResponse searchResponse =
-                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            SearchResponse searchResponse = timedTimeseriesSearch("latest_document", searchRequest);
             SearchHits hits = searchResponse.getHits();
 
             if (hits.getTotalHits() != null
@@ -901,7 +900,7 @@ public class ElasticSearchTimeseriesAspectService
         "scrollAspects_search",
         () -> {
           try {
-            return searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            return timedTimeseriesSearch("scroll_aspect", searchRequest);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -909,5 +908,18 @@ public class ElasticSearchTimeseriesAspectService
         },
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "scrollAspects_search"));
+  }
+
+  private SearchResponse timedTimeseriesSearch(String operation, SearchRequest req)
+      throws IOException {
+    if (metricUtils == null) {
+      return searchClient.search(req, RequestOptions.DEFAULT);
+    }
+    long t0 = System.nanoTime();
+    try {
+      return searchClient.search(req, RequestOptions.DEFAULT);
+    } finally {
+      metricUtils.recordTimeseries(System.nanoTime() - t0, operation);
+    }
   }
 }

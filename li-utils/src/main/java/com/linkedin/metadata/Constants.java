@@ -14,6 +14,12 @@ public class Constants {
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
+  /**
+   * Optional client context for telemetry: semicolon-separated {@code key=value} pairs (e.g. {@code
+   * skill=datahub-audit;caller=claude-code}). Parsed server-side with allowlisted keys only.
+   */
+  public static final String DATAHUB_CONTEXT_HEADER_NAME = "X-DataHub-Context";
+
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
@@ -24,6 +30,17 @@ public class Constants {
   public static final String ANONYMOUS_ACTOR = "urn:li:corpuser:" + ANONYMOUS_ACTOR_ID;
   // Unknown principal (identity exists but cannot be determined).
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN";
+
+  /**
+   * Username prefix for DataHub-managed service account corpusers (see {@code
+   * ServiceAccountService}); actor URN is {@code urn:li:corpuser:service:<name>}.
+   */
+  public static final String SERVICE_ACCOUNT_USERNAME_PREFIX = "service:";
+
+  /** Prefix of actor URNs for those service accounts (no metadata read needed to classify). */
+  public static final String SERVICE_ACCOUNT_ACTOR_URN_PREFIX =
+      URN_LI_PREFIX + "corpuser:" + SERVICE_ACCOUNT_USERNAME_PREFIX;
+
   public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
   public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;

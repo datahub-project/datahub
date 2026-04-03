@@ -12,7 +12,7 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.util.MappingUtil;

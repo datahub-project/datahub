@@ -699,7 +699,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
     // Verify timer was recorded
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_v1",
             "consumer.group",
@@ -764,7 +764,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
     // Verify timer was recorded twice
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_v1",
             "consumer.group",
@@ -830,7 +830,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
     // Verify separate timers for different topics
     Timer timer1 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_v1",
             "consumer.group",
@@ -838,7 +838,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     Timer timer2 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "MetadataChangeProposal_Timeseries",
             "consumer.group",

@@ -40,6 +40,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -66,14 +67,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Setter private boolean connectionValidated = false;
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
+  @Nullable private final MetricUtils metricUtils;
 
   public CassandraAspectDao(
       @Nonnull final CqlSession cqlSession,
       @Nonnull List<SystemAspectValidator> systemAspectValidators,
-      @Nullable AspectSizeValidationConfiguration validationConfig) {
+      @Nullable AspectSizeValidationConfiguration validationConfig,
+      @Nullable MetricUtils metricUtils) {
     _cqlSession = cqlSession;
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
+    this.metricUtils = metricUtils;
   }
 
   private boolean validateConnection() {
@@ -232,7 +236,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
     EntityAspect updateAspect = aspect.asLatest();
     SimpleStatement statement = generateSaveStatement(updateAspect, false);
-    ResultSet rs = _cqlSession.execute(statement);
+    ResultSet rs = timeCassandra("save", () -> _cqlSession.execute(statement));
     return rs.wasApplied() ? Optional.of(updateAspect) : Optional.empty();
   }
 
@@ -247,7 +251,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
     EntityAspect insertAspect = aspect.withVersion(version);
     SimpleStatement statement = generateSaveStatement(insertAspect, true);
-    ResultSet rs = _cqlSession.execute(statement);
+    ResultSet rs = timeCassandra("save", () -> _cqlSession.execute(statement));
     return rs.wasApplied() ? Optional.of(insertAspect) : Optional.empty();
   }
 
@@ -526,7 +530,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .limit(1)
             .build();
 
-    ResultSet rs = _cqlSession.execute(ss);
+    ResultSet rs = timeCassandra("get", () -> _cqlSession.execute(ss));
     Row row = rs.one();
     return row == null ? null : rowToEntityAspect(row);
   }
@@ -746,6 +750,18 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     ResultSet rs = _cqlSession.execute(ss);
 
     return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
+  }
+
+  private <T> T timeCassandra(String operation, java.util.function.Supplier<T> supplier) {
+    if (metricUtils == null) {
+      return supplier.get();
+    }
+    long t0 = System.nanoTime();
+    try {
+      return supplier.get();
+    } finally {
+      metricUtils.recordCassandra(System.nanoTime() - t0, operation);
+    }
   }
 
   private Iterable<Term> aspectNamesToLiterals(Set<String> aspectNames) {

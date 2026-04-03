@@ -695,4 +695,158 @@ public class MetricUtilsTest {
     assertNotNull(summary);
     assertEquals(summary.getId().getTags().size(), 0);
   }
+
+  /** Domain timer helpers used by GMS persistence / search — must register correct meter + tags. */
+  @Test
+  public void testRecordEbeanRegistersTimerWithOperationTag() {
+    long nanos = TimeUnit.MILLISECONDS.toNanos(12);
+    metricUtils.recordEbean(nanos, "get");
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.DATAHUB_METADATA_STORE,
+            MetricUtils.TAG_SUBSYSTEM,
+            MetricUtils.SUBSYSTEM_METADATA_SQL_EBEAN,
+            MetricUtils.TAG_STORAGE_OPERATION,
+            "get");
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) nanos);
+  }
+
+  @Test
+  public void testRecordCassandraRegistersTimerWithOperationTag() {
+    long nanos = TimeUnit.MILLISECONDS.toNanos(34);
+    metricUtils.recordCassandra(nanos, "save");
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.DATAHUB_METADATA_STORE,
+            MetricUtils.TAG_SUBSYSTEM,
+            MetricUtils.SUBSYSTEM_METADATA_CASSANDRA,
+            MetricUtils.TAG_STORAGE_OPERATION,
+            "save");
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) nanos);
+  }
+
+  @Test
+  public void testRecordGraphRegistersTimerWithOperationTag() {
+    long nanos = TimeUnit.MILLISECONDS.toNanos(56);
+    metricUtils.recordGraph(nanos, "search_pit");
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.DATAHUB_GRAPH,
+            MetricUtils.TAG_SUBSYSTEM,
+            MetricUtils.SUBSYSTEM_ELASTICSEARCH,
+            MetricUtils.TAG_STORAGE_OPERATION,
+            "search_pit");
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) nanos);
+  }
+
+  @Test
+  public void testRecordTimeseriesRegistersTimerWithOperationTag() {
+    long nanos = TimeUnit.MILLISECONDS.toNanos(78);
+    metricUtils.recordTimeseries(nanos, "query");
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.DATAHUB_TIMESERIES_ASPECT,
+            MetricUtils.TAG_SUBSYSTEM,
+            MetricUtils.SUBSYSTEM_ELASTICSEARCH,
+            MetricUtils.TAG_STORAGE_OPERATION,
+            "query");
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) nanos);
+  }
+
+  @Test
+  public void testRecordElasticsearchEntitySearchSubsystem() {
+    long nanos = TimeUnit.MILLISECONDS.toNanos(90);
+    metricUtils.recordElasticsearch(nanos, MetricUtils.SUBSYSTEM_ELASTICSEARCH, "autocomplete");
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.DATAHUB_SEARCH,
+            MetricUtils.TAG_SUBSYSTEM,
+            MetricUtils.SUBSYSTEM_ELASTICSEARCH,
+            MetricUtils.TAG_STORAGE_OPERATION,
+            "autocomplete");
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) nanos);
+  }
+
+  @Test
+  public void testRecordElasticsearchUsageSubsystem() {
+    long nanos = TimeUnit.MILLISECONDS.toNanos(11);
+    metricUtils.recordElasticsearch(
+        nanos, MetricUtils.SUBSYSTEM_ELASTICSEARCH, MetricUtils.SEARCH_OPERATION_USAGE_SEARCH);
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.DATAHUB_SEARCH,
+            MetricUtils.TAG_SUBSYSTEM,
+            MetricUtils.SUBSYSTEM_ELASTICSEARCH,
+            MetricUtils.TAG_STORAGE_OPERATION,
+            MetricUtils.SEARCH_OPERATION_USAGE_SEARCH);
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) nanos);
+  }
+
+  @Test
+  public void testDomainTimersReuseCachedTimerPerOperation() {
+    metricUtils.recordGraph(TimeUnit.MILLISECONDS.toNanos(1), "search");
+    metricUtils.recordGraph(TimeUnit.MILLISECONDS.toNanos(2), "search");
+    Timer t =
+        meterRegistry.timer(
+            MetricUtils.DATAHUB_GRAPH,
+            MetricUtils.TAG_SUBSYSTEM,
+            MetricUtils.SUBSYSTEM_ELASTICSEARCH,
+            MetricUtils.TAG_STORAGE_OPERATION,
+            "search");
+    assertEquals(t.count(), 2);
+  }
+
+  @Test
+  public void testIncrementHookFailureDefaultAmount() {
+    metricUtils.incrementHookFailure("IngestionHook", "mce-group");
+
+    Counter counter =
+        meterRegistry.counter(
+            MetricUtils.DATAHUB_MCL_HOOK_FAILURES,
+            "hook",
+            "IngestionHook",
+            "consumer.group",
+            "mce-group");
+    assertEquals(counter.count(), 1.0);
+  }
+
+  @Test
+  public void testIncrementHookFailureWithBatchAmount() {
+    metricUtils.incrementHookFailure("BatchHook", "mae-group", 4.0);
+
+    Counter counter =
+        meterRegistry.counter(
+            MetricUtils.DATAHUB_MCL_HOOK_FAILURES,
+            "hook",
+            "BatchHook",
+            "consumer.group",
+            "mae-group");
+    assertEquals(counter.count(), 4.0);
+  }
+
+  @Test
+  public void testDatahubDomainMeterLogicalNamesStable() {
+    assertEquals(MetricUtils.DATAHUB_METADATA_STORE, "datahub.metadata_store");
+    assertEquals(MetricUtils.DATAHUB_GRAPH, "datahub.graph");
+    assertEquals(MetricUtils.DATAHUB_TIMESERIES_ASPECT, "datahub.timeseries_aspect");
+    assertEquals(MetricUtils.DATAHUB_SEARCH, "datahub.search");
+    assertEquals(MetricUtils.SUBSYSTEM_ELASTICSEARCH, "elasticsearch");
+    assertEquals(MetricUtils.SUBSYSTEM_NEO4J, "neo4j");
+    assertEquals(MetricUtils.SUBSYSTEM_METADATA_SQL_EBEAN, "ebean");
+    assertEquals(MetricUtils.SUBSYSTEM_METADATA_CASSANDRA, "cassandra");
+    assertEquals(MetricUtils.SEARCH_OPERATION_USAGE_SEARCH, "usage_search");
+    assertEquals(MetricUtils.DATAHUB_MCL_HOOK_FAILURES, "datahub.mcl.hook.failures");
+  }
 }

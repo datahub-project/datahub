@@ -19,7 +19,7 @@ import io.datahubproject.iceberg.catalog.DataHubRestCatalog;
 import io.datahubproject.iceberg.catalog.DataOperation;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.metadata.services.SecretService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;

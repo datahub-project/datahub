@@ -93,8 +93,8 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
@@ -1503,7 +1503,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
         // Emit success metric
         if (metricUtils != null) {
-          metricUtils.incrementMicrometer("aspectSizeValidation.remediationDeletion.success", 1);
+          metricUtils.incrementMicrometer(
+              MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_REMEDIATION_DELETION_SUCCESS, 1);
         }
 
       } catch (Exception e) {
@@ -1515,7 +1516,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
         // Emit failure metric
         if (metricUtils != null) {
-          metricUtils.incrementMicrometer("aspectSizeValidation.remediationDeletion.failure", 1);
+          metricUtils.incrementMicrometer(
+              MetricUtils.DATAHUB_VALIDATION_ASPECT_SIZE_REMEDIATION_DELETION_FAILURE, 1);
         }
 
         // Don't throw - continue with other deletions

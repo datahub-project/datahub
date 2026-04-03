@@ -8,7 +8,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

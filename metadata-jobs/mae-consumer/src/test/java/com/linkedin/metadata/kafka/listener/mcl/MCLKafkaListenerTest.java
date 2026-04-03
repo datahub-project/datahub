@@ -170,9 +170,9 @@ public class MCLKafkaListenerTest {
       // Then
       // Verify timer was recorded with correct hook names
       Timer timer1 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
+          meterRegistry.timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", "TestHook1");
       Timer timer2 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
+          meterRegistry.timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", "TestHook2");
 
       assertEquals(timer1.count(), 1);
       assertEquals(timer2.count(), 1);
@@ -207,9 +207,9 @@ public class MCLKafkaListenerTest {
 
       // Verify no timer was recorded
       Timer timer1 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
+          meterRegistry.timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", "TestHook1");
       Timer timer2 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
+          meterRegistry.timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", "TestHook2");
 
       assertEquals(timer1.count(), 0);
       assertEquals(timer2.count(), 0);
@@ -326,6 +326,7 @@ public class MCLKafkaListenerTest {
 
       // Verify failure metric for first hook
       verify(metricUtils).increment(eq(MCLKafkaListener.class), eq("TestHook1_failure"), eq(1d));
+      verify(metricUtils).incrementHookFailure(eq("TestHook1"), eq(TEST_CONSUMER_GROUP));
 
       // But overall consumed event count should still increment
       verify(metricUtils)
@@ -425,7 +426,7 @@ public class MCLKafkaListenerTest {
       // Then
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               TEST_TOPIC,
               "consumer.group",
@@ -487,7 +488,7 @@ public class MCLKafkaListenerTest {
       // Then
       Timer kafkaTimer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+              MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
               "topic",
               TEST_TOPIC,
               "consumer.group",
@@ -497,9 +498,9 @@ public class MCLKafkaListenerTest {
 
       // Check request queue time metrics (only for events with trace IDs)
       Timer requestTimer1 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
+          meterRegistry.timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", "TestHook1");
       Timer requestTimer2 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
+          meterRegistry.timer(MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG, "hook", "TestHook2");
 
       assertEquals(requestTimer1.count(), 3); // Events at index 0, 2, 4
       assertEquals(requestTimer2.count(), 3);

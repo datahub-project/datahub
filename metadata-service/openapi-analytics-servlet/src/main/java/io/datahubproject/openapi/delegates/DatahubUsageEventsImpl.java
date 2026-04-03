@@ -9,7 +9,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.generated.controller.DatahubUsageEventsApiDelegate;
 import jakarta.servlet.http.HttpServletRequest;

@@ -59,7 +59,9 @@ public class EntityAspectDaoFactory {
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
   protected AspectDao createCassandraInstance(
-      CqlSession session, final ConfigurationProvider configurationProvider) {
+      CqlSession session,
+      final ConfigurationProvider configurationProvider,
+      final MetricUtils metricUtils) {
     List<SystemAspectValidator> validators =
         Objects.requireNonNullElse(systemAspectValidators, List.of());
     CassandraAspectDao cassandraAspectDao =
@@ -68,7 +70,8 @@ public class EntityAspectDaoFactory {
             validators,
             configurationProvider.getDatahub().getValidation() != null
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()
-                : null);
+                : null,
+            metricUtils);
     if (configurationProvider.getDatahub().isReadOnly()) {
       cassandraAspectDao.setWritable(false);
     }

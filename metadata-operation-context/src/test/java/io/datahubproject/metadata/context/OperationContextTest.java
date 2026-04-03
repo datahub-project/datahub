@@ -24,6 +24,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Collections;

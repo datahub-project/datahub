@@ -32,7 +32,7 @@ import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import com.linkedin.timeseries.TimeseriesIndexSizeResultArray;
 import com.linkedin.timeseries.TimeseriesIndicesSizesResult;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.List;

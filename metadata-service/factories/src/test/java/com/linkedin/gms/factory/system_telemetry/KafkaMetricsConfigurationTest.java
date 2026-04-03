@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.system_telemetry;
 
-import static com.linkedin.metadata.utils.metrics.MetricUtils.KAFKA_MESSAGE_QUEUE_TIME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -124,7 +124,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Get the histogram snapshot
@@ -152,7 +152,7 @@ public class KafkaMetricsConfigurationTest {
     // Test with SimpleMeterRegistry
     SimpleMeterRegistry simpleRegistry = new SimpleMeterRegistry();
     customizer.customize(simpleRegistry);
-    Timer simpleTimer = simpleRegistry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer simpleTimer = simpleRegistry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     simpleTimer.record(250, TimeUnit.MILLISECONDS);
     assertThat(simpleTimer.count()).isEqualTo(1);
 
@@ -160,7 +160,7 @@ public class KafkaMetricsConfigurationTest {
     PrometheusMeterRegistry prometheusRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     customizer.customize(prometheusRegistry);
-    Timer prometheusTimer = prometheusRegistry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer prometheusTimer = prometheusRegistry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     prometheusTimer.record(250, TimeUnit.MILLISECONDS);
     assertThat(prometheusTimer.count()).isEqualTo(1);
   }
@@ -197,7 +197,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     timer.record(50, TimeUnit.MILLISECONDS);
 
     // Verify our custom config overrides the defaults
@@ -224,7 +224,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer and record various values
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     timer.record(500, TimeUnit.MILLISECONDS);
     timer.record(5000, TimeUnit.MILLISECONDS);
     timer.record(50000, TimeUnit.MILLISECONDS);
@@ -253,7 +253,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
 
     // Record values over time
     for (int i = 0; i < 100; i++) {
@@ -285,7 +285,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Verify timer works correctly
@@ -310,7 +310,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create a timer with the specific name
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
 
     // Record values in milliseconds (common usage pattern)
     timer.record(50, TimeUnit.MILLISECONDS); // 50ms
@@ -350,7 +350,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
 
     // Record values that test SLO boundaries
     timer.record(50, TimeUnit.MILLISECONDS); // Under first SLO (100ms)
@@ -380,7 +380,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer and record various values
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     timer.record(500, TimeUnit.MILLISECONDS); // 0.5 seconds
     timer.record(5, TimeUnit.SECONDS); // 5 seconds
     timer.record(50, TimeUnit.SECONDS); // 50 seconds
@@ -409,7 +409,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Verify timer works correctly
@@ -434,7 +434,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_KAFKA_CONSUMER_RECORD_AGE);
 
     // Record values around the fractional SLO boundaries
     timer.record(25, TimeUnit.MILLISECONDS); // Under 50ms

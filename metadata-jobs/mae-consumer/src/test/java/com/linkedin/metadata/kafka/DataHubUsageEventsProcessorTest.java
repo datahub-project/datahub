@@ -374,7 +374,7 @@ public class DataHubUsageEventsProcessorTest {
     // Verify timer was recorded
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "DataHubUsageEvent_v1",
             "consumer.group",
@@ -433,7 +433,7 @@ public class DataHubUsageEventsProcessorTest {
     // Verify separate timers for different topics
     Timer timer1 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "DataHubUsageEvent_v1",
             "consumer.group",
@@ -441,7 +441,7 @@ public class DataHubUsageEventsProcessorTest {
 
     Timer timer2 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "DataHubUsageEvent_v2",
             "consumer.group",
@@ -485,7 +485,7 @@ public class DataHubUsageEventsProcessorTest {
     // Verify timer was still recorded despite transformation failure
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "DataHubUsageEvent_v1",
             "consumer.group",
@@ -537,7 +537,7 @@ public class DataHubUsageEventsProcessorTest {
     // Verify timer statistics
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            MetricUtils.DATAHUB_KAFKA_CONSUMER_RECORD_AGE,
             "topic",
             "DataHubUsageEvent_v1",
             "consumer.group",

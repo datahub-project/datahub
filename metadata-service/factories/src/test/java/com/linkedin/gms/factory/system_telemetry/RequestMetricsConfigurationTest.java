@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.system_telemetry;
 
-import static com.linkedin.metadata.utils.metrics.MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -123,7 +123,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create a timer with the specific name
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
 
     // Record values in milliseconds (common usage pattern)
     timer.record(25, TimeUnit.MILLISECONDS); // 25ms
@@ -163,7 +163,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Get the histogram snapshot
@@ -191,7 +191,7 @@ public class RequestMetricsConfigurationTest {
     // Test with SimpleMeterRegistry
     SimpleMeterRegistry simpleRegistry = new SimpleMeterRegistry();
     customizer.customize(simpleRegistry);
-    Timer simpleTimer = simpleRegistry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer simpleTimer = simpleRegistry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     simpleTimer.record(250, TimeUnit.MILLISECONDS);
     assertThat(simpleTimer.count()).isEqualTo(1);
 
@@ -199,7 +199,7 @@ public class RequestMetricsConfigurationTest {
     PrometheusMeterRegistry prometheusRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     customizer.customize(prometheusRegistry);
-    Timer prometheusTimer = prometheusRegistry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer prometheusTimer = prometheusRegistry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     prometheusTimer.record(250, TimeUnit.MILLISECONDS);
     assertThat(prometheusTimer.count()).isEqualTo(1);
   }
@@ -222,7 +222,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
 
     // Record values that test SLO boundaries
     timer.record(5, TimeUnit.MILLISECONDS); // Under first SLO (10ms)
@@ -252,7 +252,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer and record very small values
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     timer.record(500, TimeUnit.MICROSECONDS); // 0.5ms
     timer.record(1, TimeUnit.MILLISECONDS); // 1ms (minimum expected)
     timer.record(5, TimeUnit.MILLISECONDS); // 5ms
@@ -279,7 +279,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer and record various values
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     timer.record(500, TimeUnit.MILLISECONDS); // 0.5 seconds
     timer.record(5, TimeUnit.SECONDS); // 5 seconds
     timer.record(30, TimeUnit.SECONDS); // 30 seconds
@@ -308,7 +308,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Verify timer works correctly
@@ -333,7 +333,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Verify timer works correctly
@@ -372,7 +372,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
     timer.record(50, TimeUnit.MILLISECONDS);
 
     // Verify our custom config overrides the defaults
@@ -400,7 +400,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
 
     // Record values around the fractional SLO boundaries
     timer.record(500, TimeUnit.MICROSECONDS); // Under 1ms
@@ -430,7 +430,7 @@ public class RequestMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the timer
-    Timer timer = registry.timer(DATAHUB_REQUEST_HOOK_QUEUE_TIME);
+    Timer timer = registry.timer(DATAHUB_MCL_HOOK_TRACE_LAG);
 
     // Record values over time
     for (int i = 0; i < 100; i++) {

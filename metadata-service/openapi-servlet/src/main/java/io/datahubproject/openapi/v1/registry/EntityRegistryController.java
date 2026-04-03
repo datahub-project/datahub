@@ -9,7 +9,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.v1.models.registry.AspectSpecDto;
 import io.datahubproject.openapi.v1.models.registry.EntitySpecDto;
 import io.datahubproject.openapi.v1.models.registry.EntitySpecResponse;

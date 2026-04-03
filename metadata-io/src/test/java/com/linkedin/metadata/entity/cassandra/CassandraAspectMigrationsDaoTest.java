@@ -51,7 +51,7 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
   private void configureComponents() {
     _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
 
-    CassandraAspectDao dao = new CassandraAspectDao(_currentSession, List.of(), null);
+    CassandraAspectDao dao = new CassandraAspectDao(_currentSession, List.of(), null, null);
     dao.setConnectionValidated(true);
     _mockProducer = mock(EventProducer.class);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);

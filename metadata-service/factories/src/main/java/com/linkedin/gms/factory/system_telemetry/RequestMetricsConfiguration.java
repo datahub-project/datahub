@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.system_telemetry;
 
-import static com.linkedin.metadata.utils.metrics.MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.DATAHUB_MCL_HOOK_TRACE_LAG;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MetricsOptions;
@@ -30,7 +30,7 @@ public class RequestMetricsConfiguration {
                 @Override
                 public DistributionStatisticConfig configure(
                     @Nonnull Meter.Id id, @Nonnull DistributionStatisticConfig config) {
-                  if (id.getName().equals(DATAHUB_REQUEST_HOOK_QUEUE_TIME)) {
+                  if (id.getName().equals(DATAHUB_MCL_HOOK_TRACE_LAG)) {
                     MetricsOptions metricOptions =
                         configurationProvider.getDatahub().getMetrics().getHookLatency();
 

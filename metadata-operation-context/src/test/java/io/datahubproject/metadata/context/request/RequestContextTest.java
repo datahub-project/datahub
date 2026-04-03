@@ -1,4 +1,4 @@
-package io.datahubproject.metadata.context;
+package io.datahubproject.metadata.context.request;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -278,14 +278,18 @@ public class RequestContextTest {
 
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
-            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            eq(MetricUtils.DATAHUB_API_TRAFFIC),
             eq(1.0d),
-            eq("user_category"),
+            eq(MetricUtils.TAG_REQUEST_USER_CATEGORY),
             eq("system"),
-            eq("agent_class"),
+            eq(MetricUtils.TAG_REQUEST_AGENT_CLASS),
             eq("unknown"),
-            eq("request_api"),
-            eq("restli"));
+            eq(MetricUtils.TAG_REQUEST_API),
+            eq("restli"),
+            eq(MetricUtils.TAG_AGENT_CALLER),
+            eq(DataHubContextParser.UNSPECIFIED),
+            eq(MetricUtils.TAG_AGENT_SKILL),
+            eq(DataHubContextParser.UNSPECIFIED));
   }
 
   @Test
@@ -303,14 +307,18 @@ public class RequestContextTest {
 
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
-            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            eq(MetricUtils.DATAHUB_API_TRAFFIC),
             eq(1.0d),
-            eq("user_category"),
+            eq(MetricUtils.TAG_REQUEST_USER_CATEGORY),
             eq("admin"),
-            eq("agent_class"),
+            eq(MetricUtils.TAG_REQUEST_AGENT_CLASS),
             eq("unknown"),
-            eq("request_api"),
-            eq("restli"));
+            eq(MetricUtils.TAG_REQUEST_API),
+            eq("restli"),
+            eq(MetricUtils.TAG_AGENT_CALLER),
+            eq(DataHubContextParser.UNSPECIFIED),
+            eq(MetricUtils.TAG_AGENT_SKILL),
+            eq(DataHubContextParser.UNSPECIFIED));
   }
 
   @Test
@@ -328,14 +336,72 @@ public class RequestContextTest {
 
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
-            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            eq(MetricUtils.DATAHUB_API_TRAFFIC),
             eq(1.0d),
-            eq("user_category"),
+            eq(MetricUtils.TAG_REQUEST_USER_CATEGORY),
             eq("regular"),
-            eq("agent_class"),
+            eq(MetricUtils.TAG_REQUEST_AGENT_CLASS),
             eq("unknown"),
-            eq("request_api"),
-            eq("restli"));
+            eq(MetricUtils.TAG_REQUEST_API),
+            eq("restli"),
+            eq(MetricUtils.TAG_AGENT_CALLER),
+            eq(DataHubContextParser.UNSPECIFIED),
+            eq(MetricUtils.TAG_AGENT_SKILL),
+            eq(DataHubContextParser.UNSPECIFIED));
+  }
+
+  @Test
+  public void testCaptureAPIMetricsForServiceAccount() {
+    RequestContext context =
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:service:batch-etl", null, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_service_unknown_restli"), eq(1.0d));
+
+    verify(mockMetricUtils, atLeastOnce())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_API_TRAFFIC),
+            eq(1.0d),
+            eq(MetricUtils.TAG_REQUEST_USER_CATEGORY),
+            eq("service"),
+            eq(MetricUtils.TAG_REQUEST_AGENT_CLASS),
+            eq("unknown"),
+            eq(MetricUtils.TAG_REQUEST_API),
+            eq("restli"),
+            eq(MetricUtils.TAG_AGENT_CALLER),
+            eq(DataHubContextParser.UNSPECIFIED),
+            eq(MetricUtils.TAG_AGENT_SKILL),
+            eq(DataHubContextParser.UNSPECIFIED));
+  }
+
+  @Test
+  public void testCaptureAPIMetricsWithDataHubContextHeader() {
+    when(mockHttpRequest.getHeader(Constants.DATAHUB_CONTEXT_HEADER_NAME))
+        .thenReturn("skill=datahub-audit;caller=claude-code ");
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT)).thenReturn("");
+
+    RequestContext.builder()
+        .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+        .metricUtils(mockMetricUtils)
+        .build();
+
+    verify(mockMetricUtils, atLeastOnce())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_API_TRAFFIC),
+            eq(1.0d),
+            eq(MetricUtils.TAG_REQUEST_USER_CATEGORY),
+            eq("regular"),
+            eq(MetricUtils.TAG_REQUEST_AGENT_CLASS),
+            eq("unknown"),
+            eq(MetricUtils.TAG_REQUEST_API),
+            eq("graphql"),
+            eq(MetricUtils.TAG_AGENT_CALLER),
+            eq("claude-code"),
+            eq(MetricUtils.TAG_AGENT_SKILL),
+            eq("datahub-audit"));
   }
 
   @Test
@@ -402,7 +468,8 @@ public class RequestContextTest {
             "192.168.1.1",
             RequestContext.RequestAPI.TEST,
             "test-request",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            DataHubContextParser.parse(null, DataHubContextParsePolicy.defaults()));
 
     // Verify the agentClass is populated (exact value will depend on the UserAgentAnalyzer library
     // results)

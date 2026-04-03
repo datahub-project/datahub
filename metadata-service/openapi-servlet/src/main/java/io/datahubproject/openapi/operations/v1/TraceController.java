@@ -9,7 +9,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.systemmetadata.TraceService;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v1.models.TraceRequestV1;

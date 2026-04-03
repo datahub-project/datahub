@@ -38,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 public class ServiceAccountService extends BaseService {
 
   public static final String SERVICE_ACCOUNT_SUB_TYPE = "SERVICE_ACCOUNT";
-  public static final String SERVICE_ACCOUNT_PREFIX = "service:";
 
   public ServiceAccountService(@Nonnull final SystemEntityClient entityClient) {
     super(entityClient);
@@ -69,7 +68,7 @@ public class ServiceAccountService extends BaseService {
     Objects.requireNonNull(createdBy, "createdBy must not be null");
 
     // Build identifiers
-    final String serviceAccountId = SERVICE_ACCOUNT_PREFIX + name;
+    final String serviceAccountId = SERVICE_ACCOUNT_USERNAME_PREFIX + name;
     final Urn serviceAccountUrn =
         UrnUtils.getUrn(String.format("urn:li:corpuser:%s", serviceAccountId));
 

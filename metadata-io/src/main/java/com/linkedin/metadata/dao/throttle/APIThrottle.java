@@ -5,7 +5,7 @@ import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_TIMESERIES_LAG
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_VERSIONED_LAG;
 
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.Set;

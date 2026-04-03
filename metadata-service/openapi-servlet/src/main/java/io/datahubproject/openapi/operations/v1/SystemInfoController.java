@@ -11,7 +11,7 @@ import com.linkedin.metadata.system_info.SystemInfoResponse;
 import com.linkedin.metadata.system_info.SystemInfoService;
 import com.linkedin.metadata.system_info.SystemPropertiesInfo;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.request.RequestContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
