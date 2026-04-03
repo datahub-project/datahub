@@ -18,6 +18,14 @@ from datahub_agent_context.snowflake.udfs.add_structured_properties import (
     generate_add_structured_properties_udf,
 )
 from datahub_agent_context.snowflake.udfs.add_tags import generate_add_tags_udf
+
+# Cloud-only UDF generators
+from datahub_agent_context.snowflake.udfs.ask_datahub_chat import (
+    generate_ask_datahub_chat_udf,
+)
+from datahub_agent_context.snowflake.udfs.get_datahub_chat import (
+    generate_get_datahub_chat_udf,
+)
 from datahub_agent_context.snowflake.udfs.get_dataset_assertions import (
     generate_get_dataset_assertions_udf,
 )
@@ -99,10 +107,13 @@ def extract_function_signature(udf_sql: str) -> str:
     return ", ".join(param_types) if param_types else ""
 
 
-def generate_all_udfs(include_mutations: bool = True) -> dict[str, str]:
+def generate_all_udfs(
+    include_mutations: bool = True,
+    include_cloud: bool = False,
+) -> dict[str, str]:
     """Generate all DataHub UDFs from datahub-agent-context tools.
 
-    Returns all 21 tools from datahub-agent-context as Snowflake UDFs, including
+    Returns tools from datahub-agent-context as Snowflake UDFs, including
     both read operations (search, get_entities, etc.) and write operations (add_tags,
     update_description, etc.).
 
@@ -113,6 +124,7 @@ def generate_all_udfs(include_mutations: bool = True) -> dict[str, str]:
 
     Args:
         include_mutations: Whether to include mutation/write tools (default: True)
+        include_cloud: Whether to include Cloud-only tools like Ask DataHub (default: False)
 
     Returns:
         Dictionary mapping function names to their SQL definitions
@@ -160,21 +172,35 @@ def generate_all_udfs(include_mutations: bool = True) -> dict[str, str]:
             }
         )
 
+    if include_cloud:
+        udfs.update(
+            {
+                "ASK_DATAHUB_CHAT": generate_ask_datahub_chat_udf(),
+                "GET_DATAHUB_CHAT": generate_get_datahub_chat_udf(),
+            }
+        )
+
     return udfs
 
 
-def generate_datahub_udfs_sql(include_mutations: bool = True) -> str:
+def generate_datahub_udfs_sql(
+    include_mutations: bool = True,
+    include_cloud: bool = False,
+) -> str:
     """Generate complete SQL script with DataHub UDFs using datahub-agent-context.
 
     Args:
         include_mutations: Whether to include mutation/write tools (default: True)
+        include_cloud: Whether to include Cloud-only tools (default: False)
     """
     # Generate read-only UDFs first to get count
-    read_only_udfs = generate_all_udfs(include_mutations=False)
+    read_only_udfs = generate_all_udfs(include_mutations=False, include_cloud=False)
     read_ops_count = len(read_only_udfs)
 
-    # Generate all UDFs (read + write if enabled)
-    all_udfs = generate_all_udfs(include_mutations=include_mutations)
+    # Generate all UDFs (read + write + cloud if enabled)
+    all_udfs = generate_all_udfs(
+        include_mutations=include_mutations, include_cloud=include_cloud
+    )
     total_udfs = len(all_udfs)
     write_ops_count = total_udfs - read_ops_count
 
@@ -277,7 +303,12 @@ SELECT
     default=True,
     help="Include mutation/write tools (tags, descriptions, owners, etc.). Default: enabled",
 )
-def main(output: str | None, enable_mutations: bool) -> None:
+@click.option(
+    "--include-cloud/--no-include-cloud",
+    default=False,
+    help="Include Cloud-only tools (Ask DataHub AI chat). Default: disabled",
+)
+def main(output: str | None, enable_mutations: bool, include_cloud: bool) -> None:
     """Generate Snowflake UDF SQL for DataHub integration.
 
     This command generates SQL scripts that create Snowflake User-Defined Functions (UDFs)
@@ -295,13 +326,19 @@ def main(output: str | None, enable_mutations: bool) -> None:
         # Save to file with mutations enabled
         python -m datahub.ai.snowflake.generate_udfs -o datahub_udfs.sql
     """
-    sql_content = generate_datahub_udfs_sql(include_mutations=enable_mutations)
+    sql_content = generate_datahub_udfs_sql(
+        include_mutations=enable_mutations, include_cloud=include_cloud
+    )
 
     if output:
         output_path = Path(output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(sql_content)
-        udf_count = len(generate_all_udfs(include_mutations=enable_mutations))
+        udf_count = len(
+            generate_all_udfs(
+                include_mutations=enable_mutations, include_cloud=include_cloud
+            )
+        )
         click.echo(f"✓ Generated {udf_count} Snowflake UDF(s) to: {output_path}")
         logger.info(f"Generated Snowflake UDF SQL to {output_path}")
     else:

@@ -26,7 +26,10 @@ from langchain.agents import create_agent
 from langchain_aws import ChatBedrock
 
 from datahub.sdk.main_client import DataHubClient
-from datahub_agent_context.langchain_tools import build_langchain_tools
+from datahub_agent_context.langchain_tools import (
+    build_langchain_cloud_tools,
+    build_langchain_tools,
+)
 
 
 def main():
@@ -43,6 +46,10 @@ def main():
 
     # Create tools using the builder - includes mutation tools for tagging
     tools = build_langchain_tools(client, include_mutations=True)
+
+    # Add Cloud-only tools (Ask DataHub AI assistant) — requires DataHub Cloud
+    # Remove this line if connecting to an OSS DataHub instance
+    tools += build_langchain_cloud_tools(client, ask_datahub=True)
 
     # Initialize AWS Bedrock
     aws_region = os.getenv("AWS_REGION", "us-west-2")
