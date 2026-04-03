@@ -773,17 +773,13 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
   }
 
   @Test
-  public void testAliasSwapSuccess() throws Exception {
-    stubPhase1ForIncrementalAliasSwap();
-    when(mockSearchService.validateAndSwapAlias(
-            eq("datasetindex_v2"), eq("datasetindex_v2_next_123")))
-        .thenReturn(true);
+  public void testDisableDualWriteSuccess() throws Exception {
+    stubPhase1ForDisableDualWrite(IncrementalReindexState.Status.COMPLETED);
 
     mockMvc
         .perform(
             MockMvcRequestBuilders.post(
-                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/alias/swap")
-                .param("expectedBackingIndex", "datasetindex_v2_next_123")
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/dualWrite/disable")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -791,42 +787,35 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
   }
 
   @Test
-  public void testAliasSwapDocCountMismatch() throws Exception {
-    stubPhase1ForIncrementalAliasSwap();
-    when(mockSearchService.validateAndSwapAlias(
-            eq("datasetindex_v2"), eq("datasetindex_v2_next_123")))
-        .thenReturn(false);
+  public void testDisableDualWriteIdempotent() throws Exception {
+    stubPhase1ForDisableDualWrite(IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
 
     mockMvc
         .perform(
             MockMvcRequestBuilders.post(
-                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/alias/swap")
-                .param("expectedBackingIndex", "datasetindex_v2_next_123")
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/dualWrite/disable")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(true));
+  }
+
+  @Test
+  public void testDisableDualWriteConflictNotCompleted() throws Exception {
+    stubPhase1ForDisableDualWrite(IncrementalReindexState.Status.IN_PROGRESS);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/dualWrite/disable")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isConflict())
         .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(false));
   }
 
-  @Test
-  public void testAliasSwapError() throws Exception {
-    stubPhase1ForIncrementalAliasSwap();
-    when(mockSearchService.validateAndSwapAlias(
-            eq("datasetindex_v2"), eq("datasetindex_v2_next_123")))
-        .thenThrow(new RuntimeException("ES connection failed"));
-
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.post(
-                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/alias/swap")
-                .param("expectedBackingIndex", "datasetindex_v2_next_123")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isInternalServerError())
-        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(false));
-  }
-
-  private void stubPhase1ForIncrementalAliasSwap() throws Exception {
+  private void stubPhase1ForDisableDualWrite(IncrementalReindexState.Status status)
+      throws Exception {
     Urn upgradeUrn =
         BootstrapStep.getUpgradeUrn(IncrementalReindexState.UPGRADE_ID_PREFIX + "_0.0.0-test-0");
     Map<String, String> phase1Map =
@@ -837,7 +826,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
             "datasetindex_v2_current_123",
             1L,
             true,
-            IncrementalReindexState.Status.COMPLETED);
+            status);
     DataHubUpgradeResult dur = new DataHubUpgradeResult();
     dur.setState(DataHubUpgradeState.SUCCEEDED);
     dur.setResult(new StringMap(phase1Map));
