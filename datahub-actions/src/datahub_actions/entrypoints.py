@@ -42,20 +42,6 @@ class _BelowErrorFilter(logging.Filter):
         return record.levelno < logging.ERROR
 
 
-def _attach_datahub_actions_console_handlers(datahub_logger: logging.Logger) -> None:
-    """Route sub-error logs to stdout and ERROR+ to stderr (avoids aggregators marking INFO as errors)."""
-    formatter = logging.Formatter(BASE_LOGGING_FORMAT)
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.DEBUG)
-    stdout_handler.addFilter(_BelowErrorFilter())
-    stdout_handler.setFormatter(formatter)
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(logging.ERROR)
-    stderr_handler.setFormatter(formatter)
-    datahub_logger.addHandler(stdout_handler)
-    datahub_logger.addHandler(stderr_handler)
-
-
 @click.group(
     context_settings=dict(
         # Avoid truncation of help text.
@@ -109,7 +95,16 @@ def datahub_actions(
     # 1. Create 'datahub' parent logger.
     datahub_logger = logging.getLogger("datahub_actions")
     # 2. Console: stdout for < ERROR, stderr for ERROR+ (single default StreamHandler would send all levels to stderr).
-    _attach_datahub_actions_console_handlers(datahub_logger)
+    formatter = logging.Formatter(BASE_LOGGING_FORMAT)
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.DEBUG)
+    stdout_handler.addFilter(_BelowErrorFilter())
+    stdout_handler.setFormatter(formatter)
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.ERROR)
+    stderr_handler.setFormatter(formatter)
+    datahub_logger.addHandler(stdout_handler)
+    datahub_logger.addHandler(stderr_handler)
     # 3. Turn off propagation to the root handler.
     datahub_logger.propagate = False
     # 4. Adjust log-levels.
