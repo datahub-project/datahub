@@ -134,7 +134,15 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+
   // End of field types
+
+  /**
+   * Maximum character length for keyword fields before OpenSearch silently skips indexing the
+   * value. Lucene keyword terms have a hard 32,766-byte limit; using 32766/4 = 8191 ensures safety
+   * even for all-multibyte UTF-8 content. Tokenized text sub-fields are unaffected.
+   */
+  public static final int KEYWORD_MAXLENGTH = 8191;
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(

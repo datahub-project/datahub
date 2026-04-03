@@ -29,6 +29,7 @@ dependencies {
 
     implementation externalDependency.slf4jApi
     implementation externalDependency.swaggerAnnotations
+    implementation externalDependency.jacksonDataBind
     runtimeOnly externalDependency.logbackClassic
     compileOnly externalDependency.lombok
     implementation externalDependency.javatuples

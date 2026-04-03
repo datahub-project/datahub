@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import play.Environment;
 import play.http.HttpEntity;
 import play.libs.Json;
+import play.mvc.BodyParser;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Http.Cookie;
@@ -151,6 +152,7 @@ public class Application extends Controller {
    * <p>TODO: Investigate using mutual SSL authentication to call Metadata Service.
    */
   @Security.Authenticated(Authenticator.class)
+  @BodyParser.Of(BodyParser.Raw.class)
   public CompletableFuture<Result> proxy(String path, Http.Request request) {
     final String authorizationHeaderValue = getAuthorizationHeaderValueToProxy(request);
     final String resolvedUri = mapPath(request.uri());
@@ -219,7 +221,7 @@ public class Application extends Controller {
     httpRequestBuilder.header(
         AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
     request
-        .contentType()
+        .header(Http.HeaderNames.CONTENT_TYPE)
         .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
     Instant start = Instant.now();
     boolean useStreaming =
@@ -294,6 +296,20 @@ public class Application extends Controller {
   private HttpRequest.BodyPublisher buildBodyPublisher(Http.Request request) {
     if (request.body().asBytes() != null) {
       return HttpRequest.BodyPublishers.ofByteArray(request.body().asBytes().toArray());
+    } else if (request.body().asRaw() != null) {
+      Http.RawBuffer raw = request.body().asRaw();
+      ByteString memBytes = raw.asBytes();
+      if (memBytes != null) {
+        return HttpRequest.BodyPublishers.ofByteArray(memBytes.toArray());
+      }
+      java.io.File diskFile = raw.asFile();
+      if (diskFile != null) {
+        try {
+          return HttpRequest.BodyPublishers.ofFile(diskFile.toPath());
+        } catch (java.io.FileNotFoundException e) {
+          logger.error("Raw body temp file not found: {}", diskFile, e);
+        }
+      }
     } else if (request.body().asText() != null) {
       return HttpRequest.BodyPublishers.ofString(request.body().asText());
     }

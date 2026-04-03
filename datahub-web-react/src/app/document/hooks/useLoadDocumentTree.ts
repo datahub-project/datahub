@@ -83,6 +83,7 @@ export function useLoadDocumentTree() {
                         input: {
                             query: '*',
                             parentDocuments: parentUrn ? [parentUrn] : undefined,
+                            rootOnly: parentUrn === null ? true : undefined,
                             start: 0,
                             count: 100,
                         },

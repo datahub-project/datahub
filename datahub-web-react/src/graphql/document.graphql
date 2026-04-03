@@ -386,3 +386,23 @@ query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
         }
     }
 }
+
+mutation importDocumentsFromGitHub($input: ImportDocumentsFromGitHubInput!) {
+    importDocumentsFromGitHub(input: $input) {
+        createdCount
+        updatedCount
+        failedCount
+        errors
+        documentUrns
+    }
+}
+
+query previewDocumentsFromGitHub($input: ImportDocumentsFromGitHubInput!) {
+    previewDocumentsFromGitHub(input: $input) {
+        files {
+            path
+            size
+        }
+        totalCount
+    }
+}

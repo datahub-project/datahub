@@ -53,9 +53,11 @@ const Description = styled.div``;
 interface Props {
     onFilesUpload?: (files: File[]) => Promise<void>;
     className?: string;
+    /** Custom description shown below the upload prompt. Set to null to hide. Defaults to "Max Size: 2GB". */
+    description?: string | null;
 }
 
-export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
+export function FileDragAndDropArea({ onFilesUpload, className, description }: Props) {
     const [dragActive, setDragActive] = useState<boolean>(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
@@ -124,9 +126,13 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
                             click to upload
                         </InlineButton>
                     </ActionTextContainer>
-                    <Description>
-                        <Text size="sm">Max Size: 2GB</Text>
-                    </Description>
+                    {description !== null && (
+                        <Description>
+                            <Text size="sm" color="gray">
+                                {description ?? 'Max Size: 2GB'}
+                            </Text>
+                        </Description>
+                    )}
                 </InnerContainer>
             </Container>
 

@@ -48,6 +48,14 @@ extend type Mutation {
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
   """
   updateDocumentSettings(input: UpdateDocumentSettingsInput!): Boolean!
+
+  """
+  Import documents from a GitHub repository. Each matching file becomes a context document.
+  Requires the MANAGE_DOCUMENTS platform privilege.
+  """
+  importDocumentsFromGitHub(
+    input: ImportDocumentsFromGitHubInput!
+  ): ImportDocumentsResult!
 }
 
 extend type Query {
@@ -72,6 +80,14 @@ extend type Query {
   their document settings.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
+
+  """
+  Preview which files would be imported from a GitHub repository without actually importing them.
+  Requires the MANAGE_DOCUMENTS platform privilege.
+  """
+  previewDocumentsFromGitHub(
+    input: ImportDocumentsFromGitHubInput!
+  ): PreviewDocumentsFromGitHubResult!
 }
 
 """
@@ -824,4 +840,120 @@ type ParentDocumentsResult {
   The ordered list of parent documents, starting with the direct parent
   """
   documents: [Document!]!
+}
+
+"""
+Input for importing documents from a GitHub repository.
+"""
+input ImportDocumentsFromGitHubInput {
+  """
+  GitHub repository URL (e.g., 'https://github.com/org/repo') or shorthand ('org/repo').
+  """
+  repoUrl: String!
+
+  """
+  Branch to import from. Defaults to 'main'.
+  """
+  branch: String
+
+  """
+  Path prefix filter within the repo. Defaults to root.
+  """
+  path: String
+
+  """
+  File extensions to include (e.g., ['.md', '.txt']). Defaults to ['.md', '.txt'].
+  """
+  fileExtensions: [String!]
+
+  """
+  GitHub access token for authentication. Can be a Personal Access Token (PAT)
+  or a GitHub App installation token.
+  """
+  githubToken: String!
+
+  """
+  Whether imported documents should appear in global context (search, sidebar). Defaults to true.
+  """
+  showInGlobalContext: Boolean
+
+  """
+  Internal use case that determines document subtype. Defaults to CONTEXT_DOCUMENT.
+  """
+  useCase: DocumentImportUseCase
+
+  """
+  Optional parent document URN. Top-level imported items become children of this document.
+  If not provided, documents are imported at the root level.
+  GitHub folder structure is preserved as nested parent-child relationships beneath this parent.
+  """
+  parentDocumentUrn: String
+}
+
+"""
+Internal use case for document import. Determines subtype and default settings.
+"""
+enum DocumentImportUseCase {
+  CONTEXT_DOCUMENT
+  SKILL
+}
+
+"""
+Result of a document import operation.
+"""
+type ImportDocumentsResult {
+  """
+  Number of documents newly created.
+  """
+  createdCount: Int!
+
+  """
+  Number of documents updated (already existed).
+  """
+  updatedCount: Int!
+
+  """
+  Number of documents that failed to import.
+  """
+  failedCount: Int!
+
+  """
+  Error messages for failed imports.
+  """
+  errors: [String!]!
+
+  """
+  URNs of all successfully imported documents.
+  """
+  documentUrns: [String!]!
+}
+
+"""
+Preview of files that would be imported from a GitHub repository.
+"""
+type PreviewDocumentsFromGitHubResult {
+  """
+  List of files matching the import criteria.
+  """
+  files: [GitHubFilePreview!]!
+
+  """
+  Total number of matching files.
+  """
+  totalCount: Int!
+}
+
+"""
+A file in a GitHub repository that matches import criteria.
+"""
+type GitHubFilePreview {
+  """
+  Path of the file within the repository.
+  """
+  path: String!
+
+  """
+  Size of the file in bytes, if available.
+  """
+  size: Int
 }

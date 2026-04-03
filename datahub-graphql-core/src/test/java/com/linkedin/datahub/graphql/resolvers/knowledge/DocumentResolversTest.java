@@ -18,6 +18,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.List;
 import org.testng.annotations.BeforeMethod;
@@ -62,7 +63,8 @@ public class DocumentResolversTest {
             mockGraphClient,
             mockEntityRegistry,
             mockTimelineService,
-            mockGroupService);
+            mockGroupService,
+            mock(DocumentImportService.class));
   }
 
   @Test

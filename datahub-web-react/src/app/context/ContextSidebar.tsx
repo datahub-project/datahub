@@ -4,13 +4,15 @@ import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useHistory } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
@@ -67,7 +69,7 @@ const SidebarTitle = styled.div`
 const HeaderButtons = styled.div`
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
 `;
 
 const StyledButton = styled(Button)`
@@ -179,13 +181,21 @@ export default function ContextSidebar({
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const { createDocument } = useCreateDocumentTreeMutation();
     const { expandNode, getNode } = useDocumentTree();
+    const { loadChildren } = useLoadDocumentTree();
     const history = useHistory();
+    const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
     const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
 
     const width = useSidebarWidth(0.2);
     const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const currentDocumentUrn = useMemo(() => {
+        const documentPath = `/${entityRegistry.getPathName(EntityType.Document)}/:urn`;
+        const match = matchPath<{ urn: string }>(location.pathname, { path: documentPath });
+        return match?.params?.urn ?? null;
+    }, [entityRegistry, location.pathname]);
 
     // Debounce search query
     useEffect(() => {
@@ -254,6 +264,31 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
+    const handleImportSuccess = useCallback(
+        (parentUrn: string | null) => {
+            const delays = [1500, 3000, 6000];
+
+            if (parentUrn) {
+                // Expand the ancestor chain immediately so the path is visible
+                let current: string | null = parentUrn;
+                while (current) {
+                    expandNode(current);
+                    current = getNode(current)?.parentUrn || null;
+                }
+                // Only reload the target parent's children — don't touch root
+                delays.forEach((delay) => {
+                    setTimeout(() => loadChildren(parentUrn), delay);
+                });
+            } else {
+                // Importing at root — reload root nodes only
+                delays.forEach((delay) => {
+                    setTimeout(() => loadChildren(null), delay);
+                });
+            }
+        },
+        [loadChildren, expandNode, getNode],
+    );
+
     return (
         <SidebarContainer
             $width={width}
@@ -265,6 +300,9 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>Documents</SidebarTitle>}
                 <HeaderButtons>
+                    {!isCollapsed && canCreateDocuments && (
+                        <ImportDocumentsButton defaultParentUrn={currentDocumentUrn} onSuccess={handleImportSuccess} />
+                    )}
                     {!isCollapsed && (
                         <Tooltip
                             title={

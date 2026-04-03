@@ -383,6 +383,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    mappingForField.put("ignore_above", ESUtils.KEYWORD_MAXLENGTH);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       subFields.put(
@@ -408,8 +409,8 @@ public class V2MappingsBuilder implements MappingsBuilder {
             ANALYZER, TEXT_ANALYZER,
             SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
-    // Add keyword subfield without lowercase filter
-    subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
+    subFields.put(
+        KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_MAXLENGTH));
     mappingForField.put(FIELDS, subFields);
     return mappingForField;
   }
