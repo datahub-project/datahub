@@ -59,8 +59,86 @@ class IndexFileEntry:
     wait_for_completion: bool = False
 
 
+def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
+    """Fetch a URL (http or file://) and write to dest path."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    parsed = urlparse(url)
+
+    if parsed.scheme == "file":
+        local_path = pathlib.Path(parsed.path)
+        if not local_path.exists():
+            raise click.ClickException(f"Local file not found: {local_path}")
+        shutil.copy2(local_path, dest)
+    else:
+        response = requests.get(url, stream=True, timeout=120)
+        response.raise_for_status()
+
+        content_length = response.headers.get("content-length")
+        total = int(content_length) if content_length else None
+
+        with open(dest, "wb") as f:
+            if total:
+                with click.progressbar(length=total, label="Downloading") as bar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        bar.update(len(chunk))
+            else:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+
+def _cached_index_version(pack: DataPackInfo) -> Optional[str]:
+    """Read the cached index version for a pack, if any."""
+    version_path = pathlib.Path(CACHE_DIR) / f"{_cache_key(pack.url)}.version"
+    if version_path.exists():
+        return version_path.read_text().strip()
+    return None
+
+
+def _save_index_version(pack: DataPackInfo, version: str) -> None:
+    """Save the index version for a pack."""
+    version_path = pathlib.Path(CACHE_DIR) / f"{_cache_key(pack.url)}.version"
+    version_path.parent.mkdir(parents=True, exist_ok=True)
+    version_path.write_text(version)
+
+
+def _is_index_url(url: str) -> bool:
+    """Check if a URL points to an index file by convention."""
+    path = urlparse(url).path
+    return path.endswith("/index.json")
+
+
+def _fetch_index_version(pack: DataPackInfo) -> tuple[bool, Optional[str]]:
+    """Fetch the remote index file and return (success, version).
+
+    Returns:
+        (True, version_string) if fetched and version field exists.
+        (True, None) if fetched but no version field in the index.
+        (False, None) if the fetch itself failed (network error, etc.).
+    """
+    try:
+        parsed = urlparse(pack.url)
+        if parsed.scheme == "file":
+            with open(parsed.path) as f:
+                content = json.load(f)
+        else:
+            response = requests.get(pack.url, timeout=30)
+            response.raise_for_status()
+            content = response.json()
+        if isinstance(content, dict):
+            return True, content.get("version")
+        return True, None
+    except Exception:
+        logger.debug("Failed to check remote index version", exc_info=True)
+        return False, None
+
+
 def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileEntry]:
     """Download a data pack file, using local cache when available.
+
+    For index-based packs (URL ends with index.json), always fetches the
+    index to check the version field. If the version matches the cached
+    version, uses cached data files. Otherwise re-downloads everything.
 
     Args:
         pack: The data pack to download.
@@ -75,50 +153,45 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
     cache_path = _cached_path(pack)
 
     if not no_cache and cache_path.exists():
-        # Verify cached file integrity if we have a checksum
-        if pack.sha256:
+        # For index-based packs, check remote version before using cache
+        if _is_index_url(pack.url):
+            fetch_ok, remote_version = _fetch_index_version(pack)
+            cached_version = _cached_index_version(pack)
+            if not fetch_ok:
+                # Network error — use cache as fallback
+                click.echo("Using cached pack (could not reach remote).")
+                return _resolve_index_file(cache_path, pack, no_cache=False)
+            elif remote_version and cached_version and remote_version == cached_version:
+                click.echo(f"Using cached pack (version {cached_version}).")
+                return _resolve_index_file(cache_path, pack, no_cache=False)
+            elif remote_version and cached_version:
+                click.echo(
+                    f"Pack updated ({cached_version} -> {remote_version}), "
+                    "re-downloading..."
+                )
+                # Fall through to re-download
+            else:
+                # No version field or no cached version — always re-download
+                pass
+
+        # For non-index packs, verify checksum if available
+        elif pack.sha256:
             actual = _sha256_file(cache_path)
             if actual == pack.sha256:
                 click.echo(f"Using cached pack: {cache_path}")
-                return _resolve_index_file(cache_path, pack, no_cache)
+                return _resolve_index_file(cache_path, pack, no_cache=False)
             else:
                 click.echo("Cached file checksum mismatch, re-downloading...")
-
         else:
             click.echo(f"Using cached pack: {cache_path}")
-            return _resolve_index_file(cache_path, pack, no_cache)
+            return _resolve_index_file(cache_path, pack, no_cache=False)
 
-    # Download (or copy for file:// URLs)
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    parsed = urlparse(pack.url)
-
-    if parsed.scheme == "file":
-        local_path = pathlib.Path(parsed.path)
-        if not local_path.exists():
-            raise click.ClickException(f"Local file not found: {local_path}")
-        click.echo(f"Copying local file: {local_path}")
-        shutil.copy2(local_path, cache_path)
-    else:
-        click.echo(f"Downloading data pack '{pack.name}' from {pack.url}")
-        try:
-            response = requests.get(pack.url, stream=True, timeout=120)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            raise click.ClickException(f"Failed to download data pack: {e}") from e
-
-        # Stream to cache file with progress
-        content_length = response.headers.get("content-length")
-        total = int(content_length) if content_length else None
-
-        with open(cache_path, "wb") as f:
-            if total:
-                with click.progressbar(length=total, label="Downloading") as bar:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        bar.update(len(chunk))
-            else:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+    # Download the pack URL
+    click.echo(f"Downloading data pack '{pack.name}' from {pack.url}")
+    try:
+        _fetch_url_to_path(pack.url, cache_path)
+    except requests.RequestException as e:
+        raise click.ClickException(f"Failed to download data pack: {e}") from e
 
     # Verify SHA256
     if pack.sha256:
@@ -133,8 +206,16 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
             )
         click.echo("SHA256 verified.")
 
-    # Check if this is an index file (object with "files" key) or data file (array)
     entries = _resolve_index_file(cache_path, pack, no_cache)
+
+    # Save index version if present
+    try:
+        with open(cache_path) as f:
+            content = json.load(f)
+        if isinstance(content, dict) and "version" in content:
+            _save_index_version(pack, content["version"])
+    except (json.JSONDecodeError, OSError):
+        pass
 
     return entries
 
@@ -184,34 +265,27 @@ def _resolve_index_file(
             continue
 
         file_url = f"{base_url}/{filename}"
+        cached = pathlib.Path(CACHE_DIR) / f"{_cache_key(file_url)}.json"
+
+        if not no_cache and cached.exists():
+            entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
+            continue
+
         click.echo(
             f"  Fetching {filename}{'  [wait_for_completion]' if wait else ''}..."
         )
-
-        parsed = urlparse(file_url)
-        if parsed.scheme == "file":
-            file_path = pathlib.Path(parsed.path)
-            if not file_path.exists():
-                logger.warning("Index references missing file: %s", file_path)
-                continue
-            # Copy to cache dir so path is stable
-            cached = pathlib.Path(CACHE_DIR) / f"{_cache_key(file_url)}.json"
-            cached.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(file_path, cached)
+        try:
+            _fetch_url_to_path(file_url, cached)
             entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
-        else:
-            try:
-                response = requests.get(file_url, timeout=120)
-                response.raise_for_status()
-                cached = pathlib.Path(CACHE_DIR) / f"{_cache_key(file_url)}.json"
-                cached.parent.mkdir(parents=True, exist_ok=True)
-                with open(cached, "wb") as f:
-                    f.write(response.content)
-                entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
-            except Exception:
-                logger.warning("Failed to fetch %s, skipping", file_url, exc_info=True)
+        except Exception:
+            logger.warning("Failed to fetch %s, skipping", file_url, exc_info=True)
 
     click.echo(f"Resolved {len(entries)} data files from index.")
+    if not entries:
+        raise click.ClickException(
+            f"Failed to download any data files for pack '{pack.name}'. "
+            "Check the URLs and your network connection."
+        )
     return entries
 
 

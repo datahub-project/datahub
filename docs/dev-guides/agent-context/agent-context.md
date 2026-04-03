@@ -1,6 +1,6 @@
 # Agent Context Kit
 
-> **📚 Navigation**: [Cursor Integration →](./cursor.md) | [Claude Integration →](./claude.md) | [Gemini CLI Integration →](./gemini-cli.md) | [LangChain Integration →](./langchain.md) | [Google ADK Integration →](./google-adk.md) | [Google Vertex AI Integration →](./google-vertex-ai.md) | [Snowflake Integration →](./snowflake.md) | [Copilot Studio Integration →](./copilot-studio.md)
+> **📚 Navigation**: [Cursor Integration →](./cursor.md) | [Claude Integration →](./claude.md) | [Gemini CLI Integration →](./gemini-cli.md) | [LangChain Integration →](./langchain.md) | [Google ADK Integration →](./google-adk.md) | [Google Vertex AI Integration →](./google-vertex-ai.md) | [Snowflake Integration →](./snowflake.md) | [Snowflake Cortex Code Integration →](./snowflake-cortex-code.md) | [Copilot Studio Integration →](./copilot-studio.md)
 
 ## What Problem Does This Solve?
 
@@ -35,6 +35,7 @@ When building AI agents that answer questions about data, agents often face thes
 6. **Using Google ADK?** See the [Google ADK integration guide](./google-adk.md)
 7. **Using Google Vertex AI Agent Builder?** See the [Google Vertex AI integration guide](./google-vertex-ai.md)
 8. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
+9. **Using Snowflake Cortex Code?** See the [Cortex Code integration guide](./snowflake-cortex-code.md)
 
 ## Installation
 
@@ -104,7 +105,8 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 | Claude                   | Launched    | [Claude Guide](./claude.md)                     |
 | Gemini CLI               | Launched    | [Gemini CLI Guide](./gemini-cli.md)             |
 | Langchain                | Launched    | [LangChain Guide](./langchain.md)               |
-| Snowflake                | Launched    | [Snowflake Guide](./snowflake.md)               |
+| Snowflake Intelligence   | Launched    | [Snowflake Guide](./snowflake.md)               |
+| Snowflake Cortex Code    | Launched    | [Cortex Code Guide](./snowflake-cortex-code.md) |
 | Google ADK               | Launched    | [Google ADK Guide](./google-adk.md)             |
 | Google Vertex AI         | Launched    | [Google Vertex AI Guide](./google-vertex-ai.md) |
 | Microsoft Copilot Studio | Launched    | [Copilot Studio Guide](./copilot-studio.md)     |

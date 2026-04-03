@@ -35,6 +35,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -189,37 +190,44 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     ThreadSafePathStore existingPaths = new ThreadSafePathStore();
     List<Urn> currentLevel = ImmutableList.of(entityUrn);
 
-    for (int i = 0; i < maxHops; i++) {
-      if (currentLevel.isEmpty()) {
-        break;
-      }
+    try (CascadeOperationContext cascade =
+        CascadeOperationContext.beginWithoutMDC(
+            metricUtils, "getLineage", entityUrn, -1, "datahub.lineage.graph_walk")) {
+      for (int i = 0; i < maxHops; i++) {
+        if (currentLevel.isEmpty()) {
+          break;
+        }
 
-      if (remainingTime < 0) {
-        log.info(
-            "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning results so far",
-            entityUrn,
-            lineageGraphFilters.getLineageDirection(),
-            maxHops);
-        break;
-      }
+        if (remainingTime < 0) {
+          log.info(
+              "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning results so far",
+              entityUrn,
+              lineageGraphFilters.getLineageDirection(),
+              maxHops);
+          break;
+        }
 
-      // Do one hop on the lineage graph
-      Stream<Urn> intermediateStream =
-          processOneHopLineage(
-              opContext,
-              currentLevel,
-              remainingTime,
-              maxHops,
-              lineageGraphFilters,
-              visitedEntities,
-              viaEntities,
-              existingPaths,
-              exploreMultiplePaths,
-              result,
-              i);
-      currentLevel = intermediateStream.collect(Collectors.toList());
-      currentTime = System.currentTimeMillis();
-      remainingTime = timeoutTime - currentTime;
+        cascade.recordHop();
+        int sizeBefore = result.size();
+        // Do one hop on the lineage graph
+        Stream<Urn> intermediateStream =
+            processOneHopLineage(
+                opContext,
+                currentLevel,
+                remainingTime,
+                maxHops,
+                lineageGraphFilters,
+                visitedEntities,
+                viaEntities,
+                existingPaths,
+                exploreMultiplePaths,
+                result,
+                i);
+        currentLevel = intermediateStream.collect(Collectors.toList());
+        cascade.recordEntitiesProcessed(result.size() - sizeBefore);
+        currentTime = System.currentTimeMillis();
+        remainingTime = timeoutTime - currentTime;
+      }
     }
     List<LineageRelationship> resultList = new ArrayList<>(result.values());
     LineageResponse response = new LineageResponse(resultList.size(), resultList, false);
@@ -1357,92 +1365,99 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     ThreadSafePathStore existingPaths = new ThreadSafePathStore();
     List<Urn> currentLevel = ImmutableList.of(entityUrn);
 
-    for (int i = 0; i < maxHops; i++) {
-      if (currentLevel.isEmpty()) {
-        break;
-      }
-
-      if (remainingTime < 0) {
-        if (allowPartialResults) {
-          log.warn(
-              "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning partial results. {} ms reserved for second query phase.",
-              entityUrn,
-              lineageGraphFilters.getLineageDirection(),
-              maxHops,
-              reservedTimeForSearchQuery);
-          isPartial = true;
+    try (CascadeOperationContext cascade =
+        CascadeOperationContext.beginWithoutMDC(
+            metricUtils, "getImpactLineage", entityUrn, -1, "datahub.lineage.graph_walk")) {
+      for (int i = 0; i < maxHops; i++) {
+        if (currentLevel.isEmpty()) {
           break;
-        } else {
-          log.error(
-              "Timed out while fetching lineage for {} with direction {}, maxHops {}. Operation exceeded the configured timeout.",
-              entityUrn,
-              lineageGraphFilters.getLineageDirection(),
-              maxHops);
-          throw new IllegalStateException(
-              String.format(
-                  "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d. Consider increasing the timeout or set partialResults to true to return partial results.",
-                  config.getSearch().getGraph().getTimeoutSeconds(),
-                  entityUrn,
-                  lineageGraphFilters.getLineageDirection(),
-                  maxHops));
         }
-      }
 
-      // About to get lineage for `currentLevel`: annotate with `explored`
-      currentLevel.forEach(
-          urn -> Optional.ofNullable(result.get(urn)).ifPresent(rel -> rel.setExplored(true)));
+        if (remainingTime < 0) {
+          if (allowPartialResults) {
+            log.warn(
+                "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning partial results. {} ms reserved for second query phase.",
+                entityUrn,
+                lineageGraphFilters.getLineageDirection(),
+                maxHops,
+                reservedTimeForSearchQuery);
+            isPartial = true;
+            break;
+          } else {
+            log.error(
+                "Timed out while fetching lineage for {} with direction {}, maxHops {}. Operation exceeded the configured timeout.",
+                entityUrn,
+                lineageGraphFilters.getLineageDirection(),
+                maxHops);
+            throw new IllegalStateException(
+                String.format(
+                    "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d. Consider increasing the timeout or set partialResults to true to return partial results.",
+                    config.getSearch().getGraph().getTimeoutSeconds(),
+                    entityUrn,
+                    lineageGraphFilters.getLineageDirection(),
+                    maxHops));
+          }
+        }
 
-      // Do one hop on the lineage graph
-      // Note: maxRelations is the original total limit, but we pass the remaining capacity
-      // to the scroll methods to ensure accurate limit checking at each level
-      ImpactHopResult hopResult =
-          processOneHopLineageWithMaxRelations(
-              opContext,
-              currentLevel,
-              remainingTime,
-              maxHops,
-              lineageGraphFilters,
-              visitedEntities,
-              viaEntities,
-              existingPaths,
-              result,
-              i,
-              maxRelations,
-              allowPartialResults);
-      currentLevel = hopResult.getNextLevelUrns();
-      isPartial |= hopResult.isSlicePartial();
+        cascade.recordHop();
+        // About to get lineage for `currentLevel`: annotate with `explored`
+        currentLevel.forEach(
+            urn -> Optional.ofNullable(result.get(urn)).ifPresent(rel -> rel.setExplored(true)));
 
-      currentTime = System.currentTimeMillis();
-      remainingTime = timeoutTime - currentTime;
+        int sizeBefore = result.size();
+        // Do one hop on the lineage graph
+        // Note: maxRelations is the original total limit, but we pass the remaining capacity
+        // to the scroll methods to ensure accurate limit checking at each level
+        ImpactHopResult hopResult =
+            processOneHopLineageWithMaxRelations(
+                opContext,
+                currentLevel,
+                remainingTime,
+                maxHops,
+                lineageGraphFilters,
+                visitedEntities,
+                viaEntities,
+                existingPaths,
+                result,
+                i,
+                maxRelations,
+                allowPartialResults);
+        currentLevel = hopResult.getNextLevelUrns();
+        isPartial |= hopResult.isSlicePartial();
+        cascade.recordEntitiesProcessed(result.size() - sizeBefore);
 
-      // Check if we've reached the maxRelations limit (skip if unlimited, i.e., -1)
-      if (!isMaxRelationsUnlimited && result.size() >= maxRelations) {
-        if (allowPartialResults) {
-          log.warn(
-              "Reached maxRelations limit {} for {} with direction {}, maxHops {}. Returning partial results.",
-              maxRelations,
-              entityUrn,
-              lineageGraphFilters.getLineageDirection(),
-              maxHops);
-          isPartial = true;
+        currentTime = System.currentTimeMillis();
+        remainingTime = timeoutTime - currentTime;
+
+        // Check if we've reached the maxRelations limit (skip if unlimited, i.e., -1)
+        if (!isMaxRelationsUnlimited && result.size() >= maxRelations) {
+          if (allowPartialResults) {
+            log.warn(
+                "Reached maxRelations limit {} for {} with direction {}, maxHops {}. Returning partial results.",
+                maxRelations,
+                entityUrn,
+                lineageGraphFilters.getLineageDirection(),
+                maxHops);
+            isPartial = true;
+            break;
+          } else {
+            log.error(
+                "Reached maxRelations limit {} for {} with direction {}, maxHops {}. This indicates the data exceeds the configured limit.",
+                maxRelations,
+                entityUrn,
+                lineageGraphFilters.getLineageDirection(),
+                maxHops);
+            throw new IllegalStateException(
+                String.format(
+                    "Lineage results exceeded the configured maxRelations limit of %d. Entity: %s, Direction: %s, MaxHops: %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+                    maxRelations, entityUrn, lineageGraphFilters.getLineageDirection(), maxHops));
+          }
+        }
+
+        // Early termination if no new entities to process
+        if (currentLevel.isEmpty()) {
           break;
-        } else {
-          log.error(
-              "Reached maxRelations limit {} for {} with direction {}, maxHops {}. This indicates the data exceeds the configured limit.",
-              maxRelations,
-              entityUrn,
-              lineageGraphFilters.getLineageDirection(),
-              maxHops);
-          throw new IllegalStateException(
-              String.format(
-                  "Lineage results exceeded the configured maxRelations limit of %d. Entity: %s, Direction: %s, MaxHops: %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-                  maxRelations, entityUrn, lineageGraphFilters.getLineageDirection(), maxHops));
         }
-      }
-
-      // Early termination if no new entities to process
-      if (currentLevel.isEmpty()) {
-        break;
       }
     }
 
