@@ -1,0 +1,4 @@
+# Databricks + DataHub agent dependencies
+databricks-mcp
+openai
+mlflow>=2.20.2
