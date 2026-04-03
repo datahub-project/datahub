@@ -193,16 +193,19 @@ def generate_datahub_udfs_sql(
         include_mutations: Whether to include mutation/write tools (default: True)
         include_cloud: Whether to include Cloud-only tools (default: False)
     """
-    # Generate read-only UDFs first to get count
     read_only_udfs = generate_all_udfs(include_mutations=False, include_cloud=False)
     read_ops_count = len(read_only_udfs)
 
-    # Generate all UDFs (read + write + cloud if enabled)
+    mutation_udfs = generate_all_udfs(include_mutations=True, include_cloud=False)
+    write_ops_count = len(mutation_udfs) - read_ops_count
+
+    cloud_udfs = generate_all_udfs(include_mutations=False, include_cloud=True)
+    cloud_ops_count = len(cloud_udfs) - read_ops_count
+
     all_udfs = generate_all_udfs(
         include_mutations=include_mutations, include_cloud=include_cloud
     )
     total_udfs = len(all_udfs)
-    write_ops_count = total_udfs - read_ops_count
 
     udf_sections = []
     grant_statements = []
@@ -242,6 +245,16 @@ def generate_datahub_udfs_sql(
         else ""
     )
 
+    cloud_ops_section = (
+        f"""--
+-- Cloud Operations ({cloud_ops_count}, requires DataHub Cloud):
+--   - ASK_DATAHUB_CHAT: Send a message to the DataHub AI assistant
+--   - GET_DATAHUB_CHAT: Retrieve messages from an AI conversation
+"""
+        if include_cloud
+        else ""
+    )
+
     return f"""-- ============================================================================
 -- Step 2: DataHub API UDFs for Cortex Agent (using datahub-agent-context)
 -- ============================================================================
@@ -262,7 +275,7 @@ def generate_datahub_udfs_sql(
 --   - SEARCH_DOCUMENTS: Search organization documents
 --   - GREP_DOCUMENTS: Regex search within documents
 --   - GET_ME: Get authenticated user information
-{write_ops_section}--
+{write_ops_section}{cloud_ops_section}--
 -- Prerequisites:
 -- - Run 00_configuration.sql first to set variables
 -- - Run 01_network_rules.sql to create network rules and secrets

@@ -93,8 +93,14 @@ def _consume_chat_stream(conversation_urn: str, text: str) -> None:
     )
     response.raise_for_status()
 
-    for _line in response.iter_lines():
-        pass
+    for line in response.iter_lines():
+        if not line:
+            continue
+        decoded = (
+            line if isinstance(line, str) else line.decode("utf-8", errors="replace")
+        )
+        if "error" in decoded.lower():
+            logger.warning("SSE stream error event: %s", decoded)
 
 
 def _fetch_last_agent_response(conversation_urn: str) -> Optional[str]:
