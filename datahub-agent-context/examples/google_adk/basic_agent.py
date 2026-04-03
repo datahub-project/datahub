@@ -27,7 +27,10 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from datahub.sdk.main_client import DataHubClient
-from datahub_agent_context.google_adk_tools import build_google_adk_tools
+from datahub_agent_context.google_adk_tools import (
+    build_google_adk_cloud_tools,
+    build_google_adk_tools,
+)
 
 SYSTEM_PROMPT = """You are a helpful data discovery assistant with access to DataHub.
 
@@ -51,9 +54,7 @@ async def run_query(
     async for event in runner.run_async(
         user_id="user",
         session_id=session_id,
-        new_message=types.Content(
-            role="user", parts=[types.Part(text=query)]
-        ),
+        new_message=types.Content(role="user", parts=[types.Part(text=query)]),
     ):
         if event.is_final_response() and event.content and event.content.parts:
             response_text = event.content.parts[0].text
@@ -73,6 +74,10 @@ async def main() -> None:
 
     # Create tools - includes mutation tools for tagging
     tools = build_google_adk_tools(client, include_mutations=True)
+
+    # Add Cloud-only tools (Ask DataHub AI assistant) — requires DataHub Cloud
+    # Remove this line if connecting to an OSS DataHub instance
+    tools += build_google_adk_cloud_tools(client, ask_datahub=True)
 
     # Create agent
     agent = Agent(
