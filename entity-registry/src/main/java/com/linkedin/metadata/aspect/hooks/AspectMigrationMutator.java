@@ -1,5 +1,8 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
+
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -31,20 +34,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AspectMigrationMutator {
 
-  /**
-   * Baseline schema version. Absent / null {@code schemaVersion} in {@link SystemMetadata} is
-   * treated as this version, representing the canonical pre-migration state of all existing
-   * aspects.
-   */
-  public static final long DEFAULT_SCHEMA_VERSION = 1L;
-
   /** The aspect name this mutator handles (e.g. {@code "ownership"}). */
   @Nonnull
   public abstract String getAspectName();
 
   /**
    * The schema version of source data this mutator accepts. Absent / null in {@link SystemMetadata}
-   * is treated as {@link #DEFAULT_SCHEMA_VERSION} ({@code 1}).
+   * is treated as {@link com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION} ({@code 1}).
    */
   public abstract long getSourceVersion();
 
@@ -89,10 +85,14 @@ public abstract class AspectMigrationMutator {
               if (migrated == null) {
                 return Pair.of(item, false);
               }
+              // Snapshot migrated data before clearing — transform() may wrap the same DataMap
+              // (e.g. new TagProperties(sourceAspect.data())), so clearing current would also
+              // clear migrated if they share the same reference.
+              DataMap snapshot = new DataMap(migrated.data());
               // ReadItem has no setRecordTemplate; mutate the underlying DataMap in-place
               // so the change is visible to callers holding a reference to the RecordTemplate.
               current.data().clear();
-              current.data().putAll(migrated.data());
+              current.data().putAll(snapshot);
               // SystemMetadata on reads is not persisted, but update in-memory so downstream
               // hooks and callers see the correct schema version.
               setTargetVersion(item.getSystemMetadata());
@@ -127,9 +127,10 @@ public abstract class AspectMigrationMutator {
               if (migrated == null) {
                 return Pair.of(item, false);
               }
+              DataMap snapshot = new DataMap(migrated.data());
               // Mutate the underlying DataMap in-place; ChangeMCP has no setRecordTemplate.
               current.data().clear();
-              current.data().putAll(migrated.data());
+              current.data().putAll(snapshot);
               setTargetVersion(item.getSystemMetadata());
               log.debug(
                   "Write migration applied: aspect={} urn={} v{}→v{}",
@@ -146,7 +147,7 @@ public abstract class AspectMigrationMutator {
   /**
    * Returns {@code true} when the stored schema version matches {@link #getSourceVersion()}. A
    * {@code null} system metadata or absent {@code schemaVersion} field is treated as {@link
-   * #DEFAULT_SCHEMA_VERSION}.
+   * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION}.
    */
   private boolean isSourceVersion(@Nullable SystemMetadata systemMetadata) {
     long stored =

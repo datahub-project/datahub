@@ -193,10 +193,9 @@ Claude Code natively supports streamable HTTP, so no proxy or additional depende
 Run the following command, replacing `<tenant>` and `<token>` with your own values:
 
 ```bash
-claude mcp add --transport http \
-  --header "Authorization: Bearer <token>" \
-  datahub-cloud \
-  "https://<tenant>.acryl.io/integrations/ai/mcp/"
+claude mcp add --transport http datahub-cloud \
+  "https://<tenant>.acryl.io/integrations/ai/mcp/" \
+  --header "Authorization: Bearer <token>"
 ```
 
 For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
