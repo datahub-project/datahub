@@ -1,6 +1,6 @@
 # Cursor
 
-Give [Cursor](https://www.cursor.com/) access to your enterprise data context in DataHub — build data agents that understand ownership, lineage, documentation, and quality signals without leaving the editor.
+Give [Cursor](https://www.cursor.com/) access to your enterprise data context in DataHub — find trustworthy data, trace lineage, look up ownership, and reference documentation without leaving the editor.
 
 ## Prerequisites
 

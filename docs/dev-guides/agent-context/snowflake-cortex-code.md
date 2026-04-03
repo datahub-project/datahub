@@ -1,6 +1,6 @@
 # Snowflake Cortex Code
 
-Give [Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) access to your enterprise data context in DataHub — build data agents that understand business definitions, ownership, lineage, and quality signals alongside your Snowflake data.
+Give [Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) access to your enterprise data context in DataHub — find trustworthy data, resolve business definitions, trace lineage, and generate better SQL alongside your Snowflake data.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ Give [Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-c
 
 ## Setup
 
-Register DataHub as an MCP server:
+Register DataHub as an [MCP server](../../features/feature-guides/mcp.md):
 
 ```bash
 cortex mcp add datahub https://<tenant>.acryl.io/integrations/ai/mcp \

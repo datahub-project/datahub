@@ -1,6 +1,6 @@
 # Microsoft Copilot Studio
 
-Give [Copilot Studio](https://copilotstudio.microsoft.com/) agents access to your enterprise data context in DataHub — build data agents that understand ownership, lineage, documentation, and quality signals.
+Build [Copilot Studio](https://copilotstudio.microsoft.com/) agents that can find trustworthy data, trace lineage, look up ownership, and answer data questions grounded in your enterprise context from DataHub.
 
 ## Prerequisites
 
@@ -69,7 +69,7 @@ Click **Test** in the top-right corner and try:
 ## Troubleshooting
 
 - **Can't connect?** Verify the DataHub URL, check the token hasn't expired, and confirm auth is set to **API key** (not OAuth). Include the `Bearer ` prefix.
-- **Tools not appearing?** Click refresh on the Tools page. Verify the MCP server is running and the token has the right permissions.
+- **Tools not appearing?** Click refresh on the Tools page. Verify the [MCP server](../../features/feature-guides/mcp.md) is running and the token has the right permissions.
 - **Empty results?** Check that your DataHub instance has ingested metadata. Try broader search terms.
 
 **Links:** [Copilot Studio Docs](https://learn.microsoft.com/en-us/microsoft-copilot-studio/) · [Agent Context Kit](./agent-context.md) · [MCP Server Guide](../../features/feature-guides/mcp.md)

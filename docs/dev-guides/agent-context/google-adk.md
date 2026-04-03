@@ -5,7 +5,7 @@ Build autonomous data agents with [Google ADK](https://google.github.io/adk-docs
 The integration works two ways:
 
 - **Python tools** — embed DataHub tools directly in your ADK agent
-- **MCP server** — connect via ADK's built-in `McpToolset`
+- **[MCP server](../../features/feature-guides/mcp.md)** — connect via ADK's built-in `McpToolset`
 
 ## Prerequisites
 

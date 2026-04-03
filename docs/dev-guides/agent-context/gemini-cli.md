@@ -1,6 +1,6 @@
 # Google Gemini CLI
 
-Give [Gemini CLI](https://github.com/google-gemini/gemini-cli) access to your enterprise data context in DataHub — build data agents that understand ownership, lineage, and documentation right from the terminal.
+Give [Gemini CLI](https://github.com/google-gemini/gemini-cli) access to your enterprise data context in DataHub — find trustworthy data, trace lineage, and look up ownership right from the terminal.
 
 ## Prerequisites
 

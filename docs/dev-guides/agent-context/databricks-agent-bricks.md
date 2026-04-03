@@ -1,11 +1,6 @@
 # Databricks Agent Bricks
 
-Build a deployed agent on Databricks that queries both a Genie Space (SQL) and DataHub (catalog) in a single conversation — the LLM decides which tools to call per request.
-
-| MCP server         | Endpoint                             | What it does                                           |
-| ------------------ | ------------------------------------ | ------------------------------------------------------ |
-| Genie Space        | `/api/2.0/mcp/genie/{space_id}`      | Natural-language-to-SQL against your Databricks tables |
-| DataHub (external) | `/api/2.0/mcp/external/{connection}` | Catalog search, lineage, ownership, documentation      |
+Build a deployed agent on Databricks that combines SQL execution (via a [Genie Space](https://docs.databricks.com/en/genie/set-up-genie-space.html)) with DataHub's catalog context in a single conversation. The agent discovers tools from both [MCP](../../features/feature-guides/mcp.md) endpoints and the LLM decides which to call per request — search DataHub to find the right table, then query the Genie Space for the actual data.
 
 ## Prerequisites
 

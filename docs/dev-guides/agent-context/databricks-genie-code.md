@@ -1,6 +1,6 @@
 # Databricks Genie Code
 
-Give [Genie Code](https://docs.databricks.com/en/genie/genie-code.html) access to your enterprise data context in DataHub — catalog search, lineage, documentation, and ownership lookups alongside your notebooks.
+Give [Genie Code](https://docs.databricks.com/en/genie/genie-code.html) access to your enterprise data context in DataHub — find trustworthy data, understand lineage, look up ownership, and generate better SQL queries, all without leaving your notebook.
 
 <p align="center">
   <img width="70%" src="/img/databricks/genie-code-datahub-query.png" alt="Genie Code querying DataHub catalog"/>
@@ -15,7 +15,7 @@ Give [Genie Code](https://docs.databricks.com/en/genie/genie-code.html) access t
 
 ## Step 1: Register DataHub as an External MCP Server
 
-This creates a Unity Catalog HTTP connection to your DataHub MCP server. You only need to do this once — the same connection is used by [Databricks Agent Bricks](./databricks-agent-bricks.md).
+This creates a Unity Catalog HTTP connection to your DataHub [MCP server](../../features/feature-guides/mcp.md). You only need to do this once — the same connection is used by [Databricks Agent Bricks](./databricks-agent-bricks.md).
 
 1. In your Databricks workspace, go to **Catalog > Connections > Create connection**.
 

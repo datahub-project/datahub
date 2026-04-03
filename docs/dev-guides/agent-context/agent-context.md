@@ -1,8 +1,6 @@
 # Agent Context Kit
 
-DataHub is the context platform for data and AI — a map of your entire data ecosystem, including business definitions, context documents, data ownership, lineage, quality signals, sample queries, and more. The Agent Context Kit makes all of that context available to your AI agents.
-
-It connects through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io), so it works with any agent framework or platform that supports MCP.
+The DataHub Agent Context Kit is a set of guides, SDKs, and an [MCP server](../../features/feature-guides/mcp.md) that help you build AI agents with access to the capabilities and context in your DataHub instance — business definitions, context documents, data ownership, lineage, quality signals, sample queries, and more.
 
 ## What Can You Build?
 
@@ -66,7 +64,7 @@ _"Tag all columns containing email addresses with the PII glossary term across o
 
 ## Getting Started
 
-The fastest way to connect any agent to DataHub is through the MCP server — just point your agent at the endpoint:
+The fastest way to connect any agent to DataHub is through the [MCP server](../../features/feature-guides/mcp.md) — just point your agent at the endpoint:
 
 - **DataHub Cloud**: `https://<tenant>.acryl.io/integrations/ai/mcp`
 - **Self-hosted**: `http://<gms-host>:8080/mcp`
