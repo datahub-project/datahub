@@ -69,7 +69,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -111,7 +111,7 @@ public class ElasticsearchController {
       AuthorizerChain authorizerChain,
       ESSearchDAO esSearchDAO,
       GitVersion gitVersion,
-      @Qualifier("revision") String revision) {
+      @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
     this.systemOperationContext = systemOperationContext;
     this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;

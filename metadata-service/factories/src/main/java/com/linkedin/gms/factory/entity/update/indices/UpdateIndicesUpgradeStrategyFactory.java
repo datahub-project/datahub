@@ -22,6 +22,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,7 +46,7 @@ public class UpdateIndicesUpgradeStrategyFactory {
       EntityService<?> entityService,
       @Qualifier("systemOperationContext") OperationContext systemOpContext,
       GitVersion gitVersion,
-      @Qualifier("revision") String revision) {
+      @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
 
     String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
     Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
