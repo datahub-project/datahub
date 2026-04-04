@@ -1,4 +1,4 @@
-# DataHub Pinecone Connector - Implementation Plan
+﻿# DataHub Pinecone Connector - Implementation Plan
 
 ## Overview
 
@@ -36,13 +36,13 @@ into vector data assets within DataHub.
 
 ```
 Platform: pinecone
-├── Container (Index)
-│   ├── Properties: dimension, metric, index_type, host, pod_type, replicas
-│   └── Container (Namespace)
-│       ├── Properties: vector_count, metadata_config
-│       └── Dataset (Virtual collection representing vectors)
-│           ├── Schema: Inferred from metadata fields
-│           └── Properties: sample_metadata, vector_dimension
+â”œâ”€â”€ Container (Index)
+â”‚   â”œâ”€â”€ Properties: dimension, metric, index_type, host, pod_type, replicas
+â”‚   â””â”€â”€ Container (Namespace)
+â”‚       â”œâ”€â”€ Properties: vector_count, metadata_config
+â”‚       â””â”€â”€ Dataset (Virtual collection representing vectors)
+â”‚           â”œâ”€â”€ Schema: Inferred from metadata fields
+â”‚           â””â”€â”€ Properties: sample_metadata, vector_dimension
 ```
 
 ### Entity Types
@@ -88,11 +88,11 @@ Platform: pinecone
 
 ```
 metadata-ingestion/src/datahub/ingestion/source/pinecone/
-├── __init__.py
-├── pinecone_source.py          # Main source class
-├── config.py                    # Configuration model
-├── report.py                    # Reporting and statistics
-└── pinecone_client.py           # API client wrapper
+â”œâ”€â”€ __init__.py
+â”œâ”€â”€ pinecone_source.py          # Main source class
+â”œâ”€â”€ config.py                    # Configuration model
+â”œâ”€â”€ report.py                    # Reporting and statistics
+â””â”€â”€ pinecone_client.py           # API client wrapper
 ```
 
 ### Configuration Schema
@@ -309,8 +309,8 @@ results = index.query(
 
 ```
 1. Set container relationships:
-   - Namespace → parent Index
-   - Dataset → parent Namespace
+   - Namespace â†’ parent Index
+   - Dataset â†’ parent Namespace
 2. Add platform instance information
 3. Add browse paths
 ```
@@ -539,7 +539,7 @@ source:
 ## Success Criteria
 
 1. Successfully extract metadata from Pinecone indexes
-2. Create proper container hierarchy (Index → Namespace → Dataset)
+2. Create proper container hierarchy (Index â†’ Namespace â†’ Dataset)
 3. Infer meaningful schemas from vector metadata
 4. Support both serverless and pod-based indexes
 5. Handle errors gracefully with clear reporting

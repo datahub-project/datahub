@@ -1,6 +1,6 @@
-# Pinecone Connector - Complete Implementation
+﻿# Pinecone Connector - Complete Implementation
 
-## 🎉 All Phases Complete: 1, 2, and 3
+## ðŸŽ‰ All Phases Complete: 1, 2, and 3
 
 ### Project Overview
 
@@ -10,45 +10,45 @@ metadata.
 
 ---
 
-## 📁 File Structure
+## ðŸ“ File Structure
 
 ```
 metadata-ingestion/src/datahub/ingestion/source/pinecone/
-├── __init__.py                    # Module initialization
-├── config.py                      # Configuration model
-├── pinecone_client.py            # Pinecone SDK wrapper
-├── pinecone_source.py            # Main source implementation
-├── report.py                      # Reporting and statistics
-├── schema_inference.py           # Schema inference engine (Phase 3)
-├── README.md                      # User documentation
-└── skill_docs/
-    └── PINECONE_CONNECTOR_PLANNING.md # Implementation Plan
-    └── PINECONE_CONNECTOR_IMPLEMENTATION.md # Implementation
-    └── PINECONE_datahub-connector-pr-review-2026-03-08 # PR Review
+â”œâ”€â”€ __init__.py                    # Module initialization
+â”œâ”€â”€ config.py                      # Configuration model
+â”œâ”€â”€ pinecone_client.py            # Pinecone SDK wrapper
+â”œâ”€â”€ pinecone_source.py            # Main source implementation
+â”œâ”€â”€ report.py                      # Reporting and statistics
+â”œâ”€â”€ schema_inference.py           # Schema inference engine (Phase 3)
+â”œâ”€â”€ README.md                      # User documentation
+â””â”€â”€ skill_docs/
+    â””â”€â”€ PINECONE_CONNECTOR_PLANNING.md # Implementation Plan
+    â””â”€â”€ PINECONE_CONNECTOR_IMPLEMENTATION.md # Implementation
+    â””â”€â”€ PINECONE_datahub-connector-pr-review-2026-03-08 # PR Review
 
 metadata-ingestion/examples/recipes/
-└── pinecone_to_datahub.yml       # Example recipe
+â””â”€â”€ pinecone_to_datahub.yml       # Example recipe
 
 metadata-ingestion/tests/unit/
-└── test_pinecone_source.py       # Comprehensive unit tests
+â””â”€â”€ test_pinecone_source.py       # Comprehensive unit tests
 
 Integration:
-├── setup.py                       # Plugin registration + dependencies
-└── src/datahub/ingestion/source/common/subtypes.py  # Container subtypes
+â”œâ”€â”€ setup.py                       # Plugin registration + dependencies
+â””â”€â”€ src/datahub/ingestion/source/common/subtypes.py  # Container subtypes
 ```
 
 ---
 
-## ✅ Phase 1: Core Functionality
+## âœ… Phase 1: Core Functionality
 
 ### Features
 
-- ✅ Index discovery via Pinecone API
-- ✅ Index metadata extraction (dimension, metric, type, host, status)
-- ✅ Container workunits for indexes
-- ✅ Support for serverless and pod-based indexes
-- ✅ Index filtering patterns
-- ✅ Error handling and reporting
+- âœ… Index discovery via Pinecone API
+- âœ… Index metadata extraction (dimension, metric, type, host, status)
+- âœ… Container workunits for indexes
+- âœ… Support for serverless and pod-based indexes
+- âœ… Index filtering patterns
+- âœ… Error handling and reporting
 
 ### Key Components
 
@@ -58,16 +58,16 @@ Integration:
 
 ---
 
-## ✅ Phase 2: Namespace Support
+## âœ… Phase 2: Namespace Support
 
 ### Features
 
-- ✅ Namespace discovery using `describe_index_stats()`
-- ✅ Namespace containers with parent relationships
-- ✅ Dataset workunits representing vector collections
-- ✅ Namespace filtering patterns
-- ✅ Default namespace handling
-- ✅ Complete container hierarchy
+- âœ… Namespace discovery using `describe_index_stats()`
+- âœ… Namespace containers with parent relationships
+- âœ… Dataset workunits representing vector collections
+- âœ… Namespace filtering patterns
+- âœ… Default namespace handling
+- âœ… Complete container hierarchy
 
 ### Key Components
 
@@ -79,28 +79,28 @@ Integration:
 
 ```
 Platform: pinecone
-├── Container (Index) - PINECONE_INDEX
-│   ├── Properties: dimension, metric, index_type, host, status
-│   └── Container (Namespace) - PINECONE_NAMESPACE
-│       ├── Properties: vector_count, index_name
-│       └── Dataset (Vector Collection)
-│           ├── Properties: dimension, metric, vector_count
-│           └── Schema: Inferred from metadata (Phase 3)
+â”œâ”€â”€ Container (Index) - PINECONE_INDEX
+â”‚   â”œâ”€â”€ Properties: dimension, metric, index_type, host, status
+â”‚   â””â”€â”€ Container (Namespace) - PINECONE_NAMESPACE
+â”‚       â”œâ”€â”€ Properties: vector_count, index_name
+â”‚       â””â”€â”€ Dataset (Vector Collection)
+â”‚           â”œâ”€â”€ Properties: dimension, metric, vector_count
+â”‚           â””â”€â”€ Schema: Inferred from metadata (Phase 3)
 ```
 
 ---
 
-## ✅ Phase 3: Schema Inference
+## âœ… Phase 3: Schema Inference
 
 ### Features
 
-- ✅ Vector sampling with fallback strategies
-- ✅ Metadata field discovery
-- ✅ Type inference (string, number, boolean, array, object)
-- ✅ Field frequency tracking
-- ✅ Mixed type handling
-- ✅ Schema field generation with descriptions
-- ✅ Configurable sampling size and field limits
+- âœ… Vector sampling with fallback strategies
+- âœ… Metadata field discovery
+- âœ… Type inference (string, number, boolean, array, object)
+- âœ… Field frequency tracking
+- âœ… Mixed type handling
+- âœ… Schema field generation with descriptions
+- âœ… Configurable sampling size and field limits
 
 ### Key Components
 
@@ -165,7 +165,7 @@ SchemaField(
 
 ---
 
-## 🔧 Configuration
+## ðŸ”§ Configuration
 
 ### Complete Configuration Example
 
@@ -236,7 +236,7 @@ sink:
 
 ---
 
-## 🧪 Testing
+## ðŸ§ª Testing
 
 ### Unit Tests
 
@@ -281,21 +281,21 @@ open http://localhost:9002
 
 ---
 
-## 📊 Capabilities
+## ðŸ“Š Capabilities
 
 | Capability         | Status | Description                   |
 | ------------------ | ------ | ----------------------------- |
-| Platform Instance  | ✅     | Multi-environment support     |
-| Containers         | ✅     | Index and namespace hierarchy |
-| Schema Metadata    | ✅     | Inferred from vector metadata |
-| Deletion Detection | ✅     | Via stateful ingestion        |
-| Data Profiling     | ❌     | Not applicable                |
-| Usage Stats        | ❌     | Not available from API        |
-| Lineage            | ❌     | Future enhancement            |
+| Platform Instance  | âœ…     | Multi-environment support     |
+| Containers         | âœ…     | Index and namespace hierarchy |
+| Schema Metadata    | âœ…     | Inferred from vector metadata |
+| Deletion Detection | âœ…     | Via stateful ingestion        |
+| Data Profiling     | âŒ     | Not applicable                |
+| Usage Stats        | âŒ     | Not available from API        |
+| Lineage            | âŒ     | Future enhancement            |
 
 ---
 
-## 🚀 Usage Examples
+## ðŸš€ Usage Examples
 
 ### Basic Ingestion
 
@@ -341,7 +341,7 @@ source:
 
 ---
 
-## 📈 Performance
+## ðŸ“ˆ Performance
 
 ### Ingestion Speed
 
@@ -361,7 +361,7 @@ source:
 
 ---
 
-## 🔍 Troubleshooting
+## ðŸ” Troubleshooting
 
 ### Common Issues
 
@@ -397,7 +397,7 @@ Solution: Reduce max_workers, add delays between requests
 
 ---
 
-## 📝 Dependencies
+## ðŸ“ Dependencies
 
 ### Python Packages
 
@@ -415,26 +415,26 @@ Solution: Reduce max_workers, add delays between requests
 
 ---
 
-## 🎯 Success Criteria
+## ðŸŽ¯ Success Criteria
 
 ### Phase 1
 
-✅ Extract index metadata ✅ Create index containers ✅ Support both index types
-✅ Handle errors gracefully
+âœ… Extract index metadata âœ… Create index containers âœ… Support both index types
+âœ… Handle errors gracefully
 
 ### Phase 2
 
-✅ Discover namespaces ✅ Create namespace containers ✅ Generate dataset
-workunits ✅ Proper hierarchy
+âœ… Discover namespaces âœ… Create namespace containers âœ… Generate dataset
+workunits âœ… Proper hierarchy
 
 ### Phase 3
 
-✅ Sample vectors efficiently ✅ Infer field types ✅ Generate schemas ✅ Handle
-mixed types ✅ Provide descriptions
+âœ… Sample vectors efficiently âœ… Infer field types âœ… Generate schemas âœ… Handle
+mixed types âœ… Provide descriptions
 
 ---
 
-## 🔮 Future Enhancements (Phase 4+)
+## ðŸ”® Future Enhancements (Phase 4+)
 
 ### Planned Features
 
@@ -473,7 +473,7 @@ mixed types ✅ Provide descriptions
 
 ---
 
-## 📚 Documentation
+## ðŸ“š Documentation
 
 - **User Guide:** `src/datahub/ingestion/source/pinecone/README.md`
 - **Implementation Plan:**
@@ -483,19 +483,19 @@ mixed types ✅ Provide descriptions
 
 ---
 
-## ✅ Quality Checks
+## âœ… Quality Checks
 
-- ✅ All files pass diagnostics (no errors)
-- ✅ Comprehensive unit tests
-- ✅ Follows DataHub connector patterns
-- ✅ Proper error handling
-- ✅ Detailed logging
-- ✅ Configuration validation
-- ✅ Documentation complete
+- âœ… All files pass diagnostics (no errors)
+- âœ… Comprehensive unit tests
+- âœ… Follows DataHub connector patterns
+- âœ… Proper error handling
+- âœ… Detailed logging
+- âœ… Configuration validation
+- âœ… Documentation complete
 
 ---
 
-## 🎓 Key Learnings
+## ðŸŽ“ Key Learnings
 
 1. **Fallback Strategies:** Multiple sampling approaches ensure robustness
 2. **Type Priority:** String-first approach handles mixed types gracefully
@@ -506,7 +506,7 @@ mixed types ✅ Provide descriptions
 
 ---
 
-## 🙏 Acknowledgments
+## ðŸ™ Acknowledgments
 
 - Based on MongoDB and Elasticsearch connector patterns
 - Follows DataHub best practices
@@ -514,7 +514,7 @@ mixed types ✅ Provide descriptions
 
 ---
 
-## 📞 Support
+## ðŸ“ž Support
 
 For issues or questions:
 
@@ -523,10 +523,10 @@ For issues or questions:
 
 ---
 
-## 📄 License
+## ðŸ“„ License
 
 Part of the DataHub project - Apache 2.0 License
 
 ---
 
-**Status:** ✅ Production Ready **Version:** 1.0.0 **Last Updated:** 2026
+**Status:** âœ… Production Ready **Version:** 1.0.0 **Last Updated:** 2026
