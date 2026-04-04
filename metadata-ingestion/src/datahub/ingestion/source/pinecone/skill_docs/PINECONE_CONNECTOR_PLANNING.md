@@ -2,7 +2,10 @@
 
 ## Overview
 
-This document outlines the implementation plan for a DataHub connector to ingest metadata from Pinecone, a vector database platform. The connector will extract information about indexes, namespaces, and vector metadata to provide visibility into vector data assets within DataHub.
+This document outlines the implementation plan for a DataHub connector to ingest
+metadata from Pinecone, a vector database platform. The connector will extract
+information about indexes, namespaces, and vector metadata to provide visibility
+into vector data assets within DataHub.
 
 ## Pinecone Architecture
 
@@ -70,7 +73,8 @@ Platform: pinecone
    - Parent: Index container
 
 4. **Dataset (Vector Collection)**
-   - URN: `urn:li:dataset:(urn:li:dataPlatform:pinecone,<index>.<namespace>,PROD)`
+   - URN:
+     `urn:li:dataset:(urn:li:dataPlatform:pinecone,<index>.<namespace>,PROD)`
    - SubType: `Vector Collection`
    - Schema: Inferred from metadata fields across sampled vectors
    - Properties:
@@ -491,7 +495,8 @@ source:
 ### 1. Namespace Listing
 
 - **Challenge**: `describe_namespace()` only works for serverless indexes
-- **Solution**: Use `describe_index_stats()` which returns namespace names and counts for both serverless and pod-based
+- **Solution**: Use `describe_index_stats()` which returns namespace names and
+  counts for both serverless and pod-based
 
 ### 2. Vector Sampling
 
@@ -556,5 +561,7 @@ source:
 - [Pinecone Documentation](https://docs.pinecone.io/)
 - [Pinecone Python SDK](https://github.com/pinecone-io/pinecone-python-client)
 - [DataHub Source Development Guide](https://datahubproject.io/docs/metadata-ingestion/developing)
-- [MongoDB Source](metadata-ingestion/src/datahub/ingestion/source/mongodb.py) - Similar NoSQL pattern
-- [Elasticsearch Source](metadata-ingestion/src/datahub/ingestion/source/elastic_search.py) - Similar search/index pattern
+- [MongoDB Source](metadata-ingestion/src/datahub/ingestion/source/mongodb.py) -
+  Similar NoSQL pattern
+- [Elasticsearch Source](metadata-ingestion/src/datahub/ingestion/source/elastic_search.py) -
+  Similar search/index pattern

@@ -4,7 +4,9 @@
 
 ### Project Overview
 
-A fully functional DataHub connector for Pinecone vector database that extracts metadata about indexes, namespaces, and automatically infers schemas from vector metadata.
+A fully functional DataHub connector for Pinecone vector database that extracts
+metadata about indexes, namespaces, and automatically infers schemas from vector
+metadata.
 
 ---
 
@@ -172,30 +174,30 @@ source:
   type: pinecone
   config:
     # Required
-    api_key: "${PINECONE_API_KEY}"
+    api_key: '${PINECONE_API_KEY}'
 
     # Optional: For pod-based indexes
-    environment: "us-west1-gcp"
+    environment: 'us-west1-gcp'
 
     # Platform instance
-    platform_instance: "production"
-    env: "PROD"
+    platform_instance: 'production'
+    env: 'PROD'
 
     # Index filtering
     index_pattern:
       allow:
-        - "prod-.*"
-        - "customer-.*"
+        - 'prod-.*'
+        - 'customer-.*'
       deny:
-        - ".*-test"
-        - ".*-dev"
+        - '.*-test'
+        - '.*-dev'
 
     # Namespace filtering
     namespace_pattern:
       allow:
-        - "customer-.*"
+        - 'customer-.*'
       deny:
-        - "internal-.*"
+        - 'internal-.*'
 
     # Schema inference (enabled by default)
     enable_schema_inference: true
@@ -213,7 +215,7 @@ source:
 sink:
   type: datahub-rest
   config:
-    server: "http://localhost:8080"
+    server: 'http://localhost:8080'
 ```
 
 ### Configuration Options
@@ -307,11 +309,11 @@ datahub ingest -c pinecone_recipe.yml
 source:
   type: pinecone
   config:
-    api_key: "${PINECONE_API_KEY}"
+    api_key: '${PINECONE_API_KEY}'
     index_pattern:
-      allow: ["prod-.*"]
+      allow: ['prod-.*']
     namespace_pattern:
-      deny: ["test-.*"]
+      deny: ['test-.*']
 ```
 
 ### Optimized for Speed
@@ -320,7 +322,7 @@ source:
 source:
   type: pinecone
   config:
-    api_key: "${PINECONE_API_KEY}"
+    api_key: '${PINECONE_API_KEY}'
     schema_sampling_size: 50
     max_metadata_fields: 50
     max_workers: 10
@@ -332,7 +334,7 @@ source:
 source:
   type: pinecone
   config:
-    api_key: "${PINECONE_API_KEY}"
+    api_key: '${PINECONE_API_KEY}'
     schema_sampling_size: 200
     max_metadata_fields: 150
 ```
@@ -417,25 +419,18 @@ Solution: Reduce max_workers, add delays between requests
 
 ### Phase 1
 
-✅ Extract index metadata
-✅ Create index containers
-✅ Support both index types
+✅ Extract index metadata ✅ Create index containers ✅ Support both index types
 ✅ Handle errors gracefully
 
 ### Phase 2
 
-✅ Discover namespaces
-✅ Create namespace containers
-✅ Generate dataset workunits
-✅ Proper hierarchy
+✅ Discover namespaces ✅ Create namespace containers ✅ Generate dataset
+workunits ✅ Proper hierarchy
 
 ### Phase 3
 
-✅ Sample vectors efficiently
-✅ Infer field types
-✅ Generate schemas
-✅ Handle mixed types
-✅ Provide descriptions
+✅ Sample vectors efficiently ✅ Infer field types ✅ Generate schemas ✅ Handle
+mixed types ✅ Provide descriptions
 
 ---
 
@@ -481,7 +476,8 @@ Solution: Reduce max_workers, add delays between requests
 ## 📚 Documentation
 
 - **User Guide:** `src/datahub/ingestion/source/pinecone/README.md`
-- **Implementation Plan:** `src/datahub/ingestion/source/pinecone/skill_docs/PINECONE_CONNECTOR_PLAN.md`
+- **Implementation Plan:**
+  `src/datahub/ingestion/source/pinecone/skill_docs/PINECONE_CONNECTOR_PLAN.md`
 - **Phase 3 Details:** `PINECONE_PHASE3_SUMMARY.md`
 - **Example Recipe:** `examples/recipes/pinecone_to_datahub.yml`
 
@@ -505,7 +501,8 @@ Solution: Reduce max_workers, add delays between requests
 2. **Type Priority:** String-first approach handles mixed types gracefully
 3. **Performance Balance:** 100 samples provides good accuracy without slowdown
 4. **Error Isolation:** Schema inference failures don't break ingestion
-5. **User Control:** Configuration options allow optimization for different use cases
+5. **User Control:** Configuration options allow optimization for different use
+   cases
 
 ---
 
@@ -532,6 +529,4 @@ Part of the DataHub project - Apache 2.0 License
 
 ---
 
-**Status:** ✅ Production Ready
-**Version:** 1.0.0
-**Last Updated:** 2026
+**Status:** ✅ Production Ready **Version:** 1.0.0 **Last Updated:** 2026
