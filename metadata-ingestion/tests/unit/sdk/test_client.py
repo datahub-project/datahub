@@ -124,9 +124,22 @@ def test_get_urns_by_filter_rejects_draft_when_server_does_not_support_flag() ->
 
 
 def test_data_process_maps_to_data_process_instance() -> None:
-    # "dataProcess" (legacy Azkaban entity) has never been a valid GraphQL
-    # EntityType enum value. The searchable successor is DATA_PROCESS_INSTANCE.
-    # mcp-server-datahub triggers this path when an LLM asks it to search for
-    # pipeline/trace entities, producing a GraphQL ValidationError:
-    #   "No value found for name 'DATA_PROCESS'"
+    # "dataProcess" is a deprecated entity type (the PDL model is annotated
+    # @deprecated = "Use DataJob instead."). It was never added to the GraphQL
+    # EntityType enum in entity.graphql -- DATA_PROCESS does not exist as an
+    # enum value, only DATA_PROCESS_INSTANCE does.
+    #
+    # entity_type_to_graphql() converts camelCase mechanically, producing
+    # "DATA_PROCESS" for "dataProcess". Passing that to searchAcrossEntities
+    # causes GMS to return a GraphQL ValidationError:
+    #
+    #   Variable 'types' has an invalid value: Invalid input for enum
+    #   'EntityType'. No value found for name 'DATA_PROCESS'
+    #
+    # This is triggered in practice when mcp-server-datahub's search tool
+    # receives a filter like entity_type=dataProcess from an LLM agent
+    # querying for pipeline run entities. The mapping to DATA_PROCESS_INSTANCE
+    # is intentional: LLM agents using the deprecated name are almost certainly
+    # looking for run instances (traces/spans), not workflow definitions
+    # (DataJob). See entity.graphql enum EntityType for the authoritative list.
     assert entity_type_to_graphql("dataProcess") == "DATA_PROCESS_INSTANCE"
