@@ -158,3 +158,12 @@ def test_get_dataset_urns_ignoring_case_dedupes() -> None:
         graph, "get_urns_by_filter", return_value=iter([_STORED, _STORED])
     ):
         assert graph.get_dataset_urns_ignoring_case(_LOWERCASED) == [_STORED]
+
+
+def test_data_process_maps_to_data_process_instance() -> None:
+    # "dataProcess" (legacy Azkaban entity) has never been a valid GraphQL
+    # EntityType enum value. The searchable successor is DATA_PROCESS_INSTANCE.
+    # mcp-server-datahub triggers this path when an LLM asks it to search for
+    # pipeline/trace entities, producing a GraphQL ValidationError:
+    #   "No value found for name 'DATA_PROCESS'"
+    assert entity_type_to_graphql("dataProcess") == "DATA_PROCESS_INSTANCE"
