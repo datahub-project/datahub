@@ -2,24 +2,23 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { DataProduct, Domain, EntityType } from '@types';
 
 const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
     border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
-    border: ${(props) => (props.$isShowNavBarRedesign ? `1px solid ${colors.gray[100]}` : '2px solid transparent')};
+    border: ${(props) =>
+        props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};
 
     :hover {
-        border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid ${SEARCH_COLORS.LINK_BLUE};
+        border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid
+            ${(props) => props.theme.colors.hyperlinks};
     }
 
     display: flex;
@@ -36,7 +35,7 @@ const Text = styled.div`
 
 const Name = styled.div`
     font-size: 16px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -53,7 +52,7 @@ const Section = styled.div`
 const SectionName = styled.div`
     font-size: 14px;
     margin-left: 10px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     overflow: hidden;
     text-overflow: ellipsis;
 `;

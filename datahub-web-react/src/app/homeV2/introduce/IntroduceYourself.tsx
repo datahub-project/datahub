@@ -8,7 +8,7 @@ import { IntroduceYourselfMainContent } from '@app/homeV2/introduce/IntroduceYou
 const Container = styled.div`
     display: flex;
     height: 100vh;
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 export const IntroduceYourself = () => {
