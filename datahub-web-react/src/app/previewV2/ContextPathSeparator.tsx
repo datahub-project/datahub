@@ -1,4 +1,5 @@
 import { Icon, colors } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -9,5 +10,5 @@ const StyledIcon = styled(Icon)`
 `;
 
 export default function ContextPathSeparator() {
-    return <StyledIcon icon="CaretRight" source="phosphor" size="sm" />;
+    return <StyledIcon icon={CaretRight} size="sm" />;
 }

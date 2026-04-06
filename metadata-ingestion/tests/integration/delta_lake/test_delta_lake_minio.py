@@ -9,7 +9,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_3
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 MINIO_PORT = 9000

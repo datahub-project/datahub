@@ -22,11 +22,13 @@ For DataHub-provided assertion runners, we can deploy an agent in your environme
 - [Column](/docs/managed-datahub/observe/column-assertions.md)
 - [Schema](/docs/managed-datahub/observe/schema-assertions.md)
 
-#### Bulk Creating Assertions
+#### Monitoring Rules — Assertions at Scale
 
-You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across several tables at once via the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md).
+[Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) let you automatically apply [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across your data landscape. Define a search predicate — such as a DataHub Domain, data platform, or schema — and DataHub will create Freshness, Volume, and Schema anomaly monitors on all matching datasets. As your data landscape evolves, new datasets that match the predicate are automatically covered, and datasets that no longer match have their monitors removed.
 
-To bulk create column metric assertions on a given dataset, follow the steps under the **Anomaly Detection** section of [Column Assertion](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
+You can create and manage Monitoring Rules from the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md).
+
+To create column metric anomaly monitors for multiple columns on a single dataset, see the **Anomaly Detection** section of [Column Assertions](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
 
 ### Detecting Anomalies Across Massive Data Landscapes
 
@@ -47,6 +49,12 @@ Here are some typical situations where manual assertion rules fall short:
 In these scenarios, you may want to consider creating a [Smart Assertion](./smart-assertions.md) to let machine learning automatically detect the normal patterns in your data and alert you when anomalies occur. This approach allows for more flexible and adaptive data quality monitoring without the overhead of manual rule maintenance.
 
 Both traditional and smart assertions can be defined through the DataHub API or the UI.
+
+### Time-Series Bucketing & Historical Backfill
+
+For assertions that need to evaluate data at a specific time granularity (e.g., daily or weekly), you can enable **time-series bucketing** on [Volume](/docs/managed-datahub/observe/volume-assertions.md#time-series-bucketing) and [Column Metric](/docs/managed-datahub/observe/column-assertions.md#time-series-bucketing-for-column-metric-assertions) assertions. This partitions your data into time buckets using a timestamp column and evaluates each bucket independently.
+
+For Smart Assertions with bucketing enabled, you can also configure **historical backfill** to immediately populate the assertion's metrics history, so the AI model can start making accurate predictions from day one. See [Backfill Assertion History](/docs/managed-datahub/observe/assertion-backfill.md) for details.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/assertions/assertion-ui.png"/>

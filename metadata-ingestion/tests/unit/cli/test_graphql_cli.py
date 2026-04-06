@@ -1,3 +1,4 @@
+import importlib.resources
 import json
 import os
 import tempfile
@@ -10,6 +11,8 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.cli.graphql_cli import (
+    GraphQLCliError,
+    GraphQLExitCode,
     _collect_nested_types,
     _convert_describe_to_json,
     _convert_operation_to_json,
@@ -423,10 +426,31 @@ class TestGraphQLCommand:
 
         assert result.exit_code == 0
         mock_client.execute_graphql.assert_called_once_with(
-            query="query { me { username } }", variables=None
+            query="query { me { username } }",
+            variables=None,
+            strip_unsupported_fields=False,
         )
         assert '"me"' in result.output
         assert '"username": "testuser"' in result.output
+
+    @patch("datahub.cli.graphql_cli.get_default_graph")
+    def test_graphql_strip_unknown_fields_flag(self, mock_get_graph):
+        """Test --strip-unknown-fields flag passes through to execute_graphql."""
+        mock_client = Mock()
+        mock_client.execute_graphql.return_value = {"me": {"username": "testuser"}}
+        mock_get_graph.return_value = mock_client
+
+        result = self.runner.invoke(
+            graphql,
+            ["--query", "query { me { username } }", "--strip-unknown-fields"],
+        )
+
+        assert result.exit_code == 0
+        mock_client.execute_graphql.assert_called_once_with(
+            query="query { me { username } }",
+            variables=None,
+            strip_unsupported_fields=True,
+        )
 
     @patch("datahub.cli.graphql_cli.get_default_graph")
     def test_graphql_query_with_variables(self, mock_get_graph):
@@ -451,6 +475,7 @@ class TestGraphQLCommand:
         mock_client.execute_graphql.assert_called_once_with(
             query="query GetUser($urn: String!) { corpUser(urn: $urn) { info { email } } }",
             variables={"urn": "urn:li:corpuser:test"},
+            strip_unsupported_fields=False,
         )
 
     @patch("datahub.cli.graphql_cli.get_default_graph")
@@ -618,7 +643,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_once_with(
-                    query=query_content, variables=None
+                    query=query_content,
+                    variables=None,
+                    strip_unsupported_fields=False,
                 )
 
             # Clean up
@@ -653,6 +680,7 @@ class TestGraphQLCommand:
                 mock_client.execute_graphql.assert_called_once_with(
                     query="query GetUser($urn: String!) { corpUser(urn: $urn) { info { email } } }",
                     variables=variables,
+                    strip_unsupported_fields=False,
                 )
 
             # Clean up
@@ -689,7 +717,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_with(
-                    query=query_content, variables=None
+                    query=query_content,
+                    variables=None,
+                    strip_unsupported_fields=False,
                 )
 
                 # Reset mock for next test
@@ -703,7 +733,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_with(
-                    query=query_content, variables=None
+                    query=query_content,
+                    variables=None,
+                    strip_unsupported_fields=False,
                 )
 
             finally:
@@ -747,7 +779,9 @@ class TestGraphQLCommand:
 
                 assert result.exit_code == 0
                 mock_client.execute_graphql.assert_called_with(
-                    query=query, variables=variables
+                    query=query,
+                    variables=variables,
+                    strip_unsupported_fields=False,
                 )
 
             finally:
@@ -2449,3 +2483,239 @@ class TestCLIOutputFormatting:
             assert result.exit_code == 0
             # Handler should be called
             mock_handler.assert_called_once()
+
+
+class TestGraphQLCliError:
+    """Test GraphQLCliError structured error output."""
+
+    def test_exit_code_defaults_to_general(self):
+        err = GraphQLCliError("something failed")
+        assert err.exit_code == GraphQLExitCode.GENERAL
+
+    def test_exit_code_usage(self):
+        err = GraphQLCliError("bad flags", exit_code=GraphQLExitCode.USAGE)
+        assert err.exit_code == GraphQLExitCode.USAGE
+
+    def test_exit_code_permission(self):
+        err = GraphQLCliError("403", exit_code=GraphQLExitCode.PERMISSION)
+        assert err.exit_code == GraphQLExitCode.PERMISSION
+
+    def test_exit_code_connection(self):
+        err = GraphQLCliError(
+            "connection refused", exit_code=GraphQLExitCode.CONNECTION
+        )
+        assert err.exit_code == GraphQLExitCode.CONNECTION
+
+    def test_show_json_when_non_tty(self):
+        """Non-TTY stderr gets JSON error output."""
+        err = GraphQLCliError(
+            "Something failed",
+            error_type="graphql_error",
+            suggestion="try again",
+        )
+        with patch("datahub.cli.graphql_cli.sys") as mock_sys:
+            mock_sys.stderr.isatty.return_value = False
+            with patch("datahub.cli.graphql_cli.click.echo") as mock_echo:
+                err.show()
+                mock_echo.assert_called_once()
+                call_args = mock_echo.call_args
+                output = call_args[0][0]
+                parsed = json.loads(output)
+                assert parsed["error"] == "graphql_error"
+                assert parsed["message"] == "Something failed"
+                assert parsed["suggestion"] == "try again"
+                assert call_args[1]["err"] is True
+
+    def test_show_omits_suggestion_when_none(self):
+        err = GraphQLCliError("fail", error_type="graphql_error")
+        with patch("datahub.cli.graphql_cli.sys") as mock_sys:
+            mock_sys.stderr.isatty.return_value = False
+            with patch("datahub.cli.graphql_cli.click.echo") as mock_echo:
+                err.show()
+                output = mock_echo.call_args[0][0]
+                parsed = json.loads(output)
+                assert "suggestion" not in parsed
+
+    def test_show_text_when_tty(self):
+        """TTY stderr gets click's default text error output."""
+        import click as _click
+
+        err = GraphQLCliError("Something failed", error_type="graphql_error")
+        with patch("datahub.cli.graphql_cli.sys") as mock_sys:
+            mock_sys.stderr.isatty.return_value = True
+            with patch.object(
+                _click.ClickException, "show", return_value=None
+            ) as mock_super_show:
+                err.show()
+                mock_super_show.assert_called_once()
+
+    def test_invalid_variables_json_raises_usage_error(self):
+        with pytest.raises(GraphQLCliError) as exc_info:
+            _parse_variables("{not valid json")
+        assert exc_info.value.error_type == "usage_error"
+        assert exc_info.value.exit_code == GraphQLExitCode.USAGE
+
+
+class TestAgentContext:
+    """Test --agent-context flag and non-TTY --help injection."""
+
+    def test_agent_context_flag_prints_and_exits(self):
+        runner = CliRunner()
+        with patch("datahub.cli.graphql_cli.get_default_graph"):
+            result = runner.invoke(graphql, ["--agent-context"])
+        assert result.exit_code == 0
+        assert (
+            "datahub graphql" in result.output.lower()
+            or "agent" in result.output.lower()
+        )
+
+    def test_agent_context_file_contains_key_sections(self):
+        """GRAPHQL_AGENT_CONTEXT.md has all expected sections."""
+        text = (
+            importlib.resources.files("datahub.cli.resources")
+            .joinpath("GRAPHQL_AGENT_CONTEXT.md")
+            .read_text(encoding="utf-8")
+        )
+        assert "## Output Discipline" in text
+        assert "## Discovery" in text
+        assert "## Dry Run" in text
+        assert "## Execution" in text
+        assert "## Error Handling" in text
+        assert "## Common Recipes" in text
+
+    def test_agent_context_file_documents_exit_codes(self):
+        text = (
+            importlib.resources.files("datahub.cli.resources")
+            .joinpath("GRAPHQL_AGENT_CONTEXT.md")
+            .read_text(encoding="utf-8")
+        )
+        assert "exit_code" in text.lower() or "exit codes" in text.lower()
+        assert "permission_denied" in text
+        assert "connection_error" in text
+
+    def test_non_tty_help_includes_agent_context(self):
+        """When stdout is not a TTY, --help appends GRAPHQL_AGENT_CONTEXT.md."""
+        runner = CliRunner()
+        result = runner.invoke(graphql, ["--help"])
+        # CliRunner captures output (non-TTY), so agent context should be appended
+        assert result.exit_code == 0
+        assert (
+            "Agent Context" in result.output
+            or "datahub graphql" in result.output.lower()
+        )
+
+
+class TestDryRun:
+    """Test --dry-run flag for query and operation modes."""
+
+    def test_dry_run_with_raw_query(self):
+        runner = CliRunner()
+        with patch("datahub.cli.graphql_cli.get_default_graph"):
+            result = runner.invoke(
+                graphql,
+                ["--query", "{ me { corpUser { urn } } }", "--dry-run"],
+            )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert "{ me { corpUser { urn } } }" in data["query"]
+        assert "variables" in data
+
+    def test_dry_run_with_variables(self):
+        runner = CliRunner()
+        vars_json = (
+            '{"urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)"}'
+        )
+        with patch("datahub.cli.graphql_cli.get_default_graph"):
+            result = runner.invoke(
+                graphql,
+                [
+                    "--query",
+                    "{ me { corpUser { urn } } }",
+                    "--variables",
+                    vars_json,
+                    "--dry-run",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert "urn" in data["variables"]
+
+    def test_dry_run_with_operation(self):
+        runner = CliRunner()
+        mock_schema = {
+            "queryType": {
+                "fields": [
+                    {"name": "me", "description": "Get current user", "args": []}
+                ]
+            }
+        }
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection",
+                return_value=mock_schema,
+            ),
+        ):
+            result = runner.invoke(graphql, ["--operation", "me", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert "me" in data["query"]
+        assert data["operation"] == "me"
+
+    def test_dry_run_operation_not_found_returns_usage_error(self):
+        runner = CliRunner()
+        mock_schema: dict = {"queryType": {"fields": []}}
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection",
+                return_value=mock_schema,
+            ),
+        ):
+            result = runner.invoke(graphql, ["--operation", "nonexistent", "--dry-run"])
+        assert result.exit_code == GraphQLExitCode.USAGE
+
+
+class TestExitCodes:
+    """Test that structured exit codes propagate correctly."""
+
+    def test_no_query_or_operation_exits_with_usage_code(self):
+        runner = CliRunner()
+        with patch("datahub.cli.graphql_cli.get_default_graph"):
+            result = runner.invoke(graphql, [])
+        assert result.exit_code == GraphQLExitCode.USAGE
+
+    def test_connection_error_exits_with_connection_code(self):
+        runner = CliRunner()
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch(
+                "datahub.cli.graphql_cli._execute_query",
+                side_effect=GraphQLCliError(
+                    "connection refused",
+                    error_type="connection_error",
+                    exit_code=GraphQLExitCode.CONNECTION,
+                ),
+            ),
+        ):
+            result = runner.invoke(graphql, ["--query", "{ me { corpUser { urn } } }"])
+        assert result.exit_code == GraphQLExitCode.CONNECTION
+
+    def test_permission_error_exits_with_permission_code(self):
+        runner = CliRunner()
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch(
+                "datahub.cli.graphql_cli._execute_query",
+                side_effect=GraphQLCliError(
+                    "403 forbidden",
+                    error_type="permission_denied",
+                    exit_code=GraphQLExitCode.PERMISSION,
+                ),
+            ),
+        ):
+            result = runner.invoke(graphql, ["--query", "{ me { corpUser { urn } } }"])
+        assert result.exit_code == GraphQLExitCode.PERMISSION

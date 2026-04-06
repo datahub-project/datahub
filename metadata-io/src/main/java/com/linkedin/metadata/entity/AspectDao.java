@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -116,12 +117,16 @@ public interface AspectDao {
    * @param txContext transaction context
    * @param latestAspect the aspect currently at version 0
    * @param newAspect the new aspect to be inserted or updated at version 0
+   * @param maxVersionsToKeep when <= 1, do not insert a new row for the previous version (only
+   *     update the existing version 0 row); when > 1, insert previous version as a history row then
+   *     update version 0
    */
   default Pair<Optional<EntityAspect>, Optional<EntityAspect>> saveLatestAspect(
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nullable SystemAspect latestAspect,
-      @Nonnull SystemAspect newAspect) {
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep) {
 
     if (newAspect.getSystemMetadataVersion().isEmpty()) {
       throw new IllegalArgumentException(
@@ -138,17 +143,19 @@ public interface AspectDao {
 
       // write version N (from previous database state if the version is modified)
       Optional<EntityAspect> inserted = Optional.empty();
-      if (!newAspect
-          .getSystemMetadataVersion()
-          .equals(currentVersion0.getSystemMetadataVersion())) {
+      if (maxVersionsToKeep > 1
+          && !newAspect
+              .getSystemMetadataVersion()
+              .equals(currentVersion0.getSystemMetadataVersion())) {
 
         inserted = insertAspect(txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
       }
 
       // update version 0
       Optional<EntityAspect> updated = Optional.empty();
-      boolean isNoOp =
-          Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+      final boolean isNoOp =
+          ValidationApiUtils.normalizedEqual(
+              currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
 
       // update trace
       newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
@@ -298,4 +305,10 @@ public interface AspectDao {
                         MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
                     bytes));
   }
+
+  @Nonnull
+  List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
+
+  @Nullable
+  com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }

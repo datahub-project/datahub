@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 
 
@@ -32,7 +33,6 @@ def mssql_source():
         # Set platform attribute (required by is_temp_table)
         source.platform = "mssql"
 
-        # Mock discovered_datasets (with platform_instance prefix to match URN names)
         source.discovered_datasets = {
             "test_instance.db1.dbo.real_table",
             "test_instance.db1.dbo.another_real_table",
@@ -43,7 +43,6 @@ def mssql_source():
             "db2.dbo.cross_db_table",
         }
 
-        # Mock schema_resolver
         schema_resolver = MagicMock()
         schema_resolver.platform_instance = "test_instance"
 
@@ -59,18 +58,21 @@ def mssql_source():
 
         schema_resolver.has_urn = MagicMock(side_effect=has_urn_side_effect)
 
-        # Mock get_schema_resolver method
         def mock_get_schema_resolver() -> MagicMock:
             return schema_resolver
 
         source.get_schema_resolver = mock_get_schema_resolver  # type: ignore[method-assign,assignment]
 
-        # Mock aggregator
         source.aggregator = MagicMock()
 
-        # Mock report
         source.report = MagicMock()
         source.ctx = MagicMock()
+
+        # Create MSSQLAliasFilter (the new home for alias filtering methods)
+        source.tsql_alias_cleaner = MSSQLAliasFilter(
+            is_discovered_table=source.is_discovered_table,
+            platform_instance="test_instance",
+        )
 
         return source
 
@@ -89,10 +91,10 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.src,PROD)",
         ]
 
-        # Implement _filter_upstream_aliases method
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep only the real table
         assert len(filtered) == 1
         assert "real_table" in filtered[0]
 
@@ -103,9 +105,10 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep all real tables
         assert len(filtered) == 2
 
     def test_filter_keeps_real_tables_in_discovered_datasets(self, mssql_source):
@@ -116,12 +119,12 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)",
         ]
 
-        # Clear schema_resolver to simulate missing schema
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should still keep it because it's in discovered_datasets
         assert len(filtered) == 1
 
     def test_filter_keeps_cross_database_references(self, mssql_source):
@@ -133,9 +136,10 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.alias,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep cross-DB table, filter same-DB alias
         assert len(filtered) == 1
         assert "db2" in filtered[0]
 
@@ -153,9 +157,10 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.temp,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep only the real table
         assert len(filtered) == 1
         assert "real_table" in filtered[0]
 
@@ -167,15 +172,16 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.#temp_table,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should filter temp table
         assert len(filtered) == 1
         assert "real_table" in filtered[0]
 
     def test_filter_empty_list(self, mssql_source):
         """Test filtering with empty upstream list."""
-        filtered = mssql_source._filter_upstream_aliases([])
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases([])
 
         assert filtered == []
 
@@ -188,7 +194,9 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.alias2,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         assert len(filtered) == 2
         assert "real_table" in filtered[0]
@@ -196,42 +204,35 @@ class TestUpstreamAliasFiltering:
 
 
 class TestIsTempTableForAliases:
-    """Test is_temp_table() method for alias detection."""
+    """Test is_discovered_table() method for real table detection."""
 
-    def test_is_temp_table_real_table_in_schema_resolver(self, mssql_source):
-        """Test that real tables with schemas are not marked as temp."""
-        assert not mssql_source.is_temp_table("db1.dbo.real_table")
+    def test_is_discovered_table_real_table_in_schema_resolver(self, mssql_source):
+        """Test that real tables with schemas are marked as discovered."""
+        assert mssql_source.is_discovered_table("db1.dbo.real_table")
 
-    def test_is_temp_table_real_table_in_discovered_datasets(self, mssql_source):
-        """Test that discovered real tables are not marked as temp."""
-        # Clear schema_resolver
+    def test_is_discovered_table_real_table_in_discovered_datasets(self, mssql_source):
+        """Test that discovered real tables are marked as discovered."""
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        assert not mssql_source.is_temp_table("db1.dbo.real_table")
+        assert mssql_source.is_discovered_table("db1.dbo.real_table")
 
-    def test_is_temp_table_undiscovered_same_db(self, mssql_source):
-        """Test that undiscovered same-DB tables are marked as temp (likely aliases)."""
-        # Clear schema_resolver
+    def test_is_discovered_table_undiscovered_same_db(self, mssql_source):
+        """Test that undiscovered same-DB tables are not marked as discovered (likely aliases)."""
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        assert mssql_source.is_temp_table("db1.dbo.unknown_alias")
+        assert not mssql_source.is_discovered_table("db1.dbo.unknown_alias")
 
-    def test_is_temp_table_hash_prefix(self, mssql_source):
-        """Test that tables with # prefix are marked as temp."""
-        assert mssql_source.is_temp_table("db1.dbo.#temp_table")
+    def test_is_discovered_table_hash_prefix(self, mssql_source):
+        """Test that tables with # prefix are not marked as discovered (temp tables)."""
+        assert not mssql_source.is_discovered_table("db1.dbo.#temp_table")
 
-    def test_is_temp_table_cross_db_undiscovered(self, mssql_source):
-        """Test that cross-DB undiscovered tables ARE marked as temp (filtered)."""
-        # Clear schema_resolver
+    def test_is_discovered_table_cross_db_undiscovered(self, mssql_source):
+        """Test that cross-DB undiscovered tables are NOT marked as discovered."""
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        # Cross-DB table not in discovered_datasets and not in schema_resolver
-        # No evidence it's a real table - filter it out
-        result = mssql_source.is_temp_table("other_db.dbo.unknown_table")
+        result = mssql_source.is_discovered_table("other_db.dbo.unknown_table")
 
-        # Tables not in schema_resolver and not matching patterns are filtered
-        # We don't assume cross-DB references are real without evidence
-        assert result
+        assert not result
 
 
 class TestPlatformInstancePrefixHandling:
@@ -248,9 +249,10 @@ class TestPlatformInstancePrefixHandling:
         # discovered_datasets has entries WITHOUT platform_instance prefix
         assert "db1.dbo.real_table" in mssql_source.discovered_datasets
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep real_table (found after stripping prefix), filter alias
         assert len(filtered) == 1
         assert "real_table" in filtered[0]
 
@@ -265,9 +267,10 @@ class TestPlatformInstancePrefixHandling:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.unknown,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep both real tables regardless of prefix format
         assert len(filtered) == 2
         assert any("real_table" in urn for urn in filtered)
         assert any("another_real_table" in urn for urn in filtered)
@@ -283,12 +286,13 @@ class TestDifferentAliasNames:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.timeseries.dbo.target,PROD)",
         ]
 
-        # Mock timeseries.dbo.table1 as discovered
         mssql_source.discovered_datasets.add("timeseries.dbo.table1")
         schema_resolver = mssql_source.get_schema_resolver()
         schema_resolver.has_urn = lambda urn: "table1" in urn
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         assert len(filtered) == 1
         assert "table1" in filtered[0]
@@ -304,9 +308,10 @@ class TestDifferentAliasNames:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.temp,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep only real_table, filter all aliases
         assert len(filtered) == 1
         assert "real_table" in filtered[0]
 
@@ -318,11 +323,10 @@ class TestUpstreamFilteringIntegration:
         """Test filtering aliases from UPDATE statement."""
         # Simulates: UPDATE t SET col = val FROM db1.dbo.users t
         upstream_urns = [
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.users,PROD)",  # Real table
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.t,PROD)",  # Alias
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.t,PROD)",
         ]
 
-        # Mock users table as discovered
         mssql_source.discovered_datasets.add("db1.dbo.users")
         schema_resolver = mssql_source.get_schema_resolver()
         original_has_urn = schema_resolver.has_urn.side_effect
@@ -334,9 +338,10 @@ class TestUpstreamFilteringIntegration:
 
         schema_resolver.has_urn = MagicMock(side_effect=new_has_urn)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep only users table
         assert len(filtered) == 1
         assert "users" in filtered[0]
 
@@ -344,11 +349,10 @@ class TestUpstreamFilteringIntegration:
         """Test filtering aliases from DELETE statement."""
         # Simulates: DELETE d FROM db1.dbo.logs d WHERE ...
         upstream_urns = [
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.logs,PROD)",  # Real table
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.d,PROD)",  # Alias
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.logs,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.d,PROD)",
         ]
 
-        # Mock logs table as discovered
         mssql_source.discovered_datasets.add("db1.dbo.logs")
         schema_resolver = mssql_source.get_schema_resolver()
         original_has_urn = schema_resolver.has_urn.side_effect
@@ -360,9 +364,10 @@ class TestUpstreamFilteringIntegration:
 
         schema_resolver.has_urn = MagicMock(side_effect=new_has_urn)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep only logs table
         assert len(filtered) == 1
         assert "logs" in filtered[0]
 
@@ -379,7 +384,6 @@ class TestUpstreamFilteringIntegration:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.temp,PROD)",
         ]
 
-        # Mock tables
         mssql_source.discovered_datasets.add("db1.dbo.orders")
         mssql_source.discovered_datasets.add("db2.dbo.customers")
 
@@ -390,9 +394,10 @@ class TestUpstreamFilteringIntegration:
 
         schema_resolver.has_urn = MagicMock(side_effect=has_urn_for_test)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
-        # Should keep only real tables
         assert len(filtered) == 2
         assert any("orders" in urn for urn in filtered)
         assert any("customers" in urn for urn in filtered)
@@ -403,7 +408,6 @@ class TestErrorHandling:
 
     def test_is_qualified_table_urn_malformed_urn(self, mssql_source):
         """Test _is_qualified_table_urn handles malformed URNs gracefully."""
-        # Malformed URNs should return False without raising exceptions
         malformed_urns = [
             "",
             "not-a-urn",
@@ -414,39 +418,32 @@ class TestErrorHandling:
         ]
 
         for urn in malformed_urns:
-            result = mssql_source._is_qualified_table_urn(urn)
+            result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(urn)
             # Should return False for all malformed URNs, not raise
             assert result is False, f"Expected False for malformed URN: {urn}"
 
     def test_is_qualified_table_urn_with_platform_instance_edge_cases(
         self, mssql_source
     ):
-        """Test platform instance prefix handling edge cases."""
-        # Empty platform instance
-        result = mssql_source._is_qualified_table_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.schema.table,PROD)",
-            platform_instance="",
+        """Test platform instance prefix handling with fixture's platform_instance='test_instance'."""
+        result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.schema.table,PROD)"
         )
         assert result is True
 
-        # Platform instance that's a prefix of the table name
-        result = mssql_source._is_qualified_table_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,test.db.schema.table,PROD)",
-            platform_instance="test",
+        result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db.schema.table,PROD)"
         )
-        assert result is True  # After stripping "test.", "db.schema.table" has 3 parts
+        assert result is True
 
-        # Platform instance that doesn't match
-        result = mssql_source._is_qualified_table_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,other_instance.db.schema.table,PROD)",
-            platform_instance="test_instance",
+        result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,other_instance.db.schema.table,PROD)"
         )
-        # No stripping occurs, "other_instance.db.schema.table" has 4 parts
         assert result is True
 
     def test_filter_upstream_aliases_empty_input(self, mssql_source):
         """Test _filter_upstream_aliases handles empty input."""
-        result = mssql_source._filter_upstream_aliases([])
+        result = mssql_source.tsql_alias_cleaner._filter_upstream_aliases([])
         assert result == []
 
     def test_filter_upstream_aliases_all_malformed(self, mssql_source):
@@ -458,7 +455,9 @@ class TestErrorHandling:
         ]
         # Conservative behavior: malformed URNs are kept (not filtered out)
         # This prevents accidentally losing valid lineage due to parse errors
-        result = mssql_source._filter_upstream_aliases(malformed_urns)
+        result = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            malformed_urns
+        )
         assert len(result) == len(malformed_urns)
 
     def test_filter_upstream_aliases_mixed_valid_and_malformed(self, mssql_source):
@@ -468,21 +467,16 @@ class TestErrorHandling:
             "not-a-urn",
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD)",
         ]
-        result = mssql_source._filter_upstream_aliases(mixed_urns)
-        # Should keep valid URNs AND malformed ones (conservative approach)
+        result = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(mixed_urns)
         assert len(result) == 3
 
-    def test_is_temp_table_exception_handling(self, mssql_source):
-        """Test is_temp_table handles exceptions gracefully."""
-        # Mock schema_resolver to raise exception
+    def test_is_discovered_table_exception_handling(self, mssql_source):
+        """Test is_discovered_table handles exceptions gracefully."""
         schema_resolver = mssql_source.get_schema_resolver()
         schema_resolver.has_urn = MagicMock(side_effect=Exception("Simulated error"))
 
-        # Returns True on exception (safer: exclude uncertain items from lineage)
-        # Better to miss a real table than to include spurious aliases
-        # Logs a warning but doesn't raise
-        result = mssql_source.is_temp_table("db.schema.table")
-        assert result is True
+        result = mssql_source.is_discovered_table("db.schema.table")
+        assert result is False
 
 
 class TestColumnLineageFiltering:
@@ -562,9 +556,10 @@ class TestColumnLineageFiltering:
         ]
 
         # Filter the MCPs
-        filtered_mcps = list(mssql_source._filter_procedure_lineage(mcps, "test_proc"))
+        filtered_mcps = list(
+            mssql_source.tsql_alias_cleaner.filter_procedure_lineage(mcps, "test_proc")
+        )
 
-        # Should have 1 MCP
         assert len(filtered_mcps) == 1
 
         aspect = filtered_mcps[0].aspect
@@ -626,7 +621,9 @@ class TestColumnLineageFiltering:
             )
         ]
 
-        filtered_mcps = list(mssql_source._filter_procedure_lineage(mcps, "test_proc"))
+        filtered_mcps = list(
+            mssql_source.tsql_alias_cleaner.filter_procedure_lineage(mcps, "test_proc")
+        )
 
         assert len(filtered_mcps) == 1
         aspect = filtered_mcps[0].aspect

@@ -1,42 +1,49 @@
-import { Typography } from 'antd';
-import React from 'react';
+import { Button, PageTitle } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useCallback, useRef } from 'react';
+import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { POLICIES_CREATE_POLICY_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
 import { ManageRoles } from '@app/permissions/roles/ManageRoles';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
 
 const PageContainer = styled.div`
-    padding-top: 20px;
+    padding: 16px 20px;
     width: 100%;
+    flex: 1;
     display: flex;
+    gap: 16px;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
 `;
 
 const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
+    display: flex;
+    justify-content: space-between;
 `;
 
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
+const HeaderLeft = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
+const HeaderRight = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
 `;
 
 const Content = styled.div`
-    &&& .ant-tabs-nav {
-        margin: 0;
-    }
-    color: #262626;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
 
-    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-        padding-left: 28px;
+    &&& .ant-tabs-nav {
+        margin-bottom: 0;
     }
 `;
 
@@ -47,9 +54,13 @@ enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
-    /**
-     * Determines which view should be visible: roles or policies.
-     */
+    const location = useLocation();
+    const createPolicyRef = useRef<() => void>(() => {});
+    const registerCreatePolicy = useCallback((fn: () => void) => {
+        createPolicyRef.current = fn;
+    }, []);
+
+    const isPoliciesTab = location.pathname.includes('/policies');
 
     const getTabs = () => {
         return [
@@ -64,7 +75,7 @@ export const ManagePermissions = () => {
             {
                 name: TabType.Policies,
                 path: TabType.Policies.toLocaleLowerCase(),
-                content: <ManagePolicies />,
+                content: <ManagePolicies onRegisterCreatePolicy={registerCreatePolicy} />,
                 display: {
                     enabled: () => true,
                 },
@@ -73,18 +84,32 @@ export const ManagePermissions = () => {
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
-    const onTabChange = () => null;
 
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Permissions</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    View your DataHub permissions. Take administrative actions.
-                </Typography.Paragraph>
+                <HeaderLeft>
+                    <PageTitle
+                        title="Manage Permissions"
+                        subTitle="View your DataHub permissions. Take administrative actions."
+                    />
+                </HeaderLeft>
+                {isPoliciesTab && (
+                    <HeaderRight>
+                        <Button
+                            id={POLICIES_CREATE_POLICY_ID}
+                            variant="filled"
+                            icon={{ icon: Plus }}
+                            onClick={() => createPolicyRef.current()}
+                            data-testid="add-policy-button"
+                        >
+                            Create new policy
+                        </Button>
+                    </HeaderRight>
+                )}
             </PageHeaderContainer>
             <Content>
-                <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} />
             </Content>
         </PageContainer>
     );

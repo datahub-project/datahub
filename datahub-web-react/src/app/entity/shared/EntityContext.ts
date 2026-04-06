@@ -55,11 +55,6 @@ export const useRefetch = () => {
     return refetch;
 };
 
-export const useLineageData = () => {
-    const { lineage } = useContext(EntityContext);
-    return lineage;
-};
-
 export const useMutationUrn = () => {
     const { urn, entityData } = useContext(EntityContext);
     const isHideSiblingMode = useIsSeparateSiblingsMode();

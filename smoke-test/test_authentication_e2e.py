@@ -37,6 +37,7 @@ from tests.utils import (
     TestSessionWrapper,
     get_admin_credentials,
     get_frontend_url,
+    get_gms_prometheus_base_url,
     get_gms_url,
     login_as,
 )
@@ -132,7 +133,7 @@ def test_health_endpoint_with_invalid_token() -> None:
 
 def test_actuator_prometheus_no_auth() -> None:
     """Prometheus metrics should work without authentication (excluded path)."""
-    response = requests.get(f"{get_gms_url()}/actuator/prometheus")
+    response = requests.get(f"{get_gms_prometheus_base_url()}/actuator/prometheus")
     # Might be 200 or 404 depending on setup, but should NOT be 401
     assert response.status_code != 401
     logger.info(f"✅ /actuator/prometheus without auth: {response.status_code}")
@@ -193,6 +194,25 @@ def test_graphql_endpoint_valid_token(auth_session):
     )
     assert response.status_code == 200
     logger.info(f"✅ GraphQL with valid session: {response.status_code}")
+
+
+def test_graphql_endpoint_via_frontend_uses_gzip(auth_session):
+    """GraphQL via frontend proxy should return gzip-compressed responses (GzipFilter)."""
+    query = {"query": "{ me { corpUser { username } } }"}
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        json=query,
+        headers={"Accept-Encoding": "gzip"},
+    )
+    assert response.status_code == 200, f"GraphQL request failed: {response.text[:200]}"
+    data = response.json()
+    assert data.get("data") is not None, f"GraphQL response missing data: {data}"
+    encoding = response.headers.get("Content-Encoding", "").strip().lower()
+    assert encoding == "gzip", (
+        f"Expected Content-Encoding: gzip from frontend proxy (GraphQL should be buffered "
+        f"so GzipFilter compresses it), got: {encoding!r}"
+    )
+    logger.info("✅ GraphQL via frontend uses gzip compression")
 
 
 @pytest.mark.parametrize(
@@ -332,15 +352,16 @@ def test_admin_endpoints_require_privileges(auth_session) -> None:
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
 
-    test_user_urn = "urn:li:corpuser:limited_auth_test_user"
+    limited_auth_email = "limited.auth.test@smoke.datahub.test"
+    test_user_urn = f"urn:li:corpuser:{limited_auth_email}"
     token_id = None
 
     try:
         # Create limited user
-        create_user(admin_session, "limited_auth_test_user", "testpass123")
+        create_user(admin_session, limited_auth_email, "testpass123")
 
         # Login as limited user and get API token
-        limited_session = login_as("limited_auth_test_user", "testpass123")
+        limited_session = login_as(limited_auth_email, "testpass123")
         api_token, token_id = extract_api_token_from_session(limited_session)
 
         # Test admin-only endpoints that require MANAGE_SYSTEM_OPERATIONS_PRIVILEGE
@@ -646,7 +667,11 @@ def test_authentication_behavior_summary(auth_session: TestSessionWrapper) -> No
     public_endpoints = ["/health", "/actuator/prometheus", "/config"]
     for endpoint in public_endpoints:
         try:
-            response = requests.get(f"{get_gms_url()}{endpoint}")
+            if endpoint == "/actuator/prometheus":
+                url = f"{get_gms_prometheus_base_url()}/actuator/prometheus"
+            else:
+                url = f"{get_gms_url()}{endpoint}"
+            response = requests.get(url)
             if response.status_code != 401:
                 test_results["public_endpoints"] += 1
                 logger.info(f"  Public endpoint {endpoint}: {response.status_code}")

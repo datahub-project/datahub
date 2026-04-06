@@ -1,5 +1,5 @@
 import {
-  setThemeV2AndIngestionRedesignFlags,
+  setIngestionRedesignFlags,
   createAndRunIngestionSource,
   createIngestionSource,
   updateIngestionSource,
@@ -17,12 +17,13 @@ const ingestionSourceDetails = {
   username: `user${number}`,
   password: `password${number}`,
   role: `role${number}`,
+  authentication_type: "Username & Password",
 };
 
 describe("ingestion sources", () => {
   beforeEach(() => {
-    setThemeV2AndIngestionRedesignFlags(true);
-    cy.loginWithCredentials();
+    setIngestionRedesignFlags(true);
+    cy.login();
     goToIngestionPage();
   });
 

@@ -4,10 +4,11 @@ import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuil
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { properties } from '@app/sharedV2/queryBuilder/properties';
 
-const EMPTY_FILTER: LogicalPredicate = {
+/** Start with one blank condition row so users can immediately pick a property. */
+const DEFAULT_FILTER: LogicalPredicate = {
     type: 'logical',
     operator: LogicalOperatorType.AND,
-    operands: [],
+    operands: [{ type: 'property' }],
 };
 
 type Props = {
@@ -18,7 +19,7 @@ type Props = {
 const DynamicSelectAssetsTab = ({ dynamicFilter, setDynamicFilter }: Props) => {
     return (
         <LogicalFiltersBuilder
-            filters={dynamicFilter ?? EMPTY_FILTER}
+            filters={dynamicFilter ?? DEFAULT_FILTER}
             onChangeFilters={setDynamicFilter}
             properties={properties}
         />

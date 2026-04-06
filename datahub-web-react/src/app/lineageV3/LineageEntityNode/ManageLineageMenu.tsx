@@ -1,4 +1,9 @@
 import { Icon, Popover, colors } from '@components';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { House } from '@phosphor-icons/react/dist/csr/House';
 import { Button, Dropdown } from 'antd';
 import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import * as QueryString from 'query-string';
@@ -135,7 +140,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
             onClick: () => history.push(getLineageUrl(node.urn, node.type, location, entityRegistry)),
             label: (
                 <MenuItemContent data-testid="change-home-node">
-                    <Icon icon="House" source="phosphor" size="inherit" />
+                    <Icon icon={House} size="inherit" />
                     Change to Home
                 </MenuItemContent>
             ),
@@ -154,7 +159,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                         overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                     >
                         <MenuItemContent data-testid="edit-upstream-lineage">
-                            <Icon icon="ArrowLeft" source="phosphor" size="inherit" />
+                            <Icon icon={ArrowLeft} size="inherit" />
                             Edit Upstream
                         </MenuItemContent>
                     </Popover>
@@ -171,7 +176,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                         overlayStyle={!isDownstreamDisabled ? { display: 'none' } : undefined}
                     >
                         <MenuItemContent data-testid="edit-downstream-lineage">
-                            <Icon icon="ArrowRight" source="phosphor" size="inherit" />
+                            <Icon icon={ArrowRight} size="inherit" />
                             Edit Downstream
                         </MenuItemContent>
                     </Popover>
@@ -185,7 +190,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
         onClick: () => navigator.clipboard.writeText(node.urn),
         label: (
             <MenuItemContent data-testid="change-home-node">
-                <Icon icon="Copy" source="phosphor" size="inherit" />
+                <Icon icon={Copy} size="inherit" />
                 Copy Urn
             </MenuItemContent>
         ),
@@ -201,7 +206,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     placement="topRight"
                     menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${colors.gray[100]}` } }}
                 >
-                    <Icon icon="DotsThreeVertical" source="phosphor" color="gray" />
+                    <Icon icon={DotsThreeVertical} color="gray" />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (

@@ -1,3 +1,9 @@
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
+
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
 
@@ -6,31 +12,31 @@ import { SummaryElementType } from '@types';
 export const OWNERS_PROPERTY: AssetProperty = {
     name: 'Owners',
     type: SummaryElementType.Owners,
-    icon: 'UserCircle',
+    icon: UserCircle,
 };
 
 export const DOMAIN_PROPERTY: AssetProperty = {
     name: 'Domain',
     type: SummaryElementType.Domain,
-    icon: 'Globe',
+    icon: Globe,
 };
 
 export const TAGS_PROPERTY: AssetProperty = {
     name: 'Tags',
     type: SummaryElementType.Tags,
-    icon: 'Tag',
+    icon: Tag,
 };
 
 export const TERMS_PROPERTY: AssetProperty = {
     name: 'Terms',
     type: SummaryElementType.GlossaryTerms,
-    icon: 'BookmarkSimple',
+    icon: BookmarkSimple,
 };
 
 export const CREATED_PROPERTY: AssetProperty = {
     name: 'Created',
     type: SummaryElementType.Created,
-    icon: 'Clock',
+    icon: Clock,
 };
 
 export const SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES = [

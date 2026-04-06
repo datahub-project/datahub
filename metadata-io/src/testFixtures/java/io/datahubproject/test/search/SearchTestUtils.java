@@ -99,6 +99,7 @@ public class SearchTestUtils {
                           .maxThreads(1)
                           .queryOptimization(true)
                           .pointInTimeCreationEnabled(true) // Enable PIT for graph queries
+                          .sliceFutureDrainTimeoutSeconds(2)
                           .build())
                   .build())
           .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(1).build())
@@ -128,7 +129,13 @@ public class SearchTestUtils {
                   .minSearchFilterLength(3)
                   .build())
           .buildIndices(
-              BuildIndicesConfiguration.builder().reindexOptimizationEnabled(true).build())
+              BuildIndicesConfiguration.builder()
+                  .reindexOptimizationEnabled(true)
+                  .reindexBatchSize(5000)
+                  .reindexMaxSlices(256)
+                  .reindexNoProgressRetryMinutes(5)
+                  .createIndexRetryEnabled(true)
+                  .build())
           .entityIndex(
               EntityIndexConfiguration.builder()
                   .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
@@ -419,6 +426,11 @@ public class SearchTestUtils {
           @Override
           public DataHubAppConfiguration getDataHubAppConfig() {
             return new DataHubAppConfiguration();
+          }
+
+          @Override
+          public int getMaxParentDepth() {
+            return 50;
           }
         });
   }

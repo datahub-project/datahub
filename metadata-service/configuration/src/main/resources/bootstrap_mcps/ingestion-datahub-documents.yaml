@@ -1,0 +1,26 @@
+# Instructions to add additional entry or update on the target system
+# 1. Edit this file
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityType: dataHubIngestionSource
+  entityUrn: urn:li:dataHubIngestionSource:datahub-documents
+  aspectName: dataHubIngestionSourceInfo
+  changeType: UPSERT
+  aspect:
+    type: 'datahub-documents'
+    name: '{{ingestion.name}}{{^ingestion.name}}datahub-documents{{/ingestion.name}}'
+    schedule:
+      timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
+      interval: '{{schedule.interval}}{{^schedule.interval}}*/15 * * * *{{/schedule.interval}}'
+    config:
+      version: '{{&ingestion.version}}{{^ingestion.version}}{{/ingestion.version}}'
+      recipe:
+        source:
+          type: datahub-documents
+          config: { }
+      debugMode: false
+      extraArgs:
+        extra_env_vars: '{{&ingestion.extra_env_vars}}{{^ingestion.extra_env_vars}}{}{{/ingestion.extra_env_vars}}'
+      executorId: default
+    source:
+      type: {{source}}{{^source}}SYSTEM{{/source}}
+  headers: {}

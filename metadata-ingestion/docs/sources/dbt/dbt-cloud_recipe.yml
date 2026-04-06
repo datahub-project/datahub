@@ -26,5 +26,6 @@ source:
     #     #   - "test.*"  # optional: regex pattern to exclude specific jobs
 
     target_platform: "${TARGET_PLATFORM_ID}" # e.g. bigquery/postgres/snowflake/etc.
+    # convert_urns_to_lowercase: true  # optional: lowercase dbt URNs to avoid duplicates from casing differences (default: true for Snowflake)
 
 # sink configs

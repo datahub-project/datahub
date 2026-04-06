@@ -1,4 +1,5 @@
 import { Button, Tooltip, colors } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -19,7 +20,7 @@ export default function EditButton({ setShowSelectMode, disabled }: Props) {
                 disabled={disabled}
                 data-testid="search-results-edit-button"
                 isCircle
-                icon={{ icon: 'PencilSimple', source: 'phosphor' }}
+                icon={{ icon: PencilSimple }}
                 variant="text"
                 color="gray"
                 size="sm"

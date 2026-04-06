@@ -114,8 +114,28 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT * FROM my_other_table",
+            "viewLogic": "SELECT * FROM my_db.my_schema.my_other_table",
             "viewLanguage": "SQL"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_other_table,PROD)",
+                    "type": "VIEW"
+                }
+            ]
         }
     }
 },

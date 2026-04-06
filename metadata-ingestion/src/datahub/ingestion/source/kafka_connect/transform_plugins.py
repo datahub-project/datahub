@@ -12,6 +12,7 @@ Key principles:
 """
 
 import logging
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
@@ -23,6 +24,15 @@ from datahub.ingestion.source.kafka_connect.config_constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+# If no system Java is installed, use jdk4py (pip-installable JVM) as a fallback.
+# This makes the kafka-connect plugin self-contained without requiring a system JDK.
+try:
+    from jdk4py import JAVA_HOME as _JDK4PY_JAVA_HOME
+
+    os.environ.setdefault("JAVA_HOME", str(_JDK4PY_JAVA_HOME))
+except ImportError:
+    pass
 
 # Initialize JVM for Java regex support at module level
 try:

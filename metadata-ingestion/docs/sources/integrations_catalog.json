@@ -1,0 +1,1006 @@
+{
+  "airflow": {
+    "external": true,
+    "platform_type": "Orchestrator",
+    "connection_type": "Push",
+    "support_status": "Certified",
+    "description": "Airflow is an open-source data orchestration tool used for scheduling, monitoring, and managing complex data pipelines.",
+    "title": "Airflow",
+    "doc_path_override": "docs/lineage/airflow",
+    "extra_features": [
+      "Stateful Ingestion"
+    ]
+  },
+  "athena": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Athena is a serverless interactive query service that enables users to analyze data in Amazon S3 using standard SQL.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "azure-ad": {
+    "platform_type": "Identity Provider",
+    "connection_type": "Pull",
+    "description": "Azure AD is a cloud-based identity and access management tool that provides secure authentication and authorization for users and applications."
+  },
+  "bigquery": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "BigQuery is a cloud-based data warehousing and analytics tool that allows users to store, query, and analyze large datasets quickly and efficiently.",
+    "extra_features": [
+      "Lower Casing",
+      "Patch Lineage",
+      "Status Aspect"
+    ]
+  },
+  "business-glossary": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "A source provided by DataHub for ingesting glossary metadata that provides a comprehensive list of business terms and definitions used within an organization.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "clickhouse": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "ClickHouse is an open-source column-oriented database management system designed for high-performance data processing and analytics.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "csv-enricher": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "An ingestion source for enriching metadata provided in CSV format provided by DataHub",
+    "title": "CSV",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "dagster": {
+    "external": true,
+    "platform_type": "Orchestrator",
+    "connection_type": "Pull",
+    "support_status": "Certified",
+    "description": "Dagster is a next-generation open source orchestration platform for the development, production, and observation of data assets.",
+    "title": "Dagster",
+    "doc_path_override": "docs/lineage/dagster",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "databricks": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Pull",
+    "description": "Databricks is a cloud-based data processing and analytics platform that enables data scientists and engineers to collaborate and build data-driven applications.",
+    "img_path": "img/logos/platforms/databricks.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "datahub": {
+    "platform_type": [
+      "Internal",
+      "Data Catalog"
+    ],
+    "connection_type": "Pull",
+    "description": "Integrate your open source DataHub instance with DataHub Cloud or other on-prem DataHub instances",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "dbt": {
+    "platform_type": [
+      "ETL/ELT",
+      "Data Quality"
+    ],
+    "connection_type": "Pull",
+    "description": "dbt is a data transformation tool that enables analysts and engineers to transform data in their warehouses through a modular, SQL-based approach.",
+    "extra_features": [
+      "Patch Lineage",
+      "Status Aspect"
+    ]
+  },
+  "delta-lake": {
+    "platform_type": [
+      "Database",
+      "Data Lake"
+    ],
+    "connection_type": "Pull",
+    "description": "Delta Lake is an open-source data lake storage layer that provides ACID transactions, schema enforcement, and data versioning for big data workloads.",
+    "img_path": "img/logos/platforms/deltalake.svg"
+  },
+  "demo-data": {
+    "platform_type": "Internal",
+    "connection_type": "Pull",
+    "description": "Demo Data is a data tool that provides sample data sets for demonstration and testing purposes.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "druid": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Druid is an open-source data store designed for real-time analytics on large datasets.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "elasticsearch": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Elasticsearch is a distributed, open-source search and analytics engine designed for handling large volumes of data."
+  },
+  "feast": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "description": "Feast is an open-source feature store that enables teams to manage, store, and discover features for machine learning applications."
+  },
+  "metadata-file": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "An ingestion source for single files provided by DataHub",
+    "title": "File",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "file-based-lineage": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "File Based Lineage is a data tool that tracks the lineage of data files and their dependencies.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "glue": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "Glue is a data integration service that allows users to extract, transform, and load data from various sources into a data warehouse.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "great-expectations": {
+    "external": true,
+    "platform_type": "Data Quality",
+    "connection_type": "Push",
+    "description": "Great Expectations is an open-source data validation and testing tool that helps data teams maintain data quality and integrity.",
+    "title": "Great Expectations",
+    "img_path": "img/logos/platforms/great-expectations.png",
+    "doc_path_override": "docs/metadata-ingestion/integration_docs/great-expectations"
+  },
+  "hive": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Hive is a data warehousing tool that facilitates querying and managing large datasets stored in Hadoop Distributed File System (HDFS).",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "hudi": {
+    "external": true,
+    "platform_type": [
+      "Database",
+      "Data Lake"
+    ],
+    "connection_type": "Pull",
+    "description": "Apache Hudi is an open-source data lake framework that provides ACID transactions, efficient upserts, time travel queries, and incremental data processing for large-scale datasets.",
+    "title": "Apache Hudi",
+    "img_path": "img/logos/platforms/hudi.png",
+    "doc_path_override": "https://hudi.apache.org/docs/syncing_datahub/"
+  },
+  "iceberg": {
+    "platform_type": [
+      "Database",
+      "Data Lake"
+    ],
+    "connection_type": "Pull",
+    "description": "Iceberg is a data tool that allows users to manage and query large-scale data sets using a distributed architecture.",
+    "img_path": "img/logos/platforms/iceberg.png",
+    "extra_features": [
+      "Status Aspect",
+      "UI Ingestion"
+    ]
+  },
+  "json-schema": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "JSON Schemas is a data tool used to define the structure, format, and validation rules for JSON data.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "kafka": {
+    "platform_type": "Messaging",
+    "connection_type": "Pull",
+    "description": "Kafka is a distributed streaming platform that allows for the processing and storage of large amounts of data in real-time.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "kafka-connect": {
+    "platform_type": "Messaging",
+    "connection_type": "Pull",
+    "description": "Kafka Connect is an open-source data integration tool that enables the transfer of data between Apache Kafka and other data systems.",
+    "img_path": "img/logos/platforms/kafka.svg",
+    "extra_features": [
+      "Lower Casing"
+    ]
+  },
+  "ldap": {
+    "platform_type": "Identity Provider",
+    "connection_type": "Pull",
+    "description": "LDAP (Lightweight Directory Access Protocol) is a data tool used for accessing and managing distributed directory information services over an IP network.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "looker": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Looker is a business intelligence and data analytics platform that allows users to explore, analyze, and share data insights in real-time.",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect"
+    ]
+  },
+  "mariadb": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "MariaDB is an open-source relational database management system that is a fork of MySQL.",
+    "img_path": "img/logos/platforms/mariadb.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "metabase": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Metabase is an open-source business intelligence and data visualization tool that allows users to easily query and visualize their data."
+  },
+  "mlflow": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "description": "MLflow is an open-source platform for managing the end-to-end machine learning lifecycle."
+  },
+  "mssql": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Microsoft SQL Server is a relational database management system designed to store, manage, and retrieve data efficiently and securely.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "mode": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Mode is a cloud-based data analysis and visualization platform that enables businesses to explore, analyze, and share data in a collaborative environment.",
+    "img_path": "img/logos/platforms/mode.png"
+  },
+  "mongodb": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "MongoDB is a NoSQL database that stores data in flexible, JSON-like documents, making it easy to store and retrieve data for modern applications."
+  },
+  "mysql": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "MySQL is an open-source relational database management system that allows users to store, organize, and retrieve data efficiently.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "nifi": {
+    "platform_type": "Orchestrator",
+    "connection_type": "Pull",
+    "description": "NiFi is a data integration tool that allows users to automate the flow of data between systems and applications."
+  },
+  "okta": {
+    "platform_type": "Identity Provider",
+    "connection_type": "Pull",
+    "description": "Okta is a cloud-based identity and access management tool that enables secure and seamless access to applications and data across multiple devices and platforms.",
+    "img_path": "img/logos/platforms/okta.png"
+  },
+  "openapi": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "OpenAPI is a specification for building and documenting RESTful APIs.",
+    "img_path": "img/logos/platforms/openapi.png"
+  },
+  "oracle": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Oracle is a relational database management system that provides a comprehensive and integrated platform for managing and analyzing large amounts of data.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "postgres": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Postgres is an open-source relational database management system that provides a powerful tool for storing, managing, and analyzing large amounts of data.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "powerbi": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "PowerBI is a business analytics service by Microsoft that provides interactive visualizations and business intelligence capabilities with an interface simple enough for end users to create their own reports and dashboards.",
+    "img_path": "img/logos/platforms/powerbi.png",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect"
+    ]
+  },
+  "prefect": {
+    "external": true,
+    "platform_type": "Orchestrator",
+    "connection_type": "Pull",
+    "support_status": "Certified",
+    "description": "Prefect is a modern workflow orchestration for data and ML engineers.",
+    "title": "Prefect",
+    "doc_path_override": "docs/lineage/prefect",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "presto": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Presto is an open-source distributed SQL query engine designed for fast and interactive analytics on large-scale data sets.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "hive-metastore": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Hive Metastore (HMS) is a service that stores metadata that is related to Hive, Presto, Trino and other services in a backend Relational Database Management System (RDBMS).",
+    "img_path": "img/logos/platforms/presto.svg",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "protobuf": {
+    "external": true,
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "Protobuf Schemas is a data tool used for defining and serializing structured data in a compact and efficient manner.",
+    "title": "Protobuf Schemas",
+    "img_path": "img/logos/platforms/protobuf.png",
+    "doc_path_override": "docs/metadata-integration/java/datahub-protobuf"
+  },
+  "pulsar": {
+    "platform_type": "Messaging",
+    "connection_type": "Pull",
+    "description": "Pulsar is a real-time data processing and messaging platform that enables high-performance data streaming and processing.",
+    "img_path": "img/logos/platforms/pulsar.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "redash": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Redash is a data visualization and collaboration platform that allows users to connect and query multiple data sources and create interactive dashboards and visualizations."
+  },
+  "redshift": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Redshift is a cloud-based data warehousing tool that allows users to store and analyze large amounts of data in a scalable and cost-effective manner.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "s3": {
+    "platform_type": [
+      "Database",
+      "Data Lake"
+    ],
+    "connection_type": "Pull",
+    "description": "S3 Data Lake is a cloud-based data storage and management tool that allows users to store, manage, and analyze large amounts of data in a scalable and cost-effective manner.",
+    "title": "S3 Data Lake"
+  },
+  "sagemaker": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "description": "SageMaker is a data tool that provides a fully-managed platform for building, training, and deploying machine learning models at scale."
+  },
+  "salesforce": {
+    "platform_type": "CRM",
+    "connection_type": "Pull",
+    "description": "Salesforce is a cloud-based customer relationship management (CRM) platform that helps businesses manage their sales, marketing, and customer service activities.",
+    "img_path": "img/logos/platforms/salesforce.png"
+  },
+  "hana": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "SAP HANA is an in-memory data platform that enables businesses to process large volumes of data in real-time.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "slack": {
+    "external": true,
+    "platform_type": "Collaboration",
+    "connection_type": "Push",
+    "description": "Send notifications to Slack channels on updates to entities in DataHub.",
+    "img_path": "img/logos/companies/slack.svg",
+    "doc_path_override": "docs/actions/actions/slack",
+    "extra_features": [
+      "Alerting",
+      "Notifications"
+    ]
+  },
+  "snowflake": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Snowflake is a cloud-based data warehousing platform that allows users to store, manage, and analyze large amounts of structured and semi-structured data.",
+    "extra_features": [
+      "Lower Casing",
+      "Patch Lineage",
+      "Status Aspect"
+    ]
+  },
+  "spark": {
+    "external": true,
+    "platform_type": "ETL/ELT",
+    "connection_type": "Push",
+    "description": "Spark is a data processing tool that enables fast and efficient processing of large-scale data sets using distributed computing.",
+    "title": "Spark",
+    "doc_path_override": "docs/metadata-integration/java/acryl-spark-lineage"
+  },
+  "sqlalchemy": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "SQLAlchemy is a Python-based data tool that provides a set of high-level API for connecting to relational databases and performing SQL operations.",
+    "img_path": "img/logos/platforms/sqlalchemy.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "superset": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Superset is an open-source data exploration and visualization platform that allows users to create interactive dashboards and perform ad-hoc analysis on various data sources."
+  },
+  "tableau": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Tableau is a data visualization and business intelligence tool that helps users analyze and present data in a visually appealing and interactive way.",
+    "img_path": "img/logos/platforms/tableau.png",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect"
+    ]
+  },
+  "teradata": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Teradata is a data warehousing and analytics tool that allows users to store, manage, and analyze large amounts of data in a scalable and cost-effective manner.",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect"
+    ]
+  },
+  "trino": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Trino is an open-source distributed SQL query engine designed to query large-scale data processing systems, including Hadoop, Cassandra, and relational databases.",
+    "img_path": "img/logos/platforms/trino.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "vertica": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Vertica is a high-performance, column-oriented, relational database management system designed for large-scale data warehousing and analytics.",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "abs": {
+    "platform_type": [
+      "Database",
+      "Data Lake"
+    ],
+    "connection_type": "Pull",
+    "description": "Azure Blob Storage is a cloud-based object storage service that allows users to store and manage large amounts of unstructured data.",
+    "title": "Azure Blob Storage",
+    "img_path": "img/logos/platforms/azure-ad.svg"
+  },
+  "cockroachdb": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "CockroachDB is a distributed SQL database that provides strong consistency, high availability, and horizontal scalability.",
+    "img_path": "img/logos/platforms/cockroachdb.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "dremio": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Dremio is a data lake engine that provides fast, direct access to data lake storage with enterprise-grade security and governance.",
+    "img_path": "img/logos/platforms/dremio.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "dynamodb": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "DynamoDB is a fully managed NoSQL database service that provides fast and predictable performance with seamless scalability.",
+    "img_path": "img/logos/platforms/dynamodb.png"
+  },
+  "grafana": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Grafana is an open-source analytics and monitoring platform that allows users to query, visualize, and alert on metrics and logs.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "preset": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Preset is a cloud-native business intelligence platform that provides self-service analytics and data visualization capabilities.",
+    "img_path": "img/logos/platforms/presetlogo.svg"
+  },
+  "gcs": {
+    "platform_type": [
+      "Database",
+      "Data Lake"
+    ],
+    "connection_type": "Pull",
+    "description": "Google Cloud Storage is a unified object storage service that provides industry-leading durability and availability for data."
+  },
+  "fivetran": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Pull",
+    "description": "Fivetran is a cloud-based data integration platform that provides automated data pipelines for analytics and business intelligence.",
+    "img_path": "img/logos/platforms/fivetran.png"
+  },
+  "qlik-sense": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Qlik Sense is a business intelligence and data analytics platform that enables users to create interactive visualizations and dashboards.",
+    "img_path": "img/logos/platforms/qlik.png"
+  },
+  "sigma": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Sigma is a cloud-native analytics and business intelligence platform that provides spreadsheet-like interface for data analysis.",
+    "img_path": "img/logos/platforms/sigma.png"
+  },
+  "sac": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "SAP Analytics Cloud (SAC) is a cloud-based business intelligence and planning platform that provides analytics and planning capabilities.",
+    "title": "SAC"
+  },
+  "cassandra": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Apache Cassandra is a distributed NoSQL database designed to handle large amounts of data across many commodity servers.",
+    "img_path": "img/logos/platforms/cassandra.png"
+  },
+  "neo4j": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Neo4j is a graph database management system that stores data in nodes and relationships, enabling complex graph queries and analytics.",
+    "img_path": "img/logos/platforms/neo4j.png"
+  },
+  "vertexai": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "title": "Vertex AI",
+    "description": "Vertex AI is Google Cloud's machine learning platform that provides tools for building, training, and deploying ML models at scale.",
+    "img_path": "img/logos/platforms/vertexai.png"
+  },
+  "hex": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Hex is a collaborative data workspace that allows teams to explore, analyze, and share data insights through interactive notebooks.",
+    "img_path": "img/logos/platforms/hex.png"
+  },
+  "snaplogic": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Pull",
+    "description": "SnapLogic is an enterprise integration platform as a service (iPaaS) that enables organizations to connect applications, data sources, and APIs across cloud and on-premises environments through a low-code drag-and-drop interface with hundreds of pre-built connectors, simplifying and accelerating data and application integration."
+  },
+  "rdf": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "description": "RDF (Resource Description Framework) is a standard model for data interchange on the web, enabling ingestion of ontologies and knowledge graphs as DataHub glossary terms."
+  },
+  "flink": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Pull",
+    "title": "Flink",
+    "description": "Real-time stream processing framework for stateful computations over bounded and unbounded data streams.",
+    "img_path": "img/logos/platforms/flink.svg"
+  },
+  "beam": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "Apache Beam",
+    "description": "Unified programming model for defining and executing both batch and streaming data processing pipelines.",
+    "img_path": "img/logos/platforms/beam.svg"
+  },
+  "pinot": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Pinot",
+    "description": "Real-time distributed OLAP datastore designed for low-latency analytics on large-scale datasets.",
+    "img_path": "img/logos/platforms/pinot.svg"
+  },
+  "couchbase": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "CouchBase",
+    "description": "Distributed NoSQL cloud database for enterprise applications with built-in full-text search and analytics.",
+    "img_path": "img/logos/platforms/couchbase.svg"
+  },
+  "kusto": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Azure Kusto",
+    "description": "Fast and scalable data exploration service optimized for log and telemetry data analytics.",
+    "img_path": "img/logos/platforms/kusto.svg"
+  },
+  "azuresql": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Azure SQL",
+    "description": "Fully managed relational cloud database service built on SQL Server for modern application development.",
+    "img_path": "img/logos/platforms/azuresql.svg"
+  },
+  "bigtable": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Google Cloud Bigtable",
+    "description": "Fully managed, scalable NoSQL database service for large analytical and operational workloads on Google Cloud.",
+    "img_path": "img/logos/platforms/bigtable.svg"
+  },
+  "domo": {
+    "api_connector": true,
+    "platform_type": "BI Tool",
+    "title": "Domo",
+    "description": "Cloud-based business intelligence platform with data integration, visualization, and collaboration capabilities.",
+    "img_path": "img/logos/platforms/domo.svg"
+  },
+  "exasol": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Exasol",
+    "description": "High-performance in-memory analytics database optimized for data warehousing and analytics workloads.",
+    "img_path": "img/logos/platforms/exasol.svg"
+  },
+  "greenplum": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Greenplum",
+    "description": "Open-source massively parallel processing data warehouse based on PostgreSQL for large-scale analytics.",
+    "img_path": "img/logos/platforms/greenplum.svg"
+  },
+  "impala": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Apache Impala",
+    "description": "Open-source massively parallel processing SQL query engine for data stored in Apache Hadoop.",
+    "img_path": "img/logos/platforms/impala.svg"
+  },
+  "singlestore": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "SingleStore",
+    "description": "Distributed SQL database designed for real-time analytics and transactional workloads in a single unified engine.",
+    "img_path": "img/logos/platforms/singlestore.svg"
+  },
+  "starrocks": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "StarRocks",
+    "description": "High-performance analytical database for real-time, multi-dimensional analytics at scale.",
+    "img_path": "img/logos/platforms/starrocks.svg"
+  },
+  "timescaledb": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "TimescaleDB",
+    "description": "Open-source time-series database built on PostgreSQL for fast analytics on time-series data.",
+    "img_path": "img/logos/platforms/timescaledb.svg"
+  },
+  "airbyte": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "Airbyte",
+    "description": "Open-source data integration platform for syncing data from APIs, databases, and files to warehouses and lakes.",
+    "img_path": "img/logos/platforms/airbyte.svg"
+  },
+  "spline": {
+    "api_connector": true,
+    "platform_type": "Data Catalog",
+    "title": "Spline",
+    "description": "Open-source data lineage tracking and visualization tool for Apache Spark pipelines.",
+    "img_path": "img/logos/platforms/spline.png"
+  },
+  "openlineage": {
+    "platform_type": "Data Catalog",
+    "support_status": "Certified",
+    "title": "OpenLineage",
+    "description": "Open standard for data lineage collection and analysis. DataHub supports OpenLineage via a native REST endpoint and Spark event listener plugin.",
+    "img_path": "img/logos/platforms/openlineage.svg",
+    "doc_path": "docs/lineage/openlineage"
+  },
+  "lightdash": {
+    "api_connector": true,
+    "platform_type": "BI Tool",
+    "title": "Lightdash",
+    "description": "Open-source BI tool that connects to your dbt project to provide self-serve analytics and exploration.",
+    "img_path": "img/logos/platforms/lightdash.svg"
+  },
+  "microstrategy": {
+    "api_connector": true,
+    "platform_type": "BI Tool",
+    "title": "MicroStrategy",
+    "description": "Enterprise analytics and mobility platform for business intelligence, dashboards, and reporting.",
+    "img_path": "img/logos/platforms/microstrategy.svg"
+  },
+  "quicksight": {
+    "api_connector": true,
+    "platform_type": "BI Tool",
+    "title": "Amazon QuickSight",
+    "description": "AWS serverless business intelligence service for creating interactive dashboards and visualizations.",
+    "img_path": "img/logos/platforms/quicksight.svg"
+  },
+  "kinesis": {
+    "api_connector": true,
+    "platform_type": "Messaging",
+    "title": "Amazon Kinesis",
+    "description": "AWS real-time data streaming service for collecting, processing, and analyzing data streams at any scale.",
+    "img_path": "img/logos/platforms/kinesis.svg"
+  },
+  "redpanda": {
+    "supported_via": "kafka",
+    "title": "Redpanda",
+    "description": "Kafka-compatible streaming data platform built for mission-critical workloads without ZooKeeper.",
+    "img_path": "img/logos/platforms/redpanda.svg"
+  },
+  "confluent-kafka": {
+    "supported_via": "kafka",
+    "title": "Confluent Kafka",
+    "description": "Enterprise-grade data streaming platform built on Apache Kafka with schema registry, governance, and managed cloud service.",
+    "img_path": "img/logos/platforms/confluent.svg"
+  },
+  "amazon-msk": {
+    "supported_via": "kafka",
+    "title": "Amazon MSK",
+    "description": "Fully managed Apache Kafka service on AWS for building and running streaming data applications.",
+    "img_path": "img/logos/platforms/msk.svg"
+  },
+  "aiven-kafka": {
+    "supported_via": "kafka",
+    "title": "Aiven for Apache Kafka",
+    "description": "Fully managed Apache Kafka service available across major cloud providers with built-in monitoring and security.",
+    "img_path": "img/logos/platforms/aiven.png"
+  },
+  "azure-event-hubs": {
+    "supported_via": "kafka",
+    "title": "Azure Event Hubs",
+    "description": "Cloud-native data streaming service on Azure with native Apache Kafka support for real-time event ingestion.",
+    "img_path": "img/logos/platforms/azure-event-hubs.svg"
+  },
+  "alloydb": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "AlloyDB for PostgreSQL",
+    "description": "Fully managed PostgreSQL-compatible database service on Google Cloud designed for demanding enterprise workloads.",
+    "img_path": "img/logos/platforms/alloydb.svg"
+  },
+  "alteryx": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "Alteryx",
+    "description": "Self-service data analytics platform for data preparation, blending, and advanced analytics workflows.",
+    "img_path": "img/logos/platforms/alteryx.svg"
+  },
+  "anaplan": {
+    "api_connector": true,
+    "platform_type": "CRM",
+    "title": "Anaplan",
+    "description": "Cloud-based enterprise planning platform for financial planning, supply chain, and workforce planning.",
+    "img_path": "img/logos/platforms/anaplan.svg"
+  },
+  "azure-synapse": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Azure Synapse Analytics",
+    "description": "Integrated analytics service on Azure that combines enterprise data warehousing with big data analytics.",
+    "img_path": "img/logos/platforms/azure-synapse.svg"
+  },
+  "cosmos-db": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Azure Cosmos DB",
+    "description": "Globally distributed, multi-model NoSQL database service on Azure for mission-critical applications.",
+    "img_path": "img/logos/platforms/cosmos-db.svg"
+  },
+  "cratedb": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "CrateDB",
+    "description": "Distributed SQL database built on a shared-nothing architecture for machine data and IoT workloads.",
+    "img_path": "img/logos/platforms/cratedb.svg"
+  },
+  "hightouch": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "Hightouch",
+    "description": "Reverse ETL platform that syncs data from your warehouse to business tools like CRMs, ad platforms, and SaaS apps.",
+    "img_path": "img/logos/platforms/hightouch.svg"
+  },
+  "cognos": {
+    "api_connector": true,
+    "platform_type": "BI Tool",
+    "title": "IBM Cognos Analytics",
+    "description": "Enterprise business intelligence suite for interactive dashboards, reports, and AI-powered data exploration.",
+    "img_path": "img/logos/platforms/cognos.svg"
+  },
+  "informatica": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "Informatica",
+    "description": "Enterprise data integration and management platform for ETL, data quality, and master data management.",
+    "img_path": "img/logos/platforms/informatica.svg"
+  },
+  "matillion": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "Matillion",
+    "description": "Cloud-native data integration platform for building ELT pipelines into cloud data warehouses.",
+    "img_path": "img/logos/platforms/matillion.svg"
+  },
+  "microsoft-fabric": {
+    "api_connector": true,
+    "platform_type": "Database",
+    "title": "Microsoft Fabric",
+    "description": "Unified analytics platform from Microsoft that integrates data engineering, data science, warehousing, and real-time analytics.",
+    "img_path": "img/logos/platforms/microsoft-fabric.svg"
+  },
+  "monte-carlo": {
+    "api_connector": true,
+    "platform_type": "Data Quality",
+    "title": "Monte Carlo",
+    "description": "Data observability platform that detects, resolves, and prevents data quality issues across your data stack.",
+    "img_path": "img/logos/platforms/monte-carlo.svg"
+  },
+  "sisense": {
+    "api_connector": true,
+    "platform_type": "BI Tool",
+    "title": "Sisense",
+    "description": "Embedded analytics platform for building and integrating data-driven insights into products and workflows.",
+    "img_path": "img/logos/platforms/sisense.svg"
+  },
+  "soda": {
+    "api_connector": true,
+    "platform_type": "Data Quality",
+    "title": "Soda",
+    "description": "Data quality platform for testing, monitoring, and profiling data with checks defined as code.",
+    "img_path": "img/logos/platforms/soda.svg"
+  },
+  "ssis": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "SSIS",
+    "description": "SQL Server Integration Services \u2014 Microsoft's enterprise ETL platform for data migration, transformation, and workflow automation.",
+    "img_path": "img/logos/platforms/ssis.svg"
+  },
+  "talend": {
+    "api_connector": true,
+    "platform_type": "ETL/ELT",
+    "title": "Talend",
+    "description": "Open-source and enterprise data integration platform for ETL, data quality, and cloud data management.",
+    "img_path": "img/logos/platforms/talend.svg"
+  },
+  "thoughtspot": {
+    "api_connector": true,
+    "platform_type": "BI Tool",
+    "title": "ThoughtSpot",
+    "description": "AI-powered analytics platform with natural language search for self-service business intelligence.",
+    "img_path": "img/logos/platforms/thoughtspot.svg"
+  },
+  "doris": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "Apache Doris",
+    "description": "High-performance real-time analytical database based on MPP architecture for large-scale data analytics.",
+    "img_path": "img/logos/platforms/doris.svg"
+  },
+  "db2": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "DB2",
+    "description": "IBM's enterprise relational database management system for transactional and analytical workloads.",
+    "img_path": "img/logos/platforms/db2.svg"
+  },
+  "fabric-onelake": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "Fabric OneLake",
+    "description": "Microsoft Fabric's unified data lake for storing and managing all organizational data in one place.",
+    "img_path": "img/logos/platforms/fabric-onelake.svg"
+  },
+  "azure-data-factory": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Pull",
+    "title": "Azure Data Factory",
+    "description": "Cloud-based data integration service for creating, scheduling, and orchestrating data pipelines at scale.",
+    "img_path": "img/logos/platforms/azure-data-factory.svg"
+  },
+  "snowplow": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Pull",
+    "title": "Snowplow",
+    "description": "Open-source behavioral data platform for collecting, processing, and modeling event-level data.",
+    "img_path": "img/logos/platforms/snowplow.svg"
+  },
+  "powerbi-report-server": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "title": "PowerBI Report Server",
+    "description": "On-premises report server for hosting and managing Power BI reports, paginated reports, and KPIs.",
+    "img_path": "img/logos/platforms/powerbi-report-server.svg"
+  },
+  "dataplex": {
+    "platform_type": [
+      "Metadata Systems",
+      "Data Catalog"
+    ],
+    "connection_type": "Pull",
+    "description": "Google Cloud's intelligent data fabric for unified data management, governance, and analytics across data lakes and warehouses.",
+    "img_path": "img/logos/platforms/dataplex.svg"
+  },
+  "confluence": {
+    "platform_type": "Collaboration",
+    "connection_type": "Pull",
+    "description": "Atlassian's team workspace for creating, organizing, and collaborating on documentation and knowledge bases.",
+    "img_path": "img/logos/platforms/confluence.svg"
+  },
+  "notion": {
+    "platform_type": "Collaboration",
+    "connection_type": "Pull",
+    "description": "All-in-one workspace for notes, docs, project management, and collaboration.",
+    "img_path": "img/logos/platforms/notion.svg"
+  },
+  "excel": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "Excel",
+    "description": "Microsoft Excel spreadsheet integration for importing metadata definitions and enrichment data.",
+    "img_path": "img/logos/platforms/excel.svg"
+  },
+  "datahubapply": {
+    "platform_type": "Internal",
+    "connection_type": "Pull",
+    "title": "DataHub Apply",
+    "description": "DataHub utility for applying metadata changes and configurations to your DataHub instance.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "datahubdebug": {
+    "platform_type": "Internal",
+    "connection_type": "Pull",
+    "title": "DataHub Debug",
+    "description": "DataHub utility for debugging and diagnosing metadata issues in your DataHub instance.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "datahub-documents": {
+    "platform_type": "Internal",
+    "connection_type": "Pull",
+    "title": "DataHub Documents",
+    "description": "DataHub utility for managing and ingesting documentation assets.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "datahubgc": {
+    "platform_type": "Internal",
+    "connection_type": "Pull",
+    "title": "DataHub GC",
+    "description": "DataHub garbage collection utility for cleaning up stale metadata and soft-deleted entities.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
+  "sql-queries": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "SQL Queries",
+    "description": "DataHub utility for ingesting SQL query metadata and lineage from query logs.",
+    "img_path": "img/logos/platforms/sql-queries.svg"
+  }
+}

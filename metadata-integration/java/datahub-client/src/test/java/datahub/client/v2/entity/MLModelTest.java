@@ -593,4 +593,23 @@ public class MLModelTest {
     assertTrue(prodModel.getUrn().toString().contains("PROD"));
     assertTrue(devModel.getUrn().toString().contains("DEV"));
   }
+
+  @Test
+  public void testMLModelGetDefaultAspects() {
+    MLModel model = MLModel.builder().platform("tensorflow").name("my_model").build();
+
+    List<?> aspects = model.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue(
+        "Should include MLModelProperties",
+        aspects.contains(com.linkedin.ml.metadata.MLModelProperties.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).clear();
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
 }

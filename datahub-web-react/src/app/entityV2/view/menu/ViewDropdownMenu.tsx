@@ -1,6 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { Dropdown, Menu, Modal, message } from 'antd';
+import { Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,15 +8,9 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entityV2/view/cacheUtils';
-import { DeleteViewItem } from '@app/entityV2/view/menu/item/DeleteViewItem';
-import { EditViewItem } from '@app/entityV2/view/menu/item/EditViewItem';
-import { PreviewViewItem } from '@app/entityV2/view/menu/item/PreviewViewItem';
-import { RemoveGlobalDefaultItem } from '@app/entityV2/view/menu/item/RemoveGlobalDefaultItem';
-import { RemoveUserDefaultItem } from '@app/entityV2/view/menu/item/RemoveUserDefaultItem';
-import { SetGlobalDefaultItem } from '@app/entityV2/view/menu/item/SetGlobalDefaultItem';
-import { SetUserDefaultItem } from '@app/entityV2/view/menu/item/SetUserDefaultItem';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
-import { colors } from '@src/alchemy-components';
+import { Menu, colors, notification } from '@src/alchemy-components';
+import { MenuItemType } from '@src/alchemy-components/components/Menu/types';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
@@ -25,29 +18,17 @@ import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated'
 import { useDeleteViewMutation } from '@graphql/view.generated';
 import { DataHubView, DataHubViewType } from '@types';
 
-const MenuButton = styled(MoreVertIcon)<{ $isShowNavBarRedesign?: boolean }>`
+const MenuTrigger = styled.div<{ $visible?: boolean; $isShowNavBarRedesign?: boolean }>`
+    display: ${(props) => (props.$visible ? 'flex' : 'none')};
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
     width: 20px;
-    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[1800]};`}
-    &&& {
-        padding-left: 0px;
-        padding-right: 0px;
-        font-size: 18px;
-    }
-    :hover {
-        cursor: pointer;
-    }
-`;
+    color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : 'inherit')};
+    font-size: 18px;
 
-const MenuStyled = styled(Menu)`
-    border-radius: 12px;
-    padding: 10px 0px;
-    &&& {
-        .ant-dropdown-menu-item:not(:hover) {
-            background: none;
-        }
-        .ant-dropdown-menu-item:hover {
-            background: #f5f5f5;
-        }
+    &:hover {
+        color: ${colors.gray[600]};
     }
 `;
 
@@ -61,7 +42,6 @@ type Props = {
     visible?: boolean;
     isOwnedByUser?: boolean;
     trigger?: 'hover' | 'click';
-    // Custom Action Handlers - useful if you do NOT want the Menu to handle Modal rendering.
     onClickEdit?: () => void;
     onClickPreview?: () => void;
     onClickDelete?: () => void;
@@ -88,11 +68,6 @@ export const ViewDropdownMenu = ({
 
     const [viewBuilderState, setViewBuilderState] = useState(DEFAULT_VIEW_BUILDER_STATE);
 
-    /**
-     * Updates the User's Personal Default View via mutation.
-     *
-     * Then updates the User Context state to contain the new default.
-     */
     const setUserDefault = (viewUrn: string | null) => {
         updateUserViewSettingMutation({
             variables: {
@@ -104,7 +79,6 @@ export const ViewDropdownMenu = ({
             .then(({ errors }) => {
                 if (!errors) {
                     if (viewUrn && selectView) selectView();
-
                     userContext.updateState({
                         ...userContext.state,
                         views: {
@@ -119,20 +93,15 @@ export const ViewDropdownMenu = ({
                     });
                 }
             })
-            .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to make this your default view. An unexpected error occurred.`,
+            .catch(() => {
+                notification.error({
+                    message: 'Failed to update default view',
+                    description: 'An unexpected error occurred.',
                     duration: 3,
                 });
             });
     };
 
-    /**
-     * Updates the Global Default View via mutation.
-     *
-     * Then updates the User Context state to contain the new default.
-     */
     const setGlobalDefault = (viewUrn: string | null) => {
         updateGlobalViewSettingMutation({
             variables: {
@@ -156,10 +125,10 @@ export const ViewDropdownMenu = ({
                     });
                 }
             })
-            .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to make this your organization's default view. An unexpected error occurred.`,
+            .catch(() => {
+                notification.error({
+                    message: "Failed to update organization's default view",
+                    description: 'An unexpected error occurred.',
                     duration: 3,
                 });
             });
@@ -167,23 +136,17 @@ export const ViewDropdownMenu = ({
 
     const onEditView = () => {
         if (onClickEdit) {
-            onClickEdit?.();
+            onClickEdit();
         } else {
-            setViewBuilderState({
-                mode: ViewBuilderMode.EDITOR,
-                visible: true,
-            });
+            setViewBuilderState({ mode: ViewBuilderMode.EDITOR, visible: true });
         }
     };
 
     const onPreviewView = () => {
         if (onClickPreview) {
-            onClickPreview?.();
+            onClickPreview();
         } else {
-            setViewBuilderState({
-                mode: ViewBuilderMode.PREVIEW,
-                visible: true,
-            });
+            setViewBuilderState({ mode: ViewBuilderMode.PREVIEW, visible: true });
         }
     };
 
@@ -192,43 +155,39 @@ export const ViewDropdownMenu = ({
     };
 
     const deleteView = (viewUrn: string) => {
-        deleteViewMutation({
-            variables: { urn: viewUrn },
-        })
+        deleteViewMutation({ variables: { urn: viewUrn } })
             .then(({ errors }) => {
                 if (!errors) {
                     removeFromViewSelectCaches(viewUrn, client);
                     removeFromListMyViewsCache(viewUrn, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined, undefined);
-                    /**
-                     * Clear the selected view urn from local state,
-                     * if the deleted view was that urn.
-                     */
                     if (viewUrn === userContext.localState?.selectedViewUrn) {
                         userContext.updateLocalState({
                             ...userContext.localState,
                             selectedViewUrn: undefined,
                         });
                     }
-                    message.success({ content: 'Removed View!', duration: 2 });
+                    notification.success({
+                        message: 'View removed',
+                        duration: 2,
+                    });
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({
-                    content: `Failed to delete View. An unexpected error occurred.`,
+                notification.error({
+                    message: 'Failed to delete View',
+                    description: 'An unexpected error occurred.',
                     duration: 3,
                 });
             });
     };
 
-    // TODO: Replace this Modal
     const confirmDeleteView = () => {
         if (onClickDelete) {
-            onClickDelete?.();
+            onClickDelete();
         } else {
             Modal.confirm({
                 title: `Confirm Remove ${view.name}`,
-                content: `Are you sure you want to remove this View?`,
+                content: 'Are you sure you want to remove this View?',
                 onOk() {
                     deleteView(view.urn);
                 },
@@ -253,39 +212,93 @@ export const ViewDropdownMenu = ({
     const showRemoveGlobalDefaultView = canManageGlobalViews && isGlobalView && isGlobalDefault;
     const showSetGlobalDefaultView = canManageGlobalViews && isGlobalView && !isGlobalDefault;
 
-    const handleDropdownClick = (e) => {
+    const menuItems: MenuItemType[] = [];
+
+    if (canManageView) {
+        menuItems.push({
+            type: 'item',
+            key: 'edit',
+            title: 'Edit',
+            tooltip: 'Edit this View',
+            onClick: onEditView,
+        });
+    } else {
+        menuItems.push({
+            type: 'item',
+            key: 'preview',
+            title: 'Preview',
+            tooltip: 'See the View definition',
+            onClick: onPreviewView,
+        });
+    }
+
+    if (isUserDefault) {
+        menuItems.push({
+            type: 'item',
+            key: 'remove-default',
+            title: 'Remove as default',
+            tooltip: 'Remove this View as your personal default',
+            onClick: () => setUserDefault(null),
+        });
+    } else {
+        menuItems.push({
+            type: 'item',
+            key: 'set-default',
+            title: 'Make my default',
+            tooltip: 'Make this View your personal default',
+            onClick: () => setUserDefault(view.urn),
+        });
+    }
+
+    if (showRemoveGlobalDefaultView) {
+        menuItems.push({
+            type: 'item',
+            key: 'remove-global-default',
+            title: 'Remove organization default',
+            tooltip: "Remove this View as your organization's default",
+            onClick: () => setGlobalDefault(null),
+        });
+    }
+
+    if (showSetGlobalDefaultView) {
+        menuItems.push({
+            type: 'item',
+            key: 'set-global-default',
+            title: 'Make organization default',
+            tooltip: "Make this View your organization's default",
+            onClick: () => setGlobalDefault(view.urn),
+        });
+    }
+
+    if (canManageView) {
+        menuItems.push({
+            type: 'item',
+            key: 'delete',
+            title: 'Delete',
+            tooltip: 'Delete this View',
+            danger: true,
+            onClick: confirmDeleteView,
+        });
+    }
+
+    const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
     };
 
     return (
         <>
-            <Dropdown
-                overlay={
-                    <MenuStyled>
-                        {(canManageView && <EditViewItem key="0" onClick={onEditView} />) || (
-                            <PreviewViewItem key="0" onClick={onPreviewView} />
-                        )}
-                        {(isUserDefault && <RemoveUserDefaultItem key="1" onClick={() => setUserDefault(null)} />) || (
-                            <SetUserDefaultItem key="1" onClick={() => setUserDefault(view.urn)} />
-                        )}
-                        {showRemoveGlobalDefaultView && (
-                            <RemoveGlobalDefaultItem key="2" onClick={() => setGlobalDefault(null)} />
-                        )}
-                        {showSetGlobalDefaultView && (
-                            <SetGlobalDefaultItem key="2" onClick={() => setGlobalDefault(view.urn)} />
-                        )}
-                        {canManageView && <DeleteViewItem key="3" onClick={confirmDeleteView} />}
-                    </MenuStyled>
-                }
-                trigger={[trigger]}
-            >
-                <MenuButton
+            <Menu items={menuItems} trigger={[trigger]}>
+                <MenuTrigger
                     data-testid="views-table-dropdown"
-                    style={{ display: visible ? undefined : 'none' }}
-                    onClick={handleDropdownClick}
+                    $visible={visible}
                     $isShowNavBarRedesign={isShowNavBarRedesign}
-                />
-            </Dropdown>
+                    onClick={handleClick}
+                    role="button"
+                    tabIndex={0}
+                >
+                    &#8942;
+                </MenuTrigger>
+            </Menu>
             {viewBuilderState.visible && (
                 <ViewBuilder
                     mode={viewBuilderState.mode}

@@ -1,5 +1,5 @@
 import { AppstoreOutlined, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -51,28 +51,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     type: EntityType = EntityType.GlossaryTerm;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookmarkSimple className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <BookmarkSimple
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#B37FEB' }}
-                    weight="fill"
-                />
-            );
-        }
-
-        if (styleType === IconStyleType.ACCENT) {
-            return <BookmarkSimple style={{ fontSize: fontSize ?? 10, color: color || '#6C6B88' }} />;
-        }
-
         return (
             <BookmarkSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -263,6 +247,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

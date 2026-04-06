@@ -76,6 +76,7 @@ class Page(BaseModel):
 class Workbook(BaseModel):
     workbookId: str
     name: str
+    ownerId: str
     createdBy: str
     updatedBy: str
     createdAt: datetime

@@ -17,6 +17,7 @@ source:
     schema_pattern:
       allow:
         - "^HR_SCHEMA"
+    
     profiling:
       enabled: false
 sink:

@@ -1,9 +1,11 @@
 import { Icon, Tooltip, colors } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
-import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
+import { GlobeHemisphereEast } from '@phosphor-icons/react/dist/csr/GlobeHemisphereEast';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
 import styled from 'styled-components';
 
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
@@ -173,8 +175,8 @@ export const ViewOptionName = ({
                 )}
                 <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
                     <ViewType>
-                        {type === 'GLOBAL' && <Icon icon="GlobeHemisphereEast" source="phosphor" size="lg" />}
-                        {type === 'PERSONAL' && <Icon icon="Lock" source="phosphor" size="lg" />}
+                        {type === 'GLOBAL' && <Icon icon={GlobeHemisphereEast} size="lg" />}
+                        {type === 'PERSONAL' && <Icon icon={Lock} size="lg" />}
                     </ViewType>
                 </Tooltip>
             </ViewIcon>

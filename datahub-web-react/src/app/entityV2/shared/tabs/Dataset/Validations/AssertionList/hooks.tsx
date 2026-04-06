@@ -1,6 +1,6 @@
 import { Typography } from 'antd';
 import { ColumnsType } from 'antd/es/table';
-import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -38,8 +38,6 @@ const LastRun = styled(Typography.Text)`
     max-width: 80px;
     display: inline-block;
 `;
-
-const TABLE_HEADER_HEIGHT = 50;
 
 export const useAssertionsTableColumns = ({ contract, refetch }) => {
     const renderAssertionName = useCallback(
@@ -164,30 +162,6 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
 
         return columns;
     }, [renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
-};
-
-export const usePinnedAssertionTableHeaderProps = () => {
-    // Dynamic height calculation
-    const tableContainerRef = useRef<HTMLDivElement>(null);
-    const [scrollY, setScrollY] = useState<number>(0);
-
-    useEffect(() => {
-        const handleResize = () => {
-            if (tableContainerRef.current) {
-                const containerHeight = tableContainerRef.current.getBoundingClientRect().height;
-                setScrollY(containerHeight - TABLE_HEADER_HEIGHT);
-            }
-        };
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
-
-    return { tableContainerRef, scrollY };
 };
 
 /** set filter as per the params we are getting from URL set assertion type and status as per the url */

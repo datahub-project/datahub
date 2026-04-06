@@ -674,6 +674,33 @@ Together, these metrics help identify where delays occur:
 - Low Kafka queue time but high hook latency: Bottleneck in processing or persistence
 - Both high: System-wide performance issues
 
+## Aspect Size Validation Metrics
+
+Emitted on all aspect writes (REST, GraphQL, MCP) to track sizes and detect oversized aspects.
+
+**Metrics:**
+
+- `aspectSizeValidation.prePatch.sizeDistribution` - Size distribution of existing aspects (tags: aspectName, sizeBucket)
+- `aspectSizeValidation.postPatch.sizeDistribution` - Size distribution of aspects being written (tags: aspectName, sizeBucket)
+- `aspectSizeValidation.prePatch.oversized` - Oversized aspects found in database (tags: aspectName, remediation)
+- `aspectSizeValidation.postPatch.oversized` - Oversized aspects rejected during writes (tags: aspectName, remediation)
+- `aspectSizeValidation.prePatch.warning` - Aspects approaching limit in database (tags: aspectName)
+- `aspectSizeValidation.postPatch.warning` - Aspects approaching limit during writes (tags: aspectName)
+
+**Configuration:**
+
+See [Aspect Size Validation](mcp-mcl.md#aspect-size-validation) for details.
+
+```yaml
+datahub:
+  validation:
+    aspectSize:
+      metrics:
+        sizeBuckets: [1048576, 5242880, 10485760, 15728640]
+```
+
+Default buckets (1MB, 5MB, 10MB, 15MB) create ranges: 0-1MB, 1MB-5MB, 5MB-10MB, 10MB-15MB, 15MB+
+
 ## Cache Monitoring (Micrometer)
 
 ### Overview
@@ -1060,6 +1087,14 @@ In our example [docker-compose](../../docker/monitoring/docker-compose.monitorin
 scrape from 4318 ports of each container used by the JMX exporter to export metrics. We also configured grafana to
 listen to prometheus and create useful dashboards. By default, we provide two
 dashboards: [JVM dashboard](https://grafana.com/grafana/dashboards/14845) and DataHub dashboard.
+
+**Micrometer (Spring Actuator / Play):** Docker images for GMS, MAE consumer, MCE consumer, and the Play frontend set
+`MANAGEMENT_SERVER_PORT` to **4319** by default (see container `start.sh`). Micrometer Prometheus text is served at
+`http://<container>:4319/actuator/prometheus` on a separate HTTP listener (reachable on the Docker network; quickstart compose **`expose`s** this port rather than publishing it to the host). JVM/JMX metrics remain on **4318** when
+`ENABLE_PROMETHEUS=true`. The example [prometheus.yaml](../../docker/monitoring/prometheus.yaml) includes a `micrometer`
+scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` unset so Actuator stays on the main
+application port; set it when you want a separate management listener (Spring maps the env var to
+`management.server.port`).
 
 In the JVM dashboard, you can find detailed charts based on JVM metrics like CPU/memory/disk usage. In the DataHub
 dashboard, you can find charts to monitor each endpoint and the kafka topics. Using the example implementation, go

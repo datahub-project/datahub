@@ -9,7 +9,9 @@ import java.nio.file.Files;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import play.Environment;
+import play.mvc.Http;
 import play.mvc.Result;
+import play.test.Helpers;
 
 public class MfeConfigControllerTest {
 
@@ -35,7 +37,7 @@ public class MfeConfigControllerTest {
   }
 
   @Test
-  public void testgetMfeConfigWhenFilePathNotNullButInvalid() {
+  public void testGetMfeConfigWhenFilePathNotNullButInvalid() {
     when(mockConfig.getString("mfeConfigFilePath")).thenReturn("bad/path.yaml");
     MfeConfigController mfeConfigController = new MfeConfigController(mockConfig, mockEnvironment);
     Result result = mfeConfigController.getMfeConfig();
@@ -43,7 +45,7 @@ public class MfeConfigControllerTest {
   }
 
   @Test
-  public void testReadFromYMLConfigReadsFileSuccessfully() throws Exception {
+  public void testGetMfeConfigReadsFileSuccessfully() throws Exception {
     String fileContent = "foo: bar";
     File tempFile = File.createTempFile("test", ".yaml");
     Files.writeString(tempFile.toPath(), fileContent);
@@ -53,8 +55,44 @@ public class MfeConfigControllerTest {
 
     controller = new MfeConfigController(mockConfig, mockEnvironment);
 
-    String result = controller.readFromYMLConfig(tempFile.getName());
-    assertEquals(fileContent, result);
+    Result result = controller.getMfeConfig();
+    assertEquals(200, result.status());
+    assertEquals("application/yaml", result.contentType().orElse(""));
+
+    // Verify cache header is set
+    assertTrue(result.header(Http.HeaderNames.CACHE_CONTROL).isPresent());
+    assertTrue(result.header(Http.HeaderNames.CACHE_CONTROL).get().contains("max-age="));
+
+    // Verify content matches
+    String body = Helpers.contentAsString(result);
+    assertEquals(fileContent, body);
+
+    tempFile.delete();
+  }
+
+  @Test
+  public void testGetMfeConfigReturnsCachedContent() throws Exception {
+    String fileContent = "microFrontends: []";
+    File tempFile = File.createTempFile("test", ".yaml");
+    Files.writeString(tempFile.toPath(), fileContent);
+
+    when(mockConfig.getString("mfeConfigFilePath")).thenReturn(tempFile.getName());
+    when(mockEnvironment.getFile(tempFile.getName())).thenReturn(tempFile);
+
+    controller = new MfeConfigController(mockConfig, mockEnvironment);
+
+    // First call
+    Result result1 = controller.getMfeConfig();
+    assertEquals(200, result1.status());
+
+    // Modify the file after controller initialization
+    Files.writeString(tempFile.toPath(), "modified: content");
+
+    // Second call should still return cached (original) content
+    Result result2 = controller.getMfeConfig();
+    assertEquals(200, result2.status());
+    String body = Helpers.contentAsString(result2);
+    assertEquals(fileContent, body);
 
     tempFile.delete();
   }

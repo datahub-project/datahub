@@ -6,101 +6,62 @@ from pydantic import ValidationError
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
     DataplexFilterConfig,
-    EntitiesFilterConfig,
     EntriesFilterConfig,
+    EntryGroupFilterConfig,
 )
 
 
 class TestDataplexFilterConfig:
     """Test filter configuration classes."""
 
-    def test_entities_filter_config_defaults(self):
-        """Test that EntitiesFilterConfig has correct defaults."""
-        config = EntitiesFilterConfig()
-
-        # All patterns should allow everything by default
-        assert config.lake_pattern.allowed("any-lake")
-        assert config.zone_pattern.allowed("any-zone")
-        assert config.dataset_pattern.allowed("any-dataset")
-
-    def test_entities_filter_config_with_patterns(self):
-        """Test EntitiesFilterConfig with custom patterns."""
-        config = EntitiesFilterConfig(
-            lake_pattern={"allow": ["prod-.*"], "deny": [".*-test"]},
-            zone_pattern={"allow": ["raw", "curated"]},
-            dataset_pattern={"allow": ["table_.*"]},
-        )
-
-        # Lake filtering
-        assert config.lake_pattern.allowed("prod-lake")
-        assert not config.lake_pattern.allowed("prod-lake-test")
-        assert not config.lake_pattern.allowed("dev-lake")
-
-        # Zone filtering
-        assert config.zone_pattern.allowed("raw")
-        assert config.zone_pattern.allowed("curated")
-        assert not config.zone_pattern.allowed("sandbox")
-
-        # Dataset filtering
-        assert config.dataset_pattern.allowed("table_customers")
-        assert not config.dataset_pattern.allowed("view_summary")
+    def test_entry_group_filter_config_defaults(self):
+        """Test that EntryGroupFilterConfig has correct defaults."""
+        config = EntryGroupFilterConfig()
+        assert config.pattern.allowed("projects/p/locations/us/entryGroups/@bigquery")
 
     def test_entries_filter_config_defaults(self):
         """Test that EntriesFilterConfig has correct defaults."""
         config = EntriesFilterConfig()
 
-        # Dataset pattern should allow everything by default
-        assert config.dataset_pattern.allowed("any-entry")
+        # Entry pattern should allow everything by default
+        assert config.pattern.allowed("any-entry")
 
     def test_entries_filter_config_with_patterns(self):
         """Test EntriesFilterConfig with custom patterns."""
         config = EntriesFilterConfig(
-            dataset_pattern={"allow": ["bq_.*"], "deny": [".*_test"]},
+            pattern={"allow": ["bq_.*"], "deny": [".*_test"]},
         )
 
-        # Dataset filtering
-        assert config.dataset_pattern.allowed("bq_customers")
-        assert not config.dataset_pattern.allowed("bq_customers_test")
-        assert not config.dataset_pattern.allowed("gcs_files")
+        # Entry filtering
+        assert config.pattern.allowed("bq_customers")
+        assert not config.pattern.allowed("bq_customers_test")
+        assert not config.pattern.allowed("gcs_files")
 
     def test_dataplex_filter_config_defaults(self):
         """Test that DataplexFilterConfig has correct defaults."""
         config = DataplexFilterConfig()
 
-        # Entities sub-config should exist with defaults
-        assert config.entities is not None
-        assert config.entities.lake_pattern.allowed("any-lake")
-        assert config.entities.zone_pattern.allowed("any-zone")
-        assert config.entities.dataset_pattern.allowed("any-dataset")
+        # Entry groups sub-config should exist with defaults
+        assert config.entry_groups is not None
+        assert config.entry_groups.pattern.allowed(
+            "projects/p/locations/us/entryGroups/@bigquery"
+        )
 
         # Entries sub-config should exist with defaults
         assert config.entries is not None
-        assert config.entries.dataset_pattern.allowed("any-entry")
+        assert config.entries.pattern.allowed("any-entry")
 
     def test_dataplex_filter_config_with_nested_patterns(self):
-        """Test DataplexFilterConfig with nested entities and entries patterns."""
+        """Test DataplexFilterConfig with nested entries patterns."""
         config = DataplexFilterConfig(
-            entities={
-                "lake_pattern": {"allow": ["production-.*"]},
-                "zone_pattern": {"deny": [".*-sandbox"]},
-                "dataset_pattern": {"allow": ["entity_.*"]},
-            },
             entries={
-                "dataset_pattern": {"allow": ["entry_.*"]},
+                "pattern": {"allow": ["entry_.*"]},
             },
         )
 
-        # Entities filtering
-        assert config.entities.lake_pattern.allowed("production-lake")
-        assert not config.entities.lake_pattern.allowed("dev-lake")
-        assert not config.entities.zone_pattern.allowed("zone-sandbox")
-        assert config.entities.zone_pattern.allowed("zone-prod")
-        assert config.entities.dataset_pattern.allowed("entity_table")
-        assert not config.entities.dataset_pattern.allowed("entry_table")
-
         # Entries filtering
-        assert config.entries.dataset_pattern.allowed("entry_table")
-        assert not config.entries.dataset_pattern.allowed("entity_table")
+        assert config.entries.pattern.allowed("entry_table")
+        assert not config.entries.pattern.allowed("entity_table")
 
 
 class TestDataplexConfig:
@@ -111,9 +72,6 @@ class TestDataplexConfig:
         config = DataplexConfig(project_ids=["test-project"])
 
         assert config.project_ids == ["test-project"]
-        assert config.location == "us-central1"  # Default
-        assert config.include_entries is True  # Default
-        assert config.include_entities is False  # Default
         assert config.filter_config is not None
 
     def test_config_with_filter_patterns(self):
@@ -121,86 +79,30 @@ class TestDataplexConfig:
         config = DataplexConfig(
             project_ids=["test-project"],
             filter_config={
-                "entities": {
-                    "dataset_pattern": {"allow": ["prod_.*"], "deny": [".*_temp"]},
-                    "lake_pattern": {"allow": ["prod-.*"]},
-                    "zone_pattern": {"deny": [".*-dev"]},
-                },
                 "entries": {
-                    "dataset_pattern": {"allow": ["entry_.*"]},
+                    "pattern": {"allow": ["entry_.*"]},
                 },
             },
         )
 
         # Verify filter config is properly structured
-        assert config.filter_config.entities.dataset_pattern.allowed("prod_table")
-        assert not config.filter_config.entities.dataset_pattern.allowed(
-            "prod_table_temp"
-        )
-        assert config.filter_config.entities.lake_pattern.allowed("prod-lake")
-        assert not config.filter_config.entities.zone_pattern.allowed("zone-dev")
-        assert config.filter_config.entries.dataset_pattern.allowed("entry_table")
+        assert config.filter_config.entries.pattern.allowed("entry_table")
 
     def test_config_entries_only(self):
         """Test configuration for entries-only mode."""
         config = DataplexConfig(
             project_ids=["test-project"],
-            entries_location="us",
-            include_entries=True,
-            include_entities=False,
+            entries_locations=["us"],
             filter_config={
                 "entries": {
-                    "dataset_pattern": {"allow": ["prod_.*"]},
+                    "pattern": {"allow": ["prod_.*"]},
                 }
             },
         )
 
-        assert config.include_entries is True
-        assert config.include_entities is False
-        assert config.entries_location == "us"
-        assert config.filter_config.entries.dataset_pattern.allowed("prod_table")
-        assert not config.filter_config.entries.dataset_pattern.allowed("dev_table")
-        # Entities filters should still exist with defaults (not used but safe)
-        assert config.filter_config.entities.lake_pattern.allowed("any-lake")
-        assert config.filter_config.entities.dataset_pattern.allowed("any-table")
-
-    def test_config_both_apis(self):
-        """Test configuration with both APIs enabled."""
-        config = DataplexConfig(
-            project_ids=["test-project"],
-            location="us-central1",
-            entries_location="us",
-            include_entries=True,
-            include_entities=True,
-            filter_config={
-                "entities": {
-                    "dataset_pattern": {"allow": ["entity_.*"]},
-                    "lake_pattern": {"allow": ["production-.*"]},
-                    "zone_pattern": {"allow": ["raw", "curated"]},
-                },
-                "entries": {
-                    "dataset_pattern": {"allow": ["entry_.*"]},
-                },
-            },
-        )
-
-        assert config.include_entries is True
-        assert config.include_entities is True
-        assert config.location == "us-central1"
-        assert config.entries_location == "us"
-
-        # Entity dataset filtering
-        assert config.filter_config.entities.dataset_pattern.allowed("entity_table")
-        assert not config.filter_config.entities.dataset_pattern.allowed("entry_table")
-
-        # Entry dataset filtering
-        assert config.filter_config.entries.dataset_pattern.allowed("entry_table")
-        assert not config.filter_config.entries.dataset_pattern.allowed("entity_table")
-
-        # Entity-specific filtering (lakes/zones)
-        assert config.filter_config.entities.lake_pattern.allowed("production-lake")
-        assert config.filter_config.entities.zone_pattern.allowed("raw")
-        assert not config.filter_config.entities.zone_pattern.allowed("sandbox")
+        assert config.entries_locations == ["us"]
+        assert config.filter_config.entries.pattern.allowed("prod_table")
+        assert not config.filter_config.entries.pattern.allowed("dev_table")
 
     def test_config_validation_requires_project_ids(self):
         """Test that configuration validation requires at least one project."""
@@ -211,84 +113,54 @@ class TestDataplexConfig:
 
     def test_config_project_id_backward_compatibility(self):
         """Test backward compatibility for project_id field."""
-        # Using deprecated project_id (single)
-        config = DataplexConfig(project_ids=["test-project"])
-
-        # Should be migrated to project_ids
+        config = DataplexConfig.model_validate({"project_id": "test-project"})
         assert config.project_ids == ["test-project"]
+
+    def test_config_project_ids_take_precedence_over_project_id(self):
+        """Test project_ids precedence when both fields are provided."""
+        config = DataplexConfig.model_validate(
+            {
+                "project_id": "legacy-project",
+                "project_ids": ["project-1", "project-2"],
+            }
+        )
+        assert config.project_ids == ["project-1", "project-2"]
 
     def test_config_default_values(self):
         """Test that default configuration values are correct."""
         config = DataplexConfig(project_ids=["test-project"])
 
         # API selection defaults
-        assert config.include_entries is True
-        assert config.include_entities is False
         assert config.include_schema is True
         assert config.include_lineage is True
 
         # Performance defaults
         assert config.batch_size == 1000
-        assert config.max_workers == 10
 
         # Lineage retry defaults
         assert config.lineage_max_retries == 3
         assert config.lineage_retry_backoff_multiplier == 1.0
 
         # Location defaults
-        assert config.location == "us-central1"
-        assert config.entries_location == "us"  # New default
+        assert config.entries_locations == ["us", "eu", "asia", "global"]
 
         # Filter defaults (should allow all)
-        assert config.filter_config.entities.dataset_pattern.allowed("any-dataset")
-        assert config.filter_config.entities.lake_pattern.allowed("any-lake")
-        assert config.filter_config.entities.zone_pattern.allowed("any-zone")
-        assert config.filter_config.entries.dataset_pattern.allowed("any-entry")
+        assert config.filter_config.entries.pattern.allowed("any-entry")
 
-    def test_filter_config_only_entries_dataset_pattern(self):
-        """Test configuration with only entries dataset_pattern (common case)."""
+    def test_filter_config_only_entries_pattern(self):
+        """Test configuration with only entries pattern (common case)."""
         config = DataplexConfig(
             project_ids=["test-project"],
             filter_config={
                 "entries": {
-                    "dataset_pattern": {"allow": ["analytics_.*"]},
+                    "pattern": {"allow": ["analytics_.*"]},
                 }
             },
         )
 
         # Entry dataset filtering works
-        assert config.filter_config.entries.dataset_pattern.allowed("analytics_table")
-        assert not config.filter_config.entries.dataset_pattern.allowed("prod_table")
-
-        # Entities filters exist with defaults
-        assert config.filter_config.entities.lake_pattern.allowed("any-lake")
-        assert config.filter_config.entities.zone_pattern.allowed("any-zone")
-        assert config.filter_config.entities.dataset_pattern.allowed("any-table")
-
-    def test_filter_config_only_entities_patterns(self):
-        """Test configuration with only entity-specific patterns."""
-        config = DataplexConfig(
-            project_ids=["test-project"],
-            include_entities=True,
-            filter_config={
-                "entities": {
-                    "lake_pattern": {"allow": ["prod-.*"]},
-                    "zone_pattern": {"allow": ["raw"]},
-                    "dataset_pattern": {"allow": ["table_.*"]},
-                }
-            },
-        )
-
-        # Entities filters work
-        assert config.filter_config.entities.lake_pattern.allowed("prod-lake")
-        assert not config.filter_config.entities.lake_pattern.allowed("dev-lake")
-        assert config.filter_config.entities.zone_pattern.allowed("raw")
-        assert not config.filter_config.entities.zone_pattern.allowed("curated")
-        assert config.filter_config.entities.dataset_pattern.allowed("table_customers")
-        assert not config.filter_config.entities.dataset_pattern.allowed("view_summary")
-
-        # Entries filters have defaults
-        assert config.filter_config.entries.dataset_pattern.allowed("any-entry")
+        assert config.filter_config.entries.pattern.allowed("analytics_table")
+        assert not config.filter_config.entries.pattern.allowed("prod_table")
 
     def test_multiple_projects(self):
         """Test configuration with multiple projects."""
@@ -296,7 +168,7 @@ class TestDataplexConfig:
             project_ids=["project-1", "project-2", "project-3"],
             filter_config={
                 "entries": {
-                    "dataset_pattern": {"allow": ["prod_.*"]},
+                    "pattern": {"allow": ["prod_.*"]},
                 }
             },
         )
@@ -422,55 +294,18 @@ class TestDataplexConfig:
         assert config_max.lineage_retry_backoff_multiplier == 10.0
 
     def test_entries_location_default(self):
-        """Test that entries_location defaults to 'us'."""
+        """Test that entries locations defaults are set correctly."""
         config = DataplexConfig(project_ids=["test-project"])
 
-        # Should default to multi-region "us"
-        assert config.entries_location == "us"
-        assert config.location == "us-central1"  # Different from entries_location
+        assert config.entries_locations == ["us", "eu", "asia", "global"]
 
-    def test_location_validation_warnings(self, caplog):
-        """Test location configuration validation warnings."""
-        import logging
-
-        # Test 1: Regional location for entries (should warn)
-        with caplog.at_level(logging.WARNING):
+    def test_entries_locations_must_not_be_empty(self):
+        with pytest.raises(ValidationError) as exc_info:
             DataplexConfig(
                 project_ids=["test-project"],
-                include_entries=True,
-                entries_location="us-central1",  # Regional - wrong for entries
+                entries_locations=[],
             )
-            assert (
-                "entries_location='us-central1' appears to be a regional location"
-                in caplog.text
-            )
-            assert "@bigquery require multi-region locations" in caplog.text
-
-        caplog.clear()
-
-        # Test 2: Multi-region location for entities (should warn)
-        with caplog.at_level(logging.WARNING):
-            DataplexConfig(
-                project_ids=["test-project"],
-                include_entities=True,
-                location="us",  # Multi-region - wrong for entities
-            )
-            assert "location='us' is a multi-region location" in caplog.text
-            assert "use a specific regional location" in caplog.text
-
-        caplog.clear()
-
-        # Test 3: Correct configuration (no warnings)
-        with caplog.at_level(logging.WARNING):
-            DataplexConfig(
-                project_ids=["test-project"],
-                include_entries=True,
-                include_entities=True,
-                entries_location="us",  # Multi-region for entries (correct)
-                location="us-central1",  # Regional for entities (correct)
-            )
-            # Should not have location-related warnings
-            assert (
-                "entries_location" not in caplog.text
-                or "appears to be" not in caplog.text
-            )
+        assert (
+            "At least one entries location must be specified via entries_locations."
+            in str(exc_info.value)
+        )

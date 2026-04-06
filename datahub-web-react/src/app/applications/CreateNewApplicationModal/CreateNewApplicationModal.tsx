@@ -5,7 +5,8 @@ import React, { useState } from 'react';
 import { ModalButton } from '@components/components/Modal/Modal';
 
 import ApplicationDetailsSection from '@app/applications/CreateNewApplicationModal/ApplicationDetailsSection';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import OwnersSection from '@app/domainV2/OwnersSection';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 
 import { useCreateApplicationMutation } from '@graphql/application.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
@@ -15,35 +16,17 @@ type CreateNewApplicationModalProps = {
     onClose: () => void;
 };
 
-/**
- * Modal for creating a new application with owners and applying it to entities
- */
 const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ onClose, open }) => {
-    // Application details state
     const [applicationName, setApplicationName] = useState('');
     const [applicationDescription, setApplicationDescription] = useState('');
-
-    // Owners state
-    const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-
-    // Loading state
     const [isLoading, setIsLoading] = useState(false);
 
-    // Mutations
     const [createApplicationMutation] = useCreateApplicationMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
-    const onChangeOwners = (newOwners: PendingOwner[]) => {
-        setPendingOwners(newOwners);
-    };
-
-    /**
-     * Handler for creating the tag and applying it to entities
-     */
     const onOk = async () => {
         if (!applicationName) {
-            // this should not happen due to validation in the modal, but doesnt hurt to be safe
             message.error('Application name is required');
             return;
         }
@@ -51,7 +34,6 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
         setIsLoading(true);
 
         try {
-            // Step 1: Create the new application
             const createApplicationResult = await createApplicationMutation({
                 variables: {
                     input: {
@@ -71,12 +53,12 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
                 return;
             }
 
-            // Step 3: Add owners if any
-            if (pendingOwners.length > 0) {
+            if (selectedOwnerUrns.length > 0) {
+                const ownerInputs = createOwnerInputs(selectedOwnerUrns);
                 await batchAddOwnersMutation({
                     variables: {
                         input: {
-                            owners: pendingOwners,
+                            owners: ownerInputs,
                             resources: [{ resourceUrn: newApplicationUrn }],
                         },
                     },
@@ -86,7 +68,6 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             message.success(`Application "${applicationName}" successfully created`);
             setApplicationName('');
             setApplicationDescription('');
-            setPendingOwners([]);
             setSelectedOwnerUrns([]);
             onClose();
         } catch (e: any) {
@@ -97,7 +78,6 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
         }
     };
 
-    // Modal buttons configuration
     const buttons: ModalButton[] = [
         {
             text: 'Cancel',
@@ -124,12 +104,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
                 applicationDescription={applicationDescription}
                 setApplicationDescription={setApplicationDescription}
             />
-            <OwnersSection
-                selectedOwnerUrns={selectedOwnerUrns}
-                setSelectedOwnerUrns={setSelectedOwnerUrns}
-                existingOwners={[]}
-                onChange={onChangeOwners}
-            />
+            <OwnersSection selectedOwnerUrns={selectedOwnerUrns} setSelectedOwnerUrns={setSelectedOwnerUrns} />
         </Modal>
     );
 };

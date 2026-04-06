@@ -30,6 +30,8 @@ import org.testng.annotations.Test;
     properties = {
       "telemetry.enabledServer=true",
       "spring.main.allow-bean-definition-overriding=true",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
     })
 @ContextConfiguration(classes = {CommonApplicationConfig.class, SpringTest.TestBeans.class})
 public class SpringTest extends AbstractTestNGSpringContextTests {

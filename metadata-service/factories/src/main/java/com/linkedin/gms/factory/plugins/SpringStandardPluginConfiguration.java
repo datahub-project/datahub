@@ -6,6 +6,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
@@ -22,8 +24,10 @@ import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
@@ -40,9 +44,12 @@ import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadge
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,6 +77,36 @@ public class SpringStandardPluginConfiguration {
 
   @Value("${metadataChangeProposal.validation.extensions.enabled:false}")
   private boolean extensionsEnabled;
+
+  @Value("${featureFlags.zduStage20:false}")
+  private boolean zduStage20Enabled;
+
+  /**
+   * Registers the migration chain as the highest-priority mutation hook. Collects all {@link
+   * AspectMigrationMutator} beans (there may be none at first). The chain self-disables once all
+   * aspect migrations are complete.
+   *
+   * <p>Requires the {@code zduStage20} feature flag to be enabled; the chain is disabled otherwise.
+   */
+  @Bean
+  public AspectMigrationMutatorChain aspectMigrationMutatorChain(
+      List<AspectMigrationMutator> migrationMutators) {
+    List<AspectMigrationMutator> mutators =
+        zduStage20Enabled ? new ArrayList<>(migrationMutators) : new ArrayList<>();
+    AspectMigrationMutatorChain chain = new AspectMigrationMutatorChain(mutators);
+    chain.setConfig(
+        AspectPluginConfig.builder()
+            .className(AspectMigrationMutatorChain.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of(ALL))
+            .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+            .build());
+    log.info(
+        "Initialized AspectMigrationMutatorChain: zduStage20={}, mutator(s)={}",
+        zduStage20Enabled,
+        mutators.size());
+    return chain;
+  }
 
   @Bean
   @ConditionalOnProperty(
@@ -124,10 +161,15 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
       havingValue = "true")
-  public MCPSideEffect dataProductUnsetSideEffect() {
+  public MCPSideEffect dataProductUnsetSideEffect(ConfigurationProvider configurationProvider) {
+    // Only enable this side effect if multiple data products per asset feature is disabled
+    final boolean multipleDataProductsEnabled =
+        configurationProvider.getFeatureFlags().isMultipleDataProductsPerAsset();
+
     AspectPluginConfig config =
         AspectPluginConfig.builder()
-            .enabled(true)
+            .enabled(!multipleDataProductsEnabled) // Disable if multiple data products feature is
+            // enabled
             .className(DataProductUnsetSideEffect.class.getName())
             .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE"))
             .supportedEntityAspectNames(
@@ -138,7 +180,10 @@ public class SpringStandardPluginConfiguration {
                         .build()))
             .build();
 
-    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    log.info(
+        "Initialized {} with enabled={}",
+        DataProductUnsetSideEffect.class.getName(),
+        !multipleDataProductsEnabled);
     return new DataProductUnsetSideEffect().setConfig(config);
   }
 
@@ -519,8 +564,9 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public MCPSideEffect propertyDefinitionDeleteSideEffect() {
+  public MCPSideEffect propertyDefinitionDeleteSideEffect(@Nullable MetricUtils metricUtils) {
     return new PropertyDefinitionDeleteSideEffect()
+        .setMetricUtils(metricUtils)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(PropertyDefinitionDeleteSideEffect.class.getName())
@@ -578,5 +624,19 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
                             .build()))
                 .build());
+  }
+
+  @Bean
+  public com.linkedin.metadata.aspect.SystemAspectValidator aspectSizePayloadValidator(
+      ConfigurationProvider configProvider,
+      @Nullable com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
+    AspectSizeValidationConfiguration config =
+        configProvider.getDatahub().getValidation().getAspectSize();
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, metricUtils);
+    log.info(
+        "Initialized AspectSizePayloadValidator with config: prePatch={}, postPatch={}",
+        config.getPrePatch(),
+        config.getPostPatch());
+    return validator;
   }
 }

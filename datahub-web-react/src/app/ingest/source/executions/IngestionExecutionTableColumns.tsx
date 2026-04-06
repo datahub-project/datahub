@@ -1,9 +1,11 @@
 import { CopyOutlined } from '@ant-design/icons';
-import { Text, Tooltip } from '@components';
+import { Avatar, Text, Tooltip } from '@components';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import {
     CLI_INGESTION_SOURCE,
@@ -16,7 +18,6 @@ import {
     getExecutionRequestStatusIcon,
 } from '@app/ingest/source/utils';
 import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
-import CustomAvatar from '@src/app/shared/avatar/CustomAvatar';
 
 type Actor = {
     actorUrn: string;
@@ -74,7 +75,7 @@ export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusCol
 const UserPill = ({ actor }: { actor: Actor }) => (
     <Link to={actor?.displayUrl}>
         <CreatedByContainer>
-            <CustomAvatar size={16} name={actor?.displayName} hideTooltip />
+            <Avatar name={actor?.displayName || ''} type={AvatarType.user} size="sm" />
             <Text type="div" color="gray" size="sm" weight="semiBold">
                 {actor?.displayName}
             </Text>

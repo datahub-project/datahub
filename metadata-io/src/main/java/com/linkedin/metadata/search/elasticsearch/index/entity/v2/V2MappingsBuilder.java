@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
@@ -165,7 +166,15 @@ public class V2MappingsBuilder implements MappingsBuilder {
               ((Map<String, Object>) mappings.get(PROPERTIES))
                   .computeIfAbsent(
                       STRUCTURED_PROPERTY_MAPPING_FIELD,
-                      (key) -> new HashMap<>(Map.of(PROPERTIES, new HashMap<>())));
+                      (key) ->
+                          new HashMap<>(
+                              Map.of(
+                                  TYPE,
+                                  ESUtils.OBJECT_FIELD_TYPE,
+                                  "dynamic",
+                                  true,
+                                  PROPERTIES,
+                                  new HashMap<>())));
 
       props.merge(
           PROPERTIES,
@@ -251,17 +260,26 @@ public class V2MappingsBuilder implements MappingsBuilder {
             urnProperty -> {
               StructuredPropertyDefinition property = urnProperty.getSecond();
               Map<String, Object> mappingForField = new HashMap<>();
-              String valueType = property.getValueType().getId();
-              if (valueType.equalsIgnoreCase(LogicalValueType.STRING.name())) {
-                mappingForField = getMappingsForKeyword();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.RICH_TEXT.name())) {
-                mappingForField = getMappingsForSearchText(FieldType.TEXT_PARTIAL);
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.DATE.name())) {
-                mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.URN.name())) {
-                mappingForField = getMappingsForUrn();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.NUMBER.name())) {
-                mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+              LogicalValueType logicalType = getLogicalValueType(property.getValueType());
+              switch (logicalType) {
+                case STRING:
+                  mappingForField = getMappingsForKeyword();
+                  break;
+                case RICH_TEXT:
+                  mappingForField = getMappingsForSearchText(FieldType.TEXT_PARTIAL);
+                  break;
+                case DATE:
+                  mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+                  break;
+                case URN:
+                  mappingForField = getMappingsForUrn();
+                  break;
+                case NUMBER:
+                  mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+                  break;
+                default:
+                  mappingForField = getMappingsForKeyword();
+                  break;
               }
               return Map.entry(
                   toElasticsearchFieldName(urnProperty.getFirst(), property), mappingForField);
@@ -324,6 +342,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
       mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
     } else if (OBJECT_FIELD_TYPES.contains(fieldType)) {
       mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
+      mappingForField.put("dynamic", true);
     } else if (fieldType == FieldType.DOUBLE) {
       mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
     } else {

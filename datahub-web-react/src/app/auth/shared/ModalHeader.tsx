@@ -7,7 +7,7 @@ const HeaderContainer = styled.div`
     display: flex;
     gap: 13px;
     align-items: center;
-    padding: 28px 20px 0 20px;
+    padding: 8px 20px 4px 20px;
 `;
 
 const LogoImage = styled(Image)`
@@ -33,7 +33,7 @@ export default function ModalHeader({ subHeading }: Props) {
             <LogoImage src={themeConfig.assets?.logoUrl} preview={false} />
             <HeaderText>
                 <Text size="3xl" color="gray" colorLevel={600} weight="bold" lineHeight="normal">
-                    Welcome to Datahub
+                    Welcome to DataHub
                 </Text>
                 {subHeading && (
                     <Text size="lg" color="gray" colorLevel={1700} lineHeight="normal">

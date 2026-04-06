@@ -21,11 +21,21 @@ export default interface ColorTheme {
     textTertiary: string;
     textBrand: string;
     textBrandOnBgFill: string;
+    textOnFillBrand: string;
+    textOnFillSuccess: string;
+    textOnFillError: string;
+    textOnFillWarning: string;
+    textOnFillInfo: string;
+    textOnFillDefault: string;
     textDisabled: string;
     textError: string;
     textInformation: string;
     textSuccess: string;
     textWarning: string;
+    textOnSurfaceError: string;
+    textOnSurfaceInformation: string;
+    textOnSurfaceSuccess: string;
+    textOnSurfaceWarning: string;
     hyperlinks: string;
     icon: string;
     iconBrand: string;
@@ -40,6 +50,7 @@ export default interface ColorTheme {
     radioButtonBorder: string;
     radioButtonDotFill: string;
     radioButtonDotDisabled: string;
+    borderCheckbox: string;
     avatarBorderBrand: string;
     avatarBorderInformation: string;
     border: string;
@@ -52,6 +63,67 @@ export default interface ColorTheme {
     borderError: string;
     borderSuccess: string;
     borderWarning: string;
+    // Interactive states: Hover
+    textHover: string;
+    iconHover: string;
+    borderHover: string;
+    // Interactive states: Active / Pressed
+    bgActive: string;
+    textActive: string;
+    borderActive: string;
+    // Interactive states: Selected
+    bgSelected: string;
+    bgSelectedSubtle: string;
+    textSelected: string;
+    iconSelected: string;
+    borderSelected: string;
+    // Interactive states: Focus (supplements existing borderBrandFocused)
+    borderFocused: string;
+    // Interactive states: Disabled (supplements existing bgDisabled, textDisabled, borderDisabled)
+    iconDisabled: string;
+    bgSurfaceDisabled: string;
+    // Shadows
+    shadowXs: string;
+    shadowSm: string;
+    shadowMd: string;
+    shadowLg: string;
+    shadowXl: string;
+    shadowFocus: string;
+    shadowFocusBrand: string;
+    shadowInset: string;
+    shadowNavbar: string;
+    shadowDropBrandColor: string;
+    // Overlays
+    overlayLight: string;
+    overlayMedium: string;
+    overlayHeavy: string;
+    overlayOnBrand: string;
+    overlayMask: string;
+    overlayDropShadow: string;
+    // Inputs / Forms
+    bgInput: string;
+    bgInputDisabled: string;
+    borderInput: string;
+    borderInputFocus: string;
+    textPlaceholder: string;
+    // Scrollbar
+    scrollbarTrack: string;
+    scrollbarThumb: string;
+    scrollbarThumbHover: string;
+    scrollbarThumbOnDarkBg: string;
+    // Code blocks
+    bgCode: string;
+    bgCodeBlock: string;
+    // Highlight
+    bgHighlight: string;
+    // Tooltip
+    bgTooltip: string;
+    // Brand gradients
+    brandGradient: string;
+    brandGradientSelected: string;
+    // Skeleton / Loading
+    bgSkeleton: string;
+    bgSkeletonShimmer: string;
     chartsWineHigh: string;
     chartsWineMedium: string;
     chartsWineLow: string;
@@ -89,12 +161,20 @@ export default interface ColorTheme {
     chartsHeatmapMedium: string;
     chartsHeatmapLow: string;
     chartsHeatmapBase: string;
+    chartsRedHigh: string;
+    chartsRedMedium: string;
+    chartsRedLow: string;
+    chartsRedBase: string;
     chartsBrandHighAlpha: string;
     chartsBrandMediumAlpha: string;
     chartsBrandLowAlpha: string;
     chartsBrandBaseAlpha: string;
     chartsInformationHigh: string;
+    chartsGradientStart: string;
+    chartsGradientEnd: string;
+    /** @deprecated Remove — unused. Kept for type compat only. */
     navBgGradientTop: string;
+    /** @deprecated Remove — unused. Kept for type compat only. */
     navBgGradientBottom: string;
     chartsInformationMedium: string;
     chartsInformationLow: string;
@@ -139,4 +219,12 @@ export default interface ColorTheme {
     tagsTrueYellowBorder: string;
     tagsTrueYellowIcon: string;
     tagsTrueYellowText: string;
+    colorPickerOrange: string;
+    colorPickerBlue: string;
+    colorPickerCobalt: string;
+    colorPickerTangerine: string;
+    colorPickerBrown: string;
+    colorPickerDarkGreen: string;
+    colorPickerOlive: string;
+    colorPickerDefault: string;
 }

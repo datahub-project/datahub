@@ -15,7 +15,7 @@ export const ImpactAnalysisIcon = styled(VscGraphLeft)`
     font-size: 18px;
 `;
 
-export const CopyOutlinedIcon = styled(CopyOutlined)`
+const CopyOutlinedIcon = styled(CopyOutlined)`
     transform: scaleX(-1);
     font-size: 16px;
 `;

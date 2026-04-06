@@ -7,7 +7,6 @@ from google.cloud import dataplex_v1
 from datahub.ingestion.source.dataplex.dataplex_schema import (
     extract_field_value,
     extract_schema_from_entry_aspects,
-    extract_schema_metadata,
     map_aspect_type_to_datahub,
     process_schema_field_item,
 )
@@ -20,95 +19,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
-
-
-class TestExtractSchemaMetadata:
-    """Test extract_schema_metadata function."""
-
-    def test_extract_schema_no_schema(self):
-        """Test extraction when entity has no schema."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.schema = None
-        entity.id = "test_entity"
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-        assert result is None
-
-    def test_extract_schema_no_fields(self):
-        """Test extraction when schema has no fields."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.schema = Mock()
-        entity.schema.fields = []
-        entity.id = "test_entity"
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-        assert result is None
-
-    def test_extract_schema_with_simple_fields(self):
-        """Test extraction with simple fields."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.id = "test_entity"
-
-        # Mock field with STRING type
-        field1 = Mock()
-        field1.name = "column1"
-        field1.type_ = int(dataplex_v1.types.Schema.Type.STRING)
-        field1.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        field1.description = "First column"
-        field1.fields = []
-
-        # Mock field with INT64 type
-        field2 = Mock()
-        field2.name = "column2"
-        field2.type_ = int(dataplex_v1.types.Schema.Type.INT64)
-        field2.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        field2.description = ""
-        field2.fields = []
-
-        entity.schema = Mock()
-        entity.schema.fields = [field1, field2]
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-
-        assert result is not None
-        assert len(result.fields) == 2
-        assert result.schemaName == "test_entity"
-        assert result.fields[0].fieldPath == "column1"
-        assert result.fields[0].description == "First column"
-        assert result.fields[1].fieldPath == "column2"
-
-    def test_extract_schema_with_nested_fields(self):
-        """Test extraction with nested fields."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.id = "test_entity"
-
-        # Nested field
-        nested_field = Mock()
-        nested_field.name = "nested_col"
-        nested_field.type_ = int(dataplex_v1.types.Schema.Type.STRING)
-        nested_field.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        nested_field.description = "Nested column"
-
-        # Parent field with nested fields
-        parent_field = Mock()
-        parent_field.name = "parent"
-        parent_field.type_ = int(dataplex_v1.types.Schema.Type.RECORD)
-        parent_field.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        parent_field.description = "Parent column"
-        parent_field.fields = [nested_field]
-
-        entity.schema = Mock()
-        entity.schema.fields = [parent_field]
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-
-        assert result is not None
-        # Should have parent + nested field
-        assert len(result.fields) == 2
-        assert result.fields[0].fieldPath == "parent.nested_col"
-        assert result.fields[1].fieldPath == "parent"
-        # Parent should be RECORD type
-        assert isinstance(result.fields[1].type.type, RecordTypeClass)
 
 
 class TestExtractFieldValue:

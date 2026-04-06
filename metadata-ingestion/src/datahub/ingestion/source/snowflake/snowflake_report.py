@@ -134,11 +134,6 @@ class SnowflakeV2Report(
     num_get_tables_for_schema_queries: int = 0
     num_get_views_for_schema_queries: int = 0
 
-    # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
-    # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.
-    num_get_tags_for_object_queries: int = 0
-    num_get_tags_on_columns_for_table_queries: int = 0
-
     num_get_streams_for_schema_queries: int = 0
 
     rows_zero_objects_modified: int = 0

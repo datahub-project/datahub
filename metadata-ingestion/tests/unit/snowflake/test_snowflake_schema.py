@@ -255,7 +255,7 @@ class TestSnowflakeDataDictionary:
         )
 
         # Verify the correct query method was called
-        mock_get_views_query.assert_called_once_with("TEST_DB")
+        mock_get_views_query.assert_called_once_with("TEST_DB", "")
 
     @patch(
         "datahub.ingestion.source.snowflake.snowflake_query.SnowflakeQuery.get_views_for_schema"
@@ -281,5 +281,5 @@ class TestSnowflakeDataDictionary:
 
         # Verify the correct query method was called
         mock_get_views_schema_query.assert_called_once_with(
-            db_name="TEST_DB", schema_name="PUBLIC"
+            db_name="TEST_DB", schema_name="PUBLIC", view_filter=""
         )

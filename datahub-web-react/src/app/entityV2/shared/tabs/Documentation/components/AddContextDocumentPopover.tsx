@@ -1,4 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { useApolloClient } from '@apollo/client';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
@@ -7,6 +9,7 @@ import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { createDefaultDocumentInput, extractRelatedAssetUrns, mergeUrns } from '@app/document/utils/documentUtils';
 import { DocumentPopoverBase } from '@app/homeV2/layout/sidebar/documents/shared/DocumentPopoverBase';
 import { Button } from '@src/alchemy-components';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { colors } from '@src/alchemy-components/theme';
 
 import { GetDocumentDocument, useCreateDocumentMutation } from '@graphql/document.generated';
@@ -140,7 +143,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
 
     const headerContent = (
         <NewDocumentButton
-            icon={{ icon: 'Plus', source: 'phosphor' }}
+            icon={{ icon: Plus }}
             variant="text"
             onClick={() => handleCreateDocument(null)}
             disabled={isCreating}

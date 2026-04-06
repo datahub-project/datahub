@@ -61,7 +61,7 @@ public class StatefulTokenService extends StatelessTokenService {
                     return !_entityService.exists(systemOperationContext, accessUrn, true);
                   }
                 });
-    this.salt = salt;
+    this.salt = Objects.requireNonNull(salt);
   }
 
   /**

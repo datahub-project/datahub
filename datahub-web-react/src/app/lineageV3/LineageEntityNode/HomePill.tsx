@@ -1,4 +1,5 @@
 import { Icon, colors } from '@components';
+import { House } from '@phosphor-icons/react/dist/csr/House';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -27,7 +28,7 @@ interface Props {
 export default function HomePill({ showText }: Props) {
     return (
         <Wrapper>
-            <StyledIcon icon="House" source="phosphor" weight="fill" size="lg" />
+            <StyledIcon icon={House} weight="fill" size="lg" />
             {showText && 'Home'}
         </Wrapper>
     );

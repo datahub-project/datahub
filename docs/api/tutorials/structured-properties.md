@@ -26,7 +26,7 @@ This guide will show you how to execute the following actions with structured pr
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 Additionally, you need to have the following tools installed according to the method you choose to interact with DataHub:
 

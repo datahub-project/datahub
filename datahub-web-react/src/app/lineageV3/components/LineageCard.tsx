@@ -1,4 +1,8 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Icon, colors } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { Placeholder } from '@phosphor-icons/react/dist/csr/Placeholder';
 import { Skeleton } from 'antd';
 import React, { HTMLAttributes, forwardRef } from 'react';
 import styled from 'styled-components';
@@ -126,7 +130,7 @@ const PlatformIcon = ({ src, alt }: { src: string; alt: string }) => {
     const [errored, setErrored] = React.useState(false);
 
     if (errored) {
-        return <Icon size="lg" source="phosphor" icon="Placeholder" />;
+        return <Icon size="lg" icon={Placeholder} />;
     }
 
     return <StyledPlatformIcon src={src} alt={alt} onError={() => setErrored(true)} />;
@@ -230,11 +234,7 @@ function LineageCard(
                 : !!childrenText && (
                       <ColumnButtonWrapper data-testid="expand-contract-columns" onClick={toggleChildren}>
                           {childrenText}
-                          {childrenOpen ? (
-                              <Icon icon="CaretUp" source="phosphor" size="lg" />
-                          ) : (
-                              <Icon icon="CaretDown" source="phosphor" size="lg" />
-                          )}
+                          {childrenOpen ? <Icon icon={CaretUp} size="lg" /> : <Icon icon={CaretDown} size="lg" />}
                       </ColumnButtonWrapper>
                   )}
         </UnexpandedCardWrapper>

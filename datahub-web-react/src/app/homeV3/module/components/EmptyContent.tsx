@@ -1,13 +1,14 @@
 import { Button, Icon, Text, borders, colors, radius } from '@components';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React from 'react';
 import styled from 'styled-components';
 
 interface Props {
-    icon: string;
+    icon: React.ComponentType<any>;
     title: string;
     description: string;
     linkText?: string;
-    linkIcon?: string;
+    linkIcon?: React.ComponentType<any>;
     onLinkClick?: () => void;
 }
 
@@ -41,8 +42,7 @@ export default function EmptyContent({ icon, title, description, linkText, linkI
     return (
         <Container>
             <IconWrapper>
-                {/* TODO: adjust color of icon */}
-                <Icon icon={icon} source="phosphor" color="gray" />
+                <Icon icon={icon} color="gray" />
             </IconWrapper>
             <Text size="lg" weight="bold" color="gray" colorLevel={600}>
                 {title}
@@ -50,7 +50,7 @@ export default function EmptyContent({ icon, title, description, linkText, linkI
             <Text color="gray">{description}</Text>
             {linkText && onLinkClick && (
                 <Button variant="text" onClick={onLinkClick}>
-                    {linkText} <Icon icon={linkIcon ?? 'ArrowRight'} color="primary" source="phosphor" size="md" />
+                    {linkText} <Icon icon={linkIcon ?? ArrowRight} color="primary" size="md" />
                 </Button>
             )}
         </Container>

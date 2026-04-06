@@ -48,7 +48,7 @@ base_requirements = {
     f"acryl-datahub[datahub-kafka]{_self_pin}",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=2.0.0,<3.0.0",
+    "pydantic>=2.4.0,<3.0.0",
     "ratelimit",
     # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
@@ -217,7 +217,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

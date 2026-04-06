@@ -74,7 +74,7 @@ datahub-frontend:
       subPath: user.props
 ```
 
-#### 4. Restart Datahub
+#### 4. Restart DataHub
 
 Restart the DataHub containers or pods to pick up the new configs.
 For example, you could run the following command to upgrade the current helm deployment.
@@ -146,7 +146,7 @@ Modify the [datahub-frontend-react block](https://github.com/datahub-project/dat
     - <absolute_path_to_your_custom_user_props_file>:/datahub-frontend/conf/user.props
 ```
 
-#### 3. Restart Datahub
+#### 3. Restart DataHub
 
 Run the following command.
 

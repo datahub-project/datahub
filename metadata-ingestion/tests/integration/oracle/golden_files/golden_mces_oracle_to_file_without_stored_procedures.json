@@ -1,7 +1,7 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
+    "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -9,9 +9,9 @@
             "customProperties": {
                 "platform": "oracle",
                 "env": "PROD",
-                "database": ""
+                "database": "xepdb1"
             },
-            "name": "",
+            "name": "xepdb1",
             "env": "PROD"
         }
     },
@@ -23,7 +23,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
+    "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -39,7 +39,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
+    "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -55,7 +55,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
+    "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -73,7 +73,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
+    "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -89,12 +89,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
+    "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+            "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
         }
     },
     "systemMetadata": {
@@ -105,7 +105,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
+    "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -113,7 +113,7 @@
             "customProperties": {
                 "platform": "oracle",
                 "env": "PROD",
-                "database": "",
+                "database": "xepdb1",
                 "schema": "hr_schema"
             },
             "name": "hr_schema",
@@ -128,7 +128,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
+    "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -144,7 +144,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
+    "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -160,7 +160,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
+    "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -178,15 +178,15 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
+    "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+                    "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                    "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
                 }
             ]
         }
@@ -204,7 +204,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+            "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
         }
     },
     "systemMetadata": {
@@ -337,12 +337,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+                    "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                    "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
                 },
                 {
-                    "id": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
-                    "urn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+                    "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                    "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
                 }
             ]
         }
@@ -360,7 +360,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+            "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
         }
     },
     "systemMetadata": {
@@ -589,12 +589,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+                    "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                    "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
                 },
                 {
-                    "id": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
-                    "urn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+                    "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                    "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
                 }
             ]
         }
@@ -612,7 +612,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+            "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
         }
     },
     "systemMetadata": {
@@ -788,7 +788,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 }
             ],
             "fineGrainedLineages": [
@@ -803,7 +803,7 @@
                     ],
                     "transformOperation": "COPY: \"EMPLOYEES\".\"DEPARTMENT_ID\" AS \"DEPARTMENT_ID\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -816,7 +816,7 @@
                     ],
                     "transformOperation": "SQL: AVG(\"EMPLOYEES\".\"SALARY\") AS \"AVG_SALARY\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -829,7 +829,7 @@
                     ],
                     "transformOperation": "SQL: MAX(\"EMPLOYEES\".\"SALARY\") AS \"MAX_SALARY\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -842,7 +842,7 @@
                     ],
                     "transformOperation": "SQL: MIN(\"EMPLOYEES\".\"SALARY\") AS \"MIN_SALARY\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 }
             ]
         }
@@ -862,12 +862,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+                    "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                    "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
                 },
                 {
-                    "id": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
-                    "urn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+                    "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                    "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
                 }
             ]
         }
@@ -880,7 +880,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -909,7 +909,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -953,7 +953,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -969,7 +969,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

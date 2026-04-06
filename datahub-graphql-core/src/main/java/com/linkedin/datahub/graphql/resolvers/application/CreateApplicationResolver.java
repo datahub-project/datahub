@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.application;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -14,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.datahub.graphql.types.application.mappers.ApplicationMapper;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetcher;
@@ -40,8 +38,7 @@ public class CreateApplicationResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!AuthUtil.isAuthorized(
-              context.getOperationContext(), PoliciesConfig.EDIT_ENTITY_PRIVILEGE)) {
+          if (!ApplicationAuthorizationUtils.canCreateApplications(context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

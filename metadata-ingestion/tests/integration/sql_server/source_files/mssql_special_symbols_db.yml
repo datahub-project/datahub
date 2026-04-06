@@ -7,7 +7,7 @@ source:
     password: test!Password
     host_port: localhost:21433
     quote_schemas: true
-    sqlalchemy_uri: 'mssql+pyodbc:///?odbc_connect=DRIVER%3D%7BODBC+Driver+18+for+SQL+Server%7D%3BSERVER%3Dlocalhost%2C21433%3BDATABASE%3DDB_WITH%40SPEC_SYMB%3BUID%3Dsa%3BPWD%3Dtest%21Password%3BTrustServerCertificate%3Dyes'
+    sqlalchemy_uri: 'mssql+pyodbc:///?odbc_connect=DRIVER%3D%7BODBC+Driver+18+for+SQL+Server%7D%3BSERVER%3D127.0.0.1%2C21433%3BDATABASE%3DDB_WITH%40SPEC_SYMB%3BUID%3Dsa%3BPWD%3Dtest%21Password%3BTrustServerCertificate%3Dyes'
 
 sink:
   type: file

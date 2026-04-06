@@ -4,12 +4,17 @@ import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import auth.AuthUtils;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
+import client.NativeUserCredentialVerifyResult;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.HashMap;
@@ -26,8 +31,10 @@ import org.pac4j.core.exception.http.RedirectionAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.store.DataEncrypter;
 import org.pac4j.play.store.PlayCookieSessionStore;
+import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
+import play.test.Helpers;
 
 public class AuthenticationControllerTest {
 
@@ -700,5 +707,62 @@ public class AuthenticationControllerTest {
               .anyMatch(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME));
       assertFalse(hasRedirectCookie, "No redirect cookie expected when redirectPath reset to '/'");
     }
+  }
+
+  @Test
+  public void testAuthenticateWithProtocolRelativeRedirectUriResetsToRoot() {
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    // Use URL-encoded form so redirect_uri value is unambiguously ///google.com or //google.com
+    for (String redirectUriEncoded : new String[] {"%2F%2F%2Fgoogle.com", "%2F%2Fgoogle.com"}) {
+      Http.Request request =
+          new Http.RequestBuilder()
+              .method("GET")
+              .uri("/authenticate?redirect_uri=" + redirectUriEncoded)
+              .build();
+
+      try (MockedStatic<AuthUtils> authUtilsMock = mockStatic(auth.AuthUtils.class)) {
+        authUtilsMock.when(() -> auth.AuthUtils.hasValidSessionCookie(any())).thenReturn(true);
+
+        Result result = controller.authenticate(request);
+
+        assertEquals(303, result.status());
+        assertEquals("/", result.redirectLocation().orElse(""));
+        assertFalse(
+            result.redirectLocation().orElse("").startsWith("//"),
+            "Must not redirect to protocol-relative URL: " + redirectUriEncoded);
+      }
+    }
+  }
+
+  @Test
+  public void logInNativeAuthFailureReturnsBadRequest() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.jaas.enabled = false\n"
+                + "auth.native.enabled = true\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.authClient = authClient;
+    when(authClient.verifyNativeUserCredentials(anyString(), anyString()))
+        .thenReturn(new NativeUserCredentialVerifyResult(false, null));
+
+    Http.Request request = mock(Http.Request.class);
+    Http.RequestBody body = mock(Http.RequestBody.class);
+    when(request.body()).thenReturn(body);
+    when(body.asJson())
+        .thenReturn(Json.newObject().put("username", "someuser").put("password", "wrong"));
+
+    Result result = testController.logIn(request);
+
+    assertEquals(400, result.status());
+    assertEquals(
+        "Invalid Credentials", Json.parse(Helpers.contentAsString(result)).get("message").asText());
+    verify(authClient).verifyNativeUserCredentials("urn:li:corpuser:someuser", "wrong");
+    verify(authClient, never()).generateSessionTokenForUser(anyString(), anyString());
   }
 }
