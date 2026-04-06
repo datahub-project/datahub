@@ -145,7 +145,7 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
             )}
             {!isViewing && (
                 <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
-                    <Text size="md" color="textBrand" weight="semiBold">
+                    <Text size="md" color="primary" weight="semiBold">
                         View
                     </Text>
                 </Link>
