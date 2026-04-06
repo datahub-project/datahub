@@ -156,8 +156,6 @@ def test_dbt_source_patching_with_conflict():
 
 
 def test_dbt_source_patching_with_null_source_type_in_existing_owner_preserves_them():
-    # Existing owners with null source_type (e.g. added via API/UI) should be
-    # preserved when new owners are added by ingestion.
     source = create_mocked_dbt_source()
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
@@ -177,14 +175,6 @@ def test_dbt_source_patching_with_null_source_type_in_existing_owner_preserves_t
 
 
 def test_dbt_source_patching_preserves_manually_added_owners_without_source():
-    """Owners added via API/UI (with no source type) must be preserved
-    during dbt ingestion PATCH mode.
-
-    Scenario (from Zendesk #5248):
-    1. dbt ingestion emits owner cakubilo@figma.com (with SOURCE_CONTROL source)
-    2. Customer adds urn:li:corpGroup:team_data_infra via API (no source type)
-    3. Next dbt ingestion run should PRESERVE the API-added owner
-    """
     source = create_mocked_dbt_source()
     graph = mock.MagicMock()
 

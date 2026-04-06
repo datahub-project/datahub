@@ -3164,10 +3164,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ),
             )
 
-    # This method attempts to read-modify and return the owners of a dataset.
-    # From the existing owners it will remove the owners that are of the source_type_filter and
-    # then add all the new owners to that list. Owners without a source (e.g. added via API/UI)
-    # are always preserved. New owners take precedence over existing ones with the same URN.
+    # Merges new owners with existing ones from the graph. Existing owners matching
+    # source_type_filter are replaced; owners without a source are always preserved.
     def get_transformed_owners_by_source_type(
         self, owners: List[OwnerClass], entity_urn: str, source_type_filter: str
     ) -> List[OwnerClass]:
