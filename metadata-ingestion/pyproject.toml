@@ -910,6 +910,11 @@ okta = [
     "okta~=1.7.0,<2.0.0",
 ]
 
+omni = [
+    "PyYAML>=5.4",
+    "requests<3.0.0",
+]
+
 oracle = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -1002,16 +1007,19 @@ presto-on-hive = [
     "greenlet<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
+    "kerberos>=1.3.0,<2.0.0",
     "numpy<2",
     "patchy==2.8.0",
     "pip",
     "psycopg2-binary<3.0.0",
+    "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
+    "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
 
@@ -1483,6 +1491,7 @@ all = [
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
+    "PyYAML>=5.4",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
@@ -1648,7 +1657,7 @@ dev = [
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "PyYAML<7.0.0",
+    "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
@@ -1839,7 +1848,7 @@ docs = [
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "PyYAML<7.0.0",
+    "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
@@ -2108,6 +2117,7 @@ cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+omni = "datahub.ingestion.source.omni.omni:OmniSource"
 
 [project.entry-points."datahub.ingestion.transformer.plugins"]
 pattern_cleanup_ownership = "datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership"
