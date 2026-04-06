@@ -97,10 +97,7 @@ class TestStarRocksSourceDatabaseDiscovery:
     @patch("datahub.ingestion.source.sql.starrocks.create_engine")
     def test_discover_databases_success(self, create_engine_mock):
         execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
-        execute_mock.side_effect = [
-            None,  # SET CATALOG
-            [("db1",), ("db2",)],  # SHOW DATABASES
-        ]
+        execute_mock.return_value = [("db1",), ("db2",)]
 
         config = StarRocksConfig.model_validate(_base_config())
         source = StarRocksSource(config, PipelineContext(run_id="test"))
