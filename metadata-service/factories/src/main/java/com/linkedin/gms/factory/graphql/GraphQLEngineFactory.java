@@ -21,6 +21,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.knowledge.DocumentImportServiceFactory;
 import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -83,6 +84,7 @@ import org.springframework.context.annotation.Import;
   SiblingGraphServiceFactory.class,
   AssertionServiceFactory.class,
   DocumentServiceFactory.class,
+  DocumentImportServiceFactory.class,
 })
 public class GraphQLEngineFactory {
 
@@ -221,7 +223,7 @@ public class GraphQLEngineFactory {
   @Qualifier("documentService")
   private DocumentService documentService;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("documentImportService")
   private DocumentImportService documentImportService;
 
