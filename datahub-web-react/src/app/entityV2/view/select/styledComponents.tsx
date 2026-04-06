@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 
 import { VIEW_CARD_MIN_WIDTH } from '@app/entityV2/view/select/constants';
-import { colors, typography } from '@src/alchemy-components';
+import { typography } from '@src/alchemy-components';
 
 export const ViewContainer = styled.div<{
     $selected?: boolean;
@@ -37,7 +37,7 @@ export const ViewContainer = styled.div<{
         }
 
         height: 72px;
-        border: 1px solid ${props.$selected ? props.theme.styles['primary-color'] : colors.gray[100]};
+        border: 1px solid ${props.$selected ? props.theme.colors.borderBrand : props.theme.colors.border};
 
         :hover {
             border: 1px solid ${props.theme.colors.borderBrand};
@@ -88,7 +88,7 @@ export const ViewContent = styled.div<{ $isShowNavBarRedesign?: boolean; $fixedW
 `;
 
 export const ViewLabel = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[600]};`}
+    ${(props) => props.$isShowNavBarRedesign && `color: ${props.theme.colors.text};`}
     font-size: 14px;
     font-weight: 400;
     white-space: nowrap;
@@ -115,7 +115,7 @@ export const ViewDescription = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         `
         font-size: 14px;
         font-weight: 500;
-        color: ${colors.gray[1700]};
+        color: ${props.theme.colors.textSecondary};
         font-family: ${typography.fonts.body};
     `}
     white-space: nowrap;
