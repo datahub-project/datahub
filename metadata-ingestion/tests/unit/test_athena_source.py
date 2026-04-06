@@ -80,7 +80,6 @@ def test_athena_uri():
     )
 
 
-@pytest.mark.integration
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_athena_get_table_properties():
     config = AthenaConfig.model_validate(
@@ -143,9 +142,9 @@ def test_athena_get_table_properties():
         mock_result,
     ]
     mock_cursor.fetchall.side_effect = [OperationalError("First call fails")]
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
+    ]
 
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
@@ -192,7 +191,6 @@ from "test_schema"."test_table$partitions")"""
     }
 
 
-@pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_athena_get_table_properties_iceberg_location():
     config = AthenaConfig.model_validate(
@@ -225,11 +223,13 @@ def test_athena_get_table_properties_iceberg_location():
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [
-            {"CatalogName": "my-hive-catalog", "Type": "HIVE"},
-        ]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {
+            "DataCatalogsSummary": [
+                {"CatalogName": "my-hive-catalog", "Type": "HIVE"},
+            ]
+        }
+    ]
 
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
@@ -243,55 +243,30 @@ def test_athena_get_table_properties_iceberg_location():
     assert location == expected_iceberg_urn
 
 
-@pytest.mark.integration
-def test_athena_get_table_properties_non_glue_non_iceberg_s3_location():
-    """Non-Glue, non-Iceberg tables with s3:// location get S3 URN as upstream lineage."""
-    config = AthenaConfig.model_validate(
-        {
-            "aws_region": "us-west-1",
-            "query_result_location": "s3://query-result-location/",
-            "work_group": "test-workgroup",
-            "catalog_name": "my-hive-catalog",
-        }
-    )
-    schema = "default"
-    table = "test_hive_table"
-
-    table_metadata = {
-        "TableMetadata": {
-            "Name": table,
-            "TableType": "EXTERNAL_TABLE",
-            "CreateTime": None,
-            "PartitionKeys": [],
-            "Parameters": {
-                "location": "s3://my-bucket/my-hive-table/",
-            },
-        },
-    }
-
-    mock_cursor = mock.MagicMock()
-    mock_inspector = mock.MagicMock()
-    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
-        response=table_metadata
-    )
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
-    }
-
-    ctx = PipelineContext(run_id="test")
-    source = AthenaSource(config=config, ctx=ctx)
-    source.cursor = mock_cursor
-
-    _, _, location = source.get_table_properties(
-        inspector=mock_inspector, table=table, schema=schema
-    )
-    expected_s3_urn = make_s3_urn("s3://my-bucket/my-hive-table/", "PROD")
-    assert location == expected_s3_urn
-
-
-@pytest.mark.integration
-def test_athena_get_table_properties_non_glue_non_iceberg_non_s3_location():
-    """Non-Glue, non-Iceberg tables with a non-s3:// location get no upstream lineage."""
+@pytest.mark.parametrize(
+    "location_param,expected_urn",
+    [
+        pytest.param(
+            {"location": "s3://my-bucket/my-hive-table/"},
+            make_s3_urn("s3://my-bucket/my-hive-table/", "PROD"),
+            id="s3_location",
+        ),
+        pytest.param(
+            {"location": "hdfs://namenode/data/test_table"},
+            None,
+            id="non_s3_location",
+        ),
+        pytest.param(
+            {},
+            None,
+            id="no_location",
+        ),
+    ],
+)
+def test_athena_get_table_properties_non_glue_non_iceberg_location(
+    location_param, expected_urn
+):
+    """Non-Glue, non-Iceberg tables: lineage depends on location parameter."""
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -309,9 +284,7 @@ def test_athena_get_table_properties_non_glue_non_iceberg_non_s3_location():
             "TableType": "EXTERNAL_TABLE",
             "CreateTime": None,
             "PartitionKeys": [],
-            "Parameters": {
-                "location": "hdfs://namenode/data/test_table",
-            },
+            "Parameters": location_param,
         },
     }
 
@@ -320,9 +293,9 @@ def test_athena_get_table_properties_non_glue_non_iceberg_non_s3_location():
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]}
+    ]
 
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
@@ -331,50 +304,7 @@ def test_athena_get_table_properties_non_glue_non_iceberg_non_s3_location():
     _, _, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
-    assert location is None
-
-
-@pytest.mark.integration
-def test_athena_get_table_properties_non_glue_non_iceberg_no_location():
-    """Non-Glue, non-Iceberg tables without a location get no upstream lineage."""
-    config = AthenaConfig.model_validate(
-        {
-            "aws_region": "us-west-1",
-            "query_result_location": "s3://query-result-location/",
-            "work_group": "test-workgroup",
-            "catalog_name": "my-hive-catalog",
-        }
-    )
-    schema = "default"
-    table = "test_table"
-
-    table_metadata = {
-        "TableMetadata": {
-            "Name": table,
-            "TableType": "EXTERNAL_TABLE",
-            "CreateTime": None,
-            "PartitionKeys": [],
-            "Parameters": {},
-        },
-    }
-
-    mock_cursor = mock.MagicMock()
-    mock_inspector = mock.MagicMock()
-    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
-        response=table_metadata
-    )
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
-    }
-
-    ctx = PipelineContext(run_id="test")
-    source = AthenaSource(config=config, ctx=ctx)
-    source.cursor = mock_cursor
-
-    _, _, location = source.get_table_properties(
-        inspector=mock_inspector, table=table, schema=schema
-    )
-    assert location is None
+    assert location == expected_urn
 
 
 def test_get_catalog_type_returns_glue():
@@ -391,12 +321,14 @@ def test_get_catalog_type_returns_glue():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [
-            {"CatalogName": "AwsDataCatalog", "Type": "GLUE"},
-            {"CatalogName": "other-catalog", "Type": "HIVE"},
-        ]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {
+            "DataCatalogsSummary": [
+                {"CatalogName": "AwsDataCatalog", "Type": "GLUE"},
+                {"CatalogName": "other-catalog", "Type": "HIVE"},
+            ]
+        }
+    ]
     source.cursor = mock_cursor
 
     assert source._get_catalog_type() == "GLUE"
@@ -417,9 +349,9 @@ def test_get_catalog_type_case_insensitive_match():
 
     mock_cursor = mock.MagicMock()
     # API returns uppercase name, config has lowercase
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
+    ]
     source.cursor = mock_cursor
 
     assert source._get_catalog_type() == "GLUE"
@@ -439,9 +371,9 @@ def test_get_catalog_type_returns_none_when_not_found():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
+    ]
     source.cursor = mock_cursor
 
     assert source._get_catalog_type() is None
@@ -460,8 +392,8 @@ def test_get_catalog_type_returns_none_on_api_exception():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.list_data_catalogs.side_effect = Exception(
-        "Network error"
+    mock_cursor._connection.client.get_paginator.return_value.paginate.side_effect = (
+        Exception("Network error")
     )
     source.cursor = mock_cursor
 
@@ -482,9 +414,9 @@ def test_is_glue_catalog_caches_result():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
+    ]
     source.cursor = mock_cursor
 
     assert source.is_glue_catalog is True
@@ -492,11 +424,11 @@ def test_is_glue_catalog_caches_result():
     assert source.is_glue_catalog is True
 
     # API should have been called exactly once due to caching
-    mock_cursor._connection.client.list_data_catalogs.assert_called_once()
+    mock_cursor._connection.client.get_paginator.assert_called_once()
 
 
-def test_is_glue_catalog_returns_false_when_catalog_not_found():
-    """is_glue_catalog returns False and does not cache when catalog is missing."""
+def test_is_glue_catalog_defaults_true_when_catalog_not_found():
+    """is_glue_catalog defaults to True when catalog is not found (Glue is the common case)."""
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -509,13 +441,13 @@ def test_is_glue_catalog_returns_false_when_catalog_not_found():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
+    ]
     source.cursor = mock_cursor
 
-    assert source.is_glue_catalog is False
-    assert source._is_glue_catalog is False  # Cached to avoid repeated API calls
+    assert source.is_glue_catalog is True
+    assert source._is_glue_catalog is True  # Cached to avoid repeated API calls
 
 
 def test_is_glue_catalog_false_for_hive_catalog():
@@ -532,13 +464,83 @@ def test_is_glue_catalog_false_for_hive_catalog():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.list_data_catalogs.return_value = {
-        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
-    }
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]}
+    ]
     source.cursor = mock_cursor
 
     assert source.is_glue_catalog is False
     assert source._is_glue_catalog is False  # Should be cached as False
+
+
+@freeze_time(FROZEN_TIME)
+def test_athena_get_table_properties_glue_iceberg_returns_glue_urn():
+    """When catalog is Glue, Iceberg tables still get Glue URN (Glue takes precedence)."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+        }
+    )
+    schema = "default"
+    table = "iceberg_on_glue"
+
+    table_metadata = {
+        "TableMetadata": {
+            "Name": table,
+            "TableType": "EXTERNAL_TABLE",
+            "CreateTime": datetime.now(),
+            "PartitionKeys": [],
+            "Parameters": {
+                "table_type": "ICEBERG",
+                "location": "s3://bucket/iceberg_on_glue/",
+            },
+        },
+    }
+
+    mock_cursor = mock.MagicMock()
+    mock_inspector = mock.MagicMock()
+    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
+        response=table_metadata
+    )
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
+    ]
+
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    # Glue catalog takes precedence over Iceberg table type
+    _, _, location = source.get_table_properties(
+        inspector=mock_inspector, table=table, schema=schema
+    )
+    expected_glue_urn = make_dataset_urn("glue", f"{schema}.{table}")
+    assert location == expected_glue_urn
+
+
+def test_is_glue_catalog_defaults_true_on_api_exception():
+    """is_glue_catalog defaults to True when the API call raises an exception."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.get_paginator.return_value.paginate.side_effect = (
+        Exception("Network error")
+    )
+    source.cursor = mock_cursor
+
+    # API failure should default to Glue (True), not break lineage
+    assert source.is_glue_catalog is True
+    assert source._is_glue_catalog is True  # Cached to avoid repeated API calls
 
 
 def test_get_column_type_simple_types():
