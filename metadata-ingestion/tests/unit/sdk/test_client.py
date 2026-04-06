@@ -121,3 +121,12 @@ def test_get_urns_by_filter_rejects_draft_when_server_does_not_support_flag() ->
             )
 
     assert mock_execute_graphql.call_count == 1
+
+
+def test_data_process_maps_to_data_process_instance() -> None:
+    # "dataProcess" (legacy Azkaban entity) has never been a valid GraphQL
+    # EntityType enum value. The searchable successor is DATA_PROCESS_INSTANCE.
+    # mcp-server-datahub triggers this path when an LLM asks it to search for
+    # pipeline/trace entities, producing a GraphQL ValidationError:
+    #   "No value found for name 'DATA_PROCESS'"
+    assert entity_type_to_graphql("dataProcess") == "DATA_PROCESS_INSTANCE"
