@@ -2,8 +2,7 @@
 Smoke tests for Document Import APIs.
 
 Validates end-to-end functionality of:
-- GET /openapi/v1/documents/import/supported-formats
-- POST /openapi/v1/documents/import/files (file upload → document creation)
+- importDocumentsFromFiles GraphQL mutation (file upload → document creation)
 - importDocumentsFromGitHub GraphQL mutation (schema validation only — no real GitHub call)
 
 Tests are idempotent and clean up after themselves.
@@ -67,51 +66,59 @@ def _create_parent_document(auth_session) -> str:
     return result["data"]["createDocument"]
 
 
+IMPORT_FILES_MUTATION = """
+    mutation ImportFiles($input: ImportDocumentsFromFilesInput!) {
+        importDocumentsFromFiles(input: $input) {
+            createdCount
+            updatedCount
+            failedCount
+            errors
+            documentUrns
+        }
+    }
+"""
+
+
+def _import_files(
+    auth_session,
+    documents: list[dict],
+    show_in_global_context: bool = True,
+    use_case: str = "CONTEXT_DOCUMENT",
+    parent_document_urn: str | None = None,
+) -> dict:
+    """Import documents via the importDocumentsFromFiles GraphQL mutation."""
+    variables: dict = {
+        "input": {
+            "documents": documents,
+            "showInGlobalContext": show_in_global_context,
+            "useCase": use_case,
+        }
+    }
+    if parent_document_urn:
+        variables["input"]["parentDocumentUrn"] = parent_document_urn
+
+    result = execute_graphql(auth_session, IMPORT_FILES_MUTATION, variables)
+    assert "errors" not in result, f"GraphQL errors: {result.get('errors')}"
+    return result["data"]["importDocumentsFromFiles"]
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.dependency()
-def test_supported_formats_endpoint(auth_session):
-    """GET /openapi/v1/documents/import/supported-formats returns a list of extensions."""
-    response = auth_session.get(
-        f"{auth_session.gms_url()}/openapi/v1/documents/import/supported-formats"
-    )
-    assert response.status_code == 200, f"Unexpected status: {response.status_code}"
-
-    data = response.json()
-    extensions = data.get("extensions", [])
-    logger.info("Supported extensions: %s", extensions)
-
-    assert isinstance(extensions, list)
-    assert len(extensions) > 0, "Expected at least one supported extension"
-    assert ".md" in extensions
-    assert ".txt" in extensions
-    assert ".pdf" in extensions
-
-
-@pytest.mark.dependency()
 def test_import_file_upload(auth_session):
-    """Upload a .txt file via REST and verify a document is created."""
-    file_content = (
-        b"# Smoke Test Document\n\nThis is test content for the import smoke test."
-    )
+    """Upload a .txt file via GraphQL and verify a document is created."""
     file_name = f"smoke-import-{uuid.uuid4().hex[:8]}.txt"
-
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/openapi/v1/documents/import/files",
-        files=[("files", (file_name, file_content, "text/plain"))],
-        data={
-            "showInGlobalContext": "true",
-            "useCase": "CONTEXT_DOCUMENT",
-        },
-    )
-    assert response.status_code == 200, (
-        f"Upload failed with status {response.status_code}: {response.text}"
+    file_content = (
+        "# Smoke Test Document\n\nThis is test content for the import smoke test."
     )
 
-    result = response.json()
+    result = _import_files(
+        auth_session,
+        documents=[{"fileName": file_name, "content": file_content}],
+    )
     logger.info("Import result: %s", result)
 
     assert result["createdCount"] >= 1, f"Expected at least 1 created, got {result}"
@@ -121,7 +128,6 @@ def test_import_file_upload(auth_session):
     created_urn = result["documentUrns"][0]
     logger.info("Created document URN: %s", created_urn)
 
-    # Verify the document exists via GraphQL
     get_query = """
         query GetDoc($urn: String!) {
           document(urn: $urn) {
@@ -144,7 +150,6 @@ def test_import_file_upload(auth_session):
 
     logger.info("Verified document title: %s", doc["info"]["title"])
 
-    # Cleanup
     _delete_document(auth_session, created_urn)
 
 
@@ -154,28 +159,18 @@ def test_import_file_upload_with_parent(auth_session):
     parent_urn = _create_parent_document(auth_session)
     logger.info("Created parent document: %s", parent_urn)
 
-    file_content = b"Child document content for hierarchy test."
     file_name = f"smoke-child-{uuid.uuid4().hex[:8]}.md"
+    file_content = "Child document content for hierarchy test."
 
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/openapi/v1/documents/import/files",
-        files=[("files", (file_name, file_content, "text/plain"))],
-        data={
-            "showInGlobalContext": "true",
-            "useCase": "CONTEXT_DOCUMENT",
-            "parentDocumentUrn": parent_urn,
-        },
+    result = _import_files(
+        auth_session,
+        documents=[{"fileName": file_name, "content": file_content}],
+        parent_document_urn=parent_urn,
     )
-    assert response.status_code == 200, (
-        f"Upload failed: {response.status_code}: {response.text}"
-    )
-
-    result = response.json()
     assert result["createdCount"] >= 1
     child_urn = result["documentUrns"][0]
     logger.info("Created child document: %s", child_urn)
 
-    # Verify parent-child relationship
     get_query = """
         query GetDoc($urn: String!) {
           document(urn: $urn) {
@@ -199,52 +194,27 @@ def test_import_file_upload_with_parent(auth_session):
     )
     logger.info("Verified parent-child relationship: %s → %s", parent_urn, child_urn)
 
-    # Cleanup (child first, then parent)
     _delete_document(auth_session, child_urn)
     _delete_document(auth_session, parent_urn)
 
 
 @pytest.mark.dependency()
-def test_import_file_upload_rejects_empty(auth_session):
-    """Uploading with no files should return an error (400 or 415)."""
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/openapi/v1/documents/import/files",
-        data={
-            "showInGlobalContext": "true",
-            "useCase": "CONTEXT_DOCUMENT",
-        },
-    )
-    # Spring returns 415 (no multipart boundary) or 400 (empty files list)
-    assert response.status_code in (400, 415), (
-        f"Expected 400 or 415 for empty upload, got {response.status_code}"
-    )
-
-
-@pytest.mark.dependency()
 def test_import_file_upload_idempotent(auth_session):
     """Uploading the same file twice should update (not duplicate) the document."""
-    file_content = b"Idempotency test content"
     file_name = "smoke-idempotent-test.txt"
+    file_content = "Idempotency test content"
 
-    # First upload — creates
-    resp1 = auth_session.post(
-        f"{auth_session.gms_url()}/openapi/v1/documents/import/files",
-        files=[("files", (file_name, file_content, "text/plain"))],
-        data={"showInGlobalContext": "true", "useCase": "CONTEXT_DOCUMENT"},
+    result1 = _import_files(
+        auth_session,
+        documents=[{"fileName": file_name, "content": file_content}],
     )
-    assert resp1.status_code == 200
-    result1 = resp1.json()
     assert result1["createdCount"] == 1
     urn1 = result1["documentUrns"][0]
 
-    # Second upload — should update the same document
-    resp2 = auth_session.post(
-        f"{auth_session.gms_url()}/openapi/v1/documents/import/files",
-        files=[("files", (file_name, file_content, "text/plain"))],
-        data={"showInGlobalContext": "true", "useCase": "CONTEXT_DOCUMENT"},
+    result2 = _import_files(
+        auth_session,
+        documents=[{"fileName": file_name, "content": file_content}],
     )
-    assert resp2.status_code == 200
-    result2 = resp2.json()
     assert result2["updatedCount"] == 1, (
         f"Expected 1 update on re-import, got {result2}"
     )
@@ -253,5 +223,4 @@ def test_import_file_upload_idempotent(auth_session):
     assert urn1 == urn2, "Re-importing the same file should produce the same URN"
     logger.info("Verified idempotent import: %s", urn1)
 
-    # Cleanup
     _delete_document(auth_session, urn1)
