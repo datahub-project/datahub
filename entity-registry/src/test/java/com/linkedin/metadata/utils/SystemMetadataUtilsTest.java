@@ -207,4 +207,25 @@ public class SystemMetadataUtilsTest {
 
     assertNull(result.getAspectModified());
   }
+
+  @Test
+  public void testSetSchemaVersionSetsWhenAbsent() {
+    SystemMetadata metadata = new SystemMetadata();
+    assertFalse(metadata.hasSchemaVersion());
+
+    SystemMetadata result = SystemMetadataUtils.setSchemaVersion(metadata, 3L);
+
+    assertNotNull(result);
+    assertTrue(result.hasSchemaVersion());
+    assertEquals(result.getSchemaVersion(), (Long) 3L);
+  }
+
+  @Test
+  public void testSetSchemaVersionDoesNotOverwriteExisting() {
+    SystemMetadata metadata = new SystemMetadata().setSchemaVersion(2L);
+
+    SystemMetadataUtils.setSchemaVersion(metadata, 5L);
+
+    assertEquals(metadata.getSchemaVersion(), (Long) 2L);
+  }
 }

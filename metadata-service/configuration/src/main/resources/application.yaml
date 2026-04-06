@@ -1249,6 +1249,33 @@ graphQL:
     # Only enable if you suspect performance issues with object property access
     trivialDataFetchersEnabled: ${GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED:false}
 
+  # Shape logging: threshold-based structured logging for GraphQL requests/responses
+  # Monitors query complexity, field counts, duration, response size, and errors
+  # Expensive response analysis only runs when at least one threshold is crossed
+  # All thresholds are overridable via environment variables (examples below)
+  shapeLogging:
+    # Enable/disable shape logging
+    # Override: GRAPHQL_SHAPE_LOGGING_ENABLED=true
+    enabled: ${GRAPHQL_SHAPE_LOGGING_ENABLED:false}
+
+    # Minimum number of GraphQL field selections to trigger logging (proxy for query complexity)
+    # Typical: 10-20 for simple queries, 50-100 for moderate, 150+ for heavy
+    # Override: GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD=50
+    fieldCountThreshold: ${GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD:100}
+
+    # Minimum request duration in milliseconds to trigger logging (slow-query threshold)
+    # Override: GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS=1000
+    durationThresholdMs: ${GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS:3000}
+
+    # Estimated minimum response size in bytes to trigger logging
+    # Estimate: responseFieldCount * 50 bytes
+    # Default: 1048576 (1 MiB), Example overrides: 262144 (256 KiB), 524288 (512 KiB)
+    # Override: GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES=262144
+    responseSizeThresholdBytes: ${GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES:1048576}
+
+    # Minimum number of GraphQL errors to trigger logging (set to 1 to log any error)
+    # Override: GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD=2
+    errorCountThreshold: ${GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD:1}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
