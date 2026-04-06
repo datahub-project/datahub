@@ -13,6 +13,7 @@ from sqlglot.dialects import Athena
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.athena import (
     AthenaConfig,
     AthenaSource,
@@ -31,8 +32,6 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 def test_athena_config_query_location_old_plus_new_value_not_allowed():
-    from datahub.ingestion.source.sql.athena import AthenaConfig
-
     with pytest.raises(ValueError):
         AthenaConfig.model_validate(
             {
@@ -45,8 +44,6 @@ def test_athena_config_query_location_old_plus_new_value_not_allowed():
 
 
 def test_athena_config_staging_dir_is_set_as_query_result():
-    from datahub.ingestion.source.sql.athena import AthenaConfig
-
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -67,8 +64,6 @@ def test_athena_config_staging_dir_is_set_as_query_result():
 
 
 def test_athena_uri():
-    from datahub.ingestion.source.sql.athena import AthenaConfig
-
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -143,14 +138,11 @@ def test_athena_get_table_properties():
     mock_result = MockCursorResult(
         data=[["2023", "12"]], description=[["year"], ["month"]]
     )
-    # Mock partition query results
     mock_cursor.execute.side_effect = [
         OperationalError("First call fails"),
         mock_result,
     ]
     mock_cursor.fetchall.side_effect = [OperationalError("First call fails")]
-
-    # Mock list_data_catalogs to return GLUE type
     mock_cursor._connection.client.list_data_catalogs.return_value = {
         "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
     }
@@ -159,7 +151,6 @@ def test_athena_get_table_properties():
     source = AthenaSource(config=config, ctx=ctx)
     source.cursor = mock_cursor
 
-    # Test table properties
     description, custom_properties, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
@@ -178,15 +169,12 @@ def test_athena_get_table_properties():
     expected_glue_urn = make_dataset_urn("glue", f"{schema}.{table}")
     assert location == expected_glue_urn
 
-    # Test partition functionality
     partitions = source.get_partitions(
         inspector=mock_inspector, schema=schema, table=table
     )
     assert partitions == ["year", "month"]
 
-    # Verify the correct SQL query was generated for partitions
     expected_create_table_query = "SHOW CREATE TABLE `test_schema`.`test_table`"
-
     expected_query = """\
 select year,month from "test_schema"."test_table$partitions" \
 where CONCAT(CAST(year as VARCHAR), CAST('-' AS VARCHAR), CAST(month as VARCHAR)) = \
@@ -197,7 +185,6 @@ from "test_schema"."test_table$partitions")"""
     actual_query = mock_cursor.execute.call_args_list[1][0][0]
     assert actual_query == expected_query
 
-    # Verify partition cache was populated correctly
     assert source.table_partition_cache[schema][table].partitions == partitions
     assert source.table_partition_cache[schema][table].max_partition == {
         "year": "2023",
@@ -254,6 +241,304 @@ def test_athena_get_table_properties_iceberg_location():
     )
     expected_iceberg_urn = make_dataset_urn("iceberg", f"{schema}.{table}")
     assert location == expected_iceberg_urn
+
+
+@pytest.mark.integration
+def test_athena_get_table_properties_non_glue_non_iceberg_s3_location():
+    """Non-Glue, non-Iceberg tables with s3:// location get S3 URN as upstream lineage."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "my-hive-catalog",
+        }
+    )
+    schema = "default"
+    table = "test_hive_table"
+
+    table_metadata = {
+        "TableMetadata": {
+            "Name": table,
+            "TableType": "EXTERNAL_TABLE",
+            "CreateTime": None,
+            "PartitionKeys": [],
+            "Parameters": {
+                "location": "s3://my-bucket/my-hive-table/",
+            },
+        },
+    }
+
+    mock_cursor = mock.MagicMock()
+    mock_inspector = mock.MagicMock()
+    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
+        response=table_metadata
+    )
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
+    }
+
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    _, _, location = source.get_table_properties(
+        inspector=mock_inspector, table=table, schema=schema
+    )
+    expected_s3_urn = make_s3_urn("s3://my-bucket/my-hive-table/", "PROD")
+    assert location == expected_s3_urn
+
+
+@pytest.mark.integration
+def test_athena_get_table_properties_non_glue_non_iceberg_non_s3_location():
+    """Non-Glue, non-Iceberg tables with a non-s3:// location get no upstream lineage."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "my-hive-catalog",
+        }
+    )
+    schema = "default"
+    table = "test_table"
+
+    table_metadata = {
+        "TableMetadata": {
+            "Name": table,
+            "TableType": "EXTERNAL_TABLE",
+            "CreateTime": None,
+            "PartitionKeys": [],
+            "Parameters": {
+                "location": "hdfs://namenode/data/test_table",
+            },
+        },
+    }
+
+    mock_cursor = mock.MagicMock()
+    mock_inspector = mock.MagicMock()
+    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
+        response=table_metadata
+    )
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
+    }
+
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    _, _, location = source.get_table_properties(
+        inspector=mock_inspector, table=table, schema=schema
+    )
+    assert location is None
+
+
+@pytest.mark.integration
+def test_athena_get_table_properties_non_glue_non_iceberg_no_location():
+    """Non-Glue, non-Iceberg tables without a location get no upstream lineage."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "my-hive-catalog",
+        }
+    )
+    schema = "default"
+    table = "test_table"
+
+    table_metadata = {
+        "TableMetadata": {
+            "Name": table,
+            "TableType": "EXTERNAL_TABLE",
+            "CreateTime": None,
+            "PartitionKeys": [],
+            "Parameters": {},
+        },
+    }
+
+    mock_cursor = mock.MagicMock()
+    mock_inspector = mock.MagicMock()
+    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
+        response=table_metadata
+    )
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
+    }
+
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    _, _, location = source.get_table_properties(
+        inspector=mock_inspector, table=table, schema=schema
+    )
+    assert location is None
+
+
+def test_get_catalog_type_returns_glue():
+    """_get_catalog_type returns 'GLUE' when catalog is found in API response."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "AwsDataCatalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [
+            {"CatalogName": "AwsDataCatalog", "Type": "GLUE"},
+            {"CatalogName": "other-catalog", "Type": "HIVE"},
+        ]
+    }
+    source.cursor = mock_cursor
+
+    assert source._get_catalog_type() == "GLUE"
+
+
+def test_get_catalog_type_case_insensitive_match():
+    """_get_catalog_type matches catalog name case-insensitively."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "awsdatacatalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    # API returns uppercase name, config has lowercase
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
+    }
+    source.cursor = mock_cursor
+
+    assert source._get_catalog_type() == "GLUE"
+
+
+def test_get_catalog_type_returns_none_when_not_found():
+    """_get_catalog_type returns None when catalog is not in API response."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "missing-catalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
+    }
+    source.cursor = mock_cursor
+
+    assert source._get_catalog_type() is None
+
+
+def test_get_catalog_type_returns_none_on_api_exception():
+    """_get_catalog_type returns None and logs a warning when the API call fails."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.list_data_catalogs.side_effect = Exception(
+        "Network error"
+    )
+    source.cursor = mock_cursor
+
+    assert source._get_catalog_type() is None
+
+
+def test_is_glue_catalog_caches_result():
+    """is_glue_catalog only calls list_data_catalogs once even when accessed multiple times."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "AwsDataCatalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
+    }
+    source.cursor = mock_cursor
+
+    assert source.is_glue_catalog is True
+    assert source.is_glue_catalog is True
+    assert source.is_glue_catalog is True
+
+    # API should have been called exactly once due to caching
+    mock_cursor._connection.client.list_data_catalogs.assert_called_once()
+
+
+def test_is_glue_catalog_returns_false_when_catalog_not_found():
+    """is_glue_catalog returns False and does not cache when catalog is missing."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "missing-catalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]
+    }
+    source.cursor = mock_cursor
+
+    assert source.is_glue_catalog is False
+    assert source._is_glue_catalog is False  # Cached to avoid repeated API calls
+
+
+def test_is_glue_catalog_false_for_hive_catalog():
+    """is_glue_catalog returns False for HIVE catalog type."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "my-hive-catalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.list_data_catalogs.return_value = {
+        "DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]
+    }
+    source.cursor = mock_cursor
+
+    assert source.is_glue_catalog is False
+    assert source._is_glue_catalog is False  # Should be cached as False
 
 
 def test_get_column_type_simple_types():
@@ -341,15 +626,11 @@ def test_column_type_complex_combination():
 
 
 def test_casted_partition_key():
-    from datahub.ingestion.source.sql.athena import AthenaSource
-
     assert AthenaSource._casted_partition_key("test_col") == "CAST(test_col as VARCHAR)"
 
 
 def test_convert_simple_field_paths_to_v1_enabled():
     """Test that emit_schema_fieldpaths_as_v1 correctly converts simple field paths when enabled"""
-
-    # Test config with emit_schema_fieldpaths_as_v1 enabled
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -363,7 +644,6 @@ def test_convert_simple_field_paths_to_v1_enabled():
     source = AthenaSource(config=config, ctx=ctx)
     mock_inspector = mock.MagicMock()
 
-    # Test simple string column (should be converted)
     string_column = {
         "name": "simple_string_col",
         "type": types.String(),
@@ -379,11 +659,10 @@ def test_convert_simple_field_paths_to_v1_enabled():
 
     assert len(fields) == 1
     field = fields[0]
-    assert field.fieldPath == "simple_string_col"  # v1 format (simple path)
+    assert field.fieldPath == "simple_string_col"
     assert isinstance(field.type.type, StringTypeClass)
 
-    # Test simple boolean column (should be converted)
-    # Note: Boolean type conversion may have issues in SQLAlchemy type converter
+    # Boolean type conversion may have issues in SQLAlchemy type converter
     bool_column = {
         "name": "simple_bool_col",
         "type": types.Boolean(),
@@ -399,21 +678,13 @@ def test_convert_simple_field_paths_to_v1_enabled():
 
     assert len(fields) == 1
     field = fields[0]
-    # If the type conversion succeeded, test the boolean type
-    # If it failed, the fallback should still preserve the behavior
     if field.fieldPath:
-        assert field.fieldPath == "simple_bool_col"  # v1 format (simple path)
+        assert field.fieldPath == "simple_bool_col"
         assert isinstance(field.type.type, BooleanTypeClass)
-    else:
-        # Type conversion failed - this is expected for some SQLAlchemy types
-        # The main point is that the configuration is respected
-        assert True  # Just verify that the method doesn't crash
 
 
 def test_convert_simple_field_paths_to_v1_disabled():
     """Test that emit_schema_fieldpaths_as_v1 keeps v2 field paths when disabled"""
-
-    # Test config with emit_schema_fieldpaths_as_v1 disabled (default)
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -427,7 +698,6 @@ def test_convert_simple_field_paths_to_v1_disabled():
     source = AthenaSource(config=config, ctx=ctx)
     mock_inspector = mock.MagicMock()
 
-    # Test simple string column (should NOT be converted)
     string_column = {
         "name": "simple_string_col",
         "type": types.String(),
@@ -443,15 +713,12 @@ def test_convert_simple_field_paths_to_v1_disabled():
 
     assert len(fields) == 1
     field = fields[0]
-    # Should preserve v2 field path format
     assert field.fieldPath.startswith("[version=2.0]")
     assert isinstance(field.type.type, StringTypeClass)
 
 
 def test_convert_simple_field_paths_to_v1_complex_types_ignored():
     """Test that complex types (arrays, maps, structs) are not affected by emit_schema_fieldpaths_as_v1"""
-
-    # Test config with emit_schema_fieldpaths_as_v1 enabled
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -465,7 +732,6 @@ def test_convert_simple_field_paths_to_v1_complex_types_ignored():
     source = AthenaSource(config=config, ctx=ctx)
     mock_inspector = mock.MagicMock()
 
-    # Test array column (should NOT be converted - complex type)
     array_column = {
         "name": "array_col",
         "type": types.ARRAY(types.String()),
@@ -479,14 +745,11 @@ def test_convert_simple_field_paths_to_v1_complex_types_ignored():
         inspector=mock_inspector,
     )
 
-    # Array fields should have multiple schema fields and preserve v2 format
     assert len(fields) > 1 or (
         len(fields) == 1 and fields[0].fieldPath.startswith("[version=2.0]")
     )
-    # First field should be the array itself
     assert isinstance(fields[0].type.type, ArrayTypeClass)
 
-    # Test map column (should NOT be converted - complex type)
     map_column = {
         "name": "map_col",
         "type": MapType(types.String(), types.Integer()),
@@ -500,18 +763,14 @@ def test_convert_simple_field_paths_to_v1_complex_types_ignored():
         inspector=mock_inspector,
     )
 
-    # Map fields should have multiple schema fields and preserve v2 format
     assert len(fields) > 1 or (
         len(fields) == 1 and fields[0].fieldPath.startswith("[version=2.0]")
     )
-    # First field should be the map itself
     assert isinstance(fields[0].type.type, MapTypeClass)
 
 
 def test_convert_simple_field_paths_to_v1_with_partition_keys():
     """Test that emit_schema_fieldpaths_as_v1 works correctly with partition keys"""
-
-    # Test config with emit_schema_fieldpaths_as_v1 enabled
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -525,7 +784,6 @@ def test_convert_simple_field_paths_to_v1_with_partition_keys():
     source = AthenaSource(config=config, ctx=ctx)
     mock_inspector = mock.MagicMock()
 
-    # Test simple string column that is a partition key
     string_column = {
         "name": "partition_col",
         "type": types.String(),
@@ -549,9 +807,6 @@ def test_convert_simple_field_paths_to_v1_with_partition_keys():
 
 def test_convert_simple_field_paths_to_v1_default_behavior():
     """Test that emit_schema_fieldpaths_as_v1 defaults to False"""
-    from datahub.ingestion.source.sql.athena import AthenaConfig
-
-    # Test config without specifying emit_schema_fieldpaths_as_v1
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -577,19 +832,12 @@ def test_get_partitions_returns_none_when_extract_partitions_disabled():
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
 
-    # Mock inspector - should not be used if extract_partitions is False
     mock_inspector = mock.MagicMock()
 
-    # Call get_partitions - should return None immediately without any database calls
     result = source.get_partitions(mock_inspector, "test_schema", "test_table")
 
-    # Verify result is None
     assert result is None
-
-    # Verify that no inspector methods were called
-    assert not mock_inspector.called, (
-        "Inspector should not be called when extract_partitions=False"
-    )
+    assert not mock_inspector.called
 
 
 def test_get_partitions_attempts_extraction_when_extract_partitions_enabled():
@@ -606,36 +854,28 @@ def test_get_partitions_attempts_extraction_when_extract_partitions_enabled():
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
 
-    # Mock inspector and cursor for partition extraction
     mock_inspector = mock.MagicMock()
     mock_cursor = mock.MagicMock()
 
-    # Mock the table metadata response
     mock_metadata = mock.MagicMock()
     mock_partition_key = mock.MagicMock()
     mock_partition_key.name = "year"
     mock_metadata.partition_keys = [mock_partition_key]
     mock_cursor.get_table_metadata.return_value = mock_metadata
 
-    # Set the cursor on the source
     source.cursor = mock_cursor
 
-    # Call get_partitions - should attempt partition extraction
     result = source.get_partitions(mock_inspector, "test_schema", "test_table")
 
-    # Verify that the cursor was used (partition extraction was attempted)
     mock_cursor.get_table_metadata.assert_called_once_with(
         table_name="test_table", schema_name="test_schema"
     )
-
-    # Result should be a list (even if empty)
     assert isinstance(result, list)
-    assert result == ["year"]  # Should contain the partition key name
+    assert result == ["year"]
 
 
 def test_partition_profiling_sql_generation_single_key():
     """Test that partition profiling generates valid SQL for single partition key and can be parsed by SQLGlot."""
-
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -649,7 +889,6 @@ def test_partition_profiling_sql_generation_single_key():
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
 
-    # Mock cursor and metadata for single partition key
     mock_cursor = mock.MagicMock()
     mock_metadata = mock.MagicMock()
     mock_partition_key = mock.MagicMock()
@@ -657,7 +896,6 @@ def test_partition_profiling_sql_generation_single_key():
     mock_metadata.partition_keys = [mock_partition_key]
     mock_cursor.get_table_metadata.return_value = mock_metadata
 
-    # Mock successful partition query execution
     mock_result = mock.MagicMock()
     mock_result.description = [["year"]]
     mock_result.__iter__ = lambda x: iter([["2023"]])
@@ -665,24 +903,19 @@ def test_partition_profiling_sql_generation_single_key():
 
     source.cursor = mock_cursor
 
-    # Call get_partitions to trigger SQL generation
     result = source.get_partitions(mock.MagicMock(), "test_schema", "test_table")
 
-    # Get the generated SQL query
     assert mock_cursor.execute.called
     generated_query = mock_cursor.execute.call_args[0][0]
 
-    # Verify the query structure for single partition key
     assert "CAST(year as VARCHAR)" in generated_query
     assert "CONCAT" not in generated_query  # Single key shouldn't use CONCAT
     assert '"test_schema"."test_table$partitions"' in generated_query
 
-    # Validate that SQLGlot can parse the generated query using Athena dialect
     try:
         parsed = sqlglot.parse_one(generated_query, dialect=Athena)
         assert parsed is not None
         assert isinstance(parsed, sqlglot.expressions.Select)
-        print(f"✅ Single partition SQL parsed successfully: {generated_query}")
     except Exception as e:
         pytest.fail(
             f"SQLGlot failed to parse single partition query: {e}\nQuery: {generated_query}"
@@ -707,7 +940,6 @@ def test_partition_profiling_sql_generation_multiple_keys():
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
 
-    # Mock cursor and metadata for multiple partition keys
     mock_cursor = mock.MagicMock()
     mock_metadata = mock.MagicMock()
 
@@ -721,7 +953,6 @@ def test_partition_profiling_sql_generation_multiple_keys():
     mock_metadata.partition_keys = [mock_year_key, mock_month_key, mock_day_key]
     mock_cursor.get_table_metadata.return_value = mock_metadata
 
-    # Mock successful partition query execution
     mock_result = mock.MagicMock()
     mock_result.description = [["year"], ["month"], ["day"]]
     mock_result.__iter__ = lambda x: iter([["2023", "12", "25"]])
@@ -729,27 +960,22 @@ def test_partition_profiling_sql_generation_multiple_keys():
 
     source.cursor = mock_cursor
 
-    # Call get_partitions to trigger SQL generation
     result = source.get_partitions(mock.MagicMock(), "test_schema", "test_table")
 
-    # Get the generated SQL query
     assert mock_cursor.execute.called
     generated_query = mock_cursor.execute.call_args[0][0]
 
-    # Verify the query structure for multiple partition keys
     assert "CONCAT(" in generated_query  # Multiple keys should use CONCAT
     assert "CAST(year as VARCHAR)" in generated_query
     assert "CAST(month as VARCHAR)" in generated_query
     assert "CAST(day as VARCHAR)" in generated_query
-    assert "CAST('-' AS VARCHAR)" in generated_query  # Separator should be cast
+    assert "CAST('-' AS VARCHAR)" in generated_query
     assert '"test_schema"."test_table$partitions"' in generated_query
 
-    # Validate that SQLGlot can parse the generated query using Athena dialect
     try:
         parsed = sqlglot.parse_one(generated_query, dialect=Athena)
         assert parsed is not None
         assert isinstance(parsed, sqlglot.expressions.Select)
-        print(f"✅ Multiple partition SQL parsed successfully: {generated_query}")
     except Exception as e:
         pytest.fail(
             f"SQLGlot failed to parse multiple partition query: {e}\nQuery: {generated_query}"
@@ -774,7 +1000,6 @@ def test_partition_profiling_sql_generation_complex_schema_table_names():
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
 
-    # Mock cursor and metadata
     mock_cursor = mock.MagicMock()
     mock_metadata = mock.MagicMock()
 
@@ -783,7 +1008,6 @@ def test_partition_profiling_sql_generation_complex_schema_table_names():
     mock_metadata.partition_keys = [mock_partition_key]
     mock_cursor.get_table_metadata.return_value = mock_metadata
 
-    # Mock successful partition query execution
     mock_result = mock.MagicMock()
     mock_result.description = [["event_date"]]
     mock_result.__iter__ = lambda x: iter([["2023-12-25"]])
@@ -791,27 +1015,22 @@ def test_partition_profiling_sql_generation_complex_schema_table_names():
 
     source.cursor = mock_cursor
 
-    # Test with complex schema and table names
-    schema = "ad_cdp_audience"  # From the user's error
+    schema = "ad_cdp_audience"
     table = "system_import_label"
 
     result = source.get_partitions(mock.MagicMock(), schema, table)
 
-    # Get the generated SQL query
     assert mock_cursor.execute.called
     generated_query = mock_cursor.execute.call_args[0][0]
 
-    # Verify proper quoting of schema and table names
     expected_table_ref = f'"{schema}"."{table}$partitions"'
     assert expected_table_ref in generated_query
     assert "CAST(event_date as VARCHAR)" in generated_query
 
-    # Validate that SQLGlot can parse the generated query using Athena dialect
     try:
         parsed = sqlglot.parse_one(generated_query, dialect=Athena)
         assert parsed is not None
         assert isinstance(parsed, sqlglot.expressions.Select)
-        print(f"✅ Complex schema/table SQL parsed successfully: {generated_query}")
     except Exception as e:
         pytest.fail(
             f"SQLGlot failed to parse complex schema/table query: {e}\nQuery: {generated_query}"
@@ -822,19 +1041,15 @@ def test_partition_profiling_sql_generation_complex_schema_table_names():
 
 def test_casted_partition_key_method():
     """Test the _casted_partition_key helper method generates valid SQL fragments."""
-
-    # Test the static method directly
     casted_key = AthenaSource._casted_partition_key("test_column")
     assert casted_key == "CAST(test_column as VARCHAR)"
 
-    # Verify SQLGlot can parse the CAST expression
     try:
         parsed = sqlglot.parse_one(casted_key, dialect=Athena)
         assert parsed is not None
         assert isinstance(parsed, sqlglot.expressions.Cast)
         assert parsed.this.name == "test_column"
-        assert "VARCHAR" in str(parsed.to.this)  # More flexible assertion
-        print(f"✅ CAST expression parsed successfully: {casted_key}")
+        assert "VARCHAR" in str(parsed.to.this)
     except Exception as e:
         pytest.fail(
             f"SQLGlot failed to parse CAST expression: {e}\nExpression: {casted_key}"
@@ -855,12 +1070,9 @@ def test_casted_partition_key_method():
 
 def test_concat_function_generation_validates_with_sqlglot():
     """Test that our CONCAT function generation produces valid Athena SQL according to SQLGlot."""
-
-    # Test the CONCAT function generation logic directly
     partition_keys = ["year", "month", "day"]
     casted_keys = [AthenaSource._casted_partition_key(key) for key in partition_keys]
 
-    # Replicate the CONCAT generation logic from the source
     concat_args = []
     for i, key in enumerate(casted_keys):
         concat_args.append(key)
@@ -869,18 +1081,14 @@ def test_concat_function_generation_validates_with_sqlglot():
 
     concat_expr = f"CONCAT({', '.join(concat_args)})"
 
-    # Verify the generated CONCAT expression
     expected = "CONCAT(CAST(year as VARCHAR), CAST('-' AS VARCHAR), CAST(month as VARCHAR), CAST('-' AS VARCHAR), CAST(day as VARCHAR))"
     assert concat_expr == expected
 
-    # Validate with SQLGlot
     try:
         parsed = sqlglot.parse_one(concat_expr, dialect=Athena)
         assert parsed is not None
         assert isinstance(parsed, sqlglot.expressions.Concat)
-        # Verify all arguments are properly parsed
         assert len(parsed.expressions) == 5  # 3 partition keys + 2 separators
-        print(f"✅ CONCAT expression parsed successfully: {concat_expr}")
     except Exception as e:
         pytest.fail(
             f"SQLGlot failed to parse CONCAT expression: {e}\nExpression: {concat_expr}"
@@ -889,22 +1097,18 @@ def test_concat_function_generation_validates_with_sqlglot():
 
 def test_build_max_partition_query():
     """Test _build_max_partition_query method directly without mocking."""
-
-    # Test single partition key
     query_single = AthenaSource._build_max_partition_query(
         "test_schema", "test_table", ["year"]
     )
     expected_single = 'select year from "test_schema"."test_table$partitions" where CAST(year as VARCHAR) = (select max(CAST(year as VARCHAR)) from "test_schema"."test_table$partitions")'
     assert query_single == expected_single
 
-    # Test multiple partition keys
     query_multiple = AthenaSource._build_max_partition_query(
         "test_schema", "test_table", ["year", "month", "day"]
     )
     expected_multiple = "select year,month,day from \"test_schema\".\"test_table$partitions\" where CONCAT(CAST(year as VARCHAR), CAST('-' AS VARCHAR), CAST(month as VARCHAR), CAST('-' AS VARCHAR), CAST(day as VARCHAR)) = (select max(CONCAT(CAST(year as VARCHAR), CAST('-' AS VARCHAR), CAST(month as VARCHAR), CAST('-' AS VARCHAR), CAST(day as VARCHAR))) from \"test_schema\".\"test_table$partitions\")"
     assert query_multiple == expected_multiple
 
-    # Validate with SQLGlot that generated queries are valid SQL
     try:
         parsed_single = sqlglot.parse_one(query_single, dialect=Athena)
         assert parsed_single is not None
@@ -913,8 +1117,6 @@ def test_build_max_partition_query():
         parsed_multiple = sqlglot.parse_one(query_multiple, dialect=Athena)
         assert parsed_multiple is not None
         assert isinstance(parsed_multiple, sqlglot.expressions.Select)
-
-        print("✅ Both queries parsed successfully by SQLGlot")
     except Exception as e:
         pytest.fail(f"SQLGlot failed to parse generated query: {e}")
 
@@ -944,12 +1146,9 @@ def test_partition_profiling_disabled_no_sql_generation():
 
     source.cursor = mock_cursor
 
-    # Call get_partitions - should not generate complex profiling SQL
     result = source.get_partitions(mock.MagicMock(), "test_schema", "test_table")
 
-    # Should only call get_table_metadata, not execute complex partition queries
     mock_cursor.get_table_metadata.assert_called_once()
-    # The execute method should not be called for profiling queries when profiling is disabled
     assert not mock_cursor.execute.called
 
     assert result == ["year"]
@@ -957,7 +1156,6 @@ def test_partition_profiling_disabled_no_sql_generation():
 
 def test_sanitize_identifier_valid_names():
     """Test _sanitize_identifier method with valid Athena identifiers."""
-    # Valid simple identifiers
     valid_identifiers = [
         "table_name",
         "schema123",
@@ -976,7 +1174,6 @@ def test_sanitize_identifier_valid_names():
 
 def test_sanitize_identifier_valid_complex_types():
     """Test _sanitize_identifier method with valid complex type identifiers."""
-    # Valid complex type identifiers (with periods)
     valid_complex_identifiers = [
         "struct.field",
         "data.subfield",
@@ -995,7 +1192,6 @@ def test_sanitize_identifier_valid_complex_types():
 
 def test_sanitize_identifier_invalid_characters():
     """Test _sanitize_identifier method rejects invalid characters."""
-    # Invalid identifiers that should be rejected
     invalid_identifiers = [
         "table-name",  # hyphen not allowed in Athena
         "table name",  # spaces not allowed
@@ -1031,7 +1227,6 @@ def test_sanitize_identifier_invalid_characters():
 
 def test_sanitize_identifier_sql_injection_attempts():
     """Test _sanitize_identifier method blocks SQL injection attempts."""
-    # SQL injection attempts that should be blocked
     sql_injection_attempts = [
         "table'; DROP TABLE users; --",
         'table" OR 1=1 --',
@@ -1054,7 +1249,6 @@ def test_sanitize_identifier_sql_injection_attempts():
 
 def test_sanitize_identifier_quote_injection_attempts():
     """Test _sanitize_identifier method blocks quote-based injection attempts."""
-    # Quote injection attempts
     quote_injection_attempts = [
         'table"',
         "table'",
@@ -1074,15 +1268,12 @@ def test_sanitize_identifier_quote_injection_attempts():
 
 def test_sanitize_identifier_empty_and_edge_cases():
     """Test _sanitize_identifier method with empty and edge case inputs."""
-    # Empty identifier
     with pytest.raises(ValueError, match="Identifier cannot be empty"):
         AthenaSource._sanitize_identifier("")
 
-    # None input (should also raise ValueError from empty check)
     with pytest.raises(ValueError, match="Identifier cannot be empty"):
         AthenaSource._sanitize_identifier(None)  # type: ignore[arg-type]
 
-    # Very long valid identifier
     long_identifier = "a" * 200  # Still within Athena's 255 byte limit
     result = AthenaSource._sanitize_identifier(long_identifier)
     assert result == long_identifier
@@ -1090,7 +1281,6 @@ def test_sanitize_identifier_empty_and_edge_cases():
 
 def test_sanitize_identifier_integration_with_build_max_partition_query():
     """Test that _sanitize_identifier works correctly within _build_max_partition_query."""
-    # Test with valid identifiers
     query = AthenaSource._build_max_partition_query(
         "valid_schema", "valid_table", ["valid_partition"]
     )
@@ -1098,7 +1288,6 @@ def test_sanitize_identifier_integration_with_build_max_partition_query():
     assert "valid_table" in query
     assert "valid_partition" in query
 
-    # Test that invalid identifiers are rejected before query building
     with pytest.raises(ValueError, match="contains unsafe characters"):
         AthenaSource._build_max_partition_query(
             "schema'; DROP TABLE users; --", "table", ["partition"]
@@ -1130,7 +1319,6 @@ def test_sanitize_identifier_error_handling_in_get_partitions():
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
 
-    # Mock cursor and metadata
     mock_cursor = mock.MagicMock()
     mock_metadata = mock.MagicMock()
     mock_partition_key = mock.MagicMock()
@@ -1139,16 +1327,12 @@ def test_sanitize_identifier_error_handling_in_get_partitions():
     mock_cursor.get_table_metadata.return_value = mock_metadata
     source.cursor = mock_cursor
 
-    # Test with malicious schema name - should be handled gracefully by report_exc
+    # Malicious schema name is handled gracefully by report_exc; partitions still returned
     result = source.get_partitions(
         mock.MagicMock(), "schema'; DROP TABLE users; --", "valid_table"
     )
 
-    # Should still return the partition list from metadata since the error
-    # occurs in the profiling section which is wrapped in report_exc
     assert result == ["year"]
-
-    # Verify metadata was still called
     mock_cursor.get_table_metadata.assert_called_once()
 
 
@@ -1156,8 +1340,6 @@ def test_sanitize_identifier_error_handling_in_generate_partition_profiler_query
     caplog,
 ):
     """Test that ValueError from _sanitize_identifier is handled gracefully in generate_partition_profiler_query."""
-    import logging
-
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -1170,7 +1352,6 @@ def test_sanitize_identifier_error_handling_in_generate_partition_profiler_query
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
 
-    # Add a mock partition to the cache with malicious partition key
     source.table_partition_cache["valid_schema"] = {
         "valid_table": Partitionitem(
             partitions=["year"],
@@ -1178,18 +1359,13 @@ def test_sanitize_identifier_error_handling_in_generate_partition_profiler_query
         )
     }
 
-    # Capture log messages at WARNING level
-    with caplog.at_level(logging.WARNING):
-        # This should handle the ValueError gracefully and return None, None
-        # instead of crashing the entire ingestion process
+    with caplog.at_level("WARNING"):
         result = source.generate_partition_profiler_query(
             "valid_schema", "valid_table", None
         )
 
-    # Verify the method returns None, None when sanitization fails
-    assert result == (None, None), "Should return None, None when sanitization fails"
+    assert result == (None, None)
 
-    # Verify that a warning log message was generated
     # Filter for WARNING level logs from the athena source (ignore INFO logs from other modules)
     warning_records = [
         r for r in caplog.records if r.levelname == "WARNING" and "athena" in r.name

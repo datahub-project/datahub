@@ -407,8 +407,8 @@ class AthenaSource(SQLAlchemySource):
         """Query the Athena API to get the catalog type (GLUE, LAMBDA, HIVE, FEDERATED)."""
         assert self.cursor
         try:
-            client = self.cursor._connection.client  # type: ignore[union-attr]
-            response = client.list_data_catalogs()  # type: ignore[attr-defined]
+            client = self.cursor._connection.client  # type: ignore[union-attr]  # PyAthena internal: accessing boto3 Athena client
+            response = client.list_data_catalogs()  # type: ignore[attr-defined]  # boto3 Athena API, not in PyAthena stubs
             for catalog in response.get("DataCatalogsSummary", []):
                 if (
                     catalog.get("CatalogName", "").lower()
@@ -429,10 +429,9 @@ class AthenaSource(SQLAlchemySource):
     def is_glue_catalog(self) -> bool:
         if self._is_glue_catalog is None:
             catalog_type = self._get_catalog_type()
-            if catalog_type is not None:
-                self._is_glue_catalog = catalog_type == "GLUE"
-            else:
-                return False
+            self._is_glue_catalog = (
+                catalog_type == "GLUE" if catalog_type is not None else False
+            )
         return self._is_glue_catalog
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
@@ -489,7 +488,7 @@ class AthenaSource(SQLAlchemySource):
                     if s3_location.startswith("s3://"):
                         location = make_s3_urn(s3_location, self.config.env)
                     else:
-                        logging.debug(
+                        logger.debug(
                             f"Only s3 url supported for location. Skipping {s3_location}"
                         )
 
