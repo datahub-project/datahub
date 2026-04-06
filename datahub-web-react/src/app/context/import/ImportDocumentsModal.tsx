@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
+import analytics, { EventType } from '@app/analytics';
 import ImportParentSelector from '@app/context/import/ImportParentSelector';
 import { useImportFromFiles } from '@app/context/import/hooks/useImportFromFiles';
 import type { GitHubImportConfig } from '@app/context/import/hooks/useImportFromGitHub';
@@ -127,10 +128,24 @@ export default function ImportDocumentsModal({
         setStep('importing');
         try {
             const parentUrn = parentDocumentUrn ?? null;
+            let importResult;
             if (sourceType === ImportSourceType.FILE_UPLOAD) {
-                await importFiles(uploadFiles, true, useCase, parentUrn);
+                importResult = await importFiles(uploadFiles, true, useCase, parentUrn);
             } else if (sourceType === ImportSourceType.GITHUB) {
-                await importFromGitHub({ ...githubConfig, showInGlobalContext: true }, useCase, parentUrn);
+                importResult = await importFromGitHub(
+                    { ...githubConfig, showInGlobalContext: true },
+                    useCase,
+                    parentUrn,
+                );
+            }
+            if (importResult && sourceType) {
+                analytics.event({
+                    type: EventType.ImportDocumentsEvent,
+                    source: sourceType,
+                    createdCount: importResult.createdCount ?? 0,
+                    updatedCount: importResult.updatedCount ?? 0,
+                    failedCount: importResult.failedCount ?? 0,
+                });
             }
             setStep('result');
             onSuccess?.(parentDocumentUrn ?? null);

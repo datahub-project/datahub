@@ -12,12 +12,19 @@ const mockDocumentTreeContextValue = {
     nodes: new Map<string, DocumentTreeNode>(),
     rootUrns: [],
     expandedUrns: new Set<string>(),
+    getNode: vi.fn(),
+    getRootNodes: vi.fn().mockReturnValue([]),
+    getChildren: vi.fn().mockReturnValue([]),
+    updateNodeTitle: vi.fn(),
+    moveNode: vi.fn(),
+    deleteNode: vi.fn(),
+    addNode: vi.fn(),
+    setNodeChildren: vi.fn(),
+    initializeTree: vi.fn(),
+    setExpandedUrns: vi.fn(),
+    toggleExpanded: vi.fn(),
     expandNode: vi.fn(),
     collapseNode: vi.fn(),
-    toggleNode: vi.fn(),
-    getNode: vi.fn(),
-    setNodes: vi.fn(),
-    setRootUrns: vi.fn(),
 };
 
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
