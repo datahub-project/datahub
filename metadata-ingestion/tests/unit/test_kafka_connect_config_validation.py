@@ -5,9 +5,11 @@ This module tests the pydantic validators that ensure proper configuration
 interdependencies and provide clear error messages for invalid combinations.
 """
 
+import base64
 from typing import Any
 
 import pytest
+import requests
 
 from datahub.ingestion.source.kafka_connect.common import KafkaConnectSourceConfig
 
@@ -108,7 +110,8 @@ class TestConfigurationValidation:
             kafka_api_secret="test-secret",
         )
 
-        assert config.kafka_api_key == "test-key"
+        assert config.kafka_api_key is not None
+        assert config.kafka_api_key.get_secret_value() == "test-key"
         assert config.kafka_api_secret is not None
         assert config.kafka_api_secret.get_secret_value() == "test-secret"
 
@@ -299,7 +302,8 @@ class TestConfigurationValidation:
         # All fields should be properly set
         assert config.confluent_cloud_environment_id == "env-123"
         assert config.confluent_cloud_cluster_id == "lkc-456"
-        assert config.kafka_api_key == "api-key"
+        assert config.kafka_api_key is not None
+        assert config.kafka_api_key.get_secret_value() == "api-key"
         assert config.kafka_api_secret is not None
         assert config.kafka_api_secret.get_secret_value() == "api-secret"
         assert config.use_schema_resolver is True
@@ -435,3 +439,82 @@ class TestSchemaResolverAutoEnable:
             confluent_cloud_cluster_id="lkc-456",
         )
         assert config_mixed.is_confluent_cloud() is True
+
+
+class TestSessionAuthSeparation:
+    """Verify that Kafka REST API calls are not polluted by Connect session auth.
+
+    Regression test for https://github.com/datahub-project/datahub/issues/16550:
+    When separate Connect and Kafka credentials are configured, the session.auth
+    set for Connect must not override explicit Kafka Authorization headers.
+    """
+
+    def test_session_auth_overrides_explicit_header(self):
+        """Demonstrate the underlying requests behavior that causes the bug."""
+        session = requests.Session()
+        session.auth = ("connect-user", "connect-pass")
+
+        req = requests.Request(
+            "GET",
+            "https://example.com/kafka/v3/clusters/lkc-1/topics",
+            headers={
+                "Authorization": "Basic "
+                + base64.b64encode(b"kafka-key:kafka-secret").decode()
+            },
+        )
+        prepared = session.prepare_request(req)
+
+        # session.auth overwrites the explicit Authorization header
+        expected_kafka_header = (
+            "Basic " + base64.b64encode(b"kafka-key:kafka-secret").decode()
+        )
+        assert prepared.headers["Authorization"] != expected_kafka_header, (
+            "If this assertion fails, requests changed behavior and "
+            "session.auth no longer overwrites explicit headers — "
+            "the original bug may no longer apply."
+        )
+
+    def test_separate_session_preserves_explicit_header(self):
+        """A session without .auth preserves explicit Authorization headers."""
+        kafka_session = requests.Session()
+        # No .auth set — this is the fix
+
+        expected_header = (
+            "Basic " + base64.b64encode(b"kafka-key:kafka-secret").decode()
+        )
+        req = requests.Request(
+            "GET",
+            "https://example.com/kafka/v3/clusters/lkc-1/topics",
+            headers={"Authorization": expected_header},
+        )
+        prepared = kafka_session.prepare_request(req)
+
+        assert prepared.headers["Authorization"] == expected_header
+
+    def test_get_kafka_credentials_returns_dedicated_when_set(self):
+        """get_kafka_credentials() prefers kafka_api_key over Connect credentials."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="http://localhost:8083",
+            username="connect-user",
+            password="connect-pass",
+            kafka_api_key="kafka-key",
+            kafka_api_secret="kafka-secret",
+        )
+
+        kafka_user, kafka_pass = config.get_kafka_credentials()
+        assert kafka_user == "kafka-key"
+        assert kafka_pass == "kafka-secret"
+
+    def test_get_kafka_credentials_falls_back_to_connect(self):
+        """get_kafka_credentials() falls back to Connect creds when no Kafka creds."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="http://localhost:8083",
+            username="connect-user",
+            password="connect-pass",
+        )
+
+        kafka_user, kafka_pass = config.get_kafka_credentials()
+        assert kafka_user == "connect-user"
+        assert kafka_pass == "connect-pass"

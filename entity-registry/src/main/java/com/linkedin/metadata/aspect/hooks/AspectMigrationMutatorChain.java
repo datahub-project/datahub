@@ -94,26 +94,34 @@ public class AspectMigrationMutatorChain extends MutationHook {
     if (!enabled.get()) {
       return items.stream().map(i -> Pair.of(i, false));
     }
-    return items.stream()
-        .map(
-            item -> {
-              List<AspectMigrationMutator> chain =
-                  chainByAspect.getOrDefault(item.getAspectName(), Collections.emptyList());
-              boolean mutated = false;
-              for (AspectMigrationMutator mutator : chain) {
-                // Call readMutation directly — bypasses shouldApply() config filtering since
-                // the chain owns the routing logic.
-                List<Pair<ReadItem, Boolean>> result =
-                    mutator
-                        .readMutation(Collections.singletonList(item), retrieverContext)
-                        .collect(Collectors.toList());
-                if (!result.isEmpty() && Boolean.TRUE.equals(result.get(0).getSecond())) {
-                  mutated = true;
-                  // Continue to next hop in case of multi-hop chain.
-                }
-              }
-              return Pair.of(item, mutated);
-            });
+    // Collect eagerly so mutations happen regardless of whether the caller consumes the stream.
+    List<Pair<ReadItem, Boolean>> results =
+        items.stream()
+            .map(
+                item -> {
+                  List<AspectMigrationMutator> chain =
+                      chainByAspect.getOrDefault(item.getAspectName(), Collections.emptyList());
+                  boolean mutated = false;
+                  ReadItem current = item;
+                  for (AspectMigrationMutator mutator : chain) {
+                    // Call readMutation directly — bypasses shouldApply() config filtering since
+                    // the chain owns the routing logic.
+                    List<Pair<ReadItem, Boolean>> result =
+                        mutator
+                            .readMutation(Collections.singletonList(current), retrieverContext)
+                            .collect(Collectors.toList());
+                    if (!result.isEmpty()) {
+                      current = result.get(0).getFirst();
+                      if (Boolean.TRUE.equals(result.get(0).getSecond())) {
+                        mutated = true;
+                        // Continue to next hop in case of multi-hop chain.
+                      }
+                    }
+                  }
+                  return Pair.of(current, mutated);
+                })
+            .collect(Collectors.toList());
+    return results.stream();
   }
 
   // ── Write path ─────────────────────────────────────────────────────────────
@@ -124,24 +132,32 @@ public class AspectMigrationMutatorChain extends MutationHook {
     if (!enabled.get()) {
       return changeMCPS.stream().map(i -> Pair.of(i, false));
     }
-    return changeMCPS.stream()
-        .map(
-            item -> {
-              List<AspectMigrationMutator> chain =
-                  chainByAspect.getOrDefault(item.getAspectName(), Collections.emptyList());
-              boolean mutated = false;
-              for (AspectMigrationMutator mutator : chain) {
-                // Call writeMutation directly — bypasses shouldApply() config filtering.
-                List<Pair<ChangeMCP, Boolean>> result =
-                    mutator
-                        .writeMutation(Collections.singletonList(item), retrieverContext)
-                        .collect(Collectors.toList());
-                if (!result.isEmpty() && Boolean.TRUE.equals(result.get(0).getSecond())) {
-                  mutated = true;
-                }
-              }
-              return Pair.of(item, mutated);
-            });
+    // Collect eagerly so mutations happen regardless of whether the caller consumes the stream.
+    List<Pair<ChangeMCP, Boolean>> results =
+        changeMCPS.stream()
+            .map(
+                item -> {
+                  List<AspectMigrationMutator> chain =
+                      chainByAspect.getOrDefault(item.getAspectName(), Collections.emptyList());
+                  boolean mutated = false;
+                  ChangeMCP current = item;
+                  for (AspectMigrationMutator mutator : chain) {
+                    // Call writeMutation directly — bypasses shouldApply() config filtering.
+                    List<Pair<ChangeMCP, Boolean>> result =
+                        mutator
+                            .writeMutation(Collections.singletonList(current), retrieverContext)
+                            .collect(Collectors.toList());
+                    if (!result.isEmpty()) {
+                      current = result.get(0).getFirst();
+                      if (Boolean.TRUE.equals(result.get(0).getSecond())) {
+                        mutated = true;
+                      }
+                    }
+                  }
+                  return Pair.of(current, mutated);
+                })
+            .collect(Collectors.toList());
+    return results.stream();
   }
 
   /** Returns {@code true} when the chain is active. */
