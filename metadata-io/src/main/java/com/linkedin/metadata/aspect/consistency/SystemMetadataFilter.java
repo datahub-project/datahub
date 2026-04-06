@@ -1,6 +1,5 @@
 package com.linkedin.metadata.aspect.consistency;
 
-import com.linkedin.metadata.config.EntityConsistencyConfiguration;
 import java.util.List;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -23,26 +22,6 @@ import lombok.Data;
 @Data
 @Builder
 public class SystemMetadataFilter {
-
-  /**
-   * Convert from YAML configuration class to service-layer filter.
-   *
-   * @param config YAML configuration (may be null)
-   * @return service-layer filter (null if config is null)
-   */
-  @Nullable
-  public static SystemMetadataFilter from(
-      @Nullable EntityConsistencyConfiguration.SystemMetadataFilterConfig config) {
-    if (config == null) {
-      return null;
-    }
-    return SystemMetadataFilter.builder()
-        .gePitEpochMs(config.getGePitEpochMs())
-        .lePitEpochMs(config.getLePitEpochMs())
-        .aspectFilters(config.getAspectFilters())
-        .includeSoftDeleted(config.isIncludeSoftDeleted())
-        .build();
-  }
 
   /**
    * Only include entities modified at or after this timestamp (epoch milliseconds).

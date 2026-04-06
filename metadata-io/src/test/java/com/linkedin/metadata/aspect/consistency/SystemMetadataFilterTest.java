@@ -2,7 +2,6 @@ package com.linkedin.metadata.aspect.consistency;
 
 import static org.testng.Assert.*;
 
-import com.linkedin.metadata.config.EntityConsistencyConfiguration;
 import java.util.List;
 import org.testng.annotations.Test;
 
@@ -128,49 +127,6 @@ public class SystemMetadataFilterTest {
     SystemMetadataFilter filter = SystemMetadataFilter.builder().includeSoftDeleted(true).build();
 
     assertFalse(filter.hasAnyConfig());
-  }
-
-  // ============================================================================
-  // From Configuration Tests
-  // ============================================================================
-
-  @Test
-  public void testFromNullConfigReturnsNull() {
-    SystemMetadataFilter filter = SystemMetadataFilter.from(null);
-
-    assertNull(filter);
-  }
-
-  @Test
-  public void testFromConfigurationWithAllFields() {
-    EntityConsistencyConfiguration.SystemMetadataFilterConfig config =
-        new EntityConsistencyConfiguration.SystemMetadataFilterConfig();
-    config.setGePitEpochMs(1000L);
-    config.setLePitEpochMs(2000L);
-    config.setAspectFilters(List.of("aspect1"));
-    config.setIncludeSoftDeleted(true);
-
-    SystemMetadataFilter filter = SystemMetadataFilter.from(config);
-
-    assertNotNull(filter);
-    assertEquals(filter.getGePitEpochMs(), Long.valueOf(1000L));
-    assertEquals(filter.getLePitEpochMs(), Long.valueOf(2000L));
-    assertEquals(filter.getAspectFilters().size(), 1);
-    assertTrue(filter.isIncludeSoftDeleted());
-  }
-
-  @Test
-  public void testFromEmptyConfiguration() {
-    EntityConsistencyConfiguration.SystemMetadataFilterConfig config =
-        new EntityConsistencyConfiguration.SystemMetadataFilterConfig();
-
-    SystemMetadataFilter filter = SystemMetadataFilter.from(config);
-
-    assertNotNull(filter);
-    assertNull(filter.getGePitEpochMs());
-    assertNull(filter.getLePitEpochMs());
-    assertNull(filter.getAspectFilters());
-    assertFalse(filter.isIncludeSoftDeleted());
   }
 
   // ============================================================================
