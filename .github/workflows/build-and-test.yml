@@ -71,13 +71,37 @@ jobs:
         command: [
             # metadata-ingestion and airflow-plugin each have dedicated build jobs
             "except_metadata_ingestion",
-            "frontend",
           ]
         timezone: ["UTC"]
+        frontend_shard: [""]
+        frontend_shard_count: [""]
         include:
-          # We only need the timezone variation for frontend tests.
+          # Frontend test shards (UTC). Each shard runs build + a slice of vitest.
+          - command: "frontend"
+            timezone: "UTC"
+            frontend_shard: "1"
+            frontend_shard_count: "3"
+          - command: "frontend"
+            timezone: "UTC"
+            frontend_shard: "2"
+            frontend_shard_count: "3"
+          - command: "frontend"
+            timezone: "UTC"
+            frontend_shard: "3"
+            frontend_shard_count: "3"
+          # Frontend test shards (America/New_York timezone variation).
           - command: "frontend"
             timezone: "America/New_York"
+            frontend_shard: "1"
+            frontend_shard_count: "3"
+          - command: "frontend"
+            timezone: "America/New_York"
+            frontend_shard: "2"
+            frontend_shard_count: "3"
+          - command: "frontend"
+            timezone: "America/New_York"
+            frontend_shard: "3"
+            frontend_shard_count: "3"
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
     needs: setup
@@ -142,10 +166,19 @@ jobs:
 
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
-      - name: Gradle build (and test) for frontend
+      - name: Gradle build for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew :datahub-frontend:build :datahub-web-react:build
+          ./gradlew :datahub-frontend:build :datahub-web-react:build \
+            -x :datahub-web-react:yarnTest \
+            -x :datahub-frontend:test
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Gradle test for frontend (shard ${{ matrix.frontend_shard }}/${{ matrix.frontend_shard_count }})
+        if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
+        run: |
+          ./gradlew :datahub-web-react:yarnTest :datahub-frontend:test \
+            -PvitestShard="${{ matrix.frontend_shard }}/${{ matrix.frontend_shard_count }}"
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle compile (jdk8) for legacy Spark
@@ -164,7 +197,7 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: build-and-test-${{ matrix.command}}-${{ env.NAME_TZ }}
+          artifact-name: build-and-test-${{ matrix.command}}-${{ env.NAME_TZ }}${{ matrix.frontend_shard != '' && format('-shard{0}', matrix.frontend_shard) || '' }}
           test-results-paths: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
