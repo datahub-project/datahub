@@ -63,7 +63,7 @@ class HasTagsPatch(MetadataPatchProposal):
         path, array_primary_keys = determine_array_primary_keys(
             field_name="tags",
             default_key_fields=DEFAULT_TAG_KEY_FIELDS,
-            path=[tag, source],
+            path=[str(tag), source],
         )
         self._add_patch(
             GlobalTags.ASPECT_NAME,

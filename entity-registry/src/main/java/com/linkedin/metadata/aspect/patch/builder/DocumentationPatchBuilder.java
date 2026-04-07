@@ -32,14 +32,14 @@ public class DocumentationPatchBuilder
     return this;
   }
 
-  /** Removes the entry for a specific source, or the entire field when null. */
+  /** Removes all documentation entries. */
   public DocumentationPatchBuilder removeDocumentation() {
     pathValues.add(
         ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), "/documentations", null));
     return this;
   }
 
-  /** Removes the entry for a specific source, or the entire field when null. */
+  /** Removes the entry for a specific source. */
   public DocumentationPatchBuilder removeDocumentation(@Nonnull Urn attributionSource) {
     String path = BASE_PATH + encodeValue(attributionSource.toString());
     pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), path, null));

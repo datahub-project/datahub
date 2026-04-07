@@ -144,6 +144,9 @@ def test_complex_dataset_patch(
         )
     )
     patcher.for_field("field1").add_tag(TagAssociationClass(tag=make_tag_urn("tag1")))
+    patcher.for_field("field1").remove_term(
+        "urn:li:glossaryTerm:term1", "urn:li:dataHubAction:myAction"
+    )
 
     out_path = tmp_path / "patch.json"
     write_metadata_file(out_path, patcher.build())

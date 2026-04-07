@@ -103,6 +103,11 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
       return transformedNode;
     }
     ObjectNode rebasedNode = transformedNode.deepCopy();
+    // fieldNode is null when the entire array field was removed by the patch.
+    // Return an empty array rather than NPE.
+    if (fieldNode == null || fieldNode.isNull()) {
+      return rebasedNode.set(arrayFieldName, instance.arrayNode());
+    }
     ObjectNode mapNode = (ObjectNode) fieldNode;
     ArrayNode arrayNode;
 

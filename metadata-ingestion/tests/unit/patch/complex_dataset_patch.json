@@ -102,6 +102,11 @@
                 "value": {
                     "tag": "urn:li:tag:tag1"
                 }
+            },
+            {
+                "op": "remove",
+                "path": "/editableSchemaFieldInfo/field1/glossaryTerms/terms/urn:li:glossaryTerm:term1/urn:li:dataHubAction:myAction",
+                "value": {}
             }
         ]
     }

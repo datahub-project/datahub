@@ -32,7 +32,10 @@ from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
 )
 from datahub.specific.aspect_helpers.tags import DEFAULT_TAG_KEY_FIELDS, HasTagsPatch
-from datahub.specific.aspect_helpers.terms import HasTermsPatch
+from datahub.specific.aspect_helpers.terms import (
+    DEFAULT_TERMS_KEY_FIELDS,
+    HasTermsPatch,
+)
 
 _Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
@@ -83,7 +86,7 @@ class FieldPatchHelper(Generic[_Parent]):
         path, array_primary_keys = determine_array_primary_keys(
             field_name="tags",
             default_key_fields=DEFAULT_TAG_KEY_FIELDS,
-            path=[tag, source],
+            path=[str(tag), source],
         )
         self._parent._add_patch(
             self.aspect_name,
@@ -115,14 +118,25 @@ class FieldPatchHelper(Generic[_Parent]):
         )
         return self
 
-    def remove_term(self, term: Union[str, Urn]) -> "FieldPatchHelper":
+    def remove_term(
+        self,
+        term: Union[str, Urn],
+        attribution_source: Optional[Union[str, Urn]] = None,
+    ) -> "FieldPatchHelper":
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
+        source = str(attribution_source) if attribution_source is not None else None
+        path, array_primary_keys = determine_array_primary_keys(
+            field_name="terms",
+            default_key_fields=DEFAULT_TERMS_KEY_FIELDS,
+            path=[str(term), source],
+        )
         self._parent._add_patch(
             self.aspect_name,
             "remove",
-            path=(self.aspect_field, self.field_path, "glossaryTerms", "terms", term),
+            path=(self.aspect_field, self.field_path, "glossaryTerms", "terms", *path),
             value={},
+            array_primary_keys=array_primary_keys,
         )
         return self
 

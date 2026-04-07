@@ -653,6 +653,60 @@ def test_documentation_patch(patch_dataset):
     assert len(remaining) == 1
 
 
+def test_remove_all_documentation(patch_dataset):
+    """remove_documentation() with no attribution removes all entries — attributed and unattributed.
+
+    Verifies:
+    - Adding an unattributed doc and two attributed docs produces three entries.
+    - remove_documentation() with no argument removes every entry.
+    """
+    graph_client, dataset_urn = patch_dataset
+    src_a = "urn:li:dataHubAction:removeSrcA"
+    src_b = "urn:li:dataHubAction:removeSrcB"
+    now = int(time.time() * 1000)
+
+    def make_doc(text: str, source: str) -> DocumentationAssociationClass:
+        return DocumentationAssociationClass(
+            documentation=text,
+            attribution=MetadataAttributionClass(
+                time=now,
+                actor="urn:li:corpuser:datahub",
+                source=source,
+            ),
+        )
+
+    # Seed: one unattributed doc and two attributed docs.
+    for mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .add_documentation(
+            DocumentationAssociationClass(documentation="Unattributed doc")
+        )
+        .add_documentation(make_doc("Doc from A", src_a))
+        .add_documentation(make_doc("Doc from B", src_b))
+        .build()
+    ):
+        graph_client.emit_mcp(mcp)
+
+    aspect = graph_client.get_aspect(
+        entity_urn=dataset_urn, aspect_type=DocumentationClass
+    )
+    assert aspect is not None
+    assert len(aspect.documentations) == 3, (
+        "all three entries must be present before remove"
+    )
+
+    # remove_documentation() with no argument must wipe every entry.
+    for mcp in DatasetPatchBuilder(dataset_urn).remove_documentation().build():
+        graph_client.emit_mcp(mcp)
+
+    aspect = graph_client.get_aspect(
+        entity_urn=dataset_urn, aspect_type=DocumentationClass
+    )
+    assert aspect is None or len(aspect.documentations) == 0, (
+        "all documentation entries must be removed"
+    )
+
+
 def test_ownership_multi_type_urn_patch(patch_dataset):
     """Two owners with the same type enum but different typeUrns can coexist.
 
@@ -718,3 +772,163 @@ def test_ownership_multi_type_urn_patch(patch_dataset):
     assert not any(o.owner == JDOE for o in owners), (
         "all JDOE DATAOWNER entries must be removed"
     )
+
+
+def test_field_tags_attribution_patch(patch_dataset):
+    """Patch-add and remove field tags with and without attribution source.
+
+    Verifies:
+    - An unattributed tag and an attributed tag for the same URN coexist as separate entries.
+    - remove_tag without attribution_source removes all entries for that tag URN.
+    - remove_tag with attribution_source removes only that source's entry.
+    """
+    graph_client, dataset_urn = patch_dataset
+    field_path = f"field_{uuid.uuid4().hex[:8]}"
+    tag_urn = make_tag_urn(f"fieldTag-{uuid.uuid4()}")
+    source = "urn:li:dataHubAction:fieldTagSource"
+    now = int(time.time() * 1000)
+
+    editable_field = EditableSchemaMetadataClass(
+        [EditableSchemaFieldInfoClass(fieldPath=field_path, description="test")]
+    )
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=editable_field)
+    )
+
+    # Add unattributed tag and attributed tag for the same URN.
+    for mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .add_tag(TagAssociationClass(tag=tag_urn))
+        .add_tag(
+            TagAssociationClass(
+                tag=tag_urn,
+                attribution=MetadataAttributionClass(
+                    time=now, actor="urn:li:corpuser:datahub", source=source
+                ),
+            )
+        )
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info and field_info.globalTags is not None
+    stored = [
+        (t.tag, t.attribution.source if t.attribution else None)
+        for t in field_info.globalTags.tags
+    ]
+    assert (tag_urn, None) in stored, "unattributed entry must be present"
+    assert (tag_urn, source) in stored, "attributed entry must be present"
+    assert len(field_info.globalTags.tags) == 2
+
+    # Remove only the attributed entry — unattributed must survive.
+    for mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .remove_tag(tag_urn, attribution_source=source)
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info and field_info.globalTags is not None
+    remaining = [t.tag for t in field_info.globalTags.tags]
+    assert remaining == [tag_urn], "unattributed entry must survive"
+    assert field_info.globalTags.tags[0].attribution is None
+
+    # Remove all remaining entries (no attribution filter).
+    for mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .remove_tag(tag_urn)
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info
+    assert not field_info.globalTags or len(field_info.globalTags.tags) == 0
+
+
+def test_field_terms_attribution_patch(patch_dataset):
+    """Patch-add and remove field glossary terms with and without attribution source.
+
+    Verifies:
+    - An unattributed term and an attributed term for the same URN coexist.
+    - remove_term with attribution_source removes only that source's entry.
+    - remove_term without attribution_source removes all entries for that term URN.
+    """
+    graph_client, dataset_urn = patch_dataset
+    field_path = f"field_{uuid.uuid4().hex[:8]}"
+    term_urn = make_term_urn(f"fieldTerm-{uuid.uuid4()}")
+    source = "urn:li:dataHubAction:fieldTermSource"
+    now = int(time.time() * 1000)
+
+    editable_field = EditableSchemaMetadataClass(
+        [EditableSchemaFieldInfoClass(fieldPath=field_path, description="test")]
+    )
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=editable_field)
+    )
+
+    # Add unattributed term and attributed term for the same URN.
+    for mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .add_term(GlossaryTermAssociationClass(urn=term_urn))
+        .add_term(
+            GlossaryTermAssociationClass(
+                urn=term_urn,
+                attribution=MetadataAttributionClass(
+                    time=now, actor="urn:li:corpuser:datahub", source=source
+                ),
+            )
+        )
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info and field_info.glossaryTerms is not None
+    stored = [
+        (t.urn, t.attribution.source if t.attribution else None)
+        for t in field_info.glossaryTerms.terms
+    ]
+    assert (term_urn, None) in stored, "unattributed entry must be present"
+    assert (term_urn, source) in stored, "attributed entry must be present"
+    assert len(field_info.glossaryTerms.terms) == 2
+
+    # Remove only the attributed entry — unattributed must survive.
+    for mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .remove_term(term_urn, attribution_source=source)
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info and field_info.glossaryTerms is not None
+    remaining = [t.urn for t in field_info.glossaryTerms.terms]
+    assert remaining == [term_urn], "unattributed entry must survive"
+    assert field_info.glossaryTerms.terms[0].attribution is None
+
+    # Remove all remaining entries (no attribution filter).
+    for mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .remove_term(term_urn)
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info
+    assert not field_info.glossaryTerms or len(field_info.glossaryTerms.terms) == 0

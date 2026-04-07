@@ -63,7 +63,7 @@ class HasTermsPatch(MetadataPatchProposal):
         path, array_primary_keys = determine_array_primary_keys(
             field_name="terms",
             default_key_fields=DEFAULT_TERMS_KEY_FIELDS,
-            path=[term, source],
+            path=[str(term), source],
         )
         self._add_patch(
             GlossaryTermsClass.ASPECT_NAME,
