@@ -1,15 +1,18 @@
 package com.linkedin.metadata.aspect.patch.builder;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -73,8 +76,13 @@ public class OwnershipPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    assertTrue(operation.getMiddle().startsWith("/owners/"));
+    // Owner first, trailing slash for empty attribution source:
+    // /owners/<ownerUrn>/<type>/<typeUrn>/
+    assertTrue(
+        operation.getMiddle().startsWith("/owners/")
+            && !operation.getMiddle().startsWith("/owners//"));
     assertTrue(operation.getMiddle().contains("/" + ownershipType.toString()));
+    assertTrue(operation.getMiddle().endsWith("/"));
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("owner").asText(), ownerUrn.toString());
     assertEquals(operation.getRight().get("type").asText(), ownershipType.toString());
@@ -93,7 +101,9 @@ public class OwnershipPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "remove");
+    // Remove at owner level: /owners/<ownerUrn> (no wildcards)
     assertTrue(operation.getMiddle().startsWith("/owners/"));
+    assertFalse(operation.getMiddle().contains("*"));
     assertNull(operation.getRight());
   }
 
@@ -111,8 +121,10 @@ public class OwnershipPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "remove");
+    // Remove at owner+type level: /owners/<ownerUrn>/<type> (no wildcards)
     assertTrue(operation.getMiddle().startsWith("/owners/"));
     assertTrue(operation.getMiddle().contains("/" + ownershipType.toString()));
+    assertFalse(operation.getMiddle().contains("*"));
     assertNull(operation.getRight());
   }
 
@@ -173,5 +185,27 @@ public class OwnershipPatchBuilderTest {
       assertTrue(operation.getRight().isObject());
       assertEquals(operation.getRight().get("owner").asText(), ownerUrn.toString());
     }
+  }
+
+  @Test
+  public void testBuildPlainAdd() throws Exception {
+    Urn ownerUrn = CorpuserUrn.createFromString(TEST_OWNER_URN);
+    MetadataChangeProposal mcp = builder.addOwner(ownerUrn, OwnershipType.TECHNICAL_OWNER).build();
+
+    assertEquals(mcp.getAspect().getContentType(), "application/json-patch+json");
+
+    byte[] bytes = mcp.getAspect().getValue().copyBytes();
+    JsonNode payload = new ObjectMapper().readTree(bytes);
+
+    // Plain patch: a JSON array, no arrayPrimaryKeys envelope
+    assertTrue(payload.isArray(), "add must produce a plain JSON array (no envelope)");
+    assertEquals(payload.size(), 1);
+    JsonNode op = payload.get(0);
+    assertEquals(op.get("op").asText(), "add");
+    // Owner first, trailing slash for empty attribution source
+    assertTrue(
+        op.get("path").asText().startsWith("/owners/")
+            && !op.get("path").asText().startsWith("/owners//"));
+    assertTrue(op.get("path").asText().endsWith("/"));
   }
 }

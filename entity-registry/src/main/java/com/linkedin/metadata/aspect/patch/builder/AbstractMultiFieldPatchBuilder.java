@@ -95,7 +95,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
                     .set(VALUE_KEY, triple.right)));
 
     GenericAspect genericAspect = new GenericAspect();
-    genericAspect.setContentType("application/json");
+    genericAspect.setContentType("application/json-patch+json");
     genericAspect.setValue(ByteString.copyString(patches.toString(), StandardCharsets.UTF_8));
 
     return genericAspect;

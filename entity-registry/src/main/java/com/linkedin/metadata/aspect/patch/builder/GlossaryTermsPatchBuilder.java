@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.GlossaryTermUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -17,31 +18,42 @@ public class GlossaryTermsPatchBuilder
   private static final String URN_KEY = "urn";
   private static final String CONTEXT_KEY = "context";
 
-  /**
-   * Adds a term with an optional context string
-   *
-   * @param urn required
-   * @param context optional
-   * @return
-   */
   public GlossaryTermsPatchBuilder addTerm(@Nonnull GlossaryTermUrn urn, @Nullable String context) {
+    return addTerm(urn, context, null);
+  }
+
+  public GlossaryTermsPatchBuilder addTerm(
+      @Nonnull GlossaryTermUrn urn, @Nullable String context, @Nullable Urn attributionSource) {
     ObjectNode value = instance.objectNode();
     value.put(URN_KEY, urn.toString());
-
     if (context != null) {
       value.put(CONTEXT_KEY, context);
     }
-
+    String sourcePath = attributionSource != null ? encodeValue(attributionSource.toString()) : "";
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn), value));
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + encodeValueUrn(urn) + "/" + sourcePath,
+            value));
     return this;
   }
 
+  /** Removes all entries for this term URN across every attribution source. */
   public GlossaryTermsPatchBuilder removeTerm(@Nonnull GlossaryTermUrn urn) {
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(urn), null));
+    return this;
+  }
+
+  /** Removes only the entry for this term URN attributed to a specific source. */
+  public GlossaryTermsPatchBuilder removeTerm(
+      @Nonnull GlossaryTermUrn urn, @Nonnull Urn attributionSource) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            BASE_PATH + encodeValueUrn(urn) + "/" + encodeValue(attributionSource.toString()),
+            null));
     return this;
   }
 

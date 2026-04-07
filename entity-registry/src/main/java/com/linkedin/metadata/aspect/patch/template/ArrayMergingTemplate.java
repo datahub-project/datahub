@@ -118,6 +118,11 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
 
   default ArrayNode mergeToArray(JsonNode mapNode, List<String> keyFields) {
     if (keyFields.isEmpty()) {
+      // When a plain add sets an array at an entity-key level (e.g. /tags/<urn> with
+      // value [{...}]), the leaf ArrayNode's elements must be expanded into the result.
+      if (mapNode instanceof ArrayNode) {
+        return instance.arrayNode().addAll((ArrayNode) mapNode);
+      }
       return instance.arrayNode().add(mapNode);
     } else {
       ArrayNode mergingArray = instance.arrayNode();

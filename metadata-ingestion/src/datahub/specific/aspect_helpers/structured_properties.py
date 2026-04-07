@@ -1,15 +1,22 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 from typing_extensions import Self
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import (
+    UNIT_SEPARATOR,
+    MetadataPatchProposal,
+    determine_array_primary_keys,
+)
 from datahub.metadata.schema_classes import (
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
 )
+from datahub.metadata.urns import Urn
 from datahub.utilities.urns.structured_properties_urn import (
     make_structured_property_urn,
 )
+
+_PROPERTIES_KEY_FIELDS = ["propertyUrn", f"attribution{UNIT_SEPARATOR}source"]
 
 
 class HasStructuredPropertiesPatch(MetadataPatchProposal):
@@ -29,21 +36,34 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         self.add_structured_property(key, value)
         return self
 
-    def remove_structured_property(self, key: str) -> Self:
+    def remove_structured_property(
+        self,
+        key: str,
+        attribution_source: Optional[Union[str, Urn]] = None,
+    ) -> Self:
         """Remove a structured property.
 
         Args:
             key: the name of the property (either bare or urn form)
+            attribution_source: When set, only that source's entry is removed.
+                When omitted, all entries for this property URN are removed.
 
         Returns:
             The patch builder instance.
         """
-
+        property_urn = make_structured_property_urn(key)
+        source = str(attribution_source) if attribution_source is not None else None
+        path, array_primary_keys = determine_array_primary_keys(
+            field_name="properties",
+            default_key_fields=_PROPERTIES_KEY_FIELDS,
+            path=[property_urn, source],
+        )
         self._add_patch(
             StructuredPropertiesClass.ASPECT_NAME,
             "remove",
-            path=("properties", make_structured_property_urn(key)),
+            path=("properties", *path),
             value={},
+            array_primary_keys=array_primary_keys,
         )
         return self
 
@@ -59,13 +79,13 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         Returns:
             The patch builder instance.
         """
-
+        property_urn = make_structured_property_urn(key)
         self._add_patch(
             StructuredPropertiesClass.ASPECT_NAME,
             "add",
-            path=("properties", make_structured_property_urn(key)),
+            path=("properties", property_urn, ""),
             value=StructuredPropertyValueAssignmentClass(
-                propertyUrn=make_structured_property_urn(key),
+                propertyUrn=property_urn,
                 values=value if isinstance(value, list) else [value],
             ),
         )
@@ -75,12 +95,18 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         self, property: StructuredPropertyValueAssignmentClass
     ) -> Self:
         """Add or update a structured property, using a StructuredPropertyValueAssignmentClass object."""
-
-        self.remove_structured_property(property.propertyUrn)
+        source = (
+            property.attribution.source
+            if (property.attribution and property.attribution.source)
+            else ""
+        )
+        self.remove_structured_property(
+            property.propertyUrn, attribution_source=source or None
+        )
         self._add_patch(
             StructuredPropertiesClass.ASPECT_NAME,
             "add",
-            path=("properties", property.propertyUrn),
+            path=("properties", property.propertyUrn, source),
             value=property,
         )
         return self
@@ -89,11 +115,15 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         self, property: StructuredPropertyValueAssignmentClass
     ) -> Self:
         """Add a structured property, using a StructuredPropertyValueAssignmentClass object."""
-
+        source = (
+            property.attribution.source
+            if (property.attribution and property.attribution.source)
+            else ""
+        )
         self._add_patch(
             StructuredPropertiesClass.ASPECT_NAME,
             "add",
-            path=("properties", property.propertyUrn),
+            path=("properties", property.propertyUrn, source),
             value=property,
         )
         return self

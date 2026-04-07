@@ -33,6 +33,14 @@ from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.testing import mce_helpers
 
+TAG_PATCH_VALUE = [
+    {
+        "op": "add",
+        "path": "/tags/urn:li:tag:test_tag/",
+        "value": {"tag": "urn:li:tag:test_tag"},
+    }
+]
+
 
 def test_basic_dataset_patch_builder():
     patcher = DatasetPatchBuilder(
@@ -46,7 +54,7 @@ def test_basic_dataset_patch_builder():
             changeType="PATCH",
             aspectName="globalTags",
             aspect=GenericAspectClass(
-                value=b'[{"op": "add", "path": "/tags/urn:li:tag:test_tag", "value": {"tag": "urn:li:tag:test_tag"}}]',
+                value=json.dumps(TAG_PATCH_VALUE).encode("utf-8"),
                 contentType="application/json-patch+json",
             ),
         ),
@@ -159,7 +167,7 @@ def test_basic_chart_patch_builder():
             changeType="PATCH",
             aspectName="globalTags",
             aspect=GenericAspectClass(
-                value=b'[{"op": "add", "path": "/tags/urn:li:tag:test_tag", "value": {"tag": "urn:li:tag:test_tag"}}]',
+                value=json.dumps(TAG_PATCH_VALUE).encode("utf-8"),
                 contentType="application/json-patch+json",
             ),
         ),
@@ -178,7 +186,7 @@ def test_basic_dashboard_patch_builder():
             changeType="PATCH",
             aspectName="globalTags",
             aspect=GenericAspectClass(
-                value=b'[{"op": "add", "path": "/tags/urn:li:tag:test_tag", "value": {"tag": "urn:li:tag:test_tag"}}]',
+                value=json.dumps(TAG_PATCH_VALUE).encode("utf-8"),
                 contentType="application/json-patch+json",
             ),
         ),

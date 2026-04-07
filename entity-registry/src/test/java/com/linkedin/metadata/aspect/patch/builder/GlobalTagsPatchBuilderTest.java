@@ -1,14 +1,17 @@
 package com.linkedin.metadata.aspect.patch.builder;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -71,7 +74,10 @@ public class GlobalTagsPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    assertTrue(operation.getMiddle().startsWith("/tags/"));
+    // Tag first, trailing slash for empty attribution source: /tags/<tagUrn>/
+    assertTrue(
+        operation.getMiddle().startsWith("/tags/") && !operation.getMiddle().startsWith("/tags//"));
+    assertTrue(operation.getMiddle().endsWith("/"));
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("tag").asText(), tagUrn.toString());
     assertEquals(operation.getRight().get("context").asText(), context);
@@ -89,7 +95,10 @@ public class GlobalTagsPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    assertTrue(operation.getMiddle().startsWith("/tags/"));
+    // Tag first, trailing slash for empty attribution source: /tags/<tagUrn>/
+    assertTrue(
+        operation.getMiddle().startsWith("/tags/") && !operation.getMiddle().startsWith("/tags//"));
+    assertTrue(operation.getMiddle().endsWith("/"));
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("tag").asText(), tagUrn.toString());
     assertNull(operation.getRight().get("context"));
@@ -107,7 +116,9 @@ public class GlobalTagsPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "remove");
+    // Remove at tag level: /tags/<tagUrn> (no wildcards)
     assertTrue(operation.getMiddle().startsWith("/tags/"));
+    assertFalse(operation.getMiddle().contains("*"));
     assertNull(operation.getRight());
   }
 
@@ -137,5 +148,47 @@ public class GlobalTagsPatchBuilderTest {
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Test
+  public void testBuildPlainAdd() throws Exception {
+    TagUrn tagUrn = TagUrn.createFromString(TEST_TAG_URN);
+    MetadataChangeProposal mcp = builder.addTag(tagUrn, null).build();
+
+    assertEquals(mcp.getAspect().getContentType(), "application/json-patch+json");
+
+    byte[] bytes = mcp.getAspect().getValue().copyBytes();
+    JsonNode payload = new ObjectMapper().readTree(bytes);
+
+    // Plain patch: a JSON array, no arrayPrimaryKeys envelope
+    assertTrue(payload.isArray(), "add must produce a plain JSON array (no envelope)");
+    assertEquals(payload.size(), 1);
+    JsonNode op = payload.get(0);
+    assertEquals(op.get("op").asText(), "add");
+    // Tag first, trailing slash for empty attribution source: /tags/<tagUrn>/
+    assertTrue(
+        op.get("path").asText().startsWith("/tags/")
+            && !op.get("path").asText().startsWith("/tags//"));
+    assertTrue(op.get("path").asText().endsWith("/"));
+  }
+
+  @Test
+  public void testBuildPlainRemove() throws Exception {
+    TagUrn tagUrn = TagUrn.createFromString(TEST_TAG_URN);
+    MetadataChangeProposal mcp = builder.removeTag(tagUrn).build();
+
+    assertEquals(mcp.getAspect().getContentType(), "application/json-patch+json");
+
+    byte[] bytes = mcp.getAspect().getValue().copyBytes();
+    JsonNode payload = new ObjectMapper().readTree(bytes);
+
+    // Plain patch: a JSON array, no arrayPrimaryKeys envelope
+    assertTrue(payload.isArray(), "remove must produce a plain JSON array (no envelope)");
+    assertEquals(payload.size(), 1);
+    JsonNode op = payload.get(0);
+    assertEquals(op.get("op").asText(), "remove");
+    // Remove at tag level: /tags/<tagUrn> (no wildcards)
+    assertTrue(op.get("path").asText().startsWith("/tags/"));
+    assertFalse(op.get("path").asText().contains("*"));
   }
 }
