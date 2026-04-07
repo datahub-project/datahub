@@ -28,7 +28,7 @@ def admin_datasets_response(request, context):
             {
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+                "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             }
         ]
     }
@@ -190,7 +190,8 @@ def register_mock_admin_api(
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "endorsementDetails": {"endorsement": "Promoted"},
-                                "name": "test_sf_pbi_test",
+                                "name": "library-dataset",
+                                "description": "Library Dataset",
                                 "tables": [
                                     {
                                         "name": "articles",
@@ -257,7 +258,7 @@ def register_mock_admin_api(
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
                 "description": "Library Dataset",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+                "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             },
         },
     }

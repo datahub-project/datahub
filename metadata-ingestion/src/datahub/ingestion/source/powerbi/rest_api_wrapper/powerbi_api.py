@@ -25,6 +25,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     User,
     Workspace,
+    new_powerbi_dataset,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -456,21 +457,7 @@ class PowerBiAPI:
 
         for dataset_dict in datasets:
             dataset_id = dataset_dict[Constant.ID]
-            try:
-                dataset_instance = self._get_resolver().get_dataset(
-                    workspace=workspace,
-                    dataset_id=dataset_id,
-                )
-                if dataset_instance is None:
-                    continue
-            except Exception as e:
-                self.reporter.warning(
-                    title="Unable to fetch dataset details",
-                    message="Skipping this dataset due to the error. Metadata will be incomplete.",
-                    context=f"workspace={workspace.name}, dataset-id={dataset_id}",
-                    exc=e,
-                )
-                continue
+            dataset_instance = new_powerbi_dataset(workspace, dataset_dict)
 
             # fetch + set dataset parameters
             try:
