@@ -266,7 +266,7 @@
             "customProperties": {
                 "datasetId": "5e033fd1-385c-4f0c-8a61-58910cc25194"
             },
-            "externalUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194/details",
+            "externalUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194/details",
             "name": "employees employees",
             "description": "Test report description",
             "tags": []

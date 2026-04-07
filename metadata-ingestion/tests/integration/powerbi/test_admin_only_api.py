@@ -33,7 +33,7 @@ def admin_datasets_response(request, context):
                     "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "name": "library-dataset",
                     "configuredBy": "sindri@something.com",
-                    "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+                    "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
                 }
             ]
         }
@@ -45,7 +45,7 @@ def admin_datasets_response(request, context):
                     "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                     "name": "hr_pbi_test",
                     "configuredBy": "sindri@something.com",
-                    "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                    "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
                 }
             ]
         }
@@ -237,7 +237,7 @@ def register_mock_admin_api(
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "endorsementDetails": {"endorsement": "Promoted"},
-                                "name": "test_sf_pbi_test",
+                                "name": "library-dataset",
                                 "tables": [
                                     {
                                         "name": "public issue_history",
@@ -327,6 +327,7 @@ def register_mock_admin_api(
                                 "tables": [
                                     {
                                         "name": "dbo_book_issue",
+                                        "description": "hr pbi test description",
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
@@ -340,6 +341,7 @@ def register_mock_admin_api(
                                     },
                                     {
                                         "name": "ms_sql_native_table",
+                                        "description": "hr pbi test description",
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,\'-\',\'\'))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"mth_date", type date}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Month", each Date.Month([mth_date])),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "TPV Opening", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #"Added Custom1"',
