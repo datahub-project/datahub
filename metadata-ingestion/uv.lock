@@ -171,6 +171,7 @@ all = [
     { name = "pyspark" },
     { name = "python-ldap" },
     { name = "python-liquid" },
+    { name = "pyyaml" },
     { name = "rdflib" },
     { name = "redash-toolbelt" },
     { name = "redshift-connector" },
@@ -1427,6 +1428,10 @@ okta = [
     { name = "nest-asyncio" },
     { name = "okta" },
 ]
+omni = [
+    { name = "pyyaml" },
+    { name = "requests" },
+]
 oracle = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-great-expectations" },
@@ -1516,10 +1521,12 @@ presto-on-hive = [
     { name = "greenlet" },
     { name = "ipython" },
     { name = "jupyter-server" },
+    { name = "kerberos" },
     { name = "numpy" },
     { name = "patchy" },
     { name = "pip" },
     { name = "psycopg2-binary" },
+    { name = "pymetastore" },
     { name = "pymysql" },
     { name = "schwifty" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1527,6 +1534,7 @@ presto-on-hive = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "tenacity" },
     { name = "traitlets" },
 ]
 pulsar = [
@@ -2502,6 +2510,7 @@ requires-dist = [
     { name = "kerberos", marker = "extra == 'docs'", specifier = ">=1.3.0,<2.0.0" },
     { name = "kerberos", marker = "extra == 'hive-metastore'", specifier = ">=1.3.0,<2.0.0" },
     { name = "kerberos", marker = "extra == 'integration-tests'", specifier = ">=1.3.0,<2.0.0" },
+    { name = "kerberos", marker = "extra == 'presto-on-hive'", specifier = ">=1.3.0,<2.0.0" },
     { name = "litellm", marker = "extra == 'all'", specifier = "==1.80.5" },
     { name = "litellm", marker = "extra == 'confluence'", specifier = "==1.80.5" },
     { name = "litellm", marker = "extra == 'datahub-documents'", specifier = "==1.80.5" },
@@ -2840,6 +2849,7 @@ requires-dist = [
     { name = "pymetastore", marker = "extra == 'docs'", specifier = ">=0.4.2,<1.0.0" },
     { name = "pymetastore", marker = "extra == 'hive-metastore'", specifier = ">=0.4.2,<1.0.0" },
     { name = "pymetastore", marker = "extra == 'integration-tests'", specifier = ">=0.4.2,<1.0.0" },
+    { name = "pymetastore", marker = "extra == 'presto-on-hive'", specifier = ">=0.4.2,<1.0.0" },
     { name = "pymongo", extras = ["aws"], marker = "extra == 'all'", specifier = ">=4.8.0,<5.0.0" },
     { name = "pymongo", extras = ["aws"], marker = "extra == 'dev'", specifier = ">=4.8.0,<5.0.0" },
     { name = "pymongo", extras = ["aws"], marker = "extra == 'docs'", specifier = ">=4.8.0,<5.0.0" },
@@ -2917,8 +2927,10 @@ requires-dist = [
     { name = "python-liquid", marker = "extra == 'lookml'", specifier = ">=2.0.0,<3.0.0" },
     { name = "python-liquid", marker = "extra == 'mode'", specifier = ">=2.0.0,<3.0.0" },
     { name = "pyyaml", specifier = "<7.0.0" },
-    { name = "pyyaml", marker = "extra == 'dev'", specifier = "<7.0.0" },
-    { name = "pyyaml", marker = "extra == 'docs'", specifier = "<7.0.0" },
+    { name = "pyyaml", marker = "extra == 'all'", specifier = ">=5.4" },
+    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=5.4,<7.0.0" },
+    { name = "pyyaml", marker = "extra == 'docs'", specifier = ">=5.4,<7.0.0" },
+    { name = "pyyaml", marker = "extra == 'omni'", specifier = ">=5.4" },
     { name = "pyyaml", marker = "extra == 'testing-utils'", specifier = "<7.0.0" },
     { name = "pyzipper", marker = "extra == 'debug-recording'", specifier = ">=0.3.6,<1.0" },
     { name = "pyzipper", marker = "extra == 'integration-tests'", specifier = ">=0.3.6,<1.0" },
@@ -2956,6 +2968,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'metabase'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'mode'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'nifi'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'omni'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'powerbi-report-server'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'preset'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'pulsar'", specifier = "<3.0.0" },
@@ -3321,6 +3334,7 @@ requires-dist = [
     { name = "tenacity", marker = "extra == 'hive-metastore'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'integration-tests'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'mode'", specifier = ">=8.0.1,<9.0.0" },
+    { name = "tenacity", marker = "extra == 'presto-on-hive'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'slack'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'snowflake'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'snowflake-queries'", specifier = ">=8.0.1,<9.0.0" },
@@ -3509,7 +3523,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
