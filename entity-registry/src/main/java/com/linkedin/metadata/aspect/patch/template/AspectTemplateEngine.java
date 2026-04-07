@@ -43,7 +43,9 @@ public class AspectTemplateEngine {
               DOMAINS_ASPECT_NAME,
               EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
               CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
-              ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME)
+              ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
+              DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME,
+              DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;

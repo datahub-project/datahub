@@ -20,6 +20,8 @@ import com.linkedin.metadata.aspect.patch.template.dashboard.DashboardInfoTempla
 import com.linkedin.metadata.aspect.patch.template.dataflow.DataFlowInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInputOutputTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataprocessinstance.DataProcessInstanceInputTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataprocessinstance.DataProcessInstanceOutputTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableDatasetPropertiesTemplate;
@@ -130,6 +132,10 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(
         ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
         new EditableMLModelGroupPropertiesTemplate());
+    aspectSpecTemplateMap.put(
+        DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME, new DataProcessInstanceInputTemplate());
+    aspectSpecTemplateMap.put(
+        DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME, new DataProcessInstanceOutputTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 
