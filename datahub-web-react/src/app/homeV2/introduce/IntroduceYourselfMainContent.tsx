@@ -75,7 +75,7 @@ const DoneButton = styled(Button)`
     width: 290px;
     height: 45px;
     flex-shrink: 0;
-    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillBrand};
     margin-top: 12px;
 `;
@@ -162,23 +162,23 @@ const SelectGrid = styled.div`
         &:hover,
         &:focus,
         &:active {
-            background-color: ${(props) => props.theme.colors.bgSurface} !important;
+            background-color: ${(props) => props.theme.colors.bg} !important;
         }
     }
 
     .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-        background-color: ${(props) => props.theme.colors.bgSurface} !important;
+        background-color: ${(props) => props.theme.colors.bg} !important;
     }
 
     .ant-select-item-option-content {
         display: flex;
         justify-content: center;
-        background-color: ${(props) => props.theme.colors.bgSurface} !important;
+        background-color: ${(props) => props.theme.colors.bg} !important;
 
         &:hover,
         &:focus,
         &:active {
-            background-color: ${(props) => props.theme.colors.bgSurface} !important;
+            background-color: ${(props) => props.theme.colors.bg} !important;
         }
     }
 `;
