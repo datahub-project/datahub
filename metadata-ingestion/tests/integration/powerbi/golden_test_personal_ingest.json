@@ -14,6 +14,7 @@
                 "workspace_name": "Jane Smith Workspace",
                 "workspace_type": "PersonalGroup"
             },
+            "externalUrl": "https://app.powerbi.com/groups/90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
             "name": "Jane Smith Workspace",
             "env": "DEV"
         }

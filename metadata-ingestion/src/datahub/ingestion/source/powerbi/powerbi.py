@@ -982,6 +982,7 @@ class Mapper:
             container_key=self.workspace_key,
             name=workspace.name,
             sub_types=[workspace.type],
+            external_url=workspace.webUrl,
             extra_properties={
                 "workspace_id": workspace.id,
                 "workspace_name": workspace.name,
