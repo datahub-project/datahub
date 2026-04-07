@@ -26,7 +26,6 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Tile,
     User,
     Workspace,
-    new_powerbi_dataset,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -165,12 +164,6 @@ class DataResolverBase(ABC):
         workspace_name: str,
         profile_pattern: Optional[AllowDenyPattern],
     ) -> None:
-        pass
-
-    @abstractmethod
-    def get_dataset(
-        self, workspace: Workspace, dataset_id: str
-    ) -> Optional[PowerBIDataset]:
         pass
 
     @abstractmethod
@@ -468,8 +461,7 @@ class RegularAPIResolver(DataResolverBase):
     API_ENDPOINTS = {
         Constant.DASHBOARD_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards",
         Constant.TILE_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards/{DASHBOARD_ID}/tiles",
-        Constant.DATASET_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}",
-        Constant.DATASOURCE_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/datasources",
+        Constant.DATASET_PARAMS_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/parameters",
         Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
         Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
@@ -477,54 +469,18 @@ class RegularAPIResolver(DataResolverBase):
         Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
     }
 
-    def get_dataset(
-        self, workspace: Workspace, dataset_id: str
-    ) -> Optional[PowerBIDataset]:
-        """
-        Fetch the dataset from PowerBi for the given dataset identifier
-        """
-        if workspace.id is None or dataset_id is None:
-            logger.debug("Input values are None")
-            logger.debug(f"{Constant.WorkspaceId}={workspace.id}")
-            logger.debug(f"{Constant.DatasetId}={dataset_id}")
-            return None
-
-        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
-            Constant.DATASET_GET
-        ]
-        # Replace place holders
-        dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=self._base_url,
-            WORKSPACE_ID=workspace.id,
-            DATASET_ID=dataset_id,
-        )
-        # Hit PowerBi
-        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
-        response = self._request_session.get(
-            dataset_get_endpoint,
-            headers=self.get_authorization_header(),
-        )
-        # Check if we got a response from PowerBi
-        response.raise_for_status()
-        response_dict = response.json()
-        logger.debug(f"datasets = {response_dict}")
-        # PowerBi Always return the webURL, in-case if it is None, then setting complete webURL to None instead of
-        # None/details
-        return new_powerbi_dataset(workspace, response_dict)
-
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
     ) -> Dict[str, str]:
-        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
-            Constant.DATASET_GET
+        params_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DATASET_PARAMS_GET
         ]
-        dataset_get_endpoint = dataset_get_endpoint.format(
+        params_get_endpoint = params_get_endpoint.format(
             POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
-        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
-        params_get_endpoint = dataset_get_endpoint + "/parameters"
+        logger.debug(f"Request to dataset URL={params_get_endpoint}")
 
         params_response = self._request_session.get(
             params_get_endpoint,
@@ -965,35 +921,6 @@ class AdminAPIResolver(DataResolverBase):
             POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             DASHBOARD_ID=dashboard_id,
         )
-
-    def get_dataset(
-        self, workspace: Workspace, dataset_id: str
-    ) -> Optional[PowerBIDataset]:
-        datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
-            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
-            WORKSPACE_ID=workspace.id,
-        )
-        # Hit PowerBi
-        logger.debug(f"Request to datasets URL={datasets_endpoint}")
-        params: dict = {"$filter": f"id eq '{dataset_id}'"}
-        logger.debug("params = %s", params)
-        response = self._request_session.get(
-            datasets_endpoint,
-            headers=self.get_authorization_header(),
-            params=params,
-        )
-        response.raise_for_status()
-        response_dict = response.json()
-        if len(response_dict.get(Constant.VALUE, [])) == 0:
-            logger.warning(
-                "Dataset not found. workspace_id = %s, dataset_id = %s",
-                workspace.id,
-                dataset_id,
-            )
-            return None
-
-        raw_instance: dict = response_dict[Constant.VALUE][0]
-        return new_powerbi_dataset(workspace, raw_instance)
 
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API

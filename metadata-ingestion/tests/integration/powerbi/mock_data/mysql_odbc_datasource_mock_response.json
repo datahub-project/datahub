@@ -15,36 +15,6 @@
             ]
         }
     },
-    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/c9a09070-946a-4c4d-bfaa-50dda154a345": {
-        "method": "GET",
-        "status_code": 200,
-        "json": {
-            "id": "c9a09070-946a-4c4d-bfaa-50dda154a345",
-            "name": "DataflowsStagingLakehouse",
-            "description": "Test dataset description",
-            "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/c9a09070-946a-4c4d-bfaa-50dda154a345"
-        }
-    },
-    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194": {
-        "method": "GET",
-        "status_code": 200,
-        "json": {
-            "id": "5e033fd1-385c-4f0c-8a61-58910cc25194",
-            "name": "EmployeeReport",
-            "description": "Test report description",
-            "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194"
-        }
-    },
-    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/f19bf041-c170-43c2-879c-ac2c6e8157f6": {
-        "method": "GET",
-        "status_code": 200,
-        "json": {
-            "id": "f19bf041-c170-43c2-879c-ac2c6e8157f6",
-            "name": "DataflowsStagingWarehouse",
-            "description": "Test dataset description",
-            "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/f19bf041-c170-43c2-879c-ac2c6e8157f6"
-        }
-    },
     "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports": {
         "method": "GET",
         "status_code": 200,
