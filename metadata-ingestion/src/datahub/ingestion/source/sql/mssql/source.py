@@ -1322,6 +1322,7 @@ class SQLServerSource(SQLAlchemySource):
                     )
                     try:
                         engine = create_engine(url, **self.config.options)
+                        inspector = inspect(engine)
                     except OperationalError as e:
                         if re.search(r"(?i)login failed", str(e)):
                             logger.warning(
@@ -1332,7 +1333,6 @@ class SQLServerSource(SQLAlchemySource):
                             )
                             continue
                         raise
-                    inspector = inspect(engine)
                     self.current_database = db["name"]
                     yield inspector
 
