@@ -190,7 +190,7 @@ export default defineConfig(async ({ mode }) => {
         test: {
             globals: true,
             environment: 'jsdom',
-            setupFiles: './src/setupTests.ts',
+            setupFiles: ['./src/setupEntityRegistry.ts', './src/setupTests.ts'],
             css: true,
             // reporters: ['verbose'],
             onConsoleLog(log) {
