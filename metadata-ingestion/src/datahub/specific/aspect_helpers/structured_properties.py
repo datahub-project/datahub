@@ -16,12 +16,15 @@ from datahub.utilities.urns.structured_properties_urn import (
     make_structured_property_urn,
 )
 
-_PROPERTIES_KEY_FIELDS = ["propertyUrn", f"attribution{UNIT_SEPARATOR}source"]
+_PROPERTIES_KEY_FIELDS = ["propertyUrn", "values", f"attribution{UNIT_SEPARATOR}source"]
 
 
 class HasStructuredPropertiesPatch(MetadataPatchProposal):
     def set_structured_property(
-        self, key: str, value: Union[str, float, List[Union[str, float]]]
+        self,
+        key: str,
+        value: Union[str, float, List[Union[str, float]]],
+        attribution_source: Optional[Union[str, Urn]] = None,
     ) -> Self:
         """Add or update a structured property.
 
@@ -32,8 +35,17 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         Returns:
             The patch builder instance.
         """
-        self.remove_structured_property(key)
-        self.add_structured_property(key, value)
+        property_urn = make_structured_property_urn(key)
+        source = str(attribution_source) if attribution_source is not None else ""
+        self._add_patch(
+            StructuredPropertiesClass.ASPECT_NAME,
+            "add",
+            path=("properties", property_urn, source),
+            value=StructuredPropertyValueAssignmentClass(
+                propertyUrn=property_urn,
+                values=value if isinstance(value, list) else [value],
+            ),
+        )
         return self
 
     def remove_structured_property(
@@ -68,9 +80,14 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         return self
 
     def add_structured_property(
-        self, key: str, value: Union[str, float, List[Union[str, float]]]
+        self,
+        key: str,
+        value: Union[str, float, List[Union[str, float]]],
+        attribution_source: Optional[Union[str, Urn]] = None,
     ) -> Self:
         """Add a structured property.
+
+        Currently equivalent to set_structured_property: overwrites all values for the given property.
 
         Args:
             key: the name of the property (either bare or urn form)
@@ -79,17 +96,7 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         Returns:
             The patch builder instance.
         """
-        property_urn = make_structured_property_urn(key)
-        self._add_patch(
-            StructuredPropertiesClass.ASPECT_NAME,
-            "add",
-            path=("properties", property_urn, ""),
-            value=StructuredPropertyValueAssignmentClass(
-                propertyUrn=property_urn,
-                values=value if isinstance(value, list) else [value],
-            ),
-        )
-        return self
+        return self.set_structured_property(key, value, attribution_source)
 
     def set_structured_property_manual(
         self, property: StructuredPropertyValueAssignmentClass
@@ -100,9 +107,8 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
             if (property.attribution and property.attribution.source)
             else ""
         )
-        self.remove_structured_property(
-            property.propertyUrn, attribution_source=source or None
-        )
+        # JSON Patch `add` replaces an existing value at the same path, so no
+        # explicit remove is needed. See set_structured_property for details.
         self._add_patch(
             StructuredPropertiesClass.ASPECT_NAME,
             "add",
@@ -114,16 +120,8 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
     def add_structured_property_manual(
         self, property: StructuredPropertyValueAssignmentClass
     ) -> Self:
-        """Add a structured property, using a StructuredPropertyValueAssignmentClass object."""
-        source = (
-            property.attribution.source
-            if (property.attribution and property.attribution.source)
-            else ""
-        )
-        self._add_patch(
-            StructuredPropertiesClass.ASPECT_NAME,
-            "add",
-            path=("properties", property.propertyUrn, source),
-            value=property,
-        )
-        return self
+        """Add a structured property, using a StructuredPropertyValueAssignmentClass object.
+
+        Currently equivalent to set_structured_property_manual: overwrites all values for the given property.
+        """
+        return self.set_structured_property_manual(property)
