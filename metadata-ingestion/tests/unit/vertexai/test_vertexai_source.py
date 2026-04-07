@@ -20,6 +20,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ExperimentMetadata,
     VertexAIResourceCategoryKey,
 )
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.metadata.schema_classes import (
     DataProcessInstancePropertiesClass,
 )
@@ -440,3 +441,43 @@ def test_list_experiment_runs_combines_context_and_execution_nodes(
 
     assert len(runs) == 2
     assert all(isinstance(r, ExperimentRun) for r in runs)
+
+
+# ---------------------------------------------------------------------------
+# VertexAIStateHandler — stateful_ingestion=None (default) must not crash
+# ---------------------------------------------------------------------------
+
+
+def _make_state_handler(
+    stateful_ingestion_config=None,
+) -> VertexAIStateHandler:
+    """Build a VertexAIStateHandler with a minimal mock source."""
+    mock_source = MagicMock()
+    mock_source.state_provider.is_stateful_ingestion_configured.return_value = False
+    mock_source.ctx.run_id = "test-run"
+    mock_source.ctx.pipeline_name = "test-pipeline"
+    return VertexAIStateHandler(
+        source=mock_source,
+        stateful_ingestion_config=stateful_ingestion_config,
+    )
+
+
+def test_state_handler_no_stateful_ingestion_config_does_not_crash() -> None:
+    """Pipeline must not crash when stateful_ingestion is not configured (the default).
+
+    Regression test for the bug introduced in PR #16176 where `config.stateful_ingestion or config`
+    passed the entire VertexAIConfig as the stateful_ingestion_config when no stateful ingestion
+    was configured, causing AttributeError on .ignore_old_state / .ignore_new_state.
+    """
+    handler = _make_state_handler(stateful_ingestion_config=None)
+
+    # These must not raise AttributeError
+    assert handler.get_last_update_time("model") is None
+    assert handler.create_checkpoint() is None
+
+
+def test_state_handler_checkpointing_disabled_returns_empty_state() -> None:
+    """get_last_checkpoint_state returns an empty state when checkpointing is off."""
+    handler = _make_state_handler(stateful_ingestion_config=None)
+    state = handler.get_last_checkpoint_state()
+    assert state.last_update_times == {}
