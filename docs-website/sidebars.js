@@ -104,6 +104,11 @@ module.exports = {
           },
           items: [
             {
+              label: "DataHub Skills",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/skills",
+            },
+            {
               label: "Snowflake",
               type: "category",
               collapsible: true,
