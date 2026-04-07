@@ -42,12 +42,12 @@ export default function EmptyContent({ icon, title, description, linkText, linkI
     return (
         <Container>
             <IconWrapper>
-                <Icon icon={icon} />
+                <Icon icon={icon} color="gray" />
             </IconWrapper>
-            <Text size="lg" weight="bold">
+            <Text size="lg" weight="bold" color="gray" colorLevel={600}>
                 {title}
             </Text>
-            <Text>{description}</Text>
+            <Text color="gray">{description}</Text>
             {linkText && onLinkClick && (
                 <Button variant="text" onClick={onLinkClick}>
                     {linkText} <Icon icon={linkIcon ?? ArrowRight} color="primary" size="md" />

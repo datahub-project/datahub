@@ -11,7 +11,7 @@ const Card = styled.div<{
     $isShowNavBarRedesign?: boolean;
 }>`
     border-radius: 10px;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 16px;
     border: ${(props) =>
         props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};

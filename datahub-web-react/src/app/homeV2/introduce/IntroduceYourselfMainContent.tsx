@@ -33,7 +33,7 @@ const Container = styled.div`
 `;
 
 const Content = styled.div`
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 20px;
 
     .ant-select-selection-item {
@@ -44,7 +44,7 @@ const Content = styled.div`
 
     .ant-select-selection-overflow-item-rest {
         .ant-select-selection-item {
-            background-color: ${(props) => props.theme.colors.bgSurface} !important;
+            background-color: ${(props) => props.theme.colors.bg} !important;
             border: none !important;
             padding: 0 0 0 5px !important;
             height: auto !important;

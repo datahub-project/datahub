@@ -14,7 +14,7 @@ const Container = styled.div`
     display: flex;
     flex-direction: row;
     padding: 10px 12px 10px 12px;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 10px;
     min-width: 200px;
     max-width: 260px;

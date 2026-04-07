@@ -15,7 +15,7 @@ import OnboardingContext from '@app/onboarding/OnboardingContext';
 const Card = styled.div`
     border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 11px;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     overflow: hidden;
     padding: 16px 20px 8px 20px;
     width: 380px;

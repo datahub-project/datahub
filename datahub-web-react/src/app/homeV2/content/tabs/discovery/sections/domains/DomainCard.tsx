@@ -13,7 +13,7 @@ import { Domain, EntityType } from '@types';
 
 const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
     border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 16px;
     border: ${(props) =>
         props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};

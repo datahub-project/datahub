@@ -14,7 +14,7 @@ import { DataPlatform, EntityType } from '@types';
 
 const Card = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     border-radius: 10px;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 16px;
     min-width: 180px;
     border: ${(props) =>
