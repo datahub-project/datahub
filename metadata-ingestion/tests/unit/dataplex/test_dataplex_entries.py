@@ -561,6 +561,77 @@ class TestDataplexEntriesProcessorDesign:
         assert isinstance(dataset_entity, Dataset)
         assert dataset_entity.parent_container is None
 
+    def test_build_entity_for_vertexai_dataset_uses_project_parent_and_display_name(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = False
+
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us-west2/entryGroups/@vertexai/entries/"
+            "aiplatform.googleapis.com/projects/p/locations/us-west2/datasets/5135361416504541184"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/vertexai-dataset"
+        )
+        dataset_entry.fully_qualified_name = (
+            "vertex_ai:dataset:p.us-west2.5135361416504541184"
+        )
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = Mock()
+        dataset_entry.entry_source.display_name = "sergio-dataplex-test"
+        dataset_entry.entry_source.description = ""
+        dataset_entry.entry_source.create_time = None
+        dataset_entry.entry_source.update_time = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.urn.urn() == (
+            "urn:li:dataset:(urn:li:dataPlatform:vertexai,"
+            "p.us-west2.5135361416504541184,PROD)"
+        )
+        assert dataset_entity.display_name == "sergio-dataplex-test"
+        assert dataset_entity.parent_container is not None
+        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
+
+    def test_build_entity_for_pubsub_topic_uses_project_parent_container(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = False
+
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us-west2/entryGroups/@pubsub/entries/"
+            "pubsub.googleapis.com/projects/acryl-staging/topics/observe-staging-obs"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/pubsub-topic"
+        )
+        dataset_entry.fully_qualified_name = (
+            "pubsub:topic:acryl-staging.observe-staging-obs"
+        )
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.urn.urn() == (
+            "urn:li:dataset:(urn:li:dataPlatform:pubsub,"
+            "acryl-staging.observe-staging-obs,PROD)"
+        )
+        assert dataset_entity.parent_container is not None
+        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
+
     def test_extract_helpers_cover_display_description_datetime_and_group_id(
         self,
         processor: DataplexEntriesProcessor,

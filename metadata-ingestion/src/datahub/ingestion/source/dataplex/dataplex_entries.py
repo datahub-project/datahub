@@ -364,6 +364,18 @@ class DataplexEntriesProcessor:
                         parent_entry=entry.parent_entry,
                     ),
                 )
+            if (
+                parent_container_key is None
+                and mapping.parent_container_key_class is not None
+                and mapping.parent_entry_regex is None
+            ):
+                parent_container_key = cast(
+                    Optional[ContainerKey],
+                    build_project_schema_key_from_fqn(
+                        entry_type_or_short_name=short_name,
+                        fully_qualified_name=entry.fully_qualified_name,
+                    ),
+                )
             if parent_container_key is not None:
                 return Dataset(
                     platform=mapping.datahub_platform,
