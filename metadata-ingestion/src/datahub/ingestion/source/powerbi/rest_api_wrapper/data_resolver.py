@@ -21,11 +21,11 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     PowerBIDataset,
     Report,
-    ReportType,
     Table,
     Tile,
     User,
     Workspace,
+    new_powerbi_reports,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -295,40 +295,16 @@ class DataResolverBase(ABC):
         if _filter is not None:
             params = {"$filter": _filter}
 
-        def fetch_reports():
-            response = self._request_session.get(
-                reports_endpoint,
-                headers=self.get_authorization_header(),
-                params=params,
-            )
-            response.raise_for_status()
-            response_dict = response.json()
-            logger.debug(f"Report Request response = {response_dict}")
-            return response_dict.get(Constant.VALUE, [])
+        response = self._request_session.get(
+            reports_endpoint,
+            headers=self.get_authorization_header(),
+            params=params,
+        )
+        response.raise_for_status()
+        response_dict = response.json()
+        logger.debug(f"Report Request response = {response_dict}")
 
-        reports: List[Report] = [
-            Report(
-                id=raw_instance.get(Constant.ID),
-                name=raw_instance.get(Constant.NAME),
-                type=ReportType[raw_instance.get(Constant.REPORT_TYPE)],
-                webUrl=raw_instance.get(Constant.WEB_URL),
-                embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION, ""),
-                pages=[],  # It will be fetched later
-                dataset_id=raw_instance.get(Constant.DATASET_ID),
-                users=[],  # It will be fetched using Admin Fetcher based on condition
-                tags=[],  # It will be fetched using Admin Fetcher based on condition
-                dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
-            )
-            for raw_instance in fetch_reports()
-            if Constant.APP_ID
-            not in raw_instance  # As we add reports to the App, Power BI starts providing
-            # duplicate report information,
-            # where the duplicate includes an AppId,
-            # while the original report does not.
-        ]
-
-        return reports
+        return new_powerbi_reports(response_dict.get(Constant.VALUE, []))
 
     def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
         reports: List[Report] = self.get_reports(

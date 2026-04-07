@@ -303,7 +303,7 @@ class Report:
     name: str
     type: ReportType
     webUrl: Optional[str]
-    embedUrl: str
+    embedUrl: Optional[str]
     description: str
     dataset_id: Optional[str]  # dataset_id is coming from REST API response
     dataset: Optional[
@@ -407,3 +407,27 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
         configuredBy=raw_instance.get("configuredBy"),
         dependent_on_artifact_id=dependent_on_artifact_id,
     )
+
+
+def new_powerbi_reports(raw_instances: list[dict]) -> list[Report]:
+    return [
+        Report(
+            id=raw_instance[Constant.ID],
+            name=raw_instance[Constant.NAME],
+            type=ReportType[raw_instance[Constant.REPORT_TYPE]],
+            webUrl=raw_instance.get(Constant.WEB_URL),
+            embedUrl=raw_instance.get(Constant.EMBED_URL),
+            description=raw_instance.get(Constant.DESCRIPTION, ""),
+            pages=[],  # It will be fetched later
+            dataset_id=raw_instance.get(Constant.DATASET_ID),
+            users=[],  # It will be fetched using Admin Fetcher based on condition
+            tags=[],  # It will be fetched using Admin Fetcher based on condition
+            dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
+        )
+        for raw_instance in raw_instances
+        if Constant.APP_ID
+        not in raw_instance  # As we add reports to the App, Power BI starts providing
+        # duplicate report information,
+        # where the duplicate includes an AppId,
+        # while the original report does not.
+    ]
