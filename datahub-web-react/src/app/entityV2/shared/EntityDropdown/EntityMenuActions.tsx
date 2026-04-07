@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import AnnounceMenuAction from '@app/entityV2/shared/EntityDropdown/AnnounceMenuAction';
-import ChangeHistoryMenuAction from '@app/entityV2/shared/EntityDropdown/ChangeHistoryMenuAction';
 import DeleteEntityMenuItem from '@app/entityV2/shared/EntityDropdown/DeleteEntityMenuAction';
 import ExternalUrlMenuAction from '@app/entityV2/shared/EntityDropdown/ExternalUrlMenuAction';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
@@ -83,7 +82,6 @@ function EntityMenuActions(props: Props) {
                 <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="entity-menu-actions">
                     <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
                     {menuItems.has(EntityMenuItems.MOVE) && <MoveEntityMenuAction />}
-                    {menuItems.has(EntityMenuItems.CHANGE_HISTORY) && <ChangeHistoryMenuAction />}
                     {menuItems.has(EntityMenuItems.ANNOUNCE) && <AnnounceMenuAction />}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}
                     {menuItems.has(EntityMenuItems.UPDATE_DEPRECATION) && <UpdateDeprecationMenuAction />}
@@ -91,13 +89,19 @@ function EntityMenuActions(props: Props) {
                         <DeleteEntityMenuItem onDelete={onDelete} options={options} />
                     )}
                     {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}
-                    {entityVersioningEnabled && hasVersioningActions && (
+                    {(entityVersioningEnabled && hasVersioningActions) ||
+                    menuItems.has(EntityMenuItems.CHANGE_HISTORY) ? (
                         <MoreOptionsContainer>
                             <MoreOptionsMenuAction
                                 menuItems={
-                                    menuItems.has(EntityMenuItems.LINK_VERSION)
-                                        ? new Set([EntityMenuItems.LINK_VERSION])
-                                        : new Set()
+                                    new Set([
+                                        ...(menuItems.has(EntityMenuItems.LINK_VERSION)
+                                            ? [EntityMenuItems.LINK_VERSION]
+                                            : []),
+                                        ...(menuItems.has(EntityMenuItems.CHANGE_HISTORY)
+                                            ? [EntityMenuItems.CHANGE_HISTORY]
+                                            : []),
+                                    ])
                                 }
                                 urn={urn}
                                 entityType={entityType}
@@ -105,12 +109,11 @@ function EntityMenuActions(props: Props) {
                                 refetch={refetch}
                             />
                         </MoreOptionsContainer>
-                    )}
+                    ) : null}
                 </MenuItems>
             ) : (
                 <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="entity-menu-actions">
                     <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
-                    {menuItems.has(EntityMenuItems.CHANGE_HISTORY) && <ChangeHistoryMenuAction />}
                     <MoreOptionsContainer>
                         <MoreOptionsMenuAction
                             menuItems={menuItems}

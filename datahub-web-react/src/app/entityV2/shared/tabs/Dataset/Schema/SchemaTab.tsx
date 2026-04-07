@@ -10,11 +10,9 @@ import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/Schem
 import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import { KEY_SCHEMA_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
-import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
@@ -33,7 +31,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const NoSchema = styled(Empty)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-top: 60px;
 `;
 
@@ -107,9 +105,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     );
 
     const [showKeySchema, setShowKeySchema] = useState(false);
-    const [showSchemaTimelineView, setShowSchemaTimelineView] = useState(false);
 
-    // Do not show semantic version (dropdown or in change history drawer) if we are on combined siblings page
+    // Do not show semantic version dropdown if we are on combined siblings page
     const hideSemanticVersions = !separateSiblings && !!siblingUrn;
     const {
         selectedVersion,
@@ -212,14 +209,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     return (
         <SchemaContext.Provider value={{ refetch }}>
-            <HistorySidebar
-                urn={urn}
-                siblingUrn={siblingUrn}
-                versionList={versionList}
-                hideSemanticVersions={hideSemanticVersions}
-                open={showSchemaTimelineView}
-                onClose={() => setShowSchemaTimelineView(false)}
-            />
             <SchemaHeader
                 // see above hook
                 key={wasSearchReset ? 'key1' : 'key2'}
@@ -233,8 +222,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 setShowKeySchema={setShowKeySchema}
                 selectedVersion={selectedVersion}
                 versionList={versionList}
-                showSchemaTimeline={showSchemaTimelineView}
-                setShowSchemaTimeline={setShowSchemaTimelineView}
                 numRows={schemaMetadata?.fields?.length}
                 schemaFilterTypes={schemaFilterTypes}
                 setSchemaFilterTypes={setSchemaFilterTypes}
