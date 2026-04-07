@@ -153,13 +153,13 @@ Tag all columns containing email addresses with the PII glossary term across our
 
 ## Available Skills Reference
 
-| Skill | Command | What it does |
-|-------|---------|-------------|
-| **Setup** | `/datahub-skills:datahub-setup` | Connect to your DataHub instance (Cloud or self-hosted) |
-| **Search** | `/datahub-skills:datahub-search` | Find data assets using descriptions, glossary terms, ownership, usage, and quality signals |
-| **Lineage** | `/datahub-skills:datahub-lineage` | Trace upstream sources, transformations, and downstream consumers |
-| **Enrich** | `/datahub-skills:datahub-enrich` | Add descriptions, tags, glossary terms, owners, domains, and structured properties |
-| **Quality** | `/datahub-skills:datahub-quality` | Find unhealthy assets, investigate incidents, create quality assertions (Cloud) |
+| Skill       | Command                           | What it does                                                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Setup**   | `/datahub-skills:datahub-setup`   | Connect to your DataHub instance (Cloud or self-hosted)                                    |
+| **Search**  | `/datahub-skills:datahub-search`  | Find data assets using descriptions, glossary terms, ownership, usage, and quality signals |
+| **Lineage** | `/datahub-skills:datahub-lineage` | Trace upstream sources, transformations, and downstream consumers                          |
+| **Enrich**  | `/datahub-skills:datahub-enrich`  | Add descriptions, tags, glossary terms, owners, domains, and structured properties         |
+| **Quality** | `/datahub-skills:datahub-quality` | Find unhealthy assets, investigate incidents, create quality assertions (Cloud)            |
 
 ## Other Platforms
 
