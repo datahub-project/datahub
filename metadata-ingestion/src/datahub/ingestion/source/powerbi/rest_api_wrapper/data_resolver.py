@@ -26,6 +26,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     User,
     Workspace,
     new_powerbi_reports,
+    new_powerbi_user,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -820,22 +821,7 @@ class AdminAPIResolver(DataResolverBase):
         users_dict: List[Any] = response.json().get(Constant.VALUE, [])
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
-        users: List[User] = [
-            User(
-                id=instance.get(Constant.IDENTIFIER),
-                displayName=instance.get(Constant.DISPLAY_NAME),
-                emailAddress=instance.get(Constant.EMAIL_ADDRESS),
-                graphId=instance.get(Constant.GRAPH_ID),
-                principalType=instance.get(Constant.PRINCIPAL_TYPE),
-                datasetUserAccessRight=instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
-                reportUserAccessRight=instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
-                dashboardUserAccessRight=instance.get(
-                    Constant.DASHBOARD_USER_ACCESS_RIGHT
-                ),
-                groupUserAccessRight=instance.get(Constant.GROUP_USER_ACCESS_RIGHT),
-            )
-            for instance in users_dict
-        ]
+        users: List[User] = [new_powerbi_user(instance) for instance in users_dict]
 
         return users
 

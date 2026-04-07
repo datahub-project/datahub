@@ -431,3 +431,17 @@ def new_powerbi_reports(raw_instances: list[dict]) -> list[Report]:
         # where the duplicate includes an AppId,
         # while the original report does not.
     ]
+
+
+def new_powerbi_user(raw_instance: dict) -> User:
+    return User(
+        id=raw_instance[Constant.IDENTIFIER],
+        displayName=raw_instance[Constant.DISPLAY_NAME],
+        emailAddress=raw_instance[Constant.EMAIL_ADDRESS],
+        graphId=raw_instance[Constant.GRAPH_ID],
+        principalType=raw_instance[Constant.PRINCIPAL_TYPE],
+        datasetUserAccessRight=raw_instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
+        reportUserAccessRight=raw_instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
+        dashboardUserAccessRight=raw_instance.get(Constant.DASHBOARD_USER_ACCESS_RIGHT),
+        groupUserAccessRight=raw_instance.get(Constant.GROUP_USER_ACCESS_RIGHT),
+    )
