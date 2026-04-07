@@ -1,5 +1,7 @@
 """Unit tests for Dataplex identity and entry-type mapping utilities."""
 
+from typing import Any
+
 import pytest
 
 from datahub.ingestion.source.dataplex.dataplex_ids import (
@@ -162,9 +164,10 @@ def test_supported_entry_type_mapping_keys() -> None:
     ],
 )
 def test_dataplex_entry_type_mapping_validation_errors(
-    mapping_kwargs: dict[str, object], expected_error: str
+    mapping_kwargs: dict[str, Any], expected_error: str
 ) -> None:
     with pytest.raises(ValueError, match=expected_error):
+        # Intentionally bypass strict constructor typing to validate runtime guards.
         DataplexEntryTypeMapping(**mapping_kwargs)
 
 
