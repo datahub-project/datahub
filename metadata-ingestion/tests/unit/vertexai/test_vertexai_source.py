@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,6 +13,9 @@ from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
     VertexAIExperimentExtractor,
@@ -449,7 +453,7 @@ def test_list_experiment_runs_combines_context_and_execution_nodes(
 
 
 def _make_state_handler(
-    stateful_ingestion_config=None,
+    stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = None,
 ) -> VertexAIStateHandler:
     """Build a VertexAIStateHandler with a minimal mock source."""
     mock_source = MagicMock()
