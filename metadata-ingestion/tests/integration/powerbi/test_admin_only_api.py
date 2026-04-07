@@ -32,6 +32,7 @@ def admin_datasets_response(request, context):
                 {
                     "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "name": "library-dataset",
+                    "configuredBy": "sindri@something.com",
                     "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
                 }
             ]
@@ -43,6 +44,7 @@ def admin_datasets_response(request, context):
                 {
                     "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                     "name": "hr_pbi_test",
+                    "configuredBy": "sindri@something.com",
                     "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
                 }
             ]
