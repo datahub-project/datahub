@@ -82,6 +82,9 @@ class TestDataplexEntriesProcessorDesign:
         assert set(report.entry_group_filtered_samples).issubset(
             {f"eg-{index}" for index in range(12)}
         )
+        assert report.entry_groups_processed == 1
+        assert report.entry_group_processed_samples.total_elements == 1
+        assert list(report.entry_group_processed_samples) == ["eg-pass"]
 
         assert report.entries_seen == 48
         assert report.entries_filtered_by_pattern == 12
@@ -560,6 +563,36 @@ class TestDataplexEntriesProcessorDesign:
 
         assert isinstance(dataset_entity, Dataset)
         assert dataset_entity.parent_container is None
+
+    def test_build_entity_for_entry_warns_when_parent_expected_but_missing(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = False
+
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
+        )
+        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.parent_container is None
+        source_report = cast(Mock, processor.source_report)
+        source_report.warning.assert_called_once()
+        warning_kwargs = source_report.warning.call_args.kwargs
+        assert warning_kwargs["title"] == "Missing Dataplex parent_entry"
 
     def test_build_entity_for_vertexai_dataset_uses_project_parent_and_display_name(
         self, processor: DataplexEntriesProcessor

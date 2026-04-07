@@ -16,6 +16,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     DataplexCloudSqlMySqlInstance,
     DataplexEntryTypeMapping,
     DataplexProjectId,
+    _extract_dataset_name_from_fqn,
     build_container_key_from_fqn,
     build_container_urn_from_fqn,
     build_dataset_urn_from_fqn,
@@ -632,6 +633,15 @@ def test_extract_datahub_dataset_name_from_fqn_uses_mapping_format() -> None:
         "vertex_ai:dataset:harshal-playground-306419.us-west2.5135361416504541184",
     )
     assert dataset_name == "harshal-playground-306419.us-west2.5135361416504541184"
+
+
+def test_extract_dataset_name_from_fqn_returns_none_for_container_mapping() -> None:
+    assert (
+        _extract_dataset_name_from_fqn(
+            "bigquery-dataset", "bigquery:test-project.analytics"
+        )
+        is None
+    )
 
 
 def test_extract_datahub_dataset_name_from_fqn_handles_format_key_errors(
