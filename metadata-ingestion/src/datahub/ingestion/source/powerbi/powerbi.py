@@ -1933,34 +1933,41 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         allowed_workspaces = self.get_allowed_workspaces()
 
+        # First get scan results for all workspaces, and fill out self.powerbi_client.dataset_registry
+        # so cross-workspace references work.
         batches = more_itertools.chunked(
             allowed_workspaces, self.source_config.scan_batch_size
         )
         for batch_workspaces in batches:
-            for workspace in self.powerbi_client.fill_workspaces(
-                batch_workspaces, self.reporter
-            ):
-                logger.info(f"Processing workspace id: {workspace.id}")
+            logger.info(
+                f"Fetching initial metadata for workspaces: {[w.format_name_for_logger() for w in batch_workspaces]}"
+            )
+            self.powerbi_client.fill_metadata_from_scan_result(batch_workspaces)
 
-                if self.source_config.modified_since:
-                    # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                    # Because job_id is used as a dictionary key, we have to set a new job_id
-                    # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
-                    self.stale_entity_removal_handler.set_job_id(workspace.id)
-                    self.state_provider.register_stateful_ingestion_usecase_handler(
-                        self.stale_entity_removal_handler
-                    )
+        # Then get the rest of the metadata per workspace.
+        for workspace in allowed_workspaces:
+            logger.info(f"Processing workspace id: {workspace.id}")
+            self.powerbi_client.fill_regular_metadata_detail(workspace=workspace)
 
-                    yield from self._apply_workunit_processors(
-                        [
-                            *super().get_workunit_processors(),
-                            self.stale_entity_removal_handler.workunit_processor,
-                        ],
-                        self.get_workspace_workunit(workspace),
-                    )
-                else:
-                    # Maintain backward compatibility
-                    yield from self.get_workspace_workunit(workspace)
+            if self.source_config.modified_since:
+                # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
+                # Because job_id is used as a dictionary key, we have to set a new job_id
+                # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+                self.stale_entity_removal_handler.set_job_id(workspace.id)
+                self.state_provider.register_stateful_ingestion_usecase_handler(
+                    self.stale_entity_removal_handler
+                )
+
+                yield from self._apply_workunit_processors(
+                    [
+                        *super().get_workunit_processors(),
+                        self.stale_entity_removal_handler.workunit_processor,
+                    ],
+                    self.get_workspace_workunit(workspace),
+                )
+            else:
+                # Maintain backward compatibility
+                yield from self.get_workspace_workunit(workspace)
 
     def get_report(self) -> SourceReport:
         return self.reporter

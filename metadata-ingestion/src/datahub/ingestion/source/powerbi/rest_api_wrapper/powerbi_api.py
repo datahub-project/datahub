@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterable, List, Literal, Optional, cast
+from typing import Any, Dict, List, Literal, Optional, cast
 
 import requests
 
@@ -283,6 +283,7 @@ class PowerBiAPI:
                 scan_result={},
                 independent_datasets={},
                 app=None,  # It will be populated in _fill_metadata_from_scan_result method
+                fabric_artifacts=self._parse_fabric_artifacts(workspace),
             )
             for workspace in groups
         ]
@@ -650,16 +651,15 @@ class PowerBiAPI:
         app.dashboards = app_dashboards
         workspace.app = app
 
-    def _fill_metadata_from_scan_result(
+    def fill_metadata_from_scan_result(
         self,
         workspaces: List[Workspace],
-    ) -> List[Workspace]:
-        workspace_ids = [workspace.id for workspace in workspaces]
-        scan_result = self._get_scan_result(workspace_ids)
+    ) -> None:
+        workspaces_by_id = {workspace.id: workspace for workspace in workspaces}
+        scan_result = self._get_scan_result(list(workspaces_by_id.keys()))
         if not scan_result:
-            return workspaces
+            return
 
-        workspaces = []
         for workspace_metadata in scan_result["workspaces"]:
             if (
                 workspace_metadata.get(Constant.STATE) != Constant.ACTIVE
@@ -679,20 +679,10 @@ class PowerBiAPI:
                 )
                 continue
 
-            cur_workspace = Workspace(
-                id=workspace_metadata[Constant.ID],
-                name=workspace_metadata[Constant.NAME],
-                type=workspace_metadata[Constant.TYPE],
-                datasets={},
-                dashboards={},
-                reports={},
-                report_endorsements={},
-                dashboard_endorsements={},
-                scan_result={},
-                independent_datasets={},
-                app=None,  # It is getting set from scan-result
-                fabric_artifacts=self._parse_fabric_artifacts(workspace_metadata),
-            )
+            cur_workspace = workspaces_by_id.get(workspace_metadata[Constant.ID])
+            if not cur_workspace:
+                continue
+
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
             # collect all datasets in the registry
@@ -714,9 +704,8 @@ class PowerBiAPI:
                 workspace=cur_workspace,
                 workspace_metadata=workspace_metadata,
             )
-            workspaces.append(cur_workspace)
 
-        return workspaces
+        return
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
         reachable_datasets: List[str] = []
@@ -735,7 +724,7 @@ class PowerBiAPI:
             if dataset.id not in reachable_datasets:
                 workspace.independent_datasets[dataset.id] = dataset
 
-    def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
+    def fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
             workspace.dashboards = {
                 dashboard.id: dashboard
@@ -793,16 +782,3 @@ class PowerBiAPI:
             fill_dashboards()
         fill_dashboard_tags()
         self._fill_independent_datasets(workspace=workspace)
-
-    def fill_workspaces(
-        self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
-    ) -> Iterable[Workspace]:
-        logger.info(
-            f"Fetching initial metadata for workspaces: {[workspace.format_name_for_logger() for workspace in workspaces]}"
-        )
-
-        workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
-        # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
-        for workspace in workspaces:
-            self._fill_regular_metadata_detail(workspace=workspace)
-        return workspaces
