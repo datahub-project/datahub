@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
+import com.linkedin.metadata.aspect.hooks.migrations.TagTestPropMigrator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -80,6 +81,11 @@ public class SpringStandardPluginConfiguration {
 
   @Value("${featureFlags.aspectMigrationMutatorEnabled:false}")
   private boolean aspectMigrationMutatorEnabled;
+
+  @Bean
+  public AspectMigrationMutator tagTestPropMigrator() {
+    return new TagTestPropMigrator();
+  }
 
   /**
    * Registers the migration chain as the highest-priority mutation hook. Collects all {@link

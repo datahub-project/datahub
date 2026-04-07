@@ -4058,9 +4058,14 @@
         "type" : "string",
         "doc" : "The color associated with the Tag in Hex. For example #FFFFFF.",
         "optional" : true
+      }, {
+        "name" : "testProperty",
+        "type" : "string",
+        "optional" : true
       } ],
       "Aspect" : {
-        "name" : "tagProperties"
+        "name" : "tagProperties",
+        "schemaVersion" : 2
       }
     }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance" ]
   }, {
