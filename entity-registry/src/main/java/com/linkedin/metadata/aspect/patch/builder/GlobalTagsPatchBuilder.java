@@ -14,30 +14,30 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<GlobalTagsPatchBuilder> {
 
   private static final String BASE_PATH = "/tags/";
-  private static final String TAG_KEY = "tag";
+  private static final String URN_KEY = "tag";
   private static final String CONTEXT_KEY = "context";
 
+  /**
+   * Adds a tag with an optional context string
+   *
+   * @param urn required
+   * @param context optional
+   * @return
+   */
   public GlobalTagsPatchBuilder addTag(@Nonnull TagUrn urn, @Nullable String context) {
-    return addTag(urn, context, null);
-  }
-
-  public GlobalTagsPatchBuilder addTag(
-      @Nonnull TagUrn urn, @Nullable String context, @Nullable Urn attributionSource) {
     ObjectNode value = instance.objectNode();
-    value.put(TAG_KEY, urn.toString());
+    value.put(URN_KEY, urn.toString());
+
     if (context != null) {
       value.put(CONTEXT_KEY, context);
     }
-    String sourcePath = attributionSource != null ? encodeValue(attributionSource.toString()) : "";
+
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(),
-            BASE_PATH + encodeValueUrn(urn) + "/" + sourcePath,
-            value));
+            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn) + "/", value));
     return this;
   }
 
-  /** Removes all entries for this tag URN across every attribution source. */
   public GlobalTagsPatchBuilder removeTag(@Nonnull TagUrn urn) {
     pathValues.add(
         ImmutableTriple.of(

@@ -18,27 +18,27 @@ public class GlossaryTermsPatchBuilder
   private static final String URN_KEY = "urn";
   private static final String CONTEXT_KEY = "context";
 
+  /**
+   * Adds a term with an optional context string
+   *
+   * @param urn required
+   * @param context optional
+   * @return
+   */
   public GlossaryTermsPatchBuilder addTerm(@Nonnull GlossaryTermUrn urn, @Nullable String context) {
-    return addTerm(urn, context, null);
-  }
-
-  public GlossaryTermsPatchBuilder addTerm(
-      @Nonnull GlossaryTermUrn urn, @Nullable String context, @Nullable Urn attributionSource) {
     ObjectNode value = instance.objectNode();
     value.put(URN_KEY, urn.toString());
+
     if (context != null) {
       value.put(CONTEXT_KEY, context);
     }
-    String sourcePath = attributionSource != null ? encodeValue(attributionSource.toString()) : "";
+
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(),
-            BASE_PATH + encodeValueUrn(urn) + "/" + sourcePath,
-            value));
+            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn) + "/", value));
     return this;
   }
 
-  /** Removes all entries for this term URN across every attribution source. */
   public GlossaryTermsPatchBuilder removeTerm(@Nonnull GlossaryTermUrn urn) {
     pathValues.add(
         ImmutableTriple.of(

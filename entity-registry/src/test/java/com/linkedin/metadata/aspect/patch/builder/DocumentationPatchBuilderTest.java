@@ -37,7 +37,7 @@ public class DocumentationPatchBuilderTest {
 
   @Test
   public void testAddDocumentationUnattributed() throws URISyntaxException {
-    builder.addDocumentation("Some documentation text", null);
+    builder.addDocumentation("Some documentation text");
     builder.build();
 
     List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
@@ -52,31 +52,6 @@ public class DocumentationPatchBuilderTest {
     assertEquals(operation.getRight().get("documentation").asText(), "Some documentation text");
     // No attribution node for unattributed docs
     assertNull(operation.getRight().get("attribution"));
-  }
-
-  @Test
-  public void testAddDocumentationAttributed() throws URISyntaxException {
-    Urn sourceUrn = Urn.createFromString(TEST_SOURCE_URN);
-    builder.addDocumentation("Attributed doc text", sourceUrn);
-    builder.build();
-
-    List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
-    assertNotNull(pathValues);
-    assertEquals(pathValues.size(), 1);
-
-    ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
-    assertEquals(operation.getLeft(), "add");
-    // Attributed: BASE_PATH + encodeValue(sourceUrn)
-    assertTrue(operation.getMiddle().startsWith("/documentations/"));
-    // Path should contain the encoded source (not just a trailing slash)
-    assertTrue(operation.getMiddle().length() > "/documentations/".length());
-    assertTrue(operation.getRight().isObject());
-    assertEquals(operation.getRight().get("documentation").asText(), "Attributed doc text");
-
-    // Attribution node should be set
-    JsonNode attribution = operation.getRight().get("attribution");
-    assertNotNull(attribution);
-    assertEquals(attribution.get("source").asText(), sourceUrn.toString());
   }
 
   @Test
@@ -116,7 +91,7 @@ public class DocumentationPatchBuilderTest {
 
   @Test
   public void testBuildPlainAdd() throws Exception {
-    MetadataChangeProposal mcp = builder.addDocumentation("text", null).build();
+    MetadataChangeProposal mcp = builder.addDocumentation("text").build();
 
     assertEquals(mcp.getAspect().getContentType(), "application/json-patch+json");
 

@@ -40,22 +40,6 @@ public interface HasDocumentation<T extends Entity & HasDocumentation<T>> {
    */
   @Nonnull
   default T addDocumentation(@Nonnull String text) {
-    return addDocumentation(text, null);
-  }
-
-  /**
-   * Adds a documentation entry to this entity, attributed to a specific source.
-   *
-   * <p>If a documentation entry already exists for the same source, this upserts (replaces) it.
-   * Entries from other sources are untouched. Unattributed entries use {@code ""} as the source key
-   * (double-slash in the patch path).
-   *
-   * @param text the documentation text
-   * @param attributionSource the source URN for attribution; null for unattributed documentation
-   * @return this entity for fluent chaining
-   */
-  @Nonnull
-  default T addDocumentation(@Nonnull String text, @Nullable Urn attributionSource) {
     Entity entity = (Entity) this;
 
     DocumentationPatchBuilder builder =
@@ -65,7 +49,7 @@ public interface HasDocumentation<T extends Entity & HasDocumentation<T>> {
       entity.registerPatchBuilder("documentation", builder);
     }
 
-    builder.addDocumentation(text, attributionSource);
+    builder.addDocumentation(text);
     return (T) this;
   }
 

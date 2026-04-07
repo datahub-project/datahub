@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public class DocumentationPatchBuilder
@@ -18,17 +17,10 @@ public class DocumentationPatchBuilder
   private static final String ATTRIBUTION_KEY = "attribution";
   private static final String SOURCE_KEY = "source";
 
-  public DocumentationPatchBuilder addDocumentation(
-      @Nonnull String documentation, @Nullable Urn attributionSource) {
+  public DocumentationPatchBuilder addDocumentation(@Nonnull String documentation) {
     ObjectNode value = instance.objectNode();
     value.put(DOCUMENTATION_KEY, documentation);
-    String source = attributionSource != null ? attributionSource.toString() : "";
-    if (!source.isEmpty()) {
-      value.set(ATTRIBUTION_KEY, instance.objectNode().put(SOURCE_KEY, source));
-    }
-    String sourcePath = source.isEmpty() ? "" : encodeValue(source);
-    pathValues.add(
-        ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + sourcePath, value));
+    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH, value));
     return this;
   }
 
