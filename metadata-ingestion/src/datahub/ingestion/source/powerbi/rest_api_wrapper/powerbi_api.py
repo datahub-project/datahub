@@ -209,6 +209,9 @@ class PowerBiAPI:
             }
             # Fill Report dataset
             for report in reports.values():
+                report.pages = self._get_resolver().get_pages_by_report(
+                    workspace=workspace, report_id=report.id
+                )
                 if report.dataset_id:
                     report.dataset = self.dataset_registry.get(report.dataset_id)
                     if report.dataset is None:

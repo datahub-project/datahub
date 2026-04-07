@@ -153,7 +153,7 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         pass
 
     @abstractmethod
@@ -314,9 +314,7 @@ class DataResolverBase(ABC):
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
                 description=raw_instance.get(Constant.DESCRIPTION, ""),
-                pages=self._get_pages_by_report(
-                    workspace=workspace, report_id=raw_instance[Constant.ID]
-                ),
+                pages=[],  # It will be fetched later
                 dataset_id=raw_instance.get(Constant.DATASET_ID),
                 users=[],  # It will be fetched using Admin Fetcher based on condition
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
@@ -525,7 +523,7 @@ class RegularAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
@@ -922,7 +920,7 @@ class AdminAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
 
     def get_modified_workspaces(self, modified_since: str) -> List[str]:
