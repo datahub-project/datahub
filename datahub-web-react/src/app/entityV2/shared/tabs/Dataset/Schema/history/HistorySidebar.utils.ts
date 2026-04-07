@@ -105,3 +105,26 @@ export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
     if (!supported) return ALL_CATEGORY_OPTIONS;
     return ALL_CATEGORY_OPTIONS.filter((o) => supported.has(o.value));
 }
+
+/**
+ * Filters change entries by category selection and search text.
+ * A transaction matches if at least one of its changes satisfies both filters.
+ */
+export function filterChangeEntries<
+    T extends { transaction: { changes?: Array<{ category?: string | null; description?: string | null }> | null } },
+>(entries: T[], selectedCategories: string[], allCategoryValues: string[], searchText: string): T[] {
+    const filterByCategory = selectedCategories.length !== allCategoryValues.length;
+    const lowerSearch = searchText.toLowerCase().trim();
+    const filterBySearch = lowerSearch.length > 0;
+
+    if (!filterByCategory && !filterBySearch) return entries;
+
+    const selected = new Set(selectedCategories);
+    return entries.filter((entry) => {
+        const changes = entry.transaction.changes ?? [];
+        const matchesCategory = !filterByCategory || changes.some((c) => c?.category && selected.has(c.category));
+        const matchesSearch =
+            !filterBySearch || changes.some((c) => c?.description?.toLowerCase().includes(lowerSearch));
+        return matchesCategory && matchesSearch;
+    });
+}

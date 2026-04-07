@@ -4,6 +4,7 @@ import {
     CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DOMAIN,
     CATEGORY_STRUCTURED_PROPERTY,
+    filterChangeEntries,
     getCategoryOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
@@ -90,5 +91,64 @@ describe('getCategoryOptions', () => {
 
         const expectedOrder = allValues.filter((v) => glossaryValues.includes(v));
         expect(glossaryValues).toEqual(expectedOrder);
+    });
+});
+
+describe('filterChangeEntries', () => {
+    const ALL_CATEGORIES = ['TAG', 'DOCUMENTATION', 'OWNERSHIP'];
+
+    const entries = [
+        {
+            transaction: {
+                changes: [
+                    { category: 'TAG', description: 'Tag added: PII' },
+                    { category: 'TAG', description: 'Tag removed: Deprecated' },
+                ],
+            },
+        },
+        {
+            transaction: {
+                changes: [{ category: 'DOCUMENTATION', description: 'Description changed from old to new' }],
+            },
+        },
+        {
+            transaction: {
+                changes: [{ category: 'OWNERSHIP', description: 'Owner added: alice@datahub.com' }],
+            },
+        },
+    ];
+
+    it('returns all entries when no filters are active', () => {
+        const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, '');
+        expect(result).toHaveLength(3);
+    });
+
+    it('filters by category', () => {
+        const result = filterChangeEntries(entries, ['TAG'], ALL_CATEGORIES, '');
+        expect(result).toHaveLength(1);
+        expect(result[0].transaction.changes?.[0]?.category).toBe('TAG');
+    });
+
+    it('filters by search text (case-insensitive)', () => {
+        const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, 'pii');
+        expect(result).toHaveLength(1);
+        expect(result[0].transaction.changes?.[0]?.description).toContain('PII');
+    });
+
+    it('applies both category and search filters together', () => {
+        const result = filterChangeEntries(entries, ['TAG', 'DOCUMENTATION'], ALL_CATEGORIES, 'deprecated');
+        expect(result).toHaveLength(1);
+        expect(result[0].transaction.changes?.[1]?.description).toContain('Deprecated');
+    });
+
+    it('returns empty array when search matches no descriptions', () => {
+        const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, 'nonexistent');
+        expect(result).toHaveLength(0);
+    });
+
+    it('trims whitespace from search text', () => {
+        const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, '  alice  ');
+        expect(result).toHaveLength(1);
+        expect(result[0].transaction.changes?.[0]?.description).toContain('alice');
     });
 });

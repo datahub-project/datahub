@@ -10,7 +10,10 @@ import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
 import ChangeTransactionView, {
     ChangeTransactionEntry,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
-import { getCategoryOptions } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
+import {
+    filterChangeEntries,
+    getCategoryOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { useResolveEntityNames } from '@app/entityV2/shared/tabs/Dataset/Schema/history/useResolveEntityNames';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
@@ -157,22 +160,10 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
         ],
     );
 
-    const filteredEntries = useMemo(() => {
-        const selected = new Set(selectedCategories);
-        const filterByCategory = selectedCategories.length !== allCategoryValues.length;
-        const lowerSearch = searchText.toLowerCase().trim();
-        const filterBySearch = lowerSearch.length > 0;
-
-        if (!filterByCategory && !filterBySearch) return allEntries;
-
-        return allEntries.filter((entry) => {
-            const changes = entry.transaction.changes ?? [];
-            const matchesCategory = !filterByCategory || changes.some((c) => c?.category && selected.has(c.category));
-            const matchesSearch =
-                !filterBySearch || changes.some((c) => c?.description?.toLowerCase().includes(lowerSearch));
-            return matchesCategory && matchesSearch;
-        });
-    }, [allEntries, selectedCategories, allCategoryValues.length, searchText]);
+    const filteredEntries = useMemo(
+        () => filterChangeEntries(allEntries, selectedCategories, allCategoryValues, searchText),
+        [allEntries, selectedCategories, allCategoryValues, searchText],
+    );
 
     const entityCount = entityTimelineData?.getTimeline?.changeTransactions?.length ?? 0;
     const siblingCount = siblingTimelineData?.getTimeline?.changeTransactions?.length ?? 0;
