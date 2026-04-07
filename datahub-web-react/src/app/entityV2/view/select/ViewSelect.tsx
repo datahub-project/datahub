@@ -69,7 +69,7 @@ const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean, themeObj?: any) =>
             backgroundColor: themeObj?.colors?.bgSurfaceNewNav,
             borderRadius: '0 0 12px 12px',
             paddingTop: '1px',
-            boxShadow: themeObj?.colors?.shadowXl,
+            boxShadow: themeObj?.colors?.shadowViewSelect,
         };
 
     return overlayInnerStyle;

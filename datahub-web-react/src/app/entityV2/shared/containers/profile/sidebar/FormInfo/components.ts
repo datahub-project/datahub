@@ -24,7 +24,7 @@ export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string; addLine
 `;
 
 export const CTAWrapper = styled.div<{ backgroundColor?: string; borderColor?: string; padding?: string }>`
-    color: ${(props) => props.theme.colors.textBrand};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     min-width: 180px;
     ${(props) =>

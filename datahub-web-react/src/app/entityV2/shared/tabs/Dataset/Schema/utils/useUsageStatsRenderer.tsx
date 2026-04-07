@@ -21,7 +21,7 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            return props.hasStats ? props.theme.colors.iconBrand : props.theme.colors.border;
+            return props.hasStats ? props.theme.colors.iconBrand : props.theme.colors.chartsBrandBase;
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};
     }
