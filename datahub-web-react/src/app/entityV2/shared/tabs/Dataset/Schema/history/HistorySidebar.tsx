@@ -3,6 +3,7 @@ import { Drawer } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { SearchBar } from '@components/components/SearchBar/SearchBar';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
 import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
@@ -47,10 +48,20 @@ const FieldHeaderWrapper = styled.div`
     font-weight: 700;
 `;
 
+const FilterBar = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+`;
+
 const ChangeTransactionList = styled.div`
     display: flex;
     flex-direction: column;
     padding: 26px;
+    overflow-y: auto;
+    flex: 1;
 `;
 
 const CloseIcon = styled.div`
@@ -83,6 +94,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
     const categoryOptions = useMemo(() => getCategoryOptions(entityType), [entityType]);
     const allCategoryValues = useMemo(() => categoryOptions.map((o) => o.value), [categoryOptions]);
     const [selectedCategories, setSelectedCategories] = useState<string[]>(allCategoryValues);
+    const [searchText, setSearchText] = useState('');
 
     // Reset selection when the available categories change (e.g. navigating between entity types)
     useEffect(() => setSelectedCategories(allCategoryValues), [allCategoryValues]);
@@ -146,12 +158,21 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
     );
 
     const filteredEntries = useMemo(() => {
-        if (selectedCategories.length === allCategoryValues.length) return allEntries;
         const selected = new Set(selectedCategories);
-        return allEntries.filter((entry) =>
-            entry.transaction.changes?.some((c) => c?.category && selected.has(c.category)),
-        );
-    }, [allEntries, selectedCategories, allCategoryValues.length]);
+        const filterByCategory = selectedCategories.length !== allCategoryValues.length;
+        const lowerSearch = searchText.toLowerCase().trim();
+        const filterBySearch = lowerSearch.length > 0;
+
+        if (!filterByCategory && !filterBySearch) return allEntries;
+
+        return allEntries.filter((entry) => {
+            const changes = entry.transaction.changes ?? [];
+            const matchesCategory = !filterByCategory || changes.some((c) => c?.category && selected.has(c.category));
+            const matchesSearch =
+                !filterBySearch || changes.some((c) => c?.description?.toLowerCase().includes(lowerSearch));
+            return matchesCategory && matchesSearch;
+        });
+    }, [allEntries, selectedCategories, allCategoryValues.length, searchText]);
 
     const entityCount = entityTimelineData?.getTimeline?.changeTransactions?.length ?? 0;
     const siblingCount = siblingTimelineData?.getTimeline?.changeTransactions?.length ?? 0;
@@ -172,6 +193,18 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
             <DrawerContent>
                 <FieldHeaderWrapper>
                     Change History
+                    <CloseIcon onClick={() => onClose()}>
+                        <CloseOutlinedIcon />
+                    </CloseIcon>
+                </FieldHeaderWrapper>
+                <FilterBar>
+                    <SearchBar
+                        placeholder="Search changes..."
+                        value={searchText}
+                        onChange={(val) => setSearchText(val)}
+                        width="100%"
+                        height="32px"
+                    />
                     <SimpleSelect
                         placeholder="Filter"
                         selectLabelProps={{ variant: 'labeled', label: 'Types' }}
@@ -183,10 +216,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
                         isMultiSelect
                         showSelectAll
                     />
-                    <CloseIcon onClick={() => onClose()}>
-                        <CloseOutlinedIcon />
-                    </CloseIcon>
-                </FieldHeaderWrapper>
+                </FilterBar>
 
                 <ChangeTransactionList>
                     {filteredEntries
