@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { MemoryRouter } from 'react-router';
 import { ItalicExtension, UnderlineExtension } from 'remirror/extensions';
 
+import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
 import UserContextProvider from '@app/context/UserContextProvider';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
@@ -17,17 +18,8 @@ type Props = {
     initialEntries?: string[];
 };
 
-// Lazy singleton — entity classes are only imported on first call, not at module load time.
-// This avoids forcing Vitest to resolve all 30 entity modules during the collect phase
-// for every test file that imports TestPageContainer.
-let cachedRegistry: EntityRegistry | undefined;
 export function getTestEntityRegistry(): EntityRegistry {
-    if (!cachedRegistry) {
-        // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-        const { default: buildEntityRegistryV2 } = require('@app/buildEntityRegistryV2');
-        cachedRegistry = buildEntityRegistryV2();
-    }
-    return cachedRegistry;
+    return buildEntityRegistryV2();
 }
 
 export default ({ children, initialEntries }: Props) => {
