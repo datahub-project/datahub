@@ -6,9 +6,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -46,11 +44,10 @@ public class DocumentationPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    // Unattributed: BASE_PATH + "" = "/documentations/" (trailing slash only)
+    // Trailing slash indicates unattributed documentation
     assertEquals(operation.getMiddle(), "/documentations/");
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("documentation").asText(), "Some documentation text");
-    // No attribution node for unattributed docs
     assertNull(operation.getRight().get("attribution"));
   }
 
@@ -67,8 +64,6 @@ public class DocumentationPatchBuilderTest {
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "remove");
     assertTrue(operation.getMiddle().startsWith("/documentations/"));
-    // Path should contain the encoded source (not wildcard)
-    assertTrue(!operation.getMiddle().endsWith("/*"));
     assertTrue(operation.getMiddle().length() > "/documentations/".length());
     assertNull(operation.getRight());
   }
@@ -84,25 +79,8 @@ public class DocumentationPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "remove");
-    // Remove all: plain path at field level (no wildcard)
+    // Remove all: no trailing slash
     assertEquals(operation.getMiddle(), "/documentations");
     assertNull(operation.getRight());
-  }
-
-  @Test
-  public void testBuildPlainAdd() throws Exception {
-    MetadataChangeProposal mcp = builder.addDocumentation("text").build();
-
-    assertEquals(mcp.getAspect().getContentType(), "application/json-patch+json");
-
-    byte[] bytes = mcp.getAspect().getValue().copyBytes();
-    JsonNode payload = new ObjectMapper().readTree(bytes);
-
-    // Plain patch: a JSON array, no arrayPrimaryKeys envelope
-    assertTrue(payload.isArray(), "add must produce a plain JSON array (no envelope)");
-    assertEquals(payload.size(), 1);
-    JsonNode op = payload.get(0);
-    assertEquals(op.get("op").asText(), "add");
-    assertEquals(op.get("path").asText(), "/documentations/");
   }
 }

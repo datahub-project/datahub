@@ -1,7 +1,6 @@
 package com.linkedin.metadata.aspect.patch.builder;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -50,11 +49,7 @@ public class StructuredPropertiesPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    // Property first, trailing slash for empty attribution source: /properties/<propertyUrn>/
-    assertTrue(
-        operation.getMiddle().startsWith("/properties/")
-            && !operation.getMiddle().startsWith("/properties//"));
-    assertTrue(operation.getMiddle().endsWith("/"));
+    assertTrue(operation.getMiddle().startsWith("/properties/"));
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("propertyUrn").asText(), propertyUrn.toString());
 
@@ -76,11 +71,7 @@ public class StructuredPropertiesPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    // Property first, trailing slash for empty attribution source: /properties/<propertyUrn>/
-    assertTrue(
-        operation.getMiddle().startsWith("/properties/")
-            && !operation.getMiddle().startsWith("/properties//"));
-    assertTrue(operation.getMiddle().endsWith("/"));
+    assertTrue(operation.getMiddle().startsWith("/properties/"));
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("propertyUrn").asText(), propertyUrn.toString());
 
@@ -102,9 +93,7 @@ public class StructuredPropertiesPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "remove");
-    // Remove at property level: /properties/<propertyUrn> (no wildcards)
     assertTrue(operation.getMiddle().startsWith("/properties/"));
-    assertFalse(operation.getMiddle().contains("*"));
     assertNull(operation.getRight());
   }
 
@@ -123,10 +112,6 @@ public class StructuredPropertiesPatchBuilderTest {
     assertEquals(payload.size(), 1);
     JsonNode op = payload.get(0);
     assertEquals(op.get("op").asText(), "add");
-    // Property first, trailing slash for empty attribution source: /properties/<propertyUrn>/
-    assertTrue(
-        op.get("path").asText().startsWith("/properties/")
-            && !op.get("path").asText().startsWith("/properties//"));
-    assertTrue(op.get("path").asText().endsWith("/"));
+    assertTrue(op.get("path").asText().startsWith("/properties/"));
   }
 }

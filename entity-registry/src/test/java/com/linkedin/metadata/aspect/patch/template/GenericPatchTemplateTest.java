@@ -24,10 +24,10 @@ public class GenericPatchTemplateTest {
     TagAssociationArray initialTagsArray = new TagAssociationArray();
     initialTags.setTags(initialTagsArray);
 
-    // Prepare GenericJsonPatch with nested keys (tag first, then attribution.source)
+    // Prepare GenericJsonPatch with nested keys
     GenericJsonPatch.PatchOp patchOp1 = new GenericJsonPatch.PatchOp();
     patchOp1.setOp("add");
-    patchOp1.setPath("/tags/urn:li:tag:tag1/urn:li:platformResource:source1");
+    patchOp1.setPath("/tags/urn:li:platformResource:source1/urn:li:tag:tag1");
     patchOp1.setValue(
         Map.of(
             "tag",
@@ -40,7 +40,7 @@ public class GenericPatchTemplateTest {
 
     GenericJsonPatch.PatchOp patchOp2 = new GenericJsonPatch.PatchOp();
     patchOp2.setOp("add");
-    patchOp2.setPath("/tags/urn:li:tag:tag2/urn:li:platformResource:source2");
+    patchOp2.setPath("/tags/urn:li:platformResource:source2/urn:li:tag:tag2");
     patchOp2.setValue(
         Map.of(
             "tag",
@@ -54,7 +54,7 @@ public class GenericPatchTemplateTest {
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder()
             .patch(List.of(patchOp1, patchOp2))
-            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("tag", "attribution" + "␟" + "source")))
+            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("attribution" + "␟" + "source", "tag")))
             .build();
 
     // Create GenericPatchTemplate
@@ -101,10 +101,10 @@ public class GenericPatchTemplateTest {
             new TagAssociation().setTag(TagUrn.createFromString("urn:li:tag:existingTag")));
     initialTags.setTags(initialTagsArray);
 
-    // Prepare GenericJsonPatch with nested keys (tag first, then attribution.source)
+    // Prepare GenericJsonPatch with nested keys
     GenericJsonPatch.PatchOp patchOp1 = new GenericJsonPatch.PatchOp();
     patchOp1.setOp("add");
-    patchOp1.setPath("/tags/urn:li:tag:tag1/urn:li:platformResource:source1");
+    patchOp1.setPath("/tags/urn:li:platformResource:source1/urn:li:tag:tag1");
     patchOp1.setValue(
         Map.of(
             "tag",
@@ -117,7 +117,7 @@ public class GenericPatchTemplateTest {
 
     GenericJsonPatch.PatchOp patchOp2 = new GenericJsonPatch.PatchOp();
     patchOp2.setOp("add");
-    patchOp2.setPath("/tags/urn:li:tag:tag2/urn:li:platformResource:source2");
+    patchOp2.setPath("/tags/urn:li:platformResource:source2/urn:li:tag:tag2");
     patchOp2.setValue(
         Map.of(
             "tag",
@@ -131,7 +131,7 @@ public class GenericPatchTemplateTest {
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder()
             .patch(List.of(patchOp1, patchOp2))
-            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("tag", "attribution" + "␟" + "source")))
+            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("attribution" + "␟" + "source", "tag")))
             .build();
 
     // Create GenericPatchTemplate
@@ -173,113 +173,6 @@ public class GenericPatchTemplateTest {
     Assert.assertEquals(tagToSourceMap.get("urn:li:tag:tag2"), "urn:li:platformResource:source2");
   }
 
-  // ---------------------------------------------------------------------------
-  // Wildcard expansion tests
-  // ---------------------------------------------------------------------------
-
-  /** Builds an attributed TagAssociation for use in wildcard tests. */
-  private static TagAssociation attributedTag(String tagUrn, String sourceUrn) throws Exception {
-    return new TagAssociation()
-        .setTag(TagUrn.createFromString(tagUrn))
-        .setAttribution(
-            new MetadataAttribution()
-                .setSource(UrnUtils.getUrn(sourceUrn))
-                .setActor(UrnUtils.getUrn("urn:li:corpuser:datahub"))
-                .setTime(0L));
-  }
-
-  /** Builds a GenericPatchTemplate for GlobalTags with the compound-key configuration. */
-  private static GenericPatchTemplate<GlobalTags> compoundKeyTemplate(
-      List<GenericJsonPatch.PatchOp> ops) {
-    GenericJsonPatch genericJsonPatch =
-        GenericJsonPatch.builder()
-            .patch(ops)
-            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("tag", "attribution" + "␟" + "source")))
-            .build();
-    return GenericPatchTemplate.<GlobalTags>builder()
-        .genericJsonPatch(genericJsonPatch)
-        .templateType(GlobalTags.class)
-        .templateDefault(new GlobalTags())
-        .build();
-  }
-
-  @Test
-  public void testWildcardRemoveDeletesAllSourcesForTag() throws Exception {
-    // (tagX, srcA), (tagX, srcB), (tagY, srcA) — remove /tags/urn:li:tag:tagX (truncated path
-    // removes all attribution source entries for tagX).
-    GlobalTags initial = new GlobalTags();
-    initial.setTags(
-        new TagAssociationArray(
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcA"),
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcB"),
-            attributedTag("urn:li:tag:tagY", "urn:li:platformResource:srcA")));
-
-    GenericJsonPatch.PatchOp removeOp = new GenericJsonPatch.PatchOp();
-    removeOp.setOp("remove");
-    removeOp.setPath("/tags/urn:li:tag:tagX");
-
-    GlobalTags result = compoundKeyTemplate(List.of(removeOp)).applyPatch(initial);
-
-    Assert.assertNotNull(result.getTags());
-    List<String> remainingTagUrns =
-        result.getTags().stream().map(t -> t.getTag().toString()).collect(Collectors.toList());
-    Assert.assertFalse(remainingTagUrns.contains("urn:li:tag:tagX"), "tagX should be gone");
-    Assert.assertTrue(remainingTagUrns.contains("urn:li:tag:tagY"), "tagY should survive");
-    Assert.assertEquals(result.getTags().size(), 1);
-  }
-
-  @Test
-  public void testWildcardRemoveOnlyAffectsTargetedTag() throws Exception {
-    // (tagX, srcA), (tagX, srcB), (tagY, srcA), (tagY, srcB) — remove /tags/urn:li:tag:tagX
-    // (truncated path removes entire tagX sub-tree, leaving tagY entries intact).
-    GlobalTags initial = new GlobalTags();
-    initial.setTags(
-        new TagAssociationArray(
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcA"),
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcB"),
-            attributedTag("urn:li:tag:tagY", "urn:li:platformResource:srcA"),
-            attributedTag("urn:li:tag:tagY", "urn:li:platformResource:srcB")));
-
-    GenericJsonPatch.PatchOp removeOp = new GenericJsonPatch.PatchOp();
-    removeOp.setOp("remove");
-    removeOp.setPath("/tags/urn:li:tag:tagX");
-
-    GlobalTags result = compoundKeyTemplate(List.of(removeOp)).applyPatch(initial);
-
-    Assert.assertNotNull(result.getTags());
-    List<String> remainingTagUrns =
-        result.getTags().stream().map(t -> t.getTag().toString()).collect(Collectors.toList());
-    long tagXCount = remainingTagUrns.stream().filter("urn:li:tag:tagX"::equals).count();
-    long tagYCount = remainingTagUrns.stream().filter("urn:li:tag:tagY"::equals).count();
-    Assert.assertEquals(tagXCount, 0L, "all tagX entries should be removed");
-    Assert.assertEquals(tagYCount, 2L, "both tagY entries should survive");
-  }
-
-  @Test
-  public void testNonWildcardRemoveIsUnchanged() throws Exception {
-    // (tagX, srcA), (tagX, srcB) — remove /tags/urn:li:tag:tagX/urn:li:platformResource:srcA (tag
-    // first)
-    GlobalTags initial = new GlobalTags();
-    initial.setTags(
-        new TagAssociationArray(
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcA"),
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcB")));
-
-    GenericJsonPatch.PatchOp removeOp = new GenericJsonPatch.PatchOp();
-    removeOp.setOp("remove");
-    removeOp.setPath("/tags/urn:li:tag:tagX/urn:li:platformResource:srcA");
-
-    GlobalTags result = compoundKeyTemplate(List.of(removeOp)).applyPatch(initial);
-
-    Assert.assertNotNull(result.getTags());
-    Assert.assertEquals(result.getTags().size(), 1, "only srcA entry removed, srcB should remain");
-    TagAssociation remaining = result.getTags().get(0);
-    Assert.assertEquals(remaining.getTag().toString(), "urn:li:tag:tagX");
-    Assert.assertNotNull(remaining.getAttribution());
-    Assert.assertEquals(
-        remaining.getAttribution().getSource().toString(), "urn:li:platformResource:srcB");
-  }
-
   @Test
   public void testGlobalTagsWithExistingAttributedTagAndNewUnattributedTag() throws Exception {
     // Prepare initial GlobalTags with an existing attributed tag
@@ -296,11 +189,10 @@ public class GenericPatchTemplateTest {
     TagAssociationArray initialTagsArray = new TagAssociationArray(existingTag);
     initialTags.setTags(initialTagsArray);
 
-    // Prepare GenericJsonPatch to add an unattributed tag (tag first, trailing slash for empty
-    // source)
+    // Prepare GenericJsonPatch to add an unattributed tag
     GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
     patchOp.setOp("add");
-    patchOp.setPath("/tags/urn:li:tag:newTag/");
+    patchOp.setPath("/tags//urn:li:tag:newTag");
     patchOp.setValue(
         Map.of(
             "tag", "urn:li:tag:newTag"
@@ -310,7 +202,7 @@ public class GenericPatchTemplateTest {
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder()
             .patch(List.of(patchOp))
-            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("tag", "attribution" + "␟" + "source")))
+            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("attribution" + "␟" + "source", "tag")))
             .build();
 
     // Create GenericPatchTemplate

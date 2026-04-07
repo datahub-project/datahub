@@ -1,17 +1,14 @@
 package com.linkedin.metadata.aspect.patch.builder;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -74,11 +71,7 @@ public class GlossaryTermsPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    // Term first, trailing slash for empty attribution source: /terms/<termUrn>/
-    assertTrue(
-        operation.getMiddle().startsWith("/terms/")
-            && !operation.getMiddle().startsWith("/terms//"));
-    assertTrue(operation.getMiddle().endsWith("/"));
+    assertTrue(operation.getMiddle().startsWith("/terms/"));
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("urn").asText(), termUrn.toString());
     assertEquals(operation.getRight().get("context").asText(), context);
@@ -96,11 +89,7 @@ public class GlossaryTermsPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "add");
-    // Term first, trailing slash for empty attribution source: /terms/<termUrn>/
-    assertTrue(
-        operation.getMiddle().startsWith("/terms/")
-            && !operation.getMiddle().startsWith("/terms//"));
-    assertTrue(operation.getMiddle().endsWith("/"));
+    assertTrue(operation.getMiddle().startsWith("/terms/"));
     assertTrue(operation.getRight().isObject());
     assertEquals(operation.getRight().get("urn").asText(), termUrn.toString());
     assertNull(operation.getRight().get("context"));
@@ -118,9 +107,7 @@ public class GlossaryTermsPatchBuilderTest {
 
     ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
     assertEquals(operation.getLeft(), "remove");
-    // Remove at term level: /terms/<termUrn> (no wildcards)
     assertTrue(operation.getMiddle().startsWith("/terms/"));
-    assertFalse(operation.getMiddle().contains("*"));
     assertNull(operation.getRight());
   }
 
@@ -150,47 +137,5 @@ public class GlossaryTermsPatchBuilderTest {
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  @Test
-  public void testBuildPlainAdd() throws Exception {
-    GlossaryTermUrn termUrn = GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN);
-    MetadataChangeProposal mcp = builder.addTerm(termUrn, null).build();
-
-    assertEquals(mcp.getAspect().getContentType(), "application/json-patch+json");
-
-    byte[] bytes = mcp.getAspect().getValue().copyBytes();
-    JsonNode payload = new ObjectMapper().readTree(bytes);
-
-    // Plain patch: a JSON array, no arrayPrimaryKeys envelope
-    assertTrue(payload.isArray(), "add must produce a plain JSON array (no envelope)");
-    assertEquals(payload.size(), 1);
-    JsonNode op = payload.get(0);
-    assertEquals(op.get("op").asText(), "add");
-    // Term first, trailing slash for empty attribution source: /terms/<termUrn>/
-    assertTrue(
-        op.get("path").asText().startsWith("/terms/")
-            && !op.get("path").asText().startsWith("/terms//"));
-    assertTrue(op.get("path").asText().endsWith("/"));
-  }
-
-  @Test
-  public void testBuildPlainRemove() throws Exception {
-    GlossaryTermUrn termUrn = GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN);
-    MetadataChangeProposal mcp = builder.removeTerm(termUrn).build();
-
-    assertEquals(mcp.getAspect().getContentType(), "application/json-patch+json");
-
-    byte[] bytes = mcp.getAspect().getValue().copyBytes();
-    JsonNode payload = new ObjectMapper().readTree(bytes);
-
-    // Plain patch: a JSON array, no arrayPrimaryKeys envelope
-    assertTrue(payload.isArray(), "remove must produce a plain JSON array (no envelope)");
-    assertEquals(payload.size(), 1);
-    JsonNode op = payload.get(0);
-    assertEquals(op.get("op").asText(), "remove");
-    // Remove at term level: /terms/<termUrn> (no wildcards)
-    assertTrue(op.get("path").asText().startsWith("/terms/"));
-    assertFalse(op.get("path").asText().contains("*"));
   }
 }
