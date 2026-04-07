@@ -997,6 +997,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         id="64ED5CAD-7C10-4684-8180-826122881108",
         name="demo-workspace",
         type="Workspace",
+        webUrl="https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108",
         datasets={},
         dashboards={},
         reports={},

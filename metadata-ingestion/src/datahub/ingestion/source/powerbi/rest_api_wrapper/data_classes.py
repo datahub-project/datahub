@@ -72,6 +72,7 @@ class Workspace:
     id: str
     name: str
     type: str  # This is used as a subtype of the Container entity.
+    webUrl: str  # filled out manually
     dashboards: Dict[str, "Dashboard"]  # key = dashboard id
     reports: Dict[str, "Report"]  # key = report id
     datasets: Dict[str, "PowerBIDataset"]  # key = dataset id
