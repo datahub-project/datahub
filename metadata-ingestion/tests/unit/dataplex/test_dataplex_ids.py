@@ -8,6 +8,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
     BIGQUERY_TABLE_FQN_REGEX,
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
+    PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM,
     DataplexBigQueryDataset,
     DataplexBigtableInstance,
     DataplexCloudSpannerDatabase,
@@ -160,6 +161,45 @@ def test_supported_entry_type_mapping_keys() -> None:
                 "datahub_dataset_name_format": "{project_id}.{dataset_id}.{table_id}",
             },
             "parent_entry_regex groups",
+        ),
+        (
+            {
+                "datahub_platform": "bigquery",
+                "datahub_entity_type": "Container",
+                "datahub_subtype": "dataset",
+                "fqn_regex": BIGQUERY_TABLE_FQN_REGEX,
+                "parent_entry_regex": None,
+                "container_key_class": None,
+                "parent_container_key_class": None,
+                "datahub_dataset_name_format": None,
+            },
+            "Container mappings must define container_key_class",
+        ),
+        (
+            {
+                "datahub_platform": "bigquery",
+                "datahub_entity_type": "Dataset",
+                "datahub_subtype": "table",
+                "fqn_regex": BIGQUERY_TABLE_FQN_REGEX,
+                "parent_entry_regex": None,
+                "container_key_class": DataplexBigQueryDataset,
+                "parent_container_key_class": None,
+                "datahub_dataset_name_format": "{project_id}.{dataset_id}.{table_id}",
+            },
+            "Dataset mappings must not define container_key_class",
+        ),
+        (
+            {
+                "datahub_platform": "bigquery",
+                "datahub_entity_type": "Container",
+                "datahub_subtype": "dataset",
+                "fqn_regex": BIGQUERY_TABLE_FQN_REGEX,
+                "parent_entry_regex": None,
+                "container_key_class": DataplexBigQueryDataset,
+                "parent_container_key_class": None,
+                "datahub_dataset_name_format": None,
+            },
+            "fqn_regex groups",
         ),
     ],
 )
@@ -592,3 +632,66 @@ def test_extract_datahub_dataset_name_from_fqn_uses_mapping_format() -> None:
         "vertex_ai:dataset:harshal-playground-306419.us-west2.5135361416504541184",
     )
     assert dataset_name == "harshal-playground-306419.us-west2.5135361416504541184"
+
+
+def test_extract_datahub_dataset_name_from_fqn_handles_format_key_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mapping = DataplexEntryTypeMapping(
+        datahub_platform="bigquery",
+        datahub_entity_type="Dataset",
+        datahub_subtype="table",
+        fqn_regex=BIGQUERY_TABLE_FQN_REGEX,
+        parent_entry_regex=None,
+        container_key_class=None,
+        parent_container_key_class=None,
+        datahub_dataset_name_format="{missing_field}",
+    )
+    monkeypatch.setitem(DATAPLEX_ENTRY_TYPE_MAPPINGS, "test-key-error", mapping)
+
+    assert (
+        extract_datahub_dataset_name_from_fqn(
+            "test-key-error",
+            "bigquery:test-project.analytics.customers",
+        )
+        is None
+    )
+
+
+def test_extract_datahub_dataset_name_from_fqn_handles_missing_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mapping = DataplexEntryTypeMapping(
+        datahub_platform="bigquery",
+        datahub_entity_type="Dataset",
+        datahub_subtype="table",
+        fqn_regex=BIGQUERY_TABLE_FQN_REGEX,
+        parent_entry_regex=None,
+        container_key_class=None,
+        parent_container_key_class=None,
+        datahub_dataset_name_format="{project_id}.{dataset_id}.{table_id}",
+    )
+    object.__setattr__(mapping, "datahub_dataset_name_format", None)
+    monkeypatch.setitem(DATAPLEX_ENTRY_TYPE_MAPPINGS, "test-missing-format", mapping)
+
+    assert (
+        extract_datahub_dataset_name_from_fqn(
+            "test-missing-format",
+            "bigquery:test-project.analytics.customers",
+        )
+        is None
+    )
+
+
+def test_build_project_schema_key_from_fqn_returns_none_when_project_class_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delitem(PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM, "bigquery")
+
+    assert (
+        build_project_schema_key_from_fqn(
+            "bigquery-table",
+            "bigquery:test-project.analytics.customers",
+        )
+        is None
+    )
