@@ -205,6 +205,16 @@ GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
 
 :::
 
+##### Ownership Extraction (`extract_ownership: true`)
+
+No additional grants are required. Owner names are resolved via `pg_catalog.pg_user`, which is accessible to all Redshift users. Enable with:
+
+```yaml
+extract_ownership: true
+```
+
+This extracts owners for tables, views, and schemas and emits them as `TECHNICAL_OWNER` in DataHub. **Note:** ownership is applied in overwrite mode — any manually-set owners in DataHub will be replaced on each ingestion run.
+
 ##### Optional: Datashare Privileges
 
 To enable cross-cluster lineage through datashares, grant the following privileges:

@@ -319,7 +319,6 @@ class RedshiftDataDictionary:
         for schema in schemas:
             name = schema[field_names.index("schema_name")]
             owner = schema[field_names.index("schema_owner_name")]
-            logger.info(f"Schema {name} owner: {owner}")
             result.append(
                 RedshiftSchema(
                     database=database,

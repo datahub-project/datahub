@@ -20,6 +20,11 @@ source:
     # in the format username@email_domain
     email_domain: mydomain.com
 
+    # Ownership extraction (disabled by default)
+    # When enabled, extracts table/view/schema owners from pg_catalog.pg_user (no extra grants needed)
+    # and emits them as TECHNICAL_OWNER in DataHub. Note: overwrites any manually-set owners on each run.
+    # extract_ownership: true
+
     profiling:
       enabled: true
       # Only collect table level profiling information

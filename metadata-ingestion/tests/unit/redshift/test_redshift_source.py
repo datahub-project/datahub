@@ -1,4 +1,6 @@
-from typing import Iterable
+from typing import Iterable, Optional
+
+import pytest
 
 from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -14,6 +16,8 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
+    OwnershipClass,
+    OwnershipTypeClass,
 )
 
 
@@ -94,3 +98,66 @@ def test_add_redshift_query_tag_leading_whitespace_and_blank_lines() -> None:
     tagged_query = _add_redshift_query_tag(query)
     expected_tag = REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE.format(version=__version__)
     assert tagged_query == expected_tag + query
+
+
+def _make_source(extract_ownership: bool = False) -> RedshiftSource:
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="test",
+        extract_ownership=extract_ownership,
+    )
+    return RedshiftSource(config, ctx=PipelineContext(run_id="test"))
+
+
+def _gen_ownership_workunits(
+    owner: Optional[str], extract_ownership: bool
+) -> list[MetadataWorkUnit]:
+    source = _make_source(extract_ownership=extract_ownership)
+    return list(
+        source.gen_dataset_workunits(
+            table=RedshiftTable(
+                name="my_table", columns=[], created=None, comment="", owner=owner
+            ),
+            database="dev",
+            schema="public",
+            sub_type="Table",
+        )
+    )
+
+
+def test_gen_dataset_workunits_emits_ownership_when_enabled() -> None:
+    workunits = _gen_ownership_workunits(owner="etluser", extract_ownership=True)
+    ownership_aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "ownership"
+    ]
+    assert len(ownership_aspects) == 1
+    ownership = ownership_aspects[0]
+    assert isinstance(ownership, OwnershipClass)
+    assert len(ownership.owners) == 1
+    assert ownership.owners[0].owner == "urn:li:corpuser:etluser"
+    assert ownership.owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
+
+
+@pytest.mark.parametrize(
+    "owner, extract_ownership",
+    [
+        ("etluser", False),  # flag disabled
+        (None, True),  # no owner in catalog
+    ],
+)
+def test_gen_dataset_workunits_no_ownership_emitted(
+    owner: Optional[str], extract_ownership: bool
+) -> None:
+    workunits = _gen_ownership_workunits(
+        owner=owner, extract_ownership=extract_ownership
+    )
+    ownership_aspects = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "ownership"
+    ]
+    assert len(ownership_aspects) == 0
