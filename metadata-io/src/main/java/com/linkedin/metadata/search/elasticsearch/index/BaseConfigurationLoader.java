@@ -3,6 +3,8 @@ package com.linkedin.metadata.search.elasticsearch.index;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -34,6 +36,15 @@ public class BaseConfigurationLoader {
       mapper = new ObjectMapper(new YAMLFactory());
     } else {
       mapper = new ObjectMapper();
+    }
+
+    // Try filesystem first to allow externally-provided configuration files,
+    // then fall back to classpath resources for packaged configurations.
+    File file = new File(resourcePath);
+    if (file.exists()) {
+      try (InputStream inputStream = new FileInputStream(file)) {
+        return mapper.readValue(inputStream, new TypeReference<Map<String, Object>>() {});
+      }
     }
 
     try (InputStream inputStream =
