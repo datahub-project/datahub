@@ -236,48 +236,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public boolean hasAspectsNeedingMigration(
-      @Nonnull String aspectName, @Nonnull Set<Long> sourceVersions) {
-    validateConnection();
-    if (sourceVersions.isEmpty()) {
-      return false;
-    }
-
-    final String smCol = EbeanAspectV2.SYSTEM_METADATA_COLUMN;
-
-    // Build a disjunction over the supplied source versions.
-    //
-    // We use LIKE-based raw() rather than Ebean's jsonEqualTo() for version comparisons.
-    // jsonEqualTo() on Postgres generates "(col ->> 'key')::bigint = ?" where the bind
-    // parameter is untyped, causing "operator does not exist: bigint = unknown" at runtime.
-    // A LIKE match on the serialised JSON is DB-agnostic and sufficient here because
-    // schemaVersion values are small integers that cannot appear as substrings of other
-    // JSON field names or string values (the key name "schemaVersion" is controlled by us).
-    //
-    // For DEFAULT_SCHEMA_VERSION we also need to catch rows where the schemaVersion key is
-    // absent entirely (AspectMigrationMutator treats absent == DEFAULT_SCHEMA_VERSION).
-    final io.ebean.Junction<EbeanAspectV2> or =
-        server
-            .find(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-            .eq(
-                EbeanAspectV2.VERSION_COLUMN,
-                ASPECT_LATEST_VERSION) // temporal v0 = latest snapshot
-            .or();
-
-    for (long sv : sourceVersions) {
-      if (sv == DEFAULT_SCHEMA_VERSION) {
-        // Rows where the schemaVersion key is absent are treated as DEFAULT_SCHEMA_VERSION.
-        or.raw("(" + smCol + " IS NULL OR " + smCol + " NOT LIKE '%\"schemaVersion\"%')");
-      }
-      or.raw(smCol + " LIKE ?", "%" + "\"schemaVersion\":" + sv + "%");
-    }
-
-    return or.endOr().exists();
-  }
-
-  @Override
   @Nullable
   public EntityAspect getAspect(
       @Nonnull final String urn, @Nonnull final String aspectName, final long version) {
@@ -742,8 +700,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build();
     }
 
-    final String smCol = EbeanAspectV2.SYSTEM_METADATA_COLUMN;
-
     // Build: OR over aspects of (aspect = X AND schemaVersion != targetVersion(X))
     // "not at target" means: schemaVersion key is absent, OR its value != target.
     ExpressionList<EbeanAspectV2> base =
@@ -760,9 +716,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
               Timestamp.from(Instant.ofEpochMilli(afterCreatedOnMs)));
     }
 
-    // Use LIKE-based raw() rather than Ebean's jsonEqualTo() / jsonNotEqualTo() for the same
-    // reason as hasAspectsNeedingMigration: jsonEqualTo() on Postgres generates
-    // "(col ->> 'key')::bigint = ?" where the bind parameter is untyped, causing
+    // Use LIKE-based raw() rather than Ebean's jsonEqualTo() / jsonNotEqualTo(): jsonEqualTo() on
+    // Postgres generates "(col ->> 'key')::bigint = ?" where the bind parameter is untyped, causing
     // "operator does not exist: bigint = unknown" at runtime. NOT LIKE on the serialised JSON
     // is DB-agnostic; schemaVersion values are small integers that cannot collide with other
     // JSON key or value substrings (the key name "schemaVersion" is controlled by us).
@@ -774,8 +729,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           .and()
           .eq(EbeanAspectV2.ASPECT_COLUMN, entry.getKey())
           .or()
-          .raw("(" + smCol + " IS NULL OR " + smCol + " NOT LIKE '%\"schemaVersion\"%')")
-          .raw(smCol + " NOT LIKE ?", "%" + "\"schemaVersion\":" + target + "%")
+          .raw(
+              "("
+                  + EbeanAspectV2.SYSTEM_METADATA_COLUMN
+                  + " IS NULL OR "
+                  + EbeanAspectV2.SYSTEM_METADATA_COLUMN
+                  + " NOT LIKE '%\"schemaVersion\"%')")
+          .raw(
+              EbeanAspectV2.SYSTEM_METADATA_COLUMN + " NOT LIKE ?",
+              "%" + "\"schemaVersion\":" + target + "%")
           .endOr()
           .endAnd();
     }

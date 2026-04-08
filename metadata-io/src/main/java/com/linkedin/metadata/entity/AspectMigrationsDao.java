@@ -1,6 +1,5 @@
 package com.linkedin.metadata.entity;
 
-import java.util.Set;
 import javax.annotation.Nonnull;
 
 /**
@@ -35,18 +34,4 @@ public interface AspectMigrationsDao {
    *     false} otherwise.
    */
   boolean checkIfAspectExists(@Nonnull final String aspectName);
-
-  /**
-   * Returns {@code true} if any latest-version (v0) row for the given aspect exists whose stored
-   * {@code schemaVersion} matches one of {@code sourceVersions}. An absent or {@code null} {@code
-   * schemaVersion} in the DB row is treated as {@code DEFAULT_SCHEMA_VERSION} (1).
-   *
-   * <p>Used by migration upgrade steps to skip a full table scan when all data is already at the
-   * current schema version.
-   *
-   * @param aspectName name of the aspect to check
-   * @param sourceVersions set of schema versions that indicate a row needs migration
-   * @return {@code true} if at least one row needs migration, {@code false} otherwise
-   */
-  boolean hasAspectsNeedingMigration(@Nonnull String aspectName, @Nonnull Set<Long> sourceVersions);
 }

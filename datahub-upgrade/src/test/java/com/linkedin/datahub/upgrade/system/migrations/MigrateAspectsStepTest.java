@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.system.migrations;
 
-import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -13,7 +12,6 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
@@ -26,7 +24,6 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -36,20 +33,15 @@ public class MigrateAspectsStepTest {
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
-  /** Combines both AspectDao and AspectMigrationsDao for mock creation. */
-  interface MigratingAspectDao extends AspectDao, AspectMigrationsDao {}
-
   private EntityService<?> mockEntityService;
-  private MigratingAspectDao mockMigratingDao;
-  private AspectDao mockPlainDao;
+  private AspectDao mockAspectDao;
   private UpgradeContext mockContext;
   private Upgrade mockUpgrade;
 
   @BeforeMethod
   public void setup() {
     mockEntityService = mock(EntityService.class);
-    mockMigratingDao = mock(MigratingAspectDao.class);
-    mockPlainDao = mock(AspectDao.class);
+    mockAspectDao = mock(AspectDao.class);
     mockUpgrade = mock(Upgrade.class);
     mockContext = mock(UpgradeContext.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
@@ -60,7 +52,7 @@ public class MigrateAspectsStepTest {
 
   @Test
   public void testCursorStateEmptyBatchReturnsEmptyMap() {
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     Map<String, String> cursor = step.cursorState(List.of());
     assertTrue(cursor.isEmpty());
   }
@@ -72,7 +64,7 @@ public class MigrateAspectsStepTest {
         buildAspect(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.t,PROD)", "schemaMetadata", expectedMs);
 
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("schemaMetadata", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("schemaMetadata", 2L));
     Map<String, String> cursor = step.cursorState(List.of(aspect));
 
     assertEquals(cursor.get(MigrateAspectsStep.LAST_CREATED_ON_MS_KEY), String.valueOf(expectedMs));
@@ -83,7 +75,7 @@ public class MigrateAspectsStepTest {
     EbeanAspectV2 first = buildAspect("urn:li:corpuser:alice", "ownership", 1_000L);
     EbeanAspectV2 last = buildAspect("urn:li:corpuser:bob", "ownership", 9_000L);
 
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("ownership", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("ownership", 2L));
     Map<String, String> cursor = step.cursorState(List.of(first, last));
 
     assertEquals(cursor.get(MigrateAspectsStep.LAST_CREATED_ON_MS_KEY), "9000");
@@ -93,7 +85,7 @@ public class MigrateAspectsStepTest {
 
   @Test
   public void testLoadResumeStateNoResultReturnsEmptyMap() {
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     Map<String, String> state = step.loadResumeState(Optional.empty());
     assertTrue(state.isEmpty());
   }
@@ -104,7 +96,7 @@ public class MigrateAspectsStepTest {
     when(result.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     when(result.getResult()).thenReturn(new StringMap(Map.of("lastCreatedOnMs", "12345")));
 
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     Map<String, String> state = step.loadResumeState(Optional.of(result));
 
     // Only IN_PROGRESS results carry the cursor — SUCCEEDED means step was complete
@@ -118,7 +110,7 @@ public class MigrateAspectsStepTest {
     when(result.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
     when(result.getResult()).thenReturn(cursor);
 
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     Map<String, String> state = step.loadResumeState(Optional.of(result));
 
     assertEquals(state.get("lastCreatedOnMs"), "999999");
@@ -131,11 +123,8 @@ public class MigrateAspectsStepTest {
     DataHubUpgradeResult prev = succeededResult();
     when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(prev));
 
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     assertTrue(step.skip(mockContext));
-
-    // DB should not be queried when a prior SUCCEEDED result exists
-    verify(mockMigratingDao, never()).hasAspectsNeedingMigration(any(), any());
   }
 
   @Test
@@ -143,49 +132,16 @@ public class MigrateAspectsStepTest {
     DataHubUpgradeResult prev = abortedResult();
     when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(prev));
 
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     assertTrue(step.skip(mockContext));
   }
 
   @Test
-  public void testSkipWhenAspectDaoIsNotAspectMigrationsDao() {
+  public void testNoSkipWhenNoPreviousResult() {
     when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
 
-    // Use the plain AspectDao mock (does not implement AspectMigrationsDao)
-    MigrateAspectsStep step = buildStep(mockPlainDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     assertFalse(step.skip(mockContext));
-  }
-
-  @Test
-  public void testSkipWhenNoRowsNeedMigration() {
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
-    when(mockMigratingDao.hasAspectsNeedingMigration(any(), any())).thenReturn(false);
-
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
-    assertTrue(step.skip(mockContext));
-  }
-
-  @Test
-  public void testNoSkipWhenRowsNeedMigration() {
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
-    when(mockMigratingDao.hasAspectsNeedingMigration(eq("testAspect"), any())).thenReturn(true);
-
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
-    assertFalse(step.skip(mockContext));
-  }
-
-  @Test
-  public void testSkipChecksSourceVersionsCorrectly() {
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
-    when(mockMigratingDao.hasAspectsNeedingMigration(any(), any())).thenReturn(false);
-
-    // targetVersion = 3 → sourceVersions should be {1, 2} (DEFAULT..target-1)
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 3L));
-    step.skip(mockContext);
-
-    verify(mockMigratingDao)
-        .hasAspectsNeedingMigration(
-            eq("testAspect"), eq(Set.of(DEFAULT_SCHEMA_VERSION, DEFAULT_SCHEMA_VERSION + 1)));
   }
 
   // ── executable ────────────────────────────────────────────────────────────
@@ -196,10 +152,10 @@ public class MigrateAspectsStepTest {
 
     PartitionedStream<EbeanAspectV2> emptyStream =
         PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build();
-    when(mockMigratingDao.streamAspectBatches(any(), eq(0L), anyInt(), anyInt()))
+    when(mockAspectDao.streamAspectBatches(any(), eq(0L), anyInt(), anyInt()))
         .thenReturn(emptyStream);
 
-    MigrateAspectsStep step = buildStep(mockMigratingDao, Map.of("testAspect", 2L));
+    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -211,9 +167,16 @@ public class MigrateAspectsStepTest {
 
   private static final String UPGRADE_VERSION = "v0.14.1-abc123def456abc123def456abc123def456abc1";
 
-  private MigrateAspectsStep buildStep(AspectDao dao, Map<String, Long> aspectTargetVersions) {
+  private MigrateAspectsStep buildStep(Map<String, Long> aspectTargetVersions) {
     return new MigrateAspectsStep(
-        OP_CONTEXT, mockEntityService, dao, aspectTargetVersions, UPGRADE_VERSION, 100, 0, 0);
+        OP_CONTEXT,
+        mockEntityService,
+        mockAspectDao,
+        aspectTargetVersions,
+        UPGRADE_VERSION,
+        100,
+        0,
+        0);
   }
 
   private static EbeanAspectV2 buildAspect(String urn, String aspectName, long createdOnMs) {

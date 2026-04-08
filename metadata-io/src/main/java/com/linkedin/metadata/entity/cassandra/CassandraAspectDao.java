@@ -182,13 +182,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return rs.one() != null;
   }
 
-  @Override
-  public boolean hasAspectsNeedingMigration(
-      @Nonnull String aspectName, @Nonnull Set<Long> sourceVersions) {
-    throw new UnsupportedOperationException(
-        "hasAspectsNeedingMigration not supported for Cassandra");
-  }
-
   private Map<String, Pair<Long, Long>> getVersionRanges(
       @Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
     SimpleStatement ss =

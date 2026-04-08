@@ -1,7 +1,6 @@
 package com.linkedin.datahub.upgrade.system.migrations;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
-import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -13,7 +12,6 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -168,42 +166,7 @@ public class MigrateAspectsStep implements UpgradeStep {
       return true;
     }
 
-    if (!(aspectDao instanceof AspectMigrationsDao)) {
-      // AspectDao does not support migration pre-flight checks; proceed and let the sweep decide.
-      log.info(
-          "{}: AspectDao is not an AspectMigrationsDao — skipping pre-flight check, will run sweep.",
-          id());
-      return false;
-    }
-
-    AspectMigrationsDao migrationsDao = (AspectMigrationsDao) aspectDao;
-    // For the pre-flight check, source versions = everything below the target.
-    boolean anyNeedMigration =
-        aspectTargetVersions.entrySet().stream()
-            .filter(e -> e.getValue() > DEFAULT_SCHEMA_VERSION)
-            .anyMatch(
-                e -> {
-                  Set<Long> sourceVersions =
-                      java.util.stream.LongStream.rangeClosed(
-                              DEFAULT_SCHEMA_VERSION, e.getValue() - 1)
-                          .boxed()
-                          .collect(Collectors.toSet());
-                  boolean needs =
-                      migrationsDao.hasAspectsNeedingMigration(e.getKey(), sourceVersions);
-                  if (needs) {
-                    log.info(
-                        "{}: Aspect '{}' has rows needing migration to v{}.",
-                        id(),
-                        e.getKey(),
-                        e.getValue());
-                  }
-                  return needs;
-                });
-
-    if (!anyNeedMigration) {
-      log.info("{}: No rows need migration across any registered aspect; skipping.", id());
-    }
-    return !anyNeedMigration;
+    return false;
   }
 
   @Override
