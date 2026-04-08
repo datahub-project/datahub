@@ -1,5 +1,6 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base-page';
+import type { DataHubLogger } from '../utils/logger';
 
 export class DatasetPage extends BasePage {
   readonly datasetName: Locator;
@@ -7,8 +8,8 @@ export class DatasetPage extends BasePage {
   readonly lineageTab: Locator;
   readonly propertiesTab: Locator;
 
-  constructor(page: Page) {
-    super(page);
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
+    super(page, logger, logDir);
     this.datasetName = page.locator('[data-testid="dataset-name"]');
     this.schemaTab = page.locator('[data-testid="schema-tab"]');
     this.lineageTab = page.locator('[data-testid="lineage-tab"]');

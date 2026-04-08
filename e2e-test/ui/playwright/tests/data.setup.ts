@@ -39,6 +39,7 @@ setup('seed all test data', async () => {
     const fixtures = [
       resolve(__dirname, 'business-attributes/fixtures/data.json'),
       resolve(__dirname, 'search/fixtures/data.json'),
+      resolve(__dirname, 'incidents-v2/fixtures/data.json'),
     ];
 
     const allUrns: string[] = [];

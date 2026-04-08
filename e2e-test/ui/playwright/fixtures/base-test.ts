@@ -1,122 +1,72 @@
 /**
  * Base test fixture — default import for all regular (authenticated) tests.
  *
- * Composes four framework capabilities as Playwright fixtures:
+ * Composes three independent capability fixtures via mergeTests:
  *
- *   1. authenticated state  — per-user browser context loaded from storageState
- *   2. structured logging   — JSON-lines log file written to logs/test-run.log
- *   3. API mocking          — DataHub-aware route interception helpers
- *   4. test data loading    — feature-scoped data injection with idempotency check
+ *   loggerFixture  — Winston structured logging, auto-injected into every test
+ *   mockingFixture — DataHub GraphQL/route mocking, opt-in per test
+ *   loginFixture   — Per-worker auth state management, no global setup needed
  *
- * Additionally provides:
- *   - `gmsToken`  — GMS personal access token read from .auth/gms-token-{user}.json
- *   - `cleanup`   — per-test ScopedCleanup tracker backed by the GMS API
- *   - `user`      — injectable option (default: resolvedUsers.admin); override
- *                   with `test.use({ user: resolvedUsers.reader })` in a suite
- *
- * Auth state convention:
- *   The `context` fixture is overridden so that every test in this suite runs
- *   inside a browser context pre-loaded with the named user's storageState.
- *   Because `page` depends on `context`, all page objects automatically inherit
- *   the correct authenticated session — no manual login needed in tests.
- *
- * Login tests must NOT import from this file; use login-test.ts instead.
+ * Additionally extends the merged result with:
+ *   gmsToken    — GMS personal access token read from .auth/gms-token-{user}.json
+ *   featureData — Feature-scoped test data injection with idempotency check
+ *   cleanup     — Per-test URN tracker flushed automatically after each test
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * Multi-user example:
+ * How authentication works (no global auth-setup project needed):
+ *
+ *   The loginFixture overrides Playwright's built-in `context`. On first run
+ *   for a given user the fixture logs in via the UI and saves the session to
+ *   .auth/{username}.json. Subsequent tests (and parallel workers) find the
+ *   file and skip the login step entirely. The `page` fixture, which derives
+ *   from `context`, automatically carries the authenticated session.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Multi-user example (user is set at describe level, never inside a test):
  *
  *   import { test, expect } from '../../fixtures/base-test';
  *   import { resolvedUsers } from '../../fixtures/users';
  *
- *   // All tests in this describe block run as the reader user
- *   test.use({ user: resolvedUsers.reader });
- *
- *   test('reader can view dataset', async ({ page }) => { ... });
+ *   test.describe('Reader access', () => {
+ *     test.use({ user: resolvedUsers.reader });
+ *     test('can view datasets', async ({ page, logger }) => {
+ *       logger.step('navigate to datasets');
+ *       await page.goto('/datasets');
+ *     });
+ *   });
  * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Login tests must NOT import from this file — use login-test.ts instead.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { test as base } from '@playwright/test';
-
-import { authStatePath, readGmsToken } from './auth';
-import { resolvedUsers, type UserCredentials } from './users';
-import { FileLogger, type StructuredLogger } from './logging';
-import { PageApiMocker, type ApiMocker } from './api-mock';
+import { mergeTests } from '@playwright/test';
+import { loggerFixture } from './logger.fixture';
+import { mockingFixture } from './mocking.fixture';
+import { loginFixture } from './login.fixture';
+import { readGmsToken } from './auth';
 import { RestFeatureDataLoader, type FeatureDataLoader } from './test-data';
 import { ApiScopedCleanup, type ScopedCleanup } from './cleanup';
 
-// ── Fixture type declarations ─────────────────────────────────────────────────
+// ── Compose the three core capability fixtures ────────────────────────────────
 
-type BaseFixtures = {
-  /** GMS personal access token for the active user. Use in API helpers. */
+const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture);
+
+// ── Additional fixtures built on top of the composition ───────────────────────
+
+type ExtendedFixtures = {
+  /** GMS personal access token for the active user. */
   gmsToken: string;
-  /** Structured logger writing JSON lines to logs/test-run.log. */
-  logger: StructuredLogger;
-  /** DataHub-aware API mocking and route interception. */
-  apiMock: ApiMocker;
   /** Injects feature-scoped test data from {featureDir}/data/{feature}.json. */
   featureData: FeatureDataLoader;
-  /** Per-test URN tracker; call flush() in test.afterAll() for suite cleanup. */
+  /** Per-test URN tracker; auto-flushed after each test (skipped on failure). */
   cleanup: ScopedCleanup;
 };
 
-type BaseOptions = {
-  /**
-   * The user whose storageState is loaded for this test.
-   * Override per suite: `test.use({ user: resolvedUsers.reader })`.
-   * Defaults to the admin user defined in users.ts.
-   */
-  user: UserCredentials;
-};
-
-// ── Fixture implementations ───────────────────────────────────────────────────
-
-export const test = base.extend<BaseFixtures, BaseOptions>({
-  // ── Option: injectable user ─────────────────────────────────────────────────
-  user: [resolvedUsers.admin, { option: true, scope: 'worker' }],
-
-  // ── Capability 1: authenticated state ───────────────────────────────────────
-  // Override the built-in `context` so that `page` (which depends on it)
-  // automatically carries the correct session. storageState files are written
-  // by tests/auth.setup.ts; a missing file means auth setup has not been run.
-  context: async ({ user, browser }, use) => {
-    const stateFile = authStatePath(user.username);
-    if (!fs.existsSync(stateFile)) {
-      throw new Error(
-        `Auth state missing for user '${user.username}' (expected: ${stateFile}).\n` +
-          `Run auth setup first: npx playwright test --project=auth-setup`,
-      );
-    }
-    const ctx = await browser.newContext({
-      storageState: stateFile,
-      baseURL: process.env.BASE_URL ?? 'http://localhost:9002',
-    });
-    await use(ctx);
-    await ctx.close();
-  },
-
-  // GMS token — read from disk once per test (file read is fast).
+export const test = composedTest.extend<ExtendedFixtures>({
   gmsToken: async ({ user }, use) => {
     await use(readGmsToken(user.username));
   },
 
-  // ── Capability 2: structured logging ────────────────────────────────────────
-  logger: async ({}, use, testInfo) => {
-    const logsDir = path.join(process.cwd(), 'logs');
-    const fileLogger = new FileLogger(testInfo, logsDir);
-    fileLogger.info('test started');
-    await use(fileLogger);
-    fileLogger.info('test finished', { status: testInfo.status });
-    fileLogger.close();
-  },
-
-  // ── Capability 3: API mocking ────────────────────────────────────────────────
-  apiMock: async ({ page }, use) => {
-    await use(new PageApiMocker(page));
-  },
-
-  // ── Capability 4: test data loading ─────────────────────────────────────────
   featureData: async ({ playwright, gmsToken }, use) => {
     const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
     const gmsUrl = baseUrl.replace(':9002', ':8080');
@@ -128,9 +78,6 @@ export const test = base.extend<BaseFixtures, BaseOptions>({
     }
   },
 
-  // ── Cleanup: per-test URN tracker ────────────────────────────────────────────
-  // Backed by a standalone APIRequestContext authenticated with the GMS token
-  // so it works independently of any browser session.
   cleanup: async ({ playwright, gmsToken }, use, testInfo) => {
     const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
     const gmsUrl = baseUrl.replace(':9002', ':8080');
@@ -140,7 +87,7 @@ export const test = base.extend<BaseFixtures, BaseOptions>({
     });
     const scopedCleanup = new ApiScopedCleanup(request, gmsUrl);
     await use(scopedCleanup);
-    // Auto-flush on teardown, honouring the failure-preservation policy.
+    // Preserve entities on failure so engineers can inspect the broken state.
     await scopedCleanup.flush(testInfo.status);
     await request.dispose();
   },
@@ -148,7 +95,7 @@ export const test = base.extend<BaseFixtures, BaseOptions>({
 
 export { expect } from '@playwright/test';
 export type { UserCredentials } from './users';
-export type { StructuredLogger } from './logging';
-export type { ApiMocker } from './api-mock';
+export type { DataHubLogger } from './logger.fixture';
+export type { ApiMocker } from './mocking.fixture';
 export type { FeatureDataLoader } from './test-data';
 export type { ScopedCleanup } from './cleanup';

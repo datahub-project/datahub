@@ -1,6 +1,7 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base-page';
 import { GraphQLHelper } from '../helpers/graphql-helper';
+import type { DataHubLogger } from '../utils/logger';
 
 export class BusinessAttributePage extends BasePage {
   readonly createButton: Locator;
@@ -25,8 +26,8 @@ export class BusinessAttributePage extends BasePage {
   readonly dataTypeDropdownOption: Locator;
   readonly businessAttributePageTitle: Locator;
 
-  constructor(page: Page) {
-    super(page);
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
+    super(page, logger, logDir);
     this.createButton = page.locator('[data-testid="add-business-attribute-button"]');
     this.addBusinessAttributeButton = page.locator('[data-testid="add-business-attribute-button"]');
     this.nameInput = page.locator('[data-testid="create-business-attribute-name"]');

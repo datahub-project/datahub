@@ -1,29 +1,25 @@
-import { test as base, expect } from '@playwright/test';
-import { LoginPage } from '../../pages/login-page';
-import { GraphQLHelper } from '../../helpers/graphql-helper';
-
 /**
- * Login V2 tests - These tests verify login with Theme V2
- * Therefore, they MUST NOT use the shared authentication state
+ * Login V2 tests — verify the login flow with Theme V2 enabled.
+ *
+ * Uses login-test (not base-test) so every test starts with a fresh,
+ * unauthenticated context. The loginPage fixture is provided automatically.
+ *
+ * Theme V2 flags are intercepted via apiMock.setFeatureFlags so the flag
+ * override lives in the fixture infrastructure — no ad-hoc page.route() calls
+ * or GraphQLHelper needed.
  */
-const test = base.extend<{
-  loginPage: LoginPage;
-  graphqlHelper: GraphQLHelper;
-}>({
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
-  },
-  graphqlHelper: async ({ page }, use) => {
-    await use(new GraphQLHelper(page));
-  },
-});
 
-// Explicitly disable shared auth state for login tests
-test.use({ storageState: { cookies: [], origins: [] } });
+import { test, expect } from '../../fixtures/login-test';
+import { resolvedUsers } from '../../fixtures/users';
 
 test.describe('Login with Theme V2', () => {
-  test.beforeEach(async ({ page, graphqlHelper }) => {
-    await graphqlHelper.setThemeV2Enabled(true);
+  test.beforeEach(async ({ apiMock, page }) => {
+    // Force Theme V2 on via route interception — no GraphQLHelper required.
+    await apiMock.setFeatureFlags({
+      themeV2Enabled: true,
+      themeV2Default: true,
+      showNavBarRedesign: true,
+    });
 
     await page.addInitScript(() => {
       localStorage.setItem('isThemeV2Enabled', 'false');
@@ -35,10 +31,9 @@ test.describe('Login with Theme V2', () => {
   });
 
   test('logs in successfully with Theme V2 enabled', async ({ page, loginPage }) => {
+    const { username, password } = resolvedUsers.admin;
     await page.goto('/');
-
-    await loginPage.login('datahub', 'datahub');
-
+    await loginPage.login(username, password);
     await expect(page.getByRole('button', { name: 'Discover' })).toBeVisible();
   });
 });

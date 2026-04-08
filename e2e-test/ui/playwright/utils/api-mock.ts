@@ -1,15 +1,12 @@
 /**
- * API mocking capability.
+ * API mocking utility — DataHub-aware route interception helpers.
  *
- * Provides an `ApiMocker` that wraps Playwright's `page.route` with
- * DataHub-specific helpers for mocking/intercepting GraphQL operations and
- * toggling feature flags.
+ * Wraps Playwright's page.route with helpers for mocking/intercepting
+ * GraphQL operations and toggling feature flags.
  *
- * The `ApiMocker` instance is provided as a Playwright fixture by base-test.ts.
- * Import the `ApiMocker` type here when you need it in helpers or page objects.
- *
- * Extracted from the old GraphQLHelper to satisfy the requirement that API
- * mocking be a first-class framework capability exposed via fixtures.
+ * This is the canonical implementation. The fixture wrapper lives in
+ * fixtures/mocking.fixture.ts. Import ApiMocker type here when you need
+ * it in helpers or page objects.
  */
 
 import type { Page, Route } from '@playwright/test';
@@ -18,14 +15,14 @@ import type { Page, Route } from '@playwright/test';
 
 export interface ApiMocker {
   /**
-   * Intercept a named GraphQL operation and return `responseData` as its
-   * `data` payload. All other operations are forwarded as normal.
+   * Intercept a named GraphQL operation and return responseData as its
+   * data payload. All other operations are forwarded as normal.
    */
   mockGraphQL(operationName: string, responseData: unknown): Promise<void>;
 
   /**
    * Intercept a named GraphQL operation, fetch the real response, apply
-   * `transform` to its JSON body, and return the modified response.
+   * transform to its JSON body, and return the modified response.
    * Useful for toggling feature flags without a full mock.
    */
   interceptGraphQLResponse(
@@ -34,8 +31,7 @@ export interface ApiMocker {
   ): Promise<void>;
 
   /**
-   * Install an arbitrary route handler. Thin wrapper over `page.route` that
-   * keeps all mocking calls on one object for readability.
+   * Install an arbitrary route handler. Thin wrapper over page.route.
    */
   mockRoute(
     urlPattern: string | RegExp,
@@ -43,11 +39,9 @@ export interface ApiMocker {
   ): Promise<void>;
 
   /**
-   * Override one or more `appConfig.featureFlags` values for the duration of
-   * the test. Both `appConfig` and `getMe` responses are patched so that the
-   * flag is consistent across the UI.
-   *
-   * @param flags - key/value pairs to set on `featureFlags`
+   * Override one or more appConfig.featureFlags values for the duration
+   * of the test. Both appConfig and getMe responses are patched so that
+   * the flag is consistent across the UI.
    */
   setFeatureFlags(flags: Record<string, boolean>): Promise<void>;
 }
@@ -111,11 +105,13 @@ export class PageApiMocker implements ApiMocker {
           Object.assign(featureFlags, flags);
         }
       } else if (op === 'getMe') {
-        // Mirror the primary flag to the user appearance settings when relevant.
+        // Mirror themeV2Enabled to the user appearance settings.
         if ('themeV2Enabled' in flags) {
           const appearance = (
             json as {
-              data?: { me?: { corpUser?: { settings?: { appearance?: Record<string, boolean> } } } };
+              data?: {
+                me?: { corpUser?: { settings?: { appearance?: Record<string, boolean> } } };
+              };
             }
           ).data?.me?.corpUser?.settings?.appearance;
           if (appearance) {

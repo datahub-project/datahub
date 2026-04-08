@@ -1,5 +1,6 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base-page';
+import type { DataHubLogger } from '../utils/logger';
 
 export class SearchPage extends BasePage {
   readonly searchInput: Locator;
@@ -17,8 +18,8 @@ export class SearchPage extends BasePage {
   readonly autocompleteDropdown: Locator;
   readonly filterDropdownMenu: Locator;
 
-  constructor(page: Page) {
-    super(page);
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
+    super(page, logger, logDir);
     this.searchInput = page.locator('[data-testid="search-input"]');
     this.searchBar = page.locator('[data-testid="search-bar"]');
     this.searchResults = page.locator('[data-testid="search-results"]');

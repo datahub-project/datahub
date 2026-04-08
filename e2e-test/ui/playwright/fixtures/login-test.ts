@@ -1,58 +1,73 @@
 /**
- * Login test base fixture.
+ * Login test fixture — base for tests that exercise the login UI itself.
  *
- * Tests that verify the login flow itself must use this fixture instead of
- * base-test.ts. It deliberately excludes the authenticated-state capability:
+ * Composes loggerFixture and mockingFixture (no loginFixture) so that:
+ *   - Every test starts with a fresh, unauthenticated browser context.
+ *   - Structured logging is available (auto-use from loggerFixture).
+ *   - API mocking is available for intercepting auth responses if needed.
+ *   - loginPage is provided as a ready-to-use fixture — tests receive
+ *     the LoginPage object directly and drive the login flow themselves.
  *
- *   - No storageState is loaded — every test starts with a fresh, anonymous
- *     browser context (equivalent to `storageState: { cookies: [], origins: [] }`)
- *   - No `user` option, no `gmsToken`, no per-user context override
- *   - No `cleanup` or `featureData` (login tests do not create entities)
+ * Why no loginFixture here:
+ *   Tests that verify the login flow need to control authentication
+ *   themselves — wrong credentials, SSO flows, error states, etc.
+ *   The loginFixture would bypass all of that by auto-loading saved state.
  *
- * The structured logger and API mocker are included because login tests may
- * need to inspect or intercept network responses (e.g. mock an auth error).
- *
+ * ─────────────────────────────────────────────────────────────────────────────
  * Usage:
  *
  *   import { test, expect } from '../../fixtures/login-test';
- *   import { LoginPage } from '../../pages/login-page';
  *
- *   test('shows error for bad credentials', async ({ page, apiMock }) => {
- *     const loginPage = new LoginPage(page);
+ *   test('shows error for bad credentials', async ({ loginPage, apiMock }) => {
  *     await loginPage.navigateToLogin();
- *     await loginPage.login('bad', 'creds');
- *     await expect(page.getByText(/Invalid credentials/i)).toBeVisible();
+ *     await loginPage.login('wrong', 'password');
+ *     await expect(loginPage.errorMessage).toBeVisible();
  *   });
+ *
+ *   // Multi-user login test:
+ *   const users = [resolvedUsers.admin, resolvedUsers.reader];
+ *   users.forEach((user) => {
+ *     test(`${user.username} can log in`, async ({ loginPage }) => {
+ *       await loginPage.navigateToLogin();
+ *       await loginPage.login(user.username, user.password);
+ *     });
+ *   });
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import * as path from 'path';
-import { test as base } from '@playwright/test';
-import { FileLogger, type StructuredLogger } from './logging';
-import { PageApiMocker, type ApiMocker } from './api-mock';
+import { mergeTests } from '@playwright/test';
+import { loggerFixture } from './logger.fixture';
+import { mockingFixture } from './mocking.fixture';
+import { LoginPage } from '../pages/login-page';
+
+// ── Compose logger + mocking (no auth) ───────────────────────────────────────
+
+const composedTest = mergeTests(loggerFixture, mockingFixture);
+
+// ── Extend with a clean unauthenticated context and loginPage ─────────────────
 
 type LoginTestFixtures = {
-  logger: StructuredLogger;
-  apiMock: ApiMocker;
+  loginPage: LoginPage;
 };
 
-export const test = base.extend<LoginTestFixtures>({
-  // Ensure every login test starts with a pristine, unauthenticated context.
+export const test = composedTest.extend<LoginTestFixtures>({
+  // Override context so every login test starts with no session cookies.
+  // This ensures login tests cannot accidentally rely on a saved auth state.
   context: async ({ browser }, use) => {
-    const ctx = await browser.newContext({ storageState: undefined });
+    const ctx = await browser.newContext({
+      storageState: undefined,
+      baseURL: process.env.BASE_URL ?? 'http://localhost:9002',
+    });
     await use(ctx);
     await ctx.close();
   },
 
-  logger: async ({}, use, testInfo) => {
-    const logsDir = path.join(process.cwd(), 'logs');
-    const fileLogger = new FileLogger(testInfo, logsDir);
-    await use(fileLogger);
-    fileLogger.close();
-  },
-
-  apiMock: async ({ page }, use) => {
-    await use(new PageApiMocker(page));
+  // Provide loginPage directly so tests don't need to construct it manually.
+  // logger is auto-injected by loggerFixture and passed through to LoginPage.
+  loginPage: async ({ page, logger }, use) => {
+    await use(new LoginPage(page, logger));
   },
 });
 
 export { expect } from '@playwright/test';
+export type { ApiMocker } from './mocking.fixture';

@@ -1,35 +1,33 @@
-import { test, expect } from '../../fixtures/test-context';
+/**
+ * Business Attribute feature flag diagnostic test.
+ *
+ * Uses base-test (authenticated context). Queries the feature flag directly
+ * via page.request — no GraphQLHelper fixture needed.
+ */
+
+import { test, expect } from '../../fixtures/base-test';
 
 test.describe('Business Attribute Feature Flag', () => {
-  test('should check if business attribute feature is enabled', async ({ page, graphqlHelper }) => {
-    const query = `
-      query {
-        appConfig {
-          featureFlags {
-            businessAttributeEntityEnabled
-          }
-        }
-      }
-    `;
+  test('should check if business attribute feature is enabled', async ({ page, logger }) => {
+    const response = await page.request.post('/api/v2/graphql', {
+      data: {
+        query: `query { appConfig { featureFlags { businessAttributeEntityEnabled } } }`,
+        variables: {},
+      },
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-    const response = await graphqlHelper.executeQuery(query);
-
-    console.log('Feature flag response:', JSON.stringify(response, null, 2));
-
+    const json = (await response.json()) as {
+      data?: { appConfig?: { featureFlags?: { businessAttributeEntityEnabled?: boolean } } };
+    };
     const businessAttributeEnabled =
-      response?.data?.appConfig?.featureFlags?.businessAttributeEntityEnabled;
+      json?.data?.appConfig?.featureFlags?.businessAttributeEntityEnabled;
 
-    console.log('Business Attribute Enabled:', businessAttributeEnabled);
+    logger.info('feature flag check', { businessAttributeEnabled });
 
     if (!businessAttributeEnabled) {
-      console.log('');
-      console.log('ℹ️  Business Attribute feature is disabled');
-      console.log('');
-      console.log('To enable it, set the environment variable and restart DataHub:');
-      console.log('  export BUSINESS_ATTRIBUTE_ENTITY_ENABLED=true');
-      console.log('  ./gradlew quickstartDebug');
-      console.log('');
-      test.skip(!businessAttributeEnabled, 'Business Attribute feature is not enabled');
+      logger.warn('Business Attribute feature is disabled — set BUSINESS_ATTRIBUTE_ENTITY_ENABLED=true and restart DataHub');
+      test.skip(true, 'Business Attribute feature is not enabled');
     }
 
     expect(businessAttributeEnabled).toBe(true);

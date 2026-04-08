@@ -1,5 +1,6 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base-page';
+import type { DataHubLogger } from '../utils/logger';
 
 export class WelcomeModalPage extends BasePage {
   readonly modal: Locator;
@@ -17,8 +18,8 @@ export class WelcomeModalPage extends BasePage {
   readonly slide3Heading: Locator;
   readonly finalSlideHeading: Locator;
 
-  constructor(page: Page) {
-    super(page);
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
+    super(page, logger, logDir);
 
     // Modal selectors (from feature doc)
     this.modal = page.getByRole('dialog');
