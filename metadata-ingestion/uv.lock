@@ -2511,13 +2511,13 @@ requires-dist = [
     { name = "kerberos", marker = "extra == 'hive-metastore'", specifier = ">=1.3.0,<2.0.0" },
     { name = "kerberos", marker = "extra == 'integration-tests'", specifier = ">=1.3.0,<2.0.0" },
     { name = "kerberos", marker = "extra == 'presto-on-hive'", specifier = ">=1.3.0,<2.0.0" },
-    { name = "litellm", marker = "extra == 'all'", specifier = "==1.80.5" },
-    { name = "litellm", marker = "extra == 'confluence'", specifier = "==1.80.5" },
-    { name = "litellm", marker = "extra == 'datahub-documents'", specifier = "==1.80.5" },
-    { name = "litellm", marker = "extra == 'dev'", specifier = "==1.80.5" },
-    { name = "litellm", marker = "extra == 'docs'", specifier = "==1.80.5" },
-    { name = "litellm", marker = "extra == 'notion'", specifier = "==1.80.5" },
-    { name = "litellm", marker = "extra == 'unstructured'", specifier = "==1.80.5" },
+    { name = "litellm", marker = "extra == 'all'", specifier = "==1.83.0" },
+    { name = "litellm", marker = "extra == 'confluence'", specifier = "==1.83.0" },
+    { name = "litellm", marker = "extra == 'datahub-documents'", specifier = "==1.83.0" },
+    { name = "litellm", marker = "extra == 'dev'", specifier = "==1.83.0" },
+    { name = "litellm", marker = "extra == 'docs'", specifier = "==1.83.0" },
+    { name = "litellm", marker = "extra == 'notion'", specifier = "==1.83.0" },
+    { name = "litellm", marker = "extra == 'unstructured'", specifier = "==1.83.0" },
     { name = "lkml", marker = "extra == 'all'", specifier = ">=1.3.4,<2.0.0" },
     { name = "lkml", marker = "extra == 'dev'", specifier = ">=1.3.4,<2.0.0" },
     { name = "lkml", marker = "extra == 'docs'", specifier = ">=1.3.4,<2.0.0" },
@@ -7857,7 +7857,7 @@ wheels = [
 
 [[package]]
 name = "litellm"
-version = "1.80.5"
+version = "1.83.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -7873,9 +7873,9 @@ dependencies = [
     { name = "tiktoken" },
     { name = "tokenizers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/85/b8/357544534bef87dd2858432f3cbd3a0e5cc267caebca5ea86b03618786c5/litellm-1.80.5.tar.gz", hash = "sha256:922791c264845d9ed59e540c8fa74a74d237c1b209568a05ffeacd8b51770deb", size = 11885764, upload-time = "2025-11-22T23:41:42.25Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/92/6ce9737554994ca8e536e5f4f6a87cc7c4774b656c9eb9add071caf7d54b/litellm-1.83.0.tar.gz", hash = "sha256:860bebc76c4bb27b4cf90b4a77acd66dba25aced37e3db98750de8a1766bfb7a", size = 17333062, upload-time = "2026-03-31T05:08:25.331Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/af/1d4693746ff9fbbe27a6e7d6394b801acf234e00c83f45ad1cb5bf2eaa6c/litellm-1.80.5-py3-none-any.whl", hash = "sha256:2ac5f4e88cd57ae056e00da8f872e1c2956653750929fba2fd9b007b400fdb77", size = 10671970, upload-time = "2025-11-22T23:41:39.923Z" },
+    { url = "https://files.pythonhosted.org/packages/19/2c/a670cc050fcd6f45c6199eb99e259c73aea92edba8d5c2fc1b3686d36217/litellm-1.83.0-py3-none-any.whl", hash = "sha256:88c536d339248f3987571493015784671ba3f193a328e1ea6780dbebaa2094a8", size = 15610306, upload-time = "2026-03-31T05:08:21.987Z" },
 ]
 
 [[package]]
