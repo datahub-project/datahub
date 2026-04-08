@@ -687,23 +687,6 @@ class PowerBiAPI:
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
             # collect all datasets in the registry
             self.dataset_registry.update(cur_workspace.datasets)
-            # Fetch endorsement tag if it is enabled from configuration
-            if self.__config.extract_endorsements_to_tags:
-                cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
-                    cur_workspace.scan_result
-                )
-                cur_workspace.report_endorsements = self._get_report_endorsements(
-                    cur_workspace.scan_result
-                )
-            else:
-                logger.info(
-                    "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
-                )
-
-            self._populate_app_details(
-                workspace=cur_workspace,
-                workspace_metadata=workspace_metadata,
-            )
 
         return
 
@@ -775,6 +758,24 @@ class PowerBiAPI:
                 return
             for dashboard in workspace.dashboards.values():
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
+
+        # Fetch endorsement tag if it is enabled from configuration
+        if self.__config.extract_endorsements_to_tags:
+            workspace.dashboard_endorsements = self._get_dashboard_endorsements(
+                workspace.scan_result
+            )
+            workspace.report_endorsements = self._get_report_endorsements(
+                workspace.scan_result
+            )
+        else:
+            logger.info(
+                "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
+            )
+
+        self._populate_app_details(
+            workspace=workspace,
+            workspace_metadata=workspace.scan_result,
+        )
 
         # fill reports first since some dashboard may reference a report
         fill_reports()

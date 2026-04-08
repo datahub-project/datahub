@@ -1945,7 +1945,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             self.powerbi_client.fill_metadata_from_scan_result(batch_workspaces)
 
         # Then get the rest of the metadata per workspace.
-        for workspace in allowed_workspaces:
+        while allowed_workspaces:
+            workspace = allowed_workspaces.pop(0)
             logger.info(f"Processing workspace id: {workspace.id}")
             self.powerbi_client.fill_regular_metadata_detail(workspace=workspace)
 
