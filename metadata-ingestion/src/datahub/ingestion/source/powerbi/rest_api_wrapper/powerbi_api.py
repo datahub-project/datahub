@@ -195,6 +195,9 @@ class PowerBiAPI:
             dashboard.workspace_id, Constant.DASHBOARDS, dashboard.id
         )
 
+    def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
+        return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
+
     def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
@@ -207,6 +210,12 @@ class PowerBiAPI:
                     workspace, workspace.scan_result.get(Constant.REPORTS, [])
                 )
             }
+            if self.__config.extract_ownership is False:
+                logger.info(
+                    "Skipping user retrieval for reports as extract_ownership is set to false"
+                )
+                for report in reports.values():
+                    report.users = []
         else:
             try:
                 reports = {
@@ -217,6 +226,8 @@ class PowerBiAPI:
                 self.log_http_error(
                     message=f"Unable to fetch reports for workspace {workspace.name}"
                 )
+            for report in reports.values():
+                report.users = self.get_report_users(workspace.id, report.id)
 
         # Fill Report dataset
         for report in reports.values():
@@ -232,15 +243,6 @@ class PowerBiAPI:
                         context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
                     )
 
-        def fill_ownership() -> None:
-            if self.__config.extract_ownership is False:
-                logger.info(
-                    "Skipping user retrieval for report as extract_ownership is set to false"
-                )
-                for report in reports.values():
-                    report.users = []
-                return
-
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
                 logger.info(
@@ -251,7 +253,6 @@ class PowerBiAPI:
             for report in reports.values():
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
-        fill_ownership()
         fill_tags()
         return reports
 
