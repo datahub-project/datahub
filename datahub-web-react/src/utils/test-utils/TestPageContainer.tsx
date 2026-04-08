@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { MemoryRouter } from 'react-router';
 import { ItalicExtension, UnderlineExtension } from 'remirror/extensions';
 
+import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
 import UserContextProvider from '@app/context/UserContextProvider';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
@@ -17,12 +18,8 @@ type Props = {
     initialEntries?: string[];
 };
 
-/**
- * Returns the entity registry that was pre-built in setupEntityRegistry.ts.
- * This avoids re-importing all 30 entity classes in every test file.
- */
 export function getTestEntityRegistry(): EntityRegistry {
-    return (globalThis as any).__testEntityRegistry as EntityRegistry;
+    return buildEntityRegistryV2();
 }
 
 export default ({ children, initialEntries }: Props) => {
