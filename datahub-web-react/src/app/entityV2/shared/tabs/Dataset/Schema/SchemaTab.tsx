@@ -13,6 +13,7 @@ import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/uti
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
+import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
@@ -29,6 +30,7 @@ import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { ChangeCategoryType } from '@types';
 
 const NoSchema = styled(Empty)`
     color: ${(props) => props.theme.colors.textSecondary};
@@ -105,8 +107,9 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     );
 
     const [showKeySchema, setShowKeySchema] = useState(false);
+    const [showSchemaTimelineView, setShowSchemaTimelineView] = useState(false);
 
-    // Do not show semantic version dropdown if we are on combined siblings page
+    // Do not show semantic version (dropdown or in change history drawer) if we are on combined siblings page
     const hideSemanticVersions = !separateSiblings && !!siblingUrn;
     const {
         selectedVersion,
@@ -209,6 +212,15 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     return (
         <SchemaContext.Provider value={{ refetch }}>
+            <HistorySidebar
+                urn={urn}
+                siblingUrn={siblingUrn}
+                versionList={versionList}
+                hideSemanticVersions={hideSemanticVersions}
+                open={showSchemaTimelineView}
+                onClose={() => setShowSchemaTimelineView(false)}
+                defaultCategories={[ChangeCategoryType.TechnicalSchema]}
+            />
             <SchemaHeader
                 // see above hook
                 key={wasSearchReset ? 'key1' : 'key2'}
@@ -222,6 +234,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 setShowKeySchema={setShowKeySchema}
                 selectedVersion={selectedVersion}
                 versionList={versionList}
+                showSchemaTimeline={showSchemaTimelineView}
+                setShowSchemaTimeline={setShowSchemaTimelineView}
                 numRows={schemaMetadata?.fields?.length}
                 schemaFilterTypes={schemaFilterTypes}
                 setSchemaFilterTypes={setSchemaFilterTypes}

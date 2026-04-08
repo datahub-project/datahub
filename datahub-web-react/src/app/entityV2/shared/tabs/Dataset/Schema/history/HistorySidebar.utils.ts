@@ -109,10 +109,20 @@ export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
 /**
  * Filters change entries by category selection and search text.
  * A transaction matches if at least one of its changes satisfies both filters.
+ *
+ * When `displayTexts` is provided (parallel array, same length as entries),
+ * search matches against the pre-computed display strings (which include
+ * resolved entity names) instead of raw backend descriptions.
  */
 export function filterChangeEntries<
     T extends { transaction: { changes?: Array<{ category?: string | null; description?: string | null }> | null } },
->(entries: T[], selectedCategories: string[], allCategoryValues: string[], searchText: string): T[] {
+>(
+    entries: T[],
+    selectedCategories: string[],
+    allCategoryValues: string[],
+    searchText: string,
+    displayTexts?: string[],
+): T[] {
     const filterByCategory = selectedCategories.length !== allCategoryValues.length;
     const lowerSearch = searchText.toLowerCase().trim();
     const filterBySearch = lowerSearch.length > 0;
@@ -120,11 +130,14 @@ export function filterChangeEntries<
     if (!filterByCategory && !filterBySearch) return entries;
 
     const selected = new Set(selectedCategories);
-    return entries.filter((entry) => {
+    return entries.filter((entry, index) => {
         const changes = entry.transaction.changes ?? [];
         const matchesCategory = !filterByCategory || changes.some((c) => c?.category && selected.has(c.category));
         const matchesSearch =
-            !filterBySearch || changes.some((c) => c?.description?.toLowerCase().includes(lowerSearch));
+            !filterBySearch ||
+            (displayTexts
+                ? displayTexts[index]?.toLowerCase().includes(lowerSearch)
+                : changes.some((c) => c?.description?.toLowerCase().includes(lowerSearch)));
         return matchesCategory && matchesSearch;
     });
 }

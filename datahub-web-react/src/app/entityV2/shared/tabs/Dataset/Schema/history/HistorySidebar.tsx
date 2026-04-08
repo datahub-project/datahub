@@ -14,6 +14,7 @@ import {
     filterChangeEntries,
     getCategoryOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
+import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
 import { useResolveEntityNames } from '@app/entityV2/shared/tabs/Dataset/Schema/history/useResolveEntityNames';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
@@ -64,6 +65,7 @@ const ChangeTransactionList = styled.div`
     flex-direction: column;
     padding: 26px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     flex: 1;
 `;
 
@@ -91,16 +93,31 @@ interface Props {
     versionList: SemanticVersionStruct[];
     hideSemanticVersions: boolean;
     entityType?: EntityType;
+    /** When provided, only these categories are pre-selected on open (e.g., Schema tab passes [TECHNICAL_SCHEMA]). */
+    defaultCategories?: string[];
 }
 
-const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSemanticVersions, entityType }: Props) => {
+const HistorySidebar = ({
+    open,
+    onClose,
+    urn,
+    siblingUrn,
+    versionList,
+    hideSemanticVersions,
+    entityType,
+    defaultCategories,
+}: Props) => {
     const categoryOptions = useMemo(() => getCategoryOptions(entityType), [entityType]);
     const allCategoryValues = useMemo(() => categoryOptions.map((o) => o.value), [categoryOptions]);
-    const [selectedCategories, setSelectedCategories] = useState<string[]>(allCategoryValues);
+    const initialCategories = defaultCategories ?? allCategoryValues;
+    const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
     const [searchText, setSearchText] = useState('');
 
     // Reset selection when the available categories change (e.g. navigating between entity types)
-    useEffect(() => setSelectedCategories(allCategoryValues), [allCategoryValues]);
+    useEffect(
+        () => setSelectedCategories(defaultCategories ?? allCategoryValues),
+        [defaultCategories, allCategoryValues],
+    );
 
     const { data: entityTimelineData, error: entityTimelineError } = useGetTimelineQuery({
         skip: !open,
@@ -160,9 +177,21 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
         ],
     );
 
+    // Pre-compute display strings (with resolved entity names) for search matching.
+    // Each entry gets one concatenated string of all its change event display texts.
+    const displayTexts = useMemo(
+        () =>
+            allEntries.map((entry) =>
+                (entry.transaction.changes ?? [])
+                    .map((change) => getChangeEventString(change, nameMap) ?? '')
+                    .join(' '),
+            ),
+        [allEntries, nameMap],
+    );
+
     const filteredEntries = useMemo(
-        () => filterChangeEntries(allEntries, selectedCategories, allCategoryValues, searchText),
-        [allEntries, selectedCategories, allCategoryValues, searchText],
+        () => filterChangeEntries(allEntries, selectedCategories, allCategoryValues, searchText, displayTexts),
+        [allEntries, selectedCategories, allCategoryValues, searchText, displayTexts],
     );
 
     const entityCount = entityTimelineData?.getTimeline?.changeTransactions?.length ?? 0;
@@ -194,7 +223,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
                         value={searchText}
                         onChange={(val) => setSearchText(val)}
                         width="100%"
-                        height="32px"
+                        height="36px"
                     />
                     <SimpleSelect
                         placeholder="Filter"

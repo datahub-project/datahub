@@ -151,4 +151,28 @@ describe('filterChangeEntries', () => {
         expect(result).toHaveLength(1);
         expect(result[0].transaction.changes?.[0]?.description).toContain('alice');
     });
+
+    it('searches against displayTexts when provided', () => {
+        // Raw descriptions contain URNs, but displayTexts have resolved names
+        const displayTexts = [
+            'Added tag "PII" Tag removed: Deprecated',
+            'Description changed from old to new',
+            'Owner added: "Alice Smith"',
+        ];
+        const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, 'Alice Smith', displayTexts);
+        expect(result).toHaveLength(1);
+        expect(result[0].transaction.changes?.[0]?.description).toContain('alice@datahub.com');
+    });
+
+    it('falls back to raw descriptions when displayTexts is undefined', () => {
+        const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, 'alice@datahub.com', undefined);
+        expect(result).toHaveLength(1);
+    });
+
+    it('does not match raw description when displayTexts is provided', () => {
+        // "alice@datahub.com" is in the raw description but not in the display text
+        const displayTexts = ['tag stuff', 'doc stuff', 'Owner added: "Alice Smith"'];
+        const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, 'alice@datahub.com', displayTexts);
+        expect(result).toHaveLength(0);
+    });
 });

@@ -1,5 +1,6 @@
 import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
-import { Button } from '@components';
+import { Button, Tooltip } from '@components';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -84,6 +85,8 @@ type Props = {
     setShowKeySchema: (show: boolean) => void;
     selectedVersion: string;
     versionList: Array<SemanticVersionStruct>;
+    showSchemaTimeline: boolean;
+    setShowSchemaTimeline: (show: boolean) => void;
     filterText: string;
     setFilterText: (text: string) => void;
     numRows: number;
@@ -103,6 +106,8 @@ export default function SchemaHeader({
     setShowKeySchema,
     selectedVersion,
     versionList,
+    setShowSchemaTimeline,
+    showSchemaTimeline,
     filterText,
     setFilterText,
     numRows,
@@ -113,6 +118,8 @@ export default function SchemaHeader({
     setHighlightedMatchIndex,
 }: Props) {
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
+
+    const schemaAuditToggleText = showSchemaTimeline ? 'Close change history' : 'View change history';
 
     const [searchInput, setSearchInput] = useState(filterText);
     useDebounce(() => setFilterText(searchInput), 100, [searchInput]);
@@ -170,6 +177,15 @@ export default function SchemaHeader({
                             isPrimary
                         />
                     )}
+                    <Tooltip title={schemaAuditToggleText} showArrow={false}>
+                        <Button
+                            variant="text"
+                            data-testid="schema-blame-button"
+                            color={showSchemaTimeline ? 'violet' : 'gray'}
+                            icon={{ icon: ClockCounterClockwise, size: '2xl' }}
+                            onClick={() => setShowSchemaTimeline(!showSchemaTimeline)}
+                        />
+                    </Tooltip>
                 </RightButtonsGroup>
             </SchemaHeaderContainer>
         </StyledTabToolbar>
