@@ -567,6 +567,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.countRetryMaxAttempts",
           "elasticsearch.buildIndices.countRetryWaitSeconds",
           "elasticsearch.buildIndices.createIndexRetryEnabled",
+          "elasticsearch.buildIndices.rollbackDualWriteEnabled",
           "elasticsearch.bulkDelete.batchSize",
           "elasticsearch.bulkDelete.numRetries",
           "elasticsearch.bulkDelete.pollInterval",

@@ -5,6 +5,9 @@ from pydantic import Field
 
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
 )
@@ -33,10 +36,16 @@ class VertexAIStateHandler(
     def job_id(self) -> JobId:
         return JobId("vertexai-checkpoint-state")
 
-    def __init__(self, source: Any, stateful_ingestion_config: Any):
+    def __init__(
+        self,
+        source: Any,
+        stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig],
+    ):
         self.source = source
         self.state_provider = source.state_provider
-        self.stateful_ingestion_config = stateful_ingestion_config
+        self.stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = (
+            stateful_ingestion_config
+        )
         self.run_id = source.ctx.run_id
         self.pipeline_name = source.ctx.pipeline_name
         self._last_state: Optional[VertexAICheckpointState] = None
@@ -49,9 +58,8 @@ class VertexAIStateHandler(
         return self.state_provider.is_stateful_ingestion_configured()
 
     def get_last_checkpoint_state(self) -> VertexAICheckpointState:
-        if (
-            self.is_checkpointing_enabled()
-            and not self.stateful_ingestion_config.ignore_old_state
+        if self.is_checkpointing_enabled() and not getattr(
+            self.stateful_ingestion_config, "ignore_old_state", False
         ):
             last_checkpoint = self.state_provider.get_last_checkpoint(
                 self.job_id, VertexAICheckpointState
@@ -80,9 +88,8 @@ class VertexAIStateHandler(
         )
 
     def create_checkpoint(self) -> Optional[Checkpoint[VertexAICheckpointState]]:
-        if (
-            not self.is_checkpointing_enabled()
-            or self.stateful_ingestion_config.ignore_new_state
+        if not self.is_checkpointing_enabled() or getattr(
+            self.stateful_ingestion_config, "ignore_new_state", False
         ):
             return None
 
