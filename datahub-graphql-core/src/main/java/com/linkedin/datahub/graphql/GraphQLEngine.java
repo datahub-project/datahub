@@ -89,7 +89,9 @@ public class GraphQLEngine {
     if (metricUtils != null && graphQLConfiguration.getMetrics().isEnabled()) {
       instrumentations.add(
           new GraphQLTimingInstrumentation(
-              metricUtils.getRegistry(), graphQLConfiguration.getMetrics()));
+              metricUtils.getRegistry(),
+              graphQLConfiguration.getMetrics(),
+              graphQLConfiguration.getShapeLogging()));
     }
 
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
@@ -126,7 +128,14 @@ public class GraphQLEngine {
                     InputInterceptor.class,
                     LegacyCoercingInputInterceptor.migratesValues(),
                     QueryContext.class,
-                    context))
+                    context,
+                    GraphQLTimingInstrumentation.GRAPHQL_CONTEXT_ACTOR_KEY,
+                    context != null && context.getActor() != null
+                        ? context.getActor()
+                        : "no_actor_present")) // need this to log actor in logging/instrumentation
+            // layer.
+            // QueryContext and SpringQueryContext exist in packages which
+            // cause circular deps added to the instrumentation package.
             .build();
 
     /*

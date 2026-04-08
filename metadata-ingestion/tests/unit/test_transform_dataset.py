@@ -1238,10 +1238,10 @@ def test_pattern_container_and_dataset_ownership_transformation(
     for i in range(2):
         container_ownership_aspect = outputs[i + 5].record.aspect
         assert container_ownership_aspect
-        ownership = json.loads(container_ownership_aspect.value.decode("utf-8"))
-        assert len(ownership) == 3
-        assert ownership[0]["value"]["owner"] == builder.make_user_urn("person1")
-        assert ownership[1]["value"]["owner"] == builder.make_user_urn("person2")
+        patch_ops = json.loads(container_ownership_aspect.value.decode("utf-8"))
+        assert len(patch_ops) == 3
+        assert patch_ops[0]["value"]["owner"] == builder.make_user_urn("person1")
+        assert patch_ops[1]["value"]["owner"] == builder.make_user_urn("person2")
 
     # Verify that the third input (not a dataset) is unchanged
     assert inputs[2] == outputs[2].record

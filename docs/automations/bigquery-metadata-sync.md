@@ -30,7 +30,7 @@ BigQuery. This automation is exclusively available in DataHub Cloud.
 | --------------------- | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
 | Table Tags            | Table Labels        | Bi-directional     | Changes in either system reflect in both                                                                 |
 | Table Descriptions    | Table Descriptions  | Bi-directional     | Changes in either system reflect in both                                                                 |
-| Column Descriptions   | Column Descriptions | Bi-directional     | Changes in either system reflect in both. <br/> Thes sync doesn't delete table description from BigQuery |
+| Column Descriptions   | Column Descriptions | Bi-directional     | Changes in either system reflect in both. <br/> This sync doesn't delete table description from BigQuery |
 | Column Glossary Terms | Column Policy Tags  | DataHub → BigQuery | Created under DataHub taxonomy                                                                           |
 
 ## Setup Instructions
