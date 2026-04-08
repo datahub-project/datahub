@@ -129,14 +129,14 @@ def _gen_ownership_workunits(
 
 def test_gen_dataset_workunits_emits_ownership_when_enabled() -> None:
     workunits = _gen_ownership_workunits(owner="etluser", extract_ownership=True)
-    ownership_aspects = [
-        wu.metadata.aspect
+    ownership_mcps = [
+        wu.metadata
         for wu in workunits
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and wu.metadata.aspectName == "ownership"
     ]
-    assert len(ownership_aspects) == 1
-    ownership = ownership_aspects[0]
+    assert len(ownership_mcps) == 1
+    ownership = ownership_mcps[0].aspect
     assert isinstance(ownership, OwnershipClass)
     assert len(ownership.owners) == 1
     assert ownership.owners[0].owner == "urn:li:corpuser:etluser"
@@ -202,7 +202,9 @@ def test_process_schema_emits_owner_urn_when_enabled() -> None:
         and wu.metadata.aspectName == "ownership"
     ]
     assert len(container_props_wus) == 1
-    ownership = container_props_wus[0].metadata.aspect
+    mcp = container_props_wus[0].metadata
+    assert isinstance(mcp, MetadataChangeProposalWrapper)
+    ownership = mcp.aspect
     assert isinstance(ownership, OwnershipClass)
     assert ownership.owners[0].owner == "urn:li:corpuser:alice"
     assert ownership.owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
