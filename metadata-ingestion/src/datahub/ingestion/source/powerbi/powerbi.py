@@ -203,7 +203,6 @@ class Mapper:
                     else column_ref.column,
                 )
                 for column_ref in cll_info.upstreams
-                if column_ref.column
             ]
 
             fine_grained_lineages.append(
