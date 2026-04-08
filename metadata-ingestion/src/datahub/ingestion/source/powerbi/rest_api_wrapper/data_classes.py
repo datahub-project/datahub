@@ -414,10 +414,13 @@ def new_powerbi_reports(
     workspace: Workspace, raw_instances: list[dict]
 ) -> list[Report]:
     def build_report(raw_instance: dict) -> Report:
-        if raw_instance.get("webUrl"):
-            web_url = raw_instance.get(Constant.WEB_URL)
+        if raw_instance.get(Constant.WEB_URL):
+            web_url = raw_instance[Constant.WEB_URL]
         elif workspace.webUrl:
-            web_url = f"{workspace.webUrl}/reports/{raw_instance[Constant.ID]}"
+            if raw_instance.get(Constant.REPORT_TYPE) == ReportType.PaginatedReport:
+                web_url = f"{workspace.webUrl}/rdlreports/{raw_instance[Constant.ID]}"
+            else:
+                web_url = f"{workspace.webUrl}/reports/{raw_instance[Constant.ID]}"
         else:
             web_url = None
 
