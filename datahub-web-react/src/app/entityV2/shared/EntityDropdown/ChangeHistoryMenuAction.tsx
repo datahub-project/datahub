@@ -17,14 +17,16 @@ export default function ChangeHistoryMenuAction() {
                     <ClockCounterClockwise size={16} />
                 </ActionMenuItem>
             </Tooltip>
-            <HistorySidebar
-                open={open}
-                onClose={() => setOpen(false)}
-                urn={urn}
-                versionList={[]}
-                hideSemanticVersions
-                entityType={entityType}
-            />
+            {open && (
+                <HistorySidebar
+                    open
+                    onClose={() => setOpen(false)}
+                    urn={urn}
+                    versionList={[]}
+                    hideSemanticVersions
+                    entityType={entityType}
+                />
+            )}
         </>
     );
 }

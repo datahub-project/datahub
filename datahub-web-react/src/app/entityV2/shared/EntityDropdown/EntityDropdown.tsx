@@ -580,9 +580,9 @@ const EntityDropdown = (props: Props) => {
                     refetch={refetchForEntity}
                 />
             )}
-            {menuItems.has(EntityMenuItems.CHANGE_HISTORY) && (
+            {isChangeHistoryOpen && (
                 <HistorySidebar
-                    open={isChangeHistoryOpen}
+                    open
                     onClose={() => setIsChangeHistoryOpen(false)}
                     urn={urn}
                     versionList={[]}

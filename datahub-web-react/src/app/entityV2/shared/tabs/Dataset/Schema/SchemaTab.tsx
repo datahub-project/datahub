@@ -212,15 +212,17 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     return (
         <SchemaContext.Provider value={{ refetch }}>
-            <HistorySidebar
-                urn={urn}
-                siblingUrn={siblingUrn}
-                versionList={versionList}
-                hideSemanticVersions={hideSemanticVersions}
-                open={showSchemaTimelineView}
-                onClose={() => setShowSchemaTimelineView(false)}
-                defaultCategories={[ChangeCategoryType.TechnicalSchema]}
-            />
+            {showSchemaTimelineView && (
+                <HistorySidebar
+                    urn={urn}
+                    siblingUrn={siblingUrn}
+                    versionList={versionList}
+                    hideSemanticVersions={hideSemanticVersions}
+                    open
+                    onClose={() => setShowSchemaTimelineView(false)}
+                    defaultCategories={[ChangeCategoryType.TechnicalSchema]}
+                />
+            )}
             <SchemaHeader
                 // see above hook
                 key={wasSearchReset ? 'key1' : 'key2'}
