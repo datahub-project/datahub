@@ -23,6 +23,9 @@ TBD
 
 ### Next
 
+- Upgrades to DataHub should be done in sequence by minor version for proper data migration to occur. Schema updates can occur in minor version changes and to migrate underlying data we are using a mutator mechanism with a one schema version look-back window to facilitate zero-downtime upgrades.
+
+
 New Features:
 
 - TODO

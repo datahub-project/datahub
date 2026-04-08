@@ -1,5 +1,7 @@
 # Updating DataHub
 
+- Upgrades to DataHub should be done in sequence by minor version for proper data migration to occur. Schema updates can occur in minor version changes and to migrate underlying data we are using a mutator mechanism with a one schema version look-back window to facilitate zero-downtime upgrades.
+
 <!--
 
 ## <version number>
@@ -39,6 +41,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - **JVM metrics:** Some built-in JVM metric **names** changed to align with OpenMetrics (for example, memory-related series). Update Grafana panels, recording rules, and alerts that referenced the old names. See the [client_java JVM migration notes](https://prometheus.github.io/client_java/migration/simpleclient/#jvm-metrics).
   - **Labels:** When multiple MBeans map to the same metric name, series may include an **`_objectname`** label; adjust queries or aggregations if you previously assumed a single series per name.
 - #16723 (Ingestion) Dataplex source configuration cleanup: `filter_config.entries.dataset_pattern` was removed, use `filter_config.entries.pattern` instead; `entries_location` was removed, use `entries_locations` (list) instead.
+- Some legacy upgrade jobs have been removed, upgrades to this version have a prerequisite on an upgrade to v1.3.x or higher prior to upgrading to this version. Going forward to facilitate zero-downtime schema upgrades, migration jobs will assume one version back so for a seamless upgrade experience upgrades should be done by minor version in order. ex. v1.5.x -> v1.6.x -> v1.7.x ...
 
 ### Known Issues
 
