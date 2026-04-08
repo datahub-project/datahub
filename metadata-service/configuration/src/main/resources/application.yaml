@@ -514,8 +514,8 @@ elasticsearch:
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
     # Cost-based reindexing configuration (P=2 enhancements)
     normalIndexCostThreshold: ${ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD:1000000} # Cost = (docs * shards) / nodes. Example: 1M docs * 5 shards / 3 nodes = 1.67M
-    maxConcurrentNormalReindex: ${ELASTICSEARCH_MAX_CONCURRENT_NORMAL_REINDEX:8}
-    maxConcurrentLargeReindex: ${ELASTICSEARCH_MAX_CONCURRENT_LARGE_REINDEX:5}
+    maxConcurrentNormalReindex: ${ELASTICSEARCH_MAX_CONCURRENT_NORMAL_REINDEX:4}
+    maxConcurrentLargeReindex: ${ELASTICSEARCH_MAX_CONCURRENT_LARGE_REINDEX:2}
     # Cluster health monitoring for auto-throttling
     clusterHealthCheckIntervalSeconds: ${ELASTICSEARCH_CLUSTER_HEALTH_CHECK_INTERVAL_SECONDS:30}
     clusterHeapThresholdPercent: ${ELASTICSEARCH_CLUSTER_HEAP_THRESHOLD_PERCENT:85}
@@ -526,6 +526,8 @@ elasticsearch:
     countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
     countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
     createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
+    incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:false} # non-blocking incremental reindex with dual-write
+    rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:false} # dual-write to old backing index for rollback safety during incremental reindex
     # Adaptive throttling configuration
     clusterHeapYellowThresholdPercent: ${ELASTICSEARCH_BUILD_INDICES_CLUSTER_HEAP_YELLOW_THRESHOLD_PERCENT:75} # Heap threshold for YELLOW tier (triggers throttling before RED)
     docCountValidationRetryCount: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_COUNT:10} # Number of retries for doc count validation
@@ -551,7 +553,7 @@ elasticsearch:
       withPrefix: ${ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX:true} # include prefix exact matches
       exactFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR:16.0} # boost multiplier when exact with case
       prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.1} # boost multiplier when exact prefix
-      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.9} # stacked boost multiplier when case mismatch
+      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.0} # stacked boost multiplier when case mismatch
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
     wordGram:
       twoGramFactor: ${ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR:1.2} # boost multiplier when match on 2-gram tokens
@@ -563,7 +565,7 @@ elasticsearch:
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
-      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config_acryl.yaml} # update for Saas
+      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}
       searchFieldConfigDefault: ${ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for search
       autoCompleteFieldConfigDefault: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for autocomplete
     graph:

@@ -235,11 +235,11 @@ All parameters are configured via environment variables or `application.yml` und
 
 #### Index Cost & Tier Classification
 
-| Parameter                    | Env Variable                                                | Default   | Description                                                                  |
-| ---------------------------- | ----------------------------------------------------------- | --------- | ---------------------------------------------------------------------------- |
-| `normalIndexCostThreshold`   | `ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD`                 | `500,000` | Cost threshold for NORMAL vs LARGE tier (formula: docCount × shards / nodes) |
-| `maxConcurrentNormalReindex` | `ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_NORMAL_REINDEX` | `4`       | Max concurrent reindex operations for NORMAL tier indices                    |
-| `maxConcurrentLargeReindex`  | `ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_LARGE_REINDEX`  | `2`       | Max concurrent reindex operations for LARGE tier indices                     |
+| Parameter                    | Env Variable                                               | Default   | Description                                                                  |
+| ---------------------------- | ---------------------------------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| `normalIndexCostThreshold`   | `ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD`                | `500,000` | Cost threshold for NORMAL vs LARGE tier (formula: docCount × shards / nodes) |
+| `maxConcurrentNormalReindex` | `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`            | `4`       | Max concurrent reindex operations for NORMAL tier indices                    |
+| `maxConcurrentLargeReindex`  | `ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_LARGE_REINDEX` | `2`       | Max concurrent reindex operations for LARGE tier indices                     |
 
 **Tier Classification Examples:**
 
@@ -357,7 +357,7 @@ elasticSearch:
 
     # Index tier classification
     normalIndexCostThreshold: ${ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD:500000}
-    maxConcurrentNormalReindex: ${ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_NORMAL_REINDEX:4}
+    maxConcurrentNormalReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:4}
     maxConcurrentLargeReindex: ${ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_LARGE_REINDEX:2}
 
     # Cluster health monitoring
@@ -400,7 +400,7 @@ ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS=12
 
 # Tier classification
 ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD=500000
-ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_NORMAL_REINDEX=4
+ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS=4
 ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_LARGE_REINDEX=2
 
 # Cluster health
@@ -427,7 +427,7 @@ ELASTICSEARCH_BUILD_INDICES_RED_RECOVERY_SECONDS=30
 
 ```bash
 # Conservative concurrency
-ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_NORMAL_REINDEX=1
+ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS=1
 ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_LARGE_REINDEX=1
 
 # Strict health thresholds
@@ -452,7 +452,7 @@ ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REQUESTS_PER_SECOND=50
 
 ```bash
 # Balanced concurrency
-ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_NORMAL_REINDEX=2
+ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS=2
 ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_LARGE_REINDEX=1
 
 # Moderate health thresholds
@@ -473,7 +473,7 @@ ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS=12
 
 ```bash
 # Aggressive concurrency
-ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_NORMAL_REINDEX=4
+ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS=4
 ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_LARGE_REINDEX=2
 
 # Relaxed health thresholds
