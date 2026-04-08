@@ -34,7 +34,9 @@ record CustomAssertionInfo {
     * dataset schema field targeted by this assertion.
     *
     * This field is expected to be provided if the assertion is on dataset field
+    * @deprecated Use fields instead for multi-column support.
     */
+    @deprecated = "Use fields instead for multi-column support."
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "schemaField" ]
@@ -45,6 +47,18 @@ record CustomAssertionInfo {
       "entityTypes": [ "schemaField" ]
     }
     field: optional Urn
+
+    /**
+    * One or more dataset schema fields targeted by this assertion.
+    * Use this field for assertions that involve multiple columns.
+    */
+    @Relationship = {
+      "/*": {
+        "name": "Asserts",
+        "entityTypes": [ "schemaField" ]
+      }
+    }
+    fields: optional array[Urn]
 
     /*
     * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.

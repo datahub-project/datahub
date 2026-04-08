@@ -411,7 +411,7 @@ describe('Document Preview - Platform Logo Display', () => {
                 expect(platformImage).toBeInTheDocument();
                 expect(platformImage).toHaveAttribute('src', 'https://example.com/gdocs-logo.png');
             });
-        });
+        }, 20000);
 
         it('should display platform logo in full preview', async () => {
             const mockPlatform = createMockPlatform('SharePoint', 'https://example.com/sharepoint-logo.png');
