@@ -48,7 +48,7 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
     type: EntityType;
 }>`
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border: ${({ selected }) => (selected ? 2 : 1)}px solid;
     border-color: ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
     border-radius: 50%;

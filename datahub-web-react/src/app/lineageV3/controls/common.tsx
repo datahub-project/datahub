@@ -5,7 +5,7 @@ export const ControlPanel = styled.div`
     flex-direction: column;
     align-items: flex-start;
 
-    background: ${(props) => props.theme.colors.bgSurface};
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
     border: 1px solid ${(props) => props.theme.colors.border};
     box-shadow: ${(props) => props.theme.colors.shadowSm};

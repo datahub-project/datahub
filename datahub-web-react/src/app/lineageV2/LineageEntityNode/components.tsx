@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 
 const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 10px;
     color: ${(props) => props.theme.colors.textBrand};
