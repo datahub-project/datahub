@@ -1112,12 +1112,14 @@ class Mapper:
         self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Return user MCPs if create_corp_user=True, empty list otherwise.
+        Return user MCPs if extract_ownership=True and create_corp_user=True, empty list otherwise.
         When True: Emits full user entities (Key + Info).
         When False: Returns empty (ownership uses URNs only via to_datahub_user_urns).
         """
         # Check flag FIRST, return empty if False (soft reference mode)
-        if not self.__config.ownership.create_corp_user:
+        if not (
+            self.__config.extract_ownership and self.__config.ownership.create_corp_user
+        ):
             return []
 
         # Opt-in mode: Create full user entities

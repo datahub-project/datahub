@@ -210,12 +210,6 @@ class PowerBiAPI:
                     workspace, workspace.scan_result.get(Constant.REPORTS, [])
                 )
             }
-            if self.__config.extract_ownership is False:
-                logger.info(
-                    "Skipping user retrieval for reports as extract_ownership is set to false"
-                )
-                for report in reports.values():
-                    report.users = []
         else:
             try:
                 reports = {
