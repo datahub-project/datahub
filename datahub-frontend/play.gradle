@@ -97,7 +97,6 @@ dependencies {
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
-  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.playTest
   testImplementation externalDependency.awaitility
   testImplementation 'no.nav.security:mock-oauth2-server:2.1.9'
