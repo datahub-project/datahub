@@ -47,6 +47,7 @@ class RedshiftTable(BaseTable):
     output_parameters: Optional[str] = None
     serde_parameters: Optional[str] = None
     last_altered: Optional[datetime] = None
+    owner: Optional[str] = None
 
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
@@ -60,6 +61,7 @@ class RedshiftView(BaseTable):
     last_altered: Optional[datetime] = None
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
+    owner: Optional[str] = None
 
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
@@ -313,17 +315,23 @@ class RedshiftDataDictionary:
         schemas = cursor.fetchall()
         field_names = [i[0] for i in cursor.description]
 
-        return [
-            RedshiftSchema(
-                database=database,
-                name=schema[field_names.index("schema_name")],
-                type=schema[field_names.index("schema_type")],
-                option=schema[field_names.index("schema_option")],
-                external_platform=schema[field_names.index("external_platform")],
-                external_database=schema[field_names.index("external_database")],
+        result = []
+        for schema in schemas:
+            name = schema[field_names.index("schema_name")]
+            owner = schema[field_names.index("schema_owner_name")]
+            logger.info(f"Schema {name} owner: {owner}")
+            result.append(
+                RedshiftSchema(
+                    database=database,
+                    name=name,
+                    type=schema[field_names.index("schema_type")],
+                    owner=owner,
+                    option=schema[field_names.index("schema_option")],
+                    external_platform=schema[field_names.index("external_platform")],
+                    external_database=schema[field_names.index("external_database")],
+                )
             )
-            for schema in schemas
-        ]
+        return result
 
     def enrich_tables(
         self,
@@ -421,6 +429,7 @@ class RedshiftDataDictionary:
                         output_parameters=table[field_names.index("output_format")],
                         serde_parameters=table[field_names.index("serde_parameters")],
                         comment=table[field_names.index("table_description")],
+                        owner=table[field_names.index("owner_name")],
                     )
                 )
             else:
@@ -454,6 +463,7 @@ class RedshiftDataDictionary:
                         size_in_bytes=size_in_bytes,
                         rows_count=rows_count,
                         materialized=materialized,
+                        owner=table[field_names.index("owner_name")],
                     )
                 )
 

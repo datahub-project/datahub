@@ -41,9 +41,7 @@ class RedshiftCommonQuery:
         AND (datname <> ('template1')::name)
         """
 
-    # NOTE: although schema owner id is available in tables, we do not use it
-    # as getting username from id requires access to pg_catalog.pg_user_info
-    # which is available only to superusers.
+    # NOTE: schema_owner IDs are resolved via pg_user (pg_user_info is superuser-only).
     # NOTE: Need union here instead of using svv_all_schemas, in order to get
     # external platform related lineage
     # NOTE: Using database_name filter for svv_redshift_schemas, as  otherwise
@@ -54,16 +52,19 @@ class RedshiftCommonQuery:
         SELECT 
             schema_name,
             schema_type,
+            u.usename as schema_owner_name,
             cast(null as varchar(1024)) as schema_option,
             cast(null as varchar(256)) as external_platform,
             cast(null as varchar(256)) as external_database
-        FROM svv_redshift_schemas
+        FROM svv_redshift_schemas s
+        LEFT JOIN pg_catalog.pg_user u ON u.usesysid = s.schema_owner
         WHERE database_name = '{database}'
           AND schema_name != 'pg_catalog' and schema_name != 'information_schema'
     UNION ALL
         SELECT 
             schemaname as schema_name,
             'external' as schema_type,
+            NULL as schema_owner_name,
             esoptions as schema_option,
             CASE s.eskind
                 WHEN '1' THEN 'GLUE'
@@ -87,9 +88,7 @@ class RedshiftCommonQuery:
             from svv_redshift_databases 
             where database_name='{database}';"""
 
-    # NOTE: although table owner id is available in tables, we do not use it
-    # as getting username from id requires access to pg_catalog.pg_user_info
-    # which is available only to superusers.
+    # NOTE: Owner names from pg_user (LEFT JOIN keeps rows if owner is missing).
     # NOTE: Tables from shared database are not available in pg_catalog.pg_class
     @staticmethod
     def list_tables(
@@ -117,7 +116,7 @@ class RedshiftCommonQuery:
                 WHEN 8 THEN 'ALL'
             END AS "diststyle",
             c.relowner AS "owner_id",
-            null as "owner_name",
+            u.usename as "owner_name",
             TRIM(TRAILING ';' FROM pg_catalog.pg_get_viewdef (c.oid,TRUE)) AS "view_definition",
             pg_catalog.array_to_string(c.relacl,'\n') AS "privileges",
             NULL as "location",
@@ -130,6 +129,7 @@ class RedshiftCommonQuery:
         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_class_info as ci on c.oid = ci.reloid
         LEFT JOIN pg_catalog.pg_description pgd ON pgd.objsubid = 0 AND pgd.objoid = c.oid
+        LEFT JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
         JOIN svv_redshift_schemas rs ON rs.schema_name = n.nspname AND rs.database_name = '{database}'
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
@@ -169,7 +169,7 @@ class RedshiftCommonQuery:
             NULL as "creation_time",
             NULL AS "diststyle",
             table_owner AS "owner_id",
-            NULL AS "owner_name",
+            table_owner AS "owner_name",
             NULL AS "view_definition",
             table_acl AS "privileges",
             NULL as "location",

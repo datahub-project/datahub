@@ -14,8 +14,10 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_tag_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -153,6 +155,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Enabled by default, extracts table/view owners from Redshift catalog",
+)
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -842,6 +848,16 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=subTypes
         ).as_workunit()
+
+        if table.owner:
+            logger.info(
+                f"Emitting ownership for {datahub_dataset_name}: owner={table.owner}"
+            )
+            yield from add_owner_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                owner_urn=make_user_urn(table.owner),
+            )
 
         if self.domain_registry:
             yield from get_domain_wu(
