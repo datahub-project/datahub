@@ -308,7 +308,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     useAvoidIntersections(urn, expandHeight);
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
-    const [nodeColor] = getNodeColor(theme, type);
+    const [nodeColor] = getNodeColor(type);
     const highlightColor = isSearchedEntity ? theme.colors.textWarning : theme.colors.bgSurfaceWarning;
     const hasUpstreamChildren = !!entity?.numUpstreamChildren;
     const hasDownstreamChildren = !!entity?.numDownstreamChildren;
