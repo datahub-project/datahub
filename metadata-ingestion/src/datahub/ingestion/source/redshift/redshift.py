@@ -527,11 +527,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
 
-            schema_owner_urn = (
-                make_user_urn(schema.owner)
-                if self.config.extract_ownership and schema.owner
-                else None
-            )
             yield from gen_schema_container(
                 schema=schema.name,
                 database=database,
@@ -540,8 +535,21 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
                 sub_types=[DatasetSubTypes.SCHEMA],
-                owner_urn=schema_owner_urn,
             )
+
+            if self.config.extract_ownership and schema.owner:
+                schema_container_urn = schema_container_key.as_urn()
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=schema_container_urn,
+                    aspect=OwnershipClass(
+                        owners=[
+                            OwnerClass(
+                                owner=make_user_urn(schema.owner),
+                                type=OwnershipTypeClass.TECHNICAL_OWNER,
+                            )
+                        ]
+                    ),
+                ).as_workunit()
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(

@@ -1,4 +1,5 @@
 from typing import Iterable, Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -10,6 +11,7 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_schema import (
     REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE,
+    RedshiftSchema,
     RedshiftTable,
     _add_redshift_query_tag,
 )
@@ -161,3 +163,68 @@ def test_gen_dataset_workunits_no_ownership_emitted(
         and wu.metadata.aspectName == "ownership"
     ]
     assert len(ownership_aspects) == 0
+
+
+def _gen_schema_container_workunits(
+    schema_owner: Optional[str], extract_ownership: bool
+) -> list[MetadataWorkUnit]:
+    source = _make_source(extract_ownership=extract_ownership)
+    schema = RedshiftSchema(
+        name="public",
+        database="dev",
+        type="local",
+        owner=schema_owner,
+    )
+    source.db_tables = {"dev": {}}
+    source.db_views = {"dev": {}}
+    with patch.object(
+        source.data_dictionary,
+        "get_columns_for_schema",
+        return_value={},
+    ):
+        return list(
+            source.process_schema(
+                connection=MagicMock(),
+                database="dev",
+                schema=schema,
+            )
+        )
+
+
+def test_process_schema_emits_owner_urn_when_enabled() -> None:
+    workunits = _gen_schema_container_workunits(
+        schema_owner="alice", extract_ownership=True
+    )
+    container_props_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "ownership"
+    ]
+    assert len(container_props_wus) == 1
+    ownership = container_props_wus[0].metadata.aspect
+    assert isinstance(ownership, OwnershipClass)
+    assert ownership.owners[0].owner == "urn:li:corpuser:alice"
+    assert ownership.owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
+
+
+@pytest.mark.parametrize(
+    "schema_owner, extract_ownership",
+    [
+        ("alice", False),  # flag disabled
+        (None, True),  # no owner in catalog
+    ],
+)
+def test_process_schema_no_owner_urn_emitted(
+    schema_owner: Optional[str], extract_ownership: bool
+) -> None:
+    workunits = _gen_schema_container_workunits(
+        schema_owner=schema_owner, extract_ownership=extract_ownership
+    )
+    ownership_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "ownership"
+    ]
+    assert len(ownership_wus) == 0
