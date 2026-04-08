@@ -266,7 +266,8 @@ class Page:
 class User:
     id: str
     displayName: str
-    emailAddress: str
+    # users with principalType = App do not have emailAddress
+    emailAddress: Optional[str]
     graphId: str
     principalType: str
     datasetUserAccessRight: Optional[str] = None
@@ -450,7 +451,7 @@ def new_powerbi_user(raw_instance: dict) -> User:
     return User(
         id=raw_instance[Constant.IDENTIFIER],
         displayName=raw_instance[Constant.DISPLAY_NAME],
-        emailAddress=raw_instance[Constant.EMAIL_ADDRESS],
+        emailAddress=raw_instance.get(Constant.EMAIL_ADDRESS),
         graphId=raw_instance[Constant.GRAPH_ID],
         principalType=raw_instance[Constant.PRINCIPAL_TYPE],
         datasetUserAccessRight=raw_instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
