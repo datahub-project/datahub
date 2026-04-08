@@ -409,27 +409,40 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
     )
 
 
-def new_powerbi_reports(raw_instances: list[dict]) -> list[Report]:
-    return [
-        Report(
+def new_powerbi_reports(
+    workspace: Workspace, raw_instances: list[dict]
+) -> list[Report]:
+    def build_report(raw_instance: dict) -> Report:
+        if raw_instance.get("webUrl"):
+            web_url = raw_instance.get(Constant.WEB_URL)
+        elif workspace.webUrl:
+            web_url = f"{workspace.webUrl}/reports/{raw_instance[Constant.ID]}"
+        else:
+            web_url = None
+
+        return Report(
             id=raw_instance[Constant.ID],
             name=raw_instance[Constant.NAME],
             type=ReportType[raw_instance[Constant.REPORT_TYPE]],
-            webUrl=raw_instance.get(Constant.WEB_URL),
+            webUrl=web_url,
             embedUrl=raw_instance.get(Constant.EMBED_URL),
             description=raw_instance.get(Constant.DESCRIPTION, ""),
             pages=[],  # It will be fetched later
             dataset_id=raw_instance.get(Constant.DATASET_ID),
-            users=[],  # It will be fetched using Admin Fetcher based on condition
+            users=[
+                new_powerbi_user(user_instance)
+                for user_instance in raw_instance.get(Constant.USERS, [])
+            ],
             tags=[],  # It will be fetched using Admin Fetcher based on condition
             dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
         )
+
+    return [
+        build_report(raw_instance)
         for raw_instance in raw_instances
-        if Constant.APP_ID
-        not in raw_instance  # As we add reports to the App, Power BI starts providing
-        # duplicate report information,
-        # where the duplicate includes an AppId,
-        # while the original report does not.
+        # As we add reports to the App, Power BI starts providing duplicate report information,
+        # where the duplicate includes an AppId, while the original report does not.
+        if Constant.APP_ID not in raw_instance
     ]
 
 

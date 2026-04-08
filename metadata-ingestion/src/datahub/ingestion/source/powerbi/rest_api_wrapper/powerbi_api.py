@@ -26,6 +26,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     User,
     Workspace,
     new_powerbi_dataset,
+    new_powerbi_reports,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -194,48 +195,51 @@ class PowerBiAPI:
             dashboard.workspace_id, Constant.DASHBOARDS, dashboard.id
         )
 
-    def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
-        return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
-
     def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
         """
         reports: Dict[str, Report] = {}
-        try:
+        if workspace.scan_result:
             reports = {
                 report.id: report
-                for report in self._get_resolver().get_reports(workspace)
-            }
-            # Fill Report dataset
-            for report in reports.values():
-                report.pages = self._get_resolver().get_pages_by_report(
-                    workspace=workspace, report_id=report.id
+                for report in new_powerbi_reports(
+                    workspace, workspace.scan_result.get(Constant.REPORTS, [])
                 )
-                if report.dataset_id:
-                    report.dataset = self.dataset_registry.get(report.dataset_id)
-                    if report.dataset is None:
-                        self.reporter.info(
-                            title="Missing Lineage For Report",
-                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
-                        )
-        except Exception:
-            self.log_http_error(
-                message=f"Unable to fetch reports for workspace {workspace.name}"
+            }
+        else:
+            try:
+                reports = {
+                    report.id: report
+                    for report in self._get_resolver().get_reports(workspace)
+                }
+            except Exception:
+                self.log_http_error(
+                    message=f"Unable to fetch reports for workspace {workspace.name}"
+                )
+
+        # Fill Report dataset
+        for report in reports.values():
+            report.pages = self._get_resolver().get_pages_by_report(
+                workspace=workspace, report_id=report.id
             )
+            if report.dataset_id:
+                report.dataset = self.dataset_registry.get(report.dataset_id)
+                if report.dataset is None:
+                    self.reporter.info(
+                        title="Missing Lineage For Report",
+                        message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                        context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                    )
 
         def fill_ownership() -> None:
             if self.__config.extract_ownership is False:
                 logger.info(
                     "Skipping user retrieval for report as extract_ownership is set to false"
                 )
+                for report in reports.values():
+                    report.users = []
                 return
-
-            for report in reports.values():
-                report.users = self.get_report_users(
-                    workspace_id=workspace.id, report_id=report.id
-                )
 
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:

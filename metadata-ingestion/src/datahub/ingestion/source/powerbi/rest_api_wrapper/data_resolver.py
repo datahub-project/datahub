@@ -305,17 +305,7 @@ class DataResolverBase(ABC):
         response_dict = response.json()
         logger.debug(f"Report Request response = {response_dict}")
 
-        return new_powerbi_reports(response_dict.get(Constant.VALUE, []))
-
-    def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
-        reports: List[Report] = self.get_reports(
-            workspace, _filter=f"id eq '{report_id}'"
-        )
-
-        if len(reports) == 0:
-            return None
-
-        return reports[0]
+        return new_powerbi_reports(workspace, response_dict.get(Constant.VALUE, []))
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
         """
