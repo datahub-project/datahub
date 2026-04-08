@@ -1,3 +1,5 @@
+import datetime
+import io
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -6,10 +8,12 @@ from unittest.mock import patch
 
 import pydantic
 import pytest
+from botocore.response import StreamingBody
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
@@ -1435,3 +1439,180 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
 )
 def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
     assert _sanitize_jdbc_url(raw_url) == expected_safe
+
+
+@freeze_time(FROZEN_TIME)
+def test_glue_ingest_job_without_script_location() -> None:
+    """Jobs with no ScriptLocation should still emit a fallback DataJob."""
+    source = glue_source(extract_transforms=True)
+
+    job_without_script = {
+        "Name": "no-script-job",
+        "Description": "A job with no script",
+        "Role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole",
+        "CreatedOn": datetime.datetime(2021, 6, 10, 16, 51, 25, 690000),
+        "LastModifiedOn": datetime.datetime(2021, 6, 10, 16, 55, 35, 307000),
+        "ExecutionProperty": {"MaxConcurrentRuns": 1},
+        "Command": {
+            "Name": "glueetl",
+            "PythonVersion": "3",
+            # No ScriptLocation
+        },
+        "DefaultArguments": {},
+        "MaxRetries": 0,
+        "GlueVersion": "2.0",
+    }
+
+    jobs_response = {"Jobs": [job_without_script]}
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", {"DatabaseList": []}, {})
+        glue_stubber.add_response("get_jobs", jobs_response, {})
+
+        workunits = list(source.get_workunits())
+
+    # Find DataJob MCP workunits (MCP-based, not MCE snapshots)
+    datajob_info_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.DataJobInfoClass)
+    ]
+    datajob_io_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.DataJobInputOutputClass)
+    ]
+
+    assert len(datajob_info_wus) == 1
+    assert len(datajob_io_wus) == 1
+
+    # Verify the fallback DataJob has expected properties
+    info_mcp = datajob_info_wus[0].metadata
+    datajob_info = info_mcp.aspect
+    assert isinstance(datajob_info, models.DataJobInfoClass)
+    assert datajob_info.name == "no-script-job"
+    assert datajob_info.type == "GLUE"
+    assert "no-script-job" in (datajob_info.externalUrl or "")
+
+    # Verify the URN uses the "job" job_id
+    assert info_mcp.entityUrn is not None
+    assert info_mcp.entityUrn.endswith(",job)")
+
+    # Verify the report counted the missing script
+    assert source.report.num_job_script_location_missing == 1
+
+
+@freeze_time(FROZEN_TIME)
+def test_glue_ingest_job_with_no_transforms() -> None:
+    """Jobs with only DataSource/DataSink nodes (no transforms) should emit
+    a fallback DataJob that bridges source-to-sink lineage."""
+    source = glue_source(extract_transforms=True)
+
+    job_with_script = {
+        "Name": "source-sink-only-job",
+        "Description": "A job with only source and sink, no transforms",
+        "Role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole",
+        "CreatedOn": datetime.datetime(2021, 6, 10, 16, 51, 25, 690000),
+        "LastModifiedOn": datetime.datetime(2021, 6, 10, 16, 55, 35, 307000),
+        "ExecutionProperty": {"MaxConcurrentRuns": 1},
+        "Command": {
+            "Name": "glueetl",
+            "ScriptLocation": "s3://aws-glue-assets-123412341234-us-west-2/scripts/source-sink-job.py",
+            "PythonVersion": "3",
+        },
+        "DefaultArguments": {},
+        "MaxRetries": 0,
+        "GlueVersion": "2.0",
+    }
+
+    jobs_response = {"Jobs": [job_with_script]}
+
+    # DAG with only a DataSource and a DataSink, no transform nodes
+    source_sink_only_dag = {
+        "DagNodes": [
+            {
+                "Id": "DataSource0",
+                "NodeType": "DataSource",
+                "Args": [
+                    {"Name": "database", "Value": '"flights-database"', "Param": False},
+                    {"Name": "table_name", "Value": '"avro"', "Param": False},
+                    {
+                        "Name": "transformation_ctx",
+                        "Value": '"DataSource0"',
+                        "Param": False,
+                    },
+                ],
+                "LineNumber": 10,
+            },
+            {
+                "Id": "DataSink0",
+                "NodeType": "DataSink",
+                "Args": [
+                    {"Name": "database", "Value": '"test-database"', "Param": False},
+                    {
+                        "Name": "table_name",
+                        "Value": '"test_jsons_markers"',
+                        "Param": False,
+                    },
+                    {
+                        "Name": "transformation_ctx",
+                        "Value": '"DataSink0"',
+                        "Param": False,
+                    },
+                ],
+                "LineNumber": 20,
+            },
+        ],
+        "DagEdges": [
+            {
+                "Source": "DataSource0",
+                "Target": "DataSink0",
+                "TargetParameter": "frame",
+            },
+        ],
+    }
+
+    script_body = b"# dummy script"
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", {"DatabaseList": []}, {})
+        glue_stubber.add_response("get_jobs", jobs_response, {})
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            source_sink_only_dag,
+            {"PythonScript": script_body.decode()},
+        )
+
+        with Stubber(source.s3_client) as s3_stubber:
+            s3_stubber.add_response(
+                "get_object",
+                {
+                    "Body": StreamingBody(io.BytesIO(script_body), len(script_body)),
+                },
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/source-sink-job.py",
+                },
+            )
+
+            workunits = list(source.get_workunits())
+
+    # Should have a fallback DataJob with lineage
+    datajob_io_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.DataJobInputOutputClass)
+    ]
+
+    assert len(datajob_io_wus) == 1
+    io_aspect = datajob_io_wus[0].metadata.aspect
+    assert isinstance(io_aspect, models.DataJobInputOutputClass)
+
+    # The fallback DataJob should carry lineage from source to sink
+    assert len(io_aspect.inputDatasets) == 1
+    assert len(io_aspect.outputDatasets) == 1
+    assert "flights-database.avro" in io_aspect.inputDatasets[0]
+    assert "test-database.test_jsons_markers" in io_aspect.outputDatasets[0]

@@ -1115,6 +1115,46 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f"{job_name}-{node['Id']}", mce=mce)
 
+    def get_datajob_wu_for_dataflow(
+        self,
+        flow_urn: str,
+        job: Dict[str, Any],
+        input_datasets: Optional[List[str]] = None,
+        output_datasets: Optional[List[str]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate DataJob workunits for a Glue job that has no transform nodes.
+
+        This handles cases where a job has no script, the script could not be
+        parsed, or the DAG contains only sources and sinks with no transforms.
+        We emit one DataJob representing the entire job so it still appears in
+        the lineage graph and bridges source-to-sink lineage.
+        """
+
+        region = self.source_config.aws_region
+        job_name = job["Name"]
+        job_id = "job"
+
+        datajob_urn = mce_builder.make_data_job_urn_with_flow(flow_urn, job_id=job_id)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=DataJobInfoClass(
+                name=job_name,
+                type="GLUE",
+                externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
+            ),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=DataJobInputOutputClass(
+                inputDatasets=input_datasets or [],
+                outputDatasets=output_datasets or [],
+                inputDatajobs=[],
+            ),
+        ).as_workunit()
+
     def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
         logger.debug("Getting all databases")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
@@ -1641,6 +1681,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
         flow_names: Dict[str, str] = {}
+        flow_jobs: Dict[str, Dict[str, Any]] = {}
         for job in self.get_all_jobs():
             flow_urn = mce_builder.make_data_flow_urn(
                 self.platform, job["Name"], self.env
@@ -1659,6 +1700,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
             dags[flow_urn] = dag
             flow_names[flow_urn] = job["Name"]
+            flow_jobs[flow_urn] = job
         # run a first pass to pick up s3 bucket names and formats
         # in Glue, it's possible for two buckets to have files of different extensions
         # if this happens, we append the extension in the URN so the sources can be distinguished
@@ -1671,14 +1713,41 @@ class GlueSource(StatefulIngestionSourceBase):
         # run second pass to generate node workunits
         for flow_urn, dag in dags.items():
             if dag is None:
+                yield from self.get_datajob_wu_for_dataflow(
+                    flow_urn, flow_jobs[flow_urn]
+                )
                 continue
 
             nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
                 dag, flow_urn, s3_formats
             )
 
+            has_transform_nodes = any(
+                node["NodeType"] not in ["DataSource", "DataSink"]
+                for node in nodes.values()
+            )
+
             if not nodes:
                 self.report.num_job_without_nodes += 1
+                yield from self.get_datajob_wu_for_dataflow(
+                    flow_urn, flow_jobs[flow_urn]
+                )
+            elif not has_transform_nodes:
+                # Job has sources/sinks but no transforms — emit a fallback
+                # DataJob that bridges source-to-sink lineage.
+                input_datasets: List[str] = []
+                output_datasets: List[str] = []
+                for node in nodes.values():
+                    if node["NodeType"] == "DataSource":
+                        input_datasets.extend(node.get("dataset_urns", [node["urn"]]))
+                    elif node["NodeType"] == "DataSink":
+                        output_datasets.append(node["urn"])
+                yield from self.get_datajob_wu_for_dataflow(
+                    flow_urn,
+                    flow_jobs[flow_urn],
+                    input_datasets=input_datasets,
+                    output_datasets=output_datasets,
+                )
 
             for node in nodes.values():
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
