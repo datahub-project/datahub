@@ -22,7 +22,7 @@ export const ENTITY_TYPES = {
   DATA_JOB: 'dataJob',
 };
 
-export const PLATFORMS = {
+export const DATA_SOURCES = {
   HIVE: 'hive',
   KAFKA: 'kafka',
   POSTGRES: 'postgres',

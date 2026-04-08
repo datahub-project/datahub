@@ -9,6 +9,7 @@ export class NavigationHelper {
   }
 
   async waitForNavigation(): Promise<void> {
+    await this.page.waitForLoadState('domcontentloaded');
     await this.page.waitForLoadState('networkidle');
   }
 
