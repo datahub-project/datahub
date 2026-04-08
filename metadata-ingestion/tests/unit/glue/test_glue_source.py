@@ -1490,6 +1490,7 @@ def test_glue_ingest_job_without_script_location() -> None:
 
     # Verify the fallback DataJob has expected properties
     info_mcp = datajob_info_wus[0].metadata
+    assert isinstance(info_mcp, MetadataChangeProposalWrapper)
     datajob_info = info_mcp.aspect
     assert isinstance(datajob_info, models.DataJobInfoClass)
     assert datajob_info.name == "no-script-job"
@@ -1608,7 +1609,9 @@ def test_glue_ingest_job_with_no_transforms() -> None:
     ]
 
     assert len(datajob_io_wus) == 1
-    io_aspect = datajob_io_wus[0].metadata.aspect
+    io_mcp = datajob_io_wus[0].metadata
+    assert isinstance(io_mcp, MetadataChangeProposalWrapper)
+    io_aspect = io_mcp.aspect
     assert isinstance(io_aspect, models.DataJobInputOutputClass)
 
     # The fallback DataJob should carry lineage from source to sink
