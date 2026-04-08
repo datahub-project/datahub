@@ -35,41 +35,4 @@ export class GraphQLHelper {
     return await response.json();
   }
 
-  async mockGraphQLResponse(operationName: string, mockData: any): Promise<void> {
-    await this.page.route('**/graphql', async (route) => {
-      const request = route.request();
-      const postData = request.postDataJSON();
-
-      if (postData?.operationName === operationName) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: mockData }),
-        });
-      } else {
-        await route.continue();
-      }
-    });
-  }
-
-  async setThemeV2Enabled(isEnabled: boolean): Promise<void> {
-    await this.page.route('**/api/v2/graphql', async (route) => {
-      const request = route.request();
-      const postData = request.postDataJSON();
-      const operationName = postData?.operationName;
-
-      const response = await route.fetch();
-      const json = await response.json();
-
-      if (operationName === 'appConfig') {
-        json.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
-        json.data.appConfig.featureFlags.themeV2Default = isEnabled;
-        json.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
-      } else if (operationName === 'getMe') {
-        json.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
-      }
-
-      await route.fulfill({ response, json });
-    });
-  }
 }

@@ -13,6 +13,11 @@
  * Worker-scoped means seeding happens AT MOST ONCE per worker process for a
  * given feature name, regardless of how many tests request it.
  *
+ * NOTE: This fixture is intentionally worker-scoped.  Worker-scoped fixtures
+ * cannot depend on test-scoped fixtures such as `logger`.  Seeding progress is
+ * reported via console.log/warn, which appears in the worker's stdout and in
+ * Playwright's built-in reporter output.
+ *
  * ─────────────────────────────────────────────────────────────────────────────
  * Usage in a spec file (set at describe level, never inside a test):
  *
@@ -42,9 +47,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { test as base, request } from '@playwright/test';
-import { readGmsToken } from './auth';
+import { readGmsToken } from './login';
 import type { UserCredentials } from './users';
-import type { DataHubLogger } from '../utils/logger';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -75,13 +79,12 @@ type SeedingFixtureOptions = {
    * Set to `null` (default) to skip seeding for the suite.
    */
   featureName: string | null;
-};
-
-/** Fixture type declarations consumed from other merged fixtures. */
-type SeedingDeps = {
-  /** Provided by loggerFixture via mergeTests in base-test.ts */
-  logger: DataHubLogger;
-  /** Provided by loginFixture via mergeTests in base-test.ts */
+  /** Internal worker-scoped auto fixture — not consumed by tests. */
+  _seedFeatureData: void;
+  /**
+   * Worker-scoped user option declared here so the worker fixture can access
+   * it. The actual value is provided by loginFixture via mergeTests.
+   */
   user: UserCredentials;
 };
 
@@ -108,7 +111,6 @@ async function ingestMcps(
   featureName: string,
   gmsToken: string,
   gmsUrl: string,
-  logger: DataHubLogger,
 ): Promise<void> {
   const dataFile = dataFilePath(featureName);
   if (!fs.existsSync(dataFile)) {
@@ -119,7 +121,7 @@ async function ingestMcps(
   }
 
   const mcps = JSON.parse(fs.readFileSync(dataFile, 'utf-8')) as Mcp[];
-  logger.info('seeding feature data', { featureName, entityCount: mcps.length });
+  console.log(`[seeding] seeding '${featureName}' — ${mcps.length} entities`);
 
   const apiContext = await request.newContext({
     baseURL: gmsUrl,
@@ -143,9 +145,9 @@ async function ingestMcps(
         const body = await response.text();
         const label = urn ?? JSON.stringify(mcp).slice(0, 80);
         failures.push(`${label}: ${response.status()} ${body.slice(0, 200)}`);
-        logger.warn('entity ingest failed', { urn, status: response.status() });
+        console.warn(`[seeding] entity ingest failed — urn=${urn} status=${response.status()}`);
       } else {
-        logger.info('entity ingested', { urn });
+        console.log(`[seeding] ingested urn=${urn}`);
       }
     }
 
@@ -164,7 +166,7 @@ async function ingestMcps(
       entityCount: mcps.length,
     };
     fs.writeFileSync(stateFilePath(featureName), JSON.stringify(state, null, 2));
-    logger.info('seed state saved', { featureName, stateFile: stateFilePath(featureName) });
+    console.log(`[seeding] state saved — featureName=${featureName}`);
   } finally {
     await apiContext.dispose();
   }
@@ -172,7 +174,8 @@ async function ingestMcps(
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-export const seedingFixture = base.extend<SeedingDeps, SeedingFixtureOptions>({
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
   // ── Option: injectable feature name (worker-scoped) ───────────────────────
   featureName: [null, { option: true, scope: 'worker' }],
 
@@ -180,7 +183,7 @@ export const seedingFixture = base.extend<SeedingDeps, SeedingFixtureOptions>({
   // Using an internal name with underscore prefix to mark it as infrastructure.
   // Tests never destructure this — it runs automatically.
   _seedFeatureData: [
-    async ({ featureName, user, logger }, use) => {
+    async ({ featureName, user }, use) => {
       if (!featureName) {
         // Suite does not need seeded data.
         await use();
@@ -188,7 +191,7 @@ export const seedingFixture = base.extend<SeedingDeps, SeedingFixtureOptions>({
       }
 
       if (process.env.PW_NO_SEED === '1') {
-        logger.info('skipping seed (PW_NO_SEED=1)', { featureName });
+        console.log(`[seeding] skipping (PW_NO_SEED=1) — featureName=${featureName}`);
         await use();
         return;
       }
@@ -196,11 +199,9 @@ export const seedingFixture = base.extend<SeedingDeps, SeedingFixtureOptions>({
       const stateFile = stateFilePath(featureName);
       if (fs.existsSync(stateFile)) {
         const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
-        logger.info('reusing seeded data', {
-          featureName,
-          seededAt: state.seededAt,
-          entityCount: state.entityCount,
-        });
+        console.log(
+          `[seeding] reusing seeded data — featureName=${featureName} seededAt=${state.seededAt} entityCount=${state.entityCount}`,
+        );
         await use();
         return;
       }
@@ -210,7 +211,7 @@ export const seedingFixture = base.extend<SeedingDeps, SeedingFixtureOptions>({
       const gmsUrl = baseUrl.replace(':9002', ':8080');
       const gmsToken = readGmsToken(user.username);
 
-      await ingestMcps(featureName, gmsToken, gmsUrl, logger);
+      await ingestMcps(featureName, gmsToken, gmsUrl);
 
       await use();
     },

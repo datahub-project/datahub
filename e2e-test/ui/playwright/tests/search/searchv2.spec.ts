@@ -34,8 +34,10 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should clear search input using clear button', async () => {
+    // Click to focus first — the clear button only renders when the input is focused
+    await searchPage.searchInput.click();
     await searchPage.searchInput.fill('test query');
-    await expect(searchPage.clearButton).toBeVisible();
+    await expect(searchPage.clearButton).toBeVisible({ timeout: 5000 });
     await searchPage.clearButton.click();
     await expect(searchPage.searchInput).toHaveValue('');
   });

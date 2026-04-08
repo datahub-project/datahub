@@ -44,7 +44,7 @@ import { loggerFixture } from './logger.fixture';
 import { mockingFixture } from './mocking.fixture';
 import { loginFixture } from './login.fixture';
 import { seedingFixture } from './seeding.fixture';
-import { readGmsToken } from './auth';
+import { readGmsToken } from './login';
 import { RestFeatureDataLoader, type FeatureDataLoader } from './test-data';
 import { ApiScopedCleanup, type ScopedCleanup } from './cleanup';
 

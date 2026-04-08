@@ -13,7 +13,8 @@ e2e-test/ui/playwright/
 │   ├── login.fixture.ts          # Per-worker auth state management
 │   ├── logger.fixture.ts         # Winston logger (auto-injected into every test)
 │   ├── mocking.fixture.ts        # apiMock fixture for route interception
-│   ├── auth.ts                   # Auth file path helpers + GMS token reader
+│   ├── seeding.fixture.ts        # Per-worker test data injection (seedingFixture)
+│   ├── login.ts                  # Auth file path helpers + GMS token reader
 │   ├── users.ts                  # Test user definitions (resolvedUsers)
 │   └── cleanup.ts                # cleanup fixture (registered in base-test)
 ├── pages/                        # Page Object Models
@@ -36,15 +37,21 @@ e2e-test/ui/playwright/
 │   └── incidents-v2/
 ├── helpers/                      # Standalone utility classes
 │   ├── cleanup-helper.ts         # CleanupHelper / GlobalCleanupHelper
-│   ├── graphql-helper.ts         # GraphQL request helpers
+│   ├── graphql-helper.ts         # GraphQL request helpers (executeQuery, waitForGraphQLResponse)
 │   ├── graphql-seeder.ts         # Seed test data via GraphQL
-│   ├── cli-seeder.ts             # Seed test data via DataHub CLI
+│   ├── cli-seeder.ts             # Seed test data via DataHub CLI (requires datahub CLI on $PATH)
 │   ├── rest-seeder.ts            # Seed test data via REST API
+│   ├── seeder-utils.ts           # Shared extractUrn + waitForSync utilities
 │   ├── navigation-helper.ts      # Navigation utilities
 │   └── wait-helper.ts            # Wait strategies
 ├── factories/                    # Data generation
 │   ├── test-data-factory.ts      # URN builders + timestamped name generators
-│   └── mock-response-factory.ts  # GraphQL mock response builders
+│   ├── mock-response-factory.ts  # Re-exports from mock-responses/ (backward compat)
+│   └── mock-responses/           # Per-API GraphQL mock response builders
+│       ├── common.ts             # Shared types + generic error/success builders
+│       ├── search.ts             # Search response builders
+│       ├── dataset.ts            # Dataset response builders
+│       └── index.ts              # Barrel re-export
 └── utils/                        # Shared constants and utilities
     ├── constants.ts              # Timeouts, routes, entity types, data sources
     ├── logger.ts                 # createLogger factory (Winston)
@@ -201,6 +208,51 @@ export class FeaturePage extends BasePage {
 - Page objects are instantiated in `beforeEach`, not registered as fixtures.
 - Use `data-testid` attributes first; role selectors second; text selectors as a last resort.
 
+## Data Seeding
+
+Test data is injected via `seedingFixture`, which mirrors the `loginFixture` pattern — state is tracked in a flag file on disk so seeding only happens **once per worker per feature per run**.
+
+### How it works
+
+1. Suite opts in by setting `featureName` at the describe level.
+2. Fixture checks `.seeded/{featureName}.json`. If present → skip.
+3. If absent → reads `tests/{featureName}/fixtures/data.json`, POSTs each MCP to the GMS REST API, writes the state file.
+4. All subsequent workers find the state file and skip ingestion.
+
+### Usage
+
+```typescript
+import { test, expect } from "../../fixtures/base-test";
+
+// Set at file/describe level — seeds from tests/search/fixtures/data.json
+test.use({ featureName: "search" });
+
+test.describe("Search", () => {
+  test("results exist", async ({ page }) => {
+    // Data is guaranteed to be present
+  });
+});
+```
+
+### Data file convention
+
+```
+tests/{featureName}/fixtures/data.json   ← MCP array (proposedSnapshot format)
+.seeded/{featureName}.json               ← auto-generated state file (gitignored)
+```
+
+### Skip seeding (pre-seeded local stack)
+
+```bash
+PW_NO_SEED=1 npx playwright test
+```
+
+### Force re-ingestion
+
+```bash
+rm -rf .seeded/
+```
+
 ## Authentication Architecture
 
 `loginFixture` (in `fixtures/login.fixture.ts`) overrides Playwright's built-in
@@ -238,15 +290,21 @@ const urn = TestDataFactory.createDatasetUrn("hive", name);
 
 ## Mock Responses
 
-`MockResponseFactory` builds typed GraphQL response objects with explicit
-status codes, ready to be passed to `apiMock.interceptGraphQLResponse`:
+Typed GraphQL response builders live in `factories/mock-responses/`. Import
+the named functions directly, or from the barrel `index.ts`:
 
 ```typescript
-import { MockResponseFactory } from "../../factories/mock-response-factory";
+import { createSearchResponse } from "../../factories/mock-responses/search";
+import { createErrorResponse } from "../../factories/mock-responses/common";
 
-const response = MockResponseFactory.createSearchResponse([], 0);
+const ok = createSearchResponse([], 0);
 // → { status: 200, body: { data: { search: { searchResults: [], total: 0 } } } }
+
+const err = createErrorResponse("not found", "NOT_FOUND");
+// → { status: 200, body: { errors: [{ message: "not found", ... }] } }
 ```
+
+Add new per-API builders in the appropriate sub-module under `factories/mock-responses/`.
 
 ## Cleanup
 

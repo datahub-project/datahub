@@ -61,7 +61,7 @@ export class PageApiMocker implements ApiMocker {
           body: JSON.stringify({ data: responseData }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
   }
@@ -73,7 +73,7 @@ export class PageApiMocker implements ApiMocker {
     await this.page.route('**/api/v2/graphql', async (route) => {
       const postData = route.request().postDataJSON() as { operationName?: string } | null;
       if (postData?.operationName !== operationName) {
-        await route.continue();
+        await route.fallback();
         return;
       }
       const response = await route.fetch();

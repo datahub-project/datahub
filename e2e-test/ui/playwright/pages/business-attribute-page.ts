@@ -42,12 +42,16 @@ export class BusinessAttributePage extends BasePage {
     this.businessAttributeOption = page.locator('[data-testid="business-attribute-option"]');
     this.addAttributeFromModalBtn = page.locator('[data-testid="add-attribute-from-modal-btn"]');
     this.createBusinessAttributeText = page.getByText('Create Business Attribute');
-    this.moreActionsButton = page.locator('[data-icon="more"]');
-    this.deleteMenuButton = page.getByText('Delete', { exact: true });
-    this.deleteConfirmButton = page.getByText('Yes');
+    // Scoped to button element to avoid matching other "more" icons on the page.
+    this.moreActionsButton = page.getByRole('button').filter({ has: page.locator('[data-icon="more"]') });
+    // Scoped to the Ant Design dropdown menu so "Delete" text in other contexts is not matched.
+    this.deleteMenuButton = page.locator('.ant-dropdown-menu').getByText('Delete', { exact: true });
+    // Scoped to the confirmation dialog so "Yes" text elsewhere is not matched.
+    this.deleteConfirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
     this.relatedEntitiesTab = page.getByText('Related Entities');
     this.filterEntitiesInput = page.locator('[placeholder="Filter entities..."]');
-    this.dataTypeDropdownOption = page.locator('.ant-select-item-option-content');
+    // Scoped to the Ant Design select dropdown portal to avoid matching other option-like elements.
+    this.dataTypeDropdownOption = page.locator('.ant-select-dropdown').locator('[role="option"]');
     this.businessAttributePageTitle = page.getByText('Business Attribute');
   }
 

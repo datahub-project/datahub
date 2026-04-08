@@ -19,7 +19,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test as setup, expect } from '@playwright/test';
 import { resolvedUsers } from '../fixtures/users';
-import { authStatePath, gmsTokenPath } from '../fixtures/auth';
+import { authStatePath, gmsTokenPath } from '../fixtures/login';
 import { LoginPage } from '../pages/login-page';
 
 const AUTH_DIR = path.join(__dirname, '../.auth');

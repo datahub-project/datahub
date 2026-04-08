@@ -1,208 +1,87 @@
 import { Page } from '@playwright/test';
 import * as fs from 'fs/promises';
-import * as path from 'path';
+import { extractUrn, waitForSync, type Mcp, type Urn } from './seeder-utils';
 
 /**
- * RestSeeder - Handles test data seeding via DataHub REST API
+ * RestSeeder — seeds test data via the DataHub GMS REST API.
  *
- * Uses the DataHub ingest proposal endpoint to seed metadata from JSON files.
- * Tracks created URNs for cleanup after tests complete.
+ * Prefer seedingFixture for standard per-worker seeding. Use this class
+ * directly only when a test needs fine-grained control over which entities
+ * are created and when they are deleted.
  *
  * @example
  * ```typescript
- * const seeder = new RestSeeder(page);
- * const mcps = await seeder.loadFixture('./fixtures/data.json');
+ * const seeder = new RestSeeder(page, gmsToken);
+ * const mcps = await seeder.loadTestData('./tests/search/fixtures/data.json');
  * const urns = await seeder.ingestMCPs(mcps);
  * await seeder.waitForSync(urns);
  * ```
  */
 export class RestSeeder {
-  private page: Page;
-  private baseURL: string;
-  private createdUrns: string[] = [];
-  private gmsToken?: string;
+  private readonly gmsUrl: string;
+  private readonly createdUrns: Urn[] = [];
 
-  constructor(page: Page, gmsToken?: string) {
-    this.page = page;
-    this.baseURL = process.env.BASE_URL || 'http://localhost:9002';
-    this.gmsToken = gmsToken;
+  constructor(
+    private readonly page: Page,
+    private readonly gmsToken?: string,
+  ) {
+    const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+    this.gmsUrl = baseURL.replace(':9002', ':8080');
   }
 
-  /**
-   * Load JSON fixture file containing MCPs (Metadata Change Proposals)
-   *
-   * @param relativePath - Path relative to the calling test file
-   * @returns Array of MCP objects
-   */
-  async loadFixture(relativePath: string): Promise<any[]> {
+  /** Load a JSON test-data file containing an array of MCPs. */
+  async loadTestData(filePath: string): Promise<Mcp[]> {
+    let content: string;
     try {
-      const content = await fs.readFile(relativePath, 'utf-8');
-      const data = JSON.parse(content);
-
-      if (!Array.isArray(data)) {
-        throw new Error('Fixture data must be an array of MCPs');
-      }
-
-      console.log(`📦 Loaded ${data.length} entities from ${relativePath}`);
-      return data;
-    } catch (error) {
-      throw new Error(`Failed to load fixture from ${relativePath}: ${error}`);
+      content = await fs.readFile(filePath, 'utf-8');
+    } catch (cause) {
+      throw new Error(`Failed to read test data file: ${filePath}`, { cause });
     }
+
+    const data: unknown = JSON.parse(content);
+    if (!Array.isArray(data)) {
+      throw new Error(`Test data file must contain a JSON array: ${filePath}`);
+    }
+    return data as Mcp[];
   }
 
-  /**
-   * Ingest MCPs via DataHub REST API
-   *
-   * Uses the /entities?action=ingestProposal endpoint to create entities.
-   * Tracks URNs for later cleanup.
-   *
-   * @param mcps - Array of Metadata Change Proposals
-   * @returns Array of created entity URNs
-   */
-  async ingestMCPs(mcps: any[]): Promise<string[]> {
-    const urns: string[] = [];
-    const gmsUrl = this.baseURL.replace(':9002', ':8080');
+  /** Ingest an array of MCPs via the GMS `/entities?action=ingest` endpoint. */
+  async ingestMCPs(mcps: Mcp[]): Promise<Urn[]> {
+    const urns: Urn[] = [];
 
-    console.log(`🚀 Ingesting ${mcps.length} entities via ${gmsUrl}/entities?action=ingest`);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.gmsToken) headers['Authorization'] = `Bearer ${this.gmsToken}`;
 
     for (const mcp of mcps) {
-      try {
-        const urn = this.extractUrn(mcp);
+      const urn = extractUrn(mcp);
 
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
+      const response = await this.page.request.post(`${this.gmsUrl}/entities?action=ingest`, {
+        data: { entity: { value: mcp.proposedSnapshot ?? mcp } },
+        headers,
+      });
 
-        if (this.gmsToken) {
-          headers['Authorization'] = `Bearer ${this.gmsToken}`;
-        }
-
-        const payload = {
-          entity: {
-            value: mcp.proposedSnapshot,
-          },
-        };
-
-        const response = await this.page.request.post(`${gmsUrl}/entities?action=ingest`, {
-          data: payload,
-          headers,
-        });
-
-        if (!response.ok()) {
-          const body = await response.text();
-          throw new Error(
-            `Failed to ingest entity ${urn}: ${response.status()} ${response.statusText()}\n${body}`
-          );
-        }
-
-        urns.push(urn);
-        this.createdUrns.push(urn);
-      } catch (error) {
-        console.error(`❌ Failed to ingest MCP:`, error);
-        throw error;
+      if (!response.ok()) {
+        const body = await response.text();
+        throw new Error(`Failed to ingest entity ${urn}: ${response.status()} ${body.slice(0, 200)}`);
       }
+
+      urns.push(urn);
+      this.createdUrns.push(urn);
     }
 
-    console.log(`✅ Successfully ingested ${urns.length} entities`);
     return urns;
   }
 
-  /**
-   * Extract URN from MCP
-   *
-   * Handles both snapshot format (proposedSnapshot) and MCP format (entityUrn)
-   *
-   * @param mcp - Metadata Change Proposal
-   * @returns Entity URN
-   */
-  private extractUrn(mcp: any): string {
-    // MCP format (newer)
-    if (mcp.entityUrn) {
-      return mcp.entityUrn;
-    }
-
-    // Snapshot format (older)
-    if (mcp.proposedSnapshot) {
-      const snapshot = Object.values(mcp.proposedSnapshot)[0] as any;
-      if (snapshot?.urn) {
-        return snapshot.urn;
-      }
-    }
-
-    throw new Error('Unable to extract URN from MCP');
+  /** Wait until all URNs are reachable via the GMS REST API. */
+  async waitForSync(urns: Urn[], timeout?: number): Promise<void> {
+    await waitForSync(this.page.request, this.gmsUrl, urns, this.gmsToken, timeout);
   }
 
-  /**
-   * Wait for entities to be indexed and searchable
-   *
-   * Polls the search API until all entities are found or timeout occurs.
-   * This ensures tests don't fail due to eventual consistency issues.
-   *
-   * @param urns - Entity URNs to wait for
-   * @param timeout - Maximum wait time in milliseconds (default: 30s)
-   */
-  async waitForSync(urns: string[], timeout: number = 30000): Promise<void> {
-    console.log(`⏳ Waiting for ${urns.length} entities to be indexed...`);
-
-    const startTime = Date.now();
-    const gmsUrl = this.baseURL.replace(':9002', ':8080');
-
-    for (const urn of urns) {
-      let found = false;
-
-      while (!found && Date.now() - startTime < timeout) {
-        try {
-          // Check if entity exists via GET endpoint
-          const headers: Record<string, string> = {};
-          if (this.gmsToken) {
-            headers['Authorization'] = `Bearer ${this.gmsToken}`;
-          }
-
-          const response = await this.page.request.get(`${gmsUrl}/entities/${encodeURIComponent(urn)}`, {
-            headers,
-            failOnStatusCode: false,
-          });
-
-          if (response.ok()) {
-            found = true;
-            continue;
-          }
-        } catch (error) {
-          // Entity not found yet, continue waiting
-        }
-
-        // Wait 500ms before retrying
-        await this.page.waitForTimeout(500);
-      }
-
-      if (!found) {
-        throw new Error(`Timeout waiting for entity ${urn} to be indexed after ${timeout}ms`);
-      }
-    }
-
-    // Additional buffer to ensure search index is updated
-    await this.page.waitForTimeout(2000);
-
-    console.log(`✅ All entities indexed and ready`);
-  }
-
-  /**
-   * Get list of all URNs created during this session
-   *
-   * Used by cleanup helpers to delete test data
-   *
-   * @returns Array of entity URNs
-   */
-  getCreatedUrns(): string[] {
+  getCreatedUrns(): Urn[] {
     return [...this.createdUrns];
   }
 
-  /**
-   * Clear the created URNs list
-   *
-   * Call this after cleanup to reset state
-   */
   clearCreatedUrns(): void {
-    this.createdUrns = [];
+    this.createdUrns.length = 0;
   }
 }

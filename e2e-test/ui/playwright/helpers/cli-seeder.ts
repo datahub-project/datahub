@@ -2,173 +2,99 @@ import { Page } from '@playwright/test';
 import * as fs from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { extractUrn, waitForSync, type Mcp, type Urn } from './seeder-utils';
 
 const execAsync = promisify(exec);
 
 /**
- * CliSeeder - Handles test data seeding via DataHub CLI
+ * CliSeeder — seeds test data via the DataHub CLI (`datahub ingest`).
  *
- * Uses the datahub CLI to ingest fixture files, which is the most reliable
- * approach for Playwright test data seeding.
+ * ## CLI dependency
+ *
+ * This class requires the `datahub` Python CLI to be installed and on `$PATH`.
+ * Install it with the same version as the target DataHub instance:
+ *
+ *   pip install 'acryl-datahub==<version>'    # match the running DataHub version
+ *
+ * Check the installed version:
+ *   datahub version
+ *
+ * The CLI authenticates via the `DATAHUB_GMS_URL` and `DATAHUB_GMS_TOKEN`
+ * environment variables, or via the `server`/`token` fields in the generated
+ * recipe passed to `datahub ingest -c`.
+ *
+ * Prefer seedingFixture (REST-based) for standard per-worker seeding — it has
+ * no external CLI dependency. Use CliSeeder only when the REST API cannot
+ * represent the entity aspects you need to ingest.
  *
  * @example
  * ```typescript
  * const seeder = new CliSeeder(page, gmsToken);
- * const urns = await seeder.ingestFixture('./fixtures/data.json');
+ * const urns = await seeder.ingestTestData('./tests/search/fixtures/data.json');
  * await seeder.waitForSync(urns);
  * ```
  */
 export class CliSeeder {
-  private page: Page;
-  private baseURL: string;
-  private gmsToken: string;
-  private createdUrns: string[] = [];
+  private readonly gmsUrl: string;
+  private readonly createdUrns: Urn[] = [];
 
-  constructor(page: Page, gmsToken: string) {
-    this.page = page;
-    this.baseURL = process.env.BASE_URL || 'http://localhost:9002';
-    this.gmsToken = gmsToken;
+  constructor(
+    private readonly page: Page,
+    private readonly gmsToken: string,
+  ) {
+    const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+    this.gmsUrl = baseURL.replace(':9002', ':8080');
   }
 
   /**
-   * Ingest a fixture file via DataHub CLI
+   * Ingest a test-data file via the DataHub CLI.
    *
-   * @param fixturePath - Absolute path to the fixture JSON file
-   * @returns Array of created entity URNs
+   * @param filePath - Absolute path to a JSON file containing an MCP array.
+   * @returns Array of ingested entity URNs.
    */
-  async ingestFixture(fixturePath: string): Promise<string[]> {
-    try {
-      // Read fixture to extract URNs
-      const content = await fs.readFile(fixturePath, 'utf-8');
-      const mcps = JSON.parse(content);
+  async ingestTestData(filePath: string): Promise<Urn[]> {
+    const content = await fs.readFile(filePath, 'utf-8');
+    const mcps: unknown = JSON.parse(content);
 
-      if (!Array.isArray(mcps)) {
-        throw new Error('Fixture data must be an array of MCPs');
-      }
-
-      console.log(`📦 Loaded ${mcps.length} entities from ${fixturePath}`);
-
-      // Extract URNs before ingestion
-      const urns = mcps.map((mcp) => this.extractUrn(mcp));
-
-      // Ingest via DataHub CLI
-      const gmsUrl = this.baseURL.replace(':9002', ':8080');
-
-      console.log(`🚀 Ingesting via datahub CLI...`);
-
-      const command = `datahub ingest -c '${JSON.stringify({
-        source: {
-          type: 'file',
-          config: {
-            filename: fixturePath,
-          },
-        },
-        sink: {
-          type: 'datahub-rest',
-          config: {
-            server: gmsUrl,
-            token: this.gmsToken,
-          },
-        },
-      })}'`;
-
-      const { stdout, stderr } = await execAsync(command, {
-        env: {
-          ...process.env,
-          DATAHUB_GMS_URL: gmsUrl,
-          DATAHUB_GMS_TOKEN: this.gmsToken,
-        },
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      });
-
-      if (stderr && !stderr.includes('WARNING')) {
-        console.warn(`⚠️  CLI stderr: ${stderr}`);
-      }
-
-      console.log(`✅ Successfully ingested ${urns.length} entities`);
-
-      this.createdUrns.push(...urns);
-      return urns;
-    } catch (error) {
-      console.error(`❌ Failed to ingest fixture:`, error);
-      throw error;
+    if (!Array.isArray(mcps)) {
+      throw new Error(`Test data file must contain a JSON array: ${filePath}`);
     }
+
+    const urns = (mcps as Mcp[]).map(extractUrn);
+
+    const recipe = JSON.stringify({
+      source: { type: 'file', config: { filename: filePath } },
+      sink: { type: 'datahub-rest', config: { server: this.gmsUrl, token: this.gmsToken } },
+    });
+
+    const { stderr } = await execAsync(`datahub ingest -c '${recipe}'`, {
+      env: {
+        ...process.env,
+        DATAHUB_GMS_URL: this.gmsUrl,
+        DATAHUB_GMS_TOKEN: this.gmsToken,
+      },
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    // The CLI prints WARNING lines for non-fatal issues; only surface real errors.
+    if (stderr && !stderr.includes('WARNING')) {
+      throw new Error(`datahub ingest produced unexpected stderr:\n${stderr.slice(0, 500)}`);
+    }
+
+    this.createdUrns.push(...urns);
+    return urns;
   }
 
-  /**
-   * Extract URN from MCP
-   */
-  private extractUrn(mcp: any): string {
-    // MCP format (newer)
-    if (mcp.entityUrn) {
-      return mcp.entityUrn;
-    }
-
-    // Snapshot format (older)
-    if (mcp.proposedSnapshot) {
-      const snapshot = Object.values(mcp.proposedSnapshot)[0] as any;
-      if (snapshot?.urn) {
-        return snapshot.urn;
-      }
-    }
-
-    throw new Error('Unable to extract URN from MCP');
+  /** Wait until all URNs are reachable via the GMS REST API. */
+  async waitForSync(urns: Urn[], timeout?: number): Promise<void> {
+    await waitForSync(this.page.request, this.gmsUrl, urns, this.gmsToken, timeout);
   }
 
-  /**
-   * Wait for entities to be indexed and searchable
-   */
-  async waitForSync(urns: string[], timeout: number = 30000): Promise<void> {
-    console.log(`⏳ Waiting for ${urns.length} entities to be indexed...`);
-
-    const startTime = Date.now();
-    const gmsUrl = this.baseURL.replace(':9002', ':8080');
-
-    for (const urn of urns) {
-      let found = false;
-
-      while (!found && Date.now() - startTime < timeout) {
-        try {
-          const response = await this.page.request.get(`${gmsUrl}/entities/${encodeURIComponent(urn)}`, {
-            headers: {
-              Authorization: `Bearer ${this.gmsToken}`,
-            },
-            failOnStatusCode: false,
-          });
-
-          if (response.ok()) {
-            found = true;
-            continue;
-          }
-        } catch (error) {
-          // Entity not found yet, continue waiting
-        }
-
-        await this.page.waitForTimeout(500);
-      }
-
-      if (!found) {
-        console.warn(`⚠️  Entity ${urn} not indexed after ${timeout}ms, continuing anyway...`);
-      }
-    }
-
-    // Additional buffer
-    await this.page.waitForTimeout(2000);
-
-    console.log(`✅ All entities indexed and ready`);
-  }
-
-  /**
-   * Get list of all URNs created during this session
-   */
-  getCreatedUrns(): string[] {
+  getCreatedUrns(): Urn[] {
     return [...this.createdUrns];
   }
 
-  /**
-   * Clear the created URNs list
-   */
   clearCreatedUrns(): void {
-    this.createdUrns = [];
+    this.createdUrns.length = 0;
   }
 }
