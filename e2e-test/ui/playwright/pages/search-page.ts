@@ -40,6 +40,14 @@ export class SearchPage extends BasePage {
     await this.navigate('/');
     await this.page.waitForLoadState('networkidle');
     await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
+    // The onboarding modal blocks real DOM clicks (e.g. triggering onFocus on
+    // the search input). Dismiss it if it appears so subsequent interactions
+    // hit the actual elements rather than the overlay.
+    const modal = this.page.getByRole('dialog');
+    if (await modal.isVisible()) {
+      await this.page.keyboard.press('Escape');
+      await modal.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    }
   }
 
   async search(query: string): Promise<void> {
