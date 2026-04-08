@@ -331,8 +331,8 @@ class Tile:
         UNKNOWN = "UNKNOWN"
 
     id: str
-    title: str
-    embedUrl: str
+    title: Optional[str]
+    embedUrl: Optional[str]
     dataset_id: Optional[str]
     report_id: Optional[str]
     createdFrom: CreatedFrom
@@ -351,7 +351,7 @@ class Dashboard:
     id: str
     displayName: str
     description: str
-    embedUrl: str
+    embedUrl: Optional[str]
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
@@ -408,6 +408,69 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
         configuredBy=raw_instance.get("configuredBy"),
         dependent_on_artifact_id=dependent_on_artifact_id,
     )
+
+
+def new_powerbi_dashboards(
+    workspace: Workspace, raw_instances: list[dict]
+) -> list[Dashboard]:
+    def build_dashboard(raw_instance: dict) -> Dashboard:
+        if raw_instance.get("webUrl"):
+            web_url = raw_instance.get(Constant.WEB_URL)
+        elif workspace.webUrl:
+            web_url = f"{workspace.webUrl}/dashboards/{raw_instance[Constant.ID]}"
+        else:
+            web_url = None
+
+        return Dashboard(
+            id=raw_instance[Constant.ID],
+            isReadOnly=raw_instance.get(Constant.IS_READ_ONLY),
+            displayName=raw_instance[Constant.DISPLAY_NAME],
+            description=raw_instance.get(Constant.DESCRIPTION, ""),
+            embedUrl=raw_instance.get(Constant.EMBED_URL),
+            webUrl=web_url,
+            workspace_id=workspace.id,
+            workspace_name=workspace.name,
+            tiles=new_powerbi_tiles(raw_instance.get(Constant.TILES, [])),
+            users=[
+                new_powerbi_user(user_instance)
+                for user_instance in raw_instance.get(Constant.USERS, [])
+            ],
+            tags=[],
+        )
+
+    return [
+        build_dashboard(raw_instance)
+        for raw_instance in raw_instances
+        if raw_instance is not None
+        # As we add reports to the App, Power BI starts providing duplicate report information,
+        # where the duplicate includes an AppId, while the original report does not.
+        and Constant.APP_ID not in raw_instance
+    ]
+
+
+def new_powerbi_tiles(raw_instances: list[dict]) -> list[Tile]:
+    return [
+        Tile(
+            id=raw_instance[Constant.ID],
+            title=raw_instance.get(Constant.TITLE),
+            embedUrl=raw_instance.get(Constant.EMBED_URL),
+            dataset_id=raw_instance.get(Constant.DATASET_ID),
+            report_id=raw_instance.get(Constant.REPORT_ID),
+            dataset=None,
+            report=None,
+            createdFrom=(
+                # In the past we considered that only one of the two report_id or dataset_id would be present
+                # but we have seen cases where both are present. If both are present, we prioritize the report.
+                Tile.CreatedFrom.REPORT
+                if raw_instance.get(Constant.REPORT_ID)
+                else Tile.CreatedFrom.DATASET
+                if raw_instance.get(Constant.DATASET_ID)
+                else Tile.CreatedFrom.VISUALIZATION
+            ),
+        )
+        for raw_instance in raw_instances
+        if raw_instance is not None
+    ]
 
 
 def new_powerbi_reports(

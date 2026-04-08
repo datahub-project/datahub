@@ -25,6 +25,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     User,
     Workspace,
+    new_powerbi_dashboards,
     new_powerbi_dataset,
     new_powerbi_reports,
 )
@@ -699,15 +700,26 @@ class PowerBiAPI:
 
     def fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = {
-                dashboard.id: dashboard
-                for dashboard in self._get_resolver().get_dashboards(workspace)
-            }
+            if workspace.scan_result:
+                workspace.dashboards = {
+                    dashboard.id: dashboard
+                    for dashboard in new_powerbi_dashboards(
+                        workspace, workspace.scan_result.get(Constant.DASHBOARDS, [])
+                    )
+                }
+            else:
+                workspace.dashboards = {
+                    dashboard.id: dashboard
+                    for dashboard in self._get_resolver().get_dashboards(workspace)
+                }
+                for dashboard in workspace.dashboards.values():
+                    dashboard.tiles = self._get_resolver().get_tiles(
+                        workspace, dashboard=dashboard
+                    )
+                    dashboard.users = self.get_dashboard_users(dashboard)
+
             # set tiles of Dashboard
             for dashboard in workspace.dashboards.values():
-                dashboard.tiles = self._get_resolver().get_tiles(
-                    workspace, dashboard=dashboard
-                )
                 # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
                     # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.

@@ -1454,6 +1454,16 @@ def test_powerbi_cross_workspace_reference_info_message(
     pipeline.run()
     pipeline.raise_from_status()
 
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    golden_file = "golden_test_cross_workspace_dataset.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
     assert isinstance(pipeline.source, PowerBiDashboardSource)  # to silent the lint
 
     info_entries: dict = pipeline.source.reporter._structured_logs._entries.get(
@@ -1469,16 +1479,6 @@ def test_powerbi_cross_workspace_reference_info_message(
 
     assert is_entry_present, (
         'Info message "Missing Dataset Lineage For Tile" should be present in reporter'
-    )
-
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
-
-    golden_file = "golden_test_cross_workspace_dataset.json"
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=f"{tmp_path}/powerbi_mces.json",
-        golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
 

@@ -25,7 +25,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Tile,
     User,
     Workspace,
+    new_powerbi_dashboards,
     new_powerbi_reports,
+    new_powerbi_tiles,
     new_powerbi_user,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
@@ -244,34 +246,7 @@ class DataResolverBase(ABC):
 
         response.raise_for_status()
 
-        dashboards_dict: List[Any] = response.json()[Constant.VALUE]
-
-        # Iterate through response and create a list of PowerBiAPI.Dashboard
-        dashboards: List[Dashboard] = [
-            Dashboard(
-                id=instance.get(Constant.ID),
-                isReadOnly=instance.get(Constant.IS_READ_ONLY),
-                displayName=instance.get(Constant.DISPLAY_NAME),
-                description=instance.get(Constant.DESCRIPTION, ""),
-                embedUrl=instance.get(Constant.EMBED_URL),
-                webUrl=instance.get(Constant.WEB_URL),
-                workspace_id=workspace.id,
-                workspace_name=workspace.name,
-                tiles=[],
-                users=[],
-                tags=[],
-            )
-            for instance in dashboards_dict
-            if (
-                instance is not None
-                and Constant.APP_ID
-                not in instance  # As we add dashboards to the App, Power BI starts
-                # providing duplicate dashboard information,
-                # where the duplicate includes an AppId, while the original dashboard does not.
-            )
-        ]
-
-        return dashboards
+        return new_powerbi_dashboards(workspace, response.json()[Constant.VALUE])
 
     def get_groups(self, filter_: Dict) -> List[dict]:
         group_endpoint = self.get_groups_endpoint()
@@ -330,30 +305,7 @@ class DataResolverBase(ABC):
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         tile_dict: List[Any] = response.json().get(Constant.VALUE, [])
         logger.debug(f"Tile Dict = {tile_dict}")
-        tiles: List[Tile] = [
-            Tile(
-                id=instance.get(Constant.ID),
-                title=instance.get(Constant.TITLE),
-                embedUrl=instance.get(Constant.EMBED_URL),
-                dataset_id=instance.get(Constant.DATASET_ID),
-                report_id=instance.get(Constant.REPORT_ID),
-                dataset=None,
-                report=None,
-                createdFrom=(
-                    # In the past we considered that only one of the two report_id or dataset_id would be present
-                    # but we have seen cases where both are present. If both are present, we prioritize the report.
-                    Tile.CreatedFrom.REPORT
-                    if instance.get(Constant.REPORT_ID)
-                    else Tile.CreatedFrom.DATASET
-                    if instance.get(Constant.DATASET_ID)
-                    else Tile.CreatedFrom.VISUALIZATION
-                ),
-            )
-            for instance in tile_dict
-            if instance is not None
-        ]
-
-        return tiles
+        return new_powerbi_tiles(tile_dict)
 
     def itr_pages(
         self,
