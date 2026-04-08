@@ -1,388 +1,273 @@
 # DataHub Playwright E2E Tests
 
-This directory contains Playwright-based end-to-end tests for DataHub.
+Playwright-based end-to-end tests for DataHub, targeting Chromium only.
 
 ## Structure
 
 ```
 e2e-test/ui/playwright/
-├── tests/              # Test specifications organized by feature
-├── pages/              # Page Object Models (POM)
-├── helpers/            # Helper utilities for tests
-├── fixtures/           # Test fixtures and setup
-├── factories/          # Test data factories
-├── utils/              # Shared utilities and constants
-└── playwright.config.ts # Playwright configuration
+├── playwright.config.ts          # Playwright configuration
+├── fixtures/                     # Modular test fixtures (composed via mergeTests)
+│   ├── base-test.ts              # Import for authenticated tests (most tests)
+│   ├── login-test.ts             # Import for login UI tests (unauthenticated)
+│   ├── login.fixture.ts          # Per-worker auth state management
+│   ├── logger.fixture.ts         # Winston logger (auto-injected into every test)
+│   ├── mocking.fixture.ts        # apiMock fixture for route interception
+│   ├── auth.ts                   # Auth file path helpers + GMS token reader
+│   ├── users.ts                  # Test user definitions (resolvedUsers)
+│   └── cleanup.ts                # cleanup fixture (registered in base-test)
+├── pages/                        # Page Object Models
+│   ├── base-page.ts              # Base class: screenshot helper, logger/logDir
+│   ├── login-page.ts
+│   ├── search-page.ts
+│   ├── dataset-page.ts
+│   ├── business-attribute-page.ts
+│   ├── welcome-modal-page.ts
+│   ├── incidents-page.ts
+│   └── common/
+│       ├── searchbar-component.ts
+│       └── sidebar-component.ts
+├── tests/                        # Test specs, organised by feature
+│   ├── auth/
+│   ├── login-v2/
+│   ├── onboarding/
+│   ├── search/
+│   ├── business-attributes/
+│   └── incidents-v2/
+├── helpers/                      # Standalone utility classes
+│   ├── cleanup-helper.ts         # CleanupHelper / GlobalCleanupHelper
+│   ├── graphql-helper.ts         # GraphQL request helpers
+│   ├── graphql-seeder.ts         # Seed test data via GraphQL
+│   ├── cli-seeder.ts             # Seed test data via DataHub CLI
+│   ├── rest-seeder.ts            # Seed test data via REST API
+│   ├── navigation-helper.ts      # Navigation utilities
+│   └── wait-helper.ts            # Wait strategies
+├── factories/                    # Data generation
+│   ├── test-data-factory.ts      # URN builders + timestamped name generators
+│   └── mock-response-factory.ts  # GraphQL mock response builders
+└── utils/                        # Shared constants and utilities
+    ├── constants.ts              # Timeouts, routes, entity types, data sources
+    ├── logger.ts                 # createLogger factory (Winston)
+    ├── api-mock.ts               # PageApiMocker class
+    └── random.ts                 # withTimestamp, withRandomSuffix helpers
 ```
 
 ## Getting Started
+
+### Prerequisites
+
+- Node.js >= 22.0.0
+- DataHub running at `http://localhost:9002` (or set `BASE_URL`)
 
 ### Installation
 
 ```bash
 cd e2e-test/ui/playwright
 npm install
-npx playwright install
+npx playwright install chromium
 ```
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# All tests
 npx playwright test
 
-# Run tests in headed mode (see browser)
+# Headed (see browser)
 npx playwright test --headed
 
-# Run tests in UI mode (interactive)
+# Interactive UI mode
 npx playwright test --ui
 
-# Run tests in debug mode
+# Debug mode (step through)
 npx playwright test --debug
 
-# Run specific test suite
-npx playwright test tests/auth
-npx playwright test tests/search
-npx playwright test tests/entities
+# Specific suite
+npx playwright test tests/search/
+npx playwright test tests/business-attributes/
 
-# Run tests in specific browser
-npx playwright test --project=chromium
-npx playwright test --project=firefox
-npx playwright test --project=webkit
+# Specific test by name
+npx playwright test -g "should login successfully"
+
+# View HTML report after a run
+npx playwright show-report
 ```
-
-### Environment Variables
-
-Create a `.env` file in this directory:
-
-```env
-BASE_URL=http://localhost:9002
-TEST_USERNAME=datahub
-TEST_PASSWORD=datahub
-```
-
-## Test Organization
-
-### Page Object Model (POM)
-
-All page interactions are encapsulated in Page Objects located in `pages/`:
-
-- `base.page.ts` - Base page class with common functionality
-- `LoginPage.ts` - Login page interactions
-- `SearchPage.ts` - Search functionality
-- `DatasetPage.ts` - Dataset entity page
-- `BusinessAttributePage.ts` - Business attributes page
-
-### Fixtures
-
-Reusable test context and setup:
-
-- `auth.ts` - Authentication fixtures
-- `test-context.ts` - All page objects and helpers
-- `mock-data.ts` - Mock data for tests
-
-### Helpers
-
-Utility classes for common operations:
-
-- `GraphQLHelper.ts` - GraphQL request/response handling
-- `NavigationHelper.ts` - Navigation utilities
-- `WaitHelper.ts` - Wait strategies
-
-### Factories
-
-Test data generation:
-
-- `TestDataFactory.ts` - Generate test data (URNs, names, etc.)
-- `MockResponseFactory.ts` - Generate mock API responses
 
 ## Writing Tests
 
-### Basic Test Example
+### Choosing the right fixture
+
+| Test type                                                                    | Import                      |
+| ---------------------------------------------------------------------------- | --------------------------- |
+| Needs an authenticated session (search, entities, business-attributes, etc.) | `../../fixtures/base-test`  |
+| Tests the login UI itself (unauthenticated context)                          | `../../fixtures/login-test` |
+
+Never import directly from `@playwright/test` in spec files.
+
+### Authenticated test (base-test)
+
+Authentication is handled automatically per worker by `loginFixture`.
+No explicit login step is needed in `beforeEach`.
 
 ```typescript
-import { test, expect } from "../../fixtures/test-context";
+import { test, expect } from "../../fixtures/base-test";
+import { SearchPage } from "../../pages/search-page";
 
-test.describe("Feature Name", () => {
-  test("should do something", async ({ loginPage, searchPage }) => {
-    await loginPage.navigateToLogin();
-    await loginPage.login("datahub", "datahub");
+test.describe("Search", () => {
+  let searchPage: SearchPage;
 
-    await searchPage.search("test");
-    const results = await searchPage.getResultsCount();
+  test.beforeEach(async ({ page, logger, logDir }) => {
+    searchPage = new SearchPage(page, logger, logDir);
+    await searchPage.navigateToHome();
+  });
 
-    expect(results).toBeGreaterThan(0);
+  test("should return results for wildcard query", async () => {
+    await searchPage.searchAndWait("*", 3000);
+    await searchPage.expectHasResults();
   });
 });
 ```
 
-### Using Fixtures
+### Login UI test (login-test)
 
 ```typescript
-import { test, expect } from "../../fixtures/test-context";
+import { test, expect } from "../../fixtures/login-test";
 
-test("authenticated test", async ({
-  page,
-  loginPage,
-  datasetPage,
-  graphqlHelper,
-}) => {
-  // All page objects and helpers are available
+test.describe("Login", () => {
+  test("should reject invalid credentials", async ({ loginPage }) => {
+    await loginPage.navigateToLogin();
+    await loginPage.login("bad", "creds");
+    await loginPage.expectLoginError();
+  });
 });
 ```
 
-## Authentication
+### Route mocking (apiMock)
 
-### Shared Authentication State
-
-**Login once, reuse everywhere** - Most tests use a shared authentication session for better performance and reliability.
-
-#### How It Works
+Destructure `apiMock` to activate route interception for a test:
 
 ```typescript
-// 1. Setup runs ONCE (tests/auth.setup.ts)
-setup("authenticate", async ({ page }) => {
-  await loginPage.login("datahub", "datahub");
-  await page.context().storageState({ path: ".auth/user.json" });
-});
+import { test, expect } from "../../fixtures/base-test";
 
-// 2. All tests use the saved state (playwright.config.ts)
-projects: [
-  {
-    name: "chromium",
-    use: { storageState: ".auth/user.json" },
-    dependencies: ["setup"],
-  },
-];
-
-// 3. Tests start authenticated (no login needed!)
-test("my feature", async ({ page }) => {
+test("renders with feature flag enabled", async ({ page, apiMock }) => {
+  await apiMock.setFeatureFlags({ themeV2Enabled: true });
   await page.goto("/");
-  // Already logged in! ✅
-});
-```
-
-#### Benefits
-
-- ⚡ **Faster**: No repeated logins (saves ~2-3 seconds per test)
-- 🎯 **Simpler**: Tests focus on features, not authentication
-- 🛡️ **Reliable**: Single point of authentication reduces flakiness
-
-#### When to Use Shared Auth
-
-**✅ Use for 95% of tests:**
-
-- Search functionality
-- Dataset/entity pages
-- Dashboard features
-- User management
-- Settings
-
-```typescript
-import { test, expect } from "../../fixtures/test-context";
-
-test("searches for datasets", async ({ page, searchPage }) => {
-  await page.goto("/");
-  // ✅ Already authenticated
-  await searchPage.search("my dataset");
-});
-```
-
-**❌ Don't use for authentication tests:**
-
-- Login page tests
-- Login error handling
-- Welcome modal tests
-
-```typescript
-import { test as base } from "@playwright/test";
-
-const test = base.extend({
-  storageState: undefined, // Disable shared auth
-});
-
-test("shows login error", async ({ page, loginPage }) => {
-  await page.goto("/login");
-  // ✅ Not authenticated
-  await loginPage.login("invalid", "wrong");
-});
-```
-
-#### Troubleshooting
-
-**Tests fail with "Not authenticated":**
-
-```bash
-rm -rf .auth/
-npx playwright test
-```
-
-**Test with different users:**
-Create additional setup files with different auth credentials
-
-## Data Seeding
-
-### Overview
-
-Tests use a TypeScript-based data seeding infrastructure that loads test data via DataHub's REST API. Each test suite can have its own fixture data for isolation.
-
-### Architecture
-
-```
-1. Global Setup (global.setup.ts)
-   └─> Clean up all test data (Cypress*, Test* entities)
-
-2. Suite Setup (e.g., business-attributes/data.setup.ts)
-   └─> Load fixtures/data.json
-   └─> Ingest via REST API
-   └─> Wait for indexing
-   └─> Store URNs for cleanup
-
-3. Run Tests
-   └─> Tests use seeded data
-
-4. Cleanup (afterAll hook)
-   └─> Delete seeded entities
-```
-
-### Key Components
-
-**RestSeeder** (`helpers/RestSeeder.ts`)
-
-- `loadFixture(path)` - Load JSON fixture files
-- `ingestMCPs(mcps)` - Ingest Metadata Change Proposals via REST API
-- `waitForSync(urns)` - Wait for entities to be indexed
-
-```typescript
-const seeder = new RestSeeder(page);
-const mcps = await seeder.loadFixture("./fixtures/data.json");
-const urns = await seeder.ingestMCPs(mcps);
-await seeder.waitForSync(urns);
-```
-
-**CleanupHelper** (`helpers/CleanupHelper.ts`)
-
-- `cleanupTestData()` - Delete all test entities (Cypress*, test\_*)
-- `deleteEntities(urns)` - Hard delete specific entities
-- `cleanupOnSuccess(testInfo, urns)` - Only clean up if tests passed
-
-```typescript
-const cleanup = new CleanupHelper(page);
-await cleanup.cleanupTestData(); // Global cleanup
-
-test.afterAll(async ({ page }) => {
-  await cleanup.deleteEntities(urns); // Suite cleanup
-});
-```
-
-### Adding Data Seeding to a New Suite
-
-**1. Create fixture data:**
-
-```bash
-tests/your-suite/fixtures/data.json
-```
-
-**2. Create setup file:**
-
-```typescript
-// tests/your-suite/data.setup.ts
-import { test as setup } from "@playwright/test";
-import { RestSeeder } from "../../helpers/RestSeeder";
-
-setup("seed your-suite data", async ({ page }) => {
-  const seeder = new RestSeeder(page);
-  const mcps = await seeder.loadFixture("./fixtures/data.json");
-  const urns = await seeder.ingestMCPs(mcps);
-  await seeder.waitForSync(urns);
-  (global as any).__YOUR_SUITE_URNS = urns;
-});
-```
-
-**3. Update playwright.config.ts:**
-
-```typescript
-projects: [
-  {
-    name: "your-suite-setup",
-    testMatch: /your-suite\/data\.setup\.ts/,
-    dependencies: ["auth-setup"],
-  },
   // ...
-];
+});
 ```
 
-**4. Add cleanup to tests:**
+### Switching test users
+
+`base-test` defaults to the `admin` user. Override per suite:
 
 ```typescript
+import { test } from "../../fixtures/base-test";
+import { resolvedUsers } from "../../fixtures/users";
+
+test.use({ user: resolvedUsers.reader });
+
+test("reader cannot edit", async ({ page }) => {
+  /* ... */
+});
+```
+
+## Page Objects
+
+Page objects live in `pages/` and extend `BasePage`. All constructors accept
+optional `logger` and `logDir` for structured logging and screenshots.
+
+```typescript
+import { Page, Locator } from "@playwright/test";
+import { BasePage } from "./base-page";
+import { DataHubLogger } from "../utils/logger";
+
+export class FeaturePage extends BasePage {
+  readonly submitButton: Locator;
+
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
+    super(page, logger, logDir);
+    this.submitButton = page.locator('[data-testid="feature-submit"]');
+  }
+
+  async submit(): Promise<void> {
+    await this.submitButton.click();
+  }
+}
+```
+
+**Rules:**
+
+- All selectors must be `readonly` properties, never inline in spec files.
+- Page objects are instantiated in `beforeEach`, not registered as fixtures.
+- Use `data-testid` attributes first; role selectors second; text selectors as a last resort.
+
+## Authentication Architecture
+
+`loginFixture` (in `fixtures/login.fixture.ts`) overrides Playwright's built-in
+`context` fixture. On first run for a worker it performs a full UI login and
+saves the session to `.auth/{username}.json`. On subsequent runs it reuses the
+saved file — no round-trip to the server.
+
+`base-test` composes `loginFixture` via `mergeTests`, so every test that
+imports from `base-test` gets an authenticated page automatically.
+
+`login-test` composes the logger and mocking fixtures but intentionally does
+**not** include `loginFixture`, giving tests a clean unauthenticated context.
+
+## Logging
+
+`logger` and `logDir` fixtures are auto-injected into every test (they use
+`auto: true`). In CI, logs are written to per-test files under
+`test-results/<test>/logs/`. Page objects receive logger and logDir via their
+constructor and use them for structured output and screenshots.
+
+## Data Factories
+
+Use `TestDataFactory` to build URNs and `withTimestamp` / `withRandomSuffix`
+from `utils/random.ts` for unique, time-sortable test data names:
+
+```typescript
+import { TestDataFactory } from "../../factories/test-data-factory";
+
+const name = TestDataFactory.generateTestDatasetName();
+// → 'test_dataset_20260409_143022'
+
+const urn = TestDataFactory.createDatasetUrn("hive", name);
+// → 'urn:li:dataset:(urn:li:dataPlatform:hive,test_dataset_20260409_143022,PROD)'
+```
+
+## Mock Responses
+
+`MockResponseFactory` builds typed GraphQL response objects with explicit
+status codes, ready to be passed to `apiMock.interceptGraphQLResponse`:
+
+```typescript
+import { MockResponseFactory } from "../../factories/mock-response-factory";
+
+const response = MockResponseFactory.createSearchResponse([], 0);
+// → { status: 200, body: { data: { search: { searchResults: [], total: 0 } } } }
+```
+
+## Cleanup
+
+For test-scoped cleanup, use `CleanupHelper`. For broad pre-run cleanup of all
+test entities, use `GlobalCleanupHelper` (setup scripts only):
+
+```typescript
+import { CleanupHelper } from "../../helpers/cleanup-helper";
+
 test.afterAll(async ({ page }) => {
   const cleanup = new CleanupHelper(page);
-  const urns = (global as any).__YOUR_SUITE_URNS || [];
-  await cleanup.deleteEntities(urns);
+  await cleanup.deleteEntities(createdUrns);
 });
 ```
 
-### Benefits
+`namePattern` is mandatory in `deleteEntitiesByType` to prevent accidental
+deletion of all entities of a type.
 
-- ✅ **Self-contained suites** - Each suite has its own data
-- ✅ **Fast setup** - Parallel seeding per suite
-- ✅ **Smart cleanup** - Preserves data on failure for debugging
-- ✅ **Type safety** - Full TypeScript support
-- ✅ **No Python dependency** - Pure TypeScript/Playwright
+## CI/CD
 
-## Best Practices
-
-1. **Use Page Objects** - Never interact with selectors directly in tests
-2. **Use data-testid** - Prefer `data-testid` attributes for selectors
-3. **Avoid hardcoded waits** - Use Playwright's auto-waiting or explicit waits
-4. **Independent tests** - Each test should be independent and not rely on others
-5. **Clean test data** - Use factories to generate unique test data
-6. **Descriptive names** - Test names should clearly describe what they test
-
-## CI/CD Integration
-
-Tests run automatically in CI when:
-
-- Pull requests are opened
-- Code is pushed to main branches
-- Manual workflow dispatch
-
-## Debugging
-
-### Visual Debugging
-
-```bash
-npx playwright test --ui
-```
-
-### Step-through Debugging
-
-```bash
-npx playwright test --debug
-```
-
-### Generate Code
-
-```bash
-npx playwright codegen
-```
-
-This will open a browser and record your actions as Playwright code.
-
-## Reporting
-
-After running tests, view the HTML report:
-
-```bash
-npx playwright show-report
-```
-
-## Migration from Cypress
-
-This POC demonstrates the migration path from Cypress to Playwright. Key differences:
-
-- **No `cy.` commands** - Use native async/await
-- **Better TypeScript support** - Full type safety
-- **Multiple browsers** - Test in Chromium, Firefox, and WebKit
-- **Better debugging** - Built-in UI mode and trace viewer
-- **Faster execution** - Parallel test execution by default
+- Single Chromium project, 1 retry on failure.
+- JUnit report written to `test-results/junit.xml`.
+- Screenshots and traces captured on failure.
+- Single worker (`workers: 1`) in CI for stable ordering.
