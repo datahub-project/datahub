@@ -43,13 +43,14 @@ import { mergeTests } from '@playwright/test';
 import { loggerFixture } from './logger.fixture';
 import { mockingFixture } from './mocking.fixture';
 import { loginFixture } from './login.fixture';
+import { seedingFixture } from './seeding.fixture';
 import { readGmsToken } from './auth';
 import { RestFeatureDataLoader, type FeatureDataLoader } from './test-data';
 import { ApiScopedCleanup, type ScopedCleanup } from './cleanup';
 
-// ── Compose the three core capability fixtures ────────────────────────────────
+// ── Compose the four core capability fixtures ─────────────────────────────────
 
-const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture);
+const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture, seedingFixture);
 
 // ── Additional fixtures built on top of the composition ───────────────────────
 
