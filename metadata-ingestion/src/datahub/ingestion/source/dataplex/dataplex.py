@@ -110,6 +110,35 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     platform: str = "dataplex"
 
+    def _maybe_discover_lineage_project_location_pairs(self) -> list[tuple[str, str]]:
+        """Resolve and report lineage scan pairs from config or discovery."""
+        if self.config.discover_active_lineage_locations:
+            lineage_project_location_pairs = (
+                self._discover_active_lineage_project_location_pairs()
+            )
+        else:
+            lineage_project_location_pairs = list(
+                product(self.config.project_ids, self.config.lineage_locations)
+            )
+
+        self.report.info(
+            title="Lineage extraction project/location pairs",
+            message=(
+                "Extracting lineage for the given project/location pairs. "
+                "This list is either derived from configuration or discovered "
+                "based on active lineage processes. Extraction will be focused "
+                "on entries within these project/location pairs."
+            ),
+            context=str(
+                dict(
+                    lineage_locations=self.config.lineage_locations,
+                    discover_active_lineage_locations=self.config.discover_active_lineage_locations,
+                    lineage_project_location_pairs=lineage_project_location_pairs,
+                )
+            ),
+        )
+        return lineage_project_location_pairs
+
     def _discover_active_lineage_project_location_pairs(
         self,
     ) -> list[tuple[str, str]]:
@@ -118,11 +147,21 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         Discovery is done once per ingestion run and reused across all entries.
         """
-        if self.lineage_client is None:
-            return list(product(self.config.project_ids, self.config.lineage_locations))
+        assert self.lineage_client is not None, (
+            "lineage_client must be initialized before active lineage discovery"
+        )
+        logger.info(
+            "Discovering active lineage locations across %s projects and %s configured locations",
+            len(self.config.project_ids),
+            len(self.config.lineage_locations),
+        )
 
         discovered_pairs: list[tuple[str, str]] = []
         for project_id in self.config.project_ids:
+            logger.info(
+                "Discovering active lineage locations for project %s",
+                project_id,
+            )
             active_locations: list[str] = []
             for location in self.config.lineage_locations:
                 parent = build_lineage_parent(project_id, location)
@@ -318,28 +357,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     len(self.entry_data),
                     len(self.config.project_ids),
                 )
-                lineage_project_location_pairs = list(
-                    product(self.config.project_ids, self.config.lineage_locations)
-                )
-                if self.config.discover_active_lineage_locations:
-                    lineage_project_location_pairs = (
-                        self._discover_active_lineage_project_location_pairs()
-                    )
-                self.report.info(
-                    title="Lineage extraction project/location pairs",
-                    message=(
-                        "Extracting lineage for the given project/location pairs. "
-                        "This list is either derived from configuration or discovered "
-                        "based on active lineage processes. Extraction will be focused "
-                        "on entries within these project/location pairs."
-                    ),
-                    context=str(
-                        dict(
-                            lineage_locations=self.config.lineage_locations,
-                            discover_active_lineage_locations=self.config.discover_active_lineage_locations,
-                            lineage_project_location_pairs=lineage_project_location_pairs,
-                        )
-                    ),
+                lineage_project_location_pairs = (
+                    self._maybe_discover_lineage_project_location_pairs()
                 )
 
                 try:
