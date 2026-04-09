@@ -152,38 +152,38 @@ results = index.query(
 
 ### Phase 1: Core Functionality (MVP)
 
-- [ ] Basic configuration and authentication
-- [ ] Index discovery and metadata extraction
-- [ ] Container workunits for indexes
-- [ ] Basic reporting
+- Basic configuration and authentication
+- Index discovery and metadata extraction
+- Container workunits for indexes
+- Basic reporting
 
 ### Phase 2: Namespace Support
 
-- [ ] Namespace discovery via describe_index_stats()
-- [ ] Namespace containers
-- [ ] Namespace filtering
+- Namespace discovery via describe_index_stats()
+- Namespace containers
+- Namespace filtering
 
 ### Phase 3: Schema Inference
 
-- [ ] Vector sampling logic
-- [ ] Metadata aggregation
-- [ ] Type inference
-- [ ] Schema generation
-- [ ] Dataset workunits
+- Vector sampling logic
+- Metadata aggregation
+- Type inference
+- Schema generation
+- Dataset workunits
 
 ### Phase 4: Advanced Features
 
-- [ ] Stateful ingestion
-- [ ] Stale entity removal
-- [ ] Performance optimization (parallel processing)
-- [ ] Pod-based index support
+- Stateful ingestion
+- Stale entity removal
+- Performance optimization (parallel processing)
+- Pod-based index support
 
 ### Phase 5: Polish
 
-- [ ] Comprehensive testing
-- [ ] Documentation
-- [ ] Example recipes
-- [ ] Error handling improvements
+- Comprehensive testing
+- Documentation
+- Example recipes
+- Error handling improvements
 
 ## Challenges and Considerations
 
