@@ -315,22 +315,18 @@ class RedshiftDataDictionary:
         schemas = cursor.fetchall()
         field_names = [i[0] for i in cursor.description]
 
-        result = []
-        for schema in schemas:
-            name = schema[field_names.index("schema_name")]
-            owner = schema[field_names.index("schema_owner_name")]
-            result.append(
-                RedshiftSchema(
-                    database=database,
-                    name=name,
-                    type=schema[field_names.index("schema_type")],
-                    owner=owner,
-                    option=schema[field_names.index("schema_option")],
-                    external_platform=schema[field_names.index("external_platform")],
-                    external_database=schema[field_names.index("external_database")],
-                )
+        return [
+            RedshiftSchema(
+                database=database,
+                name=schema[field_names.index("schema_name")],
+                type=schema[field_names.index("schema_type")],
+                owner=schema[field_names.index("schema_owner_name")],
+                option=schema[field_names.index("schema_option")],
+                external_platform=schema[field_names.index("external_platform")],
+                external_database=schema[field_names.index("external_database")],
             )
-        return result
+            for schema in schemas
+        ]
 
     def enrich_tables(
         self,
