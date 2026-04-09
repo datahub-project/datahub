@@ -1,54 +1,52 @@
 ﻿# Pinecone Connector - Complete Implementation
 
-## ðŸŽ‰ All Phases Complete: 1, 2, and 3
+## All Phases Complete: 1, 2, and 3
 
 ### Project Overview
 
-A fully functional DataHub connector for Pinecone vector database that extracts
-metadata about indexes, namespaces, and automatically infers schemas from vector
-metadata.
+A fully functional DataHub connector for Pinecone vector database that extracts metadata about indexes, namespaces, and automatically infers schemas from vector metadata.
 
 ---
 
-## ðŸ“ File Structure
+## File Structure
 
 ```
 metadata-ingestion/src/datahub/ingestion/source/pinecone/
-â”œâ”€â”€ __init__.py                    # Module initialization
-â”œâ”€â”€ config.py                      # Configuration model
-â”œâ”€â”€ pinecone_client.py            # Pinecone SDK wrapper
-â”œâ”€â”€ pinecone_source.py            # Main source implementation
-â”œâ”€â”€ report.py                      # Reporting and statistics
-â”œâ”€â”€ schema_inference.py           # Schema inference engine (Phase 3)
-â”œâ”€â”€ README.md                      # User documentation
-â””â”€â”€ skill_docs/
-    â””â”€â”€ PINECONE_CONNECTOR_PLANNING.md # Implementation Plan
-    â””â”€â”€ PINECONE_CONNECTOR_IMPLEMENTATION.md # Implementation
-    â””â”€â”€ PINECONE_datahub-connector-pr-review-2026-03-08 # PR Review
+├── __init__.py                    # Module initialization
+├── config.py                      # Configuration model
+├── pinecone_client.py             # Pinecone SDK wrapper
+├── pinecone_source.py             # Main source implementation
+├── report.py                      # Reporting and statistics
+├── schema_inference.py            # Schema inference engine (Phase 3)
+├── README.md                      # User documentation
+└── skill_docs/
+    ├── PINECONE_CONNECTOR_PLANNING.md
+    ├── PINECONE_CONNECTOR_IMPLEMENTATION.md
+    └── PINECONE_datahub-connector-pr-review-2026-03-08.md
 
 metadata-ingestion/examples/recipes/
-â””â”€â”€ pinecone_to_datahub.yml       # Example recipe
+└── pinecone_to_datahub.yml        # Example recipe
 
 metadata-ingestion/tests/unit/
-â””â”€â”€ test_pinecone_source.py       # Comprehensive unit tests
+└── test_pinecone_source.py        # Comprehensive unit tests
 
 Integration:
-â”œâ”€â”€ setup.py                       # Plugin registration + dependencies
-â””â”€â”€ src/datahub/ingestion/source/common/subtypes.py  # Container subtypes
+├── setup.py                       # Plugin registration + dependencies
+└── src/datahub/ingestion/source/common/subtypes.py  # Container subtypes
 ```
 
 ---
 
-## âœ… Phase 1: Core Functionality
+## Phase 1: Core Functionality
 
 ### Features
 
-- âœ… Index discovery via Pinecone API
-- âœ… Index metadata extraction (dimension, metric, type, host, status)
-- âœ… Container workunits for indexes
-- âœ… Support for serverless and pod-based indexes
-- âœ… Index filtering patterns
-- âœ… Error handling and reporting
+- Index discovery via Pinecone API
+- Index metadata extraction (dimension, metric, type, host, status)
+- Container workunits for indexes
+- Support for serverless and pod-based indexes
+- Index filtering patterns
+- Error handling and reporting
 
 ### Key Components
 
@@ -58,16 +56,16 @@ Integration:
 
 ---
 
-## âœ… Phase 2: Namespace Support
+## Phase 2: Namespace Support
 
 ### Features
 
-- âœ… Namespace discovery using `describe_index_stats()`
-- âœ… Namespace containers with parent relationships
-- âœ… Dataset workunits representing vector collections
-- âœ… Namespace filtering patterns
-- âœ… Default namespace handling
-- âœ… Complete container hierarchy
+- Namespace discovery using `describe_index_stats()`
+- Namespace containers with parent relationships
+- Dataset workunits representing vector collections
+- Namespace filtering patterns
+- Default namespace handling
+- Complete container hierarchy
 
 ### Key Components
 
@@ -79,28 +77,28 @@ Integration:
 
 ```
 Platform: pinecone
-â”œâ”€â”€ Container (Index) - PINECONE_INDEX
-â”‚   â”œâ”€â”€ Properties: dimension, metric, index_type, host, status
-â”‚   â””â”€â”€ Container (Namespace) - PINECONE_NAMESPACE
-â”‚       â”œâ”€â”€ Properties: vector_count, index_name
-â”‚       â””â”€â”€ Dataset (Vector Collection)
-â”‚           â”œâ”€â”€ Properties: dimension, metric, vector_count
-â”‚           â””â”€â”€ Schema: Inferred from metadata (Phase 3)
+├── Container (Index) - PINECONE_INDEX
+│   ├── Properties: dimension, metric, index_type, host, status
+│   └── Container (Namespace) - PINECONE_NAMESPACE
+│       ├── Properties: vector_count, index_name
+│       └── Dataset (Vector Collection)
+│           ├── Properties: dimension, metric, vector_count
+│           └── Schema: Inferred from metadata (Phase 3)
 ```
 
 ---
 
-## âœ… Phase 3: Schema Inference
+## Phase 3: Schema Inference
 
 ### Features
 
-- âœ… Vector sampling with fallback strategies
-- âœ… Metadata field discovery
-- âœ… Type inference (string, number, boolean, array, object)
-- âœ… Field frequency tracking
-- âœ… Mixed type handling
-- âœ… Schema field generation with descriptions
-- âœ… Configurable sampling size and field limits
+- Vector sampling with fallback strategies
+- Metadata field discovery
+- Type inference (string, number, boolean, array, object)
+- Field frequency tracking
+- Mixed type handling
+- Schema field generation with descriptions
+- Configurable sampling size and field limits
 
 ### Key Components
 
@@ -165,7 +163,7 @@ SchemaField(
 
 ---
 
-## ðŸ”§ Configuration
+## Configuration
 
 ### Complete Configuration Example
 
@@ -173,41 +171,26 @@ SchemaField(
 source:
   type: pinecone
   config:
-    # Required
-    api_key: '${PINECONE_API_KEY}'
-
-    # Optional: For pod-based indexes
-    environment: 'us-west1-gcp'
-
-    # Platform instance
-    platform_instance: 'production'
-    env: 'PROD'
-
-    # Index filtering
+    api_key: "${PINECONE_API_KEY}"
+    environment: "us-west1-gcp"
+    platform_instance: "production"
+    env: "PROD"
     index_pattern:
       allow:
-        - 'prod-.*'
-        - 'customer-.*'
+        - "prod-.*"
+        - "customer-.*"
       deny:
-        - '.*-test'
-        - '.*-dev'
-
-    # Namespace filtering
+        - ".*-test"
+        - ".*-dev"
     namespace_pattern:
       allow:
-        - 'customer-.*'
+        - "customer-.*"
       deny:
-        - 'internal-.*'
-
-    # Schema inference (enabled by default)
+        - "internal-.*"
     enable_schema_inference: true
     schema_sampling_size: 100
     max_metadata_fields: 100
-
-    # Performance
     max_workers: 5
-
-    # Stateful ingestion
     stateful_ingestion:
       enabled: true
       remove_stale_metadata: true
@@ -215,7 +198,7 @@ source:
 sink:
   type: datahub-rest
   config:
-    server: 'http://localhost:8080'
+    server: "http://localhost:8080"
 ```
 
 ### Configuration Options
@@ -236,7 +219,7 @@ sink:
 
 ---
 
-## ðŸ§ª Testing
+## Testing
 
 ### Unit Tests
 
@@ -269,79 +252,27 @@ pytest tests/unit/test_pinecone_source.py -v
 ### Manual Testing
 
 ```bash
-# Set API key
 export PINECONE_API_KEY="your-api-key"
-
-# Run ingestion
 datahub ingest -c examples/recipes/pinecone_to_datahub.yml
-
-# Check results in DataHub UI
-open http://localhost:9002
 ```
 
 ---
 
-## ðŸ“Š Capabilities
+## Capabilities
 
 | Capability         | Status | Description                   |
 | ------------------ | ------ | ----------------------------- |
-| Platform Instance  | âœ…     | Multi-environment support     |
-| Containers         | âœ…     | Index and namespace hierarchy |
-| Schema Metadata    | âœ…     | Inferred from vector metadata |
-| Deletion Detection | âœ…     | Via stateful ingestion        |
-| Data Profiling     | âŒ     | Not applicable                |
-| Usage Stats        | âŒ     | Not available from API        |
-| Lineage            | âŒ     | Future enhancement            |
+| Platform Instance  | Yes    | Multi-environment support     |
+| Containers         | Yes    | Index and namespace hierarchy |
+| Schema Metadata    | Yes    | Inferred from vector metadata |
+| Deletion Detection | Yes    | Via stateful ingestion        |
+| Data Profiling     | No     | Not applicable                |
+| Usage Stats        | No     | Not available from API        |
+| Lineage            | No     | Future enhancement            |
 
 ---
 
-## ðŸš€ Usage Examples
-
-### Basic Ingestion
-
-```bash
-datahub ingest -c pinecone_recipe.yml
-```
-
-### With Filtering
-
-```yaml
-source:
-  type: pinecone
-  config:
-    api_key: '${PINECONE_API_KEY}'
-    index_pattern:
-      allow: ['prod-.*']
-    namespace_pattern:
-      deny: ['test-.*']
-```
-
-### Optimized for Speed
-
-```yaml
-source:
-  type: pinecone
-  config:
-    api_key: '${PINECONE_API_KEY}'
-    schema_sampling_size: 50
-    max_metadata_fields: 50
-    max_workers: 10
-```
-
-### Optimized for Accuracy
-
-```yaml
-source:
-  type: pinecone
-  config:
-    api_key: '${PINECONE_API_KEY}'
-    schema_sampling_size: 200
-    max_metadata_fields: 150
-```
-
----
-
-## ðŸ“ˆ Performance
+## Performance
 
 ### Ingestion Speed
 
@@ -361,43 +292,7 @@ source:
 
 ---
 
-## ðŸ” Troubleshooting
-
-### Common Issues
-
-**1. Authentication Errors**
-
-```
-Solution: Verify API key is correct and has proper permissions
-```
-
-**2. Missing Namespaces**
-
-```
-Solution: Check namespace_pattern filters, verify vectors exist
-```
-
-**3. No Schema Generated**
-
-```
-Solution: Ensure vectors have metadata, increase schema_sampling_size
-```
-
-**4. Slow Ingestion**
-
-```
-Solution: Reduce schema_sampling_size, increase max_workers
-```
-
-**5. Rate Limiting**
-
-```
-Solution: Reduce max_workers, add delays between requests
-```
-
----
-
-## ðŸ“ Dependencies
+## Dependencies
 
 ### Python Packages
 
@@ -415,106 +310,19 @@ Solution: Reduce max_workers, add delays between requests
 
 ---
 
-## ðŸŽ¯ Success Criteria
+## Future Enhancements (Phase 4+)
 
-### Phase 1
-
-âœ… Extract index metadata âœ… Create index containers âœ… Support both index types
-âœ… Handle errors gracefully
-
-### Phase 2
-
-âœ… Discover namespaces âœ… Create namespace containers âœ… Generate dataset
-workunits âœ… Proper hierarchy
-
-### Phase 3
-
-âœ… Sample vectors efficiently âœ… Infer field types âœ… Generate schemas âœ… Handle
-mixed types âœ… Provide descriptions
+1. **Nested Field Support** - Extract nested object fields, support dot notation
+2. **Array Element Types** - Infer types of array elements
+3. **Field Statistics** - Min/max for numbers, string length stats
+4. **Performance Optimizations** - Parallel namespace processing, caching
+5. **Advanced Type Detection** - Date/timestamp, URL/email, enum detection
+6. **Usage Statistics** - Query patterns, access logs
+7. **Lineage** - Connect to embedding models, track data sources
 
 ---
 
-## ðŸ”® Future Enhancements (Phase 4+)
-
-### Planned Features
-
-1. **Nested Field Support**
-   - Extract nested object fields
-   - Support dot notation
-
-2. **Array Element Types**
-   - Infer types of array elements
-   - Support array of objects
-
-3. **Field Statistics**
-   - Min/max for numbers
-   - String length stats
-   - Cardinality estimates
-
-4. **Performance Optimizations**
-   - Parallel namespace processing
-   - Caching sampled vectors
-   - Incremental schema updates
-
-5. **Advanced Type Detection**
-   - Date/timestamp detection
-   - URL/email detection
-   - Enum detection
-
-6. **Usage Statistics**
-   - Query patterns (if API provides)
-   - Access logs
-   - Performance metrics
-
-7. **Lineage**
-   - Connect to embedding models
-   - Track data sources
-   - Upstream/downstream relationships
-
----
-
-## ðŸ“š Documentation
-
-- **User Guide:** `src/datahub/ingestion/source/pinecone/README.md`
-- **Implementation Plan:**
-  `src/datahub/ingestion/source/pinecone/skill_docs/PINECONE_CONNECTOR_PLAN.md`
-- **Phase 3 Details:** `PINECONE_PHASE3_SUMMARY.md`
-- **Example Recipe:** `examples/recipes/pinecone_to_datahub.yml`
-
----
-
-## âœ… Quality Checks
-
-- âœ… All files pass diagnostics (no errors)
-- âœ… Comprehensive unit tests
-- âœ… Follows DataHub connector patterns
-- âœ… Proper error handling
-- âœ… Detailed logging
-- âœ… Configuration validation
-- âœ… Documentation complete
-
----
-
-## ðŸŽ“ Key Learnings
-
-1. **Fallback Strategies:** Multiple sampling approaches ensure robustness
-2. **Type Priority:** String-first approach handles mixed types gracefully
-3. **Performance Balance:** 100 samples provides good accuracy without slowdown
-4. **Error Isolation:** Schema inference failures don't break ingestion
-5. **User Control:** Configuration options allow optimization for different use
-   cases
-
----
-
-## ðŸ™ Acknowledgments
-
-- Based on MongoDB and Elasticsearch connector patterns
-- Follows DataHub best practices
-- Implements Pinecone SDK 3.0+ features
-
----
-
-## ðŸ“ž Support
+## Support
 
 For issues or questions:
 
@@ -523,10 +331,4 @@ For issues or questions:
 
 ---
 
-## ðŸ“„ License
-
-Part of the DataHub project - Apache 2.0 License
-
----
-
-**Status:** âœ… Production Ready **Version:** 1.0.0 **Last Updated:** 2026
+**Status:** Production Ready | **Version:** 1.0.0 | **Last Updated:** 2026
