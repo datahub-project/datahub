@@ -9,6 +9,7 @@ Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
+from itertools import product
 from typing import Iterable, Optional
 
 from google.api_core import exceptions
@@ -38,6 +39,7 @@ from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.ingestion.source.dataplex.dataplex_ids import build_lineage_parent
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -108,10 +110,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     platform: str = "dataplex"
 
-    def _build_lineage_parent(self, project_id: str, location: str) -> str:
-        """Build Data Lineage API parent for an explicit project/location pair."""
-        return f"projects/{project_id}/locations/{location}"
-
     def _discover_active_lineage_project_location_pairs(
         self,
     ) -> list[tuple[str, str]]:
@@ -121,17 +119,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         Discovery is done once per ingestion run and reused across all entries.
         """
         if self.lineage_client is None:
-            return [
-                (project_id, location)
-                for project_id in self.config.project_ids
-                for location in self.config.lineage_locations
-            ]
+            return list(product(self.config.project_ids, self.config.lineage_locations))
 
         discovered_pairs: list[tuple[str, str]] = []
         for project_id in self.config.project_ids:
             active_locations: list[str] = []
             for location in self.config.lineage_locations:
-                parent = self._build_lineage_parent(project_id, location)
+                parent = build_lineage_parent(project_id, location)
                 try:
                     page = self.lineage_client.list_processes(
                         request=ListProcessesRequest(parent=parent, page_size=1)
@@ -313,15 +307,29 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     len(self.entry_data),
                     len(self.config.project_ids),
                 )
-                lineage_project_location_pairs = [
-                    (project_id, location)
-                    for project_id in self.config.project_ids
-                    for location in self.config.lineage_locations
-                ]
+                lineage_project_location_pairs = list(
+                    product(self.config.project_ids, self.config.lineage_locations)
+                )
                 if self.config.discover_active_lineage_locations:
                     lineage_project_location_pairs = (
                         self._discover_active_lineage_project_location_pairs()
                     )
+                self.report.info(
+                    title="Lineage extraction project/location pairs",
+                    message=(
+                        "Extracting lineage for the given project/location pairs. "
+                        "This list is either derived from configuration or discovered "
+                        "based on active lineage processes. Extraction will be focused "
+                        "on entries within these project/location pairs."
+                    ),
+                    context=str(
+                        dict(
+                            lineage_locations=self.config.lineage_locations,
+                            discover_active_lineage_locations=self.config.discover_active_lineage_locations,
+                            lineage_project_location_pairs=lineage_project_location_pairs,
+                        )
+                    ),
+                )
 
                 try:
                     yield from self.lineage_extractor.get_lineage_workunits(

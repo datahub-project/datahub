@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import collections
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from itertools import product
 from typing import TYPE_CHECKING, Dict, Iterable, Optional, Set
 
 from google.api_core import exceptions as google_exceptions
@@ -32,6 +33,7 @@ from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     build_dataset_urn_from_fqn_only,
+    build_lineage_parent,
     is_supported_lineage_entry_type,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -59,7 +61,7 @@ class LineageEdge:
     - eq=True: Enables equality comparison to detect and prevent duplicate edges in sets
     - order=True: Provides consistent ordering for deterministic iteration and sorting
 
-    LineageEdge instances are stored in Set[LineageEdge] (see lineage_by_full_dataset_id), requiring
+    LineageEdge instances are stored in sets during per-entry processing, requiring
     immutability and hashability.
 
     Attributes:
@@ -264,19 +266,15 @@ class DataplexLineageExtractor:
         # TODO: Use redundant_run_skip_handler to short-circuit lineage calls when stateful
         # lineage ingestion determines this run is redundant.
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        # Compatibility map retained for existing callers/tests while streaming
+        # lineage emission uses per-entry in-memory data only.
+        self.lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = defaultdict(set)
 
-        # Map dataset IDs to their upstream dependencies to enable efficient lineage lookups
-        # during workunit generation without re-querying the Lineage API
-        self.lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
-            collections.defaultdict(set)
-        )
-        self._active_lineage_project_location_pairs: list[tuple[str, str]] = []
-
-    def _build_lineage_parent(self, project_id: str, location: str) -> str:
-        """Build Data Lineage API parent for an explicit project/location pair."""
-        return f"projects/{project_id}/locations/{location}"
-
-    def get_lineage_for_entry(self, entry: EntryDataTuple) -> Optional[Dict[str, list]]:
+    def get_lineage_for_entry(
+        self,
+        entry: EntryDataTuple,
+        active_lineage_project_location_pairs: Optional[list[tuple[str, str]]] = None,
+    ) -> Optional[Dict[str, list]]:
         """
         Get lineage information for a specific Dataplex entry with automatic retries.
 
@@ -299,18 +297,13 @@ class DataplexLineageExtractor:
             lineage_data: dict[str, list[str]] = {"upstream": [], "downstream": []}
             hit_parents: list[str] = []
             empty_parents: list[str] = []
-            scan_pairs = self._active_lineage_project_location_pairs or [
-                (project_id, location)
-                for project_id in self.config.project_ids
-                for location in self.config.lineage_locations
-            ]
-
             # Query only target links (upstream lineage) across configured project/location
             # matrix so cross-project lineage edges can be discovered.
+            scan_pairs = active_lineage_project_location_pairs or list(
+                product(self.config.project_ids, self.config.lineage_locations)
+            )
             for lineage_project_id, lineage_location in scan_pairs:
-                parent = self._build_lineage_parent(
-                    lineage_project_id, lineage_location
-                )
+                parent = build_lineage_parent(lineage_project_id, lineage_location)
                 self.report.report_lineage_scan_call(
                     lineage_project_id, lineage_location
                 )
@@ -454,12 +447,10 @@ class DataplexLineageExtractor:
         return retrying_func(parent, fully_qualified_name)
 
     def _extract_lineage_edges_for_entry(
-        self, entry: EntryDataTuple
+        self, entry: EntryDataTuple, lineage_data: Optional[dict[str, list[str]]]
     ) -> set[LineageEdge]:
         """Extract normalized lineage edges for a single Dataplex entry."""
         self.report.report_lineage_entry_processed(entry.dataplex_entry_name)
-        lineage_data = self.get_lineage_for_entry(entry)
-
         if not lineage_data:
             self.report.report_lineage_entry_without_lineage(
                 entry_name=entry.dataplex_entry_name,
@@ -535,121 +526,69 @@ class DataplexLineageExtractor:
         ):
             logger.info(
                 "Lineage API parent scan summary: parent=%s, calls=%s, hits=%s, empty=%s, errors=%s",
-                self._build_lineage_parent(project_id, location),
+                build_lineage_parent(project_id, location),
                 stats["calls"],
                 stats["hits"],
                 stats["empty"],
                 stats["errors"],
             )
 
-    def build_lineage_map(
-        self, entry_data: Iterable[EntryDataTuple]
-    ) -> Dict[str, Set[LineageEdge]]:
-        """
-        Build a map of entry lineage for multiple entries.
-
-        Args:
-            entry_data: Iterable of EntryDataTuple objects to process
-
-        Returns:
-            Dictionary mapping dataset IDs (full paths) to sets of LineageEdge objects
-        """
-        logger.info("Starting lineage map build")
-        lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
-            collections.defaultdict(set)
-        )
-        for entry_index, entry in enumerate(entry_data, start=1):
-            lineage_edges = self._extract_lineage_edges_for_entry(entry)
-            if lineage_edges:
-                # Use full dataset_id as key to avoid collisions between tables with same name.
-                lineage_by_full_dataset_id[entry.datahub_dataset_name].update(
-                    lineage_edges
-                )
-
-            if entry_index % 1000 == 0:
-                logger.info(
-                    "Lineage map progress: processed=%s, scanned=%s, "
-                    "no_lineage=%s, unsupported=%s, failed=%s, edges_added=%s, "
-                    "upstream_parse_skipped=%s",
-                    self.report.num_lineage_entries_processed,
-                    self.report.num_lineage_entries_scanned,
-                    self.report.num_lineage_entries_without_lineage,
-                    self.report.num_lineage_entries_skipped_unsupported_type,
-                    self.report.num_lineage_entries_failed,
-                    self.report.num_lineage_edges_added,
-                    self.report.num_lineage_upstream_fqns_skipped,
-                )
-
-        self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
-
-        self._log_parent_scan_summary()
-
-        # Summary logging
-        total_edges = sum(len(edges) for edges in lineage_by_full_dataset_id.values())
-        entries_with_lineage = len(lineage_by_full_dataset_id)
-        logger.info(
-            "Lineage map complete: entries_with_lineage=%s, total_edges=%s, "
-            "processed=%s, no_lineage=%s, unsupported=%s, failed=%s, upstream_parse_skipped=%s, "
-            "upstream_links_observed=%s, edges_added=%s",
-            entries_with_lineage,
-            total_edges,
-            self.report.num_lineage_entries_processed,
-            self.report.num_lineage_entries_without_lineage,
-            self.report.num_lineage_entries_skipped_unsupported_type,
-            self.report.num_lineage_entries_failed,
-            self.report.num_lineage_upstream_fqns_skipped,
-            self.report.num_lineage_upstream_links_found,
-            self.report.num_lineage_edges_added,
-        )
-
-        return lineage_by_full_dataset_id
-
-    def get_lineage_for_table(
-        self, dataset_id: str, dataset_urn: str
+    def _to_upstream_lineage(
+        self, dataset_id: str, lineage_edges: set[LineageEdge]
     ) -> Optional[UpstreamLineageClass]:
-        """
-        Build UpstreamLineageClass for a specific entry.
-
-        Args:
-            dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
-            dataset_urn: DataHub URN for the dataset
-        Returns:
-            UpstreamLineageClass object or None if no lineage exists
-        """
-        if dataset_id not in self.lineage_by_full_dataset_id:
-            return None
-
-        # Defensive dedup at emission-time to avoid duplicate upstreams being emitted
-        # when the same relationship is observed across multiple lineage parents.
+        """Build UpstreamLineageClass from extracted edges for one dataset."""
         unique_upstreams: dict[tuple[str, str], LineageEdge] = {}
-        for lineage_edge in self.lineage_by_full_dataset_id[dataset_id]:
+        for lineage_edge in lineage_edges:
             dedup_key = (lineage_edge.upstream_datahub_urn, lineage_edge.lineage_type)
             existing = unique_upstreams.get(dedup_key)
             if existing is None or lineage_edge.audit_stamp < existing.audit_stamp:
                 unique_upstreams[dedup_key] = lineage_edge
 
-        upstream_list: list[UpstreamClass] = []
+        if not unique_upstreams:
+            return None
 
+        upstream_list: list[UpstreamClass] = []
         for lineage_edge in unique_upstreams.values():
-            # Create table-level lineage
-            upstream_class = UpstreamClass(
-                dataset=lineage_edge.upstream_datahub_urn,
-                type=lineage_edge.lineage_type,
-                auditStamp=AuditStampClass(
-                    actor="urn:li:corpuser:datahub",
-                    time=int(lineage_edge.audit_stamp.timestamp() * 1000),
-                ),
+            upstream_list.append(
+                UpstreamClass(
+                    dataset=lineage_edge.upstream_datahub_urn,
+                    type=lineage_edge.lineage_type,
+                    auditStamp=AuditStampClass(
+                        actor="urn:li:corpuser:datahub",
+                        time=int(lineage_edge.audit_stamp.timestamp() * 1000),
+                    ),
+                )
             )
-            upstream_list.append(upstream_class)
-            # Report the lineage relationship
             self.report.report_lineage_relationship_created(
                 f"{dataset_id}<-{lineage_edge.upstream_datahub_urn}"
             )
-
-        if not upstream_list:
-            return None
-
         return UpstreamLineageClass(upstreams=upstream_list)
+
+    def _gen_lineage(
+        self,
+        dataset_id: str,
+        dataset_urn: str,
+        upstream_lineage: Optional[UpstreamLineageClass],
+    ) -> Iterable[MetadataWorkUnit]:
+        if upstream_lineage is None:
+            return
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=upstream_lineage
+        ).as_workunit()
+
+    # Backward-compatible wrappers for existing callsites/tests.
+    def get_lineage_for_table(
+        self, dataset_id: str, dataset_urn: str
+    ) -> Optional[UpstreamLineageClass]:
+        lineage_map: Dict[str, Set[LineageEdge]] = getattr(
+            self, "lineage_by_full_dataset_id", {}
+        )
+        if dataset_id not in lineage_map:
+            return None
+        return self._to_upstream_lineage(
+            dataset_id=dataset_id,
+            lineage_edges=lineage_map[dataset_id],
+        )
 
     def gen_lineage(
         self,
@@ -657,31 +596,41 @@ class DataplexLineageExtractor:
         dataset_urn: str,
         upstream_lineage: Optional[UpstreamLineageClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate lineage workunits for a dataset.
-
-        Args:
-            dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
-            dataset_urn: DataHub URN for the dataset
-            upstream_lineage: Optional pre-built UpstreamLineageClass
-
-        Yields:
-            MetadataWorkUnit objects containing lineage information
-        """
         if upstream_lineage is None:
             upstream_lineage = self.get_lineage_for_table(dataset_id, dataset_urn)
+        yield from self._gen_lineage(dataset_id, dataset_urn, upstream_lineage)
 
-        if upstream_lineage is None:
-            return
+    def build_lineage_map(
+        self,
+        entry_data: Iterable[EntryDataTuple],
+        active_lineage_project_location_pairs: Optional[list[tuple[str, str]]] = None,
+    ) -> Dict[str, Set[LineageEdge]]:
+        if active_lineage_project_location_pairs is None:
+            active_lineage_project_location_pairs = [
+                (project_id, location)
+                for project_id in self.config.project_ids
+                for location in self.config.lineage_locations
+            ]
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=upstream_lineage
-        ).as_workunit()
+        lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = defaultdict(set)
+        for entry in entry_data:
+            lineage_data = self.get_lineage_for_entry(
+                entry,
+                active_lineage_project_location_pairs=active_lineage_project_location_pairs,
+            )
+            lineage_edges = self._extract_lineage_edges_for_entry(entry, lineage_data)
+            if lineage_edges:
+                lineage_by_full_dataset_id[entry.datahub_dataset_name].update(
+                    lineage_edges
+                )
+
+        self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
+        return lineage_by_full_dataset_id
 
     def get_lineage_workunits(
         self,
         entry_data: Iterable[EntryDataTuple],
-        active_lineage_project_location_pairs: Optional[list[tuple[str, str]]] = None,
+        active_lineage_project_location_pairs: list[tuple[str, str]],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Main entry point to get lineage workunits for multiple entries.
@@ -701,39 +650,37 @@ class DataplexLineageExtractor:
 
         logger.info("Extracting lineage")
         self.report.clear_lineage_scan_stats()
+        # Backward-compatibility state for tests/legacy wrappers only.
         self.lineage_by_full_dataset_id.clear()
-        if active_lineage_project_location_pairs is None:
-            self._active_lineage_project_location_pairs = [
-                (project_id, location)
-                for project_id in self.config.project_ids
-                for location in self.config.lineage_locations
-            ]
-        else:
-            self._active_lineage_project_location_pairs = list(
-                active_lineage_project_location_pairs
-            )
 
         entries_with_lineage = 0
         for entry_index, entry in enumerate(entry_data, start=1):
-            lineage_edges = self._extract_lineage_edges_for_entry(entry)
+            lineage_data = self.get_lineage_for_entry(
+                entry,
+                active_lineage_project_location_pairs=active_lineage_project_location_pairs,
+            )
+            lineage_edges = self._extract_lineage_edges_for_entry(entry, lineage_data)
             if not lineage_edges:
                 continue
 
             dataset_id = entry.datahub_dataset_name
-            # Keep per-dataset map only for current entry emission to preserve
-            # deduplication behavior from get_lineage_for_table while staying streaming.
-            self.lineage_by_full_dataset_id[dataset_id] = set(lineage_edges)
-
             dataset_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=entry.datahub_platform,
                 name=dataset_id,
                 platform_instance=None,
                 env=self.config.env,
             )
+            upstream_lineage = self._to_upstream_lineage(dataset_id, lineage_edges)
+            if upstream_lineage is None:
+                continue
 
             try:
                 yielded_for_entry = False
-                for workunit in self.gen_lineage(dataset_id, dataset_urn):
+                for workunit in self._gen_lineage(
+                    dataset_id,
+                    dataset_urn,
+                    upstream_lineage,
+                ):
                     yielded_for_entry = True
                     yield workunit
                 if yielded_for_entry:
@@ -752,8 +699,6 @@ class DataplexLineageExtractor:
                     ),
                     exc=e,
                 )
-            finally:
-                self.lineage_by_full_dataset_id.pop(dataset_id, None)
 
             if entry_index % 1000 == 0:
                 logger.info(

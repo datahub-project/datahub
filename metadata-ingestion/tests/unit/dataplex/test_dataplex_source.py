@@ -325,6 +325,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     )
     args, _kwargs = source.lineage_extractor.get_lineage_workunits.call_args
     assert len(args[0]) == 1
+    source.report.info.assert_called_once()
 
 
 def test_get_workunits_internal_discovers_active_lineage_locations_once() -> None:
@@ -377,6 +378,7 @@ def test_get_workunits_internal_discovers_active_lineage_locations_once() -> Non
             ("project-2", "europe-west1"),
         ],
     )
+    source.report.info.assert_called_once()
 
 
 def test_get_workunits_internal_discovery_falls_back_to_configured_locations() -> None:
@@ -419,6 +421,7 @@ def test_get_workunits_internal_discovery_falls_back_to_configured_locations() -
         ("project-1", "us-central1"),
         ("project-1", "europe-west1"),
     ]
+    source.report.info.assert_called_once()
 
 
 def test_get_workunits_internal_discovery_can_be_disabled() -> None:
@@ -462,6 +465,7 @@ def test_get_workunits_internal_discovery_can_be_disabled() -> None:
             ("project-2", "us-central1"),
         ],
     )
+    source.report.info.assert_called_once()
 
 
 def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
@@ -585,6 +589,7 @@ def test_get_workunits_internal_reports_discovery_probe_errors_as_debug() -> Non
         source.entry_data,
         active_lineage_project_location_pairs=[("project-1", "us-central1")],
     )
+    source.report.info.assert_called_once()
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:

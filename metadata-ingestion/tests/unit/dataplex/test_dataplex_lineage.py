@@ -68,7 +68,7 @@ def test_lineage_extractor_initialization(
     assert lineage_extractor.config is not None
     assert lineage_extractor.report is not None
     assert lineage_extractor.lineage_client is not None
-    assert isinstance(lineage_extractor.lineage_by_full_dataset_id, dict)
+    assert callable(lineage_extractor.get_lineage_workunits)
 
 
 def test_lineage_extraction_disabled(
@@ -100,7 +100,9 @@ def test_lineage_extraction_disabled(
         datahub_dataset_name="test-project.test-dataset.test-table",
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
-    result = extractor.get_lineage_for_entry(entry_data)
+    result = extractor.get_lineage_for_entry(
+        entry_data, [("test-project", "us-central1")]
+    )
     assert result is None
 
 
@@ -164,7 +166,9 @@ def test_get_lineage_for_entry_with_upstream(
     )
 
     # Get lineage
-    result = lineage_extractor.get_lineage_for_entry(test_entry)
+    result = lineage_extractor.get_lineage_for_entry(
+        test_entry, [("test-project", "us-central1")]
+    )
 
     assert result is not None
     assert "upstream" in result
@@ -194,7 +198,15 @@ def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
     lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
     lineage_client_mock.search_links.return_value = []  # type: ignore[union-attr]
 
-    lineage_extractor.get_lineage_for_entry(test_entry)
+    lineage_extractor.get_lineage_for_entry(
+        test_entry,
+        [
+            ("test-project", "us-central1"),
+            ("test-project", "europe-west1"),
+            ("other-project", "us-central1"),
+            ("other-project", "europe-west1"),
+        ],
+    )
 
     assert lineage_extractor.lineage_client is not None
     calls = lineage_client_mock.search_links.call_args_list
@@ -240,7 +252,7 @@ def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
     )
 
 
-def test_get_lineage_for_entry_uses_discovered_active_project_location_pairs(
+def test_get_lineage_for_entry_uses_provided_active_project_location_pairs(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
     test_entry = EntryDataTuple(
@@ -254,16 +266,15 @@ def test_get_lineage_for_entry_uses_discovered_active_project_location_pairs(
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    lineage_extractor._active_lineage_project_location_pairs = [
+    provided_pairs = [
         ("test-project", "us-central1"),
         ("other-project", "europe-west1"),
     ]
-    lineage_extractor._active_lineage_project_location_pairs_initialized = True
 
     lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
     lineage_client_mock.search_links.return_value = []  # type: ignore[union-attr]
 
-    lineage_extractor.get_lineage_for_entry(test_entry)
+    lineage_extractor.get_lineage_for_entry(test_entry, provided_pairs)
 
     calls = lineage_client_mock.search_links.call_args_list
     assert len(calls) == 2
@@ -299,7 +310,10 @@ def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
     lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
     lineage_client_mock.search_links.return_value = [duplicate_link]  # type: ignore[union-attr]
 
-    result = lineage_extractor.get_lineage_for_entry(test_entry)
+    result = lineage_extractor.get_lineage_for_entry(
+        test_entry,
+        [("test-project", "us-central1"), ("test-project", "us-east1")],
+    )
 
     assert result is not None
     assert result["upstream"] == [
@@ -336,7 +350,10 @@ def test_get_lineage_for_entry_continues_after_single_region_error(
     lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
     lineage_client_mock.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
 
-    result = lineage_extractor.get_lineage_for_entry(test_entry)
+    result = lineage_extractor.get_lineage_for_entry(
+        test_entry,
+        [("test-project", "me-central2"), ("test-project", "us-central1")],
+    )
 
     assert result is not None
     assert result["upstream"] == ["bigquery:project.dataset.upstream_ok"]
@@ -532,7 +549,10 @@ def test_lineage_with_cross_platform_references(
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    result = lineage_extractor.get_lineage_for_entry(test_entry)
+    result = lineage_extractor.get_lineage_for_entry(
+        test_entry,
+        [("test-project", "us-central1")],
+    )
 
     assert result is not None
     assert len(result["upstream"]) == 1
@@ -541,7 +561,10 @@ def test_lineage_with_cross_platform_references(
 
     # GCS upstream is not yet part of DATAPLEX_ENTRY_TYPE_MAPPINGS datasets.
     # Confirm it is skipped during edge normalization.
-    lineage_map = lineage_extractor.build_lineage_map([test_entry])
+    lineage_map = lineage_extractor.build_lineage_map(
+        [test_entry],
+        active_lineage_project_location_pairs=[("test-project", "us-central1")],
+    )
     assert lineage_map == {}
 
 
@@ -579,7 +602,10 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
         )
     ]
 
-    lineage_map = extractor.build_lineage_map(entries)
+    lineage_map = extractor.build_lineage_map(
+        entries,
+        active_lineage_project_location_pairs=[("test-project", "us-central1")],
+    )
     assert lineage_map == {}
     assert report.lineage_report.num_lineage_entries_without_lineage == 0
     assert report.lineage_report.num_lineage_upstream_fqns_skipped == 1
@@ -620,7 +646,10 @@ def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
         )
     ]
 
-    lineage_map = extractor.build_lineage_map(entries)
+    lineage_map = extractor.build_lineage_map(
+        entries,
+        active_lineage_project_location_pairs=[("test-project", "us-central1")],
+    )
     assert "test-project.dataset.table_1" in lineage_map
     edges = lineage_map["test-project.dataset.table_1"]
     assert len(edges) == 1
@@ -819,7 +848,10 @@ def test_pagination_automatic_handling() -> None:
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    result = extractor.get_lineage_for_entry(entry)
+    result = extractor.get_lineage_for_entry(
+        entry,
+        [("test-project", "us-central1")],
+    )
 
     # Verify all items from all "pages" are retrieved
     assert result is not None
@@ -868,7 +900,10 @@ def test_pagination_with_large_result_set() -> None:
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    result = extractor.get_lineage_for_entry(entry)
+    result = extractor.get_lineage_for_entry(
+        entry,
+        [("test-project", "us-central1")],
+    )
 
     # Verify all 100 items are retrieved
     assert result is not None
@@ -952,7 +987,12 @@ def test_streaming_lineage_processing() -> None:
     ]
 
     # Call get_lineage_workunits which should process entries in streaming mode
-    workunits = list(extractor.get_lineage_workunits(entries))
+    workunits = list(
+        extractor.get_lineage_workunits(
+            entries,
+            active_lineage_project_location_pairs=[("test-project", "us-central1")],
+        )
+    )
 
     # Should generate 5 workunits (one per entry)
     assert len(workunits) == 5
@@ -1000,7 +1040,12 @@ def test_streaming_lineage_ignores_large_batch_size_config() -> None:
     ]
 
     # Should process all entries in streaming mode
-    workunits = list(extractor.get_lineage_workunits(entries))
+    workunits = list(
+        extractor.get_lineage_workunits(
+            entries,
+            active_lineage_project_location_pairs=[("test-project", "us-central1")],
+        )
+    )
 
     # Should generate 3 workunits (one per entry)
     assert len(workunits) == 3
@@ -1047,7 +1092,12 @@ def test_streaming_lineage_with_batching_disabled_config() -> None:
     ]
 
     # Should process all entries in streaming mode
-    workunits = list(extractor.get_lineage_workunits(entries))
+    workunits = list(
+        extractor.get_lineage_workunits(
+            entries,
+            active_lineage_project_location_pairs=[("test-project", "us-central1")],
+        )
+    )
 
     # Should generate 10 workunits
     assert len(workunits) == 10
@@ -1104,7 +1154,12 @@ def test_streaming_lineage_memory_cleanup() -> None:
     ]
 
     # Process entries
-    workunits = list(extractor.get_lineage_workunits(entries))
+    workunits = list(
+        extractor.get_lineage_workunits(
+            entries,
+            active_lineage_project_location_pairs=[("test-project", "us-central1")],
+        )
+    )
 
     # Should generate 6 workunits
     assert len(workunits) == 6
@@ -1202,7 +1257,10 @@ class TestLineageMapKeyCollision:
         ]
 
         # Build lineage map
-        lineage_by_full_dataset_id = extractor.build_lineage_map(entries)
+        lineage_by_full_dataset_id = extractor.build_lineage_map(
+            entries,
+            active_lineage_project_location_pairs=[("test-project", "us-central1")],
+        )
 
         # KEY ASSERTION: Lineage map should have full dataset_id as key
         assert "test-project.analytics.customers" in lineage_by_full_dataset_id, (
@@ -1294,7 +1352,12 @@ class TestLineageMapKeyCollision:
         ]
 
         # Get lineage workunits
-        workunits = list(extractor.get_lineage_workunits(entries))
+        workunits = list(
+            extractor.get_lineage_workunits(
+                entries,
+                active_lineage_project_location_pairs=[("test-project", "us-central1")],
+            )
+        )
 
         # Should have exactly 1 workunit (for analytics.customers only)
         assert len(workunits) == 1, (
@@ -1415,7 +1478,10 @@ class TestLineageMapKeyCollision:
             ),
         ]
 
-        lineage_by_full_dataset_id = extractor.build_lineage_map(entries)
+        lineage_by_full_dataset_id = extractor.build_lineage_map(
+            entries,
+            active_lineage_project_location_pairs=[("test-project", "us-central1")],
+        )
 
         # Verify the key format
         keys = list(lineage_by_full_dataset_id.keys())
