@@ -92,7 +92,7 @@ There are a few ways DataHub Cloud assertions can be executed:
 1. Directly query the source system:
    a. `Information Schema` tables are used by default to power cheap, fast checks on a table's freshness or row count.
    b. `Audit log` or `Operation log` tables can be used to granularly monitor table operations.
-   c. The table itself can also be queried directly. This is useful for freshness checks referencing `last_updated` columns, row count checks targetting a subset of the data, and column value checks. We offer several optimizations to reduce query costs for these checks.
+   c. The table itself can also be queried directly. This is useful for freshness checks referencing `last_updated` columns, row count checks targeting a subset of the data, and column value checks. We offer several optimizations to reduce query costs for these checks.
 2. Reference DataHub metadata
    a. [Operations](/docs/api/tutorials/operations.md) that are reported via ingestion or our SDKs can power monitoring table freshness.
    b. `DatasetProfile` and `SchemaFieldProfile` ingested or reported via SDKs can power monitoring table metrics and column metrics.
