@@ -4,6 +4,8 @@
 
 This document outlines the implementation plan for a DataHub connector to ingest metadata from Pinecone, a vector database platform. The connector extracts information about indexes, namespaces, and vector metadata to provide visibility into vector data assets within DataHub.
 
+---
+
 ## Pinecone Architecture
 
 ### Key Concepts
@@ -26,6 +28,8 @@ This document outlines the implementation plan for a DataHub connector to ingest
 4. **Hosting Environments**:
    - Serverless indexes
    - Pod-based indexes
+
+---
 
 ## DataHub Entity Mapping
 
@@ -62,6 +66,8 @@ Platform: pinecone
    - SubType: `Vector Collection`
    - Schema: Inferred from metadata fields across sampled vectors
 
+---
+
 ## Implementation Structure
 
 ### File Organization
@@ -95,6 +101,8 @@ class PineconeConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 ```
 
+---
+
 ## API Integration
 
 ### Pinecone SDK Usage
@@ -114,6 +122,8 @@ results = index.query(
     include_metadata=True
 )
 ```
+
+---
 
 ## Metadata Extraction Flow
 
@@ -147,6 +157,8 @@ results = index.query(
    - Build SchemaMetadata with SchemaFields
    - Emit Dataset workunit with schema
 ```
+
+---
 
 ## Implementation Phases
 
@@ -185,6 +197,8 @@ results = index.query(
 - Example recipes
 - Error handling improvements
 
+---
+
 ## Challenges and Considerations
 
 ### 1. Namespace Listing
@@ -207,6 +221,8 @@ results = index.query(
 - **Challenge**: API rate limits may affect large-scale ingestion
 - **Solution**: Implement exponential backoff, configurable delays
 
+---
+
 ## Success Criteria
 
 1. Successfully extract metadata from Pinecone indexes
@@ -216,6 +232,8 @@ results = index.query(
 5. Handle errors gracefully with clear reporting
 6. Provide comprehensive documentation
 7. Pass all unit and integration tests
+
+---
 
 ## References
 
