@@ -6,7 +6,7 @@ import collections
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Set
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Set
 
 from google.api_core import exceptions as google_exceptions
 from tenacity import (
@@ -19,6 +19,7 @@ from tenacity import (
 
 if TYPE_CHECKING:
     from google.cloud.datacatalog_lineage import LineageClient
+    from google.cloud.datacatalog_lineage.types import Link
 
 from google.cloud.datacatalog_lineage import EntityReference, SearchLinksRequest
 
@@ -109,6 +110,9 @@ class DataplexLineageReport(Report):
     num_lineage_entries_failed: int = 0
     lineage_entries_failed_samples: LossyList[str] = field(default_factory=LossyList)
     lineage_api: dict[str, tuple[int, float]] = field(default_factory=dict)
+    scan_stats_by_project_location_pair: dict[tuple[str, str], dict[str, int]] = field(
+        default_factory=dict
+    )
 
     def report_lineage_api_call(self, api_name: str, elapsed_seconds: float) -> None:
         """Accumulate per-API call count and total latency in seconds."""
@@ -117,6 +121,34 @@ class DataplexLineageReport(Report):
             num_calls + 1,
             total_time_secs + elapsed_seconds,
         )
+
+    def clear_lineage_scan_stats(self) -> None:
+        self.scan_stats_by_project_location_pair.clear()
+
+    def _lineage_scan_stats_for(
+        self, project_id: str, location: str
+    ) -> dict[str, int]:
+        key = (project_id, location)
+        if key not in self.scan_stats_by_project_location_pair:
+            self.scan_stats_by_project_location_pair[key] = {
+                "calls": 0,
+                "hits": 0,
+                "empty": 0,
+                "errors": 0,
+            }
+        return self.scan_stats_by_project_location_pair[key]
+
+    def report_lineage_scan_call(self, project_id: str, location: str) -> None:
+        self._lineage_scan_stats_for(project_id, location)["calls"] += 1
+
+    def report_lineage_scan_hit(self, project_id: str, location: str) -> None:
+        self._lineage_scan_stats_for(project_id, location)["hits"] += 1
+
+    def report_lineage_scan_empty(self, project_id: str, location: str) -> None:
+        self._lineage_scan_stats_for(project_id, location)["empty"] += 1
+
+    def report_lineage_scan_error(self, project_id: str, location: str) -> None:
+        self._lineage_scan_stats_for(project_id, location)["errors"] += 1
 
     def report_lineage_relationship_created(self, relationship: str) -> None:
         self.num_lineage_relationships_created += 1
@@ -205,7 +237,7 @@ class DataplexLineageExtractor:
     """
     Extracts lineage information from Google Dataplex using the Data Lineage API.
 
-    This class queries the Dataplex Lineage API to discover upstream and downstream
+    This class queries the Dataplex Lineage API to discover upstream
     relationships between entries and generates DataHub lineage metadata.
     """
 
@@ -241,13 +273,11 @@ class DataplexLineageExtractor:
             collections.defaultdict(set)
         )
 
-    def _resolve_lineage_parent(self, project_id: str, entry: EntryDataTuple) -> str:
-        """Resolve Data Lineage API parent using the tracked entry location."""
-        return f"projects/{project_id}/locations/{entry.dataplex_location}"
+    def _build_lineage_parent(self, project_id: str, location: str) -> str:
+        """Build Data Lineage API parent for an explicit project/location pair."""
+        return f"projects/{project_id}/locations/{location}"
 
-    def get_lineage_for_entry(
-        self, project_id: str, entry: EntryDataTuple
-    ) -> Optional[Dict[str, list]]:
+    def get_lineage_for_entry(self, entry: EntryDataTuple) -> Optional[Dict[str, list]]:
         """
         Get lineage information for a specific Dataplex entry with automatic retries.
 
@@ -255,50 +285,75 @@ class DataplexLineageExtractor:
         with exponential backoff. After retries are exhausted, logs a warning and continues.
 
         Args:
-            project_id: GCP project ID
             entry: EntryDataTuple
 
         Returns:
-            Dictionary with 'upstream' and 'downstream' lists of entry FQNs,
-            or None if lineage extraction is disabled or fails after retries
+            Dictionary with upstream lineage FQNs and an empty downstream list
+            for backward compatibility, or None if lineage extraction is disabled
+            or fails after retries
         """
         if not self.config.include_lineage or not self.lineage_client:
             return None
 
         try:
             fully_qualified_name = entry.dataplex_entry_fqn
-            lineage_data: dict[str, list[Any]] = {"upstream": [], "downstream": []}
-            parent = self._resolve_lineage_parent(project_id, entry)
+            lineage_data: dict[str, list[str]] = {"upstream": [], "downstream": []}
+            hit_parents: list[str] = []
+            empty_parents: list[str] = []
 
-            # Get upstream lineage (where this entry is the target) - retries are handled inside _search_links_by_target
-            with PerfTimer() as timer:
-                upstream_links = self._search_links_by_target(
-                    parent, fully_qualified_name
-                )
-                self.report.report_lineage_api_call(
-                    "search_links_by_target", timer.elapsed_seconds()
-                )
-            for link in upstream_links:
-                if link.source and link.source.fully_qualified_name:
-                    lineage_data["upstream"].append(link.source.fully_qualified_name)
+            # Query only target links (upstream lineage) across configured project/location
+            # matrix so cross-project lineage edges can be discovered.
+            for lineage_project_id in self.config.project_ids:
+                for lineage_location in self.config.lineage_locations:
+                    parent = self._build_lineage_parent(
+                        lineage_project_id, lineage_location
+                    )
+                    self.report.report_lineage_scan_call(
+                        lineage_project_id, lineage_location
+                    )
+                    try:
+                        with PerfTimer() as timer:
+                            upstream_links = self._search_links_by_target(
+                                parent, fully_qualified_name
+                            )
+                            self.report.report_lineage_api_call(
+                                "search_links_by_target", timer.elapsed_seconds()
+                            )
+                    except Exception:
+                        self.report.report_lineage_scan_error(
+                            lineage_project_id, lineage_location
+                        )
+                        raise
 
-            # Get downstream lineage (where this entry is the source) - retries are handled inside _search_links_by_source
-            with PerfTimer() as timer:
-                downstream_links = self._search_links_by_source(
-                    parent, fully_qualified_name
-                )
-                self.report.report_lineage_api_call(
-                    "search_links_by_source", timer.elapsed_seconds()
-                )
-            for link in downstream_links:
-                if link.target and link.target.fully_qualified_name:
-                    lineage_data["downstream"].append(link.target.fully_qualified_name)
+                    if upstream_links:
+                        hit_parents.append(parent)
+                        self.report.report_lineage_scan_hit(
+                            lineage_project_id, lineage_location
+                        )
+                    else:
+                        empty_parents.append(parent)
+                        self.report.report_lineage_scan_empty(
+                            lineage_project_id, lineage_location
+                        )
 
-            if lineage_data["upstream"] or lineage_data["downstream"]:
+                    for link in upstream_links:
+                        if link.source and link.source.fully_qualified_name:
+                            lineage_data["upstream"].append(
+                                link.source.fully_qualified_name
+                            )
+
+            logger.debug(
+                "Lineage lookup summary for entry=%s fqn=%s: hit_parents=%s empty_parents=%s",
+                entry.dataplex_entry_name,
+                fully_qualified_name,
+                hit_parents,
+                empty_parents,
+            )
+
+            if lineage_data["upstream"]:
                 logger.debug(
                     f"Found lineage for {entry.dataplex_entry_short_name}: "
-                    f"{len(lineage_data['upstream'])} upstream, "
-                    f"{len(lineage_data['downstream'])} downstream"
+                    f"{len(lineage_data['upstream'])} upstream, 0 downstream"
                 )
                 self.report.report_lineage_entry_scanned(entry.dataplex_entry_name)
 
@@ -313,7 +368,6 @@ class DataplexLineageExtractor:
             self.source_report.warning(
                 "Failed to get lineage for entry after retries. Continuing with other entries.",
                 context=(
-                    f"project_id={project_id}, "
                     f"dataplex_entry_name={entry.dataplex_entry_name}, "
                     f"datahub_dataset_name={entry.datahub_dataset_name}, "
                     f"entry_type={entry.dataplex_entry_type_short_name}"
@@ -343,7 +397,7 @@ class DataplexLineageExtractor:
 
     def _search_links_by_target_impl(
         self, parent: str, fully_qualified_name: str
-    ) -> Iterable:
+    ) -> list["Link"]:
         """
         Implementation of searching for lineage links where the entry is a target (to find upstream).
         This method is wrapped with retry logic in _search_links_by_target.
@@ -365,7 +419,7 @@ class DataplexLineageExtractor:
 
     def _search_links_by_target(
         self, parent: str, fully_qualified_name: str
-    ) -> Iterable:
+    ) -> list["Link"]:
         """
         Search for lineage links where the entry is a target (to find upstream).
 
@@ -386,76 +440,25 @@ class DataplexLineageExtractor:
         retrying_func = retry_decorator(self._search_links_by_target_impl)
         return retrying_func(parent, fully_qualified_name)
 
-    def _search_links_by_source_impl(
-        self, parent: str, fully_qualified_name: str
-    ) -> Iterable:
-        """
-        Implementation of search for lineage links where the entry is a source (to find downstream).
-
-        Note: The Google Cloud Lineage API client automatically handles pagination.
-        The search_links() method returns a SearchLinksPager that fetches all pages
-        transparently when converted to a list, so no manual pagination is needed.
-
-        Args:
-            parent: Parent resource path (projects/{project}/locations/{location})
-            fully_qualified_name: FQN of the entry
-
-        Returns:
-            List of Link objects (all pages automatically retrieved)
-
-        Raises:
-            RuntimeError: If lineage client is not initialized
-            Exception: If the lineage API call fails
-        """
-        if self.lineage_client is None:
-            raise RuntimeError("Lineage client is not initialized")
-        logger.debug(f"Searching downstream lineage for FQN: {fully_qualified_name}")
-        source = EntityReference(fully_qualified_name=fully_qualified_name)
-        request = SearchLinksRequest(parent=parent, source=source)
-        # Convert pager to list - this automatically handles pagination
-        results = list(self.lineage_client.search_links(request=request))
-        logger.debug(
-            f"Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
-        )
-        return results
-
-    def _search_links_by_source(
-        self, parent: str, fully_qualified_name: str
-    ) -> Iterable:
-        """
-        Wrapper that applies configurable retry logic to downstream lineage search.
-
-        Args:
-            parent: Parent resource path (projects/{project}/locations/{location})
-            fully_qualified_name: FQN of the entry
-
-        Returns:
-            List of Link objects (all pages automatically retrieved)
-        """
-        retry_decorator = self._get_retry_decorator()
-        retrying_func = retry_decorator(self._search_links_by_source_impl)
-        return retrying_func(parent, fully_qualified_name)
-
     def build_lineage_map(
-        self, project_id: str, entry_data: Iterable[EntryDataTuple]
+        self, entry_data: Iterable[EntryDataTuple]
     ) -> Dict[str, Set[LineageEdge]]:
         """
         Build a map of entry lineage for multiple entries.
 
         Args:
-            project_id: GCP project ID
             entry_data: Iterable of EntryDataTuple objects to process
 
         Returns:
             Dictionary mapping dataset IDs (full paths) to sets of LineageEdge objects
         """
-        logger.info(f"Starting lineage map build for project {project_id}")
+        logger.info("Starting lineage map build")
         lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
             collections.defaultdict(set)
         )
         for entry_index, entry in enumerate(entry_data, start=1):
             self.report.report_lineage_entry_processed(entry.dataplex_entry_name)
-            lineage_data = self.get_lineage_for_entry(project_id, entry)
+            lineage_data = self.get_lineage_for_entry(entry)
 
             if not lineage_data:
                 self.report.report_lineage_entry_without_lineage(
@@ -464,19 +467,14 @@ class DataplexLineageExtractor:
                 )
                 continue
             upstream_count = len(lineage_data.get("upstream", []))
-            downstream_count = len(lineage_data.get("downstream", []))
             self.report.report_lineage_upstream_links_found(
                 entry_name=entry.dataplex_entry_name,
                 count=upstream_count,
             )
-            self.report.report_lineage_downstream_links_found(
-                entry_name=entry.dataplex_entry_name,
-                count=downstream_count,
-            )
-            if upstream_count == 0 and downstream_count == 0:
+            if upstream_count == 0:
                 self.report.report_lineage_entry_without_lineage(
                     entry_name=entry.dataplex_entry_name,
-                    reason="empty_upstream_and_downstream",
+                    reason="empty_upstream",
                 )
                 continue
 
@@ -524,7 +522,6 @@ class DataplexLineageExtractor:
                         "Unable to normalize upstream Dataplex lineage FQN. Skipping upstream edge.",
                         title="Dataplex upstream lineage parse failed",
                         context=(
-                            f"project_id={project_id}, "
                             f"dataplex_entry_name={entry.dataplex_entry_name}, "
                             f"datahub_dataset_name={entry.datahub_dataset_name}, "
                             f"entry_type={entry.dataplex_entry_type_short_name}, "
@@ -533,10 +530,9 @@ class DataplexLineageExtractor:
                     )
             if entry_index % 1000 == 0:
                 logger.info(
-                    "Lineage map progress for project %s: processed=%s, scanned=%s, "
+                    "Lineage map progress: processed=%s, scanned=%s, "
                     "no_lineage=%s, unsupported=%s, failed=%s, edges_added=%s, "
                     "upstream_parse_skipped=%s",
-                    project_id,
                     self.report.num_lineage_entries_processed,
                     self.report.num_lineage_entries_scanned,
                     self.report.num_lineage_entries_without_lineage,
@@ -548,14 +544,25 @@ class DataplexLineageExtractor:
 
         self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
 
+        for (project_id, location), stats in sorted(
+            self.report.scan_stats_by_project_location_pair.items()
+        ):
+            logger.info(
+                "Lineage API parent scan summary: parent=%s, calls=%s, hits=%s, empty=%s, errors=%s",
+                self._build_lineage_parent(project_id, location),
+                stats["calls"],
+                stats["hits"],
+                stats["empty"],
+                stats["errors"],
+            )
+
         # Summary logging
         total_edges = sum(len(edges) for edges in lineage_by_full_dataset_id.values())
         entries_with_lineage = len(lineage_by_full_dataset_id)
         logger.info(
-            "Lineage map complete for project %s: entries_with_lineage=%s, total_edges=%s, "
+            "Lineage map complete: entries_with_lineage=%s, total_edges=%s, "
             "processed=%s, no_lineage=%s, unsupported=%s, failed=%s, upstream_parse_skipped=%s, "
-            "upstream_links_observed=%s, downstream_links_observed=%s, edges_added=%s",
-            project_id,
+            "upstream_links_observed=%s, edges_added=%s",
             entries_with_lineage,
             total_edges,
             self.report.num_lineage_entries_processed,
@@ -564,7 +571,6 @@ class DataplexLineageExtractor:
             self.report.num_lineage_entries_failed,
             self.report.num_lineage_upstream_fqns_skipped,
             self.report.num_lineage_upstream_links_found,
-            self.report.num_lineage_downstream_links_found,
             self.report.num_lineage_edges_added,
         )
 
@@ -585,9 +591,18 @@ class DataplexLineageExtractor:
         if dataset_id not in self.lineage_by_full_dataset_id:
             return None
 
+        # Defensive dedup at emission-time to avoid duplicate upstreams being emitted
+        # when the same relationship is observed across multiple lineage parents.
+        unique_upstreams: dict[tuple[str, str], LineageEdge] = {}
+        for lineage_edge in self.lineage_by_full_dataset_id[dataset_id]:
+            dedup_key = (lineage_edge.upstream_datahub_urn, lineage_edge.lineage_type)
+            existing = unique_upstreams.get(dedup_key)
+            if existing is None or lineage_edge.audit_stamp < existing.audit_stamp:
+                unique_upstreams[dedup_key] = lineage_edge
+
         upstream_list: list[UpstreamClass] = []
 
-        for lineage_edge in self.lineage_by_full_dataset_id[dataset_id]:
+        for lineage_edge in unique_upstreams.values():
             # Create table-level lineage
             upstream_class = UpstreamClass(
                 dataset=lineage_edge.upstream_datahub_urn,
@@ -636,7 +651,7 @@ class DataplexLineageExtractor:
         ).as_workunit()
 
     def get_lineage_workunits(
-        self, project_id: str, entry_data: Iterable[EntryDataTuple]
+        self, entry_data: Iterable[EntryDataTuple]
     ) -> Iterable[MetadataWorkUnit]:
         """
         Main entry point to get lineage workunits for multiple entries.
@@ -646,7 +661,6 @@ class DataplexLineageExtractor:
         Set to None to disable batching and process all entries at once.
 
         Args:
-            project_id: GCP project ID
             entry_data: Iterable of EntryDataTuple objects
 
         Yields:
@@ -656,7 +670,8 @@ class DataplexLineageExtractor:
             logger.info("Lineage extraction is disabled")
             return
 
-        logger.info(f"Extracting lineage for project {project_id}")
+        logger.info("Extracting lineage")
+        self.report.clear_lineage_scan_stats()
 
         # Convert to list to allow multiple iterations and get total count
         entry_list = list(entry_data)
@@ -666,7 +681,7 @@ class DataplexLineageExtractor:
         if self.config.batch_size is None or self.config.batch_size >= total_entries:
             logger.info(f"Processing all {total_entries} entries in a single batch")
             # Process all entries at once (original behavior)
-            self.build_lineage_map(project_id, entry_list)
+            self.build_lineage_map(entry_list)
 
             for entry in entry_list:
                 # Construct dataset URN - entries use full dataset_id path
@@ -690,7 +705,6 @@ class DataplexLineageExtractor:
                     self.source_report.warning(
                         "Failed to generate lineage for entry.",
                         context=(
-                            f"project_id={project_id}, "
                             f"dataplex_entry_name={entry.dataplex_entry_name}, "
                             f"datahub_dataset_name={entry.datahub_dataset_name}, "
                             "stage=gen_lineage_single_batch"
@@ -720,7 +734,7 @@ class DataplexLineageExtractor:
                 )
 
                 # Build lineage map for this batch only
-                self.build_lineage_map(project_id, batch)
+                self.build_lineage_map(batch)
 
                 # Generate workunits for entries in this batch
                 for entry in batch:
@@ -745,7 +759,6 @@ class DataplexLineageExtractor:
                         self.source_report.warning(
                             "Failed to generate lineage for entry.",
                             context=(
-                                f"project_id={project_id}, "
                                 f"dataplex_entry_name={entry.dataplex_entry_name}, "
                                 f"datahub_dataset_name={entry.datahub_dataset_name}, "
                                 f"stage=gen_lineage_batch_{batch_idx + 1}"

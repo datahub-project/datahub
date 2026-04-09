@@ -22,6 +22,7 @@ def dataplex_config() -> DataplexConfig:
     return DataplexConfig(
         project_ids=["test-project"],
         entries_locations=["us"],
+        lineage_locations=["us-central1"],
         include_lineage=True,
     )
 
@@ -78,6 +79,7 @@ def test_lineage_extraction_disabled(
     config = DataplexConfig(
         project_ids=["test-project"],
         entries_locations=["us"],
+        lineage_locations=["us-central1"],
         include_lineage=False,  # Disabled
     )
 
@@ -98,7 +100,7 @@ def test_lineage_extraction_disabled(
         datahub_dataset_name="test-project.test-dataset.test-table",
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
-    result = extractor.get_lineage_for_entry("test-project", entry_data)
+    result = extractor.get_lineage_for_entry(entry_data)
     assert result is None
 
 
@@ -133,22 +135,6 @@ def test_search_links_by_target(lineage_extractor: DataplexLineageExtractor) -> 
     assert results[0] == mock_link
 
 
-def test_search_links_by_source(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test searching lineage links by source."""
-    # Setup mock response
-    mock_link = Mock()
-    mock_link.target.fully_qualified_name = "downstream:target-entry"
-    lineage_extractor.lineage_client.search_links.return_value = [mock_link]  # type: ignore[union-attr]
-
-    # Search
-    parent = "projects/test-project/locations/us"
-    fqn = "bigquery:test-project.dataset.table"
-    results = list(lineage_extractor._search_links_by_source(parent, fqn))
-
-    assert len(results) == 1
-    assert results[0] == mock_link
-
-
 def test_get_lineage_for_entry_with_upstream(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
@@ -157,16 +143,10 @@ def test_get_lineage_for_entry_with_upstream(
     mock_upstream_link = Mock()
     mock_upstream_link.source.fully_qualified_name = "bigquery:project.dataset.table1"
 
-    # Mock downstream link
-    mock_downstream_link = Mock()
-    mock_downstream_link.target.fully_qualified_name = "bigquery:project.dataset.table2"
-
-    # Setup mock to return different results for target vs source queries
+    # Setup mock to return upstream results for target queries only.
     def search_links_side_effect(request):
         if hasattr(request, "target") and request.target:
             return [mock_upstream_link]
-        elif hasattr(request, "source") and request.source:
-            return [mock_downstream_link]
         return []
 
     lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
@@ -184,18 +164,17 @@ def test_get_lineage_for_entry_with_upstream(
     )
 
     # Get lineage
-    result = lineage_extractor.get_lineage_for_entry("test-project", test_entry)
+    result = lineage_extractor.get_lineage_for_entry(test_entry)
 
     assert result is not None
     assert "upstream" in result
-    assert "downstream" in result
+    assert "downstream" in result  # retained for backward-compatible return structure
     assert len(result["upstream"]) == 1
-    assert len(result["downstream"]) == 1
+    assert len(result["downstream"]) == 0
     assert result["upstream"][0] == "bigquery:project.dataset.table1"
-    assert result["downstream"][0] == "bigquery:project.dataset.table2"
 
 
-def test_get_lineage_for_entry_uses_entry_location_in_parent(
+def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
     test_entry = EntryDataTuple(
@@ -209,25 +188,133 @@ def test_get_lineage_for_entry_uses_entry_location_in_parent(
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    mock_upstream_link = Mock()
-    mock_upstream_link.source.fully_qualified_name = "bigquery:upstream.ds.tbl"
-    mock_downstream_link = Mock()
-    mock_downstream_link.target.fully_qualified_name = "bigquery:downstream.ds.tbl"
+    lineage_extractor.config.project_ids = ["test-project", "other-project"]
+    lineage_extractor.config.lineage_locations = ["us-central1", "europe-west1"]
 
     lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
-    lineage_client_mock.search_links.side_effect = [  # type: ignore[union-attr]
-        [mock_upstream_link],
-        [mock_downstream_link],
-    ]
+    lineage_client_mock.search_links.return_value = []  # type: ignore[union-attr]
 
-    lineage_extractor.get_lineage_for_entry("test-project", test_entry)
+    lineage_extractor.get_lineage_for_entry(test_entry)
 
     assert lineage_extractor.lineage_client is not None
     calls = lineage_client_mock.search_links.call_args_list
-    assert len(calls) >= 2
-    for call in calls[:2]:
+    assert len(calls) == 4
+    expected_parents = {
+        "projects/test-project/locations/us-central1",
+        "projects/test-project/locations/europe-west1",
+        "projects/other-project/locations/us-central1",
+        "projects/other-project/locations/europe-west1",
+    }
+    observed_parents = set()
+    for call in calls:
         request = call.kwargs["request"]
-        assert request.parent == "projects/test-project/locations/eu"
+        observed_parents.add(request.parent)
+    assert observed_parents == expected_parents
+    assert (
+        lineage_extractor.report.scan_stats_by_project_location_pair[
+            ("test-project", "us-central1")
+        ]["calls"]
+        == 1
+    )
+    assert (
+        lineage_extractor.report.scan_stats_by_project_location_pair[
+            ("test-project", "europe-west1")
+        ]["calls"]
+        == 1
+    )
+    assert (
+        lineage_extractor.report.scan_stats_by_project_location_pair[
+            ("other-project", "us-central1")
+        ]["calls"]
+        == 1
+    )
+    assert (
+        lineage_extractor.report.scan_stats_by_project_location_pair[
+            ("other-project", "europe-west1")
+        ]["calls"]
+        == 1
+    )
+    assert all(
+        stats["empty"] == 1
+        and stats["hits"] == 0
+        and stats["errors"] == 0
+        for stats in lineage_extractor.report.scan_stats_by_project_location_pair.values()
+    )
+
+
+def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    test_entry = EntryDataTuple(
+        dataplex_entry_short_name="entry-dedup",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-dedup",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.ds.table_dedup",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.ds.table_dedup",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+    )
+
+    lineage_extractor.config.lineage_locations = ["us-central1", "us-east1"]
+
+    duplicate_link = Mock()
+    duplicate_link.name = "projects/123/locations/us-central1/links/p:shared"
+    duplicate_link.source.fully_qualified_name = (
+        "bigquery:project.dataset.same_upstream"
+    )
+
+    lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client_mock.search_links.return_value = [duplicate_link]  # type: ignore[union-attr]
+
+    result = lineage_extractor.get_lineage_for_entry(test_entry)
+
+    assert result is not None
+    assert result["upstream"] == [
+        "bigquery:project.dataset.same_upstream",
+        "bigquery:project.dataset.same_upstream",
+    ]
+
+
+def test_get_lineage_for_table_deduplicates_same_upstream_dataset() -> None:
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        include_lineage=True,
+        lineage_locations=["us-central1"],
+    )
+    report = DataplexReport()
+    extractor = DataplexLineageExtractor(
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=None,
+    )
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    duplicate_upstream = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.ds.shared_upstream,PROD)"
+
+    # Simulate duplicate lineage observations for the same upstream dataset.
+    extractor.lineage_by_full_dataset_id["test-project.ds.target"] = {
+        LineageEdge(
+            upstream_datahub_urn=duplicate_upstream,
+            audit_stamp=now,
+            lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+        ),
+        LineageEdge(
+            upstream_datahub_urn=duplicate_upstream,
+            audit_stamp=now + datetime.timedelta(seconds=1),
+            lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+        ),
+    }
+
+    result = extractor.get_lineage_for_table(
+        "test-project.ds.target",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.ds.target,PROD)",
+    )
+
+    assert result is not None
+    assert len(result.upstreams) == 1
+    assert result.upstreams[0].dataset == duplicate_upstream
 
 
 def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
@@ -265,9 +352,7 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     ]
 
     # Build lineage map
-    lineage_by_full_dataset_id = lineage_extractor.build_lineage_map(
-        "test-project", entry_data
-    )
+    lineage_by_full_dataset_id = lineage_extractor.build_lineage_map(entry_data)
 
     assert isinstance(lineage_by_full_dataset_id, dict)
     assert lineage_extractor.report.num_lineage_entries_scanned == 2
@@ -350,14 +435,9 @@ def test_lineage_with_cross_platform_references(
     mock_bq_link = Mock()
     mock_bq_link.source.fully_qualified_name = "gcs:my-bucket/raw/data.csv"
 
-    mock_gcs_link = Mock()
-    mock_gcs_link.target.fully_qualified_name = "bigquery:my-project.analytics.final"
-
     def search_links_side_effect(request):
         if hasattr(request, "target") and request.target:
             return [mock_bq_link]
-        elif hasattr(request, "source") and request.source:
-            return [mock_gcs_link]
         return []
 
     lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
@@ -373,17 +453,16 @@ def test_lineage_with_cross_platform_references(
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    result = lineage_extractor.get_lineage_for_entry("my-project", test_entry)
+    result = lineage_extractor.get_lineage_for_entry(test_entry)
 
     assert result is not None
     assert len(result["upstream"]) == 1
-    assert len(result["downstream"]) == 1
+    assert len(result["downstream"]) == 0
     assert result["upstream"][0] == "gcs:my-bucket/raw/data.csv"
-    assert result["downstream"][0] == "bigquery:my-project.analytics.final"
 
     # GCS upstream is not yet part of DATAPLEX_ENTRY_TYPE_MAPPINGS datasets.
     # Confirm it is skipped during edge normalization.
-    lineage_map = lineage_extractor.build_lineage_map("my-project", [test_entry])
+    lineage_map = lineage_extractor.build_lineage_map([test_entry])
     assert lineage_map == {}
 
 
@@ -391,6 +470,7 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
     mock_client = MagicMock()
@@ -420,7 +500,7 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
         )
     ]
 
-    lineage_map = extractor.build_lineage_map("test-project", entries)
+    lineage_map = extractor.build_lineage_map(entries)
     assert lineage_map == {}
     assert report.lineage_report.num_lineage_entries_without_lineage == 0
     assert report.lineage_report.num_lineage_upstream_fqns_skipped == 1
@@ -431,6 +511,7 @@ def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
     mock_client = MagicMock()
@@ -460,7 +541,7 @@ def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
         )
     ]
 
-    lineage_map = extractor.build_lineage_map("test-project", entries)
+    lineage_map = extractor.build_lineage_map(entries)
     assert "test-project.dataset.table_1" in lineage_map
     edges = lineage_map["test-project.dataset.table_1"]
     assert len(edges) == 1
@@ -622,6 +703,7 @@ def test_pagination_automatic_handling() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
 
@@ -658,7 +740,7 @@ def test_pagination_automatic_handling() -> None:
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    result = extractor.get_lineage_for_entry("test-project", entry)
+    result = extractor.get_lineage_for_entry(entry)
 
     # Verify all items from all "pages" are retrieved
     assert result is not None
@@ -673,6 +755,7 @@ def test_pagination_with_large_result_set() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
 
@@ -706,7 +789,7 @@ def test_pagination_with_large_result_set() -> None:
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    result = extractor.get_lineage_for_entry("test-project", entry)
+    result = extractor.get_lineage_for_entry(entry)
 
     # Verify all 100 items are retrieved
     assert result is not None
@@ -721,6 +804,7 @@ def test_batched_lineage_processing() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
         batch_size=2,  # Small batch size to test batching
     )
     report = DataplexReport()
@@ -730,11 +814,7 @@ def test_batched_lineage_processing() -> None:
 
     # Create mock lineage responses for 5 entries
     def mock_search_links(request):
-        fqn = (
-            request.target.fully_qualified_name
-            if hasattr(request, "target")
-            else request.source.fully_qualified_name
-        )
+        fqn = request.target.fully_qualified_name
         # Extract entry number from FQN
         if "entry_0" in fqn:
             mock_link = MagicMock()
@@ -793,7 +873,7 @@ def test_batched_lineage_processing() -> None:
     ]
 
     # Call get_lineage_workunits which should process entries in batches of 2
-    workunits = list(extractor.get_lineage_workunits("test-project", entries))
+    workunits = list(extractor.get_lineage_workunits(entries))
 
     # Should generate 5 workunits (one per entry)
     assert len(workunits) == 5
@@ -807,6 +887,7 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
         batch_size=100,  # Larger than entry count
     )
     report = DataplexReport()
@@ -840,7 +921,7 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
     ]
 
     # Should process all entries in a single batch
-    workunits = list(extractor.get_lineage_workunits("test-project", entries))
+    workunits = list(extractor.get_lineage_workunits(entries))
 
     # Should generate 3 workunits (one per entry)
     assert len(workunits) == 3
@@ -853,6 +934,7 @@ def test_batched_lineage_with_batching_disabled() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
         batch_size=None,  # Disable batching
     )
     report = DataplexReport()
@@ -886,7 +968,7 @@ def test_batched_lineage_with_batching_disabled() -> None:
     ]
 
     # Should process all entries at once (no batching)
-    workunits = list(extractor.get_lineage_workunits("test-project", entries))
+    workunits = list(extractor.get_lineage_workunits(entries))
 
     # Should generate 10 workunits
     assert len(workunits) == 10
@@ -899,6 +981,7 @@ def test_batched_lineage_memory_cleanup() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
+        lineage_locations=["us-central1"],
         batch_size=2,  # Process 2 entries per batch
     )
     report = DataplexReport()
@@ -942,7 +1025,7 @@ def test_batched_lineage_memory_cleanup() -> None:
     ]
 
     # Process entries
-    workunits = list(extractor.get_lineage_workunits("test-project", entries))
+    workunits = list(extractor.get_lineage_workunits(entries))
 
     # Should generate 6 workunits
     assert len(workunits) == 6
@@ -976,6 +1059,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
+            lineage_locations=["us-central1"],
         )
         report = DataplexReport()
         mock_client = MagicMock()
@@ -1039,9 +1123,7 @@ class TestLineageMapKeyCollision:
         ]
 
         # Build lineage map
-        lineage_by_full_dataset_id = extractor.build_lineage_map(
-            "test-project", entries
-        )
+        lineage_by_full_dataset_id = extractor.build_lineage_map(entries)
 
         # KEY ASSERTION: Lineage map should have full dataset_id as key
         assert "test-project.analytics.customers" in lineage_by_full_dataset_id, (
@@ -1075,6 +1157,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
+            lineage_locations=["us-central1"],
             batch_size=None,  # Disable batching for simplicity
         )
         report = DataplexReport()
@@ -1096,9 +1179,6 @@ class TestLineageMapKeyCollision:
                         "bigquery:test-project.abc.users"
                     )
                     return [mock_link]
-                # For source-side requests we don't need downstream values.
-                if target_fqn == "":
-                    return []
             return []
 
         mock_client.search_links.side_effect = mock_search_links
@@ -1135,7 +1215,7 @@ class TestLineageMapKeyCollision:
         ]
 
         # Get lineage workunits
-        workunits = list(extractor.get_lineage_workunits("test-project", entries))
+        workunits = list(extractor.get_lineage_workunits(entries))
 
         # Should have exactly 1 workunit (for analytics.customers only)
         assert len(workunits) == 1, (
@@ -1163,6 +1243,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
+            lineage_locations=["us-central1"],
         )
         report = DataplexReport()
 
@@ -1215,6 +1296,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
+            lineage_locations=["us-central1"],
         )
         report = DataplexReport()
         mock_client = MagicMock()
@@ -1254,9 +1336,7 @@ class TestLineageMapKeyCollision:
             ),
         ]
 
-        lineage_by_full_dataset_id = extractor.build_lineage_map(
-            "test-project", entries
-        )
+        lineage_by_full_dataset_id = extractor.build_lineage_map(entries)
 
         # Verify the key format
         keys = list(lineage_by_full_dataset_id.keys())

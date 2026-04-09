@@ -21,6 +21,49 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_LINEAGE_LOCATIONS = [
+    "us-central1",
+    "us-east1",
+    "us-east4",
+    "us-east5",
+    "us-south1",
+    "us-west1",
+    "us-west2",
+    "us-west3",
+    "us-west4",
+    "northamerica-northeast1",
+    "northamerica-northeast2",
+    "southamerica-east1",
+    "southamerica-west1",
+    "europe-central2",
+    "europe-north1",
+    "europe-southwest1",
+    "europe-west1",
+    "europe-west2",
+    "europe-west3",
+    "europe-west4",
+    "europe-west6",
+    "europe-west8",
+    "europe-west9",
+    "europe-west10",
+    "europe-west12",
+    "me-central1",
+    "me-central2",
+    "me-west1",
+    "asia-east1",
+    "asia-east2",
+    "asia-northeast1",
+    "asia-northeast2",
+    "asia-northeast3",
+    "asia-south1",
+    "asia-south2",
+    "asia-southeast1",
+    "asia-southeast2",
+    "australia-southeast1",
+    "australia-southeast2",
+    "africa-south1",
+]
+
 
 class EntriesFilterConfig(ConfigModel):
     """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
@@ -103,6 +146,14 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
+    lineage_locations: List[str] = Field(
+        default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
+        description="List of GCP regions to scan for Dataplex lineage data. "
+        "Lineage is stored in the region where the producing job ran "
+        "(for example Dataflow region), which can differ from the Dataplex entry location. "
+        "Example: ['us-central1', 'us-east1', 'europe-west1'].",
+    )
+
     lineage_max_retries: int = Field(
         default=3,
         ge=1,
@@ -180,6 +231,10 @@ class DataplexConfig(
         if not self.entries_locations:
             raise ValueError(
                 "At least one entries location must be specified via entries_locations."
+            )
+        if not self.lineage_locations:
+            raise ValueError(
+                "At least one lineage location must be specified via lineage_locations."
             )
 
         return self

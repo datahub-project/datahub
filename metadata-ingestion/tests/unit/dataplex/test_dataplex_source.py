@@ -20,22 +20,17 @@ def test_process_project_wraps_entities_and_lineage_workunits() -> None:
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
-    lineage_workunit = Mock()
     with (
         patch(
             "datahub.ingestion.source.dataplex.dataplex.auto_workunit",
             return_value=[Mock()],
         ) as auto_workunit_mock,
-        patch.object(
-            source, "_get_lineage_workunits", return_value=[lineage_workunit]
-        ) as lineage_workunits_mock,
     ):
         workunits = list(source._process_project("project-1"))
 
-    assert len(workunits) == 2
+    assert len(workunits) == 1
     auto_workunit_mock.assert_called_once()
     source.entries_processor.process_project.assert_called_once_with("project-1")
-    lineage_workunits_mock.assert_called_once_with("project-1")
 
 
 def test_process_project_reports_google_api_failure() -> None:
@@ -197,6 +192,9 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source = object.__new__(DataplexSource)
     source.config = Mock()
     source.config.project_ids = ["project-1", "project-2"]
+    source.config.include_lineage = True
+    source.lineage_extractor = Mock()
+    source.entry_data = []
 
     wu1, wu2 = Mock(), Mock()
     with patch.object(
@@ -211,59 +209,103 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
 def test_get_lineage_workunits_handles_empty_entries() -> None:
     source = object.__new__(DataplexSource)
     source.lineage_extractor = Mock()
-    source.entry_data_by_project = {}
+    source.entry_data = []
     source.report = Mock()
 
-    assert list(source._get_lineage_workunits("project-1")) == []
+    assert list(source._get_lineage_workunits()) == []
 
 
 def test_get_lineage_workunits_yields_from_extractor() -> None:
     source = object.__new__(DataplexSource)
+    source.config = Mock()
+    source.config.project_ids = ["project-1"]
     source.lineage_extractor = Mock()
-    source.entry_data_by_project = {
-        "project-1": {
-            EntryDataTuple(
-                dataplex_entry_short_name="entry-1",
-                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
-                dataplex_location="us",
-                dataplex_entry_fqn="bigquery:project-1.ds.table",
-                dataplex_entry_type_short_name="bigquery-table",
-                datahub_platform="bigquery",
-                datahub_dataset_name="project-1.ds.table",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-            )
-        }
-    }
+    source.entry_data = []
+    source.entry_data.append(
+        EntryDataTuple(
+            dataplex_entry_short_name="entry-1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project-1.ds.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project-1.ds.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        )
+    )
     source.report = Mock()
 
     lineage_wu = Mock()
     source.lineage_extractor.get_lineage_workunits.return_value = [lineage_wu]
 
-    assert list(source._get_lineage_workunits("project-1")) == [lineage_wu]
+    assert list(source._get_lineage_workunits()) == [lineage_wu]
+    source.lineage_extractor.get_lineage_workunits.assert_called_once()
+    args, _kwargs = source.lineage_extractor.get_lineage_workunits.call_args
+    assert len(args[0]) == 1
 
 
 def test_get_lineage_workunits_reports_failure_on_exception() -> None:
     source = object.__new__(DataplexSource)
+    source.config = Mock()
+    source.config.project_ids = ["project-1"]
     source.lineage_extractor = Mock()
-    source.entry_data_by_project = {
-        "project-1": {
-            EntryDataTuple(
-                dataplex_entry_short_name="entry-1",
-                dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
-                dataplex_location="us",
-                dataplex_entry_fqn="bigquery:project-1.ds.table",
-                dataplex_entry_type_short_name="bigquery-table",
-                datahub_platform="bigquery",
-                datahub_dataset_name="project-1.ds.table",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-            )
-        }
-    }
+    source.entry_data = []
+    source.entry_data.append(
+        EntryDataTuple(
+            dataplex_entry_short_name="entry-1",
+            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project-1.ds.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project-1.ds.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        )
+    )
     source.report = Mock()
     source.lineage_extractor.get_lineage_workunits.side_effect = RuntimeError("boom")
 
-    assert list(source._get_lineage_workunits("project-1")) == []
+    assert list(source._get_lineage_workunits()) == []
     source.report.report_failure.assert_called_once()
+
+
+def test_get_lineage_workunits_unions_entries_across_projects() -> None:
+    source = object.__new__(DataplexSource)
+    source.config = Mock()
+    source.config.project_ids = ["project-1", "project-2"]
+    source.lineage_extractor = Mock()
+    entry_1 = EntryDataTuple(
+        dataplex_entry_short_name="entry-1",
+        dataplex_entry_name="projects/p1/locations/us/entryGroups/g/entries/entry-1",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:project-1.ds.table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="project-1.ds.table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+    )
+    entry_2 = EntryDataTuple(
+        dataplex_entry_short_name="entry-2",
+        dataplex_entry_name="projects/p2/locations/us/entryGroups/g/entries/entry-2",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:project-2.ds.table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="project-2.ds.table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+    )
+    source.entry_data = []
+    source.entry_data.append(entry_1)
+    source.entry_data.append(entry_2)
+    source.report = Mock()
+
+    lineage_wu = Mock()
+    source.lineage_extractor.get_lineage_workunits.return_value = [lineage_wu]
+
+    assert list(source._get_lineage_workunits()) == [lineage_wu]
+    source.lineage_extractor.get_lineage_workunits.assert_called_once()
+    args, _kwargs = source.lineage_extractor.get_lineage_workunits.call_args
+    assert len(args[0]) == 2
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:

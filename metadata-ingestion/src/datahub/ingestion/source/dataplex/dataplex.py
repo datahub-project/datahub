@@ -9,7 +9,6 @@ Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
-from threading import Lock
 from typing import Iterable, Optional
 
 from google.api_core import exceptions
@@ -114,9 +113,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: DataplexReport = DataplexReport()
 
-        # Track entry data for lineage extraction
-        # Key: project_id, Value: set of EntryDataTuple
-        self.entry_data_by_project: dict[str, set[EntryDataTuple]] = {}
+        # Track entry data for lineage extraction across all configured projects.
+        self.entry_data: list[EntryDataTuple] = []
 
         creds = self.config.get_credentials()
         credentials = (
@@ -159,13 +157,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_client = None
             self.lineage_extractor = None
 
-        self._entry_data_lock = Lock()
         self.entries_processor = DataplexEntriesProcessor(
             config=self.config,
             catalog_client=self.catalog_client,
             report=self.report.entries_report,
-            entry_data_by_project=self.entry_data_by_project,
-            entry_data_lock=self._entry_data_lock,
+            entry_data=self.entry_data,
             source_report=self.report,
         )
 
@@ -231,6 +227,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             logger.info(f"Processing Dataplex resources for project: {project_id}")
             yield from self._process_project(project_id)
 
+        if self.config.include_lineage and self.lineage_extractor:
+            yield from self._get_lineage_workunits()
+
     def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Process all Dataplex resources for a single project."""
         with self.report.new_stage(
@@ -249,15 +248,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
 
-        if self.config.include_lineage and self.lineage_extractor:
-            yield from self._get_lineage_workunits(project_id)
-
-    def _get_lineage_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+    def _get_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
-        Extract lineage for entries in a project.
-
-        Args:
-            project_id: GCP project ID
+        Extract lineage for entries across all configured projects.
 
         Yields:
             MetadataWorkUnit objects containing lineage information
@@ -265,29 +258,30 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         if not self.lineage_extractor:
             return
 
-        # Get entry data that was processed for this project
-        entry_data = self.entry_data_by_project.get(project_id, set())
-        if not entry_data:
+        if len(self.entry_data) == 0:
             logger.info(
-                f"No entries found for lineage extraction in project {project_id}"
+                "No entries found for lineage extraction across configured projects"
             )
             return
 
         logger.info(
-            f"Extracting lineage for {len(entry_data)} entries in project {project_id}"
+            "Extracting lineage for %s entries across %s configured projects",
+            len(self.entry_data),
+            len(self.config.project_ids),
         )
 
         try:
-            yield from self.lineage_extractor.get_lineage_workunits(
-                project_id, entry_data
-            )
+            yield from self.lineage_extractor.get_lineage_workunits(self.entry_data)
         except Exception as e:
             self.report.report_failure(
                 title="Lineage extraction failed",
-                message="Failed to extract lineage for project",
-                context=project_id,
+                message="Failed to extract lineage across configured projects",
+                context="all-configured-projects",
                 exc=e,
             )
+
+    def close(self) -> None:
+        super().close()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DataplexSource":
