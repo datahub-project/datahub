@@ -111,14 +111,15 @@ public class MigrateAspectsStep implements UpgradeStep {
    *
    * <p><b>Future base contract:</b> abstract — subclass controls stream source, cursor
    * interpretation, and row filter. The base class default will use URN-ordered {@code
-   * streamAspectBatches} with no filter.
+   * streamAspectBatchesForMigration} with no filter.
    */
   protected PartitionedStream<EbeanAspectV2> openStream(@Nonnull Map<String, String> resumeState) {
     long afterMs = Long.parseLong(resumeState.getOrDefault(LAST_CREATED_ON_MS_KEY, "0"));
     if (afterMs > 0) {
       log.info("{}: Resuming from createdOn >= {}ms.", id(), afterMs);
     }
-    return aspectDao.streamAspectBatches(aspectTargetVersions, afterMs, batchSize, limit);
+    return aspectDao.streamAspectBatchesForMigration(
+        aspectTargetVersions, afterMs, batchSize, limit);
   }
 
   /**

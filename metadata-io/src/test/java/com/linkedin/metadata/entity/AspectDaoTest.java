@@ -483,7 +483,7 @@ public class AspectDaoTest {
     }
 
     @Override
-    public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+    public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
         Map<String, Long> aspectTargetVersions, long afterCreatedOnMs, int batchSize, int limit) {
       return null;
     }

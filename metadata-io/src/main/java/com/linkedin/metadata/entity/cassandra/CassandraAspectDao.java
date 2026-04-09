@@ -606,7 +606,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   @Override
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+  public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
       @Nonnull java.util.Map<String, Long> aspectTargetVersions,
       long afterCreatedOnMs,
       int batchSize,

@@ -682,7 +682,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   @Nonnull
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+  public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
       @Nonnull Map<String, Long> aspectTargetVersions,
       long afterCreatedOnMs,
       int batchSize,

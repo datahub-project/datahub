@@ -246,7 +246,7 @@ public interface AspectDao {
    * @param limit overall row cap; 0 means unlimited
    */
   @Nonnull
-  PartitionedStream<EbeanAspectV2> streamAspectBatches(
+  PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
       @Nonnull Map<String, Long> aspectTargetVersions,
       long afterCreatedOnMs,
       int batchSize,

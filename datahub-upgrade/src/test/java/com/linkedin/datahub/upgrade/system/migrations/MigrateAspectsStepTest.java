@@ -152,7 +152,7 @@ public class MigrateAspectsStepTest {
 
     PartitionedStream<EbeanAspectV2> emptyStream =
         PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build();
-    when(mockAspectDao.streamAspectBatches(any(), eq(0L), anyInt(), anyInt()))
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(0L), anyInt(), anyInt()))
         .thenReturn(emptyStream);
 
     MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
