@@ -1,5 +1,6 @@
 import { Menu } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
@@ -39,6 +40,7 @@ import LinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versionin
 import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/UnlinkAssetVersionModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -129,6 +131,7 @@ const EntityDropdown = (props: Props) => {
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
     const [isLinkAssetVersionModalVisible, setIsLinkAssetVersionModalVisible] = useState(false);
     const [isUnlinkAssetVersionModalVisible, setIsUnlinkAssetVersionModalVisible] = useState(false);
+    const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         message.loading({ content: 'Updating...' });
@@ -450,6 +453,16 @@ const EntityDropdown = (props: Props) => {
         });
     }
 
+    if (menuItems.has(EntityMenuItems.CHANGE_HISTORY)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'change-history',
+            title: 'Change History',
+            icon: ClockCounterClockwise,
+            onClick: () => setIsChangeHistoryOpen(true),
+        });
+    }
+
     // Delete should always be last (destructive action)
     if (menuItems.has(EntityMenuItems.DELETE)) {
         menuItemsList.push({
@@ -565,6 +578,16 @@ const EntityDropdown = (props: Props) => {
                     versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
                     closeModal={() => setIsUnlinkAssetVersionModalVisible(false)}
                     refetch={refetchForEntity}
+                />
+            )}
+            {isChangeHistoryOpen && (
+                <HistorySidebar
+                    open
+                    onClose={() => setIsChangeHistoryOpen(false)}
+                    urn={urn}
+                    versionList={[]}
+                    hideSemanticVersions
+                    entityType={entityType}
                 />
             )}
         </>

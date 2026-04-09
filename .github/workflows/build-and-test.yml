@@ -34,6 +34,7 @@ concurrency:
 
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
 
 jobs:
   setup:
@@ -46,11 +47,22 @@ jobs:
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
+      runner_type: ${{ steps.set-runner.outputs.runner_type }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+      - name: Determine runner type
+        id: set-runner
+        # Use depot runners only when a maintainer has explicitly added the "depot" label.
+        # vars.DEPOT_PROJECT_ID is not accessible to fork PRs, so we rely solely on the label.
+        run: |
+          if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
+            echo "runner_type=depot-ubuntu-latest-4" >> "$GITHUB_OUTPUT"
+          else
+            echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+          fi
 
   build-and-test:
     strategy:
@@ -66,7 +78,7 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
+    runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
     needs: setup
     steps:

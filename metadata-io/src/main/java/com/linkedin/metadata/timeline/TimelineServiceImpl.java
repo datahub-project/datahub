@@ -15,18 +15,24 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.eventgenerator.ApplicationsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DataProductPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DocumentInfoChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DomainPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorFactory;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlossaryRelatedTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonValue;
@@ -46,8 +52,10 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 
+@Slf4j
 public class TimelineServiceImpl implements TimelineService {
 
   private static final long DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS =
@@ -108,7 +116,7 @@ public class TimelineServiceImpl implements TimelineService {
                 new GlobalTagsChangeEventGenerator());
           }
           break;
-        case OWNER:
+        case OWNERSHIP:
           {
             aspects.add(OWNERSHIP_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
@@ -178,6 +186,36 @@ public class TimelineServiceImpl implements TimelineService {
                 new SchemaMetadataChangeEventGenerator());
           }
           break;
+        case DOMAIN:
+          {
+            aspects.add(DOMAINS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                DOMAINS_ASPECT_NAME,
+                new SingleDomainChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        case APPLICATION:
+          {
+            aspects.add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                APPLICATION_MEMBERSHIP_ASPECT_NAME,
+                new ApplicationsChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -190,7 +228,7 @@ public class TimelineServiceImpl implements TimelineService {
     for (ChangeCategory elementName : ChangeCategory.values()) {
       Set<String> aspects = new HashSet<>();
       switch (elementName) {
-        case OWNER:
+        case OWNERSHIP:
           {
             aspects.add(OWNERSHIP_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
@@ -210,10 +248,190 @@ public class TimelineServiceImpl implements TimelineService {
                 new GlossaryTermInfoChangeEventGenerator());
           }
           break;
+        case GLOSSARY_TERM:
+          {
+            aspects.add(GLOSSARY_RELATED_TERM_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                GLOSSARY_RELATED_TERM_ASPECT_NAME,
+                new GlossaryRelatedTermsChangeEventGenerator());
+          }
+          break;
+        case DOMAIN:
+          {
+            aspects.add(DOMAINS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                DOMAINS_ASPECT_NAME,
+                new SingleDomainChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        case APPLICATION:
+          {
+            aspects.add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                APPLICATION_MEMBERSHIP_ASPECT_NAME,
+                new ApplicationsChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
       glossaryTermElementAspectRegistry.put(elementName, aspects);
+    }
+
+    // Domain registry
+    HashMap<ChangeCategory, Set<String>> domainElementAspectRegistry = new HashMap<>();
+    String entityTypeDomain = DOMAIN_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case OWNERSHIP:
+          {
+            aspects.add(OWNERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                OWNERSHIP_ASPECT_NAME,
+                new OwnershipChangeEventGenerator());
+          }
+          break;
+        case DOCUMENTATION:
+          {
+            aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                INSTITUTIONAL_MEMORY_ASPECT_NAME,
+                new InstitutionalMemoryChangeEventGenerator());
+            aspects.add(DOMAIN_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                DOMAIN_PROPERTIES_ASPECT_NAME,
+                new DomainPropertiesChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        default:
+          break;
+      }
+      domainElementAspectRegistry.put(elementName, aspects);
+    }
+
+    // DataProduct registry
+    HashMap<ChangeCategory, Set<String>> dataProductElementAspectRegistry = new HashMap<>();
+    String entityTypeDataProduct = DATA_PRODUCT_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case OWNERSHIP:
+          {
+            aspects.add(OWNERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                OWNERSHIP_ASPECT_NAME,
+                new OwnershipChangeEventGenerator());
+          }
+          break;
+        case DOCUMENTATION:
+          {
+            aspects.add(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+                new DataProductPropertiesChangeEventGenerator());
+          }
+          break;
+        case TAG:
+          {
+            aspects.add(GLOBAL_TAGS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                GLOBAL_TAGS_ASPECT_NAME,
+                new GlobalTagsChangeEventGenerator());
+          }
+          break;
+        case GLOSSARY_TERM:
+          {
+            aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                GLOSSARY_TERMS_ASPECT_NAME,
+                new GlossaryTermsChangeEventGenerator());
+          }
+          break;
+        case DOMAIN:
+          {
+            aspects.add(DOMAINS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DOMAINS_ASPECT_NAME,
+                new SingleDomainChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        case APPLICATION:
+          {
+            aspects.add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                APPLICATION_MEMBERSHIP_ASPECT_NAME,
+                new ApplicationsChangeEventGenerator());
+          }
+          break;
+        case ASSET_MEMBERSHIP:
+          {
+            aspects.add(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+                new DataProductPropertiesChangeEventGenerator());
+          }
+          break;
+        default:
+          break;
+      }
+      dataProductElementAspectRegistry.put(elementName, aspects);
     }
 
     // Document registry
@@ -241,9 +459,12 @@ public class TimelineServiceImpl implements TimelineService {
       }
       documentElementAspectRegistry.put(elementName, aspects);
     }
+
     entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
     entityTypeElementAspectRegistry.put(
         GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(DOMAIN_ENTITY_NAME, domainElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(DATA_PRODUCT_ENTITY_NAME, dataProductElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DOCUMENT_ENTITY_NAME, documentElementAspectRegistry);
   }
 
@@ -296,16 +517,49 @@ public class TimelineServiceImpl implements TimelineService {
     List<EntityAspect> aspectsInRange =
         this._aspectDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
 
-    // Prepopulate with all versioned aspectNames -> ignore timeseries using
-    // registry
+    return processAspectTimeline(
+        urn, elementNames, aspectNames, fullAspectNames, aspectsInRange, rawDiffRequested);
+  }
+
+  /**
+   * Simplified timeline query that delegates to the time-range overload with a full time window
+   * (startTime=0, endTime=0 which resolves to epoch → now) and caps the result to {@code
+   * maxChangeTransactions}. DataHub's retention policy already limits each (urn, aspect) pair to a
+   * small number of versions (default 20), so the result set is inherently bounded without needing
+   * a SQL LIMIT clause.
+   */
+  @Nonnull
+  @Override
+  public List<ChangeTransaction> getTimeline(
+      @Nonnull final Urn urn,
+      @Nonnull final Set<ChangeCategory> elementNames,
+      int maxChangeTransactions,
+      boolean rawDiffRequested) {
+
+    List<ChangeTransaction> allTransactions =
+        getTimeline(urn, elementNames, 0, 0, null, null, rawDiffRequested);
+
+    if (maxChangeTransactions > 0 && allTransactions.size() > maxChangeTransactions) {
+      return allTransactions.subList(
+          allTransactions.size() - maxChangeTransactions, allTransactions.size());
+    }
+    return allTransactions;
+  }
+
+  private List<ChangeTransaction> processAspectTimeline(
+      @Nonnull final Urn urn,
+      @Nonnull final Set<ChangeCategory> elementNames,
+      @Nonnull final Set<String> aspectNames,
+      @Nonnull final Set<String> fullAspectNames,
+      @Nonnull final List<EntityAspect> fetchedAspects,
+      boolean rawDiffRequested) {
+
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap =
-        constructAspectRowSetMap(urn, fullAspectNames, aspectsInRange);
+        constructAspectRowSetMap(urn, fullAspectNames, fetchedAspects);
 
     Map<Long, SortedMap<String, Long>> timestampVersionCache =
         constructTimestampVersionCache(aspectRowSetMap);
 
-    // TODO: There are some extra steps happening here, we need to clean up how
-    // transactions get combined across differs
     SortedMap<Long, List<ChangeTransaction>> semanticDiffs =
         aspectRowSetMap.entrySet().stream()
             .filter(entry -> aspectNames.contains(entry.getKey()))
@@ -315,7 +569,7 @@ public class TimelineServiceImpl implements TimelineService {
                 TreeMap::new,
                 this::combineComputedDiffsPerTransactionId,
                 this::combineComputedDiffsPerTransactionId);
-    // TODO:Move this down
+
     assignSemanticVersions(semanticDiffs);
     List<ChangeTransaction> changeTransactions =
         semanticDiffs.values().stream()
@@ -323,6 +577,7 @@ public class TimelineServiceImpl implements TimelineService {
     List<ChangeTransaction> combinedChangeTransactions =
         combineTransactionsByTimestamp(changeTransactions, timestampVersionCache);
     combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
+
     return combinedChangeTransactions;
   }
 
@@ -489,6 +744,12 @@ public class TimelineServiceImpl implements TimelineService {
             semanticChangeTransactions.add(changeTransaction);
           }
         } catch (Exception e) {
+          log.error(
+              "Failed to compute semantic diff for entity={}, aspect={}, element={}",
+              currentValue.getUrn(),
+              aspectName,
+              element,
+              e);
           semanticChangeTransactions.add(
               ChangeTransaction.builder()
                   .semVerChange(SemanticChangeType.EXCEPTIONAL)
@@ -607,9 +868,11 @@ public class TimelineServiceImpl implements TimelineService {
         ChangeTransaction result = transactionList.get(0);
         SemanticChangeType maxSemanticChangeType = result.getSemVerChange();
         String maxSemVer = result.getSemVer();
+        // Copy into a mutable list; some generators return unmodifiable lists
+        List<ChangeEvent> mergedEvents = new ArrayList<>(result.getChangeEvents());
         for (int i = 1; i < transactionList.size(); i++) {
           ChangeTransaction element = transactionList.get(i);
-          result.getChangeEvents().addAll(element.getChangeEvents());
+          mergedEvents.addAll(element.getChangeEvents());
           maxSemanticChangeType =
               maxSemanticChangeType.compareTo(element.getSemVerChange()) >= 0
                   ? maxSemanticChangeType
@@ -617,10 +880,12 @@ public class TimelineServiceImpl implements TimelineService {
           maxSemVer =
               maxSemVer.compareTo(element.getSemVer()) >= 0 ? maxSemVer : element.getSemVer();
         }
+        result.setChangeEvents(mergedEvents);
         result.setSemVerChange(maxSemanticChangeType);
         result.setSemanticVersion(maxSemVer);
+        SortedMap<String, Long> versionStampMap = timestampVersionCache.get(result.getTimestamp());
         result.setVersionStamp(
-            constructVersionStamp(timestampVersionCache.get(result.getTimestamp())));
+            versionStampMap != null ? constructVersionStamp(versionStampMap) : "");
         combinedChangeTransactions.add(result);
       }
     }
