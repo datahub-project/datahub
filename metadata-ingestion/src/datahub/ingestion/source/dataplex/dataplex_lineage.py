@@ -125,9 +125,7 @@ class DataplexLineageReport(Report):
     def clear_lineage_scan_stats(self) -> None:
         self.scan_stats_by_project_location_pair.clear()
 
-    def _lineage_scan_stats_for(
-        self, project_id: str, location: str
-    ) -> dict[str, int]:
+    def _lineage_scan_stats_for(self, project_id: str, location: str) -> dict[str, int]:
         key = (project_id, location)
         if key not in self.scan_stats_by_project_location_pair:
             self.scan_stats_by_project_location_pair[key] = {

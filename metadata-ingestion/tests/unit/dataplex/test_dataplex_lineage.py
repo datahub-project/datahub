@@ -235,9 +235,7 @@ def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
         == 1
     )
     assert all(
-        stats["empty"] == 1
-        and stats["hits"] == 0
-        and stats["errors"] == 0
+        stats["empty"] == 1 and stats["hits"] == 0 and stats["errors"] == 0
         for stats in lineage_extractor.report.scan_stats_by_project_location_pair.values()
     )
 
