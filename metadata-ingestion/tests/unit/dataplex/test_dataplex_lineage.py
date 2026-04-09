@@ -240,6 +240,40 @@ def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
     )
 
 
+def test_get_lineage_for_entry_uses_discovered_active_project_location_pairs(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    test_entry = EntryDataTuple(
+        dataplex_entry_short_name="entry-discovered",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-discovered",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.ds.table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.ds.table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+    )
+
+    lineage_extractor._active_lineage_project_location_pairs = [
+        ("test-project", "us-central1"),
+        ("other-project", "europe-west1"),
+    ]
+    lineage_extractor._active_lineage_project_location_pairs_initialized = True
+
+    lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client_mock.search_links.return_value = []  # type: ignore[union-attr]
+
+    lineage_extractor.get_lineage_for_entry(test_entry)
+
+    calls = lineage_client_mock.search_links.call_args_list
+    assert len(calls) == 2
+    observed_parents = {call.kwargs["request"].parent for call in calls}
+    assert observed_parents == {
+        "projects/test-project/locations/us-central1",
+        "projects/other-project/locations/europe-west1",
+    }
+
+
 def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:

@@ -270,6 +270,7 @@ class DataplexLineageExtractor:
         self.lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
             collections.defaultdict(set)
         )
+        self._active_lineage_project_location_pairs: list[tuple[str, str]] = []
 
     def _build_lineage_parent(self, project_id: str, location: str) -> str:
         """Build Data Lineage API parent for an explicit project/location pair."""
@@ -298,57 +299,61 @@ class DataplexLineageExtractor:
             lineage_data: dict[str, list[str]] = {"upstream": [], "downstream": []}
             hit_parents: list[str] = []
             empty_parents: list[str] = []
+            scan_pairs = self._active_lineage_project_location_pairs or [
+                (project_id, location)
+                for project_id in self.config.project_ids
+                for location in self.config.lineage_locations
+            ]
 
             # Query only target links (upstream lineage) across configured project/location
             # matrix so cross-project lineage edges can be discovered.
-            for lineage_project_id in self.config.project_ids:
-                for lineage_location in self.config.lineage_locations:
-                    parent = self._build_lineage_parent(
+            for lineage_project_id, lineage_location in scan_pairs:
+                parent = self._build_lineage_parent(
+                    lineage_project_id, lineage_location
+                )
+                self.report.report_lineage_scan_call(
+                    lineage_project_id, lineage_location
+                )
+                try:
+                    with PerfTimer() as timer:
+                        upstream_links = self._search_links_by_target(
+                            parent, fully_qualified_name
+                        )
+                        self.report.report_lineage_api_call(
+                            "search_links_by_target", timer.elapsed_seconds()
+                        )
+                except Exception as parent_error:
+                    self.report.report_lineage_scan_error(
                         lineage_project_id, lineage_location
                     )
-                    self.report.report_lineage_scan_call(
+                    self.source_report.warning(
+                        "Failed to query Dataplex lineage for a project/location parent. Continuing with remaining parents.",
+                        context=(
+                            f"parent={parent}, "
+                            f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                            f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                            f"entry_type={entry.dataplex_entry_type_short_name}"
+                        ),
+                        exc=parent_error,
+                    )
+                    continue
+
+                if upstream_links:
+                    hit_parents.append(parent)
+                    self.report.report_lineage_scan_hit(
                         lineage_project_id, lineage_location
                     )
-                    try:
-                        with PerfTimer() as timer:
-                            upstream_links = self._search_links_by_target(
-                                parent, fully_qualified_name
-                            )
-                            self.report.report_lineage_api_call(
-                                "search_links_by_target", timer.elapsed_seconds()
-                            )
-                    except Exception as parent_error:
-                        self.report.report_lineage_scan_error(
-                            lineage_project_id, lineage_location
-                        )
-                        self.source_report.warning(
-                            "Failed to query Dataplex lineage for a project/location parent. Continuing with remaining parents.",
-                            context=(
-                                f"parent={parent}, "
-                                f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                                f"datahub_dataset_name={entry.datahub_dataset_name}, "
-                                f"entry_type={entry.dataplex_entry_type_short_name}"
-                            ),
-                            exc=parent_error,
-                        )
-                        continue
+                else:
+                    empty_parents.append(parent)
+                    self.report.report_lineage_scan_empty(
+                        lineage_project_id, lineage_location
+                    )
 
-                    if upstream_links:
-                        hit_parents.append(parent)
-                        self.report.report_lineage_scan_hit(
-                            lineage_project_id, lineage_location
+                for link in upstream_links:
+                    if link.source and link.source.fully_qualified_name:
+                        lineage_data["upstream"].append(
+                            link.source.fully_qualified_name
                         )
-                    else:
-                        empty_parents.append(parent)
-                        self.report.report_lineage_scan_empty(
-                            lineage_project_id, lineage_location
-                        )
-
-                    for link in upstream_links:
-                        if link.source and link.source.fully_qualified_name:
-                            lineage_data["upstream"].append(
-                                link.source.fully_qualified_name
-                            )
 
             logger.debug(
                 "Lineage lookup summary for entry=%s fqn=%s: hit_parents=%s empty_parents=%s",
@@ -674,7 +679,9 @@ class DataplexLineageExtractor:
         ).as_workunit()
 
     def get_lineage_workunits(
-        self, entry_data: Iterable[EntryDataTuple]
+        self,
+        entry_data: Iterable[EntryDataTuple],
+        active_lineage_project_location_pairs: Optional[list[tuple[str, str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Main entry point to get lineage workunits for multiple entries.
@@ -692,9 +699,19 @@ class DataplexLineageExtractor:
             logger.info("Lineage extraction is disabled")
             return
 
-        logger.info("Extracting lineage in streaming mode")
+        logger.info("Extracting lineage")
         self.report.clear_lineage_scan_stats()
         self.lineage_by_full_dataset_id.clear()
+        if active_lineage_project_location_pairs is None:
+            self._active_lineage_project_location_pairs = [
+                (project_id, location)
+                for project_id in self.config.project_ids
+                for location in self.config.lineage_locations
+            ]
+        else:
+            self._active_lineage_project_location_pairs = list(
+                active_lineage_project_location_pairs
+            )
 
         entries_with_lineage = 0
         for entry_index, entry in enumerate(entry_data, start=1):

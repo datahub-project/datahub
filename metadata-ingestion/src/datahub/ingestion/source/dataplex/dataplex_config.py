@@ -148,10 +148,17 @@ class DataplexConfig(
 
     lineage_locations: List[str] = Field(
         default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
-        description="List of GCP regions to scan for Dataplex lineage data. "
-        "Lineage is stored in the region where the producing job ran "
+        description="List of GCP locations to scan for Dataplex lineage data. "
+        "Lineage is stored in the location where the producing job ran "
         "(for example Dataflow region), which can differ from the Dataplex entry location. "
         "Example: ['us-central1', 'us-east1', 'europe-west1'].",
+    )
+
+    discover_active_lineage_locations: bool = Field(
+        default=True,
+        description="Whether to discover active lineage locations per project before scanning links. "
+        "When enabled, the source probes configured lineage_locations and scans only locations "
+        "that currently contain Dataplex lineage processes for each project.",
     )
 
     lineage_max_retries: int = Field(

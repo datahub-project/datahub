@@ -13,7 +13,7 @@ from typing import Iterable, Optional
 
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
-from google.cloud.datacatalog_lineage import LineageClient
+from google.cloud.datacatalog_lineage import LineageClient, ListProcessesRequest
 from google.oauth2 import service_account
 
 from datahub.ingestion.api.common import PipelineContext
@@ -107,6 +107,63 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """
 
     platform: str = "dataplex"
+
+    def _build_lineage_parent(self, project_id: str, location: str) -> str:
+        """Build Data Lineage API parent for an explicit project/location pair."""
+        return f"projects/{project_id}/locations/{location}"
+
+    def _discover_active_lineage_project_location_pairs(
+        self,
+    ) -> list[tuple[str, str]]:
+        """
+        Discover active lineage (project, location) pairs from configured locations.
+
+        Discovery is done once per ingestion run and reused across all entries.
+        """
+        if self.lineage_client is None:
+            return [
+                (project_id, location)
+                for project_id in self.config.project_ids
+                for location in self.config.lineage_locations
+            ]
+
+        discovered_pairs: list[tuple[str, str]] = []
+        for project_id in self.config.project_ids:
+            active_locations: list[str] = []
+            for location in self.config.lineage_locations:
+                parent = self._build_lineage_parent(project_id, location)
+                try:
+                    page = self.lineage_client.list_processes(
+                        request=ListProcessesRequest(parent=parent, page_size=1)
+                    )
+                    if next(iter(page), None) is not None:
+                        active_locations.append(location)
+                except Exception as e:
+                    logger.debug(
+                        "Failed to probe lineage processes for parent %s: %s",
+                        parent,
+                        e,
+                    )
+
+            if not active_locations:
+                logger.info(
+                    "No active lineage locations discovered for project %s; using configured lineage_locations fallback",
+                    project_id,
+                )
+                active_locations = list(self.config.lineage_locations)
+
+            logger.info(
+                "Discovered active lineage locations for project %s: %s",
+                project_id,
+                active_locations,
+            )
+            discovered_pairs.extend(
+                (project_id, location) for location in active_locations
+            )
+
+        # TODO: Use discovered processes metadata (not only project/location activity)
+        # to further optimize lineage extraction, e.g. process-aware entry targeting.
+        return discovered_pairs
 
     def __init__(self, ctx: PipelineContext, config: DataplexConfig):
         super().__init__(config, ctx)
@@ -228,58 +285,56 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             with self.report.new_stage(
                 f"Processing entries from Universal Catalog for project {project_id}"
             ):
-                yield from self._process_project(project_id)
+                try:
+                    yield from auto_workunit(
+                        self.entries_processor.process_project(project_id)
+                    )
+                except exceptions.GoogleAPICallError as exc:
+                    self.report.report_failure(
+                        title="Failed to process Dataplex entries",
+                        message="Error while extracting entries from Universal Catalog.",
+                        context=project_id,
+                        exc=exc,
+                    )
+                    continue
 
         if self.config.include_lineage and self.lineage_extractor:
             with self.report.new_stage(
                 "Extracting Dataplex lineage across configured projects"
             ):
-                yield from self._get_lineage_workunits()
+                if len(self.entry_data) == 0:
+                    logger.info(
+                        "No entries found for lineage extraction across configured projects"
+                    )
+                    return
 
-    def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """Process all Dataplex resources for a single project."""
-        try:
-            yield from auto_workunit(self.entries_processor.process_project(project_id))
-        except exceptions.GoogleAPICallError as exc:
-            self.report.report_failure(
-                title="Failed to process Dataplex entries",
-                message="Error while extracting entries from Universal Catalog.",
-                context=project_id,
-                exc=exc,
-            )
-            return
+                logger.info(
+                    "Extracting lineage for %s entries across %s configured projects",
+                    len(self.entry_data),
+                    len(self.config.project_ids),
+                )
+                lineage_project_location_pairs = [
+                    (project_id, location)
+                    for project_id in self.config.project_ids
+                    for location in self.config.lineage_locations
+                ]
+                if self.config.discover_active_lineage_locations:
+                    lineage_project_location_pairs = (
+                        self._discover_active_lineage_project_location_pairs()
+                    )
 
-    def _get_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Extract lineage for entries across all configured projects.
-
-        Yields:
-            MetadataWorkUnit objects containing lineage information
-        """
-        if not self.lineage_extractor:
-            return
-
-        if len(self.entry_data) == 0:
-            logger.info(
-                "No entries found for lineage extraction across configured projects"
-            )
-            return
-
-        logger.info(
-            "Extracting lineage for %s entries across %s configured projects",
-            len(self.entry_data),
-            len(self.config.project_ids),
-        )
-
-        try:
-            yield from self.lineage_extractor.get_lineage_workunits(self.entry_data)
-        except Exception as e:
-            self.report.report_failure(
-                title="Lineage extraction failed",
-                message="Failed to extract lineage across configured projects",
-                context="all-configured-projects",
-                exc=e,
-            )
+                try:
+                    yield from self.lineage_extractor.get_lineage_workunits(
+                        self.entry_data,
+                        active_lineage_project_location_pairs=lineage_project_location_pairs,
+                    )
+                except Exception as e:
+                    self.report.report_failure(
+                        title="Lineage extraction failed",
+                        message="Failed to extract lineage across configured projects",
+                        context="all-configured-projects",
+                        exc=e,
+                    )
 
     def close(self) -> None:
         super().close()

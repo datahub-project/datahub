@@ -145,6 +145,7 @@ class TestDataplexConfig:
         # Location defaults
         assert config.entries_locations == ["us", "eu", "asia", "global"]
         assert config.lineage_locations == DEFAULT_LINEAGE_LOCATIONS
+        assert config.discover_active_lineage_locations is True
 
         # Filter defaults (should allow all)
         assert config.filter_config.entries.pattern.allowed("any-entry")
@@ -327,3 +328,10 @@ class TestDataplexConfig:
             "At least one lineage location must be specified via lineage_locations."
             in str(exc_info.value)
         )
+
+    def test_discover_active_lineage_locations_can_be_disabled(self):
+        config = DataplexConfig(
+            project_ids=["test-project"],
+            discover_active_lineage_locations=False,
+        )
+        assert config.discover_active_lineage_locations is False
