@@ -16,10 +16,12 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Method;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
@@ -161,6 +163,126 @@ public class MigrateAspectsStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // entityService.ingestProposal is called by BootstrapStep.setUpgradeResult for the final state
     verify(mockEntityService, atLeastOnce()).ingestProposal(any(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testExecutableWithValidAspectIngests() {
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+
+    // Valid corpUserKey JSON so EntityUtils can parse it into a ChangeItem
+    long createdOnMs = 1_700_000_000_000L;
+    EbeanAspectV2 aspect =
+        new EbeanAspectV2(
+            "urn:li:corpuser:alice",
+            "corpUserKey",
+            0L,
+            "{\"username\":\"alice\"}",
+            new Timestamp(createdOnMs),
+            "urn:li:corpuser:datahub",
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    PartitionedStream<EbeanAspectV2> stream =
+        PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.of(aspect)).build();
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(0L), anyInt(), anyInt()))
+        .thenReturn(stream);
+
+    MigrateAspectsStep step = buildStep(Map.of("corpUserKey", 2L));
+    UpgradeStepResult result = step.executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // Cursor state for the non-empty batch should have been persisted as IN_PROGRESS
+    verify(mockUpgrade)
+        .setUpgradeResult(any(), any(), any(), eq(DataHubUpgradeState.IN_PROGRESS), any());
+  }
+
+  @Test
+  public void testExecutableWithBatchDelayMs() {
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+
+    EbeanAspectV2 aspect =
+        new EbeanAspectV2(
+            "urn:li:corpuser:bob",
+            "corpUserKey",
+            0L,
+            "{\"username\":\"bob\"}",
+            new Timestamp(2_000L),
+            "urn:li:corpuser:datahub",
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    PartitionedStream<EbeanAspectV2> stream =
+        PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.of(aspect)).build();
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(0L), anyInt(), anyInt()))
+        .thenReturn(stream);
+
+    MigrateAspectsStep step =
+        new MigrateAspectsStep(
+            OP_CONTEXT,
+            mockEntityService,
+            mockAspectDao,
+            Map.of("corpUserKey", 2L),
+            UPGRADE_VERSION,
+            100,
+            1, // 1 ms delay — exercises the sleep path without slowing the test
+            0);
+    UpgradeStepResult result = step.executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
+  public void testExecutableResumesFromSavedCursorState() {
+    StringMap cursor = new StringMap(Map.of(MigrateAspectsStep.LAST_CREATED_ON_MS_KEY, "999999"));
+    DataHubUpgradeResult inProgress = mock(DataHubUpgradeResult.class);
+    when(inProgress.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
+    when(inProgress.getResult()).thenReturn(cursor);
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(inProgress));
+
+    PartitionedStream<EbeanAspectV2> emptyStream =
+        PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build();
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(999999L), anyInt(), anyInt()))
+        .thenReturn(emptyStream);
+
+    MigrateAspectsStep step = buildStep(Map.of("corpUserKey", 2L));
+    UpgradeStepResult result = step.executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(mockAspectDao).streamAspectBatchesForMigration(any(), eq(999999L), anyInt(), anyInt());
+  }
+
+  // ── withAppSource ─────────────────────────────────────────────────────────
+
+  @Test
+  public void testWithAppSourceNullInput() throws Exception {
+    Method m = MigrateAspectsStep.class.getDeclaredMethod("withAppSource", SystemMetadata.class);
+    m.setAccessible(true);
+
+    SystemMetadata result = (SystemMetadata) m.invoke(null, (SystemMetadata) null);
+
+    assertNotNull(result);
+    assertNotNull(result.getProperties());
+    assertEquals(
+        result.getProperties().get(com.linkedin.metadata.Constants.APP_SOURCE),
+        com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE);
+  }
+
+  @Test
+  public void testWithAppSourceCopiesAndAddsSource() throws Exception {
+    Method m = MigrateAspectsStep.class.getDeclaredMethod("withAppSource", SystemMetadata.class);
+    m.setAccessible(true);
+
+    SystemMetadata input = new SystemMetadata();
+    StringMap props = new StringMap();
+    props.put("existingKey", "existingValue");
+    input.setProperties(props);
+
+    SystemMetadata result = (SystemMetadata) m.invoke(null, input);
+
+    assertEquals(result.getProperties().get("existingKey"), "existingValue");
+    assertEquals(
+        result.getProperties().get(com.linkedin.metadata.Constants.APP_SOURCE),
+        com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE);
+    // original must not be mutated
+    assertNull(input.getProperties().get(com.linkedin.metadata.Constants.APP_SOURCE));
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────
