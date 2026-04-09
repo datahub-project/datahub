@@ -282,12 +282,19 @@ class DataplexLineageExtractor:
         with exponential backoff. After retries are exhausted, logs a warning and continues.
 
         Args:
-            entry: EntryDataTuple
+            entry: Dataplex entry metadata used as the lineage lookup target.
+            active_lineage_project_location_pairs: Explicit ``(project_id, location)``
+                parents to query in the Lineage API. If not provided, falls back
+                to the full config cross-product.
 
         Returns:
-            Dictionary with upstream lineage FQNs and an empty downstream list
-            for backward compatibility, or None if lineage extraction is disabled
-            or fails after retries
+            On success, returns a dictionary with keys:
+            - ``"upstream"``: list of upstream fully-qualified names discovered
+              from target-link search across scanned parents.
+            - ``"downstream"``: always an empty list (kept for backward-compatible
+              return shape).
+            Returns ``None`` when lineage is disabled/unavailable or when lookup
+            fails after retries/exception handling.
         """
         if not self.config.include_lineage or not self.lineage_client:
             return None
@@ -449,7 +456,19 @@ class DataplexLineageExtractor:
     def _extract_lineage_edges_for_entry(
         self, entry: EntryDataTuple, lineage_data: Optional[dict[str, list[str]]]
     ) -> set[LineageEdge]:
-        """Extract normalized lineage edges for a single Dataplex entry."""
+        """Convert raw lookup payload into normalized DataHub lineage edges.
+
+        Args:
+            entry: Downstream Dataplex entry currently being processed.
+            lineage_data: Result payload from ``get_lineage_for_entry``. Expected
+                shape is ``{"upstream": list[str], "downstream": list[str]}``.
+                Only ``upstream`` values are currently used for edge creation;
+                ``None`` or empty upstreams produce no edges.
+
+        Returns:
+            A deduplicated set of ``LineageEdge`` records normalized to DataHub
+            upstream dataset URNs.
+        """
         self.report.report_lineage_entry_processed(entry.dataplex_entry_name)
         if not lineage_data:
             self.report.report_lineage_entry_without_lineage(
