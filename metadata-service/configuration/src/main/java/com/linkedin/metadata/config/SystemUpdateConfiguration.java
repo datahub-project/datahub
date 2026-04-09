@@ -13,9 +13,6 @@ public class SystemUpdateConfiguration {
   private boolean waitForSystemUpdate;
   private boolean cdcMode;
 
-  /** Entity consistency checking configuration */
-  private EntityConsistencyConfiguration entityConsistency;
-
   /** Kubernetes scale-down during system-update (GMS/MAE/MCE) */
   private KubernetesScaleDownConfiguration kubernetesScaleDown;
 }

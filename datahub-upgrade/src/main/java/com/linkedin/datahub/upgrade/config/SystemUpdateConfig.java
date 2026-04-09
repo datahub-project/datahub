@@ -171,8 +171,8 @@ public class SystemUpdateConfig {
   }
 
   /**
-   * The ReindexDataJobViaNodesCLLConfig step requires publishing to MCL. Overriding the default
-   * producer with this special producer which doesn't require an active registry.
+   * Some non-blocking upgrade steps require publishing to MCL. Overriding the default producer with
+   * this special producer which doesn't require an active registry.
    *
    * <p>Use when INTERNAL registry and is SYSTEM_UPDATE
    *
