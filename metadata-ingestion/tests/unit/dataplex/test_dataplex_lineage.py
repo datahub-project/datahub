@@ -274,6 +274,53 @@ def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
     ]
 
 
+def test_get_lineage_for_entry_continues_after_single_region_error(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    test_entry = EntryDataTuple(
+        dataplex_entry_short_name="entry-error-isolation",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-error-isolation",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.ds.table_error_isolation",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.ds.table_error_isolation",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+    )
+
+    lineage_extractor.config.project_ids = ["test-project"]
+    lineage_extractor.config.lineage_locations = ["me-central2", "us-central1"]
+
+    successful_link = Mock()
+    successful_link.source.fully_qualified_name = "bigquery:project.dataset.upstream_ok"
+
+    def search_links_side_effect(request):
+        if request.parent.endswith("/locations/me-central2"):
+            raise RuntimeError("region unsupported")
+        return [successful_link]
+
+    lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client_mock.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
+
+    result = lineage_extractor.get_lineage_for_entry(test_entry)
+
+    assert result is not None
+    assert result["upstream"] == ["bigquery:project.dataset.upstream_ok"]
+    stats = lineage_extractor.report.scan_stats_by_project_location_pair
+    assert stats[("test-project", "me-central2")] == {
+        "calls": 1,
+        "hits": 0,
+        "empty": 0,
+        "errors": 1,
+    }
+    assert stats[("test-project", "us-central1")] == {
+        "calls": 1,
+        "hits": 1,
+        "empty": 0,
+        "errors": 0,
+    }
+
+
 def test_get_lineage_for_table_deduplicates_same_upstream_dataset() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],

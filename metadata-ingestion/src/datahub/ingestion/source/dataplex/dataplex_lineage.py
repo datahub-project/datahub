@@ -317,11 +317,21 @@ class DataplexLineageExtractor:
                             self.report.report_lineage_api_call(
                                 "search_links_by_target", timer.elapsed_seconds()
                             )
-                    except Exception:
+                    except Exception as parent_error:
                         self.report.report_lineage_scan_error(
                             lineage_project_id, lineage_location
                         )
-                        raise
+                        self.source_report.warning(
+                            "Failed to query Dataplex lineage for a project/location parent. Continuing with remaining parents.",
+                            context=(
+                                f"parent={parent}, "
+                                f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                                f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                                f"entry_type={entry.dataplex_entry_type_short_name}"
+                            ),
+                            exc=parent_error,
+                        )
+                        continue
 
                     if upstream_links:
                         hit_parents.append(parent)
