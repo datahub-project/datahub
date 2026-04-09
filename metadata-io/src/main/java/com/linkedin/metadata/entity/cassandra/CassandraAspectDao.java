@@ -737,9 +737,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
             .in(aspectNamesToLiterals(aspectNames))
             .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isLessThanOrEqualTo(literal(startTimeMillis))
+            .isGreaterThanOrEqualTo(literal(startTimeMillis))
             .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isGreaterThan(literal(endTimeMillis))
+            .isLessThan(literal(endTimeMillis))
             .allowFiltering()
             .build();
 

@@ -1,12 +1,11 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator.*;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.domain.DomainProperties;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -20,22 +19,28 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class GlossaryTermInfoChangeEventGenerator
-    extends EntityChangeEventGenerator<GlossaryTermInfo> {
+public class DomainPropertiesChangeEventGenerator
+    extends EntityChangeEventGenerator<DomainProperties> {
   private static final String NAME_ADDED_FORMAT = "Name for '%s' has been set: '%s'.";
   private static final String NAME_CHANGED_FORMAT =
       "Name of '%s' has been changed from '%s' to '%s'.";
+  private static final String DESCRIPTION_ADDED_FORMAT =
+      "Description for '%s' has been added: '%s'.";
+  private static final String DESCRIPTION_REMOVED_FORMAT =
+      "Description for '%s' has been removed: '%s'.";
+  private static final String DESCRIPTION_CHANGED_FORMAT =
+      "Description of '%s' has been changed from '%s' to '%s'.";
 
   private static List<ChangeEvent> computeDiffs(
-      GlossaryTermInfo baseTermInfo,
-      @Nonnull GlossaryTermInfo targetTermInfo,
+      @Nullable DomainProperties baseDomainProperties,
+      @Nonnull DomainProperties targetDomainProperties,
       @Nonnull String entityUrn,
       AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
 
-    // Diff name (optional field)
-    String baseName = (baseTermInfo != null) ? baseTermInfo.getName() : null;
-    String targetName = targetTermInfo.getName();
+    // Diff name (required field, so target always has it)
+    String baseName = (baseDomainProperties != null) ? baseDomainProperties.getName() : null;
+    String targetName = targetDomainProperties.getName();
 
     if (baseName == null && targetName != null) {
       changeEvents.add(
@@ -59,9 +64,10 @@ public class GlossaryTermInfoChangeEventGenerator
               .build());
     }
 
-    // Diff description (definition field)
-    String baseDescription = (baseTermInfo != null) ? baseTermInfo.getDefinition() : null;
-    String targetDescription = (targetTermInfo != null) ? targetTermInfo.getDefinition() : null;
+    // Diff description (optional field)
+    String baseDescription =
+        (baseDomainProperties != null) ? baseDomainProperties.getDescription() : null;
+    String targetDescription = targetDomainProperties.getDescription();
 
     if (baseDescription == null && targetDescription != null) {
       changeEvents.add(
@@ -70,7 +76,7 @@ public class GlossaryTermInfoChangeEventGenerator
               .category(ChangeCategory.DOCUMENTATION)
               .operation(ChangeOperation.ADD)
               .semVerChange(SemanticChangeType.MINOR)
-              .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
+              .description(String.format(DESCRIPTION_ADDED_FORMAT, entityUrn, targetDescription))
               .auditStamp(auditStamp)
               .build());
     } else if (baseDescription != null && targetDescription == null) {
@@ -80,7 +86,7 @@ public class GlossaryTermInfoChangeEventGenerator
               .category(ChangeCategory.DOCUMENTATION)
               .operation(ChangeOperation.REMOVE)
               .semVerChange(SemanticChangeType.MINOR)
-              .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
+              .description(String.format(DESCRIPTION_REMOVED_FORMAT, entityUrn, baseDescription))
               .auditStamp(auditStamp)
               .build());
     } else if (baseDescription != null
@@ -93,17 +99,19 @@ public class GlossaryTermInfoChangeEventGenerator
               .operation(ChangeOperation.MODIFY)
               .semVerChange(SemanticChangeType.MINOR)
               .description(
-                  String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
+                  String.format(
+                      DESCRIPTION_CHANGED_FORMAT, entityUrn, baseDescription, targetDescription))
               .auditStamp(auditStamp)
               .build());
     }
+
     return changeEvents;
   }
 
   @Nullable
-  private static GlossaryTermInfo getGlossaryTermInfoFromAspect(EntityAspect entityAspect) {
+  private static DomainProperties getDomainPropertiesFromAspect(EntityAspect entityAspect) {
     if (entityAspect != null && entityAspect.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(GlossaryTermInfo.class, entityAspect.getMetadata());
+      return RecordUtils.toRecordTemplate(DomainProperties.class, entityAspect.getMetadata());
     }
     return null;
   }
@@ -115,19 +123,21 @@ public class GlossaryTermInfoChangeEventGenerator
       ChangeCategory element,
       JsonPatch rawDiff,
       boolean rawDiffsRequested) {
-    if (!previousValue.getAspect().equals(GLOSSARY_TERM_INFO_ASPECT_NAME)
-        || !currentValue.getAspect().equals(GLOSSARY_TERM_INFO_ASPECT_NAME)) {
-      throw new IllegalArgumentException("Aspect is not " + GLOSSARY_TERM_INFO_ASPECT_NAME);
+    if (!previousValue.getAspect().equals(DOMAIN_PROPERTIES_ASPECT_NAME)
+        || !currentValue.getAspect().equals(DOMAIN_PROPERTIES_ASPECT_NAME)) {
+      throw new IllegalArgumentException("Aspect is not " + DOMAIN_PROPERTIES_ASPECT_NAME);
     }
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.DOCUMENTATION) {
-      GlossaryTermInfo baseGlossaryTermInfo = getGlossaryTermInfoFromAspect(previousValue);
-      GlossaryTermInfo targetGlossaryTermInfo = getGlossaryTermInfoFromAspect(currentValue);
-      changeEvents.addAll(
-          computeDiffs(baseGlossaryTermInfo, targetGlossaryTermInfo, currentValue.getUrn(), null));
+      DomainProperties baseDomainProperties = getDomainPropertiesFromAspect(previousValue);
+      DomainProperties targetDomainProperties = getDomainPropertiesFromAspect(currentValue);
+      if (targetDomainProperties != null) {
+        changeEvents.addAll(
+            computeDiffs(
+                baseDomainProperties, targetDomainProperties, currentValue.getUrn(), null));
+      }
     }
 
-    // Assess the highest change at the transaction(schema) level.
     SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
     ChangeEvent highestChangeEvent =
         changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
@@ -149,8 +159,8 @@ public class GlossaryTermInfoChangeEventGenerator
       @Nonnull Urn urn,
       @Nonnull String entity,
       @Nonnull String aspect,
-      @Nonnull Aspect<GlossaryTermInfo> from,
-      @Nonnull Aspect<GlossaryTermInfo> to,
+      @Nonnull Aspect<DomainProperties> from,
+      @Nonnull Aspect<DomainProperties> to,
       @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
