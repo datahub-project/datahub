@@ -52,6 +52,7 @@ import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.indices.GetIndexRequest;
@@ -166,8 +167,28 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
   }
 
+  /** Pattern matching incremental reindex next indices created during tests. */
+  private static final String INCREMENTAL_NEXT_INDEX_PATTERN = "estest_*_0_14_0*";
+
   @BeforeMethod
   public void wipe() throws Exception {
+    // Clean up incremental reindex next indices (glob pattern)
+    try {
+      GetAliasesRequest patternRequest = new GetAliasesRequest();
+      patternRequest.indices(INCREMENTAL_NEXT_INDEX_PATTERN);
+      GetAliasesResponse matchingAliases =
+          getSearchClient().getIndexAliases(patternRequest, RequestOptions.DEFAULT);
+      for (String index : matchingAliases.getAliases().keySet()) {
+        try {
+          getSearchClient().deleteIndex(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+        } catch (Exception e) {
+          // ignore
+        }
+      }
+    } catch (Exception e) {
+      // Pattern may match nothing — that's fine
+    }
+
     // Clean up all test indices
     String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME};
 
@@ -1231,5 +1252,157 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             "structuredProperties should not be in _aspects");
       }
     }
+  }
+
+  // --- Incremental reindex integration tests ---
+
+  @Test
+  public void testIncrementalReindexWithDocs() throws Throwable {
+    String upgradeVersion = "0.14.0-0";
+
+    // Step 1: Create initial index with 1 shard
+    ReindexConfig initialConfig =
+        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    testDefaultBuilder.buildIndex(initialConfig);
+
+    // Step 2: Index some documents
+    for (int i = 0; i < 5; i++) {
+      IndexRequest indexRequest =
+          new IndexRequest(TEST_INDEX_NAME)
+              .id(String.valueOf(i))
+              .source(Map.of("field", "value" + i), XContentType.JSON);
+      getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
+    }
+    getSearchClient()
+        .refreshIndex(
+            new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
+            RequestOptions.DEFAULT);
+    assertEquals(
+        getSearchClient()
+            .count(new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+            .getCount(),
+        5,
+        "Expected 5 documents in the initial index");
+
+    // Step 3: Create builder with different shard count to force requiresReindex, and non-zero
+    // replicas so we can verify the optimization (sets to 0) and undo (restores to 1) cycle.
+    GitVersion gitVersion = new GitVersion("0.14.0", "abcdef", Optional.empty());
+    ESIndexBuilder changedShardBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().numShards(2).numReplicas(1).build())
+                .build(),
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+
+    ReindexConfig reindexConfig =
+        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    assertTrue(reindexConfig.requiresReindex(), "Expected config to require reindex");
+
+    // Step 4: Run incremental reindex (Phase 1)
+    ESIndexBuilder.IncrementalReindexResult incrementalResult =
+        changedShardBuilder.buildIndexIncremental(reindexConfig, upgradeVersion);
+
+    // Verify next index name contains the version
+    String expectedPrefix = TEST_INDEX_NAME + "_0_14_0-0_";
+    assertTrue(
+        incrementalResult.nextIndexName().startsWith(expectedPrefix),
+        "Expected next index name to start with "
+            + expectedPrefix
+            + " but was "
+            + incrementalResult.nextIndexName());
+    assertFalse(incrementalResult.skippedEmpty(), "Should not skip — source has 5 docs");
+    assertTrue(incrementalResult.reindexStartTime() > 0);
+    assertNotNull(incrementalResult.reindexInfo(), "reindexInfo should not be null");
+
+    // Step 5: Poll until reindex completes
+    ESIndexBuilder.PollReindexResult pollResult =
+        changedShardBuilder.pollReindexCompletion(
+            TEST_INDEX_NAME,
+            incrementalResult.nextIndexName(),
+            incrementalResult.targetShards(),
+            incrementalResult.reindexInfo(),
+            incrementalResult.taskId());
+    assertTrue(pollResult.completed(), "Reindex should complete successfully");
+
+    // Step 6: Restore settings
+    changedShardBuilder.undoReindexOptimalSettings(
+        incrementalResult.nextIndexName(), reindexConfig, pollResult.latestReindexInfo());
+
+    // Step 7: Verify next index has all documents
+    getSearchClient()
+        .refreshIndex(
+            new org.opensearch.action.admin.indices.refresh.RefreshRequest(
+                incrementalResult.nextIndexName()),
+            RequestOptions.DEFAULT);
+    long nextDocCount =
+        getSearchClient()
+            .count(new CountRequest(incrementalResult.nextIndexName()), RequestOptions.DEFAULT)
+            .getCount();
+    assertEquals(nextDocCount, 5, "Next index should have all 5 documents");
+
+    // Step 8: Verify alias still points to original index (no swap happened)
+    GetAliasesRequest aliasRequest = new GetAliasesRequest(TEST_INDEX_NAME);
+    GetAliasesResponse aliasResponse =
+        getSearchClient().getIndexAliases(aliasRequest, RequestOptions.DEFAULT);
+    // The alias should resolve, and the backing index should NOT be the next index
+    assertFalse(
+        aliasResponse.getAliases().containsKey(incrementalResult.nextIndexName()),
+        "Alias should not point to next index yet — swap hasn't happened");
+
+    // Step 9: Verify next index has the new shard count
+    GetIndexResponse nextIndexResponse =
+        getSearchClient()
+            .getIndex(
+                new GetIndexRequest(incrementalResult.nextIndexName()).includeDefaults(true),
+                RequestOptions.DEFAULT);
+    assertEquals(
+        nextIndexResponse.getSetting(incrementalResult.nextIndexName(), "index.number_of_shards"),
+        "2",
+        "Next index should have 2 shards");
+
+    // Step 10: Verify settings were restored (replicas back to target, refresh interval restored)
+    String replicas =
+        nextIndexResponse.getSetting(incrementalResult.nextIndexName(), "index.number_of_replicas");
+    assertNotEquals(replicas, "0", "Replicas should be restored after reindex");
+  }
+
+  @Test
+  public void testIncrementalReindexWithEmptyIndex() throws Throwable {
+    String upgradeVersion = "0.14.0-0";
+
+    // Create initial index with no documents
+    ReindexConfig initialConfig =
+        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    testDefaultBuilder.buildIndex(initialConfig);
+
+    // Create builder with different shard count to force requiresReindex
+    GitVersion gitVersion = new GitVersion("0.14.0", "abcdef", Optional.empty());
+    ESIndexBuilder changedShardBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().numShards(2).build())
+                .build(),
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+
+    ReindexConfig reindexConfig =
+        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    assertTrue(reindexConfig.requiresReindex());
+
+    // Run incremental reindex
+    ESIndexBuilder.IncrementalReindexResult result =
+        changedShardBuilder.buildIndexIncremental(reindexConfig, upgradeVersion);
+
+    assertTrue(result.skippedEmpty(), "Should skip _reindex for empty index");
+    // Next index should still be created (with correct mappings/settings)
+    assertTrue(
+        getSearchClient()
+            .indexExists(new GetIndexRequest(result.nextIndexName()), RequestOptions.DEFAULT),
+        "Next index should exist even when source is empty");
   }
 }

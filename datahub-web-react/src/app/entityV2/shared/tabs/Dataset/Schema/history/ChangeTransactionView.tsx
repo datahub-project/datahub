@@ -21,6 +21,13 @@ const ChangeTransactionTimestamp = styled(TitleText)`
     padding: 5px 15px;
 `;
 
+const ActorText = styled.span`
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-size: 12px;
+    font-style: italic;
+    font-weight: 400;
+`;
+
 const ChangeTransactionContainer = styled.div`
     display: flex;
     flex-direction: row;
@@ -86,9 +93,23 @@ export interface ChangeTransactionEntry {
     transaction: ChangeTransaction;
     semanticVersion?: string;
     platform?: DataPlatform;
+    nameMap?: Map<string, string>;
 }
 
-export default function ChangeTransactionView({ transaction, platform, semanticVersion }: ChangeTransactionEntry) {
+function extractActorName(actorUrn?: string | null): string | null {
+    if (!actorUrn) return null;
+    const parts = actorUrn.split(':');
+    return parts[parts.length - 1] || null;
+}
+
+export default function ChangeTransactionView({
+    transaction,
+    platform,
+    semanticVersion,
+    nameMap,
+}: ChangeTransactionEntry) {
+    const actorName = extractActorName(transaction.actor);
+
     return (
         <ChangeTransactionContainer>
             <ChangeTransactionSidebar>
@@ -105,9 +126,18 @@ export default function ChangeTransactionView({ transaction, platform, semanticV
                             {formatTimestamp(transaction.timestampMillis)}
                         </ChangeTransactionTimestamp>
                         {semanticVersion && <TitleText>{`(${semanticVersion})`}</TitleText>}
+                        {actorName && <ActorText>by {actorName}</ActorText>}
                     </ChangeTransactionTitle>
                 </TransactionDateHeader>
-                <div>{transaction?.changes?.map((change) => <ChangeEventComponent changeEvent={change} />)}</div>
+                <div>
+                    {transaction?.changes?.map((change) => (
+                        <ChangeEventComponent
+                            key={`${change.category}-${change.operation}-${change.description}`}
+                            changeEvent={change}
+                            nameMap={nameMap}
+                        />
+                    ))}
+                </div>
             </ChangeTransactionMainContent>
         </ChangeTransactionContainer>
     );

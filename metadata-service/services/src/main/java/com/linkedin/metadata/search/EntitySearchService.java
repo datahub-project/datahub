@@ -439,4 +439,13 @@ public interface EntitySearchService {
         .forEach(
             entry -> appendRunId(opContext, entry.getKey().getKey(), entry.getKey().getValue()));
   }
+
+  /**
+   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
+   * alias.
+   *
+   * @return true if swapped, false if doc counts didn't match
+   */
+  boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+      throws Exception;
 }
