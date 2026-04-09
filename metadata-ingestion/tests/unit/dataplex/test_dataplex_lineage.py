@@ -844,13 +844,13 @@ def test_pagination_with_large_result_set() -> None:
     assert result["upstream"][99] == "bigquery:project.dataset.upstream_table_99"
 
 
-def test_batched_lineage_processing() -> None:
-    """Test that lineage processing works correctly with batching enabled."""
+def test_streaming_lineage_processing() -> None:
+    """Test that lineage processing works correctly in streaming mode."""
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=2,  # Small batch size to test batching
+        batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
 
@@ -917,7 +917,7 @@ def test_batched_lineage_processing() -> None:
         for i in range(5)
     ]
 
-    # Call get_lineage_workunits which should process entries in batches of 2
+    # Call get_lineage_workunits which should process entries in streaming mode
     workunits = list(extractor.get_lineage_workunits(entries))
 
     # Should generate 5 workunits (one per entry)
@@ -927,13 +927,13 @@ def test_batched_lineage_processing() -> None:
     assert extractor.report.num_lineage_entries_scanned == 5
 
 
-def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
-    """Test that batching is disabled when batch size is larger than entry count."""
+def test_streaming_lineage_ignores_large_batch_size_config() -> None:
+    """Test that a large batch_size config does not affect streaming behavior."""
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=100,  # Larger than entry count
+        batch_size=100,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
 
@@ -965,7 +965,7 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
         for i in range(3)
     ]
 
-    # Should process all entries in a single batch
+    # Should process all entries in streaming mode
     workunits = list(extractor.get_lineage_workunits(entries))
 
     # Should generate 3 workunits (one per entry)
@@ -974,13 +974,13 @@ def test_batched_lineage_with_batch_size_larger_than_entries() -> None:
     assert extractor.report.num_lineage_entries_scanned == 3
 
 
-def test_batched_lineage_with_batching_disabled() -> None:
-    """Test that batching can be disabled by setting batch_size to None."""
+def test_streaming_lineage_with_batching_disabled_config() -> None:
+    """Test streaming lineage when batch_size is explicitly set to None."""
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=None,  # Disable batching
+        batch_size=None,  # Still streaming mode
     )
     report = DataplexReport()
 
@@ -1012,7 +1012,7 @@ def test_batched_lineage_with_batching_disabled() -> None:
         for i in range(10)
     ]
 
-    # Should process all entries at once (no batching)
+    # Should process all entries in streaming mode
     workunits = list(extractor.get_lineage_workunits(entries))
 
     # Should generate 10 workunits
@@ -1021,13 +1021,13 @@ def test_batched_lineage_with_batching_disabled() -> None:
     assert extractor.report.num_lineage_entries_scanned == 10
 
 
-def test_batched_lineage_memory_cleanup() -> None:
-    """Test that lineage map is cleared between batches to free memory."""
+def test_streaming_lineage_memory_cleanup() -> None:
+    """Test that transient lineage map entries are cleared after emission."""
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=2,  # Process 2 entries per batch
+        batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
 
@@ -1054,7 +1054,7 @@ def test_batched_lineage_memory_cleanup() -> None:
         lineage_client=mock_client,
     )
 
-    # Create 6 entries (will be processed in 3 batches of 2)
+    # Create 6 entries
     entries = [
         EntryDataTuple(
             dataplex_entry_short_name=f"entry_{i}",
@@ -1075,7 +1075,7 @@ def test_batched_lineage_memory_cleanup() -> None:
     # Should generate 6 workunits
     assert len(workunits) == 6
 
-    # After processing, lineage map should be empty (cleared after last batch)
+    # After processing, lineage map should be empty (entry-level cleanup)
     assert len(extractor.lineage_by_full_dataset_id) == 0
 
 
