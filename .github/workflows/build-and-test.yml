@@ -60,11 +60,10 @@ jobs:
         id: ci-optimize
       - name: Determine runner type
         id: set-runner
-        # For PRs: use depot runners only when the "depot" label is present (added by a maintainer).
-        # For push/schedule/dispatch events on master: use depot runners when DEPOT_PROJECT_ID is configured.
-        # This keeps fork PR behavior consistent — ubuntu-latest by default, depot only on explicit request.
+        # Use depot runners only when a maintainer has explicitly added the "depot" label.
+        # vars.DEPOT_PROJECT_ID is not accessible to fork PRs, so we rely solely on the label.
         run: |
-          if [[ "${{ env.DEPOT_PROJECT_ID }}" != "" && ("${{ github.event_name }}" != "pull_request" || "${{ env.HAS_DEPOT_LABEL }}" == "true") ]]; then
+          if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
             echo "runner_type=depot-ubuntu-latest-4" >> "$GITHUB_OUTPUT"
           else
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
