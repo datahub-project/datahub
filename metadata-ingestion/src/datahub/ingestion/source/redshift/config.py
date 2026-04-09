@@ -189,7 +189,7 @@ class RedshiftConfig(
             "(pg_catalog.pg_user) and emits them as TECHNICAL_OWNER in DataHub. "
             "Ownership is applied using OVERWRITE mode, meaning any existing ownership "
             "information (including manually added or modified owners from the UI) "
-            "will be replaced. Use with caution."
+            "will be replaced."
         ),
     )
 

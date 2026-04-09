@@ -479,7 +479,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_schemas(self, connection, database):
         for schema in self.data_dictionary.get_schemas(
-            conn=connection, database=database
+            conn=connection,
+            database=database,
+            extract_ownership=self.config.extract_ownership,
         ):
             if not is_schema_allowed(
                 self.config.schema_pattern,
@@ -527,6 +529,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
 
+            schema_owner_urn = None
+            if self.config.extract_ownership and schema.owner:
+                schema_owner_urn = self._make_owner_urn(schema.owner)
+
             yield from gen_schema_container(
                 schema=schema.name,
                 database=database,
@@ -535,21 +541,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
                 sub_types=[DatasetSubTypes.SCHEMA],
+                owner_urn=schema_owner_urn,
+                ownership_type=OwnershipTypeClass.TECHNICAL_OWNER,
             )
-
-            if self.config.extract_ownership and schema.owner:
-                schema_container_urn = schema_container_key.as_urn()
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=schema_container_urn,
-                    aspect=OwnershipClass(
-                        owners=[
-                            OwnerClass(
-                                owner=make_user_urn(schema.owner),
-                                type=OwnershipTypeClass.TECHNICAL_OWNER,
-                            )
-                        ]
-                    ),
-                ).as_workunit()
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(
@@ -792,6 +786,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+    def _make_owner_urn(self, username: str) -> str:
+        if self.config.email_domain and "@" not in username:
+            return make_user_urn(f"{username}@{self.config.email_domain}")
+        return make_user_urn(username)
+
     # TODO: Move to common
     def gen_dataset_workunits(
         self,
@@ -869,7 +868,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
         if self.config.extract_ownership and table.owner:
-            owner_urn = make_user_urn(table.owner)
+            owner_urn = self._make_owner_urn(table.owner)
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=OwnershipClass(
@@ -898,6 +897,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             database=database,
             skip_external_tables=self.config.skip_external_tables,
             is_shared_database=self.report.is_shared_database,
+            extract_ownership=self.config.extract_ownership,
         )
         for schema in tables:
             if not is_schema_allowed(

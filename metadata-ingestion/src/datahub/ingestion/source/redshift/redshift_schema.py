@@ -305,11 +305,15 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_schemas(
-        conn: redshift_connector.Connection, database: str
+        conn: redshift_connector.Connection,
+        database: str,
+        extract_ownership: bool = False,
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_schemas(database),
+            RedshiftCommonQuery.list_schemas(
+                database, extract_ownership=extract_ownership
+            ),
         )
 
         schemas = cursor.fetchall()
@@ -368,6 +372,7 @@ class RedshiftDataDictionary:
         database: str,
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
+        extract_ownership: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -382,6 +387,7 @@ class RedshiftDataDictionary:
                 database=database,
                 skip_external_tables=skip_external_tables,
                 is_shared_database=is_shared_database,
+                extract_ownership=extract_ownership,
             ),
         )
         field_names = [i[0] for i in cur.description]

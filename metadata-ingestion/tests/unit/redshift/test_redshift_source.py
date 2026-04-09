@@ -102,19 +102,26 @@ def test_add_redshift_query_tag_leading_whitespace_and_blank_lines() -> None:
     assert tagged_query == expected_tag + query
 
 
-def _make_source(extract_ownership: bool = False) -> RedshiftSource:
+def _make_source(
+    extract_ownership: bool = False, email_domain: Optional[str] = None
+) -> RedshiftSource:
     config = RedshiftConfig(
         host_port="localhost:5439",
         database="test",
         extract_ownership=extract_ownership,
+        email_domain=email_domain,
     )
     return RedshiftSource(config, ctx=PipelineContext(run_id="test"))
 
 
 def _gen_ownership_workunits(
-    owner: Optional[str], extract_ownership: bool
+    owner: Optional[str],
+    extract_ownership: bool,
+    email_domain: Optional[str] = None,
 ) -> list[MetadataWorkUnit]:
-    source = _make_source(extract_ownership=extract_ownership)
+    source = _make_source(
+        extract_ownership=extract_ownership, email_domain=email_domain
+    )
     return list(
         source.gen_dataset_workunits(
             table=RedshiftTable(
@@ -143,6 +150,38 @@ def test_gen_dataset_workunits_emits_ownership_when_enabled() -> None:
     assert ownership.owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
 
 
+def test_gen_dataset_workunits_ownership_appends_email_domain() -> None:
+    workunits = _gen_ownership_workunits(
+        owner="etluser", extract_ownership=True, email_domain="company.com"
+    )
+    ownership_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "ownership"
+    ]
+    assert len(ownership_mcps) == 1
+    ownership = ownership_mcps[0].aspect
+    assert isinstance(ownership, OwnershipClass)
+    assert ownership.owners[0].owner == "urn:li:corpuser:etluser@company.com"
+
+
+def test_gen_dataset_workunits_ownership_preserves_existing_email() -> None:
+    workunits = _gen_ownership_workunits(
+        owner="etluser@other.com", extract_ownership=True, email_domain="company.com"
+    )
+    ownership_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "ownership"
+    ]
+    assert len(ownership_mcps) == 1
+    ownership = ownership_mcps[0].aspect
+    assert isinstance(ownership, OwnershipClass)
+    assert ownership.owners[0].owner == "urn:li:corpuser:etluser@other.com"
+
+
 @pytest.mark.parametrize(
     "owner, extract_ownership",
     [
@@ -166,9 +205,13 @@ def test_gen_dataset_workunits_no_ownership_emitted(
 
 
 def _gen_schema_container_workunits(
-    schema_owner: Optional[str], extract_ownership: bool
+    schema_owner: Optional[str],
+    extract_ownership: bool,
+    email_domain: Optional[str] = None,
 ) -> list[MetadataWorkUnit]:
-    source = _make_source(extract_ownership=extract_ownership)
+    source = _make_source(
+        extract_ownership=extract_ownership, email_domain=email_domain
+    )
     schema = RedshiftSchema(
         name="public",
         database="dev",
@@ -208,6 +251,24 @@ def test_process_schema_emits_owner_urn_when_enabled() -> None:
     assert isinstance(ownership, OwnershipClass)
     assert ownership.owners[0].owner == "urn:li:corpuser:alice"
     assert ownership.owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
+
+
+def test_process_schema_ownership_appends_email_domain() -> None:
+    workunits = _gen_schema_container_workunits(
+        schema_owner="alice", extract_ownership=True, email_domain="acme.com"
+    )
+    ownership_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "ownership"
+    ]
+    assert len(ownership_wus) == 1
+    mcp = ownership_wus[0].metadata
+    assert isinstance(mcp, MetadataChangeProposalWrapper)
+    ownership = mcp.aspect
+    assert isinstance(ownership, OwnershipClass)
+    assert ownership.owners[0].owner == "urn:li:corpuser:alice@acme.com"
 
 
 @pytest.mark.parametrize(

@@ -47,17 +47,25 @@ class RedshiftCommonQuery:
     # NOTE: Using database_name filter for svv_redshift_schemas, as  otherwise
     # schemas from other shared databases also show up.
     @staticmethod
-    def list_schemas(database: str) -> str:
+    def list_schemas(database: str, extract_ownership: bool = False) -> str:
+        if extract_ownership:
+            owner_col = "u.usename as schema_owner_name,"
+            owner_join = "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = s.schema_owner"
+            from_clause = "FROM svv_redshift_schemas s"
+        else:
+            owner_col = "NULL as schema_owner_name,"
+            owner_join = ""
+            from_clause = "FROM svv_redshift_schemas s"
         return f"""
         SELECT 
             schema_name,
             schema_type,
-            u.usename as schema_owner_name,
+            {owner_col}
             cast(null as varchar(1024)) as schema_option,
             cast(null as varchar(256)) as external_platform,
             cast(null as varchar(256)) as external_database
-        FROM svv_redshift_schemas s
-        LEFT JOIN pg_catalog.pg_user u ON u.usesysid = s.schema_owner
+        {from_clause}
+        {owner_join}
         WHERE database_name = '{database}'
           AND schema_name != 'pg_catalog' and schema_name != 'information_schema'
     UNION ALL
@@ -95,7 +103,17 @@ class RedshiftCommonQuery:
         database: str,
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
+        extract_ownership: bool = False,
     ) -> str:
+        if extract_ownership:
+            owner_col = 'u.usename as "owner_name",'
+            owner_join = "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner"
+            shared_owner_col = 'table_owner AS "owner_name",'
+        else:
+            owner_col = 'NULL as "owner_name",'
+            owner_join = ""
+            shared_owner_col = 'NULL AS "owner_name",'
+
         # NOTE: it looks like description is available only in pg_description
         # So this remains preferrred way
         tables_query = f"""
@@ -116,7 +134,7 @@ class RedshiftCommonQuery:
                 WHEN 8 THEN 'ALL'
             END AS "diststyle",
             c.relowner AS "owner_id",
-            u.usename as "owner_name",
+            {owner_col}
             TRIM(TRAILING ';' FROM pg_catalog.pg_get_viewdef (c.oid,TRUE)) AS "view_definition",
             pg_catalog.array_to_string(c.relacl,'\n') AS "privileges",
             NULL as "location",
@@ -129,7 +147,7 @@ class RedshiftCommonQuery:
         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_class_info as ci on c.oid = ci.reloid
         LEFT JOIN pg_catalog.pg_description pgd ON pgd.objsubid = 0 AND pgd.objoid = c.oid
-        LEFT JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
+        {owner_join}
         JOIN svv_redshift_schemas rs ON rs.schema_name = n.nspname AND rs.database_name = '{database}'
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
@@ -169,7 +187,7 @@ class RedshiftCommonQuery:
             NULL as "creation_time",
             NULL AS "diststyle",
             table_owner AS "owner_id",
-            table_owner AS "owner_name",
+            {shared_owner_col}
             NULL AS "view_definition",
             table_acl AS "privileges",
             NULL as "location",
