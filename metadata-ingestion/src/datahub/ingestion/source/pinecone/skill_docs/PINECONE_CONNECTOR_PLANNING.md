@@ -51,17 +51,20 @@ Platform: pinecone
 1. **Platform**: `pinecone`
 
 2. **Container (Index Level)**
+
    - URN: `urn:li:container:<guid-from-index-name>`
    - SubType: `Index`
    - Properties: name, dimension, metric, index type, host URL, pod config, status
 
 3. **Container (Namespace Level)**
+
    - URN: `urn:li:container:<guid-from-index-namespace>`
    - SubType: `Namespace`
    - Properties: namespace name, vector count, indexed metadata fields
    - Parent: Index container
 
 4. **Dataset (Vector Collection)**
+
    - URN: `urn:li:dataset:(urn:li:dataPlatform:pinecone,<index>.<namespace>,PROD)`
    - SubType: `Vector Collection`
    - Schema: Inferred from metadata fields across sampled vectors
