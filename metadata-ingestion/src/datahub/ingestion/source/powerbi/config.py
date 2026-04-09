@@ -481,7 +481,7 @@ class PowerBiDashboardSourceConfig(
         default=60, description="timeout for PowerBI metadata scanning"
     )
     scan_batch_size: int = pydantic.Field(
-        default=1,
+        default=20,
         gt=0,
         le=100,
         description="batch size for sending workspace_ids to PBI, 100 is the limit",
