@@ -218,7 +218,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   frontend-build:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
+    runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 30
     needs: setup
     if: ${{ needs.setup.outputs.frontend_change == 'true' }}
@@ -266,7 +266,7 @@ jobs:
       matrix:
         timezone: ["UTC", "America/New_York"]
         frontend_shard: [1, 2, 3]
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
+    runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 30
     needs: [setup, frontend-build]
     steps:
