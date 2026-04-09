@@ -22,11 +22,6 @@ on:
       - "!.github/workflows/build-and-test.yml"
       - "!.github/actions/ensure-codegen-updated"
       - "!.github/scripts/send_failed_tests_to_posthog.py"
-    types:
-      - labeled
-      - opened
-      - synchronize
-      - reopened
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * *" # Run at midnight UTC every day
@@ -153,7 +148,6 @@ jobs:
           ./gradlew :datahub-frontend:build :datahub-web-react:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-          NODE_OPTIONS: --max-old-space-size=4096
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
