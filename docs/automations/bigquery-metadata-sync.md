@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
+This feature is currently in Public Beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
