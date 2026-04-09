@@ -6,7 +6,6 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from itertools import product
 from typing import TYPE_CHECKING, Dict, Iterable, Optional, Set
 
 from google.api_core import exceptions as google_exceptions
@@ -273,7 +272,7 @@ class DataplexLineageExtractor:
     def get_lineage_for_entry(
         self,
         entry: EntryDataTuple,
-        active_lineage_project_location_pairs: Optional[list[tuple[str, str]]] = None,
+        active_lineage_project_location_pairs: list[tuple[str, str]],
     ) -> Optional[Dict[str, list]]:
         """
         Get lineage information for a specific Dataplex entry with automatic retries.
@@ -284,8 +283,7 @@ class DataplexLineageExtractor:
         Args:
             entry: Dataplex entry metadata used as the lineage lookup target.
             active_lineage_project_location_pairs: Explicit ``(project_id, location)``
-                parents to query in the Lineage API. If not provided, falls back
-                to the full config cross-product.
+                parents to query in the Lineage API.
 
         Returns:
             On success, returns a dictionary with keys:
@@ -306,11 +304,7 @@ class DataplexLineageExtractor:
             empty_parents: list[str] = []
             # Query only target links (upstream lineage) across configured project/location
             # matrix so cross-project lineage edges can be discovered.
-            scan_pairs = (
-                list(product(self.config.project_ids, self.config.lineage_locations))
-                if active_lineage_project_location_pairs is None
-                else active_lineage_project_location_pairs
-            )
+            scan_pairs = active_lineage_project_location_pairs
             for lineage_project_id, lineage_location in scan_pairs:
                 parent = build_lineage_parent(lineage_project_id, lineage_location)
                 self.report.report_lineage_scan_call(

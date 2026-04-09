@@ -285,6 +285,35 @@ def test_get_lineage_for_entry_uses_provided_active_project_location_pairs(
     }
 
 
+def test_get_lineage_for_entry_requires_active_project_location_pairs() -> None:
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        include_lineage=True,
+        lineage_locations=["us-central1"],
+    )
+    report = DataplexReport()
+    extractor = DataplexLineageExtractor(
+        config=config,
+        report=report.lineage_report,
+        source_report=Mock(),
+        lineage_client=Mock(),
+    )
+    test_entry = EntryDataTuple(
+        dataplex_entry_short_name="entry-required-pairs",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-required-pairs",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:test-project.ds.table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="test-project.ds.table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+    )
+
+    # Required positional arg enforcement is handled by Python signature.
+    with pytest.raises(TypeError):
+        extractor.get_lineage_for_entry(test_entry)  # type: ignore[call-arg]
+
+
 def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
