@@ -12,7 +12,6 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -23,8 +22,8 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Evaluates whether a corp user may receive a UI session token (aligned with ActorContext.isActive
- * plus corpUserInfo.active).
+ * Evaluates whether a corp user may receive a UI session token (aligned with
+ * ActorContext.isActive).
  */
 @RequiredArgsConstructor
 public class UserSessionEligibilityChecker {
@@ -79,12 +78,6 @@ public class UserSessionEligibilityChecker {
       return Optional.of(LoginDenialReason.NOT_PROVISIONED);
     }
 
-    if (corpUserInfoAspect != null) {
-      final CorpUserInfo info = new CorpUserInfo(corpUserInfoAspect.data());
-      if (info.hasActive() && !info.isActive()) {
-        return Optional.of(LoginDenialReason.INACTIVE);
-      }
-    }
 
     return Optional.empty();
   }
