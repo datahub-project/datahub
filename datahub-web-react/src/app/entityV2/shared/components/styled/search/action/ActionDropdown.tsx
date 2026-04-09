@@ -37,7 +37,7 @@ const DropdownWrapper = styled.div<{
     margin-right: 12px;
 `;
 
-export type Action = {
+type Action = {
     title: React.ReactNode;
     onClick: () => void;
 };

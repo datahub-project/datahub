@@ -2693,7 +2693,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER",
+                "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
                 "value": {
                     "owner": "urn:li:corpuser:account users",
                     "type": "DATAOWNER"
@@ -3057,7 +3057,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER",
+                "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
                 "value": {
                     "owner": "urn:li:corpuser:account users",
                     "type": "DATAOWNER"

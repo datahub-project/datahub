@@ -234,6 +234,14 @@ def get_spark_version() -> Optional[str]:
     return os.getenv("SPARK_VERSION")
 
 
+def get_vertexai_disable_parallelism() -> bool:
+    """Disable parallel resource fetching in Vertex AI connector."""
+    return os.getenv("DATAHUB_VERTEXAI_DISABLE_PARALLELISM", "").lower() in (
+        "1",
+        "true",
+    )
+
+
 def get_bigquery_schema_parallelism() -> int:
     """Parallelism level for BigQuery schema extraction."""
     return int(os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", "20"))

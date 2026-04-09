@@ -14,7 +14,7 @@ const LOCAL_STATE_KEY = 'navBarState';
 /**
  * Local State is persisted to local storage.
  */
-export type LocalState = {
+type LocalState = {
     state?: NavBarStateType | null;
 };
 
@@ -32,7 +32,7 @@ const saveLocalState = (newState: LocalState) => {
     return localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(newState));
 };
 
-export interface NavBarContextType {
+interface NavBarContextType {
     state: NavBarStateType;
     isCollapsed: boolean;
     toggle: () => void;
@@ -41,7 +41,7 @@ export interface NavBarContextType {
     setDefaultNavBarState: (state: NavBarStateType) => void;
 }
 
-export const NavBarContext = React.createContext<NavBarContextType>({
+const NavBarContext = React.createContext<NavBarContextType>({
     state: NavBarStateType.Collapsed,
     isCollapsed: true,
     toggle: () => {},

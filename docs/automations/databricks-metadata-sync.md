@@ -257,7 +257,7 @@ For additional assistance with Databricks Metadata Sync, contact your DataHub Cl
 
 1. **Where should I manage Tags & Descriptions?**
 
-In general, we recommend centrally authoring Tags and Descriptions within DataHub. This allows you to maintain a clear and consistent governance posture across _all_ of your data sources and data products - there is always data outside of Databricks! Authoring this critical information in DataHub also improves the experience for your data practicioners trying to find the right data.
+In general, we recommend centrally authoring Tags and Descriptions within DataHub. This allows you to maintain a clear and consistent governance posture across _all_ of your data sources and data products - there is always data outside of Databricks! Authoring this critical information in DataHub also improves the experience for your data practitioners trying to find the right data.
 
 This automation is intended to enable this style of management, allowing you to "push down" metadata from the central catalog into Databricks, where your data is stored and queried.
 

@@ -1,0 +1,17 @@
+{
+  "name": "datahub-mquery-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/bundle.js",
+  "scripts": {
+    "build": "tsc && npx esbuild dist/index.js --bundle --platform=node --target=node20 --outfile=dist/bundle.js"
+  },
+  "dependencies": {
+    "@microsoft/powerquery-parser": "0.18.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "esbuild": "^0.20.0",
+    "@types/node": "^20.0.0"
+  }
+}

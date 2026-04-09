@@ -48,7 +48,7 @@ const MenuItems = styled.div<{ $shouldFillAllAvailableSpace?: boolean }>`
 
 const MoreOptionsContainer = styled.div``;
 
-export interface Options {
+interface Options {
     hideDeleteMessage?: boolean;
     skipDeleteWait?: boolean;
 }

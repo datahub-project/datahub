@@ -25,7 +25,7 @@ import { EntityType } from '@types';
 
 const DomainsContainer = styled.div``;
 
-export const DomainsPaginationContainer = styled.div`
+const DomainsPaginationContainer = styled.div`
     display: flex;
     justify-content: center;
     padding: 12px;

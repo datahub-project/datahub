@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Key } from '@phosphor-icons/react/dist/csr/Key';
@@ -17,50 +16,34 @@ import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 import { AccessTokenType, DataHubRole, ServiceAccount } from '@types';
 
-export const ServiceAccountContainer = styled.div`
+const ServiceAccountContainer = styled.div`
     display: flex;
     flex-direction: column;
     margin-top: 16px;
-    padding: 0 16px;
 `;
 
-export const TableContainer = styled.div`
+const TableContainer = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: auto;
-    padding: 0 16px;
-
-    /* Make table header sticky */
-    .ant-table-thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: ${(props) => props.theme.colors.bg};
-    }
-
-    /* Ensure header cells have proper background */
-    .ant-table-thead > tr > th {
-        background: ${(props) => props.theme.colors.bg} !important;
-        border-bottom: 1px solid ${(props) => props.theme.colors.border};
-    }
+    overflow: hidden;
 `;
 
-export const FiltersHeader = styled.div`
+const FiltersHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
 `;
 
-export const SearchContainer = styled.div`
+const SearchContainer = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
 `;
 
-export const ActionsContainer = styled.div`
+const ActionsContainer = styled.div`
     display: flex;
     align-items: right;
     justify-content: flex-end;
@@ -91,7 +74,7 @@ const ActionsButtonStyle = {
     boxShadow: 'none',
 };
 
-export const EmptyStateContainer = styled.div`
+const EmptyStateContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -105,7 +88,7 @@ type ServiceAccountNameCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-export const ServiceAccountNameCell = ({ serviceAccount }: ServiceAccountNameCellProps) => {
+const ServiceAccountNameCell = ({ serviceAccount }: ServiceAccountNameCellProps) => {
     const displayName = serviceAccount.displayName || serviceAccount.name;
 
     return (
@@ -124,7 +107,7 @@ type ServiceAccountDescriptionCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
     return (
         <Text color="gray" size="md">
             {serviceAccount.description || '-'}
@@ -139,7 +122,7 @@ type ServiceAccountRoleCellProps = {
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
 };
 
-export const ServiceAccountRoleCell = ({
+const ServiceAccountRoleCell = ({
     serviceAccount,
     selectRoleOptions,
     optimisticRoleUrn,
@@ -176,7 +159,7 @@ type ServiceAccountActionsMenuProps = {
     onDelete: (urn: string) => void;
 };
 
-export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
+const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
     const history = useHistory();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -381,7 +364,7 @@ export const ServiceAccountTable = ({
                 {serviceAccounts.length > 0 ? (
                     <>
                         <Table columns={columns} data={serviceAccounts} isLoading={loading} isScrollable />
-                        <div style={{ padding: '8px 20px 0 20px', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ paddingTop: '8px', display: 'flex', justifyContent: 'center' }}>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}

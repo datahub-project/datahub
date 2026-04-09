@@ -1164,6 +1164,38 @@
       "platform_name": "Excel",
       "support_status": "INCUBATING"
     },
+    "fabric-data-factory": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Optionally enabled via stateful_ingestion config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default via Copy and InvokePipeline activities",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.fabric.data_factory.source.FabricDataFactorySource",
+      "platform_id": "fabric-data-factory",
+      "platform_name": "Fabric Data Factory",
+      "support_status": "TESTING"
+    },
     "fabric-onelake": {
       "capabilities": [
         {
@@ -1273,6 +1305,44 @@
       "platform_id": "fivetran",
       "platform_name": "Fivetran",
       "support_status": "CERTIFIED"
+    },
+    "flink": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Catalog databases as containers (requires SQL Gateway)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Catalog table schemas via SQL Gateway (requires include_catalog_metadata)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Table-level lineage from Kafka sources/sinks",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.flink.source.FlinkSource",
+      "platform_id": "flink",
+      "platform_name": "Flink",
+      "support_status": "INCUBATING"
     },
     "gcs": {
       "capabilities": [
@@ -2449,6 +2519,62 @@
       "platform_id": "okta",
       "platform_name": "Okta",
       "support_status": "CERTIFIED"
+    },
+    "omni": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Field-level lineage when include_column_lineage=true",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Document owner extracted from Omni API",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Supported via connection_to_platform_instance config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Dimensions and measures extracted as schema columns",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Dashboard \u2192 Tile \u2192 Topic \u2192 View \u2192 DB Table",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.omni.omni.OmniSource",
+      "platform_id": "omni",
+      "platform_name": "Omni",
+      "support_status": "INCUBATING"
     },
     "openapi": {
       "capabilities": [

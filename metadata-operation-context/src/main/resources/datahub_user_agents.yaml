@@ -27,3 +27,17 @@ config:
         DeviceClass: 'Robot'
         AgentClass: 'ingestion'
         AgentName: 'datahub'
+  - test:
+      input:
+        user_agent_string: 'DataHub-Client/1.0 (cli; datahub/claude-code; 1.0.1)'
+      expected:
+        DeviceClass: 'Robot'
+        AgentClass: 'cli'
+        AgentName: 'datahub/claude-code'
+  - test:
+      input:
+        user_agent_string: 'DataHub-Client/1.0 (ingestion; airflow-plugin/github-actions; 1.0.1)'
+      expected:
+        DeviceClass: 'Robot'
+        AgentClass: 'ingestion'
+        AgentName: 'airflow-plugin/github-actions'

@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.ebean.batch;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -11,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -587,5 +589,54 @@ public class PatchItemImplTest {
 
     // Verify the template engine was called (indicating template patch was used)
     verify(mockTemplateEngine).applyPatch(any(), any(), any());
+  }
+
+  /**
+   * Regression test for the bug where {@code applyGenericPatch} used a bare constructor ({@code new
+   * GlossaryTerms()}) as the default aspect instead of the registered template's default ({@code
+   * GlossaryTermsTemplate.getDefault()}). The bare constructor produces an object without the
+   * required {@code auditStamp} field, which causes validation to fail with:
+   *
+   * <pre>ERROR :: /auditStamp :: field is required but not found and has no default value</pre>
+   *
+   * <p>The scenario: a compound-key {@code GenericJsonPatch} arrives for {@code glossaryTerms} on
+   * an entity that has no pre-existing aspect value (brand-new dataset).
+   */
+  @Test
+  public void testGenericPatchForAspectWithRequiredFieldsUsesRegisteredDefault() throws Exception {
+    // Build a compound-key GenericJsonPatch that adds a glossary term (no attribution source).
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/terms//urn:li:glossaryTerm:CustomerData");
+    addOp.setValue(
+        objectMapper.convertValue(
+            Map.of("urn", "urn:li:glossaryTerm:CustomerData"), JsonNode.class));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .patch(ImmutableList.of(addOp))
+            .arrayPrimaryKeys(Map.of("terms", ImmutableList.of("attribution\u241fsource", "urn")))
+            .build();
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setAspectName(GLOSSARY_TERMS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
+
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+
+    // Apply with null currentValue — simulates a brand-new entity with no existing aspect.
+    // Before the fix this threw a ValidationException because auditStamp was missing.
+    ChangeItemImpl result = patchItem.applyPatch(null, aspectRetriever);
+
+    assertNotNull(result, "Patch should produce a result");
+    GlossaryTerms patched = (GlossaryTerms) result.getRecordTemplate();
+    assertNotNull(
+        patched.getAuditStamp(),
+        "auditStamp must be present — injected by the registered template default");
+    assertFalse(patched.getTerms().isEmpty(), "The added term must be present");
+    assertEquals(patched.getTerms().get(0).getUrn().toString(), "urn:li:glossaryTerm:CustomerData");
   }
 }

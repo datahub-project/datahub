@@ -21,7 +21,7 @@ const ResultCard = styled(Card)`
     }
 `;
 
-export interface BrowseResultProps {
+interface BrowseResultProps {
     url: string;
     name: string;
     count?: number | undefined;

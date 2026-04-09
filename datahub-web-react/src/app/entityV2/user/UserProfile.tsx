@@ -19,25 +19,23 @@ import { UserAssets } from '@app/entityV2/user/UserAssets';
 import UserGroups from '@app/entityV2/user/UserGroups';
 import UserSideBar from '@app/entityV2/user/UserSidebar';
 import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
+import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
-import { EntityRelationship, EntityType } from '@types';
+import { CorpGroup, EntityRelationship, EntityType } from '@types';
 
-export interface Props {
+interface Props {
     urn: string;
 }
 
-export enum TabType {
+enum TabType {
     Assets = 'Owner Of',
     Groups = 'Groups',
 }
@@ -55,16 +53,10 @@ const defaultTabDisplayConfig = {
  * Styled Components
  */
 const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    &&& .ant-tabs-nav {
-        margin: 0;
-    }
     background-color: ${(props) => props.theme.colors.bg};
     height: 100%;
     overflow: hidden;
     display: flex;
-    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-        padding-left: 15px;
-    }
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -76,24 +68,26 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
 `;
 
-export const EmptyValue = styled.div`
-    &:after {
-        content: 'None';
-        color: #b7b7b7;
-        font-style: italic;
-        font-weight: 100;
-    }
-`;
-
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
-    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
+    ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
     overflow: inherit;
 `;
 
 const TabsContainer = styled.div``;
 
 const Tabs = styled.div``;
+
+const SidebarColumn = styled(Col)`
+    height: 100%;
+    overflow: auto;
+`;
+
+const ContentColumn = styled(Col)`
+    border-left: 1px solid ${(props) => props.theme.colors.border};
+    height: 100%;
+    padding: 8px 16px;
+`;
 
 /**
  * Responsible for reading & writing users.
@@ -107,12 +101,18 @@ export default function UserProfile({ urn }: Props) {
 
     const { error, data, loading, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
-    const castedCorpUser = data?.corpUser as any;
+    const corpUser = data?.corpUser;
 
+    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const userGroups: Array<EntityRelationship> =
-        castedCorpUser?.groups?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
+        corpUser?.groups?.relationships
+            ?.filter((relationship) => {
+                const group = relationship?.entity as CorpGroup | undefined;
+                return group?.info || group?.editableProperties;
+            })
+            ?.map((relationship) => relationship as EntityRelationship) || [];
     const userRoles: Array<EntityRelationship> =
-        castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
+        corpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
     const { groupUrns } = useGetUserGroupUrns(urn);
 
@@ -220,19 +220,12 @@ export default function UserProfile({ urn }: Props) {
             <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>
+                <SidebarColumn xl={7} lg={7} md={7} sm={24} xs={24}>
                     <UserSideBar sidebarData={sidebarData} refetch={refetch} />
-                </Col>
-                <Col
-                    xl={17}
-                    lg={17}
-                    md={17}
-                    sm={24}
-                    xs={24}
-                    style={{ borderLeft: `1px solid ${colors.gray[100]}`, height: '100%' }}
-                >
-                    <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
-                </Col>
+                </SidebarColumn>
+                <ContentColumn xl={17} lg={17} md={17} sm={24} xs={24}>
+                    <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                </ContentColumn>
             </UserProfileWrapper>
         </EntityContext.Provider>
     );

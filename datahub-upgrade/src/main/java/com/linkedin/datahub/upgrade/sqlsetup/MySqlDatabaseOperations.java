@@ -93,7 +93,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> createTableSqlStatements() {
+  public java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
+    // schemaVersionIndex is intentionally not created for MySQL: MySQL's query optimizer typically
+    // uses only one index per table scan, so an additional index on schemaVersion rarely helps and
+    // adds write overhead. This query only helps during the upgrade process during background
+    // migration.
     return java.util.Arrays.asList(
         """
         CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (

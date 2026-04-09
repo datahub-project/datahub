@@ -1,13 +1,9 @@
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { getTimeWindowStart } from '@src/app/shared/time/timeUtils';
 import { DateInterval, TimeRange } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
-dayjs.extend(utc);
-
-export type TimeSeriesDatum = {
+type TimeSeriesDatum = {
     time: number;
     value: number;
 };
@@ -15,8 +11,7 @@ export type TimeSeriesDatum = {
 export type AggregationFunction = (values: number[]) => number | undefined;
 
 export const MAX_VALUE_AGGREGATION: AggregationFunction = (values) => Math.max(...values);
-export const MIN_VALUE_AGGREGATION: AggregationFunction = (values) => Math.min(...values);
-export const LATEST_VALUE_AGGREGATION: AggregationFunction = (values) => values.at(-1);
+const LATEST_VALUE_AGGREGATION: AggregationFunction = (values) => values.at(-1);
 export const SUM_VALUES_AGGREGATION: AggregationFunction = (values) => values.reduce((sum, val) => sum + val, 0);
 
 /**

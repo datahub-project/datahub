@@ -9,6 +9,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -214,7 +215,7 @@ public class PluginFactory {
     this.pluginConfiguration =
         pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
     this.aspectPayloadValidators = applyDisable(aspectPayloadValidators);
-    this.mutationHooks = applyDisable(mutationHooks);
+    this.mutationHooks = sortByPriority(applyDisable(mutationHooks));
     this.mclSideEffects = applyDisable(mclSideEffects);
     this.mcpSideEffects = applyDisable(mcpSideEffects);
   }
@@ -461,11 +462,18 @@ public class PluginFactory {
   private List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? Collections.emptyList()
-        : applyDisable(
-            build(
-                MutationHook.class,
-                pluginConfiguration.mutationPackages(),
-                pluginConfiguration.getMutationHooks()));
+        : sortByPriority(
+            applyDisable(
+                build(
+                    MutationHook.class,
+                    pluginConfiguration.mutationPackages(),
+                    pluginConfiguration.getMutationHooks())));
+  }
+
+  private static List<MutationHook> sortByPriority(@Nonnull List<MutationHook> hooks) {
+    return hooks.stream()
+        .sorted(Comparator.comparingInt(MutationHook::getPriority).reversed())
+        .collect(Collectors.toList());
   }
 
   private List<MCLSideEffect> buildMCLSideEffects(

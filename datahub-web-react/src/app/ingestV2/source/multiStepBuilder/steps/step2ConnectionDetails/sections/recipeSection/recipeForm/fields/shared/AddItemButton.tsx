@@ -3,7 +3,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import styled from 'styled-components';
 
-export const CentredButton = styled(Button)`
+const CentredButton = styled(Button)`
     justify-content: center;
 `;
 

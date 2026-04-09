@@ -74,11 +74,11 @@ export function GraphCard({
                             <EmptyMessageContainer>
                                 <EmptyMessageWrapper>
                                     {showEmptyMessageHeader && (
-                                        <Text size="2xl" weight="bold" color="gray">
+                                        <Text size="2xl" weight="bold">
                                             No Data
                                         </Text>
                                     )}
-                                    <Text color="gray">{emptyMessage}</Text>
+                                    <Text>{emptyMessage}</Text>
                                     {moreInfoModalContent && (
                                         <LinkText color="primary" onClick={() => setShowInfoModal(true)}>
                                             More info

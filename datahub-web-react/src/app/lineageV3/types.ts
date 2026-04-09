@@ -34,12 +34,12 @@ export interface ColumnAsset extends LineageAssetBase {
     nativeDataType?: string | null;
 }
 
-export interface EntityAsset extends LineageAssetBase {
+interface EntityAsset extends LineageAssetBase {
     type: LineageAssetType.Entity;
     entityType: EntityType;
 }
 
-export interface DataProductAsset extends LineageAssetBase {
+interface DataProductAsset extends LineageAssetBase {
     type: LineageAssetType.DataProduct;
     size?: number;
 }
