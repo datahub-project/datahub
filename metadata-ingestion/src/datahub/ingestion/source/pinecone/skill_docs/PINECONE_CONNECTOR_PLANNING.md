@@ -1,4 +1,4 @@
-﻿# DataHub Pinecone Connector - Implementation Plan
+# DataHub Pinecone Connector - Implementation Plan
 
 ## Overview
 
