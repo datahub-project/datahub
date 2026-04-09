@@ -18,7 +18,6 @@ def test_process_project_wraps_entities_and_lineage_workunits() -> None:
     source.config = Mock(include_lineage=True)
     source.lineage_extractor = Mock()
     source.report = Mock()
-    source.report.new_stage.return_value = nullcontext()
 
     with (
         patch(
@@ -40,7 +39,6 @@ def test_process_project_reports_google_api_failure() -> None:
     source.config = Mock(include_lineage=False)
     source.lineage_extractor = None
     source.report = Mock()
-    source.report.new_stage.return_value = nullcontext()
 
     with patch(
         "datahub.ingestion.source.dataplex.dataplex.auto_workunit",
@@ -195,15 +193,52 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source.config.include_lineage = True
     source.lineage_extractor = Mock()
     source.entry_data = []
+    source.report = Mock()
+    source.report.new_stage.return_value = nullcontext()
 
     wu1, wu2 = Mock(), Mock()
-    with patch.object(
-        source, "_process_project", side_effect=[[wu1], [wu2]]
-    ) as process:
+    with (
+        patch.object(source, "_process_project", side_effect=[[wu1], [wu2]]) as process,
+        patch.object(source, "_get_lineage_workunits", return_value=[]) as lineage,
+    ):
         workunits = list(source.get_workunits_internal())
 
     assert workunits == [wu1, wu2]
     assert process.call_count == 2
+    assert source.report.new_stage.call_count == 3
+    lineage.assert_called_once()
+    source.report.new_stage.assert_any_call(
+        "Processing entries from Universal Catalog for project project-1"
+    )
+    source.report.new_stage.assert_any_call(
+        "Processing entries from Universal Catalog for project project-2"
+    )
+    source.report.new_stage.assert_any_call(
+        "Extracting Dataplex lineage across configured projects"
+    )
+
+
+def test_get_workunits_internal_skips_lineage_stage_when_disabled() -> None:
+    source = object.__new__(DataplexSource)
+    source.config = Mock()
+    source.config.project_ids = ["project-1"]
+    source.config.include_lineage = False
+    source.lineage_extractor = None
+    source.entry_data = []
+    source.report = Mock()
+    source.report.new_stage.return_value = nullcontext()
+
+    with (
+        patch.object(source, "_process_project", return_value=[]),
+        patch.object(source, "_get_lineage_workunits", return_value=[]) as lineage,
+    ):
+        workunits = list(source.get_workunits_internal())
+
+    assert workunits == []
+    lineage.assert_not_called()
+    source.report.new_stage.assert_called_once_with(
+        "Processing entries from Universal Catalog for project project-1"
+    )
 
 
 def test_get_lineage_workunits_handles_empty_entries() -> None:

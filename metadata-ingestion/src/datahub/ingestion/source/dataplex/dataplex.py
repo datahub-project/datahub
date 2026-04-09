@@ -225,28 +225,29 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         # Iterate over all configured projects
         for project_id in self.config.project_ids:
             logger.info(f"Processing Dataplex resources for project: {project_id}")
-            yield from self._process_project(project_id)
+            with self.report.new_stage(
+                f"Processing entries from Universal Catalog for project {project_id}"
+            ):
+                yield from self._process_project(project_id)
 
         if self.config.include_lineage and self.lineage_extractor:
-            yield from self._get_lineage_workunits()
+            with self.report.new_stage(
+                "Extracting Dataplex lineage across configured projects"
+            ):
+                yield from self._get_lineage_workunits()
 
     def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Process all Dataplex resources for a single project."""
-        with self.report.new_stage(
-            f"Processing entries from Universal Catalog for project {project_id}"
-        ):
-            try:
-                yield from auto_workunit(
-                    self.entries_processor.process_project(project_id)
-                )
-            except exceptions.GoogleAPICallError as exc:
-                self.report.report_failure(
-                    title="Failed to process Dataplex entries",
-                    message="Error while extracting entries from Universal Catalog.",
-                    context=project_id,
-                    exc=exc,
-                )
-                return
+        try:
+            yield from auto_workunit(self.entries_processor.process_project(project_id))
+        except exceptions.GoogleAPICallError as exc:
+            self.report.report_failure(
+                title="Failed to process Dataplex entries",
+                message="Error while extracting entries from Universal Catalog.",
+                context=project_id,
+                exc=exc,
+            )
+            return
 
     def _get_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
