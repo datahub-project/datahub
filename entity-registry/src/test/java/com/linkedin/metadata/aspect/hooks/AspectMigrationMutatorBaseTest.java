@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -152,11 +153,11 @@ public abstract class AspectMigrationMutatorBaseTest {
   @Test
   public void contract_sourceVersionAtLeastDefault() {
     assertTrue(
-        mutator().getSourceVersion() >= AspectMigrationMutator.DEFAULT_SCHEMA_VERSION,
+        mutator().getSourceVersion() >= DEFAULT_SCHEMA_VERSION,
         "sourceVersion must be >= DEFAULT_SCHEMA_VERSION");
   }
 
-  // Write path (auto-inherited)
+  // Write path
 
   @Test
   public void writeMutation_atSourceVersion_mutatesAndBumpsVersion() {
@@ -180,7 +181,7 @@ public abstract class AspectMigrationMutatorBaseTest {
   @Test
   public void writeMutation_atDefaultSchemaVersion_mutatesAndBumpsVersion() {
     // null schemaVersion is treated as DEFAULT_SCHEMA_VERSION — only relevant when sourceVersion==1
-    if (mutator().getSourceVersion() != AspectMigrationMutator.DEFAULT_SCHEMA_VERSION) {
+    if (mutator().getSourceVersion() != DEFAULT_SCHEMA_VERSION) {
       throw new SkipException("only applies when sourceVersion == DEFAULT_SCHEMA_VERSION");
     }
     ChangeMCP item = buildItem(provideSourceAspect(), new SystemMetadata()); // no schemaVersion set
