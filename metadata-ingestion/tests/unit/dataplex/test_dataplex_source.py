@@ -381,7 +381,7 @@ def test_get_workunits_internal_discovers_active_lineage_locations_once() -> Non
     source.report.info.assert_called_once()
 
 
-def test_get_workunits_internal_discovery_falls_back_to_configured_locations() -> None:
+def test_get_workunits_internal_discovery_warns_when_no_active_locations() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
     source.entries_processor.process_project.return_value = []
@@ -417,11 +417,9 @@ def test_get_workunits_internal_discovery_falls_back_to_configured_locations() -
 
     source.lineage_extractor.get_lineage_workunits.assert_called_once()
     _args, kwargs = source.lineage_extractor.get_lineage_workunits.call_args
-    assert kwargs["active_lineage_project_location_pairs"] == [
-        ("project-1", "us-central1"),
-        ("project-1", "europe-west1"),
-    ]
+    assert kwargs["active_lineage_project_location_pairs"] == []
     source.report.info.assert_called_once()
+    source.report.warning.assert_called_once()
 
 
 def test_get_workunits_internal_discovery_can_be_disabled() -> None:
@@ -587,9 +585,10 @@ def test_get_workunits_internal_reports_discovery_probe_errors_as_debug() -> Non
 
     source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
         source.entry_data,
-        active_lineage_project_location_pairs=[("project-1", "us-central1")],
+        active_lineage_project_location_pairs=[],
     )
     source.report.info.assert_called_once()
+    source.report.warning.assert_called_once()
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:

@@ -140,11 +140,22 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
             if not active_locations:
-                logger.info(
-                    "No active lineage locations discovered for project %s; using configured lineage_locations fallback",
-                    project_id,
+                self.report.warning(
+                    title="No active lineage locations discovered",
+                    message=(
+                        "No active lineage locations were discovered for this project. "
+                        "Lineage extraction will not scan this project while discovery is enabled. "
+                        "To force scanning configured lineage_locations, set "
+                        "discover_active_lineage_locations=false."
+                    ),
+                    context=str(
+                        dict(
+                            project_id=project_id,
+                            lineage_locations=self.config.lineage_locations,
+                            discover_active_lineage_locations=self.config.discover_active_lineage_locations,
+                        )
+                    ),
                 )
-                active_locations = list(self.config.lineage_locations)
 
             logger.info(
                 "Discovered active lineage locations for project %s: %s",

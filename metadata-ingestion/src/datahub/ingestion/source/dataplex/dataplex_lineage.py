@@ -306,8 +306,10 @@ class DataplexLineageExtractor:
             empty_parents: list[str] = []
             # Query only target links (upstream lineage) across configured project/location
             # matrix so cross-project lineage edges can be discovered.
-            scan_pairs = active_lineage_project_location_pairs or list(
-                product(self.config.project_ids, self.config.lineage_locations)
+            scan_pairs = (
+                list(product(self.config.project_ids, self.config.lineage_locations))
+                if active_lineage_project_location_pairs is None
+                else active_lineage_project_location_pairs
             )
             for lineage_project_id, lineage_location in scan_pairs:
                 parent = build_lineage_parent(lineage_project_id, lineage_location)
