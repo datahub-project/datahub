@@ -10,24 +10,28 @@ This document outlines the implementation plan for a DataHub connector to ingest
 
 ### Key Concepts
 
-1. **Indexes**: Top-level organizational units that store vector data
-   - Dense indexes: Store dense vectors for semantic search
-   - Sparse indexes: Store sparse vectors for lexical/keyword search
-   - Each index has a defined dimension and similarity metric
+**1. Indexes**: Top-level organizational units that store vector data
 
-2. **Namespaces**: Logical partitions within an index
-   - Used for multitenancy and data isolation
-   - All operations (upsert, query, fetch) target a specific namespace
-   - Created automatically during upsert operations
+- Dense indexes: Store dense vectors for semantic search
+- Sparse indexes: Store sparse vectors for lexical/keyword search
+- Each index has a defined dimension and similarity metric
 
-3. **Vectors**: Basic units of data
-   - Each vector has an ID, vector values, and optional metadata
-   - Metadata: Flat JSON key-value pairs (max 40KB per record)
-   - Metadata supports filtering during queries
+**2. Namespaces**: Logical partitions within an index
 
-4. **Hosting Environments**:
-   - Serverless indexes
-   - Pod-based indexes
+- Used for multitenancy and data isolation
+- All operations (upsert, query, fetch) target a specific namespace
+- Created automatically during upsert operations
+
+**3. Vectors**: Basic units of data
+
+- Each vector has an ID, vector values, and optional metadata
+- Metadata: Flat JSON key-value pairs (max 40KB per record)
+- Metadata supports filtering during queries
+
+**4. Hosting Environments**:
+
+- Serverless indexes
+- Pod-based indexes
 
 ---
 
@@ -48,26 +52,26 @@ Platform: pinecone
 
 ### Entity Types
 
-1. **Platform**: `pinecone`
+**1. Platform**: `pinecone`
 
-2. **Container (Index Level)**
+**2. Container (Index Level)**
 
-   - URN: `urn:li:container:<guid-from-index-name>`
-   - SubType: `Index`
-   - Properties: name, dimension, metric, index type, host URL, pod config, status
+- URN: `urn:li:container:<guid-from-index-name>`
+- SubType: `Index`
+- Properties: name, dimension, metric, index type, host URL, pod config, status
 
-3. **Container (Namespace Level)**
+**3. Container (Namespace Level)**
 
-   - URN: `urn:li:container:<guid-from-index-namespace>`
-   - SubType: `Namespace`
-   - Properties: namespace name, vector count, indexed metadata fields
-   - Parent: Index container
+- URN: `urn:li:container:<guid-from-index-namespace>`
+- SubType: `Namespace`
+- Properties: namespace name, vector count, indexed metadata fields
+- Parent: Index container
 
-4. **Dataset (Vector Collection)**
+**4. Dataset (Vector Collection)**
 
-   - URN: `urn:li:dataset:(urn:li:dataPlatform:pinecone,<index>.<namespace>,PROD)`
-   - SubType: `Vector Collection`
-   - Schema: Inferred from metadata fields across sampled vectors
+- URN: `urn:li:dataset:(urn:li:dataPlatform:pinecone,<index>.<namespace>,PROD)`
+- SubType: `Vector Collection`
+- Schema: Inferred from metadata fields across sampled vectors
 
 ---
 
@@ -204,25 +208,29 @@ results = index.query(
 
 ## Challenges and Considerations
 
-### 1. Namespace Listing
+### Namespace Listing
 
-- **Challenge**: `describe_namespace()` only works for serverless indexes
-- **Solution**: Use `describe_index_stats()` which returns namespace names and counts for both serverless and pod-based
+**Challenge:** `describe_namespace()` only works for serverless indexes
 
-### 2. Vector Sampling
+**Solution:** Use `describe_index_stats()` which returns namespace names and counts for both serverless and pod-based
 
-- **Challenge**: No direct "list all vectors" API
-- **Recommendation**: Use `list()` + `fetch()` for deterministic sampling
+### Vector Sampling
 
-### 3. Schema Inference Performance
+**Challenge:** No direct "list all vectors" API
 
-- **Challenge**: Sampling many vectors can be slow
-- **Solution**: Configurable sampling size, parallel processing, caching
+**Recommendation:** Use `list()` + `fetch()` for deterministic sampling
 
-### 4. Rate Limiting
+### Schema Inference Performance
 
-- **Challenge**: API rate limits may affect large-scale ingestion
-- **Solution**: Implement exponential backoff, configurable delays
+**Challenge:** Sampling many vectors can be slow
+
+**Solution:** Configurable sampling size, parallel processing, caching
+
+### Rate Limiting
+
+**Challenge:** API rate limits may affect large-scale ingestion
+
+**Solution:** Implement exponential backoff, configurable delays
 
 ---
 
