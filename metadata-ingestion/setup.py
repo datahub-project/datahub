@@ -483,8 +483,8 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
-    "litellm==1.80.5",
+    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.0 for CVE-2026-35030
+    "litellm==1.83.0",
     # AWS SDK for Bedrock embedding support
     *aws_common,
 }

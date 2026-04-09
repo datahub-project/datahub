@@ -55,6 +55,8 @@ class DataplexEntriesReport(Report):
     entry_groups_seen: int = 0
     entry_groups_filtered: int = 0
     entry_group_filtered_samples: LossyList[str] = field(default_factory=LossyList)
+    entry_groups_processed: int = 0
+    entry_group_processed_samples: LossyList[str] = field(default_factory=LossyList)
 
     entries_seen: int = 0
     entries_filtered_by_pattern: int = 0
@@ -85,6 +87,9 @@ class DataplexEntriesReport(Report):
             logger.debug(
                 f"Entry group filtered out by entry_groups.pattern: {entry_group_name}"
             )
+        else:
+            self.entry_groups_processed += 1
+            self.entry_group_processed_samples.append(entry_group_name)
 
     def report_entry(
         self,
@@ -356,12 +361,34 @@ class DataplexEntriesProcessor:
                 )
 
             parent_container_key: Optional[ContainerKey] = None
-            if entry.parent_entry:
+            if (
+                mapping.parent_container_key_class is not None
+                and mapping.parent_entry_regex is not None
+            ):
+                if entry.parent_entry:
+                    parent_container_key = cast(
+                        Optional[ContainerKey],
+                        build_parent_container_key(
+                            entry_type_or_short_name=short_name,
+                            parent_entry=entry.parent_entry,
+                        ),
+                    )
+                else:
+                    self.source_report.warning(
+                        title="Missing Dataplex parent_entry",
+                        message="Dataplex mapping expects parent_entry for parent container derivation. Emitting dataset without parent container.",
+                        context=(
+                            f"entry_type={entry.entry_type}, "
+                            f"entry_name={entry.name}, "
+                            f"fully_qualified_name={entry.fully_qualified_name}"
+                        ),
+                    )
+            else:
                 parent_container_key = cast(
                     Optional[ContainerKey],
-                    build_parent_container_key(
+                    build_project_schema_key_from_fqn(
                         entry_type_or_short_name=short_name,
-                        parent_entry=entry.parent_entry,
+                        fully_qualified_name=entry.fully_qualified_name,
                     ),
                 )
             if parent_container_key is not None:
