@@ -9,7 +9,7 @@ import { TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 const StyledZoomButton = styled(Button)`
     border-radius: 8px;
     border: 1px solid ${(props) => props.theme.colors.border};
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     color: ${(props) => props.theme.colors.text};
     box-shadow: ${(props) => props.theme.colors.shadowXs};
     height: 40px;

@@ -43,7 +43,7 @@ const StyledExpandContractButton = styled(Button)`
     justify-content: center;
     align-items: center;
     display: flex;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     color: ${(props) => props.theme.colors.text};
     border-color: ${(props) => props.theme.colors.border};
 
