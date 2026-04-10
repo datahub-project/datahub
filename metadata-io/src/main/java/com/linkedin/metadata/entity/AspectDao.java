@@ -223,6 +223,35 @@ public interface AspectDao {
   @Nonnull
   PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
 
+  /**
+   * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
+   * filtering to only rows whose stored {@code schemaVersion} has not yet reached the per-aspect
+   * target version. Intended for cross-aspect migration sweeps where oldest data is migrated first.
+   *
+   * <p>Only aspects whose target version is strictly greater than {@link
+   * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION} are included; aspects mapped to the
+   * default version are ignored.
+   *
+   * <p>A row is included when its stored {@code schemaVersion} is absent/null or differs from the
+   * target version for that aspect.
+   *
+   * <p>Cursor-based: pass {@code afterCreatedOnMs = 0} to start from the beginning, or the epoch-ms
+   * value of the last processed batch's {@code createdon} to resume. Rows already at the target
+   * version are excluded by the DB filter, so re-visiting rows at the resumed timestamp is safe.
+   *
+   * @param aspectTargetVersions map of aspect name to its target schema version; aspects with
+   *     target == DEFAULT_SCHEMA_VERSION are skipped
+   * @param afterCreatedOnMs epoch-ms cursor; 0 means no lower bound
+   * @param batchSize hint for fetch size
+   * @param limit overall row cap; 0 means unlimited
+   */
+  @Nonnull
+  PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+      @Nonnull Map<String, Long> aspectTargetVersions,
+      long afterCreatedOnMs,
+      int batchSize,
+      int limit);
+
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);
 

@@ -196,7 +196,12 @@ class Mapper:
             )
 
             upstreams = [
-                builder.make_schema_field_urn(column_ref.table, column_ref.column)
+                builder.make_schema_field_urn(
+                    self.lineage_urn_to_lowercase(column_ref.table),
+                    column_ref.column.lower()
+                    if self.__config.convert_lineage_urns_to_lowercase
+                    else column_ref.column,
+                )
                 for column_ref in cll_info.upstreams
             ]
 
@@ -371,7 +376,7 @@ class Mapper:
                     continue
 
                 upstream_table_class = UpstreamClass(
-                    upstream_dpt.urn,
+                    self.lineage_urn_to_lowercase(upstream_dpt.urn),
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
 

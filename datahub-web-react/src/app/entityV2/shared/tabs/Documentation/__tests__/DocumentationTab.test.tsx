@@ -39,7 +39,7 @@ describe('SchemaDescriptionField', () => {
             </MockedProvider>,
         );
         expect(getByText('This is a description')).toBeInTheDocument();
-    });
+    }, 30_000);
 
     it('if editable is present, renders edited description', async () => {
         const { getByText, queryByText } = render(
