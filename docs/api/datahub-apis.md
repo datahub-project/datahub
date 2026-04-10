@@ -32,7 +32,7 @@ Learn more about the SDKs:
 
 The `graphql` API serves as the primary API used by the DataHub frontend. It is generally assumed that accesses to the GraphQL API are coming in from the frontend so it often comes along with default caching, synchronous operations, and other UI targeted expectations. Care should be taken when used programmatically to fetch and update due to this since operations are intentionally limited in scope. Intended as a higher-level API that simplifies the most common operations.
 
-The GraphQL API can be useful if you're getting started with DataHub since it's more user-friendly and straightfoward, especially when using GraphiQL. Here are some examples of how to use the GraphQL API:
+The GraphQL API can be useful if you're getting started with DataHub since it's more user-friendly and straightforward, especially when using GraphiQL. Here are some examples of how to use the GraphQL API:
 
 - Search for datasets with conditions
 - Query for relationships between entities
