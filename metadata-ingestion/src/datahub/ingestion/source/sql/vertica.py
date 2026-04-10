@@ -51,8 +51,9 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     _Aspect,
 )
-from datahub.utilities import config_clean
 from sqlalchemy import text
+
+from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
