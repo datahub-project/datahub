@@ -27,7 +27,7 @@ def dataplex_entries_recipe(mcp_output_path: str) -> Dict[str, Any]:
             "type": "dataplex",
             "config": {
                 "project_ids": ["test-project"],
-                "entries_locations": ["us"],
+                "entries_regions": ["us"],
                 "include_lineage": False,  # Disable lineage for simpler test
                 "include_schema": True,
             },
@@ -370,11 +370,8 @@ def dataplex_lineage_recipe(
             "type": "dataplex",
             "config": {
                 "project_ids": [project_id],
-                "entries_locations": ["us"],
+                "entries_regions": ["us"],
                 "include_lineage": True,
-                # Integration tests mock search_links only; disable discovery to avoid
-                # skipping lineage scans when list_processes is not mocked.
-                "discover_active_lineage_locations": False,
                 "include_schema": False,
             },
         },
@@ -583,10 +580,8 @@ def dataplex_lineage_golden_recipe(mcp_output_path: str) -> Dict[str, Any]:
             "type": "dataplex",
             "config": {
                 "project_ids": ["test-project"],
-                "entries_locations": ["us"],
+                "entries_regions": ["us"],
                 "include_lineage": True,
-                # Keep lineage scan behavior deterministic for integration fixtures.
-                "discover_active_lineage_locations": False,
                 "include_schema": False,
             },
         },

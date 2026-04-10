@@ -14,7 +14,7 @@ from typing import Iterable, Optional
 
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
-from google.cloud.datacatalog_lineage import LineageClient, ListProcessesRequest
+from google.cloud.datacatalog_lineage import LineageClient
 from google.oauth2 import service_account
 
 from datahub.ingestion.api.common import PipelineContext
@@ -39,7 +39,6 @@ from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
-from datahub.ingestion.source.dataplex.dataplex_ids import build_lineage_parent
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -106,108 +105,40 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     for parent traversal. Also note that Spanner entries are currently fetched through
     a search workaround, which bypasses entry-group filtering and must be controlled
     with entry-level filters.
+
+    Lineage extraction strategy:
+    - The source first traverses all entries, then performs lineage lookups for each
+      entry across the full configured ``(project_id, region)`` scan matrix.
+    - This is required because the Dataplex Lineage API does not provide a bulk
+      lineage retrieval endpoint that can return all lineage for a project in one call.
+    - For graph construction, upstream lookup is sufficient: we query links with
+      ``target=<entry_fqn>`` and build DataHub upstream edges from returned sources.
+    - The tradeoff is API call volume: every entry is queried separately against every
+      configured project-region pair.
     """
 
     platform: str = "dataplex"
 
-    def _maybe_discover_lineage_project_location_pairs(self) -> list[tuple[str, str]]:
-        """Resolve and report lineage scan pairs from config or discovery."""
-        if self.config.discover_active_lineage_locations:
-            lineage_project_location_pairs = (
-                self._discover_active_lineage_project_location_pairs()
-            )
-        else:
-            lineage_project_location_pairs = list(
-                product(self.config.project_ids, self.config.lineage_locations)
-            )
-
+    def _resolve_lineage_project_region_pairs(self) -> list[tuple[str, str]]:
+        """Resolve and report lineage scan pairs from configured project/region product."""
+        lineage_project_region_pairs = list(
+            product(self.config.project_ids, self.config.lineage_regions)
+        )
         self.report.info(
-            title="Lineage extraction project/location pairs",
+            title="Lineage extraction project/region pairs",
             message=(
-                "Extracting lineage for the given project/location pairs. "
-                "This list is either derived from configuration or discovered "
-                "based on active lineage processes. Extraction will be focused "
-                "on entries within these project/location pairs."
+                "Extracting lineage for configured project/region pairs. "
+                "Lineage scan scope is derived from the Cartesian product of "
+                "project_ids and lineage_regions."
             ),
             context=str(
                 dict(
-                    lineage_locations=self.config.lineage_locations,
-                    discover_active_lineage_locations=self.config.discover_active_lineage_locations,
-                    lineage_project_location_pairs=lineage_project_location_pairs,
+                    lineage_regions=self.config.lineage_regions,
+                    lineage_project_region_pairs=lineage_project_region_pairs,
                 )
             ),
         )
-        return lineage_project_location_pairs
-
-    def _discover_active_lineage_project_location_pairs(
-        self,
-    ) -> list[tuple[str, str]]:
-        """
-        Discover active lineage (project, location) pairs from configured locations.
-
-        Discovery is done once per ingestion run and reused across all entries.
-        """
-        assert self.lineage_client is not None, (
-            "lineage_client must be initialized before active lineage discovery"
-        )
-        logger.info(
-            "Discovering active lineage locations across %s projects and %s configured locations",
-            len(self.config.project_ids),
-            len(self.config.lineage_locations),
-        )
-
-        discovered_pairs: list[tuple[str, str]] = []
-        for project_id in self.config.project_ids:
-            logger.info(
-                "Discovering active lineage locations for project %s",
-                project_id,
-            )
-            active_locations: list[str] = []
-            for location in self.config.lineage_locations:
-                parent = build_lineage_parent(project_id, location)
-                try:
-                    page = self.lineage_client.list_processes(
-                        request=ListProcessesRequest(parent=parent, page_size=1)
-                    )
-                    if next(iter(page), None) is not None:
-                        active_locations.append(location)
-                except Exception as e:
-                    logger.debug(
-                        "Failed to probe lineage processes for parent %s: %s",
-                        parent,
-                        e,
-                    )
-
-            if not active_locations:
-                self.report.warning(
-                    title="No active lineage locations discovered",
-                    message=(
-                        "No active lineage locations were discovered for this project. "
-                        "Lineage extraction will not scan this project while discovery is enabled. "
-                        "To force scanning configured lineage_locations, set "
-                        "discover_active_lineage_locations=false."
-                    ),
-                    context=str(
-                        dict(
-                            project_id=project_id,
-                            lineage_locations=self.config.lineage_locations,
-                            discover_active_lineage_locations=self.config.discover_active_lineage_locations,
-                        )
-                    ),
-                )
-
-            logger.info(
-                "Discovered active lineage locations for project %s: %s",
-                project_id,
-                active_locations,
-            )
-            discovered_pairs.extend(
-                (project_id, location) for location in active_locations
-            )
-
-        # TODO: Use discovered processes metadata (not only project/location activity)
-        # to further optimize lineage extraction, e.g. process-aware entry targeting.
-        return discovered_pairs
+        return lineage_project_region_pairs
 
     def __init__(self, ctx: PipelineContext, config: DataplexConfig):
         super().__init__(config, ctx)
@@ -283,9 +214,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
             if config.project_ids:
                 project_id = config.project_ids[0]
-                parent = (
-                    f"projects/{project_id}/locations/{config.entries_locations[0]}"
-                )
+                parent = f"projects/{project_id}/locations/{config.entries_regions[0]}"
                 entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
                 # Just iterate once to verify access
                 for _ in catalog_client.list_entry_groups(request=entry_groups_request):
@@ -357,14 +286,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     len(self.entry_data),
                     len(self.config.project_ids),
                 )
-                lineage_project_location_pairs = (
-                    self._maybe_discover_lineage_project_location_pairs()
+                lineage_project_region_pairs = (
+                    self._resolve_lineage_project_region_pairs()
                 )
 
                 try:
                     yield from self.lineage_extractor.get_lineage_workunits(
                         self.entry_data,
-                        active_lineage_project_location_pairs=lineage_project_location_pairs,
+                        active_lineage_project_location_pairs=lineage_project_region_pairs,
                     )
                 except Exception as e:
                     self.report.report_failure(

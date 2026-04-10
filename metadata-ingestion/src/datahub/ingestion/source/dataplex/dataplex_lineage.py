@@ -624,7 +624,7 @@ class DataplexLineageExtractor:
             active_lineage_project_location_pairs = [
                 (project_id, location)
                 for project_id in self.config.project_ids
-                for location in self.config.lineage_locations
+                for location in self.config.lineage_regions
             ]
 
         lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = defaultdict(set)

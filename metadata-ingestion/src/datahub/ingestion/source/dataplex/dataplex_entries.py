@@ -141,8 +141,8 @@ class DataplexEntriesProcessor:
         self._emitted_project_containers: set[str] = set()
 
     def process_project(self, project_id: str) -> Iterable["Entity"]:
-        """Iterate all configured locations for project-level entry processing."""
-        for location in self.config.entries_locations:
+        """Iterate all configured regions for project-level entry processing."""
+        for location in self.config.entries_regions:
             yield from self.process_location(project_id, location)
 
     def process_location(self, project_id: str, location: str) -> Iterable["Entity"]:

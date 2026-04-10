@@ -21,7 +21,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LINEAGE_LOCATIONS = [
+DEFAULT_LINEAGE_REGIONS = [
+    "us",
+    "eu",
+    "asia",
     "us-central1",
     "us-east1",
     "us-east4",
@@ -120,10 +123,12 @@ class DataplexConfig(
         "If not specified, uses project_id or attempts to detect from credentials.",
     )
 
-    entries_locations: List[str] = Field(
+    entries_regions: List[str] = Field(
         default_factory=lambda: ["us", "eu", "asia", "global"],
-        description="List of GCP locations for Universal Catalog entries extraction. "
-        "Different resource types are registered in different locations. "
+        description="List of GCP regions to scan for Universal Catalog entries extraction. "
+        "This list may include multi-regions (for example 'us', 'eu', 'asia') and "
+        "single regions (for example 'us-central1'). "
+        "Entries scanning runs across all configured entries_regions. "
         "Default: ['us', 'eu', 'asia', 'global'].",
     )
 
@@ -146,19 +151,14 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
-    lineage_locations: List[str] = Field(
-        default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
-        description="List of GCP locations to scan for Dataplex lineage data. "
-        "Lineage is stored in the location where the producing job ran "
-        "(for example Dataflow region), which can differ from the Dataplex entry location. "
-        "Example: ['us-central1', 'us-east1', 'europe-west1'].",
-    )
-
-    discover_active_lineage_locations: bool = Field(
-        default=True,
-        description="Whether to discover active lineage locations per project before scanning links. "
-        "When enabled, the source probes configured lineage_locations and scans only locations "
-        "that currently contain Dataplex lineage processes for each project.",
+    lineage_regions: List[str] = Field(
+        default_factory=lambda: list(DEFAULT_LINEAGE_REGIONS),
+        description="List of GCP regions to scan for Dataplex lineage data. "
+        "By default, includes all supported multi-regions and regions. "
+        "This list may include multi-regions and single regions. "
+        "In practice, lineage often resides in job regions while entries may be in "
+        "multi-regions, so entries_regions and lineage_regions are configured separately. "
+        "Example: ['eu', 'us-central1', 'europe-west1'].",
     )
 
     lineage_max_retries: int = Field(
@@ -233,15 +233,15 @@ class DataplexConfig(
         return self
 
     @model_validator(mode="after")
-    def validate_location_configuration(self) -> "DataplexConfig":
-        """Validate location configuration and warn about common mistakes."""
-        if not self.entries_locations:
+    def validate_region_configuration(self) -> "DataplexConfig":
+        """Validate region configuration and warn about common mistakes."""
+        if not self.entries_regions:
             raise ValueError(
-                "At least one entries location must be specified via entries_locations."
+                "At least one entries region must be specified via entries_regions."
             )
-        if not self.lineage_locations:
+        if not self.lineage_regions:
             raise ValueError(
-                "At least one lineage location must be specified via lineage_locations."
+                "At least one lineage region must be specified via lineage_regions."
             )
 
         return self

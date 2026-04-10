@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.ingestion.source.dataplex.dataplex_config import (
-    DEFAULT_LINEAGE_LOCATIONS,
+    DEFAULT_LINEAGE_REGIONS,
     DataplexConfig,
     DataplexFilterConfig,
     EntriesFilterConfig,
@@ -93,7 +93,7 @@ class TestDataplexConfig:
         """Test configuration for entries-only mode."""
         config = DataplexConfig(
             project_ids=["test-project"],
-            entries_locations=["us"],
+            entries_regions=["us"],
             filter_config={
                 "entries": {
                     "pattern": {"allow": ["prod_.*"]},
@@ -101,7 +101,7 @@ class TestDataplexConfig:
             },
         )
 
-        assert config.entries_locations == ["us"]
+        assert config.entries_regions == ["us"]
         assert config.filter_config.entries.pattern.allowed("prod_table")
         assert not config.filter_config.entries.pattern.allowed("dev_table")
 
@@ -143,9 +143,8 @@ class TestDataplexConfig:
         assert config.lineage_retry_backoff_multiplier == 1.0
 
         # Location defaults
-        assert config.entries_locations == ["us", "eu", "asia", "global"]
-        assert config.lineage_locations == DEFAULT_LINEAGE_LOCATIONS
-        assert config.discover_active_lineage_locations is True
+        assert config.entries_regions == ["us", "eu", "asia", "global"]
+        assert config.lineage_regions == DEFAULT_LINEAGE_REGIONS
 
         # Filter defaults (should allow all)
         assert config.filter_config.entries.pattern.allowed("any-entry")
@@ -296,42 +295,35 @@ class TestDataplexConfig:
         assert config_max.lineage_max_retries == 10
         assert config_max.lineage_retry_backoff_multiplier == 10.0
 
-    def test_entries_location_default(self):
-        """Test that entries locations defaults are set correctly."""
+    def test_entries_region_default(self):
+        """Test that entries regions defaults are set correctly."""
         config = DataplexConfig(project_ids=["test-project"])
 
-        assert config.entries_locations == ["us", "eu", "asia", "global"]
+        assert config.entries_regions == ["us", "eu", "asia", "global"]
 
-    def test_entries_locations_must_not_be_empty(self):
+    def test_entries_regions_must_not_be_empty(self):
         with pytest.raises(ValidationError) as exc_info:
             DataplexConfig(
                 project_ids=["test-project"],
-                entries_locations=[],
+                entries_regions=[],
             )
         assert (
-            "At least one entries location must be specified via entries_locations."
+            "At least one entries region must be specified via entries_regions."
             in str(exc_info.value)
         )
 
-    def test_lineage_locations_default(self):
-        """Test that lineage locations defaults are set correctly."""
+    def test_lineage_regions_default(self):
+        """Test that lineage regions defaults are set correctly."""
         config = DataplexConfig(project_ids=["test-project"])
-        assert config.lineage_locations == DEFAULT_LINEAGE_LOCATIONS
+        assert config.lineage_regions == DEFAULT_LINEAGE_REGIONS
 
-    def test_lineage_locations_must_not_be_empty(self):
+    def test_lineage_regions_must_not_be_empty(self):
         with pytest.raises(ValidationError) as exc_info:
             DataplexConfig(
                 project_ids=["test-project"],
-                lineage_locations=[],
+                lineage_regions=[],
             )
         assert (
-            "At least one lineage location must be specified via lineage_locations."
+            "At least one lineage region must be specified via lineage_regions."
             in str(exc_info.value)
         )
-
-    def test_discover_active_lineage_locations_can_be_disabled(self):
-        config = DataplexConfig(
-            project_ids=["test-project"],
-            discover_active_lineage_locations=False,
-        )
-        assert config.discover_active_lineage_locations is False

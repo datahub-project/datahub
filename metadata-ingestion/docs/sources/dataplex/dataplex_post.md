@@ -105,7 +105,7 @@ source:
 
     # Location for entries (Universal Catalog) - defaults to "us"
     # Must be multi-region (us, eu, asia) for system entry groups like @bigquery
-    entries_locations:
+    entries_regions:
       - "us"
 
     # Metadata extraction settings
@@ -127,7 +127,7 @@ source:
   config:
     project_ids:
       - "my-gcp-project"
-    entries_locations:
+    entries_regions:
       - "us"
 
     # Performance tuning

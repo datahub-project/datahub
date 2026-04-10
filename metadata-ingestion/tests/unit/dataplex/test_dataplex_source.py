@@ -202,10 +202,8 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1", "project-2"]
     source.config.include_lineage = True
-    source.config.lineage_locations = ["us-central1"]
-    source.config.discover_active_lineage_locations = False
+    source.config.lineage_regions = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.lineage_client = Mock()
     source.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
@@ -228,7 +226,6 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source.entries_processor.process_project.assert_any_call("project-1")
     source.entries_processor.process_project.assert_any_call("project-2")
     assert source.report.new_stage.call_count == 3
-    source.lineage_client.list_processes.assert_not_called()
     source.lineage_extractor.get_lineage_workunits.assert_not_called()
     source.report.new_stage.assert_any_call(
         "Processing entries from Universal Catalog for project project-1"
@@ -271,10 +268,8 @@ def test_get_workunits_internal_handles_empty_entries_for_lineage() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = True
-    source.config.lineage_locations = ["us-central1"]
-    source.config.discover_active_lineage_locations = False
+    source.config.lineage_regions = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.lineage_client = Mock()
     source.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
@@ -292,8 +287,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1"]
-    source.config.lineage_locations = ["us-central1"]
-    source.config.discover_active_lineage_locations = False
+    source.config.lineage_regions = ["us-central1"]
     source.lineage_extractor = Mock()
     source.entry_data = []
     source.entry_data.append(
@@ -310,8 +304,6 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     )
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
-    source.lineage_client = Mock()
-
     lineage_wu = Mock()
     source.lineage_extractor.get_lineage_workunits.return_value = [lineage_wu]
 
@@ -328,111 +320,17 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     source.report.info.assert_called_once()
 
 
-def test_get_workunits_internal_discovers_active_lineage_locations_once() -> None:
+def test_get_workunits_internal_uses_configured_project_location_cross_product() -> (
+    None
+):
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
     source.entries_processor.process_project.return_value = []
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1", "project-2"]
-    source.config.lineage_locations = ["us-central1", "europe-west1"]
-    source.config.discover_active_lineage_locations = True
+    source.config.lineage_regions = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.lineage_client = Mock()
-    source.entry_data = [
-        EntryDataTuple(
-            dataplex_entry_short_name="entry-1",
-            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
-            dataplex_location="us",
-            dataplex_entry_fqn="bigquery:project-1.ds.table",
-            dataplex_entry_type_short_name="bigquery-table",
-            datahub_platform="bigquery",
-            datahub_dataset_name="project-1.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-        )
-    ]
-    source.report = Mock()
-    source.report.new_stage.return_value = nullcontext()
-
-    def list_processes_side_effect(request):
-        if request.parent in {
-            "projects/project-1/locations/us-central1",
-            "projects/project-2/locations/europe-west1",
-        }:
-            return [Mock()]
-        return []
-
-    source.lineage_client.list_processes.side_effect = list_processes_side_effect
-    source.lineage_extractor.get_lineage_workunits.return_value = []
-
-    with patch(
-        "datahub.ingestion.source.dataplex.dataplex.auto_workunit", return_value=[]
-    ):
-        list(source.get_workunits_internal())
-
-    assert source.lineage_client.list_processes.call_count == 4
-    source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
-        source.entry_data,
-        active_lineage_project_location_pairs=[
-            ("project-1", "us-central1"),
-            ("project-2", "europe-west1"),
-        ],
-    )
-    source.report.info.assert_called_once()
-
-
-def test_get_workunits_internal_discovery_warns_when_no_active_locations() -> None:
-    source = object.__new__(DataplexSource)
-    source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
-    source.config = Mock()
-    source.config.include_lineage = True
-    source.config.project_ids = ["project-1"]
-    source.config.lineage_locations = ["us-central1", "europe-west1"]
-    source.config.discover_active_lineage_locations = True
-    source.lineage_extractor = Mock()
-    source.lineage_client = Mock()
-    source.entry_data = [
-        EntryDataTuple(
-            dataplex_entry_short_name="entry-1",
-            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
-            dataplex_location="us",
-            dataplex_entry_fqn="bigquery:project-1.ds.table",
-            dataplex_entry_type_short_name="bigquery-table",
-            datahub_platform="bigquery",
-            datahub_dataset_name="project-1.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-        )
-    ]
-    source.report = Mock()
-    source.report.new_stage.return_value = nullcontext()
-
-    source.lineage_client.list_processes.return_value = []
-    source.lineage_extractor.get_lineage_workunits.return_value = []
-
-    with patch(
-        "datahub.ingestion.source.dataplex.dataplex.auto_workunit", return_value=[]
-    ):
-        list(source.get_workunits_internal())
-
-    source.lineage_extractor.get_lineage_workunits.assert_called_once()
-    _args, kwargs = source.lineage_extractor.get_lineage_workunits.call_args
-    assert kwargs["active_lineage_project_location_pairs"] == []
-    source.report.info.assert_called_once()
-    source.report.warning.assert_called_once()
-
-
-def test_get_workunits_internal_discovery_can_be_disabled() -> None:
-    source = object.__new__(DataplexSource)
-    source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
-    source.config = Mock()
-    source.config.include_lineage = True
-    source.config.project_ids = ["project-1", "project-2"]
-    source.config.lineage_locations = ["us-central1"]
-    source.config.discover_active_lineage_locations = False
-    source.lineage_extractor = Mock()
-    source.lineage_client = Mock()
     source.entry_data = [
         EntryDataTuple(
             dataplex_entry_short_name="entry-1",
@@ -455,7 +353,6 @@ def test_get_workunits_internal_discovery_can_be_disabled() -> None:
     ):
         list(source.get_workunits_internal())
 
-    source.lineage_client.list_processes.assert_not_called()
     source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
         source.entry_data,
         active_lineage_project_location_pairs=[
@@ -473,8 +370,7 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1"]
-    source.config.lineage_locations = ["us-central1"]
-    source.config.discover_active_lineage_locations = False
+    source.config.lineage_regions = ["us-central1"]
     source.lineage_extractor = Mock()
     source.entry_data = []
     source.entry_data.append(
@@ -491,7 +387,6 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
     )
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
-    source.lineage_client = Mock()
     source.lineage_extractor.get_lineage_workunits.side_effect = RuntimeError("boom")
 
     with patch(
@@ -508,10 +403,8 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1", "project-2"]
-    source.config.lineage_locations = ["us-central1"]
-    source.config.discover_active_lineage_locations = False
+    source.config.lineage_regions = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.lineage_client = Mock()
     entry_1 = EntryDataTuple(
         dataplex_entry_short_name="entry-1",
         dataplex_entry_name="projects/p1/locations/us/entryGroups/g/entries/entry-1",
@@ -548,47 +441,6 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
     source.lineage_extractor.get_lineage_workunits.assert_called_once()
     args, _kwargs = source.lineage_extractor.get_lineage_workunits.call_args
     assert len(args[0]) == 2
-
-
-def test_get_workunits_internal_reports_discovery_probe_errors_as_debug() -> None:
-    source = object.__new__(DataplexSource)
-    source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
-    source.config = Mock()
-    source.config.include_lineage = True
-    source.config.project_ids = ["project-1"]
-    source.config.lineage_locations = ["us-central1"]
-    source.config.discover_active_lineage_locations = True
-    source.lineage_extractor = Mock()
-    source.lineage_client = Mock()
-    source.lineage_client.list_processes.side_effect = RuntimeError("no access")
-    source.entry_data = [
-        EntryDataTuple(
-            dataplex_entry_short_name="entry-1",
-            dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
-            dataplex_location="us",
-            dataplex_entry_fqn="bigquery:project-1.ds.table",
-            dataplex_entry_type_short_name="bigquery-table",
-            datahub_platform="bigquery",
-            datahub_dataset_name="project-1.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-        )
-    ]
-    source.report = Mock()
-    source.report.new_stage.return_value = nullcontext()
-    source.lineage_extractor.get_lineage_workunits.return_value = []
-
-    with patch(
-        "datahub.ingestion.source.dataplex.dataplex.auto_workunit", return_value=[]
-    ):
-        list(source.get_workunits_internal())
-
-    source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
-        source.entry_data,
-        active_lineage_project_location_pairs=[],
-    )
-    source.report.info.assert_called_once()
-    source.report.warning.assert_called_once()
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:
