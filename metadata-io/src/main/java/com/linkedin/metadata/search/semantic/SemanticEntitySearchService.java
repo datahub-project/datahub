@@ -12,6 +12,8 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.SemanticMatchedChunk;
+import com.linkedin.metadata.search.SemanticMatchedChunkArray;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -88,6 +91,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
   private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
+  private static final int DEFAULT_MATCHED_CHUNKS_PER_RESULT = 1;
+  private static final String INNER_HITS_NAME = "matched_chunks";
 
   private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;
@@ -96,6 +101,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final String modelEmbeddingKey;
   private final String nestedPath;
   private final String vectorField;
+  private final int matchedChunksPerResult;
 
   /**
    * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
@@ -108,7 +114,12 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nonnull SearchClientShim<?> searchClient,
       @Nonnull EmbeddingProvider embeddingProvider,
       MappingsBuilder mappingsBuilder) {
-    this(searchClient, embeddingProvider, mappingsBuilder, DEFAULT_MODEL_EMBEDDING_KEY);
+    this(
+        searchClient,
+        embeddingProvider,
+        mappingsBuilder,
+        DEFAULT_MODEL_EMBEDDING_KEY,
+        DEFAULT_MATCHED_CHUNKS_PER_RESULT);
   }
 
   /**
@@ -125,6 +136,30 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nonnull EmbeddingProvider embeddingProvider,
       MappingsBuilder mappingsBuilder,
       @Nonnull String modelEmbeddingKey) {
+    this(
+        searchClient,
+        embeddingProvider,
+        mappingsBuilder,
+        modelEmbeddingKey,
+        DEFAULT_MATCHED_CHUNKS_PER_RESULT);
+  }
+
+  /**
+   * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
+   *
+   * @param searchClient high-level client used only to obtain the low-level client
+   * @param embeddingProvider provider capable of generating query embeddings
+   * @param mappingsBuilder mappings builder for the indices
+   * @param modelEmbeddingKey the model embedding key (e.g., "cohere_embed_v3",
+   *     "text_embedding_3_small")
+   * @param matchedChunksPerResult maximum inner_hits chunks to return per result for highlighting
+   */
+  public SemanticEntitySearchService(
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull EmbeddingProvider embeddingProvider,
+      MappingsBuilder mappingsBuilder,
+      @Nonnull String modelEmbeddingKey,
+      int matchedChunksPerResult) {
     this.searchClient = Objects.requireNonNull(searchClient, "searchClientShim");
     this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
     // Initialize with empty chain for POC - in production this would be injected
@@ -133,11 +168,13 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     this.modelEmbeddingKey = Objects.requireNonNull(modelEmbeddingKey, "modelEmbeddingKey");
     this.nestedPath = EMBEDDINGS_PREFIX + modelEmbeddingKey + CHUNKS_SUFFIX;
     this.vectorField = nestedPath + VECTOR_SUFFIX;
+    this.matchedChunksPerResult = matchedChunksPerResult;
     log.info(
-        "SemanticEntitySearchService initialized with modelEmbeddingKey={}, nestedPath={}, vectorField={}",
+        "SemanticEntitySearchService initialized with modelEmbeddingKey={}, nestedPath={}, vectorField={}, matchedChunksPerResult={}",
         modelEmbeddingKey,
         nestedPath,
-        vectorField);
+        vectorField,
+        matchedChunksPerResult);
   }
 
   /**
@@ -364,6 +401,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
                 hit.path("_source"), new TypeReference<Map<String, Object>>() {});
         entity.setFeatures(SearchResultUtils.buildBaseFeatures(score, sourceAsMap));
         entity.setExtraFields(SearchResultUtils.toExtraFields(objectMapper, sourceAsMap));
+        entity.setSemanticMatchedChunks(new SemanticMatchedChunkArray(extractMatchedChunks(hit)));
         results.add(entity);
       }
 
@@ -409,9 +447,25 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       log.debug("Applied pre-filtering to kNN query: {}", docLevelFilterMap);
     }
 
-    // Build the complete query structure using Map.of() for clarity
-    // Use fieldsToFetch (supports DEFAULT_FIELDS_TO_FETCH_ON_SEARCH + fetchExtraFields like keyword
-    // search)
+    // Build inner_hits to surface the top-N matching chunks per document.
+    // These chunks are ordered by descending similarity score (best match first).
+    Map<String, Object> innerHits = new HashMap<>();
+    innerHits.put("size", matchedChunksPerResult);
+    innerHits.put("name", INNER_HITS_NAME);
+    // Exclude the dense vector from the inner_hit source — it is large (~12KB per chunk at 3072
+    // dims) and not needed for highlighting. All other fields (text, position, characterOffset,
+    // characterLength) are returned by default. Using excludes rather than includes because
+    // OpenSearch resolves _source includes against the *parent* document paths, which silently
+    // produces an empty source for nested inner_hits.
+    innerHits.put("_source", Map.of("excludes", List.of(nestedPath + ".vector")));
+
+    // Build nested query using a mutable map so we can attach inner_hits
+    Map<String, Object> nestedQuery = new HashMap<>();
+    nestedQuery.put("path", nestedPath);
+    nestedQuery.put("score_mode", "max");
+    nestedQuery.put("query", Map.of("knn", Map.of(vectorField, knnParams)));
+    nestedQuery.put("inner_hits", innerHits);
+
     // Note: track_total_hits=false for better performance, following keyword search pattern
     // In k-NN context, total_hits represents either k (no filters) or filtered k-NN results count
     Map<String, Object> query =
@@ -423,17 +477,46 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             "_source",
             fieldsToFetch.toArray(new String[0]),
             "query",
-            Map.of(
-                "nested",
-                Map.of(
-                    "path",
-                    nestedPath,
-                    "score_mode",
-                    "max",
-                    "query",
-                    Map.of("knn", Map.of(vectorField, knnParams)))));
+            Map.of("nested", nestedQuery));
 
     return query;
+  }
+
+  /**
+   * Extracts the top-ranked inner hits (matched chunks) from a single document hit.
+   *
+   * <p>Inner hits are populated when the nested kNN query includes {@code inner_hits}. Each chunk
+   * represents a passage from the document that was semantically similar to the query. Chunks are
+   * returned in descending similarity order by OpenSearch.
+   *
+   * @param hit the JSON node for a single document hit
+   * @return list of {@link SemanticMatchedChunk}, empty if no inner hits present
+   */
+  private List<SemanticMatchedChunk> extractMatchedChunks(JsonNode hit) {
+    JsonNode innerHitsArray =
+        hit.path("inner_hits").path(INNER_HITS_NAME).path("hits").path("hits");
+    if (innerHitsArray.isMissingNode() || !innerHitsArray.isArray()) {
+      return Collections.emptyList();
+    }
+
+    List<SemanticMatchedChunk> chunks = new ArrayList<>();
+    for (JsonNode chunkHit : innerHitsArray) {
+      JsonNode src = chunkHit.path("_source");
+      SemanticMatchedChunk chunk = new SemanticMatchedChunk();
+      chunk.setPosition(src.path("position").asInt(0));
+      if (!src.path("text").isMissingNode()) {
+        chunk.setText(src.path("text").asText());
+      }
+      if (!src.path("characterOffset").isMissingNode()) {
+        chunk.setCharacterOffset(src.path("characterOffset").asInt());
+      }
+      if (!src.path("characterLength").isMissingNode()) {
+        chunk.setCharacterLength(src.path("characterLength").asInt());
+      }
+      chunk.setScore((float) chunkHit.path("_score").asDouble());
+      chunks.add(chunk);
+    }
+    return chunks;
   }
 
   /**

@@ -24,6 +24,7 @@ Usage:
 For implementation details, see docs/dev-guides/semantic-search/.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -40,13 +41,23 @@ from tests.utils import run_datahub_cmd
 
 logger = logging.getLogger(__name__)
 
+
+@contextlib.contextmanager
+def _timed(label: str):
+    """Log elapsed wall-clock time for a block of code."""
+    t0 = time.monotonic()
+    logger.info(f"[TIMER] {label} — start")
+    try:
+        yield
+    finally:
+        elapsed = time.monotonic() - t0
+        logger.info(f"[TIMER] {label} — done in {elapsed:.1f}s")
+
+
 # Test gating - disabled by default
 SEMANTIC_SEARCH_ENABLED = (
     os.environ.get("ENABLE_SEMANTIC_SEARCH_TESTS", "false").lower() == "true"
 )
-
-# Hardcoded wait time for indexing
-INDEXING_WAIT_SECONDS = 20
 
 # Sample documents for testing semantic search
 SAMPLE_DOCUMENTS: list[dict[str, str]] = [
@@ -167,7 +178,10 @@ def create_documents_with_sdk(
         logger.info(f"Created document via SDK: {urn}")
 
     emitter.close()
-    wait_for_writes_to_sync(mcp_only=True)
+    # Wait for the MAE consumer (MetadataChangeLog → Elasticsearch). In quickstartDebug,
+    # GMS processes MCPs synchronously so generic-mcp-consumer-job-client is not deployed;
+    # it is the MAE consumer that drives ES indexing.
+    wait_for_writes_to_sync(mae_only=True)
 
     return created_docs
 
@@ -345,6 +359,48 @@ def search_documents_semantic(auth_session, query: str, count: int = 10) -> dict
     return execute_graphql(auth_session, graphql_query, variables)
 
 
+def search_documents_semantic_with_chunks(
+    auth_session, query: str, count: int = 10
+) -> dict:
+    """Search documents using semantic search, requesting matchedChunks highlighting."""
+    graphql_query = """
+        query SemanticSearchWithChunks($input: SearchAcrossEntitiesInput!) {
+            semanticSearchAcrossEntities(input: $input) {
+                start
+                count
+                total
+                searchResults {
+                    entity {
+                        urn
+                        type
+                        ... on Document {
+                            info {
+                                title
+                            }
+                        }
+                    }
+                    matchedChunks {
+                        position
+                        text
+                        characterOffset
+                        characterLength
+                        score
+                    }
+                }
+            }
+        }
+    """
+    variables = {
+        "input": {
+            "query": query,
+            "types": ["DOCUMENT"],
+            "start": 0,
+            "count": count,
+        }
+    }
+    return execute_graphql(auth_session, graphql_query, variables)
+
+
 def delete_document(auth_session, urn: str) -> bool:
     """Delete a document via GraphQL."""
     mutation = """
@@ -404,7 +460,8 @@ class TestSemanticSearchWithIngestion:
 
             # Step 1: Create documents using SDK
             logger.info(f"Creating {len(SAMPLE_DOCUMENTS)} documents with SDK...")
-            created_docs = create_documents_with_sdk(auth_session, SAMPLE_DOCUMENTS)
+            with _timed("create_documents_with_sdk"):
+                created_docs = create_documents_with_sdk(auth_session, SAMPLE_DOCUMENTS)
 
             for _doc_id, urn in created_docs:
                 self.created_urns.append(urn)
@@ -420,30 +477,29 @@ class TestSemanticSearchWithIngestion:
 
             # Step 3: Run ingestion
             logger.info("Running datahub-documents ingestion source...")
-            run_ingestion(auth_session, recipe_path)
+            with _timed("run_ingestion"):
+                run_ingestion(auth_session, recipe_path)
 
             # Wait for writes to sync
-            wait_for_writes_to_sync(mcp_only=True)
+            with _timed("wait_for_writes_to_sync (post-ingestion)"):
+                wait_for_writes_to_sync(mae_only=True)
 
             # Step 4: Verify semanticContent aspect was created for each document
             logger.info("Verifying semanticContent aspects were created...")
-            for _doc_id, urn in created_docs:
-                try:
-                    verify_semantic_content(auth_session, urn)
-                    logger.info(f"  ✓ {urn}: semanticContent verified")
-                except Exception as e:
-                    pytest.fail(f"Failed to verify semanticContent for {urn}: {e}")
-
-            # Step 5: Wait for indexing
-            logger.info(f"Waiting {INDEXING_WAIT_SECONDS} seconds for indexing...")
-            time.sleep(INDEXING_WAIT_SECONDS)
-            wait_for_writes_to_sync(mcp_only=True)
+            with _timed("verify_semantic_content (all docs)"):
+                for _doc_id, urn in created_docs:
+                    try:
+                        verify_semantic_content(auth_session, urn)
+                        logger.info(f"  ✓ {urn}: semanticContent verified")
+                    except Exception as e:
+                        pytest.fail(f"Failed to verify semanticContent for {urn}: {e}")
 
             # Step 6: Execute semantic search
             test_query = "how to request data access permissions"
             logger.info(f"Executing semantic search: '{test_query}'")
 
-            result = search_documents_semantic(auth_session, test_query)
+            with _timed("semantic search GraphQL"):
+                result = search_documents_semantic(auth_session, test_query)
 
             # Check for GraphQL errors
             if "errors" in result:
@@ -483,3 +539,167 @@ class TestSemanticSearchWithIngestion:
             )
 
             logger.info("✓ End-to-end semantic search test passed!")
+
+    def test_matched_chunks_in_semantic_search_results(self, auth_session):
+        """
+        Verify that matchedChunks is populated for semantic search results.
+
+        This proves the chunk-level highlighting feature end-to-end:
+        - The nested kNN query returns inner_hits (the chunk that drove ranking)
+        - SemanticEntitySearchService extracts them into SearchEntity.semanticMatchedChunks
+        - MapperUtils maps them to GraphQL SearchResult.matchedChunks
+        - The API returns position, text/characterOffset, and score per chunk
+
+        Steps:
+        1. Create a document with clearly separable sections via SDK
+        2. Run datahub-documents ingestion to generate chunks + embeddings
+        3. Execute semanticSearchAcrossEntities with matchedChunks in the selection set
+        4. Assert every result has at least one matchedChunk
+        5. Assert each chunk has valid position, score, and text or offset fields
+        6. Assert chunks are ordered by descending score (best match first)
+        """
+        logger.info("Starting matched chunks smoke test")
+
+        # Use a single focused document so we can predict what should match.
+        # The "Data Access Request Process" doc has a distinct section about
+        # "request steps" — querying for "how to request data access" should
+        # land in that chunk rather than the intro.
+        focused_docs = [SAMPLE_DOCUMENTS[1]]  # "Data Access Request Process"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+
+            logger.info("Creating test document via SDK...")
+            with _timed("create_documents_with_sdk"):
+                created_docs = create_documents_with_sdk(auth_session, focused_docs)
+            for _doc_id, urn in created_docs:
+                self.created_urns.append(urn)
+
+            # Run ingestion to produce chunks and embeddings
+            doc_ids = [doc_id for doc_id, _ in created_docs]
+            recipe_path = create_ingestion_recipe(auth_session, doc_ids, tmp_path)
+            logger.info("Running ingestion to generate embeddings...")
+            with _timed("run_ingestion"):
+                run_ingestion(auth_session, recipe_path)
+            with _timed("wait_for_writes_to_sync (post-ingestion)"):
+                wait_for_writes_to_sync(mae_only=True)
+
+            # Verify semanticContent was written before searching
+            with _timed("verify_semantic_content"):
+                for _doc_id, urn in created_docs:
+                    verify_semantic_content(auth_session, urn)
+
+            # Search with matchedChunks requested
+            query = "steps to request access to a dataset"
+            logger.info(f"Searching with matchedChunks: '{query}'")
+            with _timed("semantic search with matchedChunks GraphQL"):
+                result = search_documents_semantic_with_chunks(auth_session, query)
+
+            if "errors" in result:
+                pytest.fail(
+                    f"GraphQL errors in matchedChunks query: {result['errors']}"
+                )
+
+            search_data = result.get("data", {}).get("semanticSearchAcrossEntities", {})
+            search_results = search_data.get("searchResults", [])
+
+            assert len(search_results) > 0, "Semantic search returned no results"
+
+            # Find our test document in the results
+            our_urns = {urn for _doc_id, urn in created_docs}
+            our_results = [
+                r for r in search_results if r.get("entity", {}).get("urn") in our_urns
+            ]
+            assert len(our_results) > 0, (
+                f"Our test document did not appear in results. "
+                f"Created: {our_urns}, returned: "
+                f"{[r.get('entity', {}).get('urn') for r in search_results]}"
+            )
+
+            # Validate matchedChunks on our test documents only. Other results
+            # in the index may be stale (deleted entities whose kNN vectors linger
+            # briefly) and their _source embeddings will already be cleared.
+            for item in our_results:
+                entity_urn = item.get("entity", {}).get("urn")
+                chunks = item.get("matchedChunks", [])
+
+                assert chunks is not None, (
+                    f"matchedChunks field is null for {entity_urn} — "
+                    "expected non-null list (even if empty for keyword results)"
+                )
+                assert len(chunks) > 0, (
+                    f"matchedChunks is empty for semantic result {entity_urn} — "
+                    "inner_hits should have returned at least one chunk"
+                )
+
+                for i, chunk in enumerate(chunks):
+                    # position must always be present and non-negative
+                    assert "position" in chunk, (
+                        f"chunk[{i}] missing 'position' for {entity_urn}"
+                    )
+                    assert (
+                        isinstance(chunk["position"], int) and chunk["position"] >= 0
+                    ), (
+                        f"chunk[{i}].position={chunk['position']} is invalid for {entity_urn}"
+                    )
+
+                    # score must be present and a positive float
+                    assert "score" in chunk and chunk["score"] is not None, (
+                        f"chunk[{i}] missing 'score' for {entity_urn}"
+                    )
+                    assert chunk["score"] > 0, (
+                        f"chunk[{i}].score={chunk['score']} should be > 0 for {entity_urn}"
+                    )
+
+                    # At least one of text or characterOffset must be present so
+                    # the UI can display or slice the matching passage
+                    has_text = chunk.get("text") is not None
+                    has_offset = chunk.get("characterOffset") is not None
+                    assert has_text or has_offset, (
+                        f"chunk[{i}] for {entity_urn} has neither 'text' nor "
+                        "'characterOffset' — UI cannot highlight this result"
+                    )
+
+                    if has_text:
+                        assert len(chunk["text"]) > 0, (
+                            f"chunk[{i}].text is empty for {entity_urn}"
+                        )
+                        # Verify the chunk text contains words from the document we
+                        # ingested. We don't do an exact substring match because the
+                        # chunking library normalizes whitespace (e.g. list-item newlines
+                        # become spaces). Instead we check for a few distinctive phrases
+                        # that must survive any reasonable normalization.
+                        doc_title = focused_docs[0]["title"]
+                        doc_text = focused_docs[0]["text"]
+                        distinctive_phrases = [
+                            w
+                            for w in doc_text.split()
+                            if len(w) > 6  # skip short/common words
+                        ]
+                        chunk_words = set(chunk["text"].split())
+                        overlap = [p for p in distinctive_phrases if p in chunk_words]
+                        assert len(overlap) >= 3, (
+                            f"chunk[{i}].text for {entity_urn} shares fewer than 3 words "
+                            f"with the ingested document '{doc_title}' — likely wrong content.\n"
+                            f"  chunk text (first 300): {chunk['text'][:300]!r}"
+                        )
+
+                    if has_offset:
+                        assert chunk.get("characterLength") is not None, (
+                            f"chunk[{i}] has characterOffset but no characterLength "
+                            f"for {entity_urn}"
+                        )
+
+                # Chunks must be ordered by descending score (best match first)
+                scores = [c["score"] for c in chunks]
+                assert scores == sorted(scores, reverse=True), (
+                    f"matchedChunks for {entity_urn} are not sorted by descending score: "
+                    f"{scores}"
+                )
+                logger.info(
+                    f"  ✓ {entity_urn}: {len(chunks)} chunk(s), "
+                    f"top score={scores[0]:.4f}, "
+                    f"text={'present' if chunks[0].get('text') else 'absent (offset fallback)'}"
+                )
+
+            logger.info("✓ matchedChunks chunk-level highlighting test passed!")

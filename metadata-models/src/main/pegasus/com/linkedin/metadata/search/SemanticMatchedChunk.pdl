@@ -1,0 +1,22 @@
+namespace com.linkedin.metadata.search
+
+/**
+ * The specific chunk that drove a semantic search ranking for a document.
+ * Populated when chunk-level inner_hits are returned from the search backend.
+ */
+record SemanticMatchedChunk {
+  /** Zero-based position of this chunk within the document. */
+  position: int
+
+  /** The text of the matched chunk. May be absent if text was not stored. */
+  text: optional string
+
+  /** Character offset of this chunk within the source document text. */
+  characterOffset: optional int
+
+  /** Length of this chunk in characters. */
+  characterLength: optional int
+
+  /** Cosine similarity score of this chunk against the query embedding. */
+  score: optional float
+}

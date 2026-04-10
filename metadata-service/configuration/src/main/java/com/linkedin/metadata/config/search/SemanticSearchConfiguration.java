@@ -25,4 +25,10 @@ public class SemanticSearchConfiguration {
 
   /** Configuration for the embedding provider used to generate query embeddings. */
   private EmbeddingProviderConfiguration embeddingProvider;
+
+  /**
+   * Maximum number of matching chunks to return per result for semantic search highlighting. Each
+   * chunk is the passage that drove this document's ranking. Defaults to 1.
+   */
+  private int matchedChunksPerResult = 1;
 }

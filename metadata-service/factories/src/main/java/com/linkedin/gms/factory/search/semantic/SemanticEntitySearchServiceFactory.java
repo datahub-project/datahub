@@ -37,10 +37,21 @@ public class SemanticEntitySearchServiceFactory {
       @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder) {
 
     String modelEmbeddingKey = deriveModelEmbeddingKey();
-    log.info("Creating SemanticEntitySearchService with modelEmbeddingKey={}", modelEmbeddingKey);
+    SemanticSearchConfiguration semanticConfig =
+        configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+    int matchedChunksPerResult =
+        (semanticConfig != null) ? semanticConfig.getMatchedChunksPerResult() : 1;
+    log.info(
+        "Creating SemanticEntitySearchService with modelEmbeddingKey={}, matchedChunksPerResult={}",
+        modelEmbeddingKey,
+        matchedChunksPerResult);
 
     return new SemanticEntitySearchService(
-        searchClient, embeddingProvider, mappingsBuilder, modelEmbeddingKey);
+        searchClient,
+        embeddingProvider,
+        mappingsBuilder,
+        modelEmbeddingKey,
+        matchedChunksPerResult);
   }
 
   /**
