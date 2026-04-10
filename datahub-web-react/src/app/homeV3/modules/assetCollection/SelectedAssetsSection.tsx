@@ -1,6 +1,6 @@
 import { Text } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 

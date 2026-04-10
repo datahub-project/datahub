@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
 import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
+import { visualizer } from 'rollup-plugin-visualizer';
 import svgr from 'vite-plugin-svgr';
 
 const injectMeticulous = () => {
@@ -157,6 +158,8 @@ export default defineConfig(async ({ mode }) => {
                 gitService: 'github',
             }),
             stripDotSlashFromAssets(),
+            process.env.ANALYZE === 'true' &&
+                visualizer({ open: true, filename: 'dist/bundle-report.html', gzipSize: true, brotliSize: true }),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],

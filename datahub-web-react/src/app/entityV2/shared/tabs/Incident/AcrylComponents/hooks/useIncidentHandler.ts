@@ -1,6 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import { Form, message } from 'antd';
-import _ from 'lodash';
+import omit from 'lodash/omit';
 import { useState } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -161,8 +161,8 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                     message: values.message,
                 },
             };
-            const newInput = _.omit(baseInput, ['state', 'message']);
-            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type', 'resourceUrns', 'customType']);
+            const newInput = omit(baseInput, ['state', 'message']);
+            const newUpdateInput = omit(newInput, ['resourceUrn', 'type', 'resourceUrns', 'customType']);
             const input = !isAddIncidentMode ? newUpdateInput : newInput;
 
             if (isAddIncidentMode) {

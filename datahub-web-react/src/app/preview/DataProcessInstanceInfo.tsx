@@ -1,5 +1,5 @@
 import { Pill, Popover } from '@components';
-import { capitalize } from 'lodash';
+import capitalize from 'lodash/capitalize';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -9,7 +9,6 @@ import {
     toLocalDateTimeString,
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
 
@@ -17,18 +16,18 @@ const StatContainer = styled.div`
     display: flex;
     margin-top: 20px;
     height: 20px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 130px;
     justify-content: center;
 `;
 
 const PopoverContent = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 0.8rem;
 `;
 
 const Title = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textTertiary};
     border-bottom: none;
     font-size: 0.8rem;
     font-weight: 600;

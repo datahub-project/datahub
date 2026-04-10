@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';

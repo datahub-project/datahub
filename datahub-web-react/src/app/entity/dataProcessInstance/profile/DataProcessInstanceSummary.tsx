@@ -1,6 +1,6 @@
 import { Pill } from '@components';
 import { Space, Table, Typography } from 'antd';
-import { capitalize } from 'lodash';
+import capitalize from 'lodash/capitalize';
 import React from 'react';
 import styled from 'styled-components';
 

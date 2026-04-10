@@ -1,5 +1,5 @@
 import { ApolloClient } from '@apollo/client';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import { useEffect } from 'react';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';

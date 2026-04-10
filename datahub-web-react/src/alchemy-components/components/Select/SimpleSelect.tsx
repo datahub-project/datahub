@@ -1,5 +1,5 @@
 import { Dropdown, Text } from '@components';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Loader } from '@components/components/Loader/Loader';

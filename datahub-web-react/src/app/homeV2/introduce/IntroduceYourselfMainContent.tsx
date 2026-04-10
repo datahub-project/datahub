@@ -4,10 +4,10 @@ import CheckIcon from '@mui/icons-material/Check';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Button, Select, message } from 'antd';
-import { orderBy } from 'lodash';
+import orderBy from 'lodash/orderBy';
 import React, { useContext, useState } from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -17,7 +17,6 @@ import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@ap
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import Loading from '@app/shared/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 
@@ -34,7 +33,7 @@ const Container = styled.div`
 `;
 
 const Content = styled.div`
-    background-color: #ffffff;
+    background-color: ${({ theme }) => theme.colors.bg};
     padding: 20px;
 
     .ant-select-selection-item {
@@ -45,7 +44,7 @@ const Content = styled.div`
 
     .ant-select-selection-overflow-item-rest {
         .ant-select-selection-item {
-            background-color: #fff !important;
+            background-color: ${({ theme }) => theme.colors.bg} !important;
             border: none !important;
             padding: 0 0 0 5px !important;
             height: auto !important;
@@ -56,7 +55,7 @@ const Content = styled.div`
 `;
 
 const Title = styled.div`
-    color: #374066;
+    color: ${({ theme }) => theme.colors.text};
     text-align: center;
     font: 700 35px Mulish;
     line-height: 44px;
@@ -64,7 +63,7 @@ const Title = styled.div`
 `;
 
 const Subtitle = styled.div`
-    color: #5f6685;
+    color: ${({ theme }) => theme.colors.textSecondary};
     width: 268px;
     text-align: center;
     font: 400 13px Mulish;
@@ -76,8 +75,8 @@ const DoneButton = styled(Button)`
     width: 290px;
     height: 45px;
     flex-shrink: 0;
-    background-color: #3f54d1;
-    color: #fff;
+    background-color: ${({ theme }) => theme.colors.buttonFillBrand};
+    color: ${({ theme }) => theme.colors.textOnFillBrand};
     margin-top: 12px;
 `;
 
@@ -91,9 +90,9 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     width: 12px;
     height: 12px;
     border-radius: 4px;
-    border: 1px solid #cfd1da;
-    background: #fff;
-    color: #fff;
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    background: ${({ theme }) => theme.colors.bg};
+    color: ${({ theme }) => theme.colors.bg};
 
     ${(props) =>
         props.checked &&
@@ -122,7 +121,7 @@ const SelectWrapper = styled.div`
         position: absolute;
         left: 10px;
         z-index: 99;
-        fill: #a9adbd;
+        fill: ${({ theme }) => theme.colors.icon};
     }
 
     .ant-select-arrow {
@@ -163,23 +162,23 @@ const SelectGrid = styled.div`
         &:hover,
         &:focus,
         &:active {
-            background-color: #fff !important;
+            background-color: ${({ theme }) => theme.colors.bg} !important;
         }
     }
 
     .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-        background-color: #fff !important;
+        background-color: ${({ theme }) => theme.colors.bg} !important;
     }
 
     .ant-select-item-option-content {
         display: flex;
         justify-content: center;
-        background-color: #fff !important;
+        background-color: ${({ theme }) => theme.colors.bg} !important;
 
         &:hover,
         &:focus,
         &:active {
-            background-color: #fff !important;
+            background-color: ${({ theme }) => theme.colors.bg} !important;
         }
     }
 `;
@@ -204,7 +203,7 @@ const Footer = styled.div`
 `;
 
 const SkipButton = styled.div`
-    color: ${colors.gray[400]};
+    color: ${({ theme }) => theme.colors.textTertiary};
     font-weight: 700;
     :hover {
         cursor: pointer;
@@ -432,11 +431,12 @@ export const IntroduceYourselfMainContent = () => {
     // const hasPlatforms = selectedPlatforms.length > 0;
     // const canSubmit = hasPersona && hasPlatforms;
 
+    const theme = useTheme();
     const selectStyles = {
         width: 290,
         borderRadius: '8px',
-        borderColor: '#5F6685',
-        color: '#81879f',
+        borderColor: theme.colors.textSecondary,
+        color: theme.colors.textTertiary,
     };
 
     // Sort Roles Alphabetically

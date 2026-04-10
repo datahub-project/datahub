@@ -130,6 +130,11 @@ module.exports = {
                         message:
                             "Import dayjs from '@utils/dayjs' instead. The utils wrapper registers all required plugins (utc, isoWeek, timezone, etc.) — importing bare 'dayjs' silently skips plugin registration.",
                     },
+                    {
+                        name: 'lodash',
+                        message:
+                            "Import lodash functions individually for tree-shaking: import X from 'lodash/X' instead of import { X } from 'lodash'.",
+                    },
                 ],
             },
         ],

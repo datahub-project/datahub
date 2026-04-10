@@ -1,7 +1,7 @@
 import { Modal, Steps, Typography } from 'antd';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { CreateScheduleStep } from '@app/ingest/source/builder/CreateScheduleStep';
 import { DefineRecipeStep } from '@app/ingest/source/builder/DefineRecipeStep';
@@ -62,8 +62,6 @@ enum IngestionSourceBuilderStep {
     NAME_SOURCE = 'NAME_SOURCE',
 }
 
-const modalBodyStyle = { padding: '16px 24px 16px 24px', backgroundColor: '#F6F6F6' };
-
 type Props = {
     initialState?: SourceBuilderState;
     open: boolean;
@@ -81,6 +79,8 @@ export const IngestionSourceBuilderModal = ({
     sourceRefetch,
     selectedSource,
 }: Props) => {
+    const theme = useTheme();
+    const modalBodyStyle = { padding: '16px 24px 16px 24px', backgroundColor: theme.colors.bgSurface };
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing

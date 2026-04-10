@@ -1,4 +1,5 @@
-import { get, omit } from 'lodash';
+import get from 'lodash/get';
+import omit from 'lodash/omit';
 
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 

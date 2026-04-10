@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Select, message } from 'antd';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 

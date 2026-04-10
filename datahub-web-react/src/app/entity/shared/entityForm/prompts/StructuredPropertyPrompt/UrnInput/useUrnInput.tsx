@@ -1,5 +1,5 @@
 import { Tag } from 'antd';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -20,7 +20,7 @@ const StyleTag = styled(Tag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${({ theme }) => theme.colors.text};
     line-height: 16px;
     font-size: 12px;
     max-width: 100%;

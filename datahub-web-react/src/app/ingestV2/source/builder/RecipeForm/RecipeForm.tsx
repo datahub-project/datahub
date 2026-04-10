@@ -1,7 +1,7 @@
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
 import { Collapse, Form, Typography, message } from 'antd';
-import { get } from 'lodash';
+import get from 'lodash/get';
 import React, { Fragment, useMemo } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
@@ -52,7 +52,7 @@ const TestConnectionWrapper = styled.div`
 const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
     margin-left: 5px;
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: help;
 `;
 

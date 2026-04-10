@@ -1,4 +1,4 @@
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import { useEffect, useState } from 'react';
 
 import { useEntityRegistry } from '@src/app/useEntityRegistry';

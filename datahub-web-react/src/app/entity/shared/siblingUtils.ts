@@ -1,5 +1,8 @@
 import merge from 'deepmerge';
-import { keyBy, unionBy, uniqWith, values } from 'lodash';
+import keyBy from 'lodash/keyBy';
+import unionBy from 'lodash/unionBy';
+import uniqWith from 'lodash/uniqWith';
+import values from 'lodash/values';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 

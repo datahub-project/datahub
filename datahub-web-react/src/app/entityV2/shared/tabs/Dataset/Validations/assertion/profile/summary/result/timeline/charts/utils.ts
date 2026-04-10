@@ -1,12 +1,13 @@
-import _ from 'lodash';
-
 import { AssertionResultType } from '@types';
 
+// Chart data-visualization colors — cannot use CSS-in-JS theme tokens in recharts callbacks
+/* eslint-disable rulesdir/no-hardcoded-colors */
 export const ACCENT_COLOR_HEX = '#222222';
 const SUCCESS_COLOR_HEX = '#52C41A';
 const FAILURE_COLOR_HEX = '#F5222D';
 const ERROR_COLOR_HEX = '#FAAD14';
 const INIT_COLOR_HEX = '#8C8C8C';
+/* eslint-enable rulesdir/no-hardcoded-colors */
 
 export const getFillColor = (type: AssertionResultType) => {
     switch (type) {
