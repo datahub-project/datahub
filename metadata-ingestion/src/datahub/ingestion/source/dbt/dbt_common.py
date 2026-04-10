@@ -1493,36 +1493,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # In case a dbt test depends on multiple tables, we create separate assertions for each.
             for upstream_node_name, upstream_urn in upstreams.items():
-                guid_upstream_part = {}
-                if len(upstreams) > 1:
-                    # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
-                    # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
-                    guid_upstream_part = {
-                        "on_dbt_upstream": upstream_node_name,
-                    }
-
-                assertion_urn = mce_builder.make_assertion_urn(
-                    mce_builder.datahub_guid(
-                        {
-                            k: v
-                            for k, v in {
-                                "platform": DBT_PLATFORM,
-                                "name": node.dbt_name,
-                                "instance": self.config.platform_instance,
-                                # Ideally we'd include the env unconditionally. However, we started out
-                                # not including env in the guid, so we need to maintain backwards compatibility
-                                # with existing PROD assertions.
-                                **(
-                                    {"env": self.config.env}
-                                    if self.config.env != mce_builder.DEFAULT_ENV
-                                    and self.config.include_env_in_assertion_guid
-                                    else {}
-                                ),
-                                **guid_upstream_part,
-                            }.items()
-                            if v is not None
-                        }
-                    )
+                # If we depend on multiple upstreams, we need to generate a unique guid per assertion.
+                # With a single upstream we preserve the original guid for backwards compatibility
+                # with existing PROD assertions.
+                assertion_urn = self._make_test_assertion_urn(
+                    test_dbt_name=node.dbt_name,
+                    upstream_dbt_name=(
+                        upstream_node_name if len(upstreams) > 1 else None
+                    ),
                 )
 
                 custom_props = {
@@ -1862,7 +1840,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         yield from self.create_contract_mcps(
             non_test_nodes,
             test_nodes,
-            all_nodes_map,
         )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
@@ -3325,7 +3302,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         Returns tuple of (assertion_urn, list of MCPs).
         """
         if node.contract is None:
-            raise ValueError(f"Cannot create schema assertion for node {node.dbt_name} without a contract")
+            raise ValueError(
+                f"Cannot create schema assertion for node {node.dbt_name} without a contract"
+            )
 
         # Generate stable assertion URN
         assertion_urn = mce_builder.make_assertion_urn(
@@ -3345,6 +3324,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # Build schema from node columns
         schema_metadata = self._build_schema_metadata_for_node(node)
 
+        custom_properties = {"source": "dbt_contract"}
+        # checksum is optional in the dbt manifest; only surface it when present
+        # so we don't round-trip a literal "None" string downstream.
+        if node.contract and node.contract.checksum:
+            custom_properties["dbt_contract_checksum"] = node.contract.checksum
+
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATA_SCHEMA,
             schemaAssertion=SchemaAssertionInfoClass(
@@ -3353,14 +3338,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 compatibility=SchemaAssertionCompatibilityClass.EXACT_MATCH,
             ),
             description=f"Schema contract for {node.name}",
-            customProperties={
-                k: v
-                for k, v in {
-                    "dbt_contract_checksum": node.contract.checksum,
-                    "source": "dbt_contract",
-                }.items()
-                if v is not None
-            },
+            customProperties=custom_properties,
         )
 
         mcps = [
@@ -3381,7 +3359,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         fields = []
         for col in node.columns:
             field_type = col.datahub_data_type or get_column_type(
-                self.report, node.dbt_name, col.data_type, node.dbt_adapter
+                self.report, node.dbt_name, col.data_type, node.dbt_adapter or ""
             )
             field = SchemaField(
                 fieldPath=col.name,
@@ -3391,11 +3369,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             fields.append(field)
 
+        # SchemaMetadata.hash is required (non-optional str); fall back to empty
+        # string when the contract has no checksum recorded.
+        contract_checksum = (
+            node.contract.checksum if node.contract and node.contract.checksum else ""
+        )
+
         return SchemaMetadata(
             schemaName=node.name,
             platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
             version=0,
-            hash=node.contract.checksum if node.contract else "",
+            hash=contract_checksum,
             platformSchema=MySqlDDL(tableSchema=""),
             fields=fields,
         )
@@ -3505,50 +3489,55 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         return assertion_urn, mcps
 
-    def _get_contract_tests_for_node(
+    def _index_contract_tests_by_upstream(
         self,
-        model_node: DBTNode,
         test_nodes: List[DBTNode],
-    ) -> List[DBTNode]:
-        """Get tests that are tagged for contract inclusion and test this model."""
-        contract_tests = []
+    ) -> Dict[str, List[DBTNode]]:
+        """Index contract-tagged tests by the model they depend on.
 
-        # Build the full tag to match (with prefix)
+        This is called once per contract emission run. Callers then look up
+        ``tests_by_upstream.get(model.dbt_name, [])`` in O(1) instead of
+        rescanning all test_nodes per model, which is O(N·M) — the dominant
+        cost for large dbt projects (see tests/performance/dbt).
+        """
         contract_tag = self.config.tag_prefix + self.config.contract_test_tag
-
+        tests_by_upstream: Dict[str, List[DBTNode]] = {}
         for test_node in test_nodes:
-            # Check if test depends on this model
-            if model_node.dbt_name not in test_node.upstream_nodes:
+            if contract_tag not in test_node.tags:
                 continue
+            for upstream in test_node.upstream_nodes:
+                tests_by_upstream.setdefault(upstream, []).append(test_node)
+        return tests_by_upstream
 
-            # Check if test has the contract tag
-            if contract_tag in test_node.tags:
-                contract_tests.append(test_node)
-
-        return contract_tests
-
-    def _get_assertion_urn_for_test(
+    def _make_test_assertion_urn(
         self,
-        test_node: DBTNode,
+        test_dbt_name: str,
         upstream_dbt_name: Optional[str] = None,
     ) -> str:
-        """Get the assertion URN for a test node.
+        """Build the deterministic assertion URN for a dbt test.
 
-        This replicates the logic from create_test_entity_mcps to ensure consistent URNs.
+        Shared by `create_test_entity_mcps` (test emission) and contract ingestion
+        (which needs to reference these URNs from a Data Contract). Keeping the
+        guid construction in a single place prevents the two call sites from
+        drifting apart. When ``upstream_dbt_name`` is None the guid omits the
+        upstream key, matching the single-upstream backwards-compatible form.
         """
         guid_parts: Dict[str, Any] = {
             "platform": DBT_PLATFORM,
-            "name": test_node.dbt_name,
+            "name": test_dbt_name,
             "instance": self.config.platform_instance,
         }
 
+        # Env is intentionally only included when opted in, to preserve the
+        # original guids for PROD assertions that were emitted before the
+        # env-in-guid behavior was introduced.
         if (
             self.config.env != mce_builder.DEFAULT_ENV
             and self.config.include_env_in_assertion_guid
         ):
             guid_parts["env"] = self.config.env
 
-        if upstream_dbt_name:
+        if upstream_dbt_name is not None:
             guid_parts["on_dbt_upstream"] = upstream_dbt_name
 
         return mce_builder.make_assertion_urn(
@@ -3559,7 +3548,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     def _create_data_contract_for_node(
         self,
-        node: DBTNode,
         entity_urn: str,
         schema_assertion_urn: Optional[str],
         data_quality_assertion_urns: List[str],
@@ -3599,12 +3587,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         non_test_nodes: List[DBTNode],
         test_nodes: List[DBTNode],
-        all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Create Data Contract entities for models with enforced contracts."""
 
         if not self.config.ingest_contracts:
             return
+
+        # Build the contract-test index once up front. Doing this per model
+        # would turn the outer loop into O(models × tests), which on projects
+        # in the thousands dominates contract emission time.
+        contract_tests_by_upstream = self._index_contract_tests_by_upstream(test_nodes)
 
         for node in non_test_nodes:
             # Skip if no enforced contract
@@ -3622,9 +3614,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             schema_assertion_urn: Optional[str] = None
 
             # 1. Create schema assertion
-            schema_assertion_urn, schema_mcps = self._create_schema_assertion_for_contract(
-                node=node,
-                entity_urn=entity_urn,
+            schema_assertion_urn, schema_mcps = (
+                self._create_schema_assertion_for_contract(
+                    node=node,
+                    entity_urn=entity_urn,
+                )
             )
             all_assertion_urns.append(schema_assertion_urn)
             yield from schema_mcps
@@ -3639,12 +3633,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     all_assertion_urns.append(constraint_urn)
                     yield from constraint_mcps
 
-            # 3. Get tagged test assertion URNs
-            contract_tests = self._get_contract_tests_for_node(node, test_nodes)
+            # 3. Get tagged test assertion URNs. Tests may have multiple upstreams,
+            # so we must reference the guid variant specific to *this* model to match
+            # the one emitted by create_test_entity_mcps.
+            contract_tests = contract_tests_by_upstream.get(node.dbt_name, [])
             for test_node in contract_tests:
-                # Tests may have multiple upstreams, get URN specific to this model
-                test_urn = self._get_assertion_urn_for_test(
-                    test_node=test_node,
+                test_urn = self._make_test_assertion_urn(
+                    test_dbt_name=test_node.dbt_name,
                     upstream_dbt_name=(
                         node.dbt_name if len(test_node.upstream_nodes) > 1 else None
                     ),
@@ -3653,7 +3648,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # 4. Create the Data Contract entity
             contract_mcps = self._create_data_contract_for_node(
-                node=node,
                 entity_urn=entity_urn,
                 schema_assertion_urn=schema_assertion_urn,
                 data_quality_assertion_urns=[
@@ -3662,7 +3656,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             yield from contract_mcps
 
-            logger.info(
+            logger.debug(
                 f"Created data contract for {node.name} with {len(all_assertion_urns)} assertions"
             )
 

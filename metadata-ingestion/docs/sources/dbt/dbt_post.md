@@ -622,11 +622,11 @@ When a dbt model has `contract.enforced: true`, DataHub will create:
 
 ##### Configuration Options
 
-| Option                                    | Default      | Description                                                                          |
-| ----------------------------------------- | ------------ | ------------------------------------------------------------------------------------ |
-| `ingest_contracts`                        | `false`      | Enable Data Contract creation from dbt contracts                                     |
-| `contract_test_tag`                       | `"contract"` | Tag for dbt tests to include in the contract's data quality section                  |
-| `ingest_column_constraints_as_assertions` | `true`       | Create assertions from column constraints (`not_null`, `unique`, `primary_key`)      |
+| Option                                    | Default      | Description                                                                     |
+| ----------------------------------------- | ------------ | ------------------------------------------------------------------------------- |
+| `ingest_contracts`                        | `false`      | Enable Data Contract creation from dbt contracts                                |
+| `contract_test_tag`                       | `"contract"` | Tag for dbt tests to include in the contract's data quality section             |
+| `ingest_column_constraints_as_assertions` | `true`       | Create assertions from column constraints (`not_null`, `unique`, `primary_key`) |
 
 ##### Including dbt Tests in Contracts
 

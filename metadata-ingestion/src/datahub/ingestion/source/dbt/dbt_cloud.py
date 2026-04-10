@@ -937,10 +937,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
             )
 
-        # Check if contract info is in meta (dbt Cloud doesn't expose it directly in API)
+        # Check if contract info is in meta (dbt Cloud doesn't expose it directly in API).
+        # meta is user-provided and weakly typed, so verify it's a dict before .get() access.
         contract = None
         contract_meta = meta.get("contract") or meta.get("datahub_contract")
-        if contract_meta and contract_meta.get("enforced"):
+        if isinstance(contract_meta, dict) and contract_meta.get("enforced"):
             contract = DBTContract(
                 enforced=True,
                 alias_types=contract_meta.get("alias_types", True),

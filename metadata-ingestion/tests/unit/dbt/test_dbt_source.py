@@ -3,12 +3,6 @@ from typing import Any, Dict, List, Optional, TypedDict, Union
 from unittest import mock
 
 import pytest
-from datahub.metadata.schema_classes import (
-    OwnerClass,
-    OwnershipSourceClass,
-    OwnershipSourceTypeClass,
-    OwnershipTypeClass,
-)
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
