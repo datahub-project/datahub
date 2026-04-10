@@ -1046,23 +1046,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // SQL (one for the PK object and one for the property itself).
 
     final Query<EbeanAspectV2> query =
-        server
-            .find(EbeanAspectV2.class)
-            .select(
-                String.join(
-                    ", ",
-                    EbeanAspectV2.METADATA_COLUMN,
-                    "systemMetadata",
-                    EbeanAspectV2.CREATED_ON_COLUMN,
-                    EbeanAspectV2.CREATED_BY_COLUMN,
-                    EbeanAspectV2.CREATED_FOR_COLUMN))
-            .setReadOnly(!forUpdate)
-            .where()
-            .idIn(paddedBatch)
-            .query();
+        server.find(EbeanAspectV2.class).setReadOnly(!forUpdate).where().idIn(paddedBatch).query();
 
     if (forUpdate) {
-      query.forUpdate();
+      query.select(EbeanAspectV2.ALL_COLUMNS).forUpdate();
     }
     return query.findList();
   }
