@@ -1,7 +1,6 @@
 package io.datahubproject.openapi.operations.kafka;
 
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,7 +10,10 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.trace.MCLTraceReader;
@@ -423,6 +425,11 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
       AuthenticationContext.setAuthentication(authentication);
+
+      when(authorizerChain.authorizeBatch(any()))
+          .thenReturn(
+              new BatchAuthorizationResult(
+                  null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
 
       return authorizerChain;
     }

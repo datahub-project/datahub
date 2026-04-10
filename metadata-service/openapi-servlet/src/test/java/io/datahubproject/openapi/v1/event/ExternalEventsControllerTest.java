@@ -17,7 +17,10 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -691,6 +694,11 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "testuser"));
       AuthenticationContext.setAuthentication(authentication);
+
+      when(authorizerChain.authorizeBatch(any()))
+          .thenReturn(
+              new BatchAuthorizationResult(
+                  null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
 
       return authorizerChain;
     }
