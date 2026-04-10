@@ -71,8 +71,8 @@ Grant the following roles to the service account on all target projects.
 | Universal Catalog Entries API (core ingestion) | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer) |
 | Lineage extraction (`include_lineage: true`)   | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)         |
 
-> **Lineage requires the role on multiple projects.** Grant `roles/datalineage.viewer` on both the
-> _active project_ (the project from which API calls are made) and every _compute project_ where
-> lineage is recorded. Lineage is stored in the project where the corresponding process executed,
-> which may differ from the project containing the asset. If lineage appears missing, a missing
-> grant on a compute project is the most likely cause.
+:::tip "Lineage requires the role on multiple projects"
+
+Grant `roles/datalineage.viewer` on all projects where the corresponding process is actually executed. Note it may differ from the project containing the asset.
+:::
+
