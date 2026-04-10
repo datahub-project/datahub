@@ -1107,4 +1107,123 @@ public class ESIndexBuilderTest {
             "number_of_replicas", NUM_REPLICAS,
             "refresh_interval", REFRESH_INTERVAL_SECONDS + "s"));
   }
+
+  // --- Incremental reindex tests ---
+
+  @Test
+  void testExtractTargetShards() {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.targetSettings())
+        .thenReturn(ImmutableMap.of("index", ImmutableMap.of("number_of_shards", 3)));
+    assertEquals(ESIndexBuilder.extractTargetShards(config), 3);
+  }
+
+  @Test
+  void testExtractTargetShardsFromString() {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.targetSettings())
+        .thenReturn(ImmutableMap.of("index", ImmutableMap.of("number_of_shards", "5")));
+    assertEquals(ESIndexBuilder.extractTargetShards(config), 5);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  void testExtractTargetShardsMissingThrows() {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.targetSettings()).thenReturn(ImmutableMap.of("index", ImmutableMap.of()));
+    ESIndexBuilder.extractTargetShards(config);
+  }
+
+  @Test
+  void testGetIncrementalNextIndexNameSanitizesVersion() {
+    String result = ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "1.2.3-4", 1000L);
+    assertEquals(result, "datasetindex_v2_1_2_3-4_1000");
+  }
+
+  @Test
+  void testGetIncrementalNextIndexName() {
+    String result =
+        ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "0.13.1-0", 1679000000000L);
+    assertEquals(result, "datasetindex_v2_0_13_1-0_1679000000000");
+  }
+
+  @Test
+  void testBuildIndexIncrementalCreatesNextIndex() throws Throwable {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    // Mock createIndex (the next index doesn't exist yet)
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(new CreateIndexResponse(true, true, "test_index_next_123"));
+
+    // Mock getCount returning 0 (empty source index)
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(0L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+
+    ESIndexBuilder.IncrementalReindexResult result =
+        indexBuilder.buildIndexIncremental(indexState, "0.13.1-0");
+
+    assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
+    assertTrue(result.reindexStartTime() > 0);
+    assertTrue(result.skippedEmpty());
+    // Should have created the index
+    verify(searchClient).createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+    // Should NOT have submitted a reindex (0 docs)
+    verify(searchClient, never())
+        .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  @Test
+  void testBuildIndexIncrementalSubmitsReindex() throws Throwable {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    // Mock createIndex
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(new CreateIndexResponse(true, true, "test_index_next_123"));
+
+    // Mock getCount returning non-zero (has docs to reindex)
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(1000L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+
+    // Mock refresh
+    when(searchClient.refreshIndex(any(), any())).thenReturn(null);
+
+    // Mock settings for reindex optimization
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getSetting(anyString(), anyString())).thenReturn("512mb");
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+
+    // Mock settings update
+    when(searchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    // Mock submit reindex task
+    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:12345");
+
+    ESIndexBuilder.IncrementalReindexResult result =
+        indexBuilder.buildIndexIncremental(indexState, "0.13.1-0");
+
+    assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
+    assertTrue(result.reindexStartTime() > 0);
+    Assert.assertFalse(result.skippedEmpty());
+  }
 }

@@ -182,6 +182,17 @@ class RedshiftConfig(
         description="Whether to skip EXTERNAL tables.",
     )
 
+    extract_ownership: bool = Field(
+        default=False,
+        description=(
+            "When enabled, extracts table and view owners from the Redshift catalog "
+            "(pg_catalog.pg_user) and emits them as TECHNICAL_OWNER in DataHub. "
+            "Ownership is applied using OVERWRITE mode, meaning any existing ownership "
+            "information (including manually added or modified owners from the UI) "
+            "will be replaced."
+        ),
+    )
+
     @model_validator(mode="before")
     @classmethod
     def check_email_is_set_on_usage(cls, values):

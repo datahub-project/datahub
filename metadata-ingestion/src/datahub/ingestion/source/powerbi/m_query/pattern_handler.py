@@ -362,8 +362,10 @@ class AbstractLineage(ABC):
             )
         )
 
-        query = native_sql_parser.remove_drop_statement(query)
+        # remove_special_characters must run first to expand #(lf) → \n before
+        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
+        query = native_sql_parser.remove_drop_statement(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
@@ -1214,6 +1216,8 @@ class NativeQueryLineage(AbstractLineage):
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
+        FunctionName.MSSQL_DATA_ACCESS.value: SupportedDataPlatform.MS_SQL,
+        FunctionName.POSTGRESQL_DATA_ACCESS.value: SupportedDataPlatform.POSTGRES_SQL,
         FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value: SupportedDataPlatform.GOOGLE_BIGQUERY,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE

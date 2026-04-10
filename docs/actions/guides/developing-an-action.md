@@ -77,7 +77,7 @@ pip install -e .
 
 inside the module. (alt.`python setup.py`).
 
-Once we have done this, our class will be referencable via `custom_action_example.custom_action:CustomAction`.
+Once we have done this, our class will be referenceable via `custom_action_example.custom_action:CustomAction`.
 
 ## Step 3: Running the Action
 

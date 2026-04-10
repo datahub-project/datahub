@@ -10,7 +10,6 @@ import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/Schem
 import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import { KEY_SCHEMA_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
@@ -31,9 +30,10 @@ import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { ChangeCategoryType } from '@types';
 
 const NoSchema = styled(Empty)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-top: 60px;
 `;
 
@@ -212,14 +212,17 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     return (
         <SchemaContext.Provider value={{ refetch }}>
-            <HistorySidebar
-                urn={urn}
-                siblingUrn={siblingUrn}
-                versionList={versionList}
-                hideSemanticVersions={hideSemanticVersions}
-                open={showSchemaTimelineView}
-                onClose={() => setShowSchemaTimelineView(false)}
-            />
+            {showSchemaTimelineView && (
+                <HistorySidebar
+                    urn={urn}
+                    siblingUrn={siblingUrn}
+                    versionList={versionList}
+                    hideSemanticVersions={hideSemanticVersions}
+                    open
+                    onClose={() => setShowSchemaTimelineView(false)}
+                    defaultCategories={[ChangeCategoryType.TechnicalSchema]}
+                />
+            )}
             <SchemaHeader
                 // see above hook
                 key={wasSearchReset ? 'key1' : 'key2'}

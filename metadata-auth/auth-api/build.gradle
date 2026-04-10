@@ -18,6 +18,10 @@ shadowJar {
   zip64 true
   archiveClassifier = ""
   exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+  // metadata-utils pulls Hazelcast; GMS WAR already ships hazelcast-*.jar — bundling duplicates SPI (NodeExtension).
+  dependencies {
+    exclude(dependency('com.hazelcast:hazelcast:.*'))
+  }
 }
 
 dependencies() {
