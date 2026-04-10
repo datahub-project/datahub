@@ -200,32 +200,26 @@ class VerticaSource(SQLAlchemySource):
         try:
             with inspector.bind.connect() as conn:
                 if entity_type == "projection":
-                    query = text(
-                        """
+                    query = text("""
                         SELECT column_name, is_nullable
                         FROM projection_columns
                         WHERE lower(table_schema) = :schema
                         AND lower(projection_name) = :table
-                        """
-                    )
+                        """)
                 elif entity_type == "view":
-                    query = text(
-                        """
+                    query = text("""
                         SELECT column_name, is_nullable
                         FROM v_catalog.view_columns
                         WHERE lower(table_schema) = :schema
                         AND lower(table_name) = :table
-                        """
-                    )
+                        """)
                 else:
-                    query = text(
-                        """
+                    query = text("""
                         SELECT column_name, is_nullable
                         FROM v_catalog.columns
                         WHERE lower(table_schema) = :schema
                         AND lower(table_name) = :table
-                        """
-                    )
+                        """)
                 result = conn.execute(
                     query,
                     {"schema": schema.lower(), "table": table.lower()},
@@ -455,22 +449,18 @@ class VerticaSource(SQLAlchemySource):
         try:
             with inspector.bind.connect() as conn:
                 result = conn.execute(
-                    text(
-                        """
+                    text("""
                         SELECT VIEW_DEFINITION
                         FROM V_CATALOG.VIEWS
                         WHERE lower(table_schema) = :schema
                         AND lower(table_name) = :view
-                        """
-                    ),
+                        """),
                     {"schema": schema.lower(), "view": view.lower()},
                 )
                 row = result.fetchone()
                 return str(row[0]) if row else ""
         except Exception as ex:
-            logger.warning(
-                f"Unable to get view definition for {schema}.{view}: {ex}"
-            )
+            logger.warning(f"Unable to get view definition for {schema}.{view}: {ex}")
             return ""
 
     def loop_projections(
@@ -563,7 +553,9 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         # Workaround for vertica-sqlalchemy-dialect hardcoding is_nullable=true.
         columns = inspector.get_projection_columns(projection, schema)
-        nullable_map = self._get_column_nullable_map(inspector, schema, projection, "projection")
+        nullable_map = self._get_column_nullable_map(
+            inspector, schema, projection, "projection"
+        )
         columns = self._patch_column_nullable(columns, nullable_map)
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
@@ -672,7 +664,7 @@ class VerticaSource(SQLAlchemySource):
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
                 continue
 
-            (partition, custom_sql) = self.generate_partition_profiler_query(
+            partition, custom_sql = self.generate_partition_profiler_query(
                 schema, projection, self.config.profiling.partition_datetime
             )
             if partition is None and self.is_table_partitioned(
