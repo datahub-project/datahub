@@ -75,4 +75,3 @@ Grant the following roles to the service account on all target projects.
 
 Grant `roles/datalineage.viewer` on all projects where the corresponding process is actually executed. Note it may differ from the project containing the asset.
 :::
-
