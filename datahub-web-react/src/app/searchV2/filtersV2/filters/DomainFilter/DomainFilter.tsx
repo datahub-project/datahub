@@ -1,7 +1,7 @@
 import { debounce } from 'lodash';
 import React, { useMemo, useState } from 'react';
 
-import { EntityIconWithName } from '@app/searchV2/filtersV2/filters/BaseEntityFilter/components/EntityIconWithName';
+import { DefaultEntitySelectOption } from '@app/entityV2/shared/components/select/DefaultEntitySelectOption';
 import useDomainsFromAggregations from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromAggregations';
 import useDomainsFromSuggestions from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromSuggestions';
 import useMergedDomains from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useMergedDomains';
@@ -49,10 +49,11 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
     return (
         <NestedSelect
             initialValues={initialValues}
+            values={values}
             onUpdate={onSelectUpdate}
             onSearch={onSearch}
             options={options}
-            renderCustomOptionText={(option) => <EntityIconWithName entity={option.entity} />}
+            renderCustomOptionText={(option) => <DefaultEntitySelectOption entity={option.entity} />}
             isMultiSelect
             width="fit-content"
             dataTestId="filter-domain"

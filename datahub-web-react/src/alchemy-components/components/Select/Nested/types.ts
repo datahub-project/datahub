@@ -5,5 +5,10 @@ import { Entity } from '@src/types.generated';
 export interface NestedSelectOption extends SelectOption {
     parentValue?: string;
     isParent?: boolean;
-    entity?: Entity;
+    entity?: Entity | null;
+}
+
+export interface RenderOptionProps<OptionType extends NestedSelectOption> {
+    option: OptionType;
+    origin: React.ReactNode;
 }

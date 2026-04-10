@@ -1,4 +1,4 @@
-import { CloseCircleOutlined } from '@ant-design/icons';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -8,9 +8,11 @@ import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 export class HasFailingAssertionsRenderer implements FilterRenderer {
     field = 'hasFailingAssertions';
 
-    render = (props: FilterRenderProps) => <HasFailingAssertionsFilter {...props} icon={this.icon()} />;
+    name = 'Assertions';
 
-    icon = () => <CloseCircleOutlined />;
+    render = (props: FilterRenderProps) => <HasFailingAssertionsFilter {...props} />;
+
+    icon = () => <XCircle size={14} />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {

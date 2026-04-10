@@ -32,7 +32,12 @@ export interface DividerType extends BaseItemType {
     type: 'divider';
 }
 
-export type ItemType = MenuItemType | GroupItemType | DividerType;
+export interface CustomType extends BaseItemType {
+    type: 'custom';
+    render: () => React.ReactNode;
+}
+
+export type ItemType = MenuItemType | GroupItemType | DividerType | CustomType;
 
 export type MenuProps = Omit<DropdownProps, 'menu'> & {
     items?: ItemType[];

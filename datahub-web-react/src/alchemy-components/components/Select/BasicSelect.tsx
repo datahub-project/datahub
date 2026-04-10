@@ -1,5 +1,4 @@
 import { Dropdown, Text } from '@components';
-import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'styled-components';
 
@@ -24,6 +23,7 @@ import DropdownSelectAllOption from '@components/components/Select/private/Dropd
 import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
+import { useSelectionManagement } from '@components/components/Select/private/hooks/useSelectionManagement';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
 
@@ -51,10 +51,13 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     initialValues,
     onCancel,
     onUpdate,
+    onClose,
+    shouldUpdateValuesOnClose,
     showSearch = selectDefaults.showSearch,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
     isRequired = selectDefaults.isRequired,
+    isActive,
     showClear = selectDefaults.showClear,
     size = selectDefaults.size,
     isMultiSelect = selectDefaults.isMultiSelect,
@@ -63,6 +66,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel = selectDefaults.selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
+    shouldOrderSelectedOptionsToTop,
     icon,
     renderCustomOptionText,
     selectLabelProps,
@@ -77,110 +81,102 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     const [searchQuery, setSearchQuery] = useState('');
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const {
+        selectedValues,
+        stagedValues,
+        setStagedValues,
+        resetStagedValues,
+        onValueChanged,
+        clearSelection,
+        commitSelection,
+    } = useSelectionManagement({
+        initialValues: initialValues || [],
+        values,
+        onUpdate,
+        isMultiselect: isMultiSelect,
+    });
+
+    const handleDropdownClose = useCallback(() => {
+        if (shouldUpdateValuesOnClose) {
+            commitSelection();
+        } else {
+            resetStagedValues();
+        }
+        onClose?.();
+    }, [commitSelection, onClose, shouldUpdateValuesOnClose, resetStagedValues]);
+
+    const [areAllSelected, setAreAllSelected] = useState(false);
+
     const {
         isOpen,
         isVisible,
         close: closeDropdown,
         toggle: toggleDropdown,
-    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
-
-    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
-    const [tempValues, setTempValues] = useState<string[]>(values || []);
-    const [areAllSelected, setAreAllSelected] = useState(false);
-    const [openSelectedValues, setOpenSelectedValues] = useState<string[]>([]);
+    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps, handleDropdownClose);
 
     useEffect(() => {
-        if (values !== undefined && !isEqual(selectedValues, values)) {
-            setSelectedValues(values);
-        }
-    }, [values, selectedValues]);
-
-    useEffect(() => {
-        setAreAllSelected(tempValues.length === options.length);
-    }, [options, tempValues]);
-
-    useEffect(() => {
-        if (isOpen) {
-            setOpenSelectedValues(tempValues);
-        }
-    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+        setAreAllSelected(stagedValues.length === options.length);
+    }, [options, stagedValues]);
 
     const filteredOptions = useMemo(() => {
         const filtered = options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
+        if (!isMultiSelect || stagedValues.length === 0) return filtered;
 
-        const selectedSet = new Set(openSelectedValues);
+        if (!shouldOrderSelectedOptionsToTop) return filtered;
+
+        const selectedSet = new Set(stagedValues);
         return [...filtered].sort((a, b) => {
             const aSelected = selectedSet.has(a.value) ? 0 : 1;
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [options, searchQuery, isMultiSelect, openSelectedValues]);
+    }, [options, searchQuery, isMultiSelect, shouldOrderSelectedOptionsToTop, stagedValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
-            setTempValues(selectedValues);
             toggleDropdown();
         }
-    }, [isDisabled, isReadOnly, selectedValues, toggleDropdown]);
+    }, [isDisabled, isReadOnly, toggleDropdown]);
 
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
-            const updatedValues = tempValues.includes(option.value)
-                ? tempValues.filter((val) => val !== option.value)
-                : [...tempValues, option.value];
-
-            setTempValues(isMultiSelect ? updatedValues : [option.value]);
+            onValueChanged(option.value);
         },
-        [tempValues, isMultiSelect],
+        [onValueChanged],
     );
 
     const removeOption = useCallback(
         (option: SelectOption) => {
             const updatedValues = selectedValues.filter((val) => val !== option.value);
-            setSelectedValues(updatedValues);
-            if (onUpdate) {
-                onUpdate(updatedValues);
-            }
+            setStagedValues(updatedValues, { autocommit: true });
         },
-        [selectedValues, onUpdate],
+        [selectedValues, setStagedValues],
     );
 
     const handleUpdateClick = useCallback(() => {
-        setSelectedValues(tempValues);
+        commitSelection();
         closeDropdown();
-        if (onUpdate) {
-            onUpdate(tempValues);
-        }
-    }, [closeDropdown, tempValues, onUpdate]);
+    }, [commitSelection, closeDropdown]);
 
     const handleCancelClick = useCallback(() => {
+        resetStagedValues();
         closeDropdown();
-        setTempValues(selectedValues);
-        if (onCancel) {
-            onCancel();
-        }
-    }, [closeDropdown, selectedValues, onCancel]);
+        onCancel?.();
+    }, [resetStagedValues, closeDropdown, onCancel]);
 
     const handleClearSelection = useCallback(() => {
-        setSelectedValues([]);
-        setAreAllSelected(false);
-        setTempValues([]);
+        clearSelection({ autocommit: true });
         closeDropdown();
-        if (onUpdate) {
-            onUpdate([]);
-        }
-    }, [closeDropdown, onUpdate]);
+    }, [clearSelection, closeDropdown]);
 
     const handleSelectAll = () => {
         if (areAllSelected) {
-            setTempValues([]);
-            onUpdate?.([]);
+            setStagedValues([], { autocommit: true });
         } else {
             const allValues = options.map((option) => option.value);
-            setTempValues(allValues);
-            onUpdate?.(allValues);
+            setStagedValues(allValues, { autocommit: true });
         }
         setAreAllSelected(!areAllSelected);
     };
@@ -228,7 +224,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                     <OptionLabel
                                         key={option.value}
                                         onClick={() => !isMultiSelect && handleOptionChange(option)}
-                                        isSelected={tempValues.includes(option.value)}
+                                        isSelected={stagedValues.includes(option.value)}
                                         isMultiSelect={isMultiSelect}
                                         isDisabled={disabledValues?.includes(option.value)}
                                     >
@@ -251,7 +247,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                 )}
                                                 <StyledCheckbox
                                                     onCheckboxChange={() => handleOptionChange(option)}
-                                                    isChecked={tempValues.includes(option.value)}
+                                                    isChecked={stagedValues.includes(option.value)}
                                                     isDisabled={disabledValues?.includes(option.value)}
                                                     size="sm"
                                                 />
@@ -286,6 +282,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         isDisabled={isDisabled}
                         isReadOnly={isReadOnly}
                         isRequired={isRequired}
+                        isActive={isActive}
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}

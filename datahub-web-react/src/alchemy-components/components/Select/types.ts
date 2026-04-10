@@ -31,6 +31,8 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     initialValues?: string[];
     onCancel?: () => void;
     onClear?: () => void;
+    onClose?: () => void;
+    shouldUpdateValuesOnClose?: boolean;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;
     icon?: React.ComponentType<any>;
@@ -38,6 +40,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
+    isActive?: boolean;
     showClear?: boolean;
     width?: number | 'full' | 'fit-content';
     minWidth?: string;
@@ -50,6 +53,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
     renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
     filterResultsByQuery?: boolean;
+    shouldOrderSelectedOptionsToTop?: boolean;
     onSearchChange?: (searchText: string) => void;
     combinedSelectedAndSearchOptions?: OptionType[];
     optionListStyle?: React.CSSProperties;
@@ -68,6 +72,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     placement?: DropdownProps['placement'];
     renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
     renderOptionsFooter?: () => React.ReactNode;
+    autocommit?: boolean;
 }
 
 export interface SelectStyleProps {
@@ -75,6 +80,7 @@ export interface SelectStyleProps {
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
+    isActive?: boolean;
     isOpen?: boolean;
     width?: number | 'full' | 'fit-content';
     position?: OptionPosition;
@@ -85,7 +91,7 @@ export interface ActionButtonsProps {
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;
-    showClear: boolean;
+    showClear?: boolean;
     fontSize?: SelectSizeOptions;
     handleClearSelection: () => void;
 }

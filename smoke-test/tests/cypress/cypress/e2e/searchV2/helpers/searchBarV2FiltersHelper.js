@@ -8,7 +8,9 @@ export class SearchBarV2FiltersHelper {
   filterCancelButtonTestId = "footer-button-cancel";
 
   click(filterName) {
-    cy.clickOptionWithTestId(this.getTestIdForFilterBase(filterName));
+    cy.getWithTestId("search-bar-dropdown").within(() => {
+      cy.clickOptionWithTestId(this.getTestIdForFilterBase(filterName));
+    });
   }
 
   getDropdown(filterName) {
@@ -21,7 +23,9 @@ export class SearchBarV2FiltersHelper {
 
   search(filterName, text) {
     this.getDropdown(filterName).within(() => {
-      cy.clearTextInTestId(this.filterSearchInputTestId);
+      cy.getWithTestId(this.filterSearchInputTestId).within(() => {
+        cy.get("input").first().clear();
+      });
       cy.enterTextInTestId(this.filterSearchInputTestId, text);
     });
   }

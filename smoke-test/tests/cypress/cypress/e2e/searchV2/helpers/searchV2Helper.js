@@ -47,7 +47,14 @@ export class SearchV2Helper {
   }
 
   ensureFilterAppliedOnSearchPage(name, value) {
-    cy.clickOptionWithTestId(`filter-dropdown-${name}`);
-    cy.getWithTestId(`filter-option-${value}`).should("be.checked");
+    cy.getWithTestId(`filter-dropdown-${name}-base`).within(() => {
+      cy.clickOptionWithTestId("button-expand");
+    });
+
+    cy.getWithTestId(`filter-dropdown-${name}-dropdown`).within(() => {
+      cy.getWithTestId(`option-${value}-checkbox`).within(() => {
+        cy.get('input[type="checkbox"]').should("be.checked");
+      });
+    });
   }
 }

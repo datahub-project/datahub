@@ -207,6 +207,49 @@ const meta: Meta = {
         visibilityDeps: {
             description: 'Additional dependencies to trigger computing of visibility state',
         },
+        onClose: {
+            description: 'Callback function called when the dropdown closes.',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+        },
+        isActive: {
+            description: 'Whether the select is in an active state (applies active styling).',
+            control: {
+                type: 'boolean',
+            },
+            table: {
+                defaultValue: { summary: 'false' },
+            },
+        },
+        shouldOrderSelectedOptionsToTop: {
+            description: 'Whether to order selected options to the top of the dropdown list.',
+            control: {
+                type: 'boolean',
+            },
+            table: {
+                defaultValue: { summary: 'false' },
+            },
+        },
+        autocommit: {
+            description:
+                'Whether to automatically commit selection changes immediately (vs. staging until dropdown closes).',
+            control: {
+                type: 'boolean',
+            },
+            table: {
+                defaultValue: { summary: 'true' },
+            },
+        },
+        shouldUpdateValuesOnClose: {
+            description: 'Whether to update values when dropdown closes (vs. resetting to previously selected values).',
+            control: {
+                type: 'boolean',
+            },
+            table: {
+                defaultValue: { summary: 'false' },
+            },
+        },
     },
 
     // Define defaults

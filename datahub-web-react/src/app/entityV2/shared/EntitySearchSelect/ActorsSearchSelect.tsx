@@ -246,6 +246,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
                 const entity = allActorEntities.find((e) => e.urn === option.value);
                 return entity ? renderDropdownActorLabel(entity) : option.label;
             }}
+            shouldOrderSelectedOptionsToTop
         />
     );
 };

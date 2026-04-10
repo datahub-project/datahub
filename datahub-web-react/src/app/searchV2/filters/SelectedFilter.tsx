@@ -47,15 +47,9 @@ const Container = styled.div<{ $isCompact?: boolean }>`
     `}
 `;
 
-const Icon = styled.div`
-    margin-right: 4px;
-    display: flex;
-    align-items: center;
-`;
-
 const FilterName = styled.div`
     margin-right: 2px;
-    color: ${SEARCH_COLORS.LINK_BLUE};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     align-items: center;
 `;
@@ -96,10 +90,7 @@ export default function SelectedFilter({
             data-testid={`active-filter-${field.field}`}
             key={`${field.field}-${operator}-${values.map((value) => value.value).join('-')}`}
         >
-            <FilterName>
-                {(field.icon && <Icon>{field.icon}</Icon>) || null}
-                {displayName || field.field}
-            </FilterName>
+            <FilterName>{displayName || field.field}</FilterName>
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
             {showValueSelector && useDatePicker && (
                 <DatePicker

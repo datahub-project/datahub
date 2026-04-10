@@ -232,6 +232,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
+            autocommit
         />
     );
 };

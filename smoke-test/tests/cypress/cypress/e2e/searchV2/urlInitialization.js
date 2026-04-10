@@ -49,6 +49,9 @@ describe("searchBarV2 - URL Initialization", () => {
 
     helper.ensureItIsSearchPage();
 
-    helper.ensureFilterAppliedOnSearchPage("Platform", "Kafka");
+    helper.ensureFilterAppliedOnSearchPage(
+      "Platform",
+      "urn:li:dataPlatform:kafka",
+    );
   });
 });

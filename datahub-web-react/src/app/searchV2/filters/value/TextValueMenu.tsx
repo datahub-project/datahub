@@ -1,50 +1,44 @@
-import { Button, Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import { FilterField, FilterValue } from '@app/searchV2/filters/types';
 import TextValueInput from '@app/searchV2/filters/value/TextValueInput';
 
-const Container = styled.div`
-    padding: 16px;
-    background-color: #ffffff;
-    box-shadow:
-        0 3px 6px -4px rgba(0, 0, 0, 0.12),
-        0 6px 16px 0 rgba(0, 0, 0, 0.08),
-        0 9px 28px 8px rgba(0, 0, 0, 0.05);
-    border-radius: 8px;
+const Container = styled.div<{ $shouldAddWrapperStyles: boolean }>`
+    ${({ $shouldAddWrapperStyles, theme }) =>
+        $shouldAddWrapperStyles &&
+        `
+        padding: 16px;
+        background-color: ${theme.colors.bg};
+        box-shadow: ${theme.colors.shadowMd};
+        border-radius: 12px;
+    `}
 `;
 
-const Title = styled(Typography.Title)`
-    padding-bottom: 4px;
-`;
-
-const UpdateButton = styled(Button)`
-    margin-top: 12px;
+const Title = styled(Text).attrs({ weight: 'semiBold' })`
+    color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 interface Props {
     field: FilterField;
     values: FilterValue[];
     onChangeValues: (newValues: FilterValue[]) => void;
-    onApply: () => void;
+    isRenderedInSubMenu?: boolean;
 }
 
-export default function TextValueMenu({ field, values, onChangeValues, onApply }: Props) {
+export default function TextValueMenu({ field, values, onChangeValues, isRenderedInSubMenu }: Props) {
     const { displayName } = field;
     const value = values.length > 0 ? values[0].displayName || values[0].value : '';
 
     return (
-        <Container>
-            <Title level={5}>{`Filter by ${displayName}`}</Title>
+        <Container $shouldAddWrapperStyles={!isRenderedInSubMenu}>
+            <Title>{`Filter by ${displayName}`}</Title>
             <TextValueInput
                 name={displayName}
                 value={value}
                 onChangeValue={(v) => onChangeValues([{ value: v, entity: null }])}
             />
-            <UpdateButton type="primary" onClick={onApply}>
-                Apply
-            </UpdateButton>
         </Container>
     );
 }

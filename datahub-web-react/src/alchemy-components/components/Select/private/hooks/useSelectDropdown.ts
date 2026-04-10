@@ -9,18 +9,33 @@ export default function useSelectDropdown(
     dropdownRef: React.RefObject<Element>,
     visibilityDeps: React.DependencyList = [],
     onClose?: () => void,
+    onOpen?: () => void,
 ) {
     const [isOpen, setIsOpen] = useState<boolean>(defaultOpen);
     const isVisible = useIsVisible(selectRef, visibilityDeps);
 
-    const open = useCallback(() => setIsOpen(true), []);
+    const open = useCallback(() => {
+        if (!isOpen) {
+            setIsOpen(true);
+            onOpen?.();
+        }
+    }, [onOpen, isOpen]);
 
     const close = useCallback(() => {
-        setIsOpen(false);
-        onClose?.();
-    }, [onClose]);
+        if (isOpen) {
+            setIsOpen(false);
+            onClose?.();
+        }
+    }, [onClose, isOpen]);
 
-    const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
+    const toggle = useCallback(() => {
+        const newIsOpen = !isOpen;
+        if (newIsOpen) {
+            open();
+        } else {
+            close();
+        }
+    }, [isOpen, open, close]);
 
     // Automaticly closes the dropdown when a click is outside of the select or it's dropdown
     useClickOutside(close, { wrappers: [selectRef, dropdownRef] });

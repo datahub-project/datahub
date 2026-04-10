@@ -1,22 +1,25 @@
-import type { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
-import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
 import dayjs from '@utils/dayjs';
 
-const FilterOptionWrapper = styled.div`
+interface TimeBucketOptionType {
+    key: string;
+    label: string;
+    timestamp: string;
+}
+
+const TimeBucketOption = styled.div<{ $isSelected: boolean }>`
     display: flex;
     align-items: center;
-
-    margin: 0 4px;
-    padding: 10px;
-
+    padding: 8px 4px;
     border-radius: 8px;
-
     font-size: 14px;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSelectedSubtle : 'transparent')};
 
     &:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
@@ -27,46 +30,47 @@ interface Props {
     field: TimeBucketFilterField;
     values: FilterValue[];
     onChangeValues: (newValues: FilterValue[]) => void;
-    onApply: () => void;
-    type?: 'card' | 'default';
     className?: string;
+    isRenderedInSubMenu?: boolean;
 }
 
-export default function TimeBucketMenu({ field, values, type = 'card', onChangeValues, onApply, className }: Props) {
-    const filterMenuOptions = useMemo(
+export default function TimeBucketMenu({ field, values, onChangeValues, className, isRenderedInSubMenu }: Props) {
+    const options = useMemo(
         () =>
-            field.options.map(({ label, startOffsetMillis }): ItemType => {
+            field.options.map(({ label, startOffsetMillis }): TimeBucketOptionType => {
                 const timestamp = dayjs()
                     .subtract(startOffsetMillis, 'milliseconds')
                     .startOf('day')
                     .valueOf()
                     .toString();
-                return {
-                    key: timestamp,
-                    label: <FilterOptionWrapper>{label}</FilterOptionWrapper>,
-                    onClick: () => onChangeValues([{ value: timestamp, entity: null }]),
-                };
+                return { key: timestamp, label, timestamp };
             }),
-        [field.options, onChangeValues],
+        [field.options],
     );
 
     const selectedKey = useMemo(
-        () => filterMenuOptions.find((option) => values.length && option?.key === values[0].value)?.key,
-        [filterMenuOptions, values],
+        () => options.find((option) => values.length && option.key === values[0].value)?.key,
+        [options, values],
     );
 
     return (
         <OptionsDropdownMenu
             menu={
-                <OptionMenu
-                    items={filterMenuOptions}
-                    selectedKeys={selectedKey ? [selectedKey.toString()] : undefined}
-                />
+                <div>
+                    {options.map((option) => (
+                        <TimeBucketOption
+                            key={option.key}
+                            $isSelected={option.key === selectedKey}
+                            onClick={() => onChangeValues([{ value: option.timestamp, entity: null }])}
+                        >
+                            {option.label}
+                        </TimeBucketOption>
+                    ))}
+                </div>
             }
-            updateFilters={onApply}
             showSearchBar={false}
-            type={type}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }

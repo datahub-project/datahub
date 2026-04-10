@@ -79,6 +79,7 @@ export const FilterSelect = ({
             dataTestId="filter"
             shouldAlwaysSyncParentValues
             hideParentCheckbox
+            autocommit
         />
     );
 };

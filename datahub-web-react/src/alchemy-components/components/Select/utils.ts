@@ -114,7 +114,7 @@ export const getMinHeight = (size) => {
 };
 
 export const getSelectStyle = (props: SelectStyleProps & { theme?: DefaultTheme }) => {
-    const { isDisabled, isReadOnly, fontSize, isOpen, theme } = props;
+    const { isDisabled, isReadOnly, isActive, fontSize, isOpen, theme } = props;
     const themeColors = theme?.colors;
 
     const baseStyle = {
@@ -137,7 +137,13 @@ export const getSelectStyle = (props: SelectStyleProps & { theme?: DefaultTheme 
                   outline: `1px solid ${themeColors?.borderBrandFocused}`,
               }
             : {}),
-
+        ...(isActive
+            ? {
+                  borderColor: themeColors?.borderBrand,
+                  backgroundColor: themeColors?.bgActive,
+                  color: themeColors?.textBrand,
+              }
+            : {}),
         ...(isDisabled || isReadOnly || isOpen
             ? {}
             : {

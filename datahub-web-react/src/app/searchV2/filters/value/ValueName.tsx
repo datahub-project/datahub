@@ -1,5 +1,5 @@
-import { Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { FieldType, FilterField, FilterValue } from '@app/searchV2/filters/types';
@@ -8,6 +8,10 @@ import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value
 import { UNIT_SEPARATOR } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
+
+const PathSeparator = styled.span`
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
 
 function getTextFieldName(field: FilterField, value: FilterValue) {
     let textFieldName = value.displayName || value.value;
@@ -38,18 +42,14 @@ export default function ValueName({ field, value }: Props) {
         case FieldType.NESTED_ENTITY_TYPE:
             return <> {getEntityTypeFilterValueDisplayName(value.value, entityRegistry)}</>;
         case FieldType.BROWSE_PATH: {
-            // TODO: Break this into a separate component.
             const pathParts = value.value.split(UNIT_SEPARATOR).filter((part) => part);
             return (
                 <>
                     {pathParts.map((part, index) => (
-                        <>
+                        <React.Fragment key={part}>
                             {part}
-                            {(index < pathParts.length - 1 && (
-                                <Typography.Text type="secondary"> / </Typography.Text>
-                            )) ||
-                                undefined}
-                        </>
+                            {index < pathParts.length - 1 && <PathSeparator> / </PathSeparator>}
+                        </React.Fragment>
                     ))}
                 </>
             );

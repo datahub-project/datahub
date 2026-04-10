@@ -11,7 +11,7 @@ interface Props<OptionType extends NestedSelectOption> {
     areParentsSelectable: boolean;
     addOptions: (nodes: OptionType[]) => void;
     removeOptions: (nodes: OptionType[]) => void;
-    setSelectedOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
+    setSelectedOptions: (nodes: OptionType[]) => void;
     handleOptionChange: (node: OptionType) => void;
     isMultiSelect: boolean;
 }

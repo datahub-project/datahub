@@ -4,12 +4,12 @@ import styled from 'styled-components/macro';
 
 import { getPlatformName } from '@app/entity/shared/utils';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
+import { getParentEntities } from '@app/entityV2/shared/utils/getParentEntities';
 import AutoCompleteEntityIcon from '@app/searchV2/autoComplete/AutoCompleteEntityIcon';
 import AutoCompletePlatformNames from '@app/searchV2/autoComplete/AutoCompletePlatformNames';
 import { SuggestionText } from '@app/searchV2/autoComplete/styledComponents';
 import { getAutoCompleteEntityText } from '@app/searchV2/autoComplete/utils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
-import { getParentEntities } from '@app/searchV2/filters/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';

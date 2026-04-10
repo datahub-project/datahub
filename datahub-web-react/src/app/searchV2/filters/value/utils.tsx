@@ -97,7 +97,6 @@ export const useLoadAggregationOptions = ({
         return {
             value: aggregation.value,
             entity: aggregation.entity,
-            icon: field.icon,
             count: includeCounts ? aggregation.count : undefined,
             displayName: getStructuredPropFilterDisplayName(field.field, aggregation.value, field.entity),
         };
@@ -145,13 +144,11 @@ export const useLoadSearchOptions = (field: EntityFilterField, query?: string, s
             return {
                 value: entity.urn,
                 entity,
-                icon: field.icon,
             };
         });
     const searchOptions = searchData?.searchAcrossEntities?.searchResults?.map((result) => ({
         value: result.entity.urn,
         entity: result.entity,
-        icon: field.icon,
     }));
 
     return { options: options || searchOptions || [], loading: loading || searchLoading };

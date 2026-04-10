@@ -1,12 +1,12 @@
 import { Modal } from '@components';
 import { Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { getParentEntities } from '@app/entityV2/shared/utils/getParentEntities';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
-import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import TermLabel from '@app/shared/TermLabel';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
@@ -37,6 +37,7 @@ interface Props {
 
 function AddRelatedTermsModal(props: Props) {
     const { onClose, relationshipType } = props;
+    const theme = useTheme();
 
     const [inputValue, setInputValue] = useState('');
     const [selectedUrns, setSelectedUrns] = useState<any[]>([]);
@@ -168,7 +169,7 @@ function AddRelatedTermsModal(props: Props) {
                     alignItems: 'center',
                     whiteSpace: 'nowrap',
                     opacity: 1,
-                    color: '#434343',
+                    color: theme.colors.text,
                     lineHeight: '16px',
                 }}
             >

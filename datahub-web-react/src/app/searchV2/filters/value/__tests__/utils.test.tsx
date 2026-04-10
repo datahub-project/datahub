@@ -1,26 +1,42 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FieldType, FilterField, FilterOperatorType, FilterValueOption } from '@app/searchV2/filters/types';
+import {
+    EntityFilterField,
+    FieldType,
+    FilterField,
+    FilterOperatorType,
+    FilterValueOption,
+} from '@app/searchV2/filters/types';
 import {
     deduplicateOptions,
     getDefaultFieldOperatorType,
     getEntityTypeFilterValueDisplayName,
     mapFilterCountsToZero,
+    useFilterOptionsBySearchQuery,
     useLoadAggregationOptions,
+    useLoadSearchOptions,
 } from '@app/searchV2/filters/value/utils';
 import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
 
-import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import {
+    useAggregateAcrossEntitiesQuery,
+    useGetAutoCompleteMultipleResultsQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '@graphql/search.generated';
+import { Dataset, EntityType } from '@types';
 
 // Mock the GraphQL queries
-vi.mock('@graphql/search.generated', () => ({
-    useAggregateAcrossEntitiesQuery: vi.fn(),
-    useGetAutoCompleteMultipleResultsQuery: vi.fn(),
-    useGetSearchResultsForMultipleQuery: vi.fn(),
-}));
+vi.mock('@graphql/search.generated', async (importOriginal) => {
+    const actual = (await importOriginal()) as any;
+    return {
+        ...actual,
+        useAggregateAcrossEntitiesQuery: vi.fn(),
+        useGetAutoCompleteMultipleResultsQuery: vi.fn(),
+        useGetSearchResultsForMultipleQuery: vi.fn(),
+    };
+});
 
 // Mock the search query inputs hook
 vi.mock('@src/app/search/useGetSearchQueryInputs', () => ({
@@ -215,14 +231,12 @@ describe('useLoadAggregationOptions', () => {
         expect(result.current.options[0]).toEqual({
             value: 'snowflake',
             entity: null,
-            icon: undefined,
             count: 10,
             displayName: undefined,
         });
         expect(result.current.options[1]).toEqual({
             value: 'bigquery',
             entity: null,
-            icon: undefined,
             count: 5,
             displayName: undefined,
         });
@@ -403,5 +417,246 @@ describe('getDefaultFieldOperatorType', () => {
 
         expect(getDefaultFieldOperatorType(enumField)).toBe(FilterOperatorType.EQUALS);
         expect(getDefaultFieldOperatorType(booleanField)).toBe(FilterOperatorType.EQUALS);
+    });
+});
+
+describe('useFilterOptionsBySearchQuery', () => {
+    const mockOptions: FilterValueOption[] = [
+        { value: 'option1', displayName: 'First Option' },
+        { value: 'option2', displayName: 'Second Option' },
+        { value: 'option3', displayName: 'Third Option' },
+        { value: 'option4', displayName: 'Apple' },
+    ];
+
+    it('should return all options when no search query', () => {
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(mockOptions, undefined));
+
+        expect(result.current).toEqual(mockOptions);
+    });
+
+    it('should return all options when search query is empty', () => {
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(mockOptions, ''));
+
+        expect(result.current).toEqual(mockOptions);
+    });
+
+    it('should filter options by display name', () => {
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(mockOptions, 'first'));
+
+        expect(result.current).toHaveLength(1);
+        expect(result.current[0].value).toBe('option1');
+    });
+
+    it('should filter options case-insensitively', () => {
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(mockOptions, 'FIRST'));
+
+        expect(result.current).toHaveLength(1);
+        expect(result.current[0].value).toBe('option1');
+    });
+
+    it('should filter options by value when no display name', () => {
+        const optionsWithoutDisplayName: FilterValueOption[] = [
+            { value: 'option1', displayName: undefined },
+            { value: 'option2', displayName: undefined },
+        ];
+
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(optionsWithoutDisplayName, 'option1'));
+
+        expect(result.current).toHaveLength(1);
+        expect(result.current[0].value).toBe('option1');
+    });
+
+    it('should return empty array when no matches', () => {
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(mockOptions, 'nonexistent'));
+
+        expect(result.current).toHaveLength(0);
+    });
+
+    it('should handle options with entity', () => {
+        const optionsWithEntity: FilterValueOption[] = [
+            {
+                value: 'urn:li:dataset:1',
+                entity: { type: EntityType.Dataset, name: 'My Dataset' } as Dataset,
+            },
+            {
+                value: 'urn:li:dataset:2',
+                entity: { type: EntityType.Dataset, name: 'Another Dataset' } as Dataset,
+            },
+        ];
+
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(optionsWithEntity, 'my'));
+
+        expect(result.current).toHaveLength(1);
+        expect(result.current[0].value).toBe('urn:li:dataset:1');
+    });
+
+    it('should handle special characters in search query', () => {
+        const optionsWithSpecialChars: FilterValueOption[] = [
+            { value: 'option1', displayName: 'Test_Option_1' },
+            { value: 'option2', displayName: 'Different Option' },
+        ];
+
+        const { result } = renderHook(() => useFilterOptionsBySearchQuery(optionsWithSpecialChars, 'test_option'));
+
+        // The filter normalizes by removing underscores/spaces, so both "Test_Option_1" and "test_option" match
+        expect(result.current).toHaveLength(1);
+        expect(result.current[0].value).toBe('option1');
+    });
+});
+
+describe('useLoadSearchOptions', () => {
+    const mockField: EntityFilterField = {
+        field: 'tags',
+        type: FieldType.ENTITY,
+        displayName: 'Tags',
+        entityTypes: [EntityType.Tag],
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should skip queries when skip is true', () => {
+        (useGetAutoCompleteMultipleResultsQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        const { result } = renderHook(() => useLoadSearchOptions(mockField, 'test', true));
+
+        // When skip is true, both queries should be skipped internally
+        expect(result.current.loading).toBe(false);
+        expect(result.current.options).toEqual([]);
+    });
+
+    it('should skip queries when query is not provided', () => {
+        (useGetAutoCompleteMultipleResultsQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        const { result } = renderHook(() => useLoadSearchOptions(mockField, undefined, false));
+
+        // When query is undefined, should skip and return empty
+        expect(result.current.loading).toBe(false);
+        expect(result.current.options).toEqual([]);
+    });
+
+    it('should return autocomplete results when query is provided', () => {
+        const mockAutoCompleteData = {
+            autoCompleteForMultiple: {
+                suggestions: [
+                    {
+                        type: EntityType.Tag,
+                        entities: [
+                            { urn: 'urn:li:tag:1', name: 'Tag 1' },
+                            { urn: 'urn:li:tag:2', name: 'Tag 2' },
+                        ],
+                    },
+                ],
+            },
+        };
+
+        (useGetAutoCompleteMultipleResultsQuery as any).mockReturnValue({
+            data: mockAutoCompleteData,
+            loading: false,
+        });
+
+        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        const { result } = renderHook(() => useLoadSearchOptions(mockField, 'test', false));
+
+        expect(result.current.loading).toBe(false);
+        expect(result.current.options).toHaveLength(2);
+        expect(result.current.options[0].value).toBe('urn:li:tag:1');
+        expect(result.current.options[1].value).toBe('urn:li:tag:2');
+    });
+
+    it('should return search results when no query but not skipped', () => {
+        const mockSearchData = {
+            searchAcrossEntities: {
+                searchResults: [
+                    { entity: { urn: 'urn:li:dataset:1', name: 'Dataset 1' } },
+                    { entity: { urn: 'urn:li:dataset:2', name: 'Dataset 2' } },
+                ],
+            },
+        };
+
+        (useGetAutoCompleteMultipleResultsQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({
+            data: mockSearchData,
+            loading: false,
+        });
+
+        // When query is empty string, autocomplete is skipped but search runs
+        const { result } = renderHook(() => useLoadSearchOptions(mockField, '', false));
+
+        expect(result.current.loading).toBe(false);
+        expect(result.current.options).toHaveLength(2);
+        expect(result.current.options[0].value).toBe('urn:li:dataset:1');
+    });
+
+    it('should return empty options when no data available', () => {
+        (useGetAutoCompleteMultipleResultsQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        const { result } = renderHook(() => useLoadSearchOptions(mockField, 'test', false));
+
+        expect(result.current.loading).toBe(false);
+        expect(result.current.options).toEqual([]);
+    });
+
+    it('should return loading state correctly', () => {
+        (useGetAutoCompleteMultipleResultsQuery as any).mockReturnValue({
+            data: null,
+            loading: true,
+        });
+
+        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        const { result } = renderHook(() => useLoadSearchOptions(mockField, 'test', false));
+
+        expect(result.current.loading).toBe(true);
+    });
+
+    it('should combine loading states from both queries', () => {
+        (useGetAutoCompleteMultipleResultsQuery as any).mockReturnValue({
+            data: null,
+            loading: false,
+        });
+
+        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({
+            data: null,
+            loading: true,
+        });
+
+        const { result } = renderHook(() => useLoadSearchOptions(mockField, '', false));
+
+        expect(result.current.loading).toBe(true);
     });
 });

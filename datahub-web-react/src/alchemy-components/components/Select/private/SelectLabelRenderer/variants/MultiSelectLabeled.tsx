@@ -5,14 +5,14 @@ import { ActionButtonsContainer, LabelsWrapper, SelectValue } from '@components/
 import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
 
 export default function MultiSelectLabeled<OptionType extends SelectOption>({
-    selectedOptions,
+    selectedValues,
     label,
 }: SelectLabelVariantProps<OptionType>) {
     return (
         <LabelsWrapper shouldShowGap={false}>
             <ActionButtonsContainer>
                 <SelectValue>{label}</SelectValue>
-                {selectedOptions.length > 0 && <Pill label={`${selectedOptions.length}`} size="sm" variant="filled" />}
+                {selectedValues.length > 0 && <Pill label={`${selectedValues.length}`} size="sm" variant="filled" />}
             </ActionButtonsContainer>
         </LabelsWrapper>
     );
