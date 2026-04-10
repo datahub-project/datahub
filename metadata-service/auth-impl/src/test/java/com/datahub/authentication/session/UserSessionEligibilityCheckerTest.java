@@ -107,7 +107,8 @@ public class UserSessionEligibilityCheckerTest {
   }
 
   @Test
-  public void testInactiveCorpUserInfo() {
+  public void testInactiveCorpUserInfoIsIgnored() {
+    // corpUserInfo.active is deprecated since 2021 — should NOT block login
     CorpUserKey key = new CorpUserKey().setUsername("eligibilitytest");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
     Map<String, RecordTemplate> aspects = new HashMap<>();
@@ -116,8 +117,7 @@ public class UserSessionEligibilityCheckerTest {
     stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
-    assertEquals(
-        checker.checkEligibility(opContext, USER, true), Optional.of(LoginDenialReason.INACTIVE));
+    assertTrue(checker.checkEligibility(opContext, USER, true).isEmpty());
   }
 
   @Test
