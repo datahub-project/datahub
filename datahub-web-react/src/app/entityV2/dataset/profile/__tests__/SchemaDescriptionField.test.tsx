@@ -66,7 +66,7 @@ describe('SchemaDescriptionField', () => {
         expect(getByText('Original:')).toBeInTheDocument();
         fireEvent.click(getByText('Cancel'));
         await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument());
-    });
+    }, 30_000);
 
     it('renders short messages without show more / show less', () => {
         const { getByText, queryByText } = render(

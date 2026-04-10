@@ -286,7 +286,7 @@ confluence = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -347,7 +347,7 @@ datahub-documents = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -898,7 +898,7 @@ notion = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -1292,6 +1292,26 @@ starburst-trino-usage = [
     "trino[sqlalchemy]>=0.308,<=0.336.0",
 ]
 
+starrocks = [
+    "acryl-datahub-classify==0.0.11",
+    "acryl-great-expectations==0.15.50.1",
+    "cachetools<6.0.0",
+    "greenlet<4.0.0",
+    "IPython!=8.22.0,<9.0.0",
+    "jupyter_server>=2.14.1,<3.0.0",
+    "lark>=1.3.1,<2.0",
+    "numpy<2",
+    "patchy==2.8.0",
+    "pip",
+    "schwifty<2026.0.0",
+    "scipy>=1.7.2,<2.0.0",
+    "sqlalchemy>=1.4.39,<2",
+    "sqlglot[c]==30.0.3",
+    "sqlparse<0.6.0",
+    "starrocks>=1.3.3,<2.0",
+    "traitlets!=5.2.2,<6.0.0",
+]
+
 superset = [
     "patchy==2.8.0",
     "requests<3.0.0",
@@ -1373,7 +1393,7 @@ unstructured = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -1455,7 +1475,8 @@ all = [
     "jsonpath-ng==1.7.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.80.5",
+    "lark>=1.3.1,<2.0",
+    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1516,6 +1537,7 @@ all = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
+    "starrocks>=1.3.3,<2.0",
     "stopit==1.1.2",
     "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
@@ -1607,7 +1629,7 @@ dev = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1798,7 +1820,7 @@ docs = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1960,6 +1982,7 @@ integration-tests = [
     "JPype1<2.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
+    "lark>=1.3.1,<2.0",
     "more-itertools>=8.12.0,<11.0.0",
     "moto[s3]>=5.0.0,<6.0.0",
     "numpy<2",
@@ -1998,6 +2021,7 @@ integration-tests = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
+    "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -2092,6 +2116,7 @@ tableau = "datahub.ingestion.source.tableau.tableau:TableauSource"
 openapi = "datahub.ingestion.source.openapi:OpenApiSource"
 metabase = "datahub.ingestion.source.metabase:MetabaseSource"
 teradata = "datahub.ingestion.source.sql.teradata:TeradataSource"
+starrocks = "datahub.ingestion.source.sql.starrocks:StarRocksSource"
 trino = "datahub.ingestion.source.sql.trino:TrinoSource"
 starburst-trino-usage = "datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource"
 nifi = "datahub.ingestion.source.nifi:NifiSource"

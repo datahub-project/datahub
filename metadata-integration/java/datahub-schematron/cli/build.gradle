@@ -16,8 +16,7 @@ dependencies {
     // Existing dependencies remain unchanged
     implementation 'info.picocli:picocli:4.7.5'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.5'
-    implementation 'ch.qos.logback:logback-classic:1.2.11'
-    implementation 'ch.qos.logback:logback-core:1.2.11'
+    implementation externalDependency.logbackClassic
     implementation project(':metadata-integration:java:datahub-client')
     implementation project(':metadata-integration:java:datahub-schematron:lib')
     implementation externalDependency.avro
