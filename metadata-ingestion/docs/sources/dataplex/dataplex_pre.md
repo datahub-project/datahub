@@ -86,3 +86,8 @@ Grant the following permissions to the service account on all target projects.
 | -------------------------- | ----------------------------------------- |
 | `datalineage.links.get`    | Allows a user to view lineage links       |
 | `datalineage.links.search` | Allows a user to search for lineage links |
+
+Additional asset-specific viewer roles:
+
+- `roles/aiplatform.viewer` (Vertex AI Viewer) is required when ingesting Vertex AI assets.
+- `roles/spanner.viewer` (Cloud Spanner Viewer) is required when ingesting Cloud Spanner assets.
