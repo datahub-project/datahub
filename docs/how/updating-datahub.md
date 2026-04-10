@@ -47,6 +47,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 - **(Operations / Helm)** Per-workload monitoring configuration is deprecated in favor of cluster-wide settings (`global.datahub.monitoring`).
+- **(Operations / Helm)** Enable global.datahub.systemUpdate.consolidatedUpgrade so upgrades run through the consolidated system-update path and the chart no longer relies on separate one-off setup jobs (e.g. mysql/ES setup jobs) for that flow.
 
 ### Other Notable Changes
 
