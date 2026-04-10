@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 
 import pydantic
 from pydantic import field_validator
+from sqlalchemy import text
 from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -51,8 +52,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     _Aspect,
 )
-from sqlalchemy import text
-
 from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
