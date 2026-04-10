@@ -129,13 +129,10 @@ const Header = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     flex: 1;
     flex-shrink: 0;
     padding: 0;
@@ -153,16 +150,13 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 12px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
     flex-direction: column;
     flex: 1;
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 100%;
     overflow: hidden;
 `;

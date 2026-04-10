@@ -93,6 +93,7 @@ export default interface ColorTheme {
     shadowInset: string;
     shadowNavbar: string;
     shadowDropBrandColor: string;
+    shadowViewSelect: string;
     // Overlays
     overlayLight: string;
     overlayMedium: string;

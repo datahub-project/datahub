@@ -1,4 +1,4 @@
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { Divider, Typography, message } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React, { useState } from 'react';
@@ -24,7 +24,7 @@ const DeprecatedContainer = styled.div`
     justify-content: center;
     gap: 4px;
     align-items: center;
-    color: ${colors.red[500]};
+    color: ${(props) => props.theme.colors.textError};
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
@@ -48,7 +48,7 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 14px;
 `;
 

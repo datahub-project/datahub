@@ -53,6 +53,7 @@ entities:
       - icebergCatalogInfo
       - logicalParent
       - assetSettings
+      - documentation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -87,6 +88,7 @@ entities:
       - incidentsSummary
       - testResults
       - dataTransformLogic
+      - documentation
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -112,6 +114,7 @@ entities:
       - forms
       - subTypes
       - testResults
+      - documentation
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -164,6 +167,7 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+      - documentation
   - name: dashboard
     keyAspect: dashboardKey
     searchGroup: primary
@@ -190,6 +194,7 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+      - documentation
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -210,6 +215,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - testResults
+      - documentation
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -286,6 +292,7 @@ entities:
       - forms
       - testResults
       - access
+      - documentation
   - name: tag
     category: core
     keyAspect: tagKey
@@ -429,6 +436,7 @@ entities:
       - versionProperties
       - subTypes
       - container
+      - documentation
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -452,6 +460,7 @@ entities:
       - subTypes
       - container
       - institutionalMemory
+      - documentation
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -486,6 +495,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - documentation
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -508,6 +518,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - documentation
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
