@@ -512,8 +512,8 @@ elasticsearch:
     countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
     countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
     createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
-    incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:false} # non-blocking incremental reindex with dual-write
-    rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:false} # dual-write to old backing index for rollback safety during incremental reindex
+    incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
+    rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -946,6 +946,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
+  migrateAspects:
+    enabled: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED:${ZDU_STAGE_20:false}}
+    batchSize: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS:1000}
+    limit: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_LIMIT:0}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
@@ -1091,8 +1096,8 @@ featureFlags:
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
-  zduStage10: ${ZDU_STAGE_10:false} # // ZDU rollout stage — numbered by 10s to allow future stages to be inserted between existing ones. ZDU pre-enablement stage
-  zduStage20: ${ZDU_STAGE_20:false} # // ZDU rollout stage: First ZDU release
+  createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
+  aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
