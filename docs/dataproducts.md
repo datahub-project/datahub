@@ -77,6 +77,24 @@ To remove an asset from a Data Product, click the 'x' icon on the Data Product l
 > Notice: Adding or removing an asset from a Data Product requires the `Edit Data Product` Metadata Privilege, which can be granted
 > by a [Policy](authorization/policies.md).
 
+#### Multiple Data Products per Asset
+
+**By default**, assets can be associated with multiple Data Products simultaneously. This provides flexibility for different organizational perspectives - for example, a dataset might be part of both a domain-specific product and a cross-functional analytics product.
+
+With this default behavior:
+
+- Assets can belong to multiple Data Products at once
+- The UI allows you to add an asset to multiple Data Products without removing it from existing ones
+- You can view all Data Products an asset belongs to from the asset's profile page
+
+If you prefer the behavior where an asset can only belong to a single Data Product at a time (automatically removing it from other Data Products when assigned to a new one), you can disable this feature by setting the `MULTIPLE_DATA_PRODUCTS_PER_ASSET` environment variable to `false`:
+
+```bash
+MULTIPLE_DATA_PRODUCTS_PER_ASSET=false
+```
+
+See the [Environment Variables](deploy/environment-vars.md#feature-flags) documentation for more details on configuring feature flags.
+
 ### Creating a Data Product (YAML + git)
 
 DataHub ships with a YAML-based Data Product spec for defining and managing Data Products as code.
@@ -94,7 +112,7 @@ Here is an example of a Data Product named "Pet of the Week" which belongs to th
 
 :::note
 
-When bare domain names like `Marketing` is used, `datahub` will first check if a domain like `urn:li:domain:Marketing` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then yaml-based ingestion will refuse to proceeed until the domain is provisioned on DataHub.
+When bare domain names like `Marketing` is used, `datahub` will first check if a domain like `urn:li:domain:Marketing` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then yaml-based ingestion will refuse to proceed until the domain is provisioned on DataHub.
 
 This applies to other fields as well, such as owners, ownership types, tags, and terms.
 

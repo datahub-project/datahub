@@ -1,5 +1,5 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown, Menu } from 'antd';
-import { DotsThreeVertical } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 

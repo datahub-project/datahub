@@ -2,7 +2,6 @@ import { Avatar } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -15,6 +14,7 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import dayjs from '@utils/dayjs';
 
 import { useDeletePostMutation } from '@graphql/post.generated';
 import { Post } from '@types';
@@ -171,9 +171,9 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
 
     const [deletePost] = useDeletePostMutation();
 
-    const time = moment(note.lastModified.time);
-    const isToday = time.isSame(moment(), 'day');
-    const isYesterday = time.isSame(moment().subtract(1, 'day'), 'day');
+    const time = dayjs(note.lastModified.time);
+    const isToday = time.isSame(dayjs(), 'day');
+    const isYesterday = time.isSame(dayjs().subtract(1, 'day'), 'day');
 
     // parsedName should strip the urn:li:corpuser: prefix from actor
     const parsedName = note?.lastModified?.actor?.split(':')?.slice(-1)[0] || '';

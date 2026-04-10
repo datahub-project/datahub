@@ -417,6 +417,19 @@ _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
 
+def _get_cli_context() -> Dict[str, str]:
+    """Read --context key=value pairs from the Click context, if available."""
+    try:
+        import click
+
+        ctx = click.get_current_context(silent=True)
+        if ctx and ctx.obj and isinstance(ctx.obj, dict):
+            return {f"ctx_{k}": v for k, v in ctx.obj.get("context", {}).items()}
+    except Exception:
+        pass
+    return {}
+
+
 def with_telemetry(
     *, capture_kwargs: Optional[List[str]] = None
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
@@ -431,6 +444,7 @@ def with_telemetry(
             telemetry_instance.init_capture_exception()
 
             call_props: Dict[str, Any] = {"function": function}
+            call_props.update(_get_cli_context())
             for kwarg in kwargs_to_track:
                 call_props[f"arg_{kwarg}"] = kwargs.get(kwarg)
 

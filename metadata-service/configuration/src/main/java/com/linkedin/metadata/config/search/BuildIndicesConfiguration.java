@@ -61,4 +61,18 @@ public class BuildIndicesConfiguration {
    * application.yaml.
    */
   private boolean createIndexRetryEnabled = true;
+
+  /**
+   * When true, enables non-blocking incremental reindex. Instead of blocking writes and swapping
+   * aliases in-place, creates 'next' indices, copies data via ES _reindex, and a catch-up step
+   * running to get the next index in line with any missed writes
+   */
+  private boolean incrementalReindexEnabled;
+
+  /**
+   * When true (and incrementalReindexEnabled is also true), the MAE consumer dual-writes to the old
+   * backing index for rollback safety. When false, Phase 2 marks all completed indices as
+   * DUAL_WRITE_DISABLED to prevent a later enable from writing to stale or deleted old indices.
+   */
+  private boolean rollbackDualWriteEnabled;
 }

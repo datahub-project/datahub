@@ -7,7 +7,19 @@ on:
     paths:
       - ".github/workflows/gx-plugin.yml"
       - "metadata-ingestion-modules/gx-plugin/**"
-      - "metadata-ingestion/**"
+      - "metadata-ingestion/setup.py"
+      - "metadata-ingestion/pyproject.toml"
+      - "metadata-ingestion/constraints.txt"
+      - "metadata-ingestion/src/datahub/cli/**"
+      - "metadata-ingestion/src/datahub/emitter/**"
+      - "metadata-ingestion/src/datahub/ingestion/api/**"
+      - "metadata-ingestion/src/datahub/ingestion/graph/**"
+      - "metadata-ingestion/src/datahub/ingestion/sink/**"
+      - "metadata-ingestion/src/datahub/ingestion/source/sql/sqlalchemy_uri_mapper.py"
+      - "metadata-ingestion/src/datahub/metadata/**"
+      - "metadata-ingestion/src/datahub/sql_parsing/**"
+      - "metadata-ingestion/src/datahub/testing/**"
+      - "metadata-ingestion/src/datahub/utilities/**"
       - "metadata-models/**"
   pull_request:
     branches:
@@ -15,7 +27,19 @@ on:
     paths:
       - ".github/workflows/gx-plugin.yml"
       - "metadata-ingestion-modules/gx-plugin/**"
-      - "metadata-ingestion/**"
+      - "metadata-ingestion/setup.py"
+      - "metadata-ingestion/pyproject.toml"
+      - "metadata-ingestion/constraints.txt"
+      - "metadata-ingestion/src/datahub/cli/**"
+      - "metadata-ingestion/src/datahub/emitter/**"
+      - "metadata-ingestion/src/datahub/ingestion/api/**"
+      - "metadata-ingestion/src/datahub/ingestion/graph/**"
+      - "metadata-ingestion/src/datahub/ingestion/sink/**"
+      - "metadata-ingestion/src/datahub/ingestion/source/sql/sqlalchemy_uri_mapper.py"
+      - "metadata-ingestion/src/datahub/metadata/**"
+      - "metadata-ingestion/src/datahub/sql_parsing/**"
+      - "metadata-ingestion/src/datahub/testing/**"
+      - "metadata-ingestion/src/datahub/utilities/**"
       - "metadata-models/**"
   release:
     types: [published]
@@ -49,7 +73,7 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
-      - uses: acryldata/sane-checkout-action@08678dd4305fbadf89b319c2d9392c56f8396dcb # v6
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}

@@ -3,6 +3,17 @@
 This is the canonical reference for working with the DataHub codebase. It applies to all coding
 agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 
+## Code Navigation (LSP)
+
+Prefer LSP tools over Grep for code navigation tasks:
+
+- Use `goToDefinition` to find where something is defined
+- Use `findReferences` to find all call sites
+- Use `workspaceSymbol` to find symbols by name
+- Use diagnostics after any edit to catch type errors immediately
+
+See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
+
 ## Essential Commands
 
 **Build and test:**
@@ -208,6 +219,17 @@ See `docs-website/AGENTS.md` for full pipeline details.
 3. Run `scripts/dev/datahub-dev.sh docs` to preview
 
 If `sidebars.js` is missing the entry, the build will warn about an unaccounted file.
+
+### Adding a DataHub Cloud release note
+
+Release notes live in `docs/managed-datahub/release-notes/` and follow the naming convention `v_0_3_<N>.md`.
+
+**CRITICAL**: Adding the markdown file alone is not enough — you must also add it to `sidebars.js`:
+
+1. Create `docs/managed-datahub/release-notes/v_0_3_<N>.md`
+2. Add `"docs/managed-datahub/release-notes/v_0_3_<N>"` as the **first entry** under `"DataHub Cloud Release History"` in `docs-website/sidebars.js` (newer releases go at the top)
+
+Forgetting step 2 means the release note is published but never appears in the sidebar navigation.
 
 ## Code Standards
 
@@ -418,7 +440,7 @@ When creating PRs, follow the template in `.github/pull_request_template.md`:
 <type>[optional scope]: <description>
 ```
 
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`, `chore`
 
 Example: `feat(parser): add ability to parse arrays`
 

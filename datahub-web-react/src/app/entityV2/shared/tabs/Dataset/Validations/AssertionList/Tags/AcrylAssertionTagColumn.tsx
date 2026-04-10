@@ -1,5 +1,5 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
-import { Plus } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

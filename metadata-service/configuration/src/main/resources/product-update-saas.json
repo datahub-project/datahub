@@ -4,7 +4,7 @@
   "requiredVersion": null,
   "header": null,
   "title": "DataHub Cloud March Updates",
-  "description": "Cross-platform context, now including Fabric",
+  "description": "Cross-platform context, now including Microsoft Fabric",
   "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-mar2026.png",
   "ctaText": "Learn more",
   "ctaLink": "https://datahub.com/blog/datahub-cloud-v0-3-17",

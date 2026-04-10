@@ -101,6 +101,7 @@ task checkLockFile(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('pyproject.toml')
   inputs.file file('scripts/generate_pyproject_deps.py')
   inputs.file file('scripts/verify_pyproject_equivalence.py')
+  inputs.file file('scripts/check_wheel_coverage.py')
   inputs.file file('uv.lock')
   inputs.file file('constraints.txt')
   outputs.file(sentinel_file)
@@ -110,6 +111,7 @@ task checkLockFile(type: Exec, dependsOn: installPackageOnly) {
     "uv lock --check && " +
     "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o /tmp/constraints-check.txt && " +
     "diff <(grep -v '^#' constraints.txt) <(grep -v '^#' /tmp/constraints-check.txt) && " +
+    "python scripts/check_wheel_coverage.py && " +
     "touch ${sentinel_file}"
 }
 
@@ -119,7 +121,8 @@ task updateLockFile(type: Exec, dependsOn: installPackageOnly) {
     "python scripts/generate_pyproject_deps.py && " +
     "python scripts/verify_pyproject_equivalence.py && " +
     "uv lock && " +
-    "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt"
+    "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt && " +
+    "python scripts/check_wheel_coverage.py"
 }
 
 task modelDocGen(type: Exec, dependsOn: [codegen]) {
@@ -323,6 +326,7 @@ task cleanPythonCache(type: Exec) {
 task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, checkLockFile]) {
   commandLine 'bash', '-c',
     venv_activate_command +
+    "cp constraints.txt src/datahub/constraints.txt && " +
     "uv pip install ${uv_build_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 

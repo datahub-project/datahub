@@ -21,6 +21,7 @@ from datahub.ingestion.source.kafka_connect.common import (
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
+    parse_topic_to_table_map,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
@@ -201,14 +202,7 @@ class SnowflakeSinkConnector(BaseConnector):
                 mappings = parse_comma_separated_list(
                     connector_manifest.config["snowflake.topic2table.map"]
                 )
-                for mapping in mappings:
-                    if ":" not in mapping:
-                        logger.warning(
-                            f"Invalid topic:table mapping format: '{mapping}'. Expected 'topic:table'."
-                        )
-                        continue
-                    topic, table = mapping.split(":", 1)  # Split only on first colon
-                    provided_topics_to_tables[topic.strip()] = table.strip()
+                provided_topics_to_tables = parse_topic_to_table_map(mappings)
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
@@ -339,6 +333,148 @@ class SnowflakeSinkConnector(BaseConnector):
 
 
 @dataclass
+class ClickHouseSinkConnector(BaseConnector):
+    @dataclass
+    class ClickHouseParser:
+        database: str
+        topics_to_tables: Dict[str, str]
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> ClickHouseParser:
+        database: str = connector_manifest.config.get(
+            ConnectorConfigKeys.CLICKHOUSE_DATABASE, "default"
+        )
+
+        # Parse user-provided topic-to-table map (format: "topic1=table1,topic2=table2")
+        provided_topics_to_tables: Dict[str, str] = {}
+        if connector_manifest.config.get(
+            ConnectorConfigKeys.CLICKHOUSE_TOPIC2TABLE_MAP
+        ):
+            try:
+                mappings = parse_comma_separated_list(
+                    connector_manifest.config[
+                        ConnectorConfigKeys.CLICKHOUSE_TOPIC2TABLE_MAP
+                    ]
+                )
+                for mapping in mappings:
+                    if "=" not in mapping:
+                        logger.warning(
+                            f"Invalid topic=table mapping format: '{mapping}'. Expected 'topic=table'."
+                        )
+                        continue
+                    topic, table = mapping.split("=", 1)
+                    provided_topics_to_tables[topic.strip()] = table.strip()
+            except Exception as e:
+                logger.warning(f"Failed to parse topic2TableMap: {e}")
+
+        # Get available topics
+        available_topics = set(
+            self.all_cluster_topics or connector_manifest.topic_names
+        )
+
+        # Filter to subscribed topics
+        subscribed_topics = set(self.get_topics_from_config())
+        if subscribed_topics:
+            topic_list = list(available_topics.intersection(subscribed_topics))
+        else:
+            topic_list = list(available_topics)
+
+        # Apply transforms
+        transform_result = get_transform_pipeline().apply_forward(
+            topic_list, connector_manifest.config
+        )
+        transformed_topics = transform_result.topics
+
+        topics_to_tables: Dict[str, str] = {}
+        for original_topic, transformed_topic in zip(
+            topic_list, transformed_topics, strict=False
+        ):
+            if original_topic in provided_topics_to_tables:
+                topics_to_tables[original_topic] = provided_topics_to_tables[
+                    original_topic
+                ]
+            else:
+                # Default: topic name = table name (using transformed topic)
+                topics_to_tables[original_topic] = transformed_topic
+
+        return self.ClickHouseParser(
+            database=database,
+            topics_to_tables=topics_to_tables,
+        )
+
+    def get_topics_from_config(self) -> List[str]:
+        config = self.connector_manifest.config
+
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
+
+        return []
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        return {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if k not in [ConnectorConfigKeys.CLICKHOUSE_PASSWORD]
+        }
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        try:
+            lineages: List[KafkaConnectLineage] = list()
+            parser = self.get_parser(self.connector_manifest)
+
+            for topic, table in parser.topics_to_tables.items():
+                target_dataset: str = f"{parser.database}.{table}"
+
+                fine_grained = self._extract_fine_grained_lineage(
+                    source_dataset=topic,
+                    source_platform=KAFKA,
+                    target_dataset=target_dataset,
+                    target_platform="clickhouse",
+                )
+
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_dataset=topic,
+                        source_platform=KAFKA,
+                        target_dataset=target_dataset,
+                        target_platform="clickhouse",
+                        fine_grained_lineages=fine_grained,
+                    )
+                )
+
+            return lineages
+        except ValueError as e:
+            self.report.warning(
+                f"Configuration error in ClickHouse sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+        except Exception as e:
+            self.report.warning(
+                f"Unexpected error resolving lineage for ClickHouse sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+
+        return []
+
+    def get_platform(self) -> str:
+        return "clickhouse"
+
+
+@dataclass
 class BigQuerySinkConnector(BaseConnector):
     @dataclass
     class BQParser:
@@ -347,6 +483,7 @@ class BigQuerySinkConnector(BaseConnector):
         sanitizeTopics: bool
         transforms: List[Dict[str, str]]
         topicsToTables: Optional[str] = None
+        topics2TableMap: Optional[Dict[str, str]] = None
         datasets: Optional[str] = None
         defaultDataset: Optional[str] = None
         version: str = "v1"
@@ -357,6 +494,18 @@ class BigQuerySinkConnector(BaseConnector):
     ) -> BQParser:
         project: str = connector_manifest.config["project"]
         sanitizeTopics: str = connector_manifest.config.get("sanitizeTopics") or "false"
+
+        # Support for both topic2Tables (legacy) and topic2table.map (new) for backward compatibility
+        # Legacy property topic2TableMap: https://docs.confluent.io/kafka-connectors/bigquery/current/kafka_connect_bigquery_config.html#csfle-and-cspe-configurations
+        # New version property topic2table.map: https://docs.confluent.io/cloud/current/connectors/cc-gcp-bigquery-storage-sink.html#insertion-and-ddl-support
+        topic2table_map_str: Optional[str] = connector_manifest.config.get(
+            "topic2table.map"
+        ) or connector_manifest.config.get("topic2TableMap")
+
+        topics2TableMap: Optional[Dict[str, str]] = None
+        if topic2table_map_str:
+            mappings = parse_comma_separated_list(topic2table_map_str)
+            topics2TableMap = parse_topic_to_table_map(mappings)
 
         # Parse ALL transforms (original BigQuery logic)
         transform_names: List[str] = (
@@ -393,6 +542,7 @@ class BigQuerySinkConnector(BaseConnector):
                 sanitizeTopics=sanitizeTopics.lower() == "true",
                 version="v2",
                 transforms=transforms,
+                topics2TableMap=topics2TableMap,
             )
         else:
             # v1 configuration: legacy format with regex-based dataset mapping
@@ -452,12 +602,17 @@ class BigQuerySinkConnector(BaseConnector):
     ) -> Optional[str]:
         if parser.version == "v2":
             dataset: Optional[str] = parser.defaultDataset
-            parts: List[str] = topic.split(":")
+            table = topic
+
+            # Parse topic format: "dataset:table" or just "table"
+            parts: List[str] = topic.split(":", 1)
             if len(parts) == 2:
                 dataset = parts[0]
                 table = parts[1]
-            else:
-                table = parts[0]
+
+            # Override table name if explicit mapping exists
+            if parser.topics2TableMap and topic in parser.topics2TableMap:
+                table = parser.topics2TableMap[topic]
         else:
             dataset = self.get_dataset_for_topic_v1(topic, parser)
             if dataset is None:
@@ -1126,4 +1281,7 @@ DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
 )
 CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
     "io.confluent.connect.jdbc.JdbcSinkConnector"
+)
+CLICKHOUSE_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.clickhouse.kafka.connect.ClickHouseSinkConnector"
 )

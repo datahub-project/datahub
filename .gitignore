@@ -2,6 +2,7 @@
 .project
 .settings
 .classpath
+.factorypath
 .gradle
 .idea
 *.iml
@@ -171,3 +172,4 @@ test-models/bin/
 
 # Git Worktree management (wtp)
 .wtp.yml
+.worktrees/
