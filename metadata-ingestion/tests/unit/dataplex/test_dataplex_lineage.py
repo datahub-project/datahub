@@ -467,7 +467,7 @@ def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
     edge = next(iter(edges))
     assert (
         edge.upstream_datahub_urn
-        == "urn:li:dataset:(urn:li:dataPlatform:pubsub,topic:acryl-staging.observe-topic,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:pubsub,acryl-staging.observe-topic,PROD)"
     )
     assert report.lineage_report.num_lineage_upstream_fqns_skipped == 0
 

@@ -8,6 +8,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<OwnershipPatchBuilder> {
@@ -15,43 +16,43 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
   private static final String BASE_PATH = "/owners/";
   private static final String OWNER_KEY = "owner";
   private static final String TYPE_KEY = "type";
+  private static final String TYPE_URN_KEY = "typeUrn";
 
   public OwnershipPatchBuilder addOwner(@Nonnull Urn owner, @Nonnull OwnershipType type) {
+    return addOwner(owner, type, null);
+  }
+
+  public OwnershipPatchBuilder addOwner(
+      @Nonnull Urn owner, @Nonnull OwnershipType type, @Nullable Urn typeUrn) {
     ObjectNode value = instance.objectNode();
     value.put(OWNER_KEY, owner.toString());
     value.put(TYPE_KEY, type.toString());
-
+    if (typeUrn != null) {
+      value.put(TYPE_URN_KEY, typeUrn.toString());
+    }
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.ADD.getValue(),
-            BASE_PATH + encodeValueUrn(owner) + "/" + encodeValue(type.toString()),
+            BASE_PATH
+                + encodeValueUrn(owner)
+                + "/"
+                + encodeValue(type.toString())
+                + "/"
+                + encodeValue(typeUrn != null ? typeUrn.toString() : "")
+                + "/",
             value));
-
     return this;
   }
 
-  /**
-   * Remove all ownership types for an owner
-   *
-   * @param owner
-   * @return
-   */
+  /** Removes all ownership entries for this owner. */
   public OwnershipPatchBuilder removeOwner(@Nonnull Urn owner) {
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(owner), null));
-
     return this;
   }
 
-  /**
-   * Removes a specific ownership type for a particular owner, a single owner may have multiple
-   * ownership types
-   *
-   * @param owner
-   * @param type
-   * @return
-   */
+  /** Removes all entries for a given owner with a specific ownership-type enum. */
   public OwnershipPatchBuilder removeOwnershipType(
       @Nonnull Urn owner, @Nonnull OwnershipType type) {
     pathValues.add(
@@ -59,6 +60,43 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
             PatchOperationType.REMOVE.getValue(),
             BASE_PATH + encodeValueUrn(owner) + "/" + encodeValue(type.toString()),
             null));
+    return this;
+  }
+
+  /** Removes all entries for a given owner with a specific ownership type and typeUrn. */
+  public OwnershipPatchBuilder removeOwner(
+      @Nonnull Urn owner, @Nonnull OwnershipType type, @Nonnull Urn typeUrn) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            BASE_PATH
+                + encodeValueUrn(owner)
+                + "/"
+                + encodeValue(type.toString())
+                + "/"
+                + encodeValue(typeUrn.toString()),
+            null));
+    return this;
+  }
+
+  public OwnershipPatchBuilder removeOwner(
+      @Nonnull Urn owner,
+      @Nonnull OwnershipType type,
+      @Nonnull Urn typeUrn,
+      @Nonnull Urn attributionSource) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            BASE_PATH
+                + encodeValueUrn(owner)
+                + "/"
+                + encodeValue(type.toString())
+                + "/"
+                + encodeValue(typeUrn.toString())
+                + "/"
+                + encodeValue(attributionSource.toString()),
+            null));
+
     return this;
   }
 
