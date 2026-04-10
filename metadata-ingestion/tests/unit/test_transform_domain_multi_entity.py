@@ -309,3 +309,124 @@ class TestCallbackBasedTransformers:
                     if any(o.owner == owner_urn for o in envelope.record.aspect.owners):
                         owner_found = True
         assert owner_found, "Owner should be added to container"
+
+
+# --- entity_types config restricts which types are processed ---
+
+
+class TestEntityTypesConfigRestriction:
+    """Verify that the entity_types config field restricts processing."""
+
+    DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)"
+    CONTAINER_URN = "urn:li:container:test_container_123"
+    DASHBOARD_URN = "urn:li:dashboard:(powerbi,my_dashboard)"
+
+    def test_simple_add_domain_restricted_to_dataset_only(self) -> None:
+        domain = builder.make_domain_urn("acryl.io")
+        output = _run_domain_transformer(
+            SimpleAddDomain,
+            {"domains": [domain], "entity_types": ["dataset"]},
+            self.DATASET_URN,
+            models.DomainsClass(domains=[]),
+        )
+        assert _has_domain_in_output(output, domain)
+
+    def test_simple_add_domain_restricted_skips_excluded_type(self) -> None:
+        domain = builder.make_domain_urn("acryl.io")
+        output = _run_domain_transformer(
+            SimpleAddDomain,
+            {"domains": [domain], "entity_types": ["dataset"]},
+            self.DASHBOARD_URN,
+            models.DomainsClass(domains=[]),
+        )
+        assert not _has_domain_in_output(output, domain)
+
+    def test_simple_add_domain_restricted_to_container_and_dashboard(self) -> None:
+        domain = builder.make_domain_urn("acryl.io")
+        for urn in [self.CONTAINER_URN, self.DASHBOARD_URN]:
+            output = _run_domain_transformer(
+                SimpleAddDomain,
+                {"domains": [domain], "entity_types": ["container", "dashboard"]},
+                urn,
+                models.DomainsClass(domains=[]),
+            )
+            assert _has_domain_in_output(output, domain), f"Failed for {urn}"
+
+        # dataset should be excluded
+        output = _run_domain_transformer(
+            SimpleAddDomain,
+            {"domains": [domain], "entity_types": ["container", "dashboard"]},
+            self.DATASET_URN,
+            models.DomainsClass(domains=[]),
+        )
+        assert not _has_domain_in_output(output, domain)
+
+    def test_simple_add_ownership_restricted_to_dataset_only(self) -> None:
+        from datahub.ingestion.transformer.add_ownership import SimpleAddOwnership
+        from datahub.metadata.schema_classes import OwnershipClass
+
+        owner_urn = "urn:li:corpuser:alice"
+        graph = mock.MagicMock()
+        pipeline_context = PipelineContext(run_id="test_ownership_entity_types")
+        pipeline_context.graph = graph
+
+        transformer = SimpleAddOwnership.create(
+            {
+                "owner_urns": [owner_urn],
+                "entity_types": ["dataset"],
+            },
+            pipeline_context,
+        )
+
+        # dataset should be processed
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=self.DATASET_URN,
+            aspect=OwnershipClass(owners=[]),
+        )
+        outputs = list(
+            transformer.transform(
+                [RecordEnvelope(r, metadata={}) for r in [mcp, EndOfStream()]]
+            )
+        )
+        owner_found = any(
+            isinstance(e.record, MetadataChangeProposalWrapper)
+            and isinstance(e.record.aspect, OwnershipClass)
+            and any(o.owner == owner_urn for o in e.record.aspect.owners)
+            for e in outputs
+        )
+        assert owner_found
+
+    def test_simple_add_ownership_restricted_skips_excluded_type(self) -> None:
+        from datahub.ingestion.transformer.add_ownership import SimpleAddOwnership
+        from datahub.metadata.schema_classes import OwnershipClass
+
+        owner_urn = "urn:li:corpuser:alice"
+        graph = mock.MagicMock()
+        pipeline_context = PipelineContext(run_id="test_ownership_entity_types_skip")
+        pipeline_context.graph = graph
+
+        transformer = SimpleAddOwnership.create(
+            {
+                "owner_urns": [owner_urn],
+                "entity_types": ["dataset"],
+            },
+            pipeline_context,
+        )
+
+        # container should be skipped
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=self.CONTAINER_URN,
+            aspect=OwnershipClass(owners=[]),
+        )
+        outputs = list(
+            transformer.transform(
+                [RecordEnvelope(r, metadata={}) for r in [mcp, EndOfStream()]]
+            )
+        )
+        owner_found = any(
+            isinstance(e.record, MetadataChangeProposalWrapper)
+            and isinstance(e.record.aspect, OwnershipClass)
+            and any(o.owner == owner_urn for o in e.record.aspect.owners)
+            for e in outputs
+        )
+        assert not owner_found

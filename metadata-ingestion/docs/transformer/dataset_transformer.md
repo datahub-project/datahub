@@ -4,7 +4,7 @@ title: "Dataset"
 
 # Dataset Transformers
 
-> **Looking for multi-entity support?** The transformers on this page only process dataset entities. To apply domains or ownership to containers, charts, dashboards, and other entity types, see [Multi-Entity Transformers](./multi_entity_transformers.md).
+> **Looking for multi-entity support?** The transformers on this page only process dataset entities. To apply domains or ownership to containers, charts, dashboards, and other entity types, see [Universal Transformers](./universal_transformers.md).
 
 The below table shows transformer which can transform aspects of entity [Dataset](../../../docs/generated/metamodel/entities/dataset.md).
 
@@ -133,7 +133,7 @@ transformers:
 
 ## Simple Add Dataset ownership
 
-> **Note:** Despite the name, this transformer already processes datasets, charts, dashboards, data jobs, and data flows. For container support as well, use [`simple_add_ownership`](./multi_entity_transformers.md#simple-add-ownership).
+> ⚠️ **Deprecated:** Use [`simple_add_ownership`](./universal_transformers.md#simple-add-ownership) instead, which supports all entity types. This transformer only processes datasets, charts, dashboards, data jobs, and data flows.
 
 ### Config Details
 
@@ -206,7 +206,7 @@ transformers:
 
 ## Pattern Add Dataset ownership
 
-> **Note:** Despite the name, this transformer already processes datasets, charts, dashboards, data jobs, and data flows. For container support as well, use [`pattern_add_ownership`](./multi_entity_transformers.md#pattern-add-ownership).
+> ⚠️ **Deprecated:** Use [`pattern_add_ownership`](./universal_transformers.md#pattern-add-ownership) instead, which supports all entity types. This transformer only processes datasets, charts, dashboards, data jobs, and data flows.
 
 ### Config Details
 
@@ -1231,7 +1231,7 @@ transformers:
 
 ## Simple Add Dataset domains
 
-> **Note:** This transformer only processes datasets. To apply domains to containers, charts, dashboards, and other entity types, use [`simple_add_domain`](./multi_entity_transformers.md#simple-add-domain).
+> ⚠️ **Deprecated:** Use [`simple_add_domain`](./universal_transformers.md#simple-add-domain) instead, which supports all entity types. This transformer only processes datasets.
 
 ### Config Details
 
@@ -1295,7 +1295,7 @@ transformers:
 
 ## Pattern Add Dataset domains
 
-> **Note:** This transformer only processes datasets. To apply domains to containers, charts, dashboards, and other entity types, use [`pattern_add_domain`](./multi_entity_transformers.md#pattern-add-domain).
+> ⚠️ **Deprecated:** Use [`pattern_add_domain`](./universal_transformers.md#pattern-add-domain) instead, which supports all entity types. This transformer only processes datasets.
 
 ### Config Details
 
