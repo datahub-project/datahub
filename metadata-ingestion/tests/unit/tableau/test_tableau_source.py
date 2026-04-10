@@ -17,6 +17,7 @@ from datahub.ingestion.source.tableau.tableau import (
     SiteIdContentUrl,
     TableauConfig,
     TableauPageSizeConfig,
+    TableauProject,
     TableauSiteSource,
     TableauSource,
     TableauSourceReport,
@@ -1013,3 +1014,117 @@ def test_table_lineage_without_columns():
             assert len(upstream_tables) == 1
             assert len(table_id_to_urn) == 1
             assert report.num_upstream_table_processed_without_columns == 1
+
+
+@freeze_time(FROZEN_TIME)
+def test_emit_datasource_does_not_add_embedded_ids_to_published_list():
+    """Embedded datasource IDs should not leak into datasource_ids_being_used,
+    which is the tracking list for published datasources.
+
+    Regression test for CUS-8144: embedded datasource IDs were incorrectly
+    added to the published datasource filter, causing phantom datasources
+    to appear during published datasource ingestion.
+    """
+    config = TableauConfig.parse_obj(
+        {
+            **default_config,
+            "extract_project_hierarchy": False,
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    site = SiteItem(name="test-site", content_url="test")
+    site._id = "test-site-id"
+    report = TableauSourceReport()
+
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+        source = TableauSiteSource(
+            config=config,
+            ctx=ctx,
+            site=site,
+            report=report,
+            server=mock.MagicMock(),
+            platform="tableau",
+        )
+
+        # Set up project registry and mappings so _get_datasource_project_luid succeeds
+        source.tableau_project_registry = {
+            "project-luid-1": TableauProject(
+                id="project-luid-1",
+                name="default",
+                description="",
+                parent_id=None,
+                parent_name=None,
+                path=["default"],
+            )
+        }
+        source.workbook_project_map = {"workbook-luid-1": "project-luid-1"}
+        source.datasource_project_map = {"published-ds-luid-1": "project-luid-1"}
+
+        embedded_datasource = {
+            c.ID: "embedded-ds-1",
+            c.NAME: "Embedded DS 1",
+            c.TYPE_NAME: c.EMBEDDED_DATA_SOURCE,
+            c.LUID: "embedded-ds-luid-1",
+            "hasExtracts": False,
+            "extractLastRefreshTime": None,
+            "extractLastIncrementalUpdateTime": None,
+            "extractLastUpdateTime": None,
+            "downstreamSheets": [],
+            "fields": [],
+            c.UPSTREAM_TABLES: [],
+            c.UPSTREAM_DATA_SOURCES: [],
+            c.WORKBOOK: {
+                c.ID: "workbook-1",
+                c.NAME: "Test Workbook",
+                c.LUID: "workbook-luid-1",
+                c.PROJECT_NAME: "default",
+                c.PROJECT_LUID: "project-luid-1",
+            },
+        }
+
+        published_datasource = {
+            c.ID: "published-ds-1",
+            c.NAME: "Published DS 1",
+            c.TYPE_NAME: c.PUBLISHED_DATA_SOURCE,
+            c.LUID: "published-ds-luid-1",
+            c.PROJECT_NAME: "default",
+            "hasExtracts": False,
+            "extractLastRefreshTime": None,
+            "extractLastIncrementalUpdateTime": None,
+            "extractLastUpdateTime": None,
+            "downstreamSheets": [],
+            "fields": [],
+            c.UPSTREAM_TABLES: [],
+            c.UPSTREAM_DATA_SOURCES: [],
+        }
+
+        workbook = {
+            c.ID: "workbook-1",
+            c.NAME: "Test Workbook",
+            c.LUID: "workbook-luid-1",
+            c.PROJECT_NAME: "default",
+            c.PROJECT_LUID: "project-luid-1",
+            "owner": {c.ID: "owner-1", "username": "testuser"},
+        }
+
+        # Emit an embedded datasource
+        list(
+            source.emit_datasource(
+                embedded_datasource, workbook=workbook, is_embedded_ds=True
+            )
+        )
+
+        # The embedded datasource ID should NOT appear in the published list
+        assert "embedded-ds-1" not in source.datasource_ids_being_used
+
+        # Emit a published datasource
+        list(
+            source.emit_datasource(
+                published_datasource, workbook=None, is_embedded_ds=False
+            )
+        )
+
+        # The published datasource ID SHOULD appear in the published list
+        assert "published-ds-1" in source.datasource_ids_being_used
+        # And the embedded one should still not be there
+        assert "embedded-ds-1" not in source.datasource_ids_being_used

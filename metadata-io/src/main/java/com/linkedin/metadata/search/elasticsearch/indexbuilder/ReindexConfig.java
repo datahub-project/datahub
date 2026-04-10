@@ -69,6 +69,13 @@ public class ReindexConfig {
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
 
+  /**
+   * True when the mapping diff contains new or modified fields that are NOT structured properties.
+   * New fields come from new {@code @Searchable} annotations and require backfill because the ES
+   * {@code _reindex} API only copies existing doc fields.
+   */
+  private final boolean requiresDataBackfill;
+
   private void restrictedMethod() throws IllegalAccessException {
     String allowed = "ReindexDebugStep";
     if (!isCalledFromReindexDebugStep(allowed)) {
@@ -266,6 +273,23 @@ public class ReindexConfig {
                 && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
                         .getFirst()
                     > 0;
+
+        // Detect new or modified non-structured-property fields that require DB backfill.
+        // New fields: _reindex won't populate them (they didn't exist in the source index).
+        // Modified fields: _reindex with conflicts:proceed may skip docs with incompatible values,
+        // and partial doc upserts from MCLs won't fix them unless the owning aspect is
+        // re-processed.
+        Set<String> newNonStructuredPropertyFields =
+            mappingsDiff.entriesOnlyOnRight().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .collect(Collectors.toSet());
+        Set<String> modifiedNonStructuredPropertyFields =
+            mappingsDiff.entriesDiffering().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .collect(Collectors.toSet());
+        super.requiresDataBackfill =
+            !newNonStructuredPropertyFields.isEmpty()
+                || !modifiedNonStructuredPropertyFields.isEmpty();
 
         if (super.requiresApplyMappings && super.isPureMappingsAddition) {
           log.info(

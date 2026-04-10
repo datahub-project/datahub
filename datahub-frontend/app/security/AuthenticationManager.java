@@ -1,6 +1,7 @@
 package security;
 
 import com.google.common.base.Preconditions;
+import com.linkedin.metadata.auth.LoginIdentityMask;
 import javax.annotation.Nonnull;
 import javax.naming.AuthenticationException;
 import javax.security.auth.callback.Callback;
@@ -31,10 +32,16 @@ public class AuthenticationManager {
       loginContext.login();
 
       // If we get here, authentication succeeded
-      log.debug("Authentication succeeded for user: {}", userName);
+      log.debug("Authentication succeeded for userRef: {}", LoginIdentityMask.mask(userName));
 
     } catch (LoginException le) {
-      log.info("Authentication failed for user {}: {}", userName, le.getMessage());
+      log.info(
+          "Authentication failed for userRef {}: event=auth_failure",
+          LoginIdentityMask.mask(userName));
+      log.debug(
+          "Authentication failed for userRef {}: {}",
+          LoginIdentityMask.mask(userName),
+          le.getMessage());
       AuthenticationException authenticationException =
           new AuthenticationException(le.getMessage());
       authenticationException.setRootCause(le);

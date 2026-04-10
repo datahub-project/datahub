@@ -64,6 +64,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.consistency",
       "com.linkedin.metadata.aspect.consistency.check",
       "com.linkedin.metadata.aspect.consistency.fix",
+      "com.linkedin.metadata.aspect.hooks.migrations",
     })
 @Slf4j
 @Configuration
