@@ -390,7 +390,7 @@ class CSVEnricherSource(Source):
         if len(structured_property_columns) <= 0:
             return []
 
-        property_values_by_urn: Dict[str, List[str]] = {}
+        property_values_by_urn: Dict[str, List[str | float]] = {}
         for column, raw_value in structured_property_columns.items():
             value = raw_value.strip()
             if len(value) <= 0:
