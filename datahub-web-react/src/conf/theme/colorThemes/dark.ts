@@ -96,6 +96,7 @@ const darkTheme: ColorTheme = {
     shadowInset: 'inset 0px 1px 3px rgba(0, 0, 0, 0.40)',
     shadowNavbar: '0px 2px 10px rgba(0, 0, 0, 0.40)',
     shadowDropBrandColor: 'rgba(33, 23, 95, 0.3)',
+    shadowViewSelect: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
 
     // Overlays
     overlayLight: 'rgba(255, 255, 255, 0.05)',

@@ -21,8 +21,8 @@ def dataplex_config() -> DataplexConfig:
     """Create a test configuration."""
     return DataplexConfig(
         project_ids=["test-project"],
-        entries_regions=["us"],
-        lineage_regions=["us-central1"],
+        entries_locations=["us"],
+        lineage_locations=["us-central1"],
         include_lineage=True,
     )
 
@@ -78,8 +78,8 @@ def test_lineage_extraction_disabled(
     """Test that lineage extraction is skipped when disabled."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        entries_regions=["us"],
-        lineage_regions=["us-central1"],
+        entries_locations=["us"],
+        lineage_locations=["us-central1"],
         include_lineage=False,  # Disabled
     )
 
@@ -193,7 +193,7 @@ def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
     )
 
     lineage_extractor.config.project_ids = ["test-project", "other-project"]
-    lineage_extractor.config.lineage_regions = ["us-central1", "europe-west1"]
+    lineage_extractor.config.lineage_locations = ["us-central1", "europe-west1"]
 
     lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
     lineage_client_mock.search_links.return_value = []  # type: ignore[union-attr]
@@ -289,7 +289,7 @@ def test_get_lineage_for_entry_requires_active_project_location_pairs() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
     extractor = DataplexLineageExtractor(
@@ -314,7 +314,7 @@ def test_get_lineage_for_entry_requires_active_project_location_pairs() -> None:
         extractor.get_lineage_for_entry(test_entry)  # type: ignore[call-arg]
 
 
-def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
+def test_get_lineage_for_entry_keeps_duplicates_from_multiple_locations(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
     test_entry = EntryDataTuple(
@@ -328,7 +328,7 @@ def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
         datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
     )
 
-    lineage_extractor.config.lineage_regions = ["us-central1", "us-east1"]
+    lineage_extractor.config.lineage_locations = ["us-central1", "us-east1"]
 
     duplicate_link = Mock()
     duplicate_link.name = "projects/123/locations/us-central1/links/p:shared"
@@ -351,7 +351,7 @@ def test_get_lineage_for_entry_keeps_duplicates_from_multiple_regions(
     ]
 
 
-def test_get_lineage_for_entry_continues_after_single_region_error(
+def test_get_lineage_for_entry_continues_after_single_location_error(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
     test_entry = EntryDataTuple(
@@ -366,14 +366,14 @@ def test_get_lineage_for_entry_continues_after_single_region_error(
     )
 
     lineage_extractor.config.project_ids = ["test-project"]
-    lineage_extractor.config.lineage_regions = ["me-central2", "us-central1"]
+    lineage_extractor.config.lineage_locations = ["me-central2", "us-central1"]
 
     successful_link = Mock()
     successful_link.source.fully_qualified_name = "bigquery:project.dataset.upstream_ok"
 
     def search_links_side_effect(request):
         if request.parent.endswith("/locations/me-central2"):
-            raise RuntimeError("region unsupported")
+            raise RuntimeError("location unsupported")
         return [successful_link]
 
     lineage_client_mock = cast(Mock, lineage_extractor.lineage_client)
@@ -405,7 +405,7 @@ def test_get_lineage_for_table_deduplicates_same_upstream_dataset() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
     extractor = DataplexLineageExtractor(
@@ -601,7 +601,7 @@ def test_build_lineage_map_skips_unsupported_upstream_platform() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
     mock_client = MagicMock()
@@ -645,7 +645,7 @@ def test_build_lineage_map_parses_cross_platform_upstream_fqn() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
     mock_client = MagicMock()
@@ -840,7 +840,7 @@ def test_pagination_automatic_handling() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
 
@@ -895,7 +895,7 @@ def test_pagination_with_large_result_set() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
     )
     report = DataplexReport()
 
@@ -947,7 +947,7 @@ def test_streaming_lineage_processing() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
         batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
@@ -1035,7 +1035,7 @@ def test_streaming_lineage_ignores_large_batch_size_config() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
         batch_size=100,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
@@ -1087,7 +1087,7 @@ def test_streaming_lineage_with_batching_disabled_config() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
         batch_size=None,  # Still streaming mode
     )
     report = DataplexReport()
@@ -1139,7 +1139,7 @@ def test_streaming_lineage_memory_cleanup() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_regions=["us-central1"],
+        lineage_locations=["us-central1"],
         batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
@@ -1222,7 +1222,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
-            lineage_regions=["us-central1"],
+            lineage_locations=["us-central1"],
         )
         report = DataplexReport()
         mock_client = MagicMock()
@@ -1323,7 +1323,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
-            lineage_regions=["us-central1"],
+            lineage_locations=["us-central1"],
             batch_size=None,  # Disable batching for simplicity
         )
         report = DataplexReport()
@@ -1414,7 +1414,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
-            lineage_regions=["us-central1"],
+            lineage_locations=["us-central1"],
         )
         report = DataplexReport()
 
@@ -1467,7 +1467,7 @@ class TestLineageMapKeyCollision:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
-            lineage_regions=["us-central1"],
+            lineage_locations=["us-central1"],
         )
         report = DataplexReport()
         mock_client = MagicMock()

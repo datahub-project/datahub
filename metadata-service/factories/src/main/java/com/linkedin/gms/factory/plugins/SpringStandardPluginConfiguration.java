@@ -78,21 +78,22 @@ public class SpringStandardPluginConfiguration {
   @Value("${metadataChangeProposal.validation.extensions.enabled:false}")
   private boolean extensionsEnabled;
 
-  @Value("${featureFlags.zduStage20:false}")
-  private boolean zduStage20Enabled;
+  @Value("${featureFlags.aspectMigrationMutatorEnabled:false}")
+  private boolean aspectMigrationMutatorEnabled;
 
   /**
    * Registers the migration chain as the highest-priority mutation hook. Collects all {@link
    * AspectMigrationMutator} beans (there may be none at first). The chain self-disables once all
    * aspect migrations are complete.
    *
-   * <p>Requires the {@code zduStage20} feature flag to be enabled; the chain is disabled otherwise.
+   * <p>Requires the {@code featureFlags.aspectMigrationMutatorEnabled} flag; the chain is disabled
+   * otherwise.
    */
   @Bean
   public AspectMigrationMutatorChain aspectMigrationMutatorChain(
       List<AspectMigrationMutator> migrationMutators) {
     List<AspectMigrationMutator> mutators =
-        zduStage20Enabled ? new ArrayList<>(migrationMutators) : new ArrayList<>();
+        aspectMigrationMutatorEnabled ? new ArrayList<>(migrationMutators) : new ArrayList<>();
     AspectMigrationMutatorChain chain = new AspectMigrationMutatorChain(mutators);
     chain.setConfig(
         AspectPluginConfig.builder()
@@ -102,8 +103,8 @@ public class SpringStandardPluginConfiguration {
             .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
             .build());
     log.info(
-        "Initialized AspectMigrationMutatorChain: zduStage20={}, mutator(s)={}",
-        zduStage20Enabled,
+        "Initialized AspectMigrationMutatorChain: aspectMigrationMutatorEnabled={}, mutator(s)={}",
+        aspectMigrationMutatorEnabled,
         mutators.size());
     return chain;
   }

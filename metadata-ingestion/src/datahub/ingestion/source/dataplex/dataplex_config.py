@@ -21,7 +21,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LINEAGE_REGIONS = [
+DEFAULT_LINEAGE_LOCATIONS = [
     "us",
     "eu",
     "asia",
@@ -123,12 +123,12 @@ class DataplexConfig(
         "If not specified, uses project_id or attempts to detect from credentials.",
     )
 
-    entries_regions: List[str] = Field(
+    entries_locations: List[str] = Field(
         default_factory=lambda: ["us", "eu", "asia", "global"],
         description="List of GCP regions to scan for Universal Catalog entries extraction. "
         "This list may include multi-regions (for example 'us', 'eu', 'asia') and "
         "single regions (for example 'us-central1'). "
-        "Entries scanning runs across all configured entries_regions. "
+        "Entries scanning runs across all configured entries_locations. "
         "Default: ['us', 'eu', 'asia', 'global'].",
     )
 
@@ -151,13 +151,13 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
-    lineage_regions: List[str] = Field(
-        default_factory=lambda: list(DEFAULT_LINEAGE_REGIONS),
+    lineage_locations: List[str] = Field(
+        default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
         description="List of GCP regions to scan for Dataplex lineage data. "
         "By default, includes all supported multi-regions and regions. "
         "This list may include multi-regions and single regions. "
         "In practice, lineage often resides in job regions while entries may be in "
-        "multi-regions, so entries_regions and lineage_regions are configured separately. "
+        "multi-regions, so entries_locations and lineage_locations are configured separately. "
         "Example: ['eu', 'us-central1', 'europe-west1'].",
     )
 
@@ -233,15 +233,15 @@ class DataplexConfig(
         return self
 
     @model_validator(mode="after")
-    def validate_region_configuration(self) -> "DataplexConfig":
-        """Validate region configuration and warn about common mistakes."""
-        if not self.entries_regions:
+    def validate_location_configuration(self) -> "DataplexConfig":
+        """Validate location configuration and warn about common mistakes."""
+        if not self.entries_locations:
             raise ValueError(
-                "At least one entries region must be specified via entries_regions."
+                "At least one entries location must be specified via entries_locations."
             )
-        if not self.lineage_regions:
+        if not self.lineage_locations:
             raise ValueError(
-                "At least one lineage region must be specified via lineage_regions."
+                "At least one lineage location must be specified via lineage_locations."
             )
 
         return self

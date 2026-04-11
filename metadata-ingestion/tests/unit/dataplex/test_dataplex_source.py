@@ -202,7 +202,7 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1", "project-2"]
     source.config.include_lineage = True
-    source.config.lineage_regions = ["us-central1"]
+    source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
     source.entry_data = []
     source.report = Mock()
@@ -268,7 +268,7 @@ def test_get_workunits_internal_handles_empty_entries_for_lineage() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = True
-    source.config.lineage_regions = ["us-central1"]
+    source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
     source.entry_data = []
     source.report = Mock()
@@ -287,7 +287,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1"]
-    source.config.lineage_regions = ["us-central1"]
+    source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
     source.entry_data = []
     source.entry_data.append(
@@ -329,7 +329,7 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1", "project-2"]
-    source.config.lineage_regions = ["us-central1"]
+    source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
     source.entry_data = [
         EntryDataTuple(
@@ -370,7 +370,7 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1"]
-    source.config.lineage_regions = ["us-central1"]
+    source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
     source.entry_data = []
     source.entry_data.append(
@@ -403,7 +403,7 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1", "project-2"]
-    source.config.lineage_regions = ["us-central1"]
+    source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
     entry_1 = EntryDataTuple(
         dataplex_entry_short_name="entry-1",

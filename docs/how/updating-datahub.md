@@ -38,7 +38,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - **HTTP scrape path:** Metrics are exposed at **`/metrics`**, not at **`/`**. If you scrape the JMX port directly (often **4318** when Prometheus export is enabled), set your Prometheus `metrics_path` (or Kubernetes `ServiceMonitor` / `PodMonitor` `path`) to **`/metrics`**. Anything still requesting **`/`** will receive the default HTML page, not the metrics exposition.
   - **JVM metrics:** Some built-in JVM metric **names** changed to align with OpenMetrics (for example, memory-related series). Update Grafana panels, recording rules, and alerts that referenced the old names. See the [client_java JVM migration notes](https://prometheus.github.io/client_java/migration/simpleclient/#jvm-metrics).
   - **Labels:** When multiple MBeans map to the same metric name, series may include an **`_objectname`** label; adjust queries or aggregations if you previously assumed a single series per name.
-- #16723 (Ingestion) Dataplex source configuration cleanup: `filter_config.entries.dataset_pattern` was removed, use `filter_config.entries.pattern` instead; `entries_location` was removed, use `entries_regions` (list) instead.
 
 ### Known Issues
 
@@ -46,8 +45,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- **(Operations / Helm)** Per-workload monitoring configuration is deprecated in favor of cluster-wide settings (`global.datahub.monitoring`).
+- **(Operations / Helm)** Enable global.datahub.systemUpdate.consolidatedUpgrade so upgrades run through the consolidated system-update path and the chart no longer relies on separate one-off setup jobs (e.g. mysql/ES setup jobs) for that flow.
+
 ### Other Notable Changes
 
+- **(Operations / Helm)** Added `global.datahub.monitoring.metricsMode` with three modes: `legacy` (default), `jmx_and_actuator`, and `actuator_only`, so JMX vs Spring Boot Actuator scraping can be chosen cluster-wide. See the [Micrometer transition plan](../advanced/monitoring.md#micrometer-transition-plan).
 - #16619 **(Operations / Helm)** Added a `Cleanup` upgrade that tears down all DataHub-owned infrastructure resources (Elasticsearch indices, Kafka topics, SQL database and users). It is designed to run as a Helm **pre-delete hook** so that `helm uninstall` leaves no DataHub-specific state on shared infrastructure. Each component (ES, Kafka, SQL) can be disabled independently via environment variables (`CLEANUP_ELASTICSEARCH_ENABLED`, `CLEANUP_KAFKA_ENABLED`, `CLEANUP_SQL_ENABLED`; all default to `true`). Elasticsearch cleanup uses scoped `IndexConvention` patterns to enumerate only DataHub-owned indices — it does **not** issue a wildcard `DELETE /*` that would be dangerous on shared clusters without an index prefix configured.
 - #16879 (Ingestion) PowerBI: When `convert_lineage_urns_to_lowercase` is enabled, column-level lineage and upstream dataset URNs are now consistently lowercased. Previously, only parts of the URN were lowercased, which could cause lineage mismatches. After upgrading, re-running ingestion will emit corrected URNs.
 

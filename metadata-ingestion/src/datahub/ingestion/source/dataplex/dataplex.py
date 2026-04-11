@@ -108,37 +108,37 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     Lineage extraction strategy:
     - The source first traverses all entries, then performs lineage lookups for each
-      entry across the full configured ``(project_id, region)`` scan matrix.
+      entry across the full configured ``(project_id, location)`` scan matrix.
     - This is required because the Dataplex Lineage API does not provide a bulk
       lineage retrieval endpoint that can return all lineage for a project in one call.
     - For graph construction, upstream lookup is sufficient: we query links with
       ``target=<entry_fqn>`` and build DataHub upstream edges from returned sources.
     - The tradeoff is API call volume: every entry is queried separately against every
-      configured project-region pair.
+      configured project-location pair.
     """
 
     platform: str = "dataplex"
 
-    def _resolve_lineage_project_region_pairs(self) -> list[tuple[str, str]]:
-        """Resolve and report lineage scan pairs from configured project/region product."""
-        lineage_project_region_pairs = list(
-            product(self.config.project_ids, self.config.lineage_regions)
+    def _resolve_lineage_project_location_pairs(self) -> list[tuple[str, str]]:
+        """Resolve and report lineage scan pairs from configured project/location product."""
+        lineage_project_location_pairs = list(
+            product(self.config.project_ids, self.config.lineage_locations)
         )
         self.report.info(
-            title="Lineage extraction project/region pairs",
+            title="Lineage extraction project/location pairs",
             message=(
-                "Extracting lineage for configured project/region pairs. "
+                "Extracting lineage for configured project/location pairs. "
                 "Lineage scan scope is derived from the Cartesian product of "
-                "project_ids and lineage_regions."
+                "project_ids and lineage_locations."
             ),
             context=str(
                 dict(
-                    lineage_regions=self.config.lineage_regions,
-                    lineage_project_region_pairs=lineage_project_region_pairs,
+                    lineage_locations=self.config.lineage_locations,
+                    lineage_project_location_pairs=lineage_project_location_pairs,
                 )
             ),
         )
-        return lineage_project_region_pairs
+        return lineage_project_location_pairs
 
     def __init__(self, ctx: PipelineContext, config: DataplexConfig):
         super().__init__(config, ctx)
@@ -214,7 +214,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
             if config.project_ids:
                 project_id = config.project_ids[0]
-                parent = f"projects/{project_id}/locations/{config.entries_regions[0]}"
+                parent = f"projects/{project_id}/locations/{config.entries_locations[0]}"
                 entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
                 # Just iterate once to verify access
                 for _ in catalog_client.list_entry_groups(request=entry_groups_request):
@@ -286,14 +286,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     len(self.entry_data),
                     len(self.config.project_ids),
                 )
-                lineage_project_region_pairs = (
-                    self._resolve_lineage_project_region_pairs()
+                lineage_project_location_pairs = (
+                    self._resolve_lineage_project_location_pairs()
                 )
 
                 try:
                     yield from self.lineage_extractor.get_lineage_workunits(
                         self.entry_data,
-                        active_lineage_project_location_pairs=lineage_project_region_pairs,
+                        active_lineage_project_location_pairs=lineage_project_location_pairs,
                     )
                 except Exception as e:
                     self.report.report_failure(

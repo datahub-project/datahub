@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
 import { Editor, Modal } from '@src/alchemy-components';
 
@@ -36,14 +35,14 @@ const QueryDetails = styled.div`
 const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin-bottom: 16px;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.border) || undefined};
     }
 `;
 
 const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.border) || undefined};
     }
 `;
 
@@ -51,7 +50,7 @@ const QueryContainer = styled.div`
     min-height: 50vh;
     max-height: 80vh;
     overflow-y: scroll;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
 `;
 

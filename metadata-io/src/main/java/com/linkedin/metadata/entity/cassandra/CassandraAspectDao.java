@@ -606,6 +606,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   @Override
+  public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+      @Nonnull java.util.Map<String, Long> aspectTargetVersions,
+      long afterCreatedOnMs,
+      int batchSize,
+      int limit) {
+    // Not implemented
+    return null;
+  }
+
+  @Nonnull
+  @Override
   public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)

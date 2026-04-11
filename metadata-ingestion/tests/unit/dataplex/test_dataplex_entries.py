@@ -220,10 +220,10 @@ class TestDataplexEntriesProcessorDesign:
         mock_list_entry_groups.assert_called_once_with("p", "us")
         catalog_client.search_entries.assert_not_called()
 
-    def test_process_project_uses_entries_regions(
+    def test_process_project_uses_entries_locations(
         self, processor: DataplexEntriesProcessor
     ) -> None:
-        processor.config.entries_regions = ["us", "eu"]
+        processor.config.entries_locations = ["us", "eu"]
 
         with patch.object(
             processor, "process_location", side_effect=[[Mock()], [Mock()]]
