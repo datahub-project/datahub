@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -4399,6 +4399,468 @@ def test_schema_assertion_falls_back_to_node_columns_when_no_contract_columns() 
     assert len(schema_metadata.fields) == 1
     assert schema_metadata.fields[0].fieldPath == "id"
     assert schema_metadata.fields[0].nativeDataType == "BIGINT"
+
+
+# ==================== Contract end-to-end integration test ====================
+#
+# Unit tests in this file exercise individual methods in isolation. This
+# end-to-end test constructs a minimal manifest + catalog in memory, writes
+# them to a temp directory, instantiates a real DBTCoreSource, and walks
+# get_workunits() to the end — just like the production ingestion path.
+#
+# The goal is to catch regressions in the *integration* of:
+#   1. manifest parsing → DBTNode construction (dbt_core.extract_dbt_entities)
+#   2. contract_columns extraction (Pass 2)
+#   3. contract emission: schema assertion + constraint assertions +
+#      Data Contract entity (Pass 1)
+#   4. test-to-contract linking via contract_test_tag (Pass 1 URN consistency)
+#
+# A full golden-file integration test would live in tests/integration/dbt/
+# and duplicate a lot of the fixture curation work already done for the
+# main dbt integration suite. Since the contract-specific code paths are
+# small and well-isolated, running them end-to-end against an in-memory
+# manifest catches the same class of regressions with much less overhead.
+
+
+def _build_contract_manifest() -> Dict[str, Any]:
+    """Build a minimal dbt manifest.json with a realistic contract fixture.
+
+    Contains:
+    - One model ``model.contract_test.orders`` with:
+      - ``contract.enforced: true``, ``alias_types: false``, a checksum
+      - 4 columns (id, email, age, status) with a mix of constraint types:
+        id → primary_key, email → not_null, age → check, status → unique
+      - A model-level foreign_key constraint
+    - One contract-tagged test node attached to orders that should end up
+      referenced in the Data Contract's dataQuality list
+    - Bare-minimum fields that dbt_core's parser requires
+    """
+    return {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v10.json",
+            "dbt_version": "1.8.0",
+            "generated_at": "2024-01-01T00:00:00.000000Z",
+            "adapter_type": "postgres",
+            "project_name": "contract_test",
+            "project_id": "contract_test",
+            "user_id": None,
+            "invocation_id": "test-invocation",
+            "env": {},
+        },
+        "nodes": {
+            "model.contract_test.orders": {
+                "database": "test_db",
+                "schema": "test_schema",
+                "name": "orders",
+                "resource_type": "model",
+                "package_name": "contract_test",
+                "path": "orders.sql",
+                "original_file_path": "models/orders.sql",
+                "unique_id": "model.contract_test.orders",
+                "fqn": ["contract_test", "orders"],
+                "alias": "orders",
+                "checksum": {"name": "sha256", "checksum": "abc123"},
+                "config": {
+                    "enabled": True,
+                    "materialized": "table",
+                    "tags": [],
+                    "meta": {},
+                    "contract": {"enforced": True, "alias_types": False},
+                },
+                "tags": [],
+                "description": "Orders contracted model",
+                "columns": {
+                    "id": {
+                        "name": "id",
+                        "description": "primary key",
+                        "meta": {},
+                        "data_type": "bigint",
+                        "constraints": [{"type": "primary_key"}],
+                        "tags": [],
+                    },
+                    "email": {
+                        "name": "email",
+                        "description": "",
+                        "meta": {},
+                        "data_type": "varchar(255)",
+                        "constraints": [{"type": "not_null"}],
+                        "tags": [],
+                    },
+                    "age": {
+                        "name": "age",
+                        "description": "",
+                        "meta": {},
+                        "data_type": "int",
+                        "constraints": [
+                            {
+                                "type": "check",
+                                "name": "ck_age_non_negative",
+                                "expression": "age >= 0",
+                            }
+                        ],
+                        "tags": [],
+                    },
+                    "status": {
+                        "name": "status",
+                        "description": "",
+                        "meta": {},
+                        "data_type": "varchar(32)",
+                        "constraints": [{"type": "unique"}],
+                        "tags": [],
+                    },
+                },
+                "constraints": [
+                    {
+                        "type": "foreign_key",
+                        "name": "fk_customer",
+                        "expression": "customers(id)",
+                        "columns": ["id"],
+                    }
+                ],
+                "contract": {
+                    "enforced": True,
+                    "alias_types": False,
+                    "checksum": "contract-checksum-abc",
+                },
+                "meta": {},
+                "sources": [],
+                "depends_on": {"macros": [], "nodes": []},
+                "refs": [],
+                "docs": {"show": True},
+                "compiled": True,
+                "compiled_code": "SELECT * FROM raw.orders",
+                "raw_code": "SELECT * FROM {{ source('raw', 'orders') }}",
+                "language": "sql",
+                "build_path": None,
+                "deferred": False,
+                "unrendered_config": {},
+                "created_at": 1704067200.0,
+            },
+            "test.contract_test.orders_email_not_null": {
+                "database": "test_db",
+                "schema": "test_schema",
+                "name": "orders_email_not_null",
+                "resource_type": "test",
+                "package_name": "contract_test",
+                "path": "not_null_orders_email.sql",
+                "original_file_path": "models/orders.yml",
+                "unique_id": "test.contract_test.orders_email_not_null",
+                "fqn": ["contract_test", "orders_email_not_null"],
+                "alias": "orders_email_not_null",
+                "checksum": {"name": "none", "checksum": ""},
+                "config": {
+                    "enabled": True,
+                    "materialized": "test",
+                    "tags": ["contract"],
+                    "meta": {},
+                    "severity": "ERROR",
+                    "where": None,
+                },
+                # Top-level tags are what DBTNode.tags reads; the contract
+                # detection logic matches on these.
+                "tags": ["contract"],
+                "description": "",
+                "columns": {},
+                "meta": {},
+                "sources": [],
+                "depends_on": {
+                    "macros": ["macro.dbt.test_not_null"],
+                    "nodes": ["model.contract_test.orders"],
+                },
+                "refs": [{"name": "orders", "package": None, "version": None}],
+                "docs": {"show": True},
+                "compiled": True,
+                "compiled_code": "select * from orders where email is null",
+                "raw_code": "{{ test_not_null(**kwargs) }}",
+                "language": "sql",
+                "build_path": None,
+                "deferred": False,
+                "unrendered_config": {},
+                "created_at": 1704067200.0,
+                "column_name": "email",
+                "test_metadata": {
+                    "name": "not_null",
+                    "kwargs": {"column_name": "email", "model": "{{ ref('orders') }}"},
+                    "namespace": None,
+                },
+            },
+        },
+        "sources": {},
+        "macros": {},
+        "parent_map": {
+            "model.contract_test.orders": [],
+            "test.contract_test.orders_email_not_null": ["model.contract_test.orders"],
+        },
+        "child_map": {
+            "model.contract_test.orders": ["test.contract_test.orders_email_not_null"],
+            "test.contract_test.orders_email_not_null": [],
+        },
+        "disabled": {},
+        "exposures": {},
+        "metrics": {},
+        "groups": {},
+        "selectors": {},
+        "docs": {},
+        "semantic_models": {},
+    }
+
+
+def _build_contract_catalog() -> Dict[str, Any]:
+    """Build a minimal catalog matching the contract manifest fixture.
+
+    The catalog provides post-run column info that dbt_core merges with
+    the manifest. We list the same columns the contract declares so the
+    merged ``node.columns`` is non-empty, but crucially with DIFFERENT
+    type formats (e.g. ``BIGINT`` in catalog vs ``bigint`` in manifest)
+    to prove the schema assertion sources from ``contract_columns`` —
+    the manifest declaration — not from the catalog.
+    """
+    return {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+            "dbt_version": "1.8.0",
+            "generated_at": "2024-01-01T00:00:00.000000Z",
+            "invocation_id": "test-invocation",
+            "env": {},
+        },
+        "nodes": {
+            "model.contract_test.orders": {
+                "metadata": {
+                    "type": "BASE TABLE",
+                    "schema": "test_schema",
+                    "name": "orders",
+                    "database": "test_db",
+                    "comment": None,
+                    "owner": "test_owner",
+                },
+                "columns": {
+                    "id": {
+                        "type": "BIGINT",
+                        "index": 0,
+                        "name": "id",
+                        "comment": None,
+                    },
+                    "email": {
+                        "type": "VARCHAR(255)",
+                        "index": 1,
+                        "name": "email",
+                        "comment": None,
+                    },
+                    "age": {
+                        "type": "INTEGER",
+                        "index": 2,
+                        "name": "age",
+                        "comment": None,
+                    },
+                    "status": {
+                        "type": "VARCHAR(32)",
+                        "index": 3,
+                        "name": "status",
+                        "comment": None,
+                    },
+                },
+                "stats": {},
+            }
+        },
+        "sources": {},
+        "errors": None,
+    }
+
+
+def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
+    """End-to-end contract ingestion against an in-memory manifest.
+
+    This exercises the full extract → emit path:
+      - extract_dbt_entities parses the manifest, populates DBTNode with
+        contract + contract_columns + model_constraints
+      - create_contract_mcps emits schema assertion + constraint assertions
+        (column + model level) + Data Contract entity
+      - The emitted Data Contract references the contract-tagged test's
+        assertion URN correctly (URN consistency end-to-end, not just the
+        narrow _make_test_assertion_urn unit test)
+
+    It's a unit test in location but an integration test in intent — it
+    catches regressions in the integration between extraction and emission
+    that pure method-level unit tests miss.
+    """
+    import json as _json
+
+    from datahub.metadata.schema_classes import (
+        AssertionInfoClass,
+        AssertionStdAggregationClass,
+        AssertionStdOperatorClass,
+        DataContractPropertiesClass,
+    )
+
+    # Write manifest + catalog to temp files so DBTCoreSource can load them
+    # the way it would in production.
+    manifest_path = tmp_path / "manifest.json"
+    catalog_path = tmp_path / "catalog.json"
+    manifest_path.write_text(_json.dumps(_build_contract_manifest()))
+    catalog_path.write_text(_json.dumps(_build_contract_catalog()))
+
+    ctx = PipelineContext(run_id="contract-e2e-test", pipeline_name="dbt-contract-e2e")
+    config = DBTCoreConfig(
+        manifest_path=str(manifest_path),
+        catalog_path=str(catalog_path),
+        target_platform="postgres",
+        ingest_contracts=True,
+        ingest_column_constraints_as_assertions=True,
+        enable_meta_mapping=False,
+        # OVERRIDE so we don't need a real GMS graph (the default PATCH
+        # mode requires one to fetch existing aspects).
+        write_semantics="OVERRIDE",
+    )
+    source = DBTCoreSource(config, ctx)
+
+    # Drive the full source pipeline, not just one method. get_workunits_internal
+    # yields a mix of MetadataWorkUnit and MetadataChangeProposalWrapper — we
+    # normalise both by extracting the aspect and the entity URN from each.
+    workunits = list(source.get_workunits_internal())
+
+    def _extract_aspect_and_urn(wu: Any) -> Tuple[Any, Optional[str]]:
+        if isinstance(wu, MetadataChangeProposalWrapper):
+            return wu.aspect, wu.entityUrn
+        # MetadataWorkUnit wraps an MCE or MCP; .metadata is the underlying payload.
+        meta = getattr(wu, "metadata", None)
+        if meta is None:
+            return None, None
+        return getattr(meta, "aspect", None), getattr(meta, "entityUrn", None)
+
+    emitted = [_extract_aspect_and_urn(wu) for wu in workunits]
+    aspects = [aspect for aspect, _ in emitted if aspect is not None]
+
+    # ---------- 1. Data Contract entity is emitted ----------
+    contract_props = [a for a in aspects if isinstance(a, DataContractPropertiesClass)]
+    assert len(contract_props) == 1, (
+        "exactly one DataContractPropertiesClass should be emitted for the "
+        "one contracted model in the fixture"
+    )
+    props = contract_props[0]
+    assert props.schema is not None, "schema contract must be populated"
+    assert props.dataQuality is not None and len(props.dataQuality) >= 1, (
+        "at least one data-quality assertion (the contract-tagged test) "
+        "must be referenced in the Data Contract"
+    )
+
+    # ---------- 2. Schema assertion uses contract_columns, not catalog ----------
+    # The manifest declared types verbatim (bigint, varchar(255), ...),
+    # while the catalog has different capitalization (BIGINT, VARCHAR(255)).
+    # If the schema assertion sources from catalog data, we'd see uppercase
+    # types here; if it sources from contract_columns (correct), we'd see
+    # the manifest's lowercase declarations.
+    schema_assertion_infos = [
+        a
+        for a in aspects
+        if isinstance(a, AssertionInfoClass) and a.schemaAssertion is not None
+    ]
+    assert len(schema_assertion_infos) == 1, "one schema assertion per contract"
+    schema_info = schema_assertion_infos[0].schemaAssertion
+    assert schema_info is not None
+    assert schema_info.schema is not None
+    field_types = {f.fieldPath: f.nativeDataType for f in schema_info.schema.fields}
+    assert field_types == {
+        "id": "bigint",
+        "email": "varchar(255)",
+        "age": "int",
+        "status": "varchar(32)",
+    }, (
+        "schema assertion must describe manifest-declared types, not "
+        "catalog types — verifies the Pass 2 contract_columns plumbing "
+        f"actually reached the emission path. Got: {field_types}"
+    )
+
+    # ---------- 3. Constraint assertions: unique uses UNIQUE_PROPOTION ----------
+    dataset_assertion_infos = [
+        a
+        for a in aspects
+        if isinstance(a, AssertionInfoClass) and a.datasetAssertion is not None
+    ]
+    # Group by operator + aggregation for easy lookup.
+    unique_assertions = [
+        a
+        for a in dataset_assertion_infos
+        if a.datasetAssertion is not None
+        and a.datasetAssertion.aggregation
+        == AssertionStdAggregationClass.UNIQUE_PROPOTION
+    ]
+    not_null_assertions = [
+        a
+        for a in dataset_assertion_infos
+        if a.datasetAssertion is not None
+        and a.datasetAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    ]
+    native_assertions = [
+        a
+        for a in dataset_assertion_infos
+        if a.datasetAssertion is not None
+        and a.datasetAssertion.operator == AssertionStdOperatorClass._NATIVE_
+    ]
+
+    # primary_key on `id` decomposes into 1 unique + 1 not_null.
+    # unique on `status` adds 1 more unique assertion.
+    # not_null on `email` adds 1 not_null assertion.
+    # We expect at least 2 unique assertions (id, status) and at least 2
+    # not_null assertions (id from PK decomposition, email from explicit
+    # not_null). Inequality rather than equality because the PK expansion
+    # + model-level FK emit additional native assertions.
+    assert len(unique_assertions) >= 2, (
+        "PK on id + unique on status should yield at least 2 unique assertions"
+    )
+    assert len(not_null_assertions) >= 2, (
+        "PK on id + not_null on email should yield at least 2 not_null assertions"
+    )
+
+    # ---------- 4. Native assertions (check, foreign_key) are emitted ----------
+    # `age` has a check constraint; model-level has a foreign_key.
+    # Both should become native assertions with expressions in custom props.
+    expressions = {
+        a.customProperties.get("expression")
+        for a in native_assertions
+        if a.customProperties is not None
+    }
+    assert "age >= 0" in expressions, (
+        "check constraint expression must be carried on custom properties"
+    )
+    assert "customers(id)" in expressions, (
+        "foreign_key expression must be carried on custom properties"
+    )
+
+    # ---------- 5. Contract-tagged test is referenced in the Data Contract ----------
+    # The test node's assertion URN (as computed by create_test_entity_mcps
+    # on its own side) must match the URN that the Data Contract references
+    # in its dataQuality list. This is the end-to-end version of the
+    # Pass 1 _make_test_assertion_urn consistency tests.
+    from datahub.emitter import mce_builder
+
+    expected_test_urn = source._make_test_assertion_urn(
+        test_dbt_name="test.contract_test.orders_email_not_null",
+        upstream_dbt_name=None,  # single-upstream case
+    )
+    dq_urns = {c.assertion for c in (props.dataQuality or [])}
+    assert expected_test_urn in dq_urns, (
+        "the contract-tagged test's assertion URN must appear in the "
+        f"Data Contract's dataQuality list. Expected {expected_test_urn}, "
+        f"got {dq_urns}"
+    )
+
+    # Finally, confirm the test assertion itself was also actually emitted
+    # somewhere in the workstream, not just referenced. (If it were only
+    # referenced, we'd have an orphan URN, which is the exact class of
+    # bug the Pass 1 URN-consistency fix addressed.)
+    emitted_test_urns = {
+        urn
+        for _, urn in emitted
+        if urn is not None and urn.startswith("urn:li:assertion:")
+    }
+    assert expected_test_urn in emitted_test_urns, (
+        "contract references a test assertion URN that was never emitted — "
+        "this is the orphan-reference bug Pass 1 fixed. "
+        f"Missing URN: {expected_test_urn}"
+    )
+
+    # Silence the unused import warning in minimally-branched runs.
+    _ = mce_builder
 
 
 # ==================== dbt Cloud Discovery API contract tests ====================

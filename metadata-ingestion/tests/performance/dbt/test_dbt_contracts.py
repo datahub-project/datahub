@@ -62,11 +62,25 @@ def _build_contracted_model(
     columns_per_model: int,
     constrained_columns_per_model: int,
 ) -> DBTNode:
-    """Build a single contracted DBTNode with a fixed number of columns.
+    """Build a single contracted DBTNode with a realistic constraint mix.
 
-    The first ``constrained_columns_per_model`` columns get a realistic mix of
-    constraints (primary key + not null) so we exercise the per-column
-    constraint assertion path.
+    Each model carries every constraint type the feature supports so the
+    benchmark exercises all emission paths at scale — not just ``not_null``
+    and ``primary_key``:
+
+    - col_0: ``primary_key`` + ``not_null`` (the PK decomposition path)
+    - col_1: ``unique`` (the UNIQUE_PROPOTION assertion path)
+    - col_2: ``foreign_key`` with an expression (the _NATIVE_ path)
+    - col_3: ``check`` with an expression (another _NATIVE_ path)
+    - cols 4..constrained-1: ``not_null`` (the single-constraint path)
+    - remaining cols: no constraints (exercise the skip-over path)
+
+    A composite ``primary_key`` on col_0 + col_1 is also added as a
+    model-level constraint so the multi-column assertion path is
+    exercised. ``model_constraints`` is intentionally non-empty even
+    though col_0 already has its own PK — real dbt projects frequently
+    have both column-level and model-level constraints, and the benchmark
+    should catch any regression that treats the combination poorly.
     """
     columns: List[DBTColumn] = []
     for col_idx in range(columns_per_model):
@@ -74,6 +88,24 @@ def _build_contracted_model(
         if col_idx == 0:
             constraints.append(DBTConstraint(type="primary_key"))
             constraints.append(DBTConstraint(type="not_null"))
+        elif col_idx == 1:
+            constraints.append(DBTConstraint(type="unique"))
+        elif col_idx == 2:
+            constraints.append(
+                DBTConstraint(
+                    type="foreign_key",
+                    name=f"fk_col_2_model_{idx}",
+                    expression="ref_table(id)",
+                )
+            )
+        elif col_idx == 3:
+            constraints.append(
+                DBTConstraint(
+                    type="check",
+                    name=f"ck_col_3_model_{idx}",
+                    expression=f"col_3 >= {idx}",
+                )
+            )
         elif col_idx < constrained_columns_per_model:
             constraints.append(DBTConstraint(type="not_null"))
 
@@ -87,6 +119,16 @@ def _build_contracted_model(
                 constraints=constraints,
             )
         )
+
+    model_constraints = [
+        # Composite primary key over (col_0, col_1) exercises the
+        # multi-column unique + per-column not_null decomposition path.
+        DBTConstraint(
+            type="primary_key",
+            name=f"pk_composite_model_{idx}",
+            columns=["col_0", "col_1"],
+        ),
+    ]
 
     return DBTNode(
         dbt_name=f"model.bench_project.model_{idx}",
@@ -118,6 +160,7 @@ def _build_contracted_model(
             alias_types=True,
             checksum=f"checksum_{idx}",
         ),
+        model_constraints=model_constraints,
     )
 
 
