@@ -4399,3 +4399,412 @@ def test_schema_assertion_falls_back_to_node_columns_when_no_contract_columns() 
     assert len(schema_metadata.fields) == 1
     assert schema_metadata.fields[0].fieldPath == "id"
     assert schema_metadata.fields[0].nativeDataType == "BIGINT"
+
+
+# ==================== dbt Cloud Discovery API contract tests ====================
+#
+# These guard the Discovery API integration for dbt Cloud contracts. The
+# job-scoped GraphQL queries used elsewhere in the connector do not expose
+# contractEnforced or constraints, so we run a separate environment-scoped
+# Discovery API query. These tests cover:
+#  - config validation: environment_id is required when ingest_contracts=true
+#  - fetch + parse: the Discovery API response shape is parsed into
+#    _DiscoveryContractData correctly, including pagination
+#  - wiring: _parse_into_dbt_node reads from the cached Discovery API data
+#    and populates DBTContract / model_constraints / contract_columns
+#  - fallback: a Discovery API failure is surfaced as a warning, not a
+#    hard failure, and ingestion continues with contracts missing
+
+
+def _base_dbt_cloud_config(**overrides: Any) -> Dict[str, Any]:
+    """Build a valid DBTCloudConfig dict for testing."""
+    base: Dict[str, Any] = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": 123456,
+        "project_id": 1234567,
+        "job_id": 12345678,
+        "run_id": 123456789,
+        "target_platform": "snowflake",
+    }
+    base.update(overrides)
+    return base
+
+
+def test_dbt_cloud_config_requires_environment_id_when_ingesting_contracts() -> None:
+    """Contract ingestion on dbt Cloud requires environment_id.
+
+    The Discovery API's environment endpoint is the only source of
+    contract data; without environment_id we couldn't query it and would
+    silently produce no contracts. The config validator catches this
+    upfront so misconfiguration is visible immediately.
+    """
+    with pytest.raises(
+        ValidationError,
+        match="environment_id is required when ingest_contracts=true",
+    ):
+        DBTCloudConfig(**_base_dbt_cloud_config(ingest_contracts=True))
+
+
+def test_dbt_cloud_config_accepts_environment_id_when_ingesting_contracts() -> None:
+    """With environment_id set, the validator passes."""
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=999,
+        )
+    )
+    assert config.ingest_contracts is True
+    assert config.environment_id == 999
+
+
+def test_dbt_cloud_config_no_environment_id_when_not_ingesting_contracts() -> None:
+    """When ingest_contracts is false (the default) environment_id remains
+    optional — contract ingestion is opt-in and non-contract users shouldn't
+    have to set it."""
+    config = DBTCloudConfig(**_base_dbt_cloud_config())
+    assert config.ingest_contracts is False
+    assert config.environment_id is None
+
+
+def test_fetch_discovery_contract_data_parses_single_page() -> None:
+    """A single-page Discovery API response must parse into a keyed dict of
+    _DiscoveryContractData, populating constraints, contract_columns, and
+    the contractEnforced flag.
+    """
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    fake_response = {
+        "environment": {
+            "applied": {
+                "models": {
+                    "edges": [
+                        {
+                            "node": {
+                                "uniqueId": "model.test_pkg.orders",
+                                "contractEnforced": True,
+                                "constraints": [
+                                    {
+                                        "name": "pk_orders",
+                                        "type": "primary_key",
+                                        "expression": None,
+                                        "columns": ["id"],
+                                    },
+                                    {
+                                        "name": "nn_email",
+                                        "type": "not_null",
+                                        "expression": None,
+                                        "columns": ["email"],
+                                    },
+                                ],
+                                "catalog": {
+                                    "columns": [
+                                        {
+                                            "name": "id",
+                                            "description": "primary key",
+                                            "type": "BIGINT",
+                                        },
+                                        {
+                                            "name": "email",
+                                            "description": "",
+                                            "type": "VARCHAR",
+                                        },
+                                    ]
+                                },
+                            }
+                        },
+                        {
+                            "node": {
+                                "uniqueId": "model.test_pkg.no_contract",
+                                "contractEnforced": False,
+                                "constraints": [],
+                                "catalog": {"columns": []},
+                            }
+                        },
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+    }
+
+    with mock.patch.object(
+        DBTCloudSource,
+        "_send_graphql_query",
+        return_value=fake_response,
+    ) as mock_send:
+        result = DBTCloudSource._fetch_discovery_contract_data(
+            metadata_endpoint="https://metadata.test.getdbt.com/graphql",
+            token="test-token",
+            environment_id=42,
+        )
+
+    # Exactly one Discovery API call on a single page.
+    assert mock_send.call_count == 1
+
+    # Both models are indexed, even the one without a contract — the
+    # caller needs to distinguish "no data fetched" from "contract false".
+    assert set(result.keys()) == {
+        "model.test_pkg.orders",
+        "model.test_pkg.no_contract",
+    }
+
+    contracted = result["model.test_pkg.orders"]
+    assert contracted.contract_enforced is True
+    # Constraints come through with their columns arrays preserved so the
+    # downstream _build_constraint_assertions can fan-out/multi-col them.
+    assert len(contracted.model_constraints) == 2
+    constraint_types = {c.type for c in contracted.model_constraints}
+    assert constraint_types == {"primary_key", "not_null"}
+    # contract_columns come from applied.catalog.columns, with type
+    # preserved verbatim from the warehouse.
+    assert [c.name for c in contracted.contract_columns] == ["id", "email"]
+    assert [c.data_type for c in contracted.contract_columns] == ["BIGINT", "VARCHAR"]
+
+    unenforced = result["model.test_pkg.no_contract"]
+    assert unenforced.contract_enforced is False
+    assert unenforced.model_constraints == []
+    assert unenforced.contract_columns == []
+
+
+def test_fetch_discovery_contract_data_paginates() -> None:
+    """The fetcher must follow pageInfo.hasNextPage through cursor-based
+    pagination. A regression here would silently drop all models beyond
+    the first 500 on any non-trivial dbt project.
+    """
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    page_1 = {
+        "environment": {
+            "applied": {
+                "models": {
+                    "edges": [
+                        {
+                            "node": {
+                                "uniqueId": "model.a",
+                                "contractEnforced": True,
+                                "constraints": [],
+                                "catalog": {"columns": []},
+                            }
+                        }
+                    ],
+                    "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"},
+                }
+            }
+        }
+    }
+    page_2 = {
+        "environment": {
+            "applied": {
+                "models": {
+                    "edges": [
+                        {
+                            "node": {
+                                "uniqueId": "model.b",
+                                "contractEnforced": True,
+                                "constraints": [],
+                                "catalog": {"columns": []},
+                            }
+                        }
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+    }
+
+    with mock.patch.object(
+        DBTCloudSource,
+        "_send_graphql_query",
+        side_effect=[page_1, page_2],
+    ) as mock_send:
+        result = DBTCloudSource._fetch_discovery_contract_data(
+            metadata_endpoint="https://metadata.test.getdbt.com/graphql",
+            token="test-token",
+            environment_id=42,
+        )
+
+    # Two calls — one per page — and both models captured.
+    assert mock_send.call_count == 2
+    assert set(result.keys()) == {"model.a", "model.b"}
+
+    # The second call must have used the cursor returned by the first.
+    second_call_variables = mock_send.call_args_list[1].kwargs["variables"]
+    assert second_call_variables["after"] == "cursor-1"
+
+
+def test_parse_into_dbt_node_reads_contract_from_discovery_api() -> None:
+    """When a model has Discovery API contract data, _parse_into_dbt_node
+    must populate DBTNode.contract, model_constraints, and contract_columns
+    from that data.
+    """
+    from datahub.ingestion.source.dbt.dbt_cloud import (
+        DBTCloudSource,
+        _DiscoveryContractData,
+    )
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=42,
+        )
+    )
+    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
+    source = DBTCloudSource(config, ctx)
+
+    # Pre-populate the cache so we don't fire a real HTTP request.
+    source._discovery_contract_data = {
+        "model.test_pkg.orders": _DiscoveryContractData(
+            contract_enforced=True,
+            model_constraints=[
+                DBTConstraint(type="primary_key", columns=["id"]),
+                DBTConstraint(type="not_null", columns=["email"]),
+            ],
+            contract_columns=[
+                DBTColumn(
+                    name="id",
+                    comment="",
+                    description="",
+                    index=0,
+                    data_type="BIGINT",
+                ),
+                DBTColumn(
+                    name="email",
+                    comment="",
+                    description="",
+                    index=1,
+                    data_type="VARCHAR",
+                ),
+            ],
+        )
+    }
+
+    raw_node = {
+        "uniqueId": "model.test_pkg.orders",
+        "name": "orders",
+        "resourceType": "model",
+        "materializedType": "table",
+        "database": "DB",
+        "schema": "SCHEMA",
+        "type": "BASE TABLE",
+        "owner": None,
+        "comment": "",
+        "description": "",
+        "meta": {},
+        "tags": [],
+        "columns": [],
+        "dependsOn": [],
+        "packageName": "test_pkg",
+        "alias": "orders",
+        "status": "success",
+        "rawCode": "select 1",
+        "rawSql": None,
+        "compiledCode": "select 1",
+        "compiledSql": None,
+    }
+
+    parsed = source._parse_into_dbt_node(raw_node)
+
+    assert parsed.contract is not None
+    assert parsed.contract.enforced is True
+    assert len(parsed.model_constraints) == 2
+    # contract_columns must be populated so the schema assertion doesn't
+    # fall back to node.columns (which is the tautological catalog path).
+    assert parsed.contract_columns is not None
+    assert [c.name for c in parsed.contract_columns] == ["id", "email"]
+
+
+def test_parse_into_dbt_node_no_contract_when_discovery_data_missing() -> None:
+    """If the Discovery API didn't return data for this model (or returned
+    contractEnforced=false), the parsed node must have contract=None. This
+    also confirms the meta.contract path has been removed — setting
+    meta.contract in the raw node should NOT magically produce a contract.
+    """
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=42,
+        )
+    )
+    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
+    source = DBTCloudSource(config, ctx)
+
+    # Empty cache — no Discovery API data for any model.
+    source._discovery_contract_data = {}
+
+    raw_node = {
+        "uniqueId": "model.test_pkg.orders",
+        "name": "orders",
+        "resourceType": "model",
+        "materializedType": "table",
+        "database": "DB",
+        "schema": "SCHEMA",
+        "type": "BASE TABLE",
+        "owner": None,
+        "comment": "",
+        "description": "",
+        # Deliberately include a meta.contract block to verify the old
+        # fallback path no longer triggers — contracts must come from the
+        # Discovery API only.
+        "meta": {
+            "contract": {
+                "enforced": True,
+                "alias_types": True,
+                "checksum": "should-be-ignored",
+            }
+        },
+        "tags": [],
+        "columns": [],
+        "dependsOn": [],
+        "packageName": "test_pkg",
+        "alias": "orders",
+        "status": "success",
+        "rawCode": "select 1",
+        "rawSql": None,
+        "compiledCode": "select 1",
+        "compiledSql": None,
+    }
+
+    parsed = source._parse_into_dbt_node(raw_node)
+    assert parsed.contract is None
+    assert parsed.contract_columns is None
+    assert parsed.model_constraints == []
+
+
+def test_discovery_api_failure_is_warned_not_raised() -> None:
+    """A Discovery API failure during contract fetching must produce a
+    warning on the report and leave the cache as an empty dict. The
+    ingestion run continues without contract data rather than failing
+    the whole pipeline.
+    """
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=42,
+        )
+    )
+    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
+    source = DBTCloudSource(config, ctx)
+
+    with mock.patch.object(
+        DBTCloudSource,
+        "_fetch_discovery_contract_data",
+        side_effect=RuntimeError("simulated API failure"),
+    ):
+        data = source._get_discovery_contract_data()
+
+    assert data == {}
+    # Cached, so a second call doesn't re-fail.
+    data_again = source._get_discovery_contract_data()
+    assert data_again == {}
+
+    # A warning must be recorded on the report so users can see why
+    # their contracts didn't ingest.
+    assert any("contract" in str(w).lower() for w in source.report.warnings), (
+        "expected a report warning about the Discovery API failure"
+    )
