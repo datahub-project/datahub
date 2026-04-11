@@ -144,37 +144,17 @@ def extract_contract_columns(
     manifest_node: dict,
     tag_prefix: str,
 ) -> List[DBTColumn]:
-    """Extract the columns a dbt contract declares, verbatim from the manifest.
+    """Return the columns a dbt contract declares, verbatim from the manifest.
 
-    Unlike :func:`get_columns`, this does NOT consult the catalog. The
-    returned ``data_type`` values are exactly what the user wrote in the
-    model's YAML/schema file (e.g. ``int``, ``varchar(64)``, ``array<string>``),
-    not the post-DDL types that end up in ``information_schema``.
-
-    This is important for schema-assertion emission: an assertion built from
-    catalog data would be tautologically true (it'd be compared to the same
-    catalog data later), providing zero drift protection. Building it from
-    the manifest's declared columns means the assertion describes what the
-    contract *requires* and correctly fails when the real table drifts away
-    from that declaration.
-
-    Note: if the contract sets ``alias_types: true`` (the dbt default), the
-    declared types may be generic (e.g. ``string``) rather than
-    platform-specific (``VARCHAR`` on Snowflake). DataHub's assertion
-    evaluation happens elsewhere in the platform and may or may not
-    normalize types for comparison — callers should be aware that with
-    ``alias_types: true`` the declared type can differ from the catalog type
-    without it being a real drift. See the config description on
-    ``ingest_column_constraints_as_assertions`` for guidance.
+    Unlike :func:`get_columns`, this does not consult the catalog — the
+    returned ``data_type`` is whatever the user wrote in YAML (e.g. ``int``,
+    ``varchar(64)``). With ``contract.alias_types: true`` (the dbt default)
+    those values may be generic type names that don't match the warehouse's
+    platform-specific equivalent.
     """
     manifest_columns = manifest_node.get("columns") or {}
     columns: List[DBTColumn] = []
     for index, (_, manifest_column) in enumerate(manifest_columns.items()):
-        # Contracts require data_type on every column, so ``data_type`` is
-        # almost always populated. Defensively fall back to empty string —
-        # an empty string in a schema assertion will still flag against a
-        # real type at eval time, which is the safer failure mode.
-        data_type = manifest_column.get("data_type") or ""
         tags = [tag_prefix + tag for tag in manifest_column.get("tags", []) or []]
         constraints = [
             DBTConstraint(
@@ -187,9 +167,9 @@ def extract_contract_columns(
         columns.append(
             DBTColumn(
                 name=manifest_column["name"],
-                comment="",  # catalog comment isn't part of the contract
+                comment="",
                 description=manifest_column.get("description", "") or "",
-                data_type=data_type,
+                data_type=manifest_column.get("data_type") or "",
                 index=index,
                 meta=manifest_column.get("meta", {}) or {},
                 tags=tags,
@@ -427,7 +407,6 @@ def extract_dbt_entities(
                 kw_args=kw_args,
             )
 
-        # Extract contract configuration
         contract = None
         contract_columns: Optional[List[DBTColumn]] = None
         contract_config = manifest_node.get("config", {}).get("contract", {})
@@ -438,14 +417,8 @@ def extract_dbt_entities(
                 alias_types=contract_config.get("alias_types", True),
                 checksum=top_level_contract.get("checksum"),
             )
-            # Capture the contract-declared columns BEFORE get_columns runs
-            # below and overwrites dbtNode.columns with catalog-merged data.
-            # These become the input to the schema assertion so the assertion
-            # reflects what the contract declares, not what the catalog
-            # happens to contain.
             contract_columns = extract_contract_columns(manifest_node, tag_prefix)
 
-        # Extract model-level constraints
         model_constraints = [
             DBTConstraint(
                 type=constraint_dict.get("type", "unknown"),

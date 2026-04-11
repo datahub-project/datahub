@@ -1,20 +1,11 @@
-"""Performance benchmark for dbt Data Contract ingestion.
+"""Performance benchmark for ``DBTSourceBase.create_contract_mcps``.
 
-Exercises the contract-specific code path (``create_contract_mcps`` and its
-helpers) in isolation from manifest/catalog parsing, so the numbers reflect
-the cost of contract emission specifically rather than general dbt ingestion
-overhead.
-
-The hotspot of interest is ``_get_contract_tests_for_node``, which scans the
-full test-node list for every contracted model. At N models × M tests, the
-worst case is O(N·M); this benchmark makes that cost measurable and gives us
-a regression guardrail as the feature evolves.
+Feeds synthetic ``DBTNode`` objects straight into the contract emission
+path, bypassing manifest/catalog parsing. The scale sweep is designed to
+make an O(models × tests) regression in the test-indexing loop obvious.
 
 Usage:
-    # Run as a pytest test (CI-safe scale).
     pytest tests/performance/dbt/test_dbt_contracts.py::test_benchmark -s --log-cli-level=INFO
-
-    # Run directly for ad-hoc benchmarking across larger scales.
     python -m tests.performance.dbt.test_dbt_contracts
 """
 
@@ -38,22 +29,19 @@ from tests.performance.helpers import workunit_sink
 
 logger = logging.getLogger(__name__)
 
-# CI runners are noisy and time-limited, so we only exercise a single scale there.
-# Locally we sweep a few orders of magnitude to make the per-model cost visible.
+# Single scale on CI to stay within the time budget, full sweep locally.
 MODEL_COUNT_OPTIONS: List[int] = [1000] if is_ci() else [100, 1000, 5000]
 
-# Structural parameters held fixed across scales so the only variable is the
-# number of contracted models. Values approximate a "chunky" production dbt
-# project: wide tables with a handful of enforced constraints and a few
-# contract-tagged tests per model.
+# Per-model shape. Held fixed across scales so num_models is the only
+# variable. Approximates a production dbt project with wide tables and
+# a handful of enforced constraints.
 COLUMNS_PER_MODEL = 20
 CONSTRAINED_COLUMNS_PER_MODEL = 5
 TESTS_PER_MODEL = 3
 CONTRACT_TAGGED_TEST_FRACTION = 0.5
 
-# Per-model throughput floor. This is intentionally loose — the goal is to
-# catch order-of-magnitude regressions (e.g. an accidentally quadratic pass
-# over test_nodes), not to micro-benchmark the constraint loop.
+# Loose throughput floor; the goal is to catch order-of-magnitude regressions,
+# not to micro-benchmark the constraint loop.
 MIN_MODELS_PER_SECOND = 100.0 if is_ci() else 500.0
 
 
@@ -62,26 +50,7 @@ def _build_contracted_model(
     columns_per_model: int,
     constrained_columns_per_model: int,
 ) -> DBTNode:
-    """Build a single contracted DBTNode with a realistic constraint mix.
-
-    Each model carries every constraint type the feature supports so the
-    benchmark exercises all emission paths at scale — not just ``not_null``
-    and ``primary_key``:
-
-    - col_0: ``primary_key`` + ``not_null`` (the PK decomposition path)
-    - col_1: ``unique`` (the UNIQUE_PROPOTION assertion path)
-    - col_2: ``foreign_key`` with an expression (the _NATIVE_ path)
-    - col_3: ``check`` with an expression (another _NATIVE_ path)
-    - cols 4..constrained-1: ``not_null`` (the single-constraint path)
-    - remaining cols: no constraints (exercise the skip-over path)
-
-    A composite ``primary_key`` on col_0 + col_1 is also added as a
-    model-level constraint so the multi-column assertion path is
-    exercised. ``model_constraints`` is intentionally non-empty even
-    though col_0 already has its own PK — real dbt projects frequently
-    have both column-level and model-level constraints, and the benchmark
-    should catch any regression that treats the combination poorly.
-    """
+    """Build a contracted DBTNode covering every constraint emission path."""
     columns: List[DBTColumn] = []
     for col_idx in range(columns_per_model):
         constraints: List[DBTConstraint] = []
@@ -120,9 +89,8 @@ def _build_contracted_model(
             )
         )
 
+    # Composite PK over (col_0, col_1) exercises the multi-column path.
     model_constraints = [
-        # Composite primary key over (col_0, col_1) exercises the
-        # multi-column unique + per-column not_null decomposition path.
         DBTConstraint(
             type="primary_key",
             name=f"pk_composite_model_{idx}",
@@ -171,12 +139,6 @@ def _build_test_node(
     tag_prefix: str,
     contract_test_tag: str,
 ) -> DBTNode:
-    """Build a dbt test node attached to ``model``.
-
-    ``tagged`` controls whether the test carries the contract tag, so we can
-    measure both the happy path (test is emitted as part of the contract) and
-    the skip path (``_get_contract_tests_for_node`` has to scan past it).
-    """
     tags = [tag_prefix + contract_test_tag] if tagged else []
     return DBTNode(
         dbt_name=f"test.bench_project.{model.name}_test_{test_idx}",
@@ -216,12 +178,7 @@ def generate_contract_workload(
     tag_prefix: str = "dbt:",
     contract_test_tag: str = "contract",
 ) -> Tuple[List[DBTNode], List[DBTNode]]:
-    """Build a synthetic workload of contracted models + associated tests.
-
-    Returns a ``(non_test_nodes, test_nodes)`` pair in the shape that
-    ``create_contract_mcps`` expects. The workload is fully deterministic so
-    runs are comparable across invocations.
-    """
+    """Return a deterministic ``(non_test_nodes, test_nodes)`` pair."""
     model_nodes = [
         _build_contracted_model(
             idx=i,
@@ -257,12 +214,6 @@ def generate_contract_workload(
 
 
 def _make_source() -> DBTCoreSource:
-    """Build a minimal ``DBTCoreSource`` wired for contract ingestion.
-
-    The config paths point at a throwaway directory because the benchmark
-    bypasses manifest/catalog loading entirely — we feed synthetic DBTNode
-    objects straight into ``create_contract_mcps``.
-    """
     config = DBTCoreConfig(
         manifest_path="temp/manifest.json",
         catalog_path="temp/catalog.json",
@@ -278,30 +229,20 @@ def _make_source() -> DBTCoreSource:
 def run_benchmark(
     num_models: int,
 ) -> Tuple[float, int, int]:
-    """Run a single benchmark configuration.
-
-    Returns ``(elapsed_seconds, num_mcps, peak_memory_bytes)``.
-    """
+    """Return ``(elapsed_seconds, num_mcps, peak_memory_bytes)``."""
     source = _make_source()
     non_test_nodes, test_nodes = generate_contract_workload(num_models=num_models)
 
-    # create_contract_mcps needs the full node map so it can call
-    # get_upstreams_for_test to compute URN references identical to the ones
-    # create_test_entity_mcps emits. The benchmark's workload has no filtered
-    # upstreams, so this is just the union of non_test_nodes and test_nodes.
     all_nodes_map = {n.dbt_name: n for n in non_test_nodes}
     for t in test_nodes:
         all_nodes_map[t.dbt_name] = t
 
-    # Wrap the generator in a workunit_sink-compatible adapter to reuse the
-    # existing peak-memory helper (it expects MetadataWorkUnit instances, but
-    # only touches ``.id`` via the enumerate loop).
     with PerfTimer() as timer:
         mcps = list(
             source.create_contract_mcps(non_test_nodes, test_nodes, all_nodes_map)
         )
         num_mcps = len(mcps)
-        # Consume via workunit_sink-style loop purely to capture peak RSS.
+        # workunit_sink is reused solely for its peak-RSS tracking loop.
         _, peak_memory = workunit_sink(iter(mcps))  # type: ignore[arg-type]
 
     return timer.elapsed_seconds(), num_mcps, peak_memory
@@ -309,12 +250,7 @@ def run_benchmark(
 
 @pytest.mark.integration
 def test_benchmark() -> None:
-    """Run benchmark across configured scales and log a results table.
-
-    Asserts only a loose per-model throughput floor to catch order-of-magnitude
-    regressions. Precise numbers will vary between environments.
-    """
-    import psutil  # imported lazily so the module loads under stripped envs
+    import psutil  # lazy so the module loads under stripped envs
 
     pre_mem = psutil.Process(os.getpid()).memory_info().rss
 

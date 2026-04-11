@@ -3651,26 +3651,7 @@ def test_column_constraints_extracted() -> None:
     assert col.constraints[1].type == "primary_key"
 
 
-# ==================== Contract assertion correctness tests ====================
-#
-# These tests guard the assertion shape produced by contract emission against
-# four classes of regression:
-#  1. Uniqueness encoded as a no-op (operator=EQUAL_TO, aggregation=IDENTITY)
-#     instead of the canonical UNIQUE_PROPOTION+1.0 pattern.
-#  2. primary_key being treated as a one-bit "not null" check and losing its
-#     uniqueness half.
-#  3. Composite primary keys being fanned out into per-column assertions
-#     instead of one multi-column assertion over the tuple.
-#  4. Non-standard constraint types (foreign_key, check, custom, unknown)
-#     either crashing ingestion or disappearing silently.
-#
-# They exercise _create_constraint_assertions directly on a contracted DBTNode
-# rather than running the full MCE pipeline, which keeps each test tight and
-# avoids pulling in manifest loading.
-
-
 def _make_contracted_source(*, ingest_column_constraints: bool = True) -> DBTCoreSource:
-    """Build a minimal DBTCoreSource wired for contract emission."""
     ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-source")
     config = DBTCoreConfig(
         manifest_path="temp/manifest.json",
@@ -3691,7 +3672,6 @@ def _make_contracted_node(
     columns: Optional[List[Any]] = None,
     model_constraints: Optional[List[Any]] = None,
 ) -> DBTNode:
-    """Build a DBTNode with an enforced contract and optional constraints."""
     from datahub.ingestion.source.dbt.dbt_common import DBTContract
 
     return DBTNode(
@@ -3728,10 +3708,7 @@ def _make_contracted_node(
     )
 
 
-def _assertion_info_from_mcps(
-    mcps: List[Any],
-) -> AssertionInfoClass:
-    """Pull the AssertionInfoClass aspect out of a list of MCPs."""
+def _assertion_info_from_mcps(mcps: List[Any]) -> AssertionInfoClass:
     for mcp in mcps:
         if isinstance(mcp.aspect, AssertionInfoClass):
             return mcp.aspect
@@ -3739,13 +3716,6 @@ def _assertion_info_from_mcps(
 
 
 def test_constraint_assertion_unique_uses_unique_proportion() -> None:
-    """A `unique` constraint must produce a UNIQUE_PROPOTION assertion with
-    parameters.value=1.0, matching the canonical encoding in dbt_tests.py.
-
-    Regression guard: the original implementation used aggregation=IDENTITY
-    with no parameters, which is a no-op — the assertion said "for each row,
-    the value equals [nothing]" instead of "the unique proportion is 1.0".
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
     from datahub.metadata.schema_classes import (
         AssertionStdAggregationClass,
@@ -3770,29 +3740,20 @@ def test_constraint_assertion_unique_uses_unique_proportion() -> None:
         node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
     )
 
-    assert len(results) == 1, "exactly one assertion per unique constraint"
-    _, mcps = results[0]
-    info = _assertion_info_from_mcps(mcps)
+    assert len(results) == 1
+    info = _assertion_info_from_mcps(results[0][1])
     dataset_assertion = info.datasetAssertion
     assert dataset_assertion is not None
     assert dataset_assertion.operator == AssertionStdOperatorClass.EQUAL_TO
     assert (
         dataset_assertion.aggregation == AssertionStdAggregationClass.UNIQUE_PROPOTION
     )
-    # Parameters must carry value=1.0 NUMBER; without it the assertion has no
-    # comparator and is semantically meaningless.
     assert dataset_assertion.parameters is not None
     assert dataset_assertion.parameters.value is not None
     assert dataset_assertion.parameters.value.value == "1.0"
 
 
 def test_constraint_assertion_primary_key_emits_not_null_and_unique() -> None:
-    """A column-level `primary_key` must decompose into a unique assertion
-    *and* a not_null assertion — the two halves of "PK" semantics.
-
-    Regression guard: the original implementation mapped primary_key to
-    NOT_NULL only, silently dropping the uniqueness guarantee.
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
     from datahub.metadata.schema_classes import (
         AssertionStdAggregationClass,
@@ -3817,31 +3778,20 @@ def test_constraint_assertion_primary_key_emits_not_null_and_unique() -> None:
         node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
     )
 
-    assert len(results) == 2, "primary_key should emit unique + not_null"
+    assert len(results) == 2
     dataset_assertions = [
         _assertion_info_from_mcps(mcps).datasetAssertion for _, mcps in results
     ]
-    # None of these should be None — both halves of the PK decomposition are
-    # dataset assertions. Narrow the type for mypy by asserting that upfront.
     assert all(da is not None for da in dataset_assertions)
     operators = {da.operator for da in dataset_assertions if da is not None}
     aggregations = {da.aggregation for da in dataset_assertions if da is not None}
-    # EQUAL_TO comes from the uniqueness half; NOT_NULL from the not-null half.
     assert AssertionStdOperatorClass.EQUAL_TO in operators
     assert AssertionStdOperatorClass.NOT_NULL in operators
-    # UNIQUE_PROPOTION is the uniqueness aggregation, IDENTITY the null-check.
     assert AssertionStdAggregationClass.UNIQUE_PROPOTION in aggregations
     assert AssertionStdAggregationClass.IDENTITY in aggregations
 
 
 def test_composite_primary_key_emits_single_multi_column_assertion() -> None:
-    """A model-level composite primary_key must emit ONE multi-column unique
-    assertion (scoped to the tuple) plus a not_null per column.
-
-    Regression guard: the original implementation iterated the column list
-    and emitted N single-column "primary_key" assertions, which is wrong —
-    a composite PK is over the tuple, not the individual columns.
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTConstraint
     from datahub.metadata.schema_classes import AssertionStdAggregationClass
 
@@ -3859,37 +3809,31 @@ def test_composite_primary_key_emits_single_multi_column_assertion() -> None:
         node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
     )
 
-    # Expected: 1 multi-column unique + 1 not_null per column = 3 total.
+    # One multi-column unique + one not_null per column.
     assert len(results) == 3
+    infos = [_assertion_info_from_mcps(mcps) for _, mcps in results]
 
     unique_infos = [
-        _assertion_info_from_mcps(mcps)
-        for _, mcps in results
-        if _assertion_info_from_mcps(mcps).datasetAssertion is not None
-        and _assertion_info_from_mcps(mcps).datasetAssertion.aggregation  # type: ignore[union-attr]
+        i
+        for i in infos
+        if i.datasetAssertion is not None
+        and i.datasetAssertion.aggregation
         == AssertionStdAggregationClass.UNIQUE_PROPOTION
     ]
-    assert len(unique_infos) == 1, "exactly one composite unique assertion"
+    assert len(unique_infos) == 1
     unique_fields = unique_infos[0].datasetAssertion.fields  # type: ignore[union-attr]
-    assert unique_fields is not None and len(unique_fields) == 2, (
-        "composite unique assertion must reference BOTH columns in .fields"
-    )
+    assert unique_fields is not None and len(unique_fields) == 2
 
     not_null_infos = [
-        _assertion_info_from_mcps(mcps)
-        for _, mcps in results
-        if _assertion_info_from_mcps(mcps).datasetAssertion is not None
-        and _assertion_info_from_mcps(mcps).datasetAssertion.aggregation  # type: ignore[union-attr]
-        == AssertionStdAggregationClass.IDENTITY
+        i
+        for i in infos
+        if i.datasetAssertion is not None
+        and i.datasetAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
     ]
-    assert len(not_null_infos) == 2, "one not_null assertion per PK column"
+    assert len(not_null_infos) == 2
 
 
 def test_constraint_assertion_foreign_key_emits_native() -> None:
-    """foreign_key constraints should emit a _NATIVE_ assertion carrying the
-    referenced table/column expression on customProperties, not be silently
-    dropped.
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
     from datahub.metadata.schema_classes import (
         AssertionStdAggregationClass,
@@ -3926,13 +3870,10 @@ def test_constraint_assertion_foreign_key_emits_native() -> None:
     assert info.datasetAssertion.operator == AssertionStdOperatorClass._NATIVE_
     assert info.datasetAssertion.aggregation == AssertionStdAggregationClass._NATIVE_
     assert info.customProperties is not None
-    # The expression (the FK target) must survive onto custom props so
-    # downstream tools can render it.
     assert info.customProperties.get("expression") == "customers(id)"
 
 
 def test_constraint_assertion_check_emits_expression_in_custom_props() -> None:
-    """check constraints expose their SQL expression on custom properties."""
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
 
     source = _make_contracted_source()
@@ -3944,12 +3885,7 @@ def test_constraint_assertion_check_emits_expression_in_custom_props() -> None:
                 description="",
                 index=0,
                 data_type="int",
-                constraints=[
-                    DBTConstraint(
-                        type="check",
-                        expression="age >= 0",
-                    )
-                ],
+                constraints=[DBTConstraint(type="check", expression="age >= 0")],
             )
         ],
     )
@@ -3966,11 +3902,6 @@ def test_constraint_assertion_check_emits_expression_in_custom_props() -> None:
 
 
 def test_constraint_assertion_unknown_type_is_reported_not_raised() -> None:
-    """Unknown constraint types must be recorded on the report and skipped.
-
-    They must not raise — a project with one model carrying a novel
-    constraint type shouldn't fail ingestion for every other model.
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
 
     source = _make_contracted_source()
@@ -3991,7 +3922,7 @@ def test_constraint_assertion_unknown_type_is_reported_not_raised() -> None:
         node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
     )
 
-    assert results == [], "unknown constraint types must not produce assertions"
+    assert results == []
     skipped = list(source.report.contract_constraints_skipped_unsupported)
     assert len(skipped) == 1
     assert "totally_made_up" in skipped[0]
@@ -3999,14 +3930,10 @@ def test_constraint_assertion_unknown_type_is_reported_not_raised() -> None:
 
 
 def test_constraint_assertion_enforced_by_is_adapter_aware() -> None:
-    """enforced_by must reflect dbt's actual constraint support matrix:
-    postgres enforces unique/PK at DDL level, snowflake does not.
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
 
     source = _make_contracted_source()
 
-    # Snowflake: unique is metadata-only, so enforced_by should NOT be "database"
     snowflake_node = _make_contracted_node(
         adapter="snowflake",
         columns=[
@@ -4026,11 +3953,9 @@ def test_constraint_assertion_enforced_by_is_adapter_aware() -> None:
     )
     sf_info = _assertion_info_from_mcps(snowflake_results[0][1])
     assert sf_info.customProperties is not None
-    assert sf_info.customProperties.get("enforced_by") == "dbt_contract", (
-        "Snowflake does not DDL-enforce unique; enforced_by must be dbt_contract"
-    )
+    # Snowflake's ``unique`` is metadata-only per dbt's constraint matrix.
+    assert sf_info.customProperties.get("enforced_by") == "dbt_contract"
 
-    # Postgres: unique IS enforced at DDL level
     postgres_node = _make_contracted_node(
         adapter="postgres",
         dbt_name="model.test_pkg.pg_orders",
@@ -4055,27 +3980,12 @@ def test_constraint_assertion_enforced_by_is_adapter_aware() -> None:
     assert pg_info.customProperties.get("enforced_by") == "database"
 
 
-# ==================== Contract URN consistency tests ====================
-#
-# These tests guard the URN equivalence between contract-path references and
-# test-emission-path URNs. The contract path must reference the exact URN
-# that create_test_entity_mcps emits for a given test+upstream pair; if it
-# drifts, Data Contracts contain orphan assertion references.
-#
-# The key subtlety is filtering: get_upstreams_for_test drops upstreams that
-# aren't in all_nodes_map (orphan refs, missing deps). The contract path used
-# to decide the URN shape using len(test_node.upstream_nodes) — the RAW
-# manifest count — while test emission uses the FILTERED count. When those
-# differ, the URNs differ.
-
-
 def _make_test_node(
     test_dbt_name: str,
     upstream_dbt_names: List[str],
     *,
     contract_tag: str = "dbt:contract",
 ) -> DBTNode:
-    """Build a DBTNode representing a dbt test tagged for contracts."""
     return DBTNode(
         dbt_name=test_dbt_name,
         dbt_adapter="snowflake",
@@ -4105,31 +4015,17 @@ def _make_test_node(
 
 
 def test_contract_test_urn_matches_when_upstream_filtered() -> None:
-    """When a test's raw upstream list has an entry missing from all_nodes_map,
-    the contract path must compute the same URN that create_test_entity_mcps
-    emits for that test — which means using the FILTERED upstream count, not
-    the raw count.
-
-    Regression guard: before this fix, a test with raw upstreams=[model_a,
-    orphan] would produce URN(on_dbt_upstream=model_a) in the contract path
-    (because raw count > 1), but create_test_entity_mcps would see filtered
-    upstreams={model_a} and emit URN with no on_dbt_upstream. The contract
-    would then reference a URN that was never emitted.
-    """
     source = _make_contracted_source()
 
     contracted_model = _make_contracted_node(
         dbt_name="model.test_pkg.orders", name="orders"
     )
-    # Test has two raw upstreams: orders (valid) + a reference to a model
-    # that was never emitted / got filtered.
+    # One valid upstream + one orphan. all_nodes_map only contains the
+    # valid one, so the filtered upstream count should be 1.
     test_node = _make_test_node(
         test_dbt_name="test.test_pkg.orders_has_id",
         upstream_dbt_names=["model.test_pkg.orders", "model.test_pkg.orphan"],
     )
-
-    # all_nodes_map only contains the contracted model — the orphan upstream
-    # is not present, mirroring a filtered / missing dependency.
     all_nodes_map = {contracted_model.dbt_name: contracted_model}
 
     mcps = list(
@@ -4140,7 +4036,6 @@ def test_contract_test_urn_matches_when_upstream_filtered() -> None:
         )
     )
 
-    # Pull the Data Contract properties aspect off the emitted MCPs.
     from datahub.metadata.schema_classes import DataContractPropertiesClass
 
     contract_props = [
@@ -4150,11 +4045,10 @@ def test_contract_test_urn_matches_when_upstream_filtered() -> None:
     ]
     assert len(contract_props) == 1
     dq_urns = [c.assertion for c in (contract_props[0].dataQuality or [])]
-    assert len(dq_urns) == 1, "exactly one test referenced in the data contract"
+    assert len(dq_urns) == 1
 
-    # The URN the contract references must match what create_test_entity_mcps
-    # would compute for this test: filtered upstream count is 1, so no
-    # on_dbt_upstream scoping, i.e. the backwards-compat single-upstream form.
+    # Single filtered upstream → URN uses the backwards-compat form
+    # (no on_dbt_upstream) that create_test_entity_mcps would emit.
     expected_urn = source._make_test_assertion_urn(
         test_dbt_name=test_node.dbt_name,
         upstream_dbt_name=None,
@@ -4163,9 +4057,6 @@ def test_contract_test_urn_matches_when_upstream_filtered() -> None:
 
 
 def test_contract_test_urn_matches_for_multi_upstream() -> None:
-    """When a test has multiple VALID upstreams, the contract path must
-    reference the per-upstream URN variant (with on_dbt_upstream scoping).
-    """
     source = _make_contracted_source()
 
     model_a = _make_contracted_node(dbt_name="model.test_pkg.a", name="a")
@@ -4174,11 +4065,7 @@ def test_contract_test_urn_matches_for_multi_upstream() -> None:
         test_dbt_name="test.test_pkg.shared_test",
         upstream_dbt_names=["model.test_pkg.a", "model.test_pkg.b"],
     )
-
-    all_nodes_map = {
-        model_a.dbt_name: model_a,
-        model_b.dbt_name: model_b,
-    }
+    all_nodes_map = {model_a.dbt_name: model_a, model_b.dbt_name: model_b}
 
     mcps = list(
         source.create_contract_mcps(
@@ -4195,11 +4082,8 @@ def test_contract_test_urn_matches_for_multi_upstream() -> None:
         for mcp in mcps
         if isinstance(mcp.aspect, DataContractPropertiesClass)
     ]
-    assert len(contract_props) == 2, "one contract per contracted model"
+    assert len(contract_props) == 2
 
-    # Each model's contract must reference the per-upstream URN variant
-    # scoped to *that* model's dbt_name — matching what
-    # create_test_entity_mcps emits in the len(upstreams) > 1 branch.
     expected_a = source._make_test_assertion_urn(
         test_dbt_name=test_node.dbt_name,
         upstream_dbt_name=model_a.dbt_name,
@@ -4208,11 +4092,8 @@ def test_contract_test_urn_matches_for_multi_upstream() -> None:
         test_dbt_name=test_node.dbt_name,
         upstream_dbt_name=model_b.dbt_name,
     )
-    assert expected_a != expected_b, "per-upstream URNs must be distinct"
+    assert expected_a != expected_b
 
-    # Map each contract's entity URN to its expected test URN — looking up
-    # by entity URN avoids relying on contract emission order and also
-    # avoids fragile substring heuristics on the URN's internal structure.
     urn_a = model_a.get_urn(
         target_platform="dbt",
         env=source.config.env,
@@ -4228,29 +4109,11 @@ def test_contract_test_urn_matches_for_multi_upstream() -> None:
     for props in contract_props:
         dq_urns = [c.assertion for c in (props.dataQuality or [])]
         assert len(dq_urns) == 1
-        assert props.entity in expected_by_entity, (
-            f"contract entity {props.entity} must match one of the contracted models"
-        )
+        assert props.entity in expected_by_entity
         assert dq_urns[0] == expected_by_entity[props.entity]
 
 
-# ==================== Contract column flow tests ====================
-#
-# These guard the contract_columns path: the schema assertion for a
-# contracted model must describe what the contract DECLARED (columns and
-# types from the manifest, verbatim), not what the catalog happens to
-# contain (which would be tautologically equal to the catalog at eval
-# time and provide zero drift protection).
-
-
 def test_extract_contract_columns_preserves_declared_types() -> None:
-    """Manifest-declared types must survive verbatim into contract_columns.
-
-    Regression guard: if we ever short-circuited through get_columns() or
-    normalized types in the extraction path, generic types like ``string``
-    would get rewritten before they reached the assertion, defeating the
-    whole point of building the assertion from the contract declaration.
-    """
     from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
 
     manifest_node = {
@@ -4294,13 +4157,6 @@ def test_extract_contract_columns_preserves_declared_types() -> None:
 
 
 def test_extract_contract_columns_handles_missing_data_type() -> None:
-    """A column with no ``data_type`` must not crash extraction.
-
-    Per dbt, contracts require data_type on every column, so in practice
-    this is unusual — but a malformed manifest shouldn't fail all of
-    ingestion. Fall back to empty string so the assertion still emits
-    (and will correctly flag mismatch against any real column type).
-    """
     from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
 
     manifest_node = {
@@ -4313,8 +4169,6 @@ def test_extract_contract_columns_handles_missing_data_type() -> None:
 
 
 def test_extract_contract_columns_applies_tag_prefix() -> None:
-    """tag_prefix must be applied so contract-column tags show up the same
-    way as catalog-column tags elsewhere in the source."""
     from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
 
     manifest_node = {
@@ -4331,15 +4185,10 @@ def test_extract_contract_columns_applies_tag_prefix() -> None:
 
 
 def test_schema_assertion_uses_contract_columns_when_available() -> None:
-    """The schema assertion must describe contract_columns when present,
-    not node.columns. This is the whole point of Pass 2 — without it the
-    assertion is tautological.
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn
 
     source = _make_contracted_source()
 
-    # contract_columns has the DECLARED shape (manifest verbatim)
     declared_id = DBTColumn(
         name="id",
         comment="",
@@ -4347,35 +4196,26 @@ def test_schema_assertion_uses_contract_columns_when_available() -> None:
         index=0,
         data_type="bigint",
     )
-    # node.columns has what the catalog actually contains — with a drifted
-    # type (VARCHAR instead of bigint) so we can verify which one the
-    # assertion actually sourced from.
+    # Catalog column's data_type intentionally drifts from the declared
+    # one so the assertion below proves which source was used.
     catalog_id = DBTColumn(
         name="id",
         comment="",
         description="from catalog",
         index=0,
-        data_type="VARCHAR(16)",  # drifted
+        data_type="VARCHAR(16)",
     )
     node = _make_contracted_node(columns=[catalog_id])
     node.contract_columns = [declared_id]
 
     schema_metadata = source._build_schema_metadata_for_node(node)
     assert schema_metadata is not None
-    # There should be exactly one field, and its nativeDataType must come
-    # from contract_columns (the declaration), not node.columns (the
-    # drifted catalog state).
     assert len(schema_metadata.fields) == 1
     assert schema_metadata.fields[0].fieldPath == "id"
     assert schema_metadata.fields[0].nativeDataType == "bigint"
 
 
 def test_schema_assertion_falls_back_to_node_columns_when_no_contract_columns() -> None:
-    """When contract_columns is None (e.g. a source that hasn't populated
-    it yet), fall back to node.columns rather than emitting an empty
-    assertion. This preserves the Pass 1 behavior for sources that haven't
-    adopted the Pass 2 extraction path yet.
-    """
     from datahub.ingestion.source.dbt.dbt_common import DBTColumn
 
     source = _make_contracted_source()
@@ -4390,7 +4230,6 @@ def test_schema_assertion_falls_back_to_node_columns_when_no_contract_columns() 
             )
         ]
     )
-    # Explicitly leave contract_columns as None.
     assert node.contract_columns is None
 
     schema_metadata = source._build_schema_metadata_for_node(node)
@@ -4399,40 +4238,8 @@ def test_schema_assertion_falls_back_to_node_columns_when_no_contract_columns() 
     assert schema_metadata.fields[0].nativeDataType == "BIGINT"
 
 
-# ==================== Contract end-to-end integration test ====================
-#
-# Unit tests in this file exercise individual methods in isolation. This
-# end-to-end test constructs a minimal manifest + catalog in memory, writes
-# them to a temp directory, instantiates a real DBTCoreSource, and walks
-# get_workunits() to the end — just like the production ingestion path.
-#
-# The goal is to catch regressions in the *integration* of:
-#   1. manifest parsing → DBTNode construction (dbt_core.extract_dbt_entities)
-#   2. contract_columns extraction (Pass 2)
-#   3. contract emission: schema assertion + constraint assertions +
-#      Data Contract entity (Pass 1)
-#   4. test-to-contract linking via contract_test_tag (Pass 1 URN consistency)
-#
-# A full golden-file integration test would live in tests/integration/dbt/
-# and duplicate a lot of the fixture curation work already done for the
-# main dbt integration suite. Since the contract-specific code paths are
-# small and well-isolated, running them end-to-end against an in-memory
-# manifest catches the same class of regressions with much less overhead.
-
-
 def _build_contract_manifest() -> Dict[str, Any]:
-    """Build a minimal dbt manifest.json with a realistic contract fixture.
-
-    Contains:
-    - One model ``model.contract_test.orders`` with:
-      - ``contract.enforced: true``, ``alias_types: false``, a checksum
-      - 4 columns (id, email, age, status) with a mix of constraint types:
-        id → primary_key, email → not_null, age → check, status → unique
-      - A model-level foreign_key constraint
-    - One contract-tagged test node attached to orders that should end up
-      referenced in the Data Contract's dataQuality list
-    - Bare-minimum fields that dbt_core's parser requires
-    """
+    """Minimal manifest.json with one contracted model + one contract-tagged test."""
     return {
         "metadata": {
             "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v10.json",
@@ -4604,14 +4411,11 @@ def _build_contract_manifest() -> Dict[str, Any]:
 
 
 def _build_contract_catalog() -> Dict[str, Any]:
-    """Build a minimal catalog matching the contract manifest fixture.
+    """Catalog matching ``_build_contract_manifest``.
 
-    The catalog provides post-run column info that dbt_core merges with
-    the manifest. We list the same columns the contract declares so the
-    merged ``node.columns`` is non-empty, but crucially with DIFFERENT
-    type formats (e.g. ``BIGINT`` in catalog vs ``bigint`` in manifest)
-    to prove the schema assertion sources from ``contract_columns`` —
-    the manifest declaration — not from the catalog.
+    Types deliberately differ in case (``BIGINT`` vs ``bigint``) so the
+    end-to-end test can verify the schema assertion sources from
+    ``contract_columns`` and not from the catalog.
     """
     return {
         "metadata": {
@@ -4666,21 +4470,7 @@ def _build_contract_catalog() -> Dict[str, Any]:
 
 
 def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
-    """End-to-end contract ingestion against an in-memory manifest.
-
-    This exercises the full extract → emit path:
-      - extract_dbt_entities parses the manifest, populates DBTNode with
-        contract + contract_columns + model_constraints
-      - create_contract_mcps emits schema assertion + constraint assertions
-        (column + model level) + Data Contract entity
-      - The emitted Data Contract references the contract-tagged test's
-        assertion URN correctly (URN consistency end-to-end, not just the
-        narrow _make_test_assertion_urn unit test)
-
-    It's a unit test in location but an integration test in intent — it
-    catches regressions in the integration between extraction and emission
-    that pure method-level unit tests miss.
-    """
+    """End-to-end: write manifest/catalog to disk, run a real DBTCoreSource."""
     import json as _json
 
     from datahub.metadata.schema_classes import (
@@ -4690,8 +4480,6 @@ def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
         DataContractPropertiesClass,
     )
 
-    # Write manifest + catalog to temp files so DBTCoreSource can load them
-    # the way it would in production.
     manifest_path = tmp_path / "manifest.json"
     catalog_path = tmp_path / "catalog.json"
     manifest_path.write_text(_json.dumps(_build_contract_manifest()))
@@ -4705,21 +4493,18 @@ def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
         ingest_contracts=True,
         ingest_column_constraints_as_assertions=True,
         enable_meta_mapping=False,
-        # OVERRIDE so we don't need a real GMS graph (the default PATCH
-        # mode requires one to fetch existing aspects).
+        # OVERRIDE so the source doesn't require a real GMS graph.
         write_semantics="OVERRIDE",
     )
     source = DBTCoreSource(config, ctx)
 
-    # Drive the full source pipeline, not just one method. get_workunits_internal
-    # yields a mix of MetadataWorkUnit and MetadataChangeProposalWrapper — we
-    # normalise both by extracting the aspect and the entity URN from each.
+    # get_workunits_internal yields a mix of MetadataWorkUnit and
+    # MetadataChangeProposalWrapper.
     workunits = list(source.get_workunits_internal())
 
     def _extract_aspect_and_urn(wu: Any) -> Tuple[Any, Optional[str]]:
         if isinstance(wu, MetadataChangeProposalWrapper):
             return wu.aspect, wu.entityUrn
-        # MetadataWorkUnit wraps an MCE or MCP; .metadata is the underlying payload.
         meta = getattr(wu, "metadata", None)
         if meta is None:
             return None, None
@@ -4728,31 +4513,23 @@ def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
     emitted = [_extract_aspect_and_urn(wu) for wu in workunits]
     aspects = [aspect for aspect, _ in emitted if aspect is not None]
 
-    # ---------- 1. Data Contract entity is emitted ----------
+    # Data Contract entity is emitted.
     contract_props = [a for a in aspects if isinstance(a, DataContractPropertiesClass)]
-    assert len(contract_props) == 1, (
-        "exactly one DataContractPropertiesClass should be emitted for the "
-        "one contracted model in the fixture"
-    )
+    assert len(contract_props) == 1
     props = contract_props[0]
-    assert props.schema is not None, "schema contract must be populated"
-    assert props.dataQuality is not None and len(props.dataQuality) >= 1, (
-        "at least one data-quality assertion (the contract-tagged test) "
-        "must be referenced in the Data Contract"
-    )
+    assert props.schema is not None
+    assert props.dataQuality is not None and len(props.dataQuality) >= 1
 
-    # ---------- 2. Schema assertion uses contract_columns, not catalog ----------
-    # The manifest declared types verbatim (bigint, varchar(255), ...),
-    # while the catalog has different capitalization (BIGINT, VARCHAR(255)).
-    # If the schema assertion sources from catalog data, we'd see uppercase
-    # types here; if it sources from contract_columns (correct), we'd see
-    # the manifest's lowercase declarations.
+    # Schema assertion sources from contract_columns: the manifest types
+    # (``bigint``/``varchar(255)``/...) differ in case from the catalog
+    # types (``BIGINT``/``VARCHAR(255)``/...), so the nativeDataType values
+    # here tell us which source the assertion was built from.
     schema_assertion_infos = [
         a
         for a in aspects
         if isinstance(a, AssertionInfoClass) and a.schemaAssertion is not None
     ]
-    assert len(schema_assertion_infos) == 1, "one schema assertion per contract"
+    assert len(schema_assertion_infos) == 1
     schema_info = schema_assertion_infos[0].schemaAssertion
     assert schema_info is not None
     assert schema_info.schema is not None
@@ -4762,19 +4539,13 @@ def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
         "email": "varchar(255)",
         "age": "int",
         "status": "varchar(32)",
-    }, (
-        "schema assertion must describe manifest-declared types, not "
-        "catalog types — verifies the Pass 2 contract_columns plumbing "
-        f"actually reached the emission path. Got: {field_types}"
-    )
+    }
 
-    # ---------- 3. Constraint assertions: unique uses UNIQUE_PROPOTION ----------
     dataset_assertion_infos = [
         a
         for a in aspects
         if isinstance(a, AssertionInfoClass) and a.datasetAssertion is not None
     ]
-    # Group by operator + aggregation for easy lookup.
     unique_assertions = [
         a
         for a in dataset_assertion_infos
@@ -4795,89 +4566,40 @@ def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
         and a.datasetAssertion.operator == AssertionStdOperatorClass._NATIVE_
     ]
 
-    # primary_key on `id` decomposes into 1 unique + 1 not_null.
-    # unique on `status` adds 1 more unique assertion.
-    # not_null on `email` adds 1 not_null assertion.
-    # We expect at least 2 unique assertions (id, status) and at least 2
-    # not_null assertions (id from PK decomposition, email from explicit
-    # not_null). Inequality rather than equality because the PK expansion
-    # + model-level FK emit additional native assertions.
-    assert len(unique_assertions) >= 2, (
-        "PK on id + unique on status should yield at least 2 unique assertions"
-    )
-    assert len(not_null_assertions) >= 2, (
-        "PK on id + not_null on email should yield at least 2 not_null assertions"
-    )
+    # PK on id → 1 unique + 1 not_null; unique on status → 1 more unique;
+    # not_null on email → 1 more not_null. At least 2 of each.
+    assert len(unique_assertions) >= 2
+    assert len(not_null_assertions) >= 2
 
-    # ---------- 4. Native assertions (check, foreign_key) are emitted ----------
-    # `age` has a check constraint; model-level has a foreign_key.
-    # Both should become native assertions with expressions in custom props.
+    # ``age`` has a check constraint, and the model carries a foreign_key —
+    # both should reach custom properties as native-assertion expressions.
     expressions = {
         a.customProperties.get("expression")
         for a in native_assertions
         if a.customProperties is not None
     }
-    assert "age >= 0" in expressions, (
-        "check constraint expression must be carried on custom properties"
-    )
-    assert "customers(id)" in expressions, (
-        "foreign_key expression must be carried on custom properties"
-    )
-
-    # ---------- 5. Contract-tagged test is referenced in the Data Contract ----------
-    # The test node's assertion URN (as computed by create_test_entity_mcps
-    # on its own side) must match the URN that the Data Contract references
-    # in its dataQuality list. This is the end-to-end version of the
-    # Pass 1 _make_test_assertion_urn consistency tests.
-    from datahub.emitter import mce_builder
+    assert "age >= 0" in expressions
+    assert "customers(id)" in expressions
 
     expected_test_urn = source._make_test_assertion_urn(
         test_dbt_name="test.contract_test.orders_email_not_null",
-        upstream_dbt_name=None,  # single-upstream case
+        upstream_dbt_name=None,
     )
     dq_urns = {c.assertion for c in (props.dataQuality or [])}
-    assert expected_test_urn in dq_urns, (
-        "the contract-tagged test's assertion URN must appear in the "
-        f"Data Contract's dataQuality list. Expected {expected_test_urn}, "
-        f"got {dq_urns}"
-    )
+    assert expected_test_urn in dq_urns
 
-    # Finally, confirm the test assertion itself was also actually emitted
-    # somewhere in the workstream, not just referenced. (If it were only
-    # referenced, we'd have an orphan URN, which is the exact class of
-    # bug the Pass 1 URN-consistency fix addressed.)
+    # The test assertion URN the contract references must also have been
+    # actually emitted somewhere in the workstream — guards against orphan
+    # references between the contract path and create_test_entity_mcps.
     emitted_test_urns = {
         urn
         for _, urn in emitted
         if urn is not None and urn.startswith("urn:li:assertion:")
     }
-    assert expected_test_urn in emitted_test_urns, (
-        "contract references a test assertion URN that was never emitted — "
-        "this is the orphan-reference bug Pass 1 fixed. "
-        f"Missing URN: {expected_test_urn}"
-    )
-
-    # Silence the unused import warning in minimally-branched runs.
-    _ = mce_builder
-
-
-# ==================== dbt Cloud Discovery API contract tests ====================
-#
-# These guard the Discovery API integration for dbt Cloud contracts. The
-# job-scoped GraphQL queries used elsewhere in the connector do not expose
-# contractEnforced or constraints, so we run a separate environment-scoped
-# Discovery API query. These tests cover:
-#  - config validation: environment_id is required when ingest_contracts=true
-#  - fetch + parse: the Discovery API response shape is parsed into
-#    _DiscoveryContractData correctly, including pagination
-#  - wiring: _parse_into_dbt_node reads from the cached Discovery API data
-#    and populates DBTContract / model_constraints / contract_columns
-#  - fallback: a Discovery API failure is surfaced as a warning, not a
-#    hard failure, and ingestion continues with contracts missing
+    assert expected_test_urn in emitted_test_urns
 
 
 def _base_dbt_cloud_config(**overrides: Any) -> Dict[str, Any]:
-    """Build a valid DBTCloudConfig dict for testing."""
     base: Dict[str, Any] = {
         "access_url": "https://test.getdbt.com",
         "token": "dummy_token",
@@ -4892,13 +4614,6 @@ def _base_dbt_cloud_config(**overrides: Any) -> Dict[str, Any]:
 
 
 def test_dbt_cloud_config_requires_environment_id_when_ingesting_contracts() -> None:
-    """Contract ingestion on dbt Cloud requires environment_id.
-
-    The Discovery API's environment endpoint is the only source of
-    contract data; without environment_id we couldn't query it and would
-    silently produce no contracts. The config validator catches this
-    upfront so misconfiguration is visible immediately.
-    """
     with pytest.raises(
         ValidationError,
         match="environment_id is required when ingest_contracts=true",
@@ -4907,7 +4622,6 @@ def test_dbt_cloud_config_requires_environment_id_when_ingesting_contracts() -> 
 
 
 def test_dbt_cloud_config_accepts_environment_id_when_ingesting_contracts() -> None:
-    """With environment_id set, the validator passes."""
     config = DBTCloudConfig(
         **_base_dbt_cloud_config(
             ingest_contracts=True,
@@ -4919,19 +4633,12 @@ def test_dbt_cloud_config_accepts_environment_id_when_ingesting_contracts() -> N
 
 
 def test_dbt_cloud_config_no_environment_id_when_not_ingesting_contracts() -> None:
-    """When ingest_contracts is false (the default) environment_id remains
-    optional — contract ingestion is opt-in and non-contract users shouldn't
-    have to set it."""
     config = DBTCloudConfig(**_base_dbt_cloud_config())
     assert config.ingest_contracts is False
     assert config.environment_id is None
 
 
 def test_fetch_discovery_contract_data_parses_single_page() -> None:
-    """A single-page Discovery API response must parse into a keyed dict of
-    _DiscoveryContractData, populating constraints, contract_columns, and
-    the contractEnforced flag.
-    """
     from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
 
     fake_response = {
@@ -4999,11 +4706,10 @@ def test_fetch_discovery_contract_data_parses_single_page() -> None:
             environment_id=42,
         )
 
-    # Exactly one Discovery API call on a single page.
     assert mock_send.call_count == 1
 
-    # Both models are indexed, even the one without a contract — the
-    # caller needs to distinguish "no data fetched" from "contract false".
+    # Models with contractEnforced=false are still indexed so the caller
+    # can distinguish "not fetched" from "fetched, no contract".
     assert set(result.keys()) == {
         "model.test_pkg.orders",
         "model.test_pkg.no_contract",
@@ -5011,13 +4717,9 @@ def test_fetch_discovery_contract_data_parses_single_page() -> None:
 
     contracted = result["model.test_pkg.orders"]
     assert contracted.contract_enforced is True
-    # Constraints come through with their columns arrays preserved so the
-    # downstream _build_constraint_assertions can fan-out/multi-col them.
     assert len(contracted.model_constraints) == 2
     constraint_types = {c.type for c in contracted.model_constraints}
     assert constraint_types == {"primary_key", "not_null"}
-    # contract_columns come from applied.catalog.columns, with type
-    # preserved verbatim from the warehouse.
     assert [c.name for c in contracted.contract_columns] == ["id", "email"]
     assert [c.data_type for c in contracted.contract_columns] == ["BIGINT", "VARCHAR"]
 
@@ -5028,10 +4730,6 @@ def test_fetch_discovery_contract_data_parses_single_page() -> None:
 
 
 def test_fetch_discovery_contract_data_paginates() -> None:
-    """The fetcher must follow pageInfo.hasNextPage through cursor-based
-    pagination. A regression here would silently drop all models beyond
-    the first 500 on any non-trivial dbt project.
-    """
     from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
 
     page_1 = {
@@ -5084,20 +4782,13 @@ def test_fetch_discovery_contract_data_paginates() -> None:
             environment_id=42,
         )
 
-    # Two calls — one per page — and both models captured.
     assert mock_send.call_count == 2
     assert set(result.keys()) == {"model.a", "model.b"}
-
-    # The second call must have used the cursor returned by the first.
     second_call_variables = mock_send.call_args_list[1].kwargs["variables"]
     assert second_call_variables["after"] == "cursor-1"
 
 
 def test_parse_into_dbt_node_reads_contract_from_discovery_api() -> None:
-    """When a model has Discovery API contract data, _parse_into_dbt_node
-    must populate DBTNode.contract, model_constraints, and contract_columns
-    from that data.
-    """
     from datahub.ingestion.source.dbt.dbt_cloud import (
         DBTCloudSource,
         _DiscoveryContractData,
@@ -5113,7 +4804,6 @@ def test_parse_into_dbt_node_reads_contract_from_discovery_api() -> None:
     ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
     source = DBTCloudSource(config, ctx)
 
-    # Pre-populate the cache so we don't fire a real HTTP request.
     source._discovery_contract_data = {
         "model.test_pkg.orders": _DiscoveryContractData(
             contract_enforced=True,
@@ -5169,18 +4859,11 @@ def test_parse_into_dbt_node_reads_contract_from_discovery_api() -> None:
     assert parsed.contract is not None
     assert parsed.contract.enforced is True
     assert len(parsed.model_constraints) == 2
-    # contract_columns must be populated so the schema assertion doesn't
-    # fall back to node.columns (which is the tautological catalog path).
     assert parsed.contract_columns is not None
     assert [c.name for c in parsed.contract_columns] == ["id", "email"]
 
 
 def test_parse_into_dbt_node_no_contract_when_discovery_data_missing() -> None:
-    """If the Discovery API didn't return data for this model (or returned
-    contractEnforced=false), the parsed node must have contract=None. This
-    also confirms the meta.contract path has been removed — setting
-    meta.contract in the raw node should NOT magically produce a contract.
-    """
     from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
 
     config = DBTCloudConfig(
@@ -5191,8 +4874,6 @@ def test_parse_into_dbt_node_no_contract_when_discovery_data_missing() -> None:
     )
     ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
     source = DBTCloudSource(config, ctx)
-
-    # Empty cache — no Discovery API data for any model.
     source._discovery_contract_data = {}
 
     raw_node: Dict[str, Any] = {
@@ -5206,9 +4887,8 @@ def test_parse_into_dbt_node_no_contract_when_discovery_data_missing() -> None:
         "owner": None,
         "comment": "",
         "description": "",
-        # Deliberately include a meta.contract block to verify the old
-        # fallback path no longer triggers — contracts must come from the
-        # Discovery API only.
+        # meta.contract is intentionally set here to assert the old
+        # fallback path (which read contract data from meta) is gone.
         "meta": {
             "contract": {
                 "enforced": True,
@@ -5235,11 +4915,6 @@ def test_parse_into_dbt_node_no_contract_when_discovery_data_missing() -> None:
 
 
 def test_discovery_api_failure_is_warned_not_raised() -> None:
-    """A Discovery API failure during contract fetching must produce a
-    warning on the report and leave the cache as an empty dict. The
-    ingestion run continues without contract data rather than failing
-    the whole pipeline.
-    """
     from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
 
     config = DBTCloudConfig(
@@ -5259,12 +4934,8 @@ def test_discovery_api_failure_is_warned_not_raised() -> None:
         data = source._get_discovery_contract_data()
 
     assert data == {}
-    # Cached, so a second call doesn't re-fail.
+    # Cached result — a second call must not re-hit the mock.
     data_again = source._get_discovery_contract_data()
     assert data_again == {}
 
-    # A warning must be recorded on the report so users can see why
-    # their contracts didn't ingest.
-    assert any("contract" in str(w).lower() for w in source.report.warnings), (
-        "expected a report warning about the Discovery API failure"
-    )
+    assert any("contract" in str(w).lower() for w in source.report.warnings)
