@@ -242,11 +242,21 @@ def run_benchmark(
     source = _make_source()
     non_test_nodes, test_nodes = generate_contract_workload(num_models=num_models)
 
+    # create_contract_mcps needs the full node map so it can call
+    # get_upstreams_for_test to compute URN references identical to the ones
+    # create_test_entity_mcps emits. The benchmark's workload has no filtered
+    # upstreams, so this is just the union of non_test_nodes and test_nodes.
+    all_nodes_map = {n.dbt_name: n for n in non_test_nodes}
+    for t in test_nodes:
+        all_nodes_map[t.dbt_name] = t
+
     # Wrap the generator in a workunit_sink-compatible adapter to reuse the
     # existing peak-memory helper (it expects MetadataWorkUnit instances, but
     # only touches ``.id`` via the enumerate loop).
     with PerfTimer() as timer:
-        mcps = list(source.create_contract_mcps(non_test_nodes, test_nodes))
+        mcps = list(
+            source.create_contract_mcps(non_test_nodes, test_nodes, all_nodes_map)
+        )
         num_mcps = len(mcps)
         # Consume via workunit_sink-style loop purely to capture peak RSS.
         _, peak_memory = workunit_sink(iter(mcps))  # type: ignore[arg-type]

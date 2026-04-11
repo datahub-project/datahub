@@ -106,6 +106,9 @@ from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
+    AssertionStdParameterClass,
+    AssertionStdParametersClass,
+    AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AuditStampClass,
     ChangeAuditStampsClass,
@@ -344,6 +347,13 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Semantic model entity emission statistics
     num_semantic_models_emitted: int = 0
+
+    # Data Contract entity emission statistics
+    num_contracts_emitted: int = 0
+    num_contract_constraint_assertions_emitted: int = 0
+    contract_constraints_skipped_unsupported: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
 
 class EmitDirective(ConfigEnum):
@@ -679,8 +689,19 @@ class DBTCommonConfig(
 
     ingest_column_constraints_as_assertions: bool = Field(
         default=True,
-        description="When enabled and ingest_contracts is true, creates assertions from column constraints "
-        "(not_null, unique, primary_key). These are marked as 'always passing' since they're enforced by the database.",
+        description=(
+            "When enabled and ``ingest_contracts`` is true, emit DataHub "
+            "assertions derived from dbt contract constraints "
+            "(``not_null``, ``unique``, ``primary_key``, ``foreign_key``, "
+            "``check``, ``custom``). ``primary_key`` is decomposed into a "
+            "uniqueness assertion plus per-column not-null assertions. "
+            "Composite keys are emitted as a single multi-column assertion. "
+            "The assertions describe what the contract declares; whether "
+            "they are DDL-enforced by the warehouse is adapter-dependent "
+            "and surfaced on each assertion's ``enforced_by`` custom "
+            "property. No run history is emitted — assertions appear with "
+            "an unknown result status until a monitor runs against them."
+        ),
     )
 
     @field_validator("target_platform", mode="after")
@@ -1840,6 +1861,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         yield from self.create_contract_mcps(
             non_test_nodes,
             test_nodes,
+            all_nodes_map,
         )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
@@ -3391,92 +3413,403 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> List[Tuple[str, List[MetadataChangeProposalWrapper]]]:
         """Create assertions from column and model-level constraints.
 
-        Returns list of (assertion_urn, MCPs) tuples.
+        Returns a list of ``(assertion_urn, MCPs)`` tuples. A single constraint
+        can expand into multiple assertions — notably ``primary_key`` expands
+        into a ``unique`` assertion plus a ``not_null`` assertion per column,
+        which is how dbt itself recommends testing primary keys.
+
+        Unsupported or unknown constraint types are recorded on the report via
+        ``contract_constraints_skipped_unsupported`` and skipped rather than
+        raised, so an uncommon constraint type in one model doesn't break
+        ingestion of the rest of the project.
         """
         results: List[Tuple[str, List[MetadataChangeProposalWrapper]]] = []
 
-        # Column-level constraints
+        # Column-level constraints are always single-column by definition.
         for col in node.columns:
             for constraint in col.constraints:
-                if constraint.type in ("not_null", "unique", "primary_key"):
-                    assertion_urn, mcps = self._create_single_constraint_assertion(
+                results.extend(
+                    self._build_constraint_assertions(
                         node=node,
                         entity_urn=entity_urn,
-                        column_name=col.name,
                         constraint=constraint,
+                        columns=[col.name],
+                        scope="column",
                     )
-                    results.append((assertion_urn, mcps))
+                )
 
-        # Model-level constraints
+        # Model-level constraints can span multiple columns (composite keys),
+        # or zero columns (for check/custom expressions that reference the row
+        # as a whole rather than a specific field).
         for constraint in node.model_constraints:
-            if (
-                constraint.type in ("not_null", "unique", "primary_key")
-                and constraint.columns
-            ):
-                for col_name in constraint.columns:
-                    assertion_urn, mcps = self._create_single_constraint_assertion(
-                        node=node,
-                        entity_urn=entity_urn,
-                        column_name=col_name,
-                        constraint=constraint,
-                    )
-                    results.append((assertion_urn, mcps))
+            results.extend(
+                self._build_constraint_assertions(
+                    node=node,
+                    entity_urn=entity_urn,
+                    constraint=constraint,
+                    columns=constraint.columns or [],
+                    scope="model",
+                )
+            )
 
         return results
 
-    def _create_single_constraint_assertion(
+    def _build_constraint_assertions(
+        self,
+        node: DBTNode,
+        entity_urn: str,
+        constraint: DBTConstraint,
+        columns: List[str],
+        scope: str,
+    ) -> List[Tuple[str, List[MetadataChangeProposalWrapper]]]:
+        """Expand a single DBTConstraint into zero or more assertions.
+
+        ``columns`` is the list of columns the constraint applies to. For
+        column-level constraints this is always a single-element list. For
+        model-level constraints it can be multiple (composite key) or empty
+        (expression-only check/custom constraints).
+
+        ``scope`` is ``"column"`` or ``"model"`` and is used only for the
+        ``source`` custom property so consumers can distinguish the two.
+        """
+        results: List[Tuple[str, List[MetadataChangeProposalWrapper]]] = []
+        ctype = constraint.type
+
+        if ctype == "not_null":
+            # not_null is inherently per-column. For a model-level constraint
+            # with multiple columns we fan out one assertion per column.
+            targets = columns or []
+            if not targets:
+                self._record_unsupported_constraint(node, constraint, "no columns")
+                return results
+            for col_name in targets:
+                results.append(
+                    self._build_not_null_assertion(
+                        node=node,
+                        entity_urn=entity_urn,
+                        column_name=col_name,
+                        scope=scope,
+                    )
+                )
+
+        elif ctype == "unique":
+            if not columns:
+                self._record_unsupported_constraint(node, constraint, "no columns")
+                return results
+            # A model-level unique over multiple columns asserts the tuple is
+            # unique; a column-level unique asserts the single column is.
+            results.append(
+                self._build_unique_assertion(
+                    node=node,
+                    entity_urn=entity_urn,
+                    column_names=columns,
+                    scope=scope,
+                )
+            )
+
+        elif ctype == "primary_key":
+            if not columns:
+                self._record_unsupported_constraint(node, constraint, "no columns")
+                return results
+            # A primary key is the conjunction of unique + not null. We emit
+            # both halves as separate assertions so each can be evaluated and
+            # reported independently in DataHub, matching how dbt itself tests
+            # primary keys (a `unique` test plus `not_null` tests per column).
+            results.append(
+                self._build_unique_assertion(
+                    node=node,
+                    entity_urn=entity_urn,
+                    column_names=columns,
+                    scope=scope,
+                    constraint_type_override="primary_key",
+                )
+            )
+            for col_name in columns:
+                results.append(
+                    self._build_not_null_assertion(
+                        node=node,
+                        entity_urn=entity_urn,
+                        column_name=col_name,
+                        scope=scope,
+                        constraint_type_override="primary_key",
+                    )
+                )
+
+        elif ctype in ("foreign_key", "check", "custom"):
+            # These can't be expressed as operator/aggregation pairs in the
+            # DataHub assertion model, so we emit them as native assertions
+            # with the expression and (for foreign keys) referenced columns
+            # carried on custom properties for downstream consumers.
+            results.append(
+                self._build_native_constraint_assertion(
+                    node=node,
+                    entity_urn=entity_urn,
+                    constraint=constraint,
+                    columns=columns,
+                    scope=scope,
+                )
+            )
+
+        else:
+            self._record_unsupported_constraint(
+                node, constraint, f"unknown type '{ctype}'"
+            )
+
+        return results
+
+    def _make_constraint_assertion_urn(
+        self,
+        node: DBTNode,
+        assertion_name: str,
+    ) -> str:
+        """Build a stable assertion URN for a constraint.
+
+        The guid mirrors the test assertion URN structure in
+        ``_make_test_assertion_urn``: platform, name, instance, and
+        conditionally env. Keeping ``env`` out by default preserves the same
+        backwards-compatibility posture as the test-assertion guids, and
+        opting in to ``include_env_in_assertion_guid`` applies to both.
+        """
+        guid_parts: Dict[str, Any] = {
+            "platform": DBT_PLATFORM,
+            "name": assertion_name,
+            "instance": self.config.platform_instance,
+        }
+        if (
+            self.config.env != mce_builder.DEFAULT_ENV
+            and self.config.include_env_in_assertion_guid
+        ):
+            guid_parts["env"] = self.config.env
+        return mce_builder.make_assertion_urn(
+            mce_builder.datahub_guid(
+                {k: v for k, v in guid_parts.items() if v is not None}
+            )
+        )
+
+    def _enforced_by_for_constraint(self, node: DBTNode, constraint_type: str) -> str:
+        """Return the ``enforced_by`` custom property value for a constraint.
+
+        Per dbt's constraint support matrix, only a subset of constraint types
+        are actually enforced at the database level — the rest are
+        metadata-only, stored in information_schema but not validated. We
+        surface this honestly so consumers of the assertion custom properties
+        don't misinterpret a Snowflake "unique" constraint as a real uniqueness
+        guarantee.
+
+        Unknown adapters fall back to ``"dbt_contract"`` — the safer claim,
+        since we know the contract declared it but can't guarantee DDL-level
+        enforcement.
+        """
+        adapter = (node.dbt_adapter or "").lower()
+        ddl_enforced: Dict[str, Set[str]] = {
+            "postgres": {"not_null", "unique", "primary_key", "foreign_key", "check"},
+            "snowflake": {"not_null"},
+            "bigquery": {"not_null"},
+            "redshift": {"not_null"},
+            "databricks": {"not_null", "check"},
+            "spark": set(),
+            "athena": set(),
+        }
+        if constraint_type in ddl_enforced.get(adapter, set()):
+            return "database"
+        return "dbt_contract"
+
+    def _build_not_null_assertion(
         self,
         node: DBTNode,
         entity_urn: str,
         column_name: str,
-        constraint: DBTConstraint,
+        scope: str,
+        constraint_type_override: Optional[str] = None,
     ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
-        """Create a single assertion for a constraint."""
+        """Build a single-column not_null assertion.
 
-        # Map constraint type to assertion operator
-        constraint_mapping = {
-            "not_null": AssertionStdOperatorClass.NOT_NULL,
-            "unique": AssertionStdOperatorClass.EQUAL_TO,
-            "primary_key": AssertionStdOperatorClass.NOT_NULL,
-        }
-
-        operator = constraint_mapping.get(
-            constraint.type, AssertionStdOperatorClass._NATIVE_
+        ``constraint_type_override`` is used when this assertion is being
+        emitted as part of a ``primary_key`` decomposition, so the custom
+        properties accurately report that the origin was a PK constraint, not
+        a freestanding ``not_null``.
+        """
+        source_type = constraint_type_override or "not_null"
+        assertion_urn = self._make_constraint_assertion_urn(
+            node=node,
+            assertion_name=(
+                f"{node.dbt_name}__constraint__{column_name}__not_null"
+                if source_type == "not_null"
+                else f"{node.dbt_name}__constraint__{column_name}__primary_key__not_null"
+            ),
         )
+        assertion_info = AssertionInfoClass(
+            type=AssertionTypeClass.DATASET,
+            datasetAssertion=DatasetAssertionInfoClass(
+                dataset=entity_urn,
+                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+                operator=AssertionStdOperatorClass.NOT_NULL,
+                fields=[mce_builder.make_schema_field_urn(entity_urn, column_name)],
+                nativeType=f"dbt_constraint_{source_type}",
+                aggregation=AssertionStdAggregationClass.IDENTITY,
+            ),
+            description=f"dbt contract: {source_type} on {column_name}",
+            customProperties={
+                "source": f"dbt_{scope}_constraint",
+                "constraint_type": source_type,
+                "enforced_by": self._enforced_by_for_constraint(node, "not_null"),
+            },
+        )
+        return assertion_urn, self._wrap_assertion_mcps(assertion_urn, assertion_info)
 
-        assertion_urn = mce_builder.make_assertion_urn(
-            mce_builder.datahub_guid(
-                {
-                    k: v
-                    for k, v in {
-                        "platform": DBT_PLATFORM,
-                        "name": f"{node.dbt_name}__constraint__{column_name}__{constraint.type}",
-                        "instance": self.config.platform_instance,
-                    }.items()
-                    if v is not None
-                }
+    def _build_unique_assertion(
+        self,
+        node: DBTNode,
+        entity_urn: str,
+        column_names: List[str],
+        scope: str,
+        constraint_type_override: Optional[str] = None,
+    ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
+        """Build a (possibly multi-column) uniqueness assertion.
+
+        Uses ``UNIQUE_PROPOTION`` [sic — the typo is baked into the DataHub
+        schema] with a parameter of ``1.0``, which is the canonical DataHub
+        encoding of "all values in this column set are unique". It matches
+        the pattern ``dbt_tests.py`` uses for native ``unique`` tests so
+        dashboards render contract-derived and test-derived uniqueness
+        assertions consistently.
+
+        For composite keys (``len(column_names) > 1``) the assertion's
+        ``fields`` list carries all the constituent columns. Consumers can
+        read that list to know the uniqueness is over the tuple rather than
+        over any individual column.
+        """
+        # Sort the column list so a composite key defined as (a, b) produces
+        # the same URN as one defined as (b, a) — the set semantics are the
+        # same either way.
+        sorted_columns = sorted(column_names)
+        source_type = constraint_type_override or "unique"
+        if len(sorted_columns) == 1:
+            assertion_name = (
+                f"{node.dbt_name}__constraint__{sorted_columns[0]}__unique"
+                if source_type == "unique"
+                else f"{node.dbt_name}__constraint__{sorted_columns[0]}__primary_key__unique"
             )
+        else:
+            # Composite: fold the column tuple into the assertion name so the
+            # URN is stable across runs but distinct from any single-column
+            # assertion on the same node.
+            joined = "_".join(sorted_columns)
+            assertion_name = f"{node.dbt_name}__constraint__{joined}__{source_type}"
+
+        assertion_urn = self._make_constraint_assertion_urn(
+            node=node,
+            assertion_name=assertion_name,
         )
 
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=entity_urn,
-                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                operator=operator,
-                fields=[mce_builder.make_schema_field_urn(entity_urn, column_name)],
-                nativeType=f"dbt_constraint_{constraint.type}",
-                aggregation=AssertionStdAggregationClass.IDENTITY,
+                scope=(
+                    DatasetAssertionScopeClass.DATASET_COLUMN
+                    if len(sorted_columns) == 1
+                    else DatasetAssertionScopeClass.DATASET_ROWS
+                ),
+                operator=AssertionStdOperatorClass.EQUAL_TO,
+                fields=[
+                    mce_builder.make_schema_field_urn(entity_urn, col)
+                    for col in sorted_columns
+                ],
+                nativeType=f"dbt_constraint_{source_type}",
+                # UNIQUE_PROPOTION is the correct DataHub encoding of
+                # "all values are unique" — see dbt_tests.py for the canonical
+                # usage in the native `unique` test. Note the schema typo.
+                aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
+                parameters=AssertionStdParametersClass(
+                    value=AssertionStdParameterClass(
+                        value="1.0",
+                        type=AssertionStdParameterTypeClass.NUMBER,
+                    )
+                ),
             ),
-            description=f"Database constraint: {constraint.type} on {column_name}",
+            description=(f"dbt contract: {source_type} on {', '.join(sorted_columns)}"),
             customProperties={
-                "source": "dbt_column_constraint",
-                "constraint_type": constraint.type,
-                "enforced_by": "database",
+                "source": f"dbt_{scope}_constraint",
+                "constraint_type": source_type,
+                "enforced_by": self._enforced_by_for_constraint(node, "unique"),
+                "columns": ",".join(sorted_columns),
             },
         )
+        return assertion_urn, self._wrap_assertion_mcps(assertion_urn, assertion_info)
 
-        mcps = [
+    def _build_native_constraint_assertion(
+        self,
+        node: DBTNode,
+        entity_urn: str,
+        constraint: DBTConstraint,
+        columns: List[str],
+        scope: str,
+    ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
+        """Build an assertion for foreign_key / check / custom constraints.
+
+        These can't be mapped to a DataHub operator/aggregation pair, so we
+        emit them as native assertions. The ``expression`` (for check/custom)
+        or the foreign-key target (also in ``expression`` in the dbt manifest)
+        is carried on ``customProperties`` so downstream tooling can render it.
+        """
+        sorted_columns = sorted(columns)
+        # Constraint.name may or may not be set by the user; when absent we
+        # build a deterministic name from type + columns so the URN is stable.
+        distinguishing = constraint.name or (
+            "_".join(sorted_columns) if sorted_columns else "model"
+        )
+        assertion_name = (
+            f"{node.dbt_name}__constraint__{distinguishing}__{constraint.type}"
+        )
+        assertion_urn = self._make_constraint_assertion_urn(
+            node=node,
+            assertion_name=assertion_name,
+        )
+
+        custom_props: Dict[str, str] = {
+            "source": f"dbt_{scope}_constraint",
+            "constraint_type": constraint.type,
+            "enforced_by": self._enforced_by_for_constraint(node, constraint.type),
+        }
+        if constraint.expression:
+            custom_props["expression"] = constraint.expression
+        if constraint.name:
+            custom_props["constraint_name"] = constraint.name
+        if sorted_columns:
+            custom_props["columns"] = ",".join(sorted_columns)
+
+        assertion_info = AssertionInfoClass(
+            type=AssertionTypeClass.DATASET,
+            datasetAssertion=DatasetAssertionInfoClass(
+                dataset=entity_urn,
+                scope=(
+                    DatasetAssertionScopeClass.DATASET_COLUMN
+                    if sorted_columns
+                    else DatasetAssertionScopeClass.DATASET_ROWS
+                ),
+                operator=AssertionStdOperatorClass._NATIVE_,
+                fields=[
+                    mce_builder.make_schema_field_urn(entity_urn, col)
+                    for col in sorted_columns
+                ],
+                nativeType=f"dbt_constraint_{constraint.type}",
+                aggregation=AssertionStdAggregationClass._NATIVE_,
+            ),
+            description=(
+                f"dbt contract: {constraint.type}"
+                + (f" — {constraint.expression}" if constraint.expression else "")
+            ),
+            customProperties=custom_props,
+        )
+        return assertion_urn, self._wrap_assertion_mcps(assertion_urn, assertion_info)
+
+    def _wrap_assertion_mcps(
+        self,
+        assertion_urn: str,
+        assertion_info: AssertionInfoClass,
+    ) -> List[MetadataChangeProposalWrapper]:
+        return [
             MetadataChangeProposalWrapper(
                 entityUrn=assertion_urn,
                 aspect=self._make_data_platform_instance_aspect(),
@@ -3487,7 +3820,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         ]
 
-        return assertion_urn, mcps
+    def _record_unsupported_constraint(
+        self,
+        node: DBTNode,
+        constraint: DBTConstraint,
+        reason: str,
+    ) -> None:
+        """Record a constraint that couldn't be emitted as an assertion.
+
+        Uses ``report.info`` (not ``warning``) because an unsupported
+        constraint type isn't an error — the user's contract is still
+        partially represented, and the rest of ingestion proceeds. But we
+        want the skip to be visible in the ingestion report so users know
+        their constraint was dropped and why.
+        """
+        entry = f"{node.dbt_name} [{constraint.type}]: {reason}"
+        self.report.contract_constraints_skipped_unsupported.append(entry)
+        self.report.info(
+            title="Unsupported dbt contract constraint",
+            message=(
+                "A constraint type could not be emitted as a DataHub assertion "
+                "and was skipped. The rest of the contract was emitted normally."
+            ),
+            context=entry,
+            log=False,
+        )
 
     def _index_contract_tests_by_upstream(
         self,
@@ -3587,8 +3944,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         non_test_nodes: List[DBTNode],
         test_nodes: List[DBTNode],
+        all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Create Data Contract entities for models with enforced contracts."""
+        """Create Data Contract entities for models with enforced contracts.
+
+        ``all_nodes_map`` is the pre-filter node map (same one passed to
+        ``create_test_entity_mcps``). We need it so that ``get_upstreams_for_test``
+        sees the exact same set of upstreams as the test emission path, which is
+        what makes our assertion URN references match the URNs that path emits.
+        Without this, tests whose raw manifest upstream list contains entries
+        missing from the manifest (orphan refs) would get different guid variants
+        here and in ``create_test_entity_mcps``, producing Data Contracts that
+        reference assertion URNs that were never emitted.
+        """
 
         if not self.config.ingest_contracts:
             return
@@ -3597,6 +3965,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # would turn the outer loop into O(models × tests), which on projects
         # in the thousands dominates contract emission time.
         contract_tests_by_upstream = self._index_contract_tests_by_upstream(test_nodes)
+
+        # Cache per-test filtered upstreams. A single contract-tagged test can be
+        # referenced by every contracted model in its upstream list, so without
+        # memoization we'd call get_upstreams_for_test multiple times per test.
+        test_upstreams_cache: Dict[str, Dict[str, str]] = {}
+
+        def _filtered_upstreams_for(test_node: DBTNode) -> Dict[str, str]:
+            cached = test_upstreams_cache.get(test_node.dbt_name)
+            if cached is None:
+                cached = get_upstreams_for_test(
+                    test_node=test_node,
+                    all_nodes_map=all_nodes_map,
+                    platform_instance=self.config.platform_instance,
+                    environment=self.config.env,
+                )
+                test_upstreams_cache[test_node.dbt_name] = cached
+            return cached
 
         for node in non_test_nodes:
             # Skip if no enforced contract
@@ -3631,17 +4016,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
                 for constraint_urn, constraint_mcps in constraint_results:
                     all_assertion_urns.append(constraint_urn)
+                    self.report.num_contract_constraint_assertions_emitted += 1
                     yield from constraint_mcps
 
-            # 3. Get tagged test assertion URNs. Tests may have multiple upstreams,
-            # so we must reference the guid variant specific to *this* model to match
-            # the one emitted by create_test_entity_mcps.
+            # 3. Get tagged test assertion URNs. For each test, we have to
+            # reference the exact URN that create_test_entity_mcps emits. That
+            # URN depends on the *filtered* upstreams (tests whose raw manifest
+            # upstream list has entries missing from all_nodes_map will not
+            # emit assertions for those entries), and on whether the filtered
+            # count is > 1 (the single-upstream case uses a backwards-compat
+            # guid form without on_dbt_upstream).
             contract_tests = contract_tests_by_upstream.get(node.dbt_name, [])
             for test_node in contract_tests:
+                filtered_upstreams = _filtered_upstreams_for(test_node)
+                if node.dbt_name not in filtered_upstreams:
+                    # The current model was filtered out of this test's
+                    # emitted upstreams (e.g. missing from the manifest). No
+                    # assertion will exist at the URN we'd compute, so skip.
+                    continue
                 test_urn = self._make_test_assertion_urn(
                     test_dbt_name=test_node.dbt_name,
                     upstream_dbt_name=(
-                        node.dbt_name if len(test_node.upstream_nodes) > 1 else None
+                        node.dbt_name if len(filtered_upstreams) > 1 else None
                     ),
                 )
                 all_assertion_urns.append(test_urn)
@@ -3655,6 +4051,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ],
             )
             yield from contract_mcps
+            self.report.num_contracts_emitted += 1
 
             logger.debug(
                 f"Created data contract for {node.name} with {len(all_assertion_urns)} assertions"
