@@ -3818,16 +3818,14 @@ def test_constraint_assertion_primary_key_emits_not_null_and_unique() -> None:
     )
 
     assert len(results) == 2, "primary_key should emit unique + not_null"
-    operators = {
-        _assertion_info_from_mcps(mcps).datasetAssertion.operator
-        for _, mcps in results
-        if _assertion_info_from_mcps(mcps).datasetAssertion is not None
-    }
-    aggregations = {
-        _assertion_info_from_mcps(mcps).datasetAssertion.aggregation
-        for _, mcps in results
-        if _assertion_info_from_mcps(mcps).datasetAssertion is not None
-    }
+    dataset_assertions = [
+        _assertion_info_from_mcps(mcps).datasetAssertion for _, mcps in results
+    ]
+    # None of these should be None — both halves of the PK decomposition are
+    # dataset assertions. Narrow the type for mypy by asserting that upfront.
+    assert all(da is not None for da in dataset_assertions)
+    operators = {da.operator for da in dataset_assertions if da is not None}
+    aggregations = {da.aggregation for da in dataset_assertions if da is not None}
     # EQUAL_TO comes from the uniqueness half; NOT_NULL from the not-null half.
     assert AssertionStdOperatorClass.EQUAL_TO in operators
     assert AssertionStdOperatorClass.NOT_NULL in operators
@@ -5142,7 +5140,7 @@ def test_parse_into_dbt_node_reads_contract_from_discovery_api() -> None:
         )
     }
 
-    raw_node = {
+    raw_node: Dict[str, Any] = {
         "uniqueId": "model.test_pkg.orders",
         "name": "orders",
         "resourceType": "model",
@@ -5197,7 +5195,7 @@ def test_parse_into_dbt_node_no_contract_when_discovery_data_missing() -> None:
     # Empty cache — no Discovery API data for any model.
     source._discovery_contract_data = {}
 
-    raw_node = {
+    raw_node: Dict[str, Any] = {
         "uniqueId": "model.test_pkg.orders",
         "name": "orders",
         "resourceType": "model",
