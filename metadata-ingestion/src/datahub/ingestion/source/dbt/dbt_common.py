@@ -1117,6 +1117,20 @@ class DBTNode:
     contract: Optional[DBTContract] = None
     model_constraints: List[DBTConstraint] = field(default_factory=list)
 
+    # Columns as declared in the contract section of the manifest — *not*
+    # catalog-merged. Populated only for nodes with contract.enforced=true,
+    # and only when the source pipeline has a manifest-level view (dbt Core;
+    # dbt Cloud populates this separately via the Discovery API). When None,
+    # contract-related code paths fall back to ``columns`` (catalog-merged).
+    #
+    # This distinction matters because a schema assertion built from
+    # ``columns`` would describe the same catalog data it's later evaluated
+    # against — it'd be tautologically true and provide zero drift
+    # protection. Building it from ``contract_columns`` instead means the
+    # assertion describes what the contract *declares*, so when catalog
+    # columns drift the assertion fails, which is the whole point.
+    contract_columns: Optional[List["DBTColumn"]] = None
+
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
         joined = ".".join([part for part in parts if part])
@@ -3377,9 +3391,24 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return assertion_urn, mcps
 
     def _build_schema_metadata_for_node(self, node: DBTNode) -> SchemaMetadata:
-        """Build SchemaMetadata from DBTNode columns."""
+        """Build SchemaMetadata from a contracted DBTNode.
+
+        Prefers ``node.contract_columns`` — the verbatim manifest columns
+        from the contract declaration — over ``node.columns`` (catalog-
+        merged). Without this preference the assertion is tautologically
+        true: it's built from the same catalog data it'd be evaluated
+        against, so drift between the contract and the warehouse goes
+        undetected. Falling back to ``node.columns`` only applies when a
+        source (e.g. an older dbt Cloud path) hasn't populated
+        contract_columns — in that case we do the best we can with what's
+        available rather than emitting nothing.
+        """
+        columns_for_assertion = (
+            node.contract_columns if node.contract_columns else node.columns
+        )
+
         fields = []
-        for col in node.columns:
+        for col in columns_for_assertion:
             field_type = col.datahub_data_type or get_column_type(
                 self.report, node.dbt_name, col.data_type, node.dbt_adapter or ""
             )

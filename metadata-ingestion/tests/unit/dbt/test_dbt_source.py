@@ -4234,3 +4234,168 @@ def test_contract_test_urn_matches_for_multi_upstream() -> None:
             f"contract entity {props.entity} must match one of the contracted models"
         )
         assert dq_urns[0] == expected_by_entity[props.entity]
+
+
+# ==================== Contract column flow tests ====================
+#
+# These guard the contract_columns path: the schema assertion for a
+# contracted model must describe what the contract DECLARED (columns and
+# types from the manifest, verbatim), not what the catalog happens to
+# contain (which would be tautologically equal to the catalog at eval
+# time and provide zero drift protection).
+
+
+def test_extract_contract_columns_preserves_declared_types() -> None:
+    """Manifest-declared types must survive verbatim into contract_columns.
+
+    Regression guard: if we ever short-circuited through get_columns() or
+    normalized types in the extraction path, generic types like ``string``
+    would get rewritten before they reached the assertion, defeating the
+    whole point of building the assertion from the contract declaration.
+    """
+    from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
+
+    manifest_node = {
+        "columns": {
+            "id": {
+                "name": "id",
+                "data_type": "bigint",
+                "description": "primary key",
+                "constraints": [{"type": "primary_key"}],
+                "meta": {},
+                "tags": [],
+            },
+            "email": {
+                "name": "email",
+                # Deliberately generic — this is what a contract with
+                # alias_types=true looks like at the manifest level.
+                "data_type": "string",
+                "description": "",
+                "constraints": [{"type": "not_null"}],
+                "meta": {},
+                "tags": [],
+            },
+            "created_at": {
+                "name": "created_at",
+                "data_type": "timestamp",
+                "description": "",
+                "meta": {},
+                "tags": [],
+            },
+        }
+    }
+    cols = extract_contract_columns(manifest_node, tag_prefix="dbt:")
+    assert [c.name for c in cols] == ["id", "email", "created_at"]
+    assert [c.data_type for c in cols] == ["bigint", "string", "timestamp"]
+    # Constraints must survive extraction so the downstream constraint
+    # assertion emitter can see them without re-reading the manifest.
+    id_col = cols[0]
+    email_col = cols[1]
+    assert [c.type for c in id_col.constraints] == ["primary_key"]
+    assert [c.type for c in email_col.constraints] == ["not_null"]
+
+
+def test_extract_contract_columns_handles_missing_data_type() -> None:
+    """A column with no ``data_type`` must not crash extraction.
+
+    Per dbt, contracts require data_type on every column, so in practice
+    this is unusual — but a malformed manifest shouldn't fail all of
+    ingestion. Fall back to empty string so the assertion still emits
+    (and will correctly flag mismatch against any real column type).
+    """
+    from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
+
+    manifest_node = {
+        "columns": {"broken": {"name": "broken", "description": "no type declared"}}
+    }
+    cols = extract_contract_columns(manifest_node, tag_prefix="dbt:")
+    assert len(cols) == 1
+    assert cols[0].name == "broken"
+    assert cols[0].data_type == ""
+
+
+def test_extract_contract_columns_applies_tag_prefix() -> None:
+    """tag_prefix must be applied so contract-column tags show up the same
+    way as catalog-column tags elsewhere in the source."""
+    from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
+
+    manifest_node = {
+        "columns": {
+            "id": {
+                "name": "id",
+                "data_type": "int",
+                "tags": ["pii", "sensitive"],
+            }
+        }
+    }
+    cols = extract_contract_columns(manifest_node, tag_prefix="dbt:")
+    assert cols[0].tags == ["dbt:pii", "dbt:sensitive"]
+
+
+def test_schema_assertion_uses_contract_columns_when_available() -> None:
+    """The schema assertion must describe contract_columns when present,
+    not node.columns. This is the whole point of Pass 2 — without it the
+    assertion is tautological.
+    """
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn
+
+    source = _make_contracted_source()
+
+    # contract_columns has the DECLARED shape (manifest verbatim)
+    declared_id = DBTColumn(
+        name="id",
+        comment="",
+        description="declared primary key",
+        index=0,
+        data_type="bigint",
+    )
+    # node.columns has what the catalog actually contains — with a drifted
+    # type (VARCHAR instead of bigint) so we can verify which one the
+    # assertion actually sourced from.
+    catalog_id = DBTColumn(
+        name="id",
+        comment="",
+        description="from catalog",
+        index=0,
+        data_type="VARCHAR(16)",  # drifted
+    )
+    node = _make_contracted_node(columns=[catalog_id])
+    node.contract_columns = [declared_id]
+
+    schema_metadata = source._build_schema_metadata_for_node(node)
+    assert schema_metadata is not None
+    # There should be exactly one field, and its nativeDataType must come
+    # from contract_columns (the declaration), not node.columns (the
+    # drifted catalog state).
+    assert len(schema_metadata.fields) == 1
+    assert schema_metadata.fields[0].fieldPath == "id"
+    assert schema_metadata.fields[0].nativeDataType == "bigint"
+
+
+def test_schema_assertion_falls_back_to_node_columns_when_no_contract_columns() -> None:
+    """When contract_columns is None (e.g. a source that hasn't populated
+    it yet), fall back to node.columns rather than emitting an empty
+    assertion. This preserves the Pass 1 behavior for sources that haven't
+    adopted the Pass 2 extraction path yet.
+    """
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="BIGINT",
+            )
+        ]
+    )
+    # Explicitly leave contract_columns as None.
+    assert node.contract_columns is None
+
+    schema_metadata = source._build_schema_metadata_for_node(node)
+    assert len(schema_metadata.fields) == 1
+    assert schema_metadata.fields[0].fieldPath == "id"
+    assert schema_metadata.fields[0].nativeDataType == "BIGINT"
