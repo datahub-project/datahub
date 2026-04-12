@@ -6,12 +6,11 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Tooltip, colors } from '@src/alchemy-components';
+import { Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
 import { Entity, EntityType, MetadataAttribution } from '@src/types.generated';
@@ -22,7 +21,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
     font-family: 'Manrope';
     font-weight: 400;
     font-size: ${(props) => props.size}px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: block;
     width: 100%;
     .remirror-editor.ProseMirror {
@@ -53,28 +52,28 @@ const EntityWrapper = styled.div<{ $isProposed?: boolean }>`
     ${(props) =>
         props.$isProposed &&
         `
-    border: 1px dashed ${colors.gray[200]};
+    border: 1px dashed ${props.theme.colors.border};
     padding: 2px 4px;
     margin: 2px 0;
     border-radius: 200px;
-    background-color: ${colors.white};
+    background-color: ${props.theme.colors.bg};
     `}
 `;
 
 const BorderedContainer = styled.div<{ $isProposed?: boolean; $isStraightBorder?: boolean }>`
     span {
-        color: ${colors.gray[500]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     ${(props) =>
         props.$isProposed &&
         `
         display: inline-flex;
-        border: 1px dashed ${colors.gray[200]};
+        border: 1px dashed ${props.theme.colors.border};
         padding: 2px 6px;
         margin: 2px 0;
         border-radius:  ${props.$isStraightBorder ? '8px' : '200px'};
-        background-color: ${colors.white};
+        background-color: ${props.theme.colors.bg};
         max-width: 100%;
         `}
 `;

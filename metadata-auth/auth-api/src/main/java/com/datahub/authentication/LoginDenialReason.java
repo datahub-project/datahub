@@ -9,7 +9,6 @@ public enum LoginDenialReason {
   HARD_DELETED,
   SOFT_DELETED,
   SUSPENDED,
-  INACTIVE,
   INVALID_CREDENTIALS,
   /**
    * Corp user key exists but the user is not sufficiently provisioned for login (e.g. key-only or
