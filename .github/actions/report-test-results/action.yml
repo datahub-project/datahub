@@ -22,6 +22,7 @@ runs:
       with:
         name: ${{ inputs.artifact-name }}
         path: ${{ inputs.test-results-paths }}
+        overwrite: true
         retention-days: 7
 
     - name: Publish test results

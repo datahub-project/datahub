@@ -18,10 +18,18 @@ Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `b
 
 The connector adds the following custom properties to datasets:
 
-- `dataplex_entry_id`: The entry identifier in Dataplex
-- `dataplex_entry_group`: The entry group containing this entry
-- `dataplex_fully_qualified_name`: The fully qualified name of the entry
-- `dataplex_ingested`: Marker indicating the dataset was ingested via Dataplex
+| Property                        | Always Present | Description                                                                |
+| ------------------------------- | -------------- | -------------------------------------------------------------------------- |
+| `dataplex_ingested`             | Yes            | Marker indicating the dataset was ingested via Dataplex                    |
+| `dataplex_entry_id`             | Yes            | The entry identifier in Dataplex                                           |
+| `dataplex_entry_group`          | Yes            | The entry group containing this entry                                      |
+| `dataplex_fully_qualified_name` | Yes            | The fully qualified name of the entry                                      |
+| `dataplex_entry_type`           | No             | The Dataplex entry type (e.g. `bigquery-table`)                            |
+| `dataplex_parent_entry`         | No             | The parent entry name, if set                                              |
+| `dataplex_source_resource`      | No             | The source resource identifier from the entry source                       |
+| `dataplex_source_system`        | No             | The source system from the entry source                                    |
+| `dataplex_source_platform`      | No             | The source platform from the entry source                                  |
+| `dataplex_aspect_<aspect_type>` | No             | One property per aspect attached to the entry, named after the aspect type |
 
 #### Filtering Configuration
 
@@ -103,7 +111,7 @@ source:
     project_ids:
       - "my-gcp-project"
 
-    # Location for entries (Universal Catalog) - defaults to "us"
+    # Location for entries (Universal Catalog) - defaults to ["us", "eu", "asia", "global"]
     # Must be multi-region (us, eu, asia) for system entry groups like @bigquery
     entries_locations:
       - "us"

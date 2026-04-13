@@ -384,13 +384,32 @@ class TestSessionWrapper:
     Many of the tests do not consider async writes. This
     class intercepts mutations using the requests library
     to simulate sync requests.
+
+    Two construction modes:
+
+    1. Login-based (default): provide a ``requests_session`` obtained via
+       ``get_frontend_session()``.  A short-lived GMS token is minted via GraphQL
+       and revoked on ``destroy()``.
+
+    2. Token-based: pass ``prebuilt_token`` directly (e.g. a PAT).  No login or
+       token-generation round-trip is performed.  ``frontend_url()`` returns the
+       GMS URL so GraphQL calls go to ``{gms_url}/api/graphql``.  ``destroy()``
+       is a no-op — the externally-provided token is never revoked.
     """
 
-    def __init__(self, requests_session):
+    def __init__(self, requests_session, *, prebuilt_token: str | None = None):
         self._upstream = requests_session
-        self._frontend_url = get_frontend_url()
         self._gms_url = get_gms_url()
-        self._gms_token_id, self._gms_token = self._generate_gms_token()
+
+        if prebuilt_token is not None:
+            # Token-based auth: skip login and token generation entirely.
+            # Route GraphQL calls through the GMS endpoint directly.
+            self._gms_token = prebuilt_token
+            self._gms_token_id = None  # externally-owned — never revoke
+            self._frontend_url = self._gms_url  # /api/graphql works on GMS too
+        else:
+            self._frontend_url = get_frontend_url()
+            self._gms_token_id, self._gms_token = self._generate_gms_token()
 
     def __getattr__(self, name):
         # Intercept method calls
