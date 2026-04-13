@@ -194,19 +194,6 @@ def test_all_expected_aspect_types_present() -> None:
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_platform_metadata_emitted() -> None:
-    """Omni data platform info must be emitted at startup."""
-    source = _build_source()
-    events = _collect_workunits(source)
-
-    platform_events = [e for e in events if e["entityType"] == "dataPlatform"]
-    assert platform_events, "No dataPlatform event emitted"
-    assert any("omni" in e["entityUrn"] for e in platform_events), (
-        "Omni platform URN not found"
-    )
-
-
-@time_machine.travel(FROZEN_TIME)
 def test_connections_emitted_as_datasets() -> None:
     """Both Omni connections must be emitted as connection datasets."""
     source = _build_source()

@@ -10,7 +10,7 @@ const NoResultsFoundWrapper = styled.div`
 export default function MenuNoResultsFound() {
     return (
         <NoResultsFoundWrapper>
-            <Text color="gray">No results found</Text>
+            <Text>No results found</Text>
         </NoResultsFoundWrapper>
     );
 }

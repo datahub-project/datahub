@@ -36,6 +36,7 @@ import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
 import notionLogo from '@images/notionlogo.png';
 import oktaLogo from '@images/oktalogo.png';
+import omniLogo from '@images/omnilogo.svg';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.svg';
@@ -181,6 +182,8 @@ export const FABRIC_ONELAKE = 'fabric-onelake';
 export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 export const STREAMLIT = 'streamlit';
 export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
+export const OMNI = 'omni';
+export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -239,6 +242,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
     [STREAMLIT_URN]: streamlitLogo,
+    [OMNI_URN]: omniLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
