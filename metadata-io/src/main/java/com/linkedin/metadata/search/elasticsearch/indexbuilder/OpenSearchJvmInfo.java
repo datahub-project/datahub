@@ -16,9 +16,13 @@ import javax.annotation.Nonnull;
 import org.apache.http.HttpEntity;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utility class to retrieve OpenSearch node JVM information via direct REST calls */
 public class OpenSearchJvmInfo {
+
+  private static final Logger logger = LoggerFactory.getLogger(OpenSearchJvmInfo.class);
 
   private static final Retry nodeMetricsRetry =
       Retry.of("node-metrics-health-check", RetryConfigUtils.HEALTH_CHECK);
@@ -159,6 +163,7 @@ public class OpenSearchJvmInfo {
       }
     } catch (Exception e) {
       // Return empty maps on failure - caller treats as zero delta (safe default)
+      logger.error("Error fetching metrics for nodes in ES", e);
       return new NodeMetrics(new HashMap<>(), new HashMap<>());
     }
 

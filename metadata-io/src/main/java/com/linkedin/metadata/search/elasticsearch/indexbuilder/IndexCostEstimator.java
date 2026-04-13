@@ -101,7 +101,7 @@ public class IndexCostEstimator {
         IndexCostInfo cost = estimateSingleIndex(indexName, dataNodeCount);
         costs.add(cost);
       } catch (Exception e) {
-        log.warn("Failed to estimate cost for index {}: {}", indexName, e.getMessage());
+        log.error("Failed to estimate cost for index {}: {}", indexName, e.getMessage(), e);
         skippedIndices.add(indexName);
         // Continue with other indices instead of failing completely
       }
@@ -172,8 +172,11 @@ public class IndexCostEstimator {
     try {
       return indexBuilder.getPrimaryShardCount(indexName);
     } catch (Exception e) {
-      log.warn(
-          "Failed to get shard count for index {}, defaulting to 1: {}", indexName, e.getMessage());
+      log.error(
+          "Failed to get shard count for index {}, defaulting to 1: {}",
+          indexName,
+          e.getMessage(),
+          e);
       return 1; // Elasticsearch 7.0+ default
     }
   }
