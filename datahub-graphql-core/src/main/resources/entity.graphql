@@ -13674,6 +13674,11 @@ input CreateApplicationInput {
   An optional id for the new application
   """
   id: String
+
+  """
+  Whether to add the creator as an owner of the application. Defaults to true if not specified.
+  """
+  shouldAddCreatorAsOwner: Boolean
 }
 
 """

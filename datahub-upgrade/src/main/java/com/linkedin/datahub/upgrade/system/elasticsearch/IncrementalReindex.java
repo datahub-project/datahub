@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.shared.ElasticSearchUpgradeUtils;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.IncrementalReindexCatchUpStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
@@ -49,12 +50,8 @@ public class IncrementalReindex implements NonBlockingSystemUpgrade {
       structuredProperties = Set.of();
     }
 
-    boolean rollbackDualWriteEnabled =
-        configurationProvider.getElasticSearch().getBuildIndices() != null
-            && configurationProvider
-                .getElasticSearch()
-                .getBuildIndices()
-                .isRollbackDualWriteEnabled();
+    BuildIndicesConfiguration buildIndicesConfig =
+        configurationProvider.getElasticSearch().getBuildIndices();
 
     List<ElasticSearchIndexed> indexedServices =
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
@@ -69,7 +66,7 @@ public class IncrementalReindex implements NonBlockingSystemUpgrade {
             indexedServices,
             structuredProperties,
             upgradeVersion,
-            rollbackDualWriteEnabled));
+            buildIndicesConfig));
   }
 
   @Override

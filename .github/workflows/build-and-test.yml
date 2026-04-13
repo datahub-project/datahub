@@ -64,7 +64,7 @@ jobs:
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
 
-  build-and-test:
+  build-except-metadata-ingestion:
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
     needs: setup

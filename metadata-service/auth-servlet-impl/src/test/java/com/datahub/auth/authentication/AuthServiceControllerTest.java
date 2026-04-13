@@ -269,7 +269,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         .thenReturn(true);
     when(mockUserSessionEligibilityChecker.checkEligibility(
             eq(systemOperationContext), eq(userUrn), anyBoolean()))
-        .thenReturn(Optional.of(LoginDenialReason.INACTIVE));
+        .thenReturn(Optional.of(LoginDenialReason.SUSPENDED));
 
     AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
     when(mockConfigProvider.getAuthentication()).thenReturn(authConfig);
@@ -285,7 +285,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     JsonNode responseJson = objectMapper.readTree(response.getBody());
     assertTrue(responseJson.get("doesPasswordMatch").asBoolean());
-    assertEquals(LoginDenialReason.INACTIVE.name(), responseJson.get("loginDenialReason").asText());
+    assertEquals(
+        LoginDenialReason.SUSPENDED.name(), responseJson.get("loginDenialReason").asText());
   }
 
   @Test
