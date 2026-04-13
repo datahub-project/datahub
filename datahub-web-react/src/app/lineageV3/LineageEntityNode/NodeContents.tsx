@@ -1,15 +1,14 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Pill, Tooltip, colors } from '@components';
+import { Pill, Tooltip } from '@components';
 import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { LastRunIcon } from '@app/entityV2/dataJob/tabs/RunsTab';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV3/LineageEntityNode/Columns';
@@ -43,7 +42,7 @@ import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 import LinkOut from '@images/link-out.svg?react';
 
 export const LoadingWrapper = styled.div`
-    color: ${LINEAGE_COLORS.PURPLE_3};
+    color: ${({ theme }) => theme.colors.buttonFillBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -117,7 +116,7 @@ const ExtraDetailsWrapper = styled.div`
     align-items: center;
     gap: 4px;
 
-    color: ${colors.gray[1700]};
+    color: ${({ theme }) => theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: normal;
@@ -208,6 +207,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
     const isVertical = !!parentDataJob;
@@ -223,8 +223,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
 
-    const highlightColor = isSearchedEntity ? colors.yellow[400] : colors.yellow[200];
-
+    const highlightColor = isSearchedEntity ? theme.colors.bgHighlight : theme.colors.tagsTrueYellowBg;
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
     const hasDownstreamChildren = !!(numDownstreams ?? !!entity?.numDownstreamChildren);
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
@@ -311,6 +310,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             status={lastRunEvent.status}
                             resultType={lastRunEvent.result?.resultType ?? undefined}
                             showTooltip
+                            theme={theme}
                         />
                     )}
                 </DataJobLastRunWrapper>

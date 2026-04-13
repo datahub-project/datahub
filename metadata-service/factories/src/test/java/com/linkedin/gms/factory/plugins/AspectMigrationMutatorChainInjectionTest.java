@@ -36,7 +36,7 @@ import org.testng.annotations.Test;
 @TestPropertySource(
     properties = {
       "metadataChangeProposal.validation.ignoreUnknown=true",
-      "featureFlags.zduStage20=true"
+      "featureFlags.aspectMigrationMutatorEnabled=true"
     })
 public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpringContextTests {
 

@@ -102,7 +102,7 @@ public interface DatabaseOperations {
    * list of individual SQL statements that can be executed separately.
    *
    * @param createSchemaVersionIndex whether to include the schemaVersionIndex (controlled by
-   *     featureFlags.zduStage10)
+   *     featureFlags.createSchemaVersionIndex)
    * @return list of SQL statements to create the table and indexes
    */
   java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex);
