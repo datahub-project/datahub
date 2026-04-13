@@ -80,4 +80,3 @@ Additional asset-specific viewer roles:
 
 - `roles/aiplatform.viewer` (Vertex AI Viewer) is required when ingesting Vertex AI assets.
 - `roles/spanner.viewer` (Cloud Spanner Viewer) is required when ingesting Cloud Spanner assets.
-
