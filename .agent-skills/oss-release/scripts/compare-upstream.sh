@@ -29,7 +29,7 @@ for cmd in git gh python3; do
         exit 1
     fi
 done
-if ! gh auth status &>/dev/null; then
+if ! gh auth token &>/dev/null; then
     echo "Error: gh CLI is not authenticated. Run: gh auth login" >&2
     exit 1
 fi
