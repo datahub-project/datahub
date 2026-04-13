@@ -3,7 +3,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { useDataNotCombinedWithSiblings, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRootEntityData } from '@app/entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -41,7 +41,7 @@ export default function DataProductSection({ readOnly }: Props) {
     const { entityData, urn } = useEntityData();
     const mutationUrn = useMutationUrn();
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
-    const dataNotCombined = useDataNotCombinedWithSiblings<any>();
+    const rootEntityData = useRootEntityData();
     const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchRemoveFromDataProductsMutation] = useBatchRemoveFromDataProductsMutation();
@@ -74,12 +74,10 @@ export default function DataProductSection({ readOnly }: Props) {
 
         const assocUrns: string[] = [];
 
-        // Check the root entity using the non-combined query data so we don't pick up
+        // Check the root entity using the non-combined data so we don't pick up
         // relationships that were contributed only by a sibling.
-        const entityKey = dataNotCombined ? Object.keys(dataNotCombined)[0] : null;
-        const rootRelationships: any[] =
-            (entityKey && (dataNotCombined as any)[entityKey]?.dataProduct?.relationships) || [];
-        if (rootRelationships.some((r: any) => r.entity?.urn === dataProductUrn)) {
+        const rootRelationships = rootEntityData?.dataProduct?.relationships || [];
+        if (rootRelationships.some((r) => r.entity?.urn === dataProductUrn)) {
             assocUrns.push(urn);
         }
 
