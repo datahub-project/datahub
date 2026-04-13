@@ -214,7 +214,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
             if config.project_ids:
                 project_id = config.project_ids[0]
-                parent = f"projects/{project_id}/locations/{config.entries_locations[0]}"
+                parent = (
+                    f"projects/{project_id}/locations/{config.entries_locations[0]}"
+                )
                 entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
                 # Just iterate once to verify access
                 for _ in catalog_client.list_entry_groups(request=entry_groups_request):
