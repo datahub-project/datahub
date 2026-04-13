@@ -560,9 +560,21 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.reindexBatchSize",
           "elasticsearch.buildIndices.reindexMaxSlices",
           "elasticsearch.buildIndices.reindexNoProgressRetryMinutes",
+          "elasticsearch.buildIndices.clusterHealthCheckIntervalSeconds",
+          "elasticsearch.buildIndices.clusterHeapThresholdPercent",
+          "elasticsearch.buildIndices.enableIndexThrottling",
+          "elasticsearch.buildIndices.enableParallelReindex",
+          "elasticsearch.buildIndices.maxConcurrentFinalizations",
+          "elasticsearch.buildIndices.maxConcurrentLargeReindex",
+          "elasticsearch.buildIndices.maxConcurrentNormalReindex",
+          "elasticsearch.buildIndices.maxConcurrentReindex",
+          "elasticsearch.buildIndices.maxReindexHours",
+          "elasticsearch.buildIndices.normalIndexCostThreshold",
           "elasticsearch.buildIndices.reindexOptimizationEnabled",
+          "elasticsearch.buildIndices.replicaSyncTimeoutMinutes",
           "elasticsearch.buildIndices.retentionUnit",
           "elasticsearch.buildIndices.retentionValue",
+          "elasticsearch.buildIndices.taskCheckIntervalSeconds",
           "elasticsearch.buildIndices.slowOperationTimeoutSeconds",
           "elasticsearch.buildIndices.countRetryMaxAttempts",
           "elasticsearch.buildIndices.countRetryWaitSeconds",
@@ -975,7 +987,24 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
-          "metadataChangeLog.consumer.batch.size"
+          "metadataChangeLog.consumer.batch.size",
+
+          // Elasticsearch Build Indices - Adaptive throttling configuration
+          "elasticsearch.buildIndices.clusterHeapYellowThresholdPercent",
+          "elasticsearch.buildIndices.docCountValidationRetryCount",
+          "elasticsearch.buildIndices.docCountValidationRetrySleepMs",
+          "elasticsearch.buildIndices.normalTierRequestsPerSecond",
+          "elasticsearch.buildIndices.throttledTierRequestsPerSecond",
+          "elasticsearch.buildIndices.normalTierRefreshInterval",
+          "elasticsearch.buildIndices.throttledTierRefreshInterval",
+          "elasticsearch.buildIndices.writeRejectionRedThreshold",
+          "elasticsearch.buildIndices.yellowStabilitySeconds",
+          "elasticsearch.buildIndices.greenStabilitySeconds",
+          "elasticsearch.buildIndices.redRecoverySeconds",
+
+          // Elasticsearch Build Indices - Parallel reindex execution configuration
+          "elasticsearch.buildIndices.rethrottleExecutorPoolSize",
+          "elasticsearch.buildIndices.minimumReplicasForPromotion"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

@@ -140,7 +140,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
               indexedServices,
               configurationProvider,
               _structuredProperties));
-      steps.add(new BuildIndicesStep(indexedServices, _structuredProperties));
+      steps.add(
+          new BuildIndicesStep(indexedServices, _structuredProperties, configurationProvider));
       steps.add(
           new BuildIndicesPostStep(
               baseElasticSearchComponents, indexedServices, _structuredProperties));

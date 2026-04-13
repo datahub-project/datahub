@@ -64,25 +64,14 @@ For service account authentication, follow these instructions:
 
 #### Permissions
 
-Grant the following permissions to the service account on all target projects.
+Grant the following roles to the service account on all target projects.
 
-**Universal Catalog Entries API:**
+| Feature                                        | Required Role                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Universal Catalog Entries API (core ingestion) | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer) |
+| Lineage extraction (`include_lineage: true`)   | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)         |
 
-**Default GCP Role:** [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+:::tip "Lineage requires the role on multiple projects"
 
-| Permission                  | Description                           |
-| --------------------------- | ------------------------------------- |
-| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
-| `dataplex.entryGroups.list` | View all entry groups in a location   |
-| `dataplex.entries.get`      | Access entry metadata and details     |
-| `dataplex.entries.getData`  | View data aspects within entries      |
-| `dataplex.entries.list`     | Enumerate entries within groups       |
-
-**Lineage extraction** (optional, `include_lineage: true`):
-
-**Default GCP Role:** [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
-
-| Permission                 | Description                               |
-| -------------------------- | ----------------------------------------- |
-| `datalineage.links.get`    | Allows a user to view lineage links       |
-| `datalineage.links.search` | Allows a user to search for lineage links |
+Grant `roles/datalineage.viewer` on all projects where the corresponding process is actually executed. Note it may differ from the project containing the asset.
+:::
