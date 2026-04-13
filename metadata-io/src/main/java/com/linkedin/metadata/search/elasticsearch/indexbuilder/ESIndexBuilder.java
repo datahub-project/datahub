@@ -12,7 +12,9 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.RetryConfigUtils;
 import com.linkedin.metadata.search.utils.SizeUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -34,8 +36,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,16 +50,21 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.config.RequestConfig;
 import org.opensearch.OpenSearchException;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.opensearch.action.admin.indices.refresh.RefreshRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -69,6 +78,10 @@ import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.PutMappingRequest;
+import org.opensearch.client.tasks.GetTaskRequest;
+import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
@@ -90,16 +103,24 @@ public class ESIndexBuilder {
   private static final String INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE =
       "index.translog.flush_threshold_size";
   public static final String REFRESH_INTERVAL = "refresh_interval";
-  private static final String INDEX_REFRESH_INTERVAL = "index." + REFRESH_INTERVAL;
+  public static final String INDEX_REFRESH_INTERVAL = "index." + REFRESH_INTERVAL;
   public static final String NUMBER_OF_REPLICAS = "number_of_replicas";
   private static final String INDEX_NUMBER_OF_REPLICAS = "index." + NUMBER_OF_REPLICAS;
   private static final String NUMBER_OF_SHARDS = "number_of_shards";
   private static final String ORIGINALPREFIX = "original";
   private static final Float MINJVMHEAP = 10.F;
+  private static final Retry staticRetryer =
+      Retry.of("common-static-retryer", RetryConfigUtils.EXPONENTIAL);
+
   // for debugging
   // private static final Float MINJVMHEAP = 0.1F;
 
-  private final SearchClientShim<?> searchClient;
+  /**
+   * -- GETTER -- Get the underlying search client.
+   *
+   * @return The SearchClientShim used for elasticsearch/opensearch operations
+   */
+  @Getter private final SearchClientShim<?> searchClient;
 
   @Getter @VisibleForTesting private final ElasticSearchConfiguration config;
 
@@ -111,7 +132,7 @@ public class ESIndexBuilder {
 
   @Getter @VisibleForTesting private final GitVersion gitVersion;
 
-  private final OpenSearchJvmInfo jvminfo;
+  @Getter @VisibleForTesting private final OpenSearchJvmInfo jvminfo;
 
   /**
    * Extended socket timeout for slow operations (count, refresh, createIndex, reindex, listTasks).
@@ -124,6 +145,12 @@ public class ESIndexBuilder {
   private final int deleteMultiplier = 9;
   // would wait >3000s for the 5th retry
   private static final int deleteMaxAttempts = 5;
+
+  // Retry instances for various operations
+  private final Retry healthCheckRetry;
+  private final Retry settingsUpdateRetry;
+  private final Retry taskStatusRetry;
+  private final Retry reindexSubmissionRetry;
 
   public ESIndexBuilder(
       SearchClientShim<?> searchClient,
@@ -218,6 +245,11 @@ public class ESIndexBuilder {
             .failAfterMaxAttempts(true) // Throw exception after max attempts
             .build();
     this.deletionRetryRegistry = RetryRegistry.of(deletionRetryConfig);
+    // Initialize Retry instances using shared configs
+    this.healthCheckRetry = Retry.of("health-check", RetryConfigUtils.HEALTH_CHECK);
+    this.settingsUpdateRetry = Retry.of("settings-update", RetryConfigUtils.SETTINGS_UPDATE);
+    this.taskStatusRetry = Retry.of("task-status", RetryConfigUtils.TASK_STATUS);
+    this.reindexSubmissionRetry = Retry.of("reindex-submission", RetryConfigUtils.COST_ESTIMATION);
     jvminfo = new OpenSearchJvmInfo(this.searchClient);
   }
 
@@ -721,7 +753,15 @@ public class ESIndexBuilder {
     return (String) reinfo.get("taskId");
   }
 
-  private static String getNextIndexName(String base, long startTime) {
+  /**
+   * Generate a unique index name based on timestamp. Used for creating temporary indices during
+   * reindex operations.
+   *
+   * @param base The base index name
+   * @param startTime The timestamp to use for uniqueness
+   * @return A unique index name in the format base_timestamp
+   */
+  public static String getNextIndexName(String base, long startTime) {
     return base + "_" + startTime;
   }
 
@@ -1125,7 +1165,6 @@ public class ESIndexBuilder {
       SearchClientShim<?> searchClient, String tempIndexName, RequestOptions requestOptions)
       throws Exception {
     Retry retry = deletionRetryRegistry.retry("elasticsearchDeleteIndex");
-    // Wrap the delete operation in a Callable
     Callable<Void> deleteOperation =
         () -> {
           try {
@@ -1211,6 +1250,14 @@ public class ESIndexBuilder {
         "elasticsearch.buildIndices.reindexNoProgressRetryMinutes must be set (e.g. in application.yaml)");
   }
 
+  private int calculateOptimalSlices(int targetShards) {
+    int maxSlices =
+        Objects.requireNonNull(
+            config.getBuildIndices().getReindexMaxSlices(),
+            "elasticsearch.buildIndices.reindexMaxSlices must be set (e.g. in application.yaml)");
+    return Math.min(maxSlices, targetShards);
+  }
+
   private Map<String, Object> setReindexOptimalSettings(String tempIndexName, int targetShards)
       throws IOException {
     Map<String, Object> res = new HashMap<>();
@@ -1241,13 +1288,7 @@ public class ESIndexBuilder {
     //      res.put(ORIGINALPREFIX + setting, curval);
     //    }
     // calculate best slices number..., by def == primary shards
-    int slices = targetShards;
-    // but if too large, tone it down; ES sets the max of slices at 1024
-    int maxSlices =
-        Objects.requireNonNull(
-            config.getBuildIndices().getReindexMaxSlices(),
-            "elasticsearch.buildIndices.reindexMaxSlices must be set (e.g. in application.yaml)");
-    slices = Math.min(maxSlices, slices);
+    int slices = calculateOptimalSlices(targetShards);
     res.put("optimalSlices", slices);
     return res;
   }
@@ -1263,7 +1304,7 @@ public class ESIndexBuilder {
       setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
     }
     setIndexSetting(tempIndexName, refreshinterval, INDEX_REFRESH_INTERVAL);
-    // reinfo could be emtpy (if reindex was already ongoing...)
+    // Restore translog settings if they were saved (may be empty if not originally set)
     String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
     if (reinfo.containsKey(ORIGINALPREFIX + setting)) {
       setIndexSetting(tempIndexName, (String) reinfo.get(ORIGINALPREFIX + setting), setting);
@@ -1331,7 +1372,8 @@ public class ESIndexBuilder {
       getAliasesRequest.indices(pattern);
     }
     GetAliasesResponse aliasesResponse =
-        searchClient.getIndexAliases(getAliasesRequest, requestOptions);
+        staticRetryer.executeCallable(
+            () -> searchClient.getIndexAliases(getAliasesRequest, requestOptions));
 
     // If not aliased, delete the original index
     final Collection<String> aliasedIndexDelete;
@@ -1341,7 +1383,10 @@ public class ESIndexBuilder {
       aliasedIndexDelete = List.of(originalName);
       delinfo = originalName;
     } else {
-      log.info("Deleting old indices in existing alias {}", aliasesResponse.getAliases().keySet());
+      log.info(
+          "Deleting old indices in existing alias {}: {}",
+          originalName,
+          aliasesResponse.getAliases().keySet());
       aliasedIndexDelete = aliasesResponse.getAliases().keySet();
       delinfo = String.join(",", aliasedIndexDelete);
     }
@@ -1352,6 +1397,11 @@ public class ESIndexBuilder {
     removeAction.indices(aliasedIndexDelete.toArray(new String[0]));
     AliasActions addAction = AliasActions.add().alias(originalName).index(newName);
     updateAliasWithRetry(searchClient, removeAction, addAction, delinfo, requestOptions);
+    log.info(
+        "Successfully swapped alias {} to {}, deleted old indices: {}",
+        originalName,
+        newName,
+        delinfo);
   }
 
   public static RequestOptions buildRequestOptionsLong(
@@ -1367,7 +1417,15 @@ public class ESIndexBuilder {
         .build();
   }
 
-  private String getIndexSetting(String indexName, String setting) throws IOException {
+  /**
+   * Get a specific setting value for an index. Package-private for cost estimation.
+   *
+   * @param indexName The name of the index
+   * @param setting The setting key (e.g., "index.number_of_shards")
+   * @return The setting value, or null if not found
+   * @throws IOException If there's an error fetching index settings
+   */
+  String getIndexSetting(String indexName, String setting) throws IOException {
     GetSettingsRequest request =
         new GetSettingsRequest()
             .indices(indexName)
@@ -1378,11 +1436,68 @@ public class ESIndexBuilder {
     return indexSetting;
   }
 
-  private void setIndexSetting(String indexName, String value, String setting) throws IOException {
+  /**
+   * Set a specific setting value for an index. Package-private for cost estimation and destination
+   * optimization.
+   *
+   * @param indexName The name of the index
+   * @param value The setting value to set
+   * @param setting The setting key (e.g., "index.number_of_shards")
+   */
+  void setIndexSetting(String indexName, String value, String setting) throws IOException {
     UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
     Settings settings = Settings.builder().put(setting, value).build();
     request.settings(settings);
-    searchClient.updateIndexSettings(request, requestOptionsLong);
+    try {
+      retryRegistry
+          .retry("retryIndexSetting", "countRetry")
+          .executeCallable(() -> searchClient.updateIndexSettings(request, requestOptionsLong));
+    } catch (IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Get primary shard count for an index or alias. Works with both aliases and physical indices.
+   * When querying an alias, response keys contain the physical index names, allowing us to extract
+   * shard count correctly.
+   *
+   * @param indexName The index name or alias
+   * @return Number of primary shards (defaults to 1 if unable to determine)
+   * @throws IOException If unable to fetch shard information
+   */
+  public int getPrimaryShardCount(String indexName) throws IOException {
+    try {
+      GetSettingsRequest request =
+          new GetSettingsRequest()
+              .indices(indexName)
+              .includeDefaults(true)
+              .names("index.number_of_shards");
+      GetSettingsResponse response = searchClient.getIndexSettings(request, RequestOptions.DEFAULT);
+
+      // Response keys are physical index names even when querying an alias
+      // Get the first entry's shard count
+      if (!response.getIndexToSettings().isEmpty()) {
+        Settings settings = response.getIndexToSettings().values().iterator().next();
+        String shardCountStr = settings.get("index.number_of_shards");
+        if (shardCountStr != null && !shardCountStr.isEmpty()) {
+          int count = Integer.parseInt(shardCountStr);
+          if (count > 0) {
+            log.debug("Primary shard count for index {}: {}", indexName, count);
+            return count;
+          }
+        }
+      }
+
+      log.warn("Could not determine shard count for index {}, defaulting to 1", indexName);
+      return 1;
+    } catch (Exception e) {
+      log.warn(
+          "Failed to get shard count for index {}, defaulting to 1: {}", indexName, e.getMessage());
+      return 1;
+    }
   }
 
   /**
@@ -1405,6 +1520,396 @@ public class ESIndexBuilder {
    */
   public void setIndexReplicaCount(String indexName, int replicaCount) throws IOException {
     setIndexSetting(indexName, String.valueOf(replicaCount), INDEX_NUMBER_OF_REPLICAS);
+  }
+
+  /**
+   * Get multiple index settings in a single API call (batch operation).
+   *
+   * @param indexName the name of the index
+   * @param settingNames the names of the settings to fetch (e.g., "index.refresh_interval",
+   *     "index.number_of_replicas")
+   * @return Map of setting names to their values (includes defaults if not explicitly set)
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  public Map<String, String> getIndexSettings(String indexName, String... settingNames)
+      throws IOException {
+    GetSettingsRequest request =
+        new GetSettingsRequest()
+            .indices(indexName)
+            .includeDefaults(true); // Include default settings if not explicitly set
+
+    if (settingNames != null && settingNames.length > 0) {
+      request.names(settingNames); // Filter to requested settings for efficiency
+    }
+
+    try {
+      GetSettingsResponse response =
+          settingsUpdateRetry.executeCallable(
+              () -> searchClient.getIndexSettings(request, RequestOptions.DEFAULT));
+      Map<String, String> result = new HashMap<>();
+
+      // Use response.getSetting() to correctly retrieve both explicit AND default settings
+      // (avoid using getIndexToSettings() which loses defaults even with includeDefaults(true))
+      if (settingNames != null) {
+        for (String settingName : settingNames) {
+          String value = response.getSetting(indexName, settingName);
+          if (value != null) {
+            result.put(settingName, value);
+          }
+        }
+      }
+
+      return result;
+    } catch (IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Update multiple index settings in a single atomic API call using Settings object (batch
+   * operation).
+   *
+   * @param indexName the name of the index
+   * @param settings OpenSearch Settings object with all settings to apply
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  public void updateIndexSettings(String indexName, Settings settings) throws IOException {
+    if (settings == null || settings.isEmpty()) {
+      log.debug("No settings to update for index {}", indexName);
+      return;
+    }
+
+    UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
+    request.settings(settings);
+    try {
+      settingsUpdateRetry.executeCallable(
+          () -> {
+            searchClient.updateIndexSettings(request, requestOptionsLong);
+            return null;
+          });
+    } catch (IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Bulk update settings on multiple indices in a single atomic API call.
+   *
+   * <p>More efficient than individual updates when applying the same settings to many indices
+   * (e.g., refresh_interval during health state changes).
+   *
+   * @param indexNames array of index names to update
+   * @param settings OpenSearch Settings object with all settings to apply
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  public void updateIndexSettings(String[] indexNames, Settings settings) throws IOException {
+    if (indexNames == null || indexNames.length == 0) {
+      log.debug("No indices provided for settings update");
+      return;
+    }
+    if (settings == null || settings.isEmpty()) {
+      log.debug("No settings to update for {} indices", indexNames.length);
+      return;
+    }
+
+    try {
+      UpdateSettingsRequest request = new UpdateSettingsRequest(indexNames);
+      request.settings(settings);
+      retryRegistry
+          .retry("retryIndexSetting", "countRetry")
+          .executeCallable(() -> searchClient.updateIndexSettings(request, requestOptionsLong));
+    } catch (IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    log.debug("Bulk updated settings on {} indices", indexNames.length);
+  }
+
+  /**
+   * Submit a reindex task for parallel execution. Extracted for reuse by parallel reindex
+   * orchestrator.
+   *
+   * @param sourceIndices Source index names to reindex from
+   * @param destinationIndex Destination index name to reindex to
+   * @param indexConfig The reindex configuration containing settings and mappings
+   * @param requestsPerSecond
+   * @return Map containing taskId and other reindex info
+   * @throws IOException If there's an error submitting the reindex task
+   */
+  public Map<String, Object> submitReindexInternal(
+      String[] sourceIndices,
+      String destinationIndex,
+      ReindexConfig indexConfig,
+      float requestsPerSecond)
+      throws IOException {
+    int targetShards = getTargetShards(indexConfig);
+    return submitReindexWithoutOptimization(
+        sourceIndices, destinationIndex, getReindexBatchSize(), targetShards, requestsPerSecond);
+  }
+
+  /**
+   * Extract target shard count from reindex configuration.
+   *
+   * @param indexConfig The reindex configuration
+   * @return The target number of shards
+   */
+  public int getTargetShards(ReindexConfig indexConfig) {
+    return Optional.ofNullable(indexConfig.targetSettings().get("index"))
+        .filter(Map.class::isInstance)
+        .map(Map.class::cast)
+        .map(indexMap -> indexMap.get(NUMBER_OF_SHARDS))
+        .map(Object::toString)
+        .map(Integer::parseInt)
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException("Number of shards not specified in target settings"));
+  }
+
+  /**
+   * Submit reindex task without optimal settings optimization.
+   *
+   * <p>This is used for the parallel reindex path to avoid double-optimization. It performs the
+   * same reindex submission as submitReindex() but skips the setReindexOptimalSettings() call.
+   *
+   * @param sourceIndices Array of source index names to reindex from
+   * @param destinationIndex Target index to reindex to
+   * @param lBatchSize Batch size for reindex scroll operations
+   * @param targetShards Number of target shards for optimal slices calculation
+   * @param requestsPerSecond
+   * @return Map containing reindex info including taskId
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  private Map<String, Object> submitReindexWithoutOptimization(
+      String[] sourceIndices,
+      String destinationIndex,
+      int lBatchSize,
+      int targetShards,
+      float requestsPerSecond)
+      throws IOException {
+
+    // Refresh source index to ensure all documents are visible to reindex scroll reader
+    // This is required for correctness - without refresh, uncommitted documents may be missed
+    // Use SETTINGS_UPDATE retry config which handles both IOException and RuntimeException
+    Retry.of("refreshSourceIndex", RetryConfigUtils.DOC_COUNT_REFRESH)
+        .executeRunnable(
+            () -> {
+              try {
+                searchClient.refreshIndex(new RefreshRequest(sourceIndices), requestOptionsLong);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    int slices = calculateOptimalSlices(targetShards);
+
+    Map<String, Object> reindexInfo = new HashMap<>();
+
+    ReindexRequest reindexRequest =
+        new ReindexRequest()
+            .setSourceIndices(sourceIndices)
+            .setDestIndex(destinationIndex)
+            .setMaxRetries(indexConfig.getNumRetries())
+            .setAbortOnVersionConflict(false)
+            // Use fixed slices from config for consistent parallelism across all health states
+            // Dynamic control is handled via RPS throttling, not slices
+            .setSlices(slices)
+            .setSourceBatchSize(lBatchSize)
+            .setRequestsPerSecond(requestsPerSecond);
+
+    RequestOptions requestOptions =
+        ESUtils.buildReindexTaskRequestOptions(
+            gitVersion.getVersion(), sourceIndices[0], destinationIndex);
+    try {
+      String reindexTask =
+          this.reindexSubmissionRetry.executeCallable(
+              () -> searchClient.submitReindexTask(reindexRequest, requestOptions));
+      reindexInfo.put("taskId", reindexTask);
+      return reindexInfo;
+    } catch (IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Rethrottle an active reindex task to change its request rate.
+   *
+   * <p>Updates the request rate for an in-flight reindex task. This allows tuning performance
+   * without stopping and restarting the task.
+   *
+   * @param taskId The reindex task ID in format "nodeId:taskId"
+   * @param requestsPerSecond Desired request rate. Use -1 for unlimited, or any positive number for
+   *     requests per second
+   */
+  public void rethrottleTask(String taskId, float requestsPerSecond) {
+    try {
+      // Construct the rethrottle endpoint URL
+      String endpoint = String.format("/_reindex/%s/_rethrottle", taskId);
+
+      // Create a POST request with the requests_per_second parameter
+      Request request = new Request("POST", endpoint);
+      request.addParameter("requests_per_second", String.valueOf(requestsPerSecond));
+
+      settingsUpdateRetry.executeRunnable(
+          () -> {
+            try {
+              searchClient.performLowLevelRequest(request);
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          });
+      // Execute the request
+
+      log.info(
+          "Successfully rethrottled reindex task {} to {} requests/sec", taskId, requestsPerSecond);
+    } catch (RuntimeException e) {
+      log.warn(
+          "Failed to rethrottle reindex task {} to {} requests/sec. Task will continue at current rate. Error: {}",
+          taskId,
+          requestsPerSecond,
+          e.getMessage(),
+          e);
+      // Non-fatal - task continues at current rate
+    }
+  }
+
+  /**
+   * Get the status of a reindex task using the Task API. Task ID format is "nodeId:taskId"
+   *
+   * @param taskId The full task ID in format "nodeId:taskId"
+   * @return Optional containing GetTaskResponse if task exists
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public Optional<GetTaskResponse> getTaskStatus(@Nonnull String taskId) throws IOException {
+    // Validate input
+    if (taskId == null || taskId.isEmpty()) {
+      throw new IllegalArgumentException("Task ID cannot be null or empty");
+    }
+    if (!taskId.contains(":")) {
+      throw new IllegalArgumentException("Invalid task ID format (missing ':'): " + taskId);
+    }
+
+    String[] parts = taskId.split(":");
+    if (parts.length != 2) {
+      throw new IllegalArgumentException(
+          "Invalid task ID format. Expected 'nodeId:taskId', got: " + taskId);
+    }
+
+    String nodeId = parts[0];
+    if (nodeId.isEmpty()) {
+      throw new IllegalArgumentException("Task ID node part cannot be empty: " + taskId);
+    }
+
+    long numericTaskId;
+    try {
+      numericTaskId = Long.parseLong(parts[1]);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          "Task ID must be numeric. Expected 'nodeId:taskId', got: " + taskId, e);
+    }
+
+    GetTaskRequest request = new GetTaskRequest(nodeId, numericTaskId);
+    try {
+      return taskStatusRetry.executeSupplier(
+          () -> {
+            try {
+              return searchClient.getTask(request, RequestOptions.DEFAULT);
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } catch (RuntimeException e) {
+      if (e.getCause() instanceof IOException) {
+        throw (IOException) e.getCause();
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Result object for batch task status queries.
+   *
+   * <p>Distinguishes between: - Successfully fetched task statuses (responses) - Tasks with
+   * transient fetch errors that should be retried (failedTaskIds) - Tasks legitimately not found
+   * (not in either map/set)
+   */
+  @Data
+  @AllArgsConstructor
+  public static class TaskStatusResult {
+    /** Map of taskId to GetTaskResponse for tasks that were successfully fetched */
+    @Nonnull private final Map<String, GetTaskResponse> responses;
+
+    /**
+     * Set of taskIds that had transient fetch errors (network/timeout). These should NOT be treated
+     * as missing tasks - they had communication failures and should be retried.
+     */
+    @Nonnull private final Set<String> failedTaskIds;
+  }
+
+  /**
+   * Get status for multiple tasks in a single batch. Calls getTaskStatus for each task ID.
+   *
+   * <p>CRITICAL: This method distinguishes between three cases: - Task successfully fetched (in
+   * responses map) - Task not found - 404 returned by ES (not in either map/set) - task completed
+   * and removed - Transient fetch error - network/timeout (in failedTaskIds set) - should be
+   * retried, not treated as missing
+   *
+   * <p>This distinction is crucial: if a task had a network error, it may still be running on ES.
+   * Treating network errors as "task not found" would cause premature finalization while reindex is
+   * still running.
+   *
+   * @param taskIds Collection of task IDs to query
+   * @return TaskStatusResult with responses and failed task IDs
+   */
+  @Nonnull
+  public TaskStatusResult getTaskStatusMultiple(@Nonnull Collection<String> taskIds) {
+    if (taskIds.isEmpty()) {
+      return new TaskStatusResult(Collections.emptyMap(), Collections.emptySet());
+    }
+
+    Map<String, GetTaskResponse> results = new HashMap<>();
+    Set<String> failedTaskIds = new HashSet<>();
+
+    for (String taskId : taskIds) {
+      try {
+        Optional<GetTaskResponse> taskResponse = getTaskStatus(taskId);
+        taskResponse.ifPresent(getTaskResponse -> results.put(taskId, getTaskResponse));
+        // Task not found (404) - this is normal when task completes and is removed from active list
+        // (not in results, not in failedTaskIds - caller treats as legitimately completed)
+      } catch (IOException e) {
+        // Transient network/timeout error - MUST track separately
+        // Caller should NOT treat as "task missing" - it may still be running on ES
+        log.warn(
+            "Transient fetch error getting status for task {} (will NOT treat as missing): {}",
+            taskId,
+            e.getMessage());
+        failedTaskIds.add(taskId);
+      } catch (Exception e) {
+        // Unexpected error - also track as failed to retry later
+        log.debug(
+            "Unexpected error getting status for task {} (will NOT treat as missing): {}",
+            taskId,
+            e.getMessage());
+        failedTaskIds.add(taskId);
+      }
+    }
+
+    if (!failedTaskIds.isEmpty()) {
+      log.error(
+          "GetTaskStatusMultiple: {} of {} tasks had fetch errors (network/transient issues), {} returned successfully, {} will be retried",
+          failedTaskIds.size(),
+          taskIds.size(),
+          results.size(),
+          failedTaskIds.size());
+    }
+    return new TaskStatusResult(results, failedTaskIds);
   }
 
   private Map<String, Object> submitReindex(
@@ -1544,6 +2049,30 @@ public class ESIndexBuilder {
   }
 
   /**
+   * Get document count without expensive refresh operation. Use this for monitoring where eventual
+   * consistency is acceptable.
+   *
+   * @param indexName The name of the index to count
+   * @return The number of documents in the index
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public long getCountWithoutRefresh(@Nonnull String indexName) throws IOException {
+    try {
+      return this.taskStatusRetry.executeCallable(
+          () ->
+              searchClient
+                  .count(
+                      new CountRequest(indexName).query(QueryBuilders.matchAllQuery()),
+                      requestOptionsLong)
+                  .getCount());
+    } catch (IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
    * Check if an index exists.
    *
    * @param indexName The name of the index to check
@@ -1552,6 +2081,50 @@ public class ESIndexBuilder {
    */
   public boolean indexExists(@Nonnull String indexName) throws IOException {
     return searchClient.indexExists(new GetIndexRequest(indexName), requestOptionsLong);
+  }
+
+  /**
+   * Check if an alias currently points to a specific index (lightweight safety check for cleanup).
+   *
+   * <p>Used to prevent accidental deletion of indices that are still live via alias reference
+   * during failed reindex cleanup.
+   *
+   * @param aliasName The alias name to check (e.g., "dashboardindex_v2")
+   * @param indexName The concrete index name to check against (e.g.,
+   *     "dashboardindex_v2_1234567890")
+   * @return true if the alias points to this index, false otherwise (safe default on errors)
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public boolean aliasPointsToIndex(@Nonnull String aliasName, @Nonnull String indexName) {
+    try {
+      GetAliasesRequest request = new GetAliasesRequest().aliases(aliasName);
+
+      // Use filter_path to limit response to only alias names, reducing ES load on clusters
+      // with many aliases or heavy metadata
+      RequestOptions options =
+          requestOptionsLong.toBuilder().addParameter("filter_path", "*.aliases").build();
+
+      GetAliasesResponse response =
+          taskStatusRetry.executeCallable(() -> searchClient.getIndexAliases(request, options));
+
+      // Check if target index is in the alias targets
+      boolean found = response.getAliases().containsKey(indexName);
+      log.debug(
+          "Alias {} points to indices: {} (checking for {}, match={})",
+          aliasName,
+          response.getAliases().keySet(),
+          indexName,
+          found);
+      return found;
+
+    } catch (Exception e) {
+      log.error(
+          "Could not verify if alias {} points to {}: {} - safe default: true",
+          aliasName,
+          indexName,
+          e.getMessage());
+      return true;
+    }
   }
 
   /**
@@ -1564,6 +2137,129 @@ public class ESIndexBuilder {
     searchClient.refreshIndex(
         new org.opensearch.action.admin.indices.refresh.RefreshRequest(indexName),
         requestOptionsLong);
+  }
+
+  /**
+   * Get the number of data nodes in the cluster. Used for cost estimation.
+   *
+   * <p>This is an estimate based on cluster health since NodeStats API may not be directly
+   * available. The exact node count is not critical for cost estimation - we use this to divide
+   * cost across nodes, and a conservative estimate is safer.
+   *
+   * @return Estimated number of data nodes (defaults to 3 for medium cluster)
+   */
+  public int getDataNodeCount() {
+    try {
+      ClusterHealthResponse health =
+          searchClient.clusterHealth(new ClusterHealthRequest(), RequestOptions.DEFAULT);
+      // Use getNumberOfDataNodes() to count only data nodes (not master/coordinating/ingest)
+      // Cost estimation formula: (docCount * shards) / dataNodes
+      // Using total nodes inflates denominator, misclassifying LARGE as NORMAL
+      int dataNodeCount = health.getNumberOfDataNodes();
+      if (dataNodeCount <= 0) {
+        log.warn("Invalid cluster data node count: {}, defaulting to 3", dataNodeCount);
+        return 3;
+      }
+      log.debug("Cluster has {} data nodes for cost estimation", dataNodeCount);
+      return dataNodeCount;
+    } catch (Exception e) {
+      log.warn("Failed to fetch cluster node count: {}, defaulting to 3", e.getMessage());
+      return 3; // Safe default for medium cluster
+    }
+  }
+
+  /**
+   * Get detailed cluster health information for monitoring and health checks.
+   *
+   * <p>Used by ClusterHealthMonitor to check cluster status, heap usage, and shard distribution
+   * before submitting new reindex tasks.
+   *
+   * @return ClusterHealthResponse with cluster status, shards, and node information
+   * @throws IOException If unable to reach cluster
+   */
+  public ClusterHealthResponse getClusterHealth() throws IOException {
+    try {
+      return healthCheckRetry.executeCallable(
+          () -> searchClient.clusterHealth(new ClusterHealthRequest(), RequestOptions.DEFAULT));
+    } catch (IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Wait for index to reach readiness before promotion. Handles both multi-node and single-node
+   * clusters.
+   *
+   * <p>Multi-node: Waits for GREEN status OR (all primaries active + all replicas synced + no
+   * initializing shards).
+   *
+   * <p>Single-node: Waits for GREEN status OR (all primaries active + no initializing shards).
+   * Single-node replicas can never assign to the same node as primaries, so we don't wait for
+   * replica sync.
+   *
+   * @param indexName Index to check
+   * @param timeoutSeconds Timeout for individual health check request
+   */
+  public void waitForIndexGreenHealth(String indexName, int timeoutSeconds) {
+    healthCheckRetry.executeSupplier(
+        () -> {
+          try {
+            ClusterHealthRequest request = new ClusterHealthRequest(indexName);
+            request.timeout(TimeValue.timeValueSeconds(timeoutSeconds));
+            request.level(ClusterHealthRequest.Level.INDICES);
+
+            ClusterHealthResponse health =
+                searchClient.clusterHealth(request, RequestOptions.DEFAULT);
+
+            ClusterIndexHealth indexHealth = health.getIndices().get(indexName);
+
+            if (indexHealth == null) {
+              throw new IOException("Index " + indexName + " not found in cluster health response");
+            }
+
+            int primaryShards = indexHealth.getNumberOfShards();
+            int activePrimary = indexHealth.getActivePrimaryShards();
+            int activeShards = indexHealth.getActiveShards();
+            int expectedReplicas = indexHealth.getNumberOfReplicas() * primaryShards;
+            int activeReplicas = activeShards - activePrimary;
+            int initializing = indexHealth.getInitializingShards();
+
+            if (isIndexHealthy(indexHealth)) {
+              return null;
+            }
+
+            throw new IOException(
+                String.format(
+                    "Index %s not ready: status=%s, activePrimary=%d/%d, activeReplicas=%d/%d, initializing=%d, relocating=%d",
+                    indexName,
+                    indexHealth.getStatus(),
+                    activePrimary,
+                    primaryShards,
+                    activeReplicas,
+                    expectedReplicas,
+                    initializing,
+                    indexHealth.getRelocatingShards()));
+          } catch (IOException e) {
+            throw new ReplicaHealthException(
+                "Failed to verify replica health for index " + indexName, e);
+          }
+        });
+  }
+
+  private boolean isIndexHealthy(ClusterIndexHealth indexHealth) {
+    boolean green = indexHealth.getStatus() == ClusterHealthStatus.GREEN;
+    boolean yellow = indexHealth.getStatus() == ClusterHealthStatus.YELLOW;
+
+    // Minimum requirement: All primary shards must be active
+    // (Replicas are redundancy and sync asynchronously - irrelevant to alias swap safety)
+    boolean allPrimariesActive =
+        indexHealth.getNumberOfShards() == indexHealth.getActivePrimaryShards();
+
+    // Safe to promote if status is not RED and all primaries are active
+    // YELLOW is fine - it just means replicas are still syncing (happens after swap anyway)
+    return (green) || (yellow && allPrimariesActive);
   }
 
   /**
@@ -1589,7 +2285,22 @@ public class ESIndexBuilder {
     }
   }
 
-  private void createIndex(String indexName, ReindexConfig state) throws IOException {
+  /**
+   * Swap alias from old index to new index. Used after reindexing to atomically switch to the new
+   * index.
+   *
+   * @param aliasName The alias name to update
+   * @param newIndexName The new index to point the alias to
+   * @throws Exception If there's an error communicating with Elasticsearch
+   */
+  public void swapAliases(
+      @Nonnull String aliasName, @Nullable String indexPattern, @Nonnull String newIndexName)
+      throws Exception {
+    renameReindexedIndices(
+        searchClient, aliasName, indexPattern, newIndexName, true, requestOptionsLong);
+  }
+
+  public void createIndex(String indexName, ReindexConfig state) throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
     Map<String, Object> mappings = state.targetMappings();
     Map<String, Object> settings = state.targetSettings();

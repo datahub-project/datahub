@@ -2,8 +2,10 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.search.utils.RetryConfigUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,9 +16,16 @@ import javax.annotation.Nonnull;
 import org.apache.http.HttpEntity;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utility class to retrieve OpenSearch node JVM information via direct REST calls */
 public class OpenSearchJvmInfo {
+
+  private static final Logger logger = LoggerFactory.getLogger(OpenSearchJvmInfo.class);
+
+  private static final Retry nodeMetricsRetry =
+      Retry.of("node-metrics-health-check", RetryConfigUtils.HEALTH_CHECK);
 
   private final SearchClientShim<?> highLevelClient;
   private final ObjectMapper objectMapper;
@@ -36,7 +45,7 @@ public class OpenSearchJvmInfo {
   public Map<String, JvmHeapInfo> getDataNodeJvmHeap() throws IOException {
     Map<String, JvmHeapInfo> result = new HashMap<>();
 
-    // Create direct request to _nodes endpoint with JVM and OS metrics
+    // Create direct request to _nodes endpoint with JVM, thread pool, and OS metrics
     Request request = new Request("GET", "/_nodes/stats");
     request.addParameter("filter_path", "nodes.*.jvm,nodes.*.roles");
 
@@ -73,6 +82,92 @@ public class OpenSearchJvmInfo {
     }
 
     return result;
+  }
+
+  /**
+   * Get both JVM heap and thread pool rejection info in a single API call (optimization).
+   *
+   * <p>This consolidates two separate /_nodes/stats calls into one, reducing latency and cluster
+   * load. Used by HealthCheckPoller to monitor heap and rejections together during health checks.
+   *
+   * @return NodeMetrics containing both heap and rejection maps
+   */
+  public NodeMetrics getDataNodeMetrics() {
+    Map<String, JvmHeapInfo> heapMap = new HashMap<>();
+    Map<String, ThreadPoolRejections> rejectionMap = new HashMap<>();
+
+    try {
+      Request request = new Request("GET", "/_nodes/stats");
+      request.addParameter(
+          "filter_path",
+          "nodes.*.name,nodes.*.jvm,nodes.*.roles,nodes.*.thread_pool.write,nodes.*.thread_pool.bulk");
+
+      RawResponse response =
+          nodeMetricsRetry.executeSupplier(
+              () -> {
+                try {
+                  return highLevelClient.performLowLevelRequest(request);
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
+      HttpEntity entity = response.getEntity();
+      String responseBody = EntityUtils.toString(entity);
+
+      // Parse JSON response
+      JsonNode rootNode = objectMapper.readTree(responseBody);
+      JsonNode nodesNode = rootNode.get("nodes");
+
+      if (nodesNode != null) {
+        Iterator<Map.Entry<String, JsonNode>> nodes = nodesNode.fields();
+
+        while (nodes.hasNext()) {
+          Map.Entry<String, JsonNode> nodeEntry = nodes.next();
+          String nodeId = nodeEntry.getKey();
+          JsonNode nodeInfo = nodeEntry.getValue();
+
+          // Check if this is a data node
+          JsonNode rolesNode = nodeInfo.get("roles");
+          if (rolesNode != null && isDataNode(rolesNode)) {
+            String nodeName =
+                nodeInfo.has("name") ? nodeInfo.get("name").asText() : "node_" + nodeId;
+
+            // Extract JVM heap info
+            JsonNode jvmNode = nodeInfo.get("jvm");
+            if (jvmNode != null) {
+              JvmHeapInfo heapInfo = extractJvmHeapInfo(jvmNode);
+              heapMap.put(nodeName, heapInfo);
+            }
+
+            // Extract thread pool rejection info
+            long writeRejected = 0;
+            long bulkRejected = 0;
+
+            if (nodeInfo.has("thread_pool") && nodeInfo.get("thread_pool").has("write")) {
+              JsonNode writeNode = nodeInfo.get("thread_pool").get("write");
+              if (writeNode.has("rejected")) {
+                writeRejected = writeNode.get("rejected").asLong();
+              }
+            }
+
+            if (nodeInfo.has("thread_pool") && nodeInfo.get("thread_pool").has("bulk")) {
+              JsonNode bulkNode = nodeInfo.get("thread_pool").get("bulk");
+              if (bulkNode.has("rejected")) {
+                bulkRejected = bulkNode.get("rejected").asLong();
+              }
+            }
+
+            rejectionMap.put(nodeName, new ThreadPoolRejections(writeRejected, bulkRejected));
+          }
+        }
+      }
+    } catch (Exception e) {
+      // Return empty maps on failure - caller treats as zero delta (safe default)
+      logger.error("Error fetching metrics for nodes in ES", e);
+      return new NodeMetrics(new HashMap<>(), new HashMap<>());
+    }
+
+    return new NodeMetrics(heapMap, rejectionMap);
   }
 
   /** Check if the node is a data node based on roles array */
@@ -553,6 +648,57 @@ public class OpenSearchJvmInfo {
               jvmVersion,
               getUptimeFormatted());
       return val;
+    }
+  }
+
+  /** Container for both heap and rejection metrics from a single /_nodes/stats call */
+  public static class NodeMetrics {
+    private final Map<String, JvmHeapInfo> heapMap;
+    private final Map<String, ThreadPoolRejections> rejectionMap;
+
+    public NodeMetrics(
+        Map<String, JvmHeapInfo> heapMap, Map<String, ThreadPoolRejections> rejectionMap) {
+      this.heapMap = heapMap;
+      this.rejectionMap = rejectionMap;
+    }
+
+    public Map<String, JvmHeapInfo> getHeapMap() {
+      return heapMap;
+    }
+
+    public Map<String, ThreadPoolRejections> getRejectionMap() {
+      return rejectionMap;
+    }
+  }
+
+  /** Class to hold thread pool rejection statistics */
+  public static class ThreadPoolRejections {
+    private final long writeRejected;
+    private final long bulkRejected;
+
+    public ThreadPoolRejections(long writeRejected, long bulkRejected) {
+      this.writeRejected = writeRejected;
+      this.bulkRejected = bulkRejected;
+    }
+
+    public long getWriteRejected() {
+      return writeRejected;
+    }
+
+    public long getBulkRejected() {
+      return bulkRejected;
+    }
+
+    /** Get total rejections from both write and bulk thread pools */
+    public long getTotalRejected() {
+      return writeRejected + bulkRejected;
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "ThreadPoolRejections{write=%d, bulk=%d, total=%d}",
+          writeRejected, bulkRejected, getTotalRejected());
     }
   }
 }
