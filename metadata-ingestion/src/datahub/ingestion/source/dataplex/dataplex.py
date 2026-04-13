@@ -265,7 +265,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                         self.entries_processor.process_project(project_id)
                     )
                 except exceptions.GoogleAPICallError as exc:
-                    self.report.report_failure(
+                    self.report.warning(
                         title="Failed to process Dataplex entries",
                         message="Error while extracting entries from Universal Catalog.",
                         context=project_id,
@@ -298,15 +298,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                         active_lineage_project_location_pairs=lineage_project_location_pairs,
                     )
                 except Exception as e:
-                    self.report.report_failure(
+                    self.report.warning(
                         title="Lineage extraction failed",
                         message="Failed to extract lineage across configured projects",
                         context="all-configured-projects",
                         exc=e,
                     )
-
-    def close(self) -> None:
-        super().close()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DataplexSource":

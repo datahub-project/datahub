@@ -53,7 +53,7 @@ def test_get_workunits_internal_reports_project_google_api_failure() -> None:
         workunits = list(source.get_workunits_internal())
 
     assert workunits == []
-    source.report.report_failure.assert_called_once()
+    source.report.warning.assert_called_once()
 
 
 def test_source_init_wires_clients_processor_and_lineage_extractor() -> None:
@@ -393,7 +393,7 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
         "datahub.ingestion.source.dataplex.dataplex.auto_workunit", return_value=[]
     ):
         assert list(source.get_workunits_internal()) == []
-    source.report.report_failure.assert_called_once()
+    source.report.warning.assert_called_once()
 
 
 def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> None:
