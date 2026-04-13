@@ -6,9 +6,10 @@ deprecated ``*Dataset*`` wrappers that pin ``entity_types`` to
 dataset-only.
 """
 
+import warnings
 from typing import List
 
-from datahub.ingestion.api.common import PipelineContext
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.transformer.add_domain import (  # noqa: F401 — re-exports
     AddDomain,
     AddDomainConfig as AddDatasetDomainSemanticsConfig,
@@ -19,49 +20,50 @@ from datahub.ingestion.transformer.add_domain import (  # noqa: F401 — re-expo
     TransformerOnConflict,
 )
 
-# Re-export AddDomain under its legacy name so that existing code
-# importing ``AddDatasetDomain`` from this module keeps working.
-AddDatasetDomain = AddDomain
+_DATASET_ONLY_ENTITY_TYPES: List[str] = ["dataset"]
 
-_DATASET_ONLY_DOMAIN_ENTITY_TYPES: List[str] = [
-    "dataset",
-]
+_DEPRECATION_MSG = (
+    "{cls} is deprecated — use {replacement} instead. "
+    "The *Dataset* variants will be removed in a future release."
+)
 
 
-# --- Deprecated dataset-only variants ---
-# These delegate to the universal transformers with entity_types pinned
-# to dataset-only for backward compatibility.
+def _emit_deprecation(cls_name: str, replacement: str) -> None:
+    warnings.warn(
+        _DEPRECATION_MSG.format(cls=cls_name, replacement=replacement),
+        DataHubDeprecationWarning,
+        stacklevel=3,
+    )
+
+
+class AddDatasetDomain(AddDomain):
+    """Deprecated: use AddDomain instead. Dataset-only wrapper."""
+
+    def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        _emit_deprecation("AddDatasetDomain", "AddDomain")
+        super().__init__(*args, **kwargs)
+
+    def entity_types(self) -> List[str]:
+        return _DATASET_ONLY_ENTITY_TYPES
 
 
 class SimpleAddDatasetDomain(SimpleAddDomain):
     """Deprecated: use SimpleAddDomain instead. Dataset-only wrapper."""
 
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "SimpleAddDatasetDomain":
-        config_dict = {
-            **config_dict,
-            "entity_types": config_dict.get(
-                "entity_types", _DATASET_ONLY_DOMAIN_ENTITY_TYPES
-            ),
-        }
-        config = SimpleDatasetDomainSemanticsConfig.model_validate(config_dict)
-        return cls(config, ctx)
+    def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        _emit_deprecation("SimpleAddDatasetDomain", "SimpleAddDomain")
+        super().__init__(*args, **kwargs)
+
+    def entity_types(self) -> List[str]:
+        return _DATASET_ONLY_ENTITY_TYPES
 
 
 class PatternAddDatasetDomain(PatternAddDomain):
     """Deprecated: use PatternAddDomain instead. Dataset-only wrapper."""
 
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "PatternAddDatasetDomain":
-        config_dict = {
-            **config_dict,
-            "entity_types": config_dict.get(
-                "entity_types", _DATASET_ONLY_DOMAIN_ENTITY_TYPES
-            ),
-        }
-        config = PatternDatasetDomainSemanticsConfig.model_validate(config_dict)
-        return cls(config, ctx)
+    def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        _emit_deprecation("PatternAddDatasetDomain", "PatternAddDomain")
+        super().__init__(*args, **kwargs)
+
+    def entity_types(self) -> List[str]:
+        return _DATASET_ONLY_ENTITY_TYPES

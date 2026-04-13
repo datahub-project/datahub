@@ -88,13 +88,9 @@ class AddDomain(DatasetDomainTransformer):
         super().__init__()
         self.ctx = ctx
         self.config = config
-        if config.entity_types is not None:
-            self._config_entity_types = config.entity_types
 
     def entity_types(self) -> List[str]:
-        if hasattr(self, "_config_entity_types"):
-            return self._config_entity_types
-        return _ALL_DOMAIN_ENTITY_TYPES
+        return self.config.entity_types or _ALL_DOMAIN_ENTITY_TYPES
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDomain":
@@ -244,7 +240,7 @@ class SimpleAddDomain(AddDomain):
             entity_types=config.entity_types,
             **config.model_dump(exclude={"domains", "entity_types"}),
         )
-        AddDomain.__init__(self, generic_config, ctx)
+        super().__init__(generic_config, ctx)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDomain":
@@ -271,7 +267,7 @@ class PatternAddDomain(AddDomain):
             is_container=config.is_container,
             entity_types=config.entity_types,
         )
-        AddDomain.__init__(self, generic_config, ctx)
+        super().__init__(generic_config, ctx)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "PatternAddDomain":

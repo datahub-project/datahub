@@ -84,8 +84,6 @@ class AddOwnership(OwnershipTransformer):
         super().__init__()
         self.ctx = ctx
         self.config = config
-        if config.entity_types is not None:
-            self._config_entity_types = config.entity_types
         if (
             self.config.semantics == TransformerSemantics.PATCH
             and self.ctx.graph is None
@@ -97,9 +95,7 @@ class AddOwnership(OwnershipTransformer):
             )
 
     def entity_types(self) -> List[str]:
-        if hasattr(self, "_config_entity_types"):
-            return self._config_entity_types
-        return _ALL_OWNERSHIP_ENTITY_TYPES
+        return self.config.entity_types or _ALL_OWNERSHIP_ENTITY_TYPES
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddOwnership":
@@ -230,7 +226,7 @@ class SimpleAddOwnership(AddOwnership):
             replace_existing=config.replace_existing,
             entity_types=config.entity_types,
         )
-        AddOwnership.__init__(self, generic_config, ctx)
+        super().__init__(generic_config, ctx)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddOwnership":
@@ -261,7 +257,7 @@ class PatternAddOwnership(AddOwnership):
             is_container=config.is_container,
             entity_types=config.entity_types,
         )
-        AddOwnership.__init__(self, generic_config, ctx)
+        super().__init__(generic_config, ctx)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "PatternAddOwnership":

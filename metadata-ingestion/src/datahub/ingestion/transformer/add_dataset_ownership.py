@@ -6,9 +6,10 @@ deprecated ``*Dataset*`` wrappers that pin ``entity_types`` to the legacy
 set (everything except container).
 """
 
+import warnings
 from typing import List
 
-from datahub.ingestion.api.common import PipelineContext
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.transformer.add_ownership import (  # noqa: F401 — re-exports
     AddOwnership,
     AddOwnershipConfig as AddDatasetOwnershipConfig,
@@ -18,10 +19,6 @@ from datahub.ingestion.transformer.add_ownership import (  # noqa: F401 — re-e
     SimpleAddOwnership,
     SimpleOwnershipConfig as SimpleDatasetOwnershipConfig,
 )
-
-# Re-export AddOwnership under its legacy name so that existing code
-# importing ``AddDatasetOwnership`` from this module keeps working.
-AddDatasetOwnership = AddOwnership
 
 # The legacy *_dataset_* ownership transformers already processed these
 # types (everything except container) despite the "dataset" name.
@@ -33,41 +30,48 @@ _LEGACY_OWNERSHIP_ENTITY_TYPES: List[str] = [
     "dashboard",
 ]
 
+_DEPRECATION_MSG = (
+    "{cls} is deprecated — use {replacement} instead. "
+    "The *Dataset* variants will be removed in a future release."
+)
 
-# --- Deprecated dataset-only variants ---
-# These delegate to the universal transformers with entity_types pinned
-# to the legacy set for backward compatibility.
+
+def _emit_deprecation(cls_name: str, replacement: str) -> None:
+    warnings.warn(
+        _DEPRECATION_MSG.format(cls=cls_name, replacement=replacement),
+        DataHubDeprecationWarning,
+        stacklevel=3,
+    )
+
+
+class AddDatasetOwnership(AddOwnership):
+    """Deprecated: use AddOwnership instead. Legacy wrapper."""
+
+    def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        _emit_deprecation("AddDatasetOwnership", "AddOwnership")
+        super().__init__(*args, **kwargs)
+
+    def entity_types(self) -> List[str]:
+        return _LEGACY_OWNERSHIP_ENTITY_TYPES
 
 
 class SimpleAddDatasetOwnership(SimpleAddOwnership):
     """Deprecated: use SimpleAddOwnership instead. Legacy wrapper."""
 
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "SimpleAddDatasetOwnership":
-        config_dict = {
-            **config_dict,
-            "entity_types": config_dict.get(
-                "entity_types", _LEGACY_OWNERSHIP_ENTITY_TYPES
-            ),
-        }
-        config = SimpleDatasetOwnershipConfig.model_validate(config_dict)
-        return cls(config, ctx)
+    def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        _emit_deprecation("SimpleAddDatasetOwnership", "SimpleAddOwnership")
+        super().__init__(*args, **kwargs)
+
+    def entity_types(self) -> List[str]:
+        return _LEGACY_OWNERSHIP_ENTITY_TYPES
 
 
 class PatternAddDatasetOwnership(PatternAddOwnership):
     """Deprecated: use PatternAddOwnership instead. Legacy wrapper."""
 
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "PatternAddDatasetOwnership":
-        config_dict = {
-            **config_dict,
-            "entity_types": config_dict.get(
-                "entity_types", _LEGACY_OWNERSHIP_ENTITY_TYPES
-            ),
-        }
-        config = PatternDatasetOwnershipConfig.model_validate(config_dict)
-        return cls(config, ctx)
+    def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        _emit_deprecation("PatternAddDatasetOwnership", "PatternAddOwnership")
+        super().__init__(*args, **kwargs)
+
+    def entity_types(self) -> List[str]:
+        return _LEGACY_OWNERSHIP_ENTITY_TYPES
