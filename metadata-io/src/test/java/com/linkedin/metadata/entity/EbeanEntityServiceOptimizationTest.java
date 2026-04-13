@@ -69,9 +69,6 @@ public class EbeanEntityServiceOptimizationTest {
 
   @BeforeMethod
   public void setupTest() {
-    System.setProperty("logging.level.root", "DEBUG");
-    System.setProperty("io.ebean.SQL", "TRACE");
-
     server =
         EbeanTestUtils.createTestServer(EbeanEntityServiceOptimizationTest.class.getSimpleName());
 
