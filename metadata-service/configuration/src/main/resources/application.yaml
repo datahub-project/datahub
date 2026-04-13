@@ -508,10 +508,40 @@ elasticsearch:
     reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
     reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
     reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    # Parallel reindexing configuration
+    enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
+    taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
+    maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
+    # Cost-based reindexing configuration (P=2 enhancements)
+    normalIndexCostThreshold: ${ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD:1000000} # Cost = (docs * shards) / nodes. Example: 1M docs * 5 shards / 3 nodes = 1.67M
+    maxConcurrentNormalReindex: ${ELASTICSEARCH_MAX_CONCURRENT_NORMAL_REINDEX:4}
+    maxConcurrentLargeReindex: ${ELASTICSEARCH_MAX_CONCURRENT_LARGE_REINDEX:2}
+    # Cluster health monitoring for auto-throttling
+    clusterHealthCheckIntervalSeconds: ${ELASTICSEARCH_CLUSTER_HEALTH_CHECK_INTERVAL_SECONDS:30}
+    clusterHeapThresholdPercent: ${ELASTICSEARCH_CLUSTER_HEAP_THRESHOLD_PERCENT:85}
+    # Replica protection and finalization configuration
+    maxConcurrentFinalizations: ${ELASTICSEARCH_MAX_CONCURRENT_FINALIZATIONS:2} # Maximum concurrent index finalizations (limits replica sync operations to prevent cluster overload)
+    replicaSyncTimeoutMinutes: ${ELASTICSEARCH_REPLICA_SYNC_TIMEOUT_MINUTES:20} # Timeout for waiting on replica synchronization before promoting index to active use (minimum 5 minutes)
     slowOperationTimeoutSeconds: ${ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS:180} # socket timeout for count, refresh, createIndex, reindex, listTasks
     countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
     countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
     createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
+    # Adaptive throttling configuration
+    clusterHeapYellowThresholdPercent: ${ELASTICSEARCH_BUILD_INDICES_CLUSTER_HEAP_YELLOW_THRESHOLD_PERCENT:75} # Heap threshold for YELLOW tier (triggers throttling before RED)
+    docCountValidationRetryCount: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_COUNT:10} # Number of retries for doc count validation
+    docCountValidationRetrySleepMs: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_SLEEP_MS:2000} # Sleep time between doc count validation retries (milliseconds)
+    normalTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REQUESTS_PER_SECOND:500} # Requests per second during NORMAL cluster health tier
+    throttledTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REQUESTS_PER_SECOND:100} # Requests per second during THROTTLED (RED) cluster health tier
+    normalTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REFRESH_INTERVAL:60s} # Refresh interval during NORMAL cluster health tier (allows periodic flushes to reduce heap pressure)
+    throttledTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REFRESH_INTERVAL:30s} # Refresh interval during THROTTLED (RED) cluster health tier (aggressive flush for heap relief)
+    writeRejectionRedThreshold: ${ELASTICSEARCH_BUILD_INDICES_WRITE_REJECTION_RED_THRESHOLD:50} # Delta threshold for write/bulk thread pool rejections to trigger immediate RED state
+    # Circuit breaker stability window configuration (time-based hysteresis)
+    yellowStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_YELLOW_STABILITY_SECONDS:30} # Time (seconds) for GREEN -> YELLOW transition to be stable before accepting
+    greenStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_GREEN_STABILITY_SECONDS:30} # Time (seconds) for YELLOW -> GREEN transition to be stable before accepting
+    redRecoverySeconds: ${ELASTICSEARCH_BUILD_INDICES_RED_RECOVERY_SECONDS:30} # Time (seconds) for RED -> YELLOW transition to be stable before accepting
+    # Parallel reindex execution and monitoring parameters
+    rethrottleExecutorPoolSize: ${ELASTICSEARCH_BUILD_INDICES_RETHROTTLE_EXECUTOR_POOL_SIZE:8} # Thread pool size for concurrent rethrottle operations
+    minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
     rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
   search:

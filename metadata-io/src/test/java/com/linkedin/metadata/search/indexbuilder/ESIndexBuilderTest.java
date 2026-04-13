@@ -3,11 +3,14 @@ package com.linkedin.metadata.search.indexbuilder;
 import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
@@ -16,6 +19,7 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -29,10 +33,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.OpenSearchException;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -51,6 +60,10 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.GetMappingsResponse;
 import org.opensearch.client.indices.PutMappingRequest;
+import org.opensearch.client.tasks.GetTaskRequest;
+import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
@@ -1099,6 +1112,88 @@ public class ESIndexBuilderTest {
         "number_of_replicas", 1);
   }
 
+  @Test
+  public void testUpdateIndexSettings_RetriesOnOpenSearchException() throws IOException {
+    Settings settings = Settings.builder().put("index.refresh_interval", "60s").build();
+
+    AtomicInteger count = new AtomicInteger();
+    when(searchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            (e) -> {
+              if (count.get() == 1) {
+                return new AcknowledgedResponse(true);
+              }
+              count.getAndIncrement();
+              throw new OpenSearchException("Circuit breaker");
+            });
+    // Should succeed on retry
+    indexBuilder.updateIndexSettings("test_index", settings);
+
+    // Verify retry happened (called twice: first failed, second succeeded)
+    verify(searchClient, times(2))
+        .updateIndexSettings(any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  void testWaitForIndexGreenHealth_RetriesOnIOException() throws IOException {
+    String indexName = "test-index";
+
+    // Setup GREEN health response for the successful retry attempt
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.GREEN, 0);
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(0);
+    when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+
+    AtomicInteger count = new AtomicInteger();
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            inv -> {
+              // Throw IOException on second call (index health check), not first (data node count)
+              if (count.getAndIncrement() == 1) {
+                throw new IOException("Transient network error");
+              }
+              return healthResponse;
+            });
+
+    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+
+    verify(searchClient, atLeast(1))
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  void testWaitForIndexGreenHealth_AcceptsYellowWithAllPrimariesActive() throws IOException {
+    String indexName = "test-index";
+
+    // Setup YELLOW response with all primaries active (1/1)
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.YELLOW, 1);
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getNumberOfShards()).thenReturn(1);
+    when(indexHealth.getActivePrimaryShards()).thenReturn(1); // All primaries active ✓
+    when(indexHealth.getInitializingShards()).thenReturn(1); // Replicas initializing (OK)
+    when(indexHealth.getNumberOfReplicas()).thenReturn(1);
+    when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(healthResponse);
+
+    // Should NOT throw - YELLOW with all primaries active is acceptable
+    // Replicas will sync asynchronously in background
+    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+
+    // Verify clusterHealth was called
+    verify(searchClient, atLeastOnce())
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
   private Map<String, Object> createTestTargetSettings() {
     return ImmutableMap.of(
         "index",
@@ -1106,6 +1201,155 @@ public class ESIndexBuilderTest {
             "number_of_shards", NUM_SHARDS,
             "number_of_replicas", NUM_REPLICAS,
             "refresh_interval", REFRESH_INTERVAL_SECONDS + "s"));
+  }
+
+  @Test
+  public void testSuccessOnFirstAttemptGreenStatus() throws Exception {
+    String indexName = "test-index";
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.GREEN, 0);
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(0);
+    when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(healthResponse);
+
+    // Should not throw
+    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+
+    // Verify clusterHealth was called exactly once
+    verify(searchClient, times(1))
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testFailureOnRedStatusNoRetry() throws Exception {
+    String indexName = "test-index";
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.RED, 0);
+
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(3);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(), eq(RequestOptions.DEFAULT))).thenReturn(healthResponse);
+
+    // Should throw IOException
+    Exception exception = null;
+    try {
+      indexBuilder.waitForIndexGreenHealth(indexName, 30);
+      fail("Expected RuntimeException to be thrown for RED status");
+    } catch (ReplicaHealthException e) {
+      exception = e;
+      assertTrue(
+          e.getMessage().contains("Failed to verify replica health for index test-index"),
+          "Expected RED status message, got: " + e.getMessage());
+    }
+
+    assertNotNull(exception, "Expected ReplicaHealthException");
+
+    // Verify clusterHealth was called at least once (retry logic may try multiple times)
+    // But the first response already indicates RED, so we expect few retries
+    verify(searchClient, atLeastOnce())
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testFailureWithInitializingShards() throws Exception {
+    String indexName = "test-index";
+    int initializingShards = 2; // Non-zero initializing shards
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.YELLOW, initializingShards);
+
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(2);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(healthResponse);
+
+    // Should throw RuntimeException
+    Exception exception = null;
+    try {
+      indexBuilder.waitForIndexGreenHealth(indexName, 30);
+      fail("Expected RuntimeException to be thrown for initializing shards");
+    } catch (ReplicaHealthException e) {
+      exception = e;
+      assertTrue(
+          e.getCause().getMessage().contains("initializing shards")
+              || e.getCause().getMessage().contains("initializing=2"),
+          "Expected initializing shards message, got: " + e.getMessage());
+    }
+
+    assertNotNull(exception, "Expected ReplicaHealthException");
+
+    // Verify clusterHealth was called
+    verify(searchClient, atLeastOnce())
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  private ClusterHealthResponse createMockClusterHealthResponse(
+      ClusterHealthStatus status, int initializingShards) {
+
+    ClusterHealthResponse response = mock(ClusterHealthResponse.class);
+
+    // Mock only the methods that are actually called by waitForIndexGreenHealth()
+    when(response.getStatus()).thenReturn(status);
+    when(response.getInitializingShards()).thenReturn(initializingShards);
+    when(response.getClusterName()).thenReturn("test-cluster");
+    when(response.getNumberOfNodes()).thenReturn(3);
+    when(response.getNumberOfDataNodes()).thenReturn(3);
+
+    return response;
+  }
+
+  @Test
+  void testGetTaskStatusMultiple_DistinguishesNetworkErrorsFromTaskNotFound() throws IOException {
+
+    GetTaskResponse taskResponse = mock(GetTaskResponse.class);
+    when(taskResponse.isCompleted()).thenReturn(false);
+
+    // Mock successful fetch for task1
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenAnswer(
+            (in) -> {
+              GetTaskRequest req = in.getArgument(0);
+              long taskId = req.getTaskId();
+              if (taskId == 1) {
+                return Optional.of(mock(GetTaskResponse.class));
+              } else if (taskId == 2) {
+                throw new IOException("Connection timeout");
+              }
+              return Optional.empty();
+            });
+    // Execute: Get status for all three tasks
+    ESIndexBuilder.TaskStatusResult result =
+        indexBuilder.getTaskStatusMultiple(List.of("node1:1", "node2:2", "node3:3"));
+
+    assertEquals(
+        result.getResponses().size(), 1, "Should have exactly 1 successful response (node1:1)");
+    assertTrue(result.getResponses().containsKey("node1:1"), "task1 should be in responses map");
+
+    // Case 2: task2 should be in failedTaskIds (network error)
+    assertEquals(
+        result.getFailedTaskIds().size(),
+        1,
+        "Should have exactly 1 failed task due to network error (node2:2)");
+    assertTrue(
+        result.getFailedTaskIds().contains("node2:2"),
+        "node2:2 (network error) should be in failedTaskIds, NOT treated as missing");
+
+    // Case 3: task3 should be in neither map/set (legitimately not found)
+    assertFalse(
+        result.getResponses().containsKey("task3"), "task3 (not found) should NOT be in responses");
+    assertFalse(
+        result.getFailedTaskIds().contains("task3"),
+        "task3 (not found) should NOT be in failedTaskIds");
   }
 
   // --- Incremental reindex tests ---

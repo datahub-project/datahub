@@ -1,8 +1,7 @@
 import { Timeline } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionResultDot';
 import { NoResultsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/NoResultsSummary';
 import { AssertionResultsLoadingItems } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsLoadingItems';
@@ -21,7 +20,7 @@ const StyledTimeline = styled.div`
 `;
 
 const ShowMoreButton = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
     :hover {
         text-decoration: underline;
@@ -36,6 +35,7 @@ const DEFAULT_FETCH_COUNT = 25;
 const DEFAULT_VISIBLE_COUNT = 3;
 
 export const AssertionResultsTable = ({ assertion }: Props) => {
+    const theme = useTheme();
     const [count, setCount] = useState(DEFAULT_FETCH_COUNT);
     const [visible, setVisible] = useState(DEFAULT_VISIBLE_COUNT);
     const { data, loading } = useGetAssertionRunsQuery({
@@ -56,7 +56,7 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
                     <AssertionResultDot run={run as AssertionRunEvent} />
                 </div>
             ),
-            color: getResultColor(run.result?.type as AssertionResultType),
+            color: getResultColor(theme, run.result?.type as AssertionResultType),
             children: <AssertionResultsTableItem assertion={assertion} run={run as AssertionRunEvent} />,
             key: run.timestampMillis,
         };

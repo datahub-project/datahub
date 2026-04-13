@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
 import {
     AnyOperationType,
@@ -12,5 +13,6 @@ export default function useColorAccessors(
     data: CalendarData<OperationsData>[],
     types: AnyOperationType[],
 ) {
-    return useMemo(() => createColorAccessors(summary, data, types), [summary, data, types]);
+    const theme = useTheme();
+    return useMemo(() => createColorAccessors(summary, data, types, theme), [summary, data, types, theme]);
 }
