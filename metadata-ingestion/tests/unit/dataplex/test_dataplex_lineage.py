@@ -1459,9 +1459,9 @@ class TestLineageMapKeyCollision:
             "bigquery:test-project.sales.customers",
         ]
         assert len(workunits) == 1
-        assert (
-            "test-project.analytics.customers" in workunits[0].metadata.entityUrn  # type: ignore[union-attr]
-        )
+        entity_urn = workunits[0].metadata.entityUrn  # type: ignore[union-attr]
+        assert isinstance(entity_urn, str)
+        assert "test-project.analytics.customers" in entity_urn
 
     def test_workunit_uses_full_dataset_name_in_entity_urn(self) -> None:
         """Generated workunits should keep full downstream dataset names."""
