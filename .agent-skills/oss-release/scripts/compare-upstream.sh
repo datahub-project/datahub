@@ -16,6 +16,11 @@
 
 set -euo pipefail
 
+# Resolve repo root from the script's own location — works regardless of CWD
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+cd "$REPO_ROOT"
+
 # --- Prerequisites check ---
 for cmd in git gh python3; do
     if ! command -v "$cmd" &>/dev/null; then

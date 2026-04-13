@@ -18,9 +18,8 @@ This skill works across Claude Code, Cursor, Copilot, Gemini CLI, Windsurf, and 
 - `finish` CI monitoring uses `/loop` + `ScheduleWakeup` for async polling
 - Sub-agents can be dispatched for parallel diff analysis
 
-**Scripts location:** All script paths below are relative to the **repository root**
-(e.g. `.agent-skills/oss-release/scripts/compare-upstream.sh`). Run them from the repo root —
-do not `cd` into a subdirectory first.
+**Scripts location:** Run the scripts exactly as shown below — do not prepend a `cd` command.
+The scripts resolve their own paths internally using `$(dirname "$0")`.
 
 ---
 
