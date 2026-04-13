@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -77,46 +78,38 @@ public class PrivateKeyJwtUtilsTest {
   }
 
   @Test
-  void testLoadCertificate_ValidPem() throws IOException, CertificateException {
-    X509Certificate certificate =
-        PrivateKeyJwtUtils.loadCertificate(TestKeyMaterial.CERTIFICATE_PATH);
+  void testLoadCertificateChain_ValidPem() throws IOException, CertificateException {
+    List<X509Certificate> chain =
+        PrivateKeyJwtUtils.loadCertificateChain(TestKeyMaterial.CERTIFICATE_PATH);
 
-    assertNotNull(certificate);
-    assertEquals("X.509", certificate.getType());
-    assertNotNull(certificate.getSubjectX500Principal());
+    assertFalse(chain.isEmpty());
+    X509Certificate leaf = chain.get(0);
+    assertEquals("X.509", leaf.getType());
+    assertNotNull(leaf.getSubjectX500Principal());
   }
 
   @Test
-  void testLoadCertificate_InvalidPath() {
+  void testLoadCertificateChain_InvalidPath() {
     assertThrows(
         IOException.class,
-        () -> PrivateKeyJwtUtils.loadCertificate("test/resources/nonexistent-cert.pem"));
+        () -> PrivateKeyJwtUtils.loadCertificateChain("test/resources/nonexistent-cert.pem"));
   }
 
   @Test
-  void testComputeThumbprint() throws IOException, CertificateException {
+  void testComputeSha256Thumbprint_FormatAndStability() throws IOException, CertificateException {
     X509Certificate certificate =
-        PrivateKeyJwtUtils.loadCertificate(TestKeyMaterial.CERTIFICATE_PATH);
-    String thumbprint = PrivateKeyJwtUtils.computeThumbprint(certificate);
+        PrivateKeyJwtUtils.loadCertificateChain(TestKeyMaterial.CERTIFICATE_PATH).get(0);
+    String thumbprint = PrivateKeyJwtUtils.computeSha256Thumbprint(certificate);
 
-    assertNotNull(thumbprint);
-    // Base64URL encoded SHA-256 hash should be 43 characters (256 bits / 6 bits per char, no
-    // padding)
+    // SHA-256 base64url without padding: 256 bits / 6 bits per char = 43 characters.
     assertEquals(43, thumbprint.length());
-    // Should be Base64URL safe (no + or /)
     assertFalse(thumbprint.contains("+"));
     assertFalse(thumbprint.contains("/"));
     assertFalse(thumbprint.contains("="));
-  }
-
-  @Test
-  void testComputeThumbprint_Consistency() throws IOException, CertificateException {
-    X509Certificate certificate =
-        PrivateKeyJwtUtils.loadCertificate(TestKeyMaterial.CERTIFICATE_PATH);
-    String thumbprint1 = PrivateKeyJwtUtils.computeThumbprint(certificate);
-    String thumbprint2 = PrivateKeyJwtUtils.computeThumbprint(certificate);
-
-    assertEquals(thumbprint1, thumbprint2, "Thumbprint should be consistent for same certificate");
+    assertEquals(
+        thumbprint,
+        PrivateKeyJwtUtils.computeSha256Thumbprint(certificate),
+        "Thumbprint must be deterministic for the same certificate");
   }
 
   @Test
@@ -124,7 +117,7 @@ public class PrivateKeyJwtUtilsTest {
     RSAPrivateKey privateKey =
         PrivateKeyJwtUtils.loadPrivateKey(TestKeyMaterial.PRIVATE_KEY_PATH, null);
     X509Certificate certificate =
-        PrivateKeyJwtUtils.loadCertificate(TestKeyMaterial.CERTIFICATE_PATH);
+        PrivateKeyJwtUtils.loadCertificateChain(TestKeyMaterial.CERTIFICATE_PATH).get(0);
 
     // The public key in the certificate should have the same modulus as the private key
     java.security.interfaces.RSAPublicKey publicKey =

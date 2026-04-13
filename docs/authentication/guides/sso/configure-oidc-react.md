@@ -110,26 +110,42 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 
 ### Certificate-Based Authentication (private_key_jwt)
 
-For identity providers that support certificate-based authentication (e.g., Azure AD with certificate credentials), you can use the `private_key_jwt` authentication method instead of a client secret. This is useful for environments where certificate-based auth is preferred or required.
+DataHub supports [RFC 7523](https://datatracker.ietf.org/doc/html/rfc7523) `private_key_jwt` client authentication as an alternative to a shared client secret. Instead of sending `client_secret`, DataHub signs a short-lived JWT assertion with an RSA private key held on disk; the identity provider verifies it against the registered public certificate.
+
+This is vendor-agnostic and works with any OIDC-compliant IdP that supports `private_key_jwt` at its token endpoint — Keycloak, Okta, Auth0, Azure AD / Entra ID, Ping, ForgeRock, and others. DataHub populates the JWT header with `kid`, `x5t#S256` (RFC 7515 §4.1.8) and `x5c` (§4.1.6) so the assertion is accepted regardless of which key-identification field the IdP matches on.
 
 ```
 # Certificate-based authentication (alternative to client secret)
 AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=private_key_jwt
 AUTH_OIDC_PRIVATE_KEY_FILE_PATH=/path/to/private-key.pem
-AUTH_OIDC_PUBLIC_KEY_FILE_PATH=/path/to/certificate.pem
+AUTH_OIDC_CERTIFICATE_FILE_PATH=/path/to/certificate.pem
 AUTH_OIDC_PRIVATE_KEY_PASSWORD=optional-password-if-key-is-encrypted
 AUTH_OIDC_PRIVATE_KEY_JWT_ALGORITHM=RS256
+AUTH_OIDC_PRIVATE_KEY_JWT_KID=optional-explicit-kid
 ```
 
-| Configuration                       | Description                                                                                                                                                      | Default |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| AUTH_OIDC_PRIVATE_KEY_FILE_PATH     | Path to the PEM file containing the private key. Required when using `private_key_jwt`.                                                                          |         |
-| AUTH_OIDC_PUBLIC_KEY_FILE_PATH      | Path to the PEM file containing the X.509 certificate. The certificate thumbprint is used as the key ID (kid) in the JWT. Required when using `private_key_jwt`. |         |
-| AUTH_OIDC_PRIVATE_KEY_PASSWORD      | Password for the private key file, if it is encrypted. Leave empty for unencrypted keys.                                                                         |         |
-| AUTH_OIDC_PRIVATE_KEY_JWT_ALGORITHM | The signing algorithm to use for the client assertion JWT. Supported values: `RS256`, `RS384`, `RS512`.                                                          | RS256   |
+| Configuration                       | Description                                                                                                                                                                                                                              | Default                 |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| AUTH_OIDC_PRIVATE_KEY_FILE_PATH     | Path to the PEM file containing the RSA private key. Required when using `private_key_jwt`. Accepts PKCS#8 (`BEGIN PRIVATE KEY` / `BEGIN ENCRYPTED PRIVATE KEY`) and traditional OpenSSL (`BEGIN RSA PRIVATE KEY`) variants.             |                         |
+| AUTH_OIDC_CERTIFICATE_FILE_PATH     | Path to the PEM file containing the X.509 certificate (`BEGIN CERTIFICATE`). Required when using `private_key_jwt`. If the file contains multiple concatenated certificates, they are treated as a chain (leaf first) and sent as `x5c`. |                         |
+| AUTH_OIDC_PRIVATE_KEY_PASSWORD      | Password for the private key file, if it is encrypted. Leave empty for unencrypted keys.                                                                                                                                                 |                         |
+| AUTH_OIDC_PRIVATE_KEY_JWT_ALGORITHM | Signing algorithm for the client assertion JWT. Supported values: `RS256`, `RS384`, `RS512`.                                                                                                                                             | RS256                   |
+| AUTH_OIDC_PRIVATE_KEY_JWT_KID       | Explicit value for the JWT `kid` header. Set this to the `kid` registered with your IdP's JWK set (Keycloak, Okta, Auth0, etc.). If unset, DataHub defaults to the base64url SHA-256 certificate thumbprint.                             | SHA-256 cert thumbprint |
 
 :::note
-When using `private_key_jwt`, the `AUTH_OIDC_CLIENT_SECRET` configuration is optional and can be omitted.
+PEM is the canonical format for both files. If your key material is in PKCS#12 (`.p12` / `.pfx`) or a Java keystore, convert it first, e.g. `openssl pkcs12 -in keystore.p12 -nodes -out key.pem` and `openssl pkcs12 -in keystore.p12 -nokeys -out cert.pem`.
+:::
+
+:::note
+When using `private_key_jwt`, `AUTH_OIDC_CLIENT_SECRET` is not required and can be omitted.
+:::
+
+:::caution
+Lock down the private-key file so only the DataHub frontend process can read it, e.g. `chmod 600 /path/to/private-key.pem` and ensure the file is owned by the user the container runs as. A world-readable key on a shared host is equivalent to leaking your client secret.
+:::
+
+:::note
+The private key, certificate, and `kid` are loaded **once at startup**. Rotating the key or the registered certificate requires restarting the `datahub-frontend-react` container so the new material is picked up.
 :::
 
 ## SSO Group-Based Access Control and Custom Messaging

@@ -86,9 +86,10 @@ public class AuthUtils {
 
   // Private Key JWT (certificate-based) authentication constants
   public static final String PRIVATE_KEY_FILE_PATH = "privateKeyFilePath";
-  public static final String PUBLIC_KEY_FILE_PATH = "publicKeyFilePath";
+  public static final String CERTIFICATE_FILE_PATH = "certificateFilePath";
   public static final String PRIVATE_KEY_PASSWORD = "privateKeyPassword";
   public static final String PRIVATE_KEY_JWT_ALGORITHM = "privateKeyJwtAlgorithm";
+  public static final String PRIVATE_KEY_JWT_KID = "privateKeyJwtKid";
 
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,
