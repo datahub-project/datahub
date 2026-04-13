@@ -61,7 +61,7 @@ class JsonInferrer(SchemaInferenceBase):
                     # Not a top-level array — likely a single JSON object.
                     file.seek(0)
                     datastore = [ujson.load(file)]
-            except (ijson.common.JSONError, UnicodeDecodeError) as e:
+            except (ujson.JSONDecodeError, ijson.common.JSONError, UnicodeDecodeError) as e:
                 logger.info(f"Failed to parse as JSON: {e}. Retry with jsonlines")
                 file.seek(0)
                 reader = jsl.Reader(file)
