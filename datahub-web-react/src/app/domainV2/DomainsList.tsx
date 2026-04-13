@@ -96,7 +96,7 @@ export const DomainsList = () => {
                 <DomainIcon
                     style={{
                         fontSize: 12,
-                        color: theme.colors.textDisabled,
+                        color: theme.colors.icon,
                     }}
                 />,
             ),

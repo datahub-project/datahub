@@ -17,7 +17,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${(props) => props.theme.colors.textSecondary};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 const LabelWrapper = styled.div`

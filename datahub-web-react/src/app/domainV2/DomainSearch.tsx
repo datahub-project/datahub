@@ -17,7 +17,7 @@ const DomainSearchWrapper = styled.div`
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
     box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;

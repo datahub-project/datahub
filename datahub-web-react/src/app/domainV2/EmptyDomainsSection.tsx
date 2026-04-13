@@ -33,7 +33,7 @@ const StyledButton = styled(Button)`
 `;
 
 const IconContainer = styled.span`
-    color: ${(props) => props.theme.colors.textTertiary};
+    color: ${(props) => props.theme.colors.icon};
     font-size: 40px;
 `;
 
