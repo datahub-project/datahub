@@ -28,4 +28,4 @@ smoke-test-cypress:
   - "smoke-test/tests/cypress/**"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
-  - "!datahub-web-react/**/*.md"
+  - added|modified: "!datahub-web-react/**/*.md"
