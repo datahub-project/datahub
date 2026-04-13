@@ -1,7 +1,18 @@
 import json
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, MutableSequence, Optional, Type, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    MutableSequence,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest import mock
 from uuid import uuid4
 
@@ -50,6 +61,7 @@ from datahub.ingestion.transformer.add_dataset_terms import (
 )
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
+    MultipleAspectTransformer,
     SingleAspectTransformer,
 )
 from datahub.ingestion.transformer.dataset_domain import (
@@ -5039,3 +5051,61 @@ def test_replace_external_regex_container_replace_2(
         output[0].record.aspect.externalUrl
         == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
     )
+
+
+def test_multiple_aspect_transformer_passes_through_non_matching_mcpw() -> None:
+    """Non-matching MCPWs must not be silently dropped by MultipleAspectTransformer."""
+
+    class TagsOnlyTransformer(BaseTransformer, MultipleAspectTransformer):
+        """Transforms globalTags only; all other MCPWs must pass through unchanged."""
+
+        @classmethod
+        def create(
+            cls, config_dict: dict, ctx: PipelineContext
+        ) -> "TagsOnlyTransformer":
+            return cls(ctx)
+
+        def __init__(self, ctx: PipelineContext) -> None:
+            super().__init__()
+
+        def entity_types(self) -> List[str]:
+            return ["dataset"]
+
+        def aspect_name(self) -> str:
+            return "globalTags"
+
+        def transform_aspects(
+            self,
+            entity_urn: str,
+            aspect_name: str,
+            aspect: Optional[builder.Aspect],
+        ) -> Iterable[Tuple[str, Optional[builder.Aspect]]]:
+            yield (aspect_name, aspect)
+
+    urn = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"
+    tags_mcp = MetadataChangeProposalWrapper(
+        entityUrn=urn, aspect=models.GlobalTagsClass(tags=[])
+    )
+    domain_mcp = MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=models.DomainsClass(domains=["urn:li:domain:hello"]),
+    )
+
+    ctx = PipelineContext(run_id="test")
+    transformer = TagsOnlyTransformer.create({}, ctx)
+    inputs = [
+        RecordEnvelope(r, metadata={}) for r in [tags_mcp, domain_mcp, EndOfStream()]
+    ]
+    outputs = list(transformer.transform(inputs))
+
+    domain_outputs = [
+        o.record
+        for o in outputs
+        if isinstance(o.record, MetadataChangeProposalWrapper)
+        and isinstance(o.record.aspect, models.DomainsClass)
+    ]
+    assert len(domain_outputs) == 1, (
+        f"Expected domain MCPW to pass through unchanged, got {len(domain_outputs)}"
+    )
+    assert isinstance(domain_outputs[0].aspect, models.DomainsClass)
+    assert domain_outputs[0].aspect.domains == ["urn:li:domain:hello"]
