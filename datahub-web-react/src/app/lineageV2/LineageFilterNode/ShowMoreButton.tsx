@@ -2,10 +2,7 @@ import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrow
 import React, { useCallback, useContext, useMemo } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV2/common';
-import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 const MAX_INCREASE = 100;
 const LINE_HEIGHT = '1.5em';
@@ -17,7 +14,7 @@ const ExtraButtons = styled.div`
 
     flex-direction: column;
     align-items: end;
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 const Wrapper = styled.div`
@@ -40,8 +37,8 @@ const Button = styled.div`
     all: unset;
     align-items: center;
     border-radius: 20px;
-    background-color: ${REDESIGN_COLORS.WHITE};
-    color: ${ANTD_GRAY[9]};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
     display: flex;
     font-size: 10px;
@@ -49,13 +46,8 @@ const Button = styled.div`
     width: fit-content;
 
     :hover {
-        background-color: ${(props) =>
-            applyOpacity(
-                props.theme.styles['primary-color'] || getColor('primary', 500, props.theme),
-                REDESIGN_COLORS.WHITE,
-                10,
-            )};
-        color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

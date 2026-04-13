@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -18,7 +17,7 @@ const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     align-items: center;
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
         a,
         span {
             color: ${(props) => props.theme.colors.textBrand};
