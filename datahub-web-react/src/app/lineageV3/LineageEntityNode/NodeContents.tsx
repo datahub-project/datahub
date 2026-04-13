@@ -42,7 +42,7 @@ import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 import LinkOut from '@images/link-out.svg?react';
 
 export const LoadingWrapper = styled.div`
-    color: ${(props) => props.theme.colors.textBrand};
+    color: ${({ theme }) => theme.colors.buttonFillBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -116,7 +116,7 @@ const ExtraDetailsWrapper = styled.div`
     align-items: center;
     gap: 4px;
 
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${({ theme }) => theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: normal;
@@ -223,8 +223,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
 
-    const highlightColor = theme.colors.bgHighlight;
-
+    const highlightColor = isSearchedEntity ? theme.colors.bgHighlight : theme.colors.tagsTrueYellowBg;
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
     const hasDownstreamChildren = !!(numDownstreams ?? !!entity?.numDownstreamChildren);
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
@@ -311,6 +310,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             status={lastRunEvent.status}
                             resultType={lastRunEvent.result?.resultType ?? undefined}
                             showTooltip
+                            theme={theme}
                         />
                     )}
                 </DataJobLastRunWrapper>

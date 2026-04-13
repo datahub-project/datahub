@@ -124,6 +124,7 @@ class Pipeline:
 
         # Create Event Source
         event_source = create_event_source(config.source, ctx)
+        ctx.event_source = event_source
 
         # Create Transforms
         transforms = []

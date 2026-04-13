@@ -4,7 +4,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     getBarsStatusFromPopularityTier,
     getChartPopularityTier,
@@ -28,7 +27,7 @@ const Insight = styled.div`
     align-items: center;
     justify-content: space-between;
     && {
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

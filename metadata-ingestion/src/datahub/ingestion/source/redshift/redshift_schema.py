@@ -47,6 +47,7 @@ class RedshiftTable(BaseTable):
     output_parameters: Optional[str] = None
     serde_parameters: Optional[str] = None
     last_altered: Optional[datetime] = None
+    owner: Optional[str] = None
 
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
@@ -60,6 +61,7 @@ class RedshiftView(BaseTable):
     last_altered: Optional[datetime] = None
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
+    owner: Optional[str] = None
 
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
@@ -303,11 +305,15 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_schemas(
-        conn: redshift_connector.Connection, database: str
+        conn: redshift_connector.Connection,
+        database: str,
+        extract_ownership: bool = False,
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_schemas(database),
+            RedshiftCommonQuery.list_schemas(
+                database, extract_ownership=extract_ownership
+            ),
         )
 
         schemas = cursor.fetchall()
@@ -318,6 +324,7 @@ class RedshiftDataDictionary:
                 database=database,
                 name=schema[field_names.index("schema_name")],
                 type=schema[field_names.index("schema_type")],
+                owner=schema[field_names.index("schema_owner_name")],
                 option=schema[field_names.index("schema_option")],
                 external_platform=schema[field_names.index("external_platform")],
                 external_database=schema[field_names.index("external_database")],
@@ -365,6 +372,7 @@ class RedshiftDataDictionary:
         database: str,
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
+        extract_ownership: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -379,6 +387,7 @@ class RedshiftDataDictionary:
                 database=database,
                 skip_external_tables=skip_external_tables,
                 is_shared_database=is_shared_database,
+                extract_ownership=extract_ownership,
             ),
         )
         field_names = [i[0] for i in cur.description]
@@ -421,6 +430,7 @@ class RedshiftDataDictionary:
                         output_parameters=table[field_names.index("output_format")],
                         serde_parameters=table[field_names.index("serde_parameters")],
                         comment=table[field_names.index("table_description")],
+                        owner=table[field_names.index("owner_name")],
                     )
                 )
             else:
@@ -454,6 +464,7 @@ class RedshiftDataDictionary:
                         size_in_bytes=size_in_bytes,
                         rows_count=rows_count,
                         materialized=materialized,
+                        owner=table[field_names.index("owner_name")],
                     )
                 )
 
