@@ -1,18 +1,23 @@
 package auth.sso.oidc;
 
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Security;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
@@ -22,16 +27,35 @@ import org.bouncycastle.openssl.PEMEncryptedKeyPair;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+import org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder;
 import org.bouncycastle.openssl.jcajce.JcePEMDecryptorProviderBuilder;
+import org.bouncycastle.operator.InputDecryptorProvider;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
+import org.bouncycastle.pkcs.PKCSException;
 
 /**
- * Utility class for loading private keys and certificates for private_key_jwt client authentication
- * (RFC 7523).
+ * Utility class for loading PEM-encoded private keys and X.509 certificates for private_key_jwt
+ * client authentication (RFC 7523).
+ *
+ * <p>PEM is the canonical format. The following PEM variants are supported:
+ *
+ * <ul>
+ *   <li>Private keys: {@code BEGIN PRIVATE KEY} (PKCS#8), {@code BEGIN ENCRYPTED PRIVATE KEY}
+ *       (encrypted PKCS#8), {@code BEGIN RSA PRIVATE KEY} (traditional OpenSSL), and its encrypted
+ *       variant.
+ *   <li>Certificates: {@code BEGIN CERTIFICATE} (X.509). Files containing multiple consecutive
+ *       {@code CERTIFICATE} blocks are treated as a chain (leaf first).
+ * </ul>
+ *
+ * <p>DER-encoded X.509 certificates are also accepted because {@link CertificateFactory}
+ * transparently handles them. Non-PEM private key formats (PKCS#12, JKS) are not supported here;
+ * convert them with {@code openssl pkcs12 -in keystore.p12 -nodes -out key.pem}.
  */
 public final class PrivateKeyJwtUtils {
 
   static {
-    // Register BouncyCastle as a JCA security provider for encrypted key support
+    // Register BouncyCastle as a JCA security provider for encrypted key support.
     if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
       Security.addProvider(new BouncyCastleProvider());
     }
@@ -42,23 +66,17 @@ public final class PrivateKeyJwtUtils {
   /**
    * Loads an RSA private key from a PEM file.
    *
-   * <p>Supports both encrypted (password-protected) and unencrypted PEM files. The PEM file can
-   * contain:
-   *
-   * <ul>
-   *   <li>PKCS#8 format (BEGIN PRIVATE KEY / BEGIN ENCRYPTED PRIVATE KEY)
-   *   <li>Traditional RSA format (BEGIN RSA PRIVATE KEY)
-   * </ul>
-   *
-   * @param filePath Path to the PEM file containing the private key
-   * @param password Password for encrypted keys, or null for unencrypted keys
-   * @return The RSA private key
-   * @throws IOException If the file cannot be read
-   * @throws IllegalArgumentException If the key format is invalid or unsupported
+   * @param filePath Path to the PEM file containing the private key.
+   * @param password Password for encrypted keys, or {@code null} for unencrypted keys.
+   * @return The RSA private key.
+   * @throws IOException If the file cannot be read.
+   * @throws IllegalArgumentException If the PEM contents are missing, malformed, or encrypted
+   *     without a password.
    */
   public static RSAPrivateKey loadPrivateKey(@Nonnull String filePath, @Nullable String password)
       throws IOException {
-    try (PEMParser pemParser = new PEMParser(new FileReader(filePath))) {
+    try (PEMParser pemParser =
+        new PEMParser(Files.newBufferedReader(Path.of(filePath), StandardCharsets.US_ASCII))) {
       Object pemObject = pemParser.readObject();
 
       if (pemObject == null) {
@@ -69,7 +87,7 @@ public final class PrivateKeyJwtUtils {
       PrivateKeyInfo privateKeyInfo;
 
       if (pemObject instanceof PEMEncryptedKeyPair) {
-        // Encrypted traditional format (e.g., BEGIN RSA PRIVATE KEY with encryption)
+        // Encrypted traditional OpenSSL format (BEGIN RSA PRIVATE KEY with DEK-Info header).
         if (password == null || password.isEmpty()) {
           throw new IllegalArgumentException(
               "Private key is encrypted but no password was provided");
@@ -80,25 +98,23 @@ public final class PrivateKeyJwtUtils {
         privateKeyInfo = keyPair.getPrivateKeyInfo();
 
       } else if (pemObject instanceof PEMKeyPair) {
-        // Unencrypted traditional format (BEGIN RSA PRIVATE KEY)
+        // Unencrypted traditional OpenSSL format (BEGIN RSA PRIVATE KEY).
         privateKeyInfo = ((PEMKeyPair) pemObject).getPrivateKeyInfo();
 
       } else if (pemObject instanceof PrivateKeyInfo) {
-        // PKCS#8 format (BEGIN PRIVATE KEY)
+        // Unencrypted PKCS#8 (BEGIN PRIVATE KEY).
         privateKeyInfo = (PrivateKeyInfo) pemObject;
 
-      } else if (pemObject instanceof org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo) {
-        // Encrypted PKCS#8 format (BEGIN ENCRYPTED PRIVATE KEY)
+      } else if (pemObject instanceof PKCS8EncryptedPrivateKeyInfo) {
+        // Encrypted PKCS#8 (BEGIN ENCRYPTED PRIVATE KEY).
         if (password == null || password.isEmpty()) {
           throw new IllegalArgumentException(
               "Private key is encrypted but no password was provided");
         }
-        org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo encryptedInfo =
-            (org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo) pemObject;
-        org.bouncycastle.operator.InputDecryptorProvider decryptorProvider =
-            new org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder()
-                .build(password.toCharArray());
-        privateKeyInfo = encryptedInfo.decryptPrivateKeyInfo(decryptorProvider);
+        InputDecryptorProvider decryptorProvider =
+            new JceOpenSSLPKCS8DecryptorProviderBuilder().build(password.toCharArray());
+        privateKeyInfo =
+            ((PKCS8EncryptedPrivateKeyInfo) pemObject).decryptPrivateKeyInfo(decryptorProvider);
 
       } else {
         throw new IllegalArgumentException(
@@ -107,47 +123,55 @@ public final class PrivateKeyJwtUtils {
 
       return (RSAPrivateKey) converter.getPrivateKey(privateKeyInfo);
 
-    } catch (org.bouncycastle.operator.OperatorCreationException
-        | org.bouncycastle.pkcs.PKCSException e) {
+    } catch (OperatorCreationException | PKCSException e) {
       throw new IllegalArgumentException("Failed to decrypt private key: " + e.getMessage(), e);
     }
   }
 
   /**
-   * Loads an X.509 certificate from a PEM file.
+   * Loads an X.509 certificate chain from a file. If the file contains multiple concatenated PEM
+   * {@code CERTIFICATE} blocks, they are returned in file order (leaf first, then intermediates).
+   * DER-encoded single certificates are also accepted.
    *
-   * @param filePath Path to the PEM file containing the certificate
-   * @return The X.509 certificate
-   * @throws IOException If the file cannot be read
-   * @throws CertificateException If the certificate is invalid
+   * @param filePath Path to the certificate file.
+   * @return The certificate chain — never empty.
+   * @throws IOException If the file cannot be read.
+   * @throws CertificateException If no certificates are present or any entry cannot be parsed.
    */
-  public static X509Certificate loadCertificate(@Nonnull String filePath)
+  public static List<X509Certificate> loadCertificateChain(@Nonnull String filePath)
       throws IOException, CertificateException {
     CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
-    try (var inputStream = Files.newInputStream(Path.of(filePath))) {
-      return (X509Certificate) certFactory.generateCertificate(inputStream);
+    try (InputStream in = Files.newInputStream(Path.of(filePath))) {
+      Collection<? extends Certificate> certs = certFactory.generateCertificates(in);
+      if (certs.isEmpty()) {
+        throw new CertificateException("No certificates found in file: " + filePath);
+      }
+      List<X509Certificate> chain = new ArrayList<>(certs.size());
+      for (Certificate c : certs) {
+        chain.add((X509Certificate) c);
+      }
+      return chain;
     }
   }
 
   /**
-   * Computes the SHA-256 thumbprint of an X.509 certificate, Base64URL encoded.
+   * Computes the SHA-256 thumbprint of an X.509 certificate, Base64URL encoded without padding.
+   * This is the canonical form of the JWT {@code x5t#S256} header parameter (RFC 7515 §4.1.8) and
+   * is also a reasonable default for {@code kid} when none is configured.
    *
-   * <p>This is used as the key ID (kid) in JWT headers for private_key_jwt authentication. Azure AD
-   * and other IdPs use this format to identify which certificate was used to sign the JWT.
-   *
-   * @param certificate The X.509 certificate
-   * @return The SHA-256 thumbprint, Base64URL encoded (no padding)
-   * @throws CertificateEncodingException If the certificate cannot be encoded
+   * @param certificate The X.509 certificate.
+   * @return Base64URL-encoded SHA-256 thumbprint (43 characters, no padding).
+   * @throws CertificateEncodingException If the certificate cannot be encoded.
    */
-  public static String computeThumbprint(@Nonnull X509Certificate certificate)
+  public static String computeSha256Thumbprint(@Nonnull X509Certificate certificate)
       throws CertificateEncodingException {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
       byte[] hash = digest.digest(certificate.getEncoded());
       return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
     } catch (NoSuchAlgorithmException e) {
-      // SHA-256 is always available in Java
-      throw new RuntimeException("SHA-256 algorithm not available", e);
+      // SHA-256 is a JRE-required algorithm.
+      throw new AssertionError("SHA-256 algorithm not available", e);
     }
   }
 }
