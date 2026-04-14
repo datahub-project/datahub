@@ -2075,42 +2075,6 @@ class TableauSiteSource:
             table_id_to_urn=vc_id_to_urn,
         )
 
-    def _collect_vc_references_from_datasources(self) -> None:
-        """Collect VC references from all datasources without emitting them."""
-        # Collect from published datasources
-        if self.datasource_ids_being_used:
-            datasource_filter = (
-                {}
-                if self.config.emit_all_published_datasources
-                else {c.ID_WITH_IN: self.datasource_ids_being_used}
-            )
-            for datasource in self.get_connection_objects(
-                query=published_datasource_graphql_query,
-                connection_type=c.PUBLISHED_DATA_SOURCES_CONNECTION,
-                query_filter=datasource_filter,
-                page_size=self.config.effective_published_datasource_page_size,
-            ):
-                self.vc_processor.process_datasource_for_vc_refs(
-                    datasource, DatasourceType.PUBLISHED
-                )
-
-        # Collect from embedded datasources
-        if self.embedded_datasource_ids_being_used:
-            datasource_filter = (
-                {}
-                if self.config.emit_all_embedded_datasources
-                else {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
-            )
-            for datasource in self.get_connection_objects(
-                query=embedded_datasource_graphql_query,
-                connection_type=c.EMBEDDED_DATA_SOURCES_CONNECTION,
-                query_filter=datasource_filter,
-                page_size=self.config.effective_embedded_datasource_page_size,
-            ):
-                self.vc_processor.process_datasource_for_vc_refs(
-                    datasource, DatasourceType.EMBEDDED
-                )
-
     def get_upstream_tables(
         self,
         tables: List[dict],
@@ -3041,44 +3005,29 @@ class TableauSiteSource:
         )
         dataset_snapshot.aspects.append(dataset_props)
 
-        # Upstream Tables and VC Lineage
         if (
             datasource.get(c.UPSTREAM_TABLES)
             or datasource.get(c.UPSTREAM_DATA_SOURCES)
             or datasource.get(c.FIELDS)
         ):
-            # datasource -> db table relations
             lineage_result = self._create_upstream_table_lineage(
                 datasource, browse_path, is_embedded_ds=is_embedded_ds
             )
             upstream_tables = lineage_result.upstream_tables
             fine_grained_lineages = lineage_result.fine_grained_lineages
 
-            # Add VC lineage to existing lineage (only if VC processing is enabled)
             if self.config.ingest_virtual_connections:
-                logger.debug(f"Creating VC lineage for datasource: {datasource_urn}")
                 vc_lineage_result = self.vc_processor.create_datasource_vc_lineage(
                     datasource_urn
                 )
-                vc_upstream_tables = vc_lineage_result.upstream_tables
-                vc_fine_grained_lineages = vc_lineage_result.fine_grained_lineages
-                logger.debug(
-                    f"VC lineage created: {len(vc_upstream_tables)} upstream tables, "
-                    f"{len(vc_fine_grained_lineages)} fine-grained lineages"
-                )
-
-                # Combine with existing upstream tables
-                upstream_tables.extend(vc_upstream_tables)
-
-                # Combine all fine-grained lineages
+                upstream_tables.extend(vc_lineage_result.upstream_tables)
                 all_fine_grained_lineages = (
-                    fine_grained_lineages + vc_fine_grained_lineages
+                    fine_grained_lineages + vc_lineage_result.fine_grained_lineages
                 )
-
-                # Update report statistics
-                self.report.num_vc_lineages_created += len(vc_fine_grained_lineages)
+                self.report.num_vc_lineages_created += len(
+                    vc_lineage_result.fine_grained_lineages
+                )
             else:
-                # No VC processing, use only regular fine-grained lineages
                 all_fine_grained_lineages = fine_grained_lineages
 
             if upstream_tables or all_fine_grained_lineages:
@@ -4096,7 +4045,6 @@ class TableauSiteSource:
             return None
 
         clean_vc_name = clean_table_name(vc_table_name)
-        clean_vc_name.lower()
 
         logger.debug(
             f"Looking for database table match for VC table: '{vc_table_name}' (cleaned: '{clean_vc_name}') - "
@@ -4417,42 +4365,22 @@ class TableauSiteSource:
                         self.site_content_url
                     ] = timer.elapsed_seconds(digits=2)
 
-            # STEP 2: Build VC mappings now that all VC references have been collected
             if self.config.ingest_virtual_connections:
                 try:
-                    logger.debug("=== VIRTUAL CONNECTIONS PROCESSING START ===")
                     if self.vc_processor.vc_table_ids_for_lookup:
-                        logger.debug(
-                            "Step 2: Building VC mappings from collected references"
-                        )
-
-                        # Build database tables lookup only when we have VC references
-                        # This enables VC-to-database lineage
                         try:
-                            logger.debug(
-                                "Building database tables lookup for VC processing"
-                            )
                             self._build_database_tables_lookup()
-                            logger.debug(
-                                f"Database tables lookup built successfully with {len(getattr(self, 'db_tables_lookup', {}))} entries"
-                            )
                         except Exception as e:
                             logger.debug(f"Database tables lookup not available: {e}")
-                            # VC processing will continue without database table matching capabilities
 
                         self.vc_processor.lookup_vc_ids_from_table_ids()
                     else:
                         logger.debug("No VC references found, skipping VC processing")
                 except Exception as e:
                     logger.warning(f"Error building VC mappings: {e}")
-                    # Continue processing normally even if VC mapping fails
 
-            # STEP 3: Now process Virtual Connections emission
             if self.config.ingest_virtual_connections:
                 with PerfTimer() as timer:
-                    logger.debug("Step 3: Emitting Virtual Connections")
-
-                    # Update report statistics
                     self.report.num_vc_table_references_found = len(
                         self.vc_processor.vc_table_ids_for_lookup
                     )
@@ -4461,25 +4389,12 @@ class TableauSiteSource:
                     )
 
                     logger.info(
-                        f"VC Processing Summary: {self.report.num_vc_table_references_found} table references found, "
+                        f"Virtual connections: {self.report.num_vc_table_references_found} table references found, "
                         f"{self.report.num_virtual_connections_processed} VCs to process"
                     )
 
-                    # Emit Virtual Connections
                     if self.vc_processor.virtual_connection_ids_being_used:
-                        logger.debug(
-                            f"Emitting {len(self.vc_processor.virtual_connection_ids_being_used)} Virtual Connections"
-                        )
                         yield from self.vc_processor.emit_virtual_connections()
-                        logger.debug("Virtual Connection emission complete")
-
-                    # Note: Datasource → VC lineage is already emitted during individual datasource emission
-                    # in emit_embedded_datasources() and emit_published_datasources() via create_datasource_vc_lineage()
-                    logger.info(
-                        "Step 4: VC lineage already emitted during datasource processing"
-                    )
-
-                    logger.info("=== VIRTUAL CONNECTIONS PROCESSING COMPLETE ===")
 
                     self.report.emit_virtual_connections_timer[
                         self.site_content_url

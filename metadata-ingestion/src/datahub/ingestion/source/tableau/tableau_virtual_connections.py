@@ -144,27 +144,15 @@ class VirtualConnectionProcessor:
                     f"vc_table_id={vc_table_id}, vc_id={vc_id}"
                 )
 
-                # Store raw table name to handle matching issues like "TABLE_NAME (SCHEMA.TABLE_NAME)"
-                raw_table_name = table.get(
-                    c.NAME
-                )  # This is the exact name from Tableau
-
                 vc_references.append(
                     {
                         "field_name": field_name,
                         "vc_table_id": vc_table_id,
                         "vc_table_name": vc_table_name,
-                        "raw_table_name": raw_table_name,  # Store the raw name for better matching
                         "column_name": column_name,
                         "vc_id": vc_id,
                     }
                 )
-
-                # Also store the raw table name for matching purposes
-                if raw_table_name and raw_table_name != vc_table_name:
-                    logger.debug(
-                        f"  Raw table name differs from VC table name: '{raw_table_name}' vs '{vc_table_name}'"
-                    )
 
                 if vc_table_id:
                     self.vc_table_ids_for_lookup.add(vc_table_id)
@@ -398,8 +386,7 @@ class VirtualConnectionProcessor:
                     description=column.get(c.DESCRIPTION),
                     nativeDataType=nativeDataType,
                 )
-                if schema_field:
-                    fields.append(schema_field)
+                fields.append(schema_field)
 
             if fields:
                 table_schemas[table_name] = SchemaMetadataClass(
@@ -774,7 +761,6 @@ class VirtualConnectionProcessor:
     def _emit_single_virtual_connection(self, vc: dict) -> Iterable[MetadataWorkUnit]:
         """Emit a single Virtual Connection dataset"""
         vc_id = vc[c.ID]
-        vc.get(c.NAME, "Unknown Virtual Connection")
 
         vc_container_urn, container_workunits = self._create_vc_folder_container(vc)
         yield from container_workunits
