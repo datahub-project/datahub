@@ -181,6 +181,11 @@ class VirtualConnectionProcessor:
 
         fields = datasource.get(c.FIELDS, [])
         for field in fields:
+            if not isinstance(field, dict):
+                logger.debug(
+                    f"Skipping None/non-dict field entry in datasource '{datasource_name}'"
+                )
+                continue
             field_name = field.get(c.NAME)
             if not field_name:
                 continue

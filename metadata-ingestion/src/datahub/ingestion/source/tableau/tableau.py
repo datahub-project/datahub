@@ -2000,6 +2000,8 @@ class TableauSiteSource:
         csql_id_to_urn = {}
 
         for field in fields:
+            if not isinstance(field, dict):
+                continue
             if not field.get(c.UPSTREAM_COLUMNS):
                 continue
             for upstream_col in field[c.UPSTREAM_COLUMNS]:
@@ -2088,6 +2090,12 @@ class TableauSiteSource:
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
         for table in tables:
+            if not isinstance(table, dict):
+                logger.debug(
+                    f"Skipping None/non-dict upstream table entry in datasource '{datasource_name}'"
+                )
+                continue
+
             # Extract column count if available
             num_tbl_cols: Optional[int] = table.get(c.COLUMNS_CONNECTION) and table[
                 c.COLUMNS_CONNECTION
@@ -2168,6 +2176,8 @@ class TableauSiteSource:
         )
 
         for field in datasource.get(c.FIELDS) or []:
+            if not isinstance(field, dict):
+                continue
             field_name = field.get(c.NAME)
             # upstreamColumns lineage will be set via upstreamFields.
             # such as for CalculatedField
@@ -2872,6 +2882,8 @@ class TableauSiteSource:
     ) -> Optional[SchemaMetadata]:
         fields = []
         for field in datasource_fields:
+            if not isinstance(field, dict):
+                continue
             # check datasource - custom sql relations from a field being referenced
             self._track_custom_sql_ids(field)
             if field.get(c.NAME) is None:
