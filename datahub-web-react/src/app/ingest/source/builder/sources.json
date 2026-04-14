@@ -4,7 +4,7 @@
         "name": "aerospike",
         "displayName": "Aerospike",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/aerospike/",
-        "recipe": "source:\n    type: aerospike\n    config:\n        include_table_lineage: true\n        include_usage_statistics: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: aerospike\n    config:\n        hosts:\n            - - localhost\n              - 3000\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:bigquery",
