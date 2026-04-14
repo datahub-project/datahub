@@ -193,6 +193,21 @@ jobs:
           TEST_PATH=$(echo "$MATRIX_JSON" | jq -r '.test_path // empty')
           CONNECTOR=$(echo "$MATRIX_JSON" | jq -r '.connector // empty')
 
+          # Log what this job is running to the step summary
+          {
+            echo "### Test Job"
+            echo "| Key | Value |"
+            echo "|-----|-------|"
+            echo "| Python | \`${{ matrix.python-version }}\` |"
+            if [ -n "$COMMAND" ]; then
+              echo "| Command | \`$COMMAND\` |"
+            fi
+            if [ -n "$CONNECTOR" ]; then
+              echo "| Connector | \`$CONNECTOR\` |"
+              echo "| Test Path | \`$TEST_PATH\` |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
           if [ -n "$COMMAND" ]; then
             ./gradlew :metadata-ingestion:"$COMMAND"
           elif [ -n "$TEST_PATH" ]; then
