@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -73,7 +73,6 @@ class EntriesFilterConfig(ConfigModel):
 
     pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        validation_alias=AliasChoices("pattern", "dataset_pattern"),
         description="Regex patterns for Dataplex entry names to filter in ingestion.",
     )
     fqn_pattern: AllowDenyPattern = Field(
@@ -179,15 +178,6 @@ class DataplexConfig(
         description="Multiplier for exponential backoff between lineage API retry attempts (in seconds). "
         "Wait time formula: multiplier * (2 ^ attempt_number), capped between 2-10 seconds. "
         "Higher values reduce API load but increase ingestion time. Default: 1.0.",
-    )
-
-    batch_size: Optional[int] = Field(
-        default=1000,
-        description="Batch size for metadata emission and lineage extraction. "
-        "Entries are emitted in batches to prevent memory issues in large deployments. "
-        "Lower values reduce memory usage but may increase processing time. "
-        "Set to None to disable batching (process all entries at once). "
-        "Recommended: 1000 for large deployments (>10k entries), None for small deployments (<1k entries). Default: 1000.",
     )
 
     max_workers_entries: int = Field(

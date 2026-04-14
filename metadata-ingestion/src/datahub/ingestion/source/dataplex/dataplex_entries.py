@@ -51,6 +51,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Naive upper bound on in-flight futures submitted to the thread pool at once.
+# Prevents O(N) memory growth when there are thousands of entries.
+# TODO: replace with proper backpressure (e.g. bounded queue / semaphore).
+WORKERS_BATCH_SIZE = 200
+
 
 @dataclass
 class DataplexEntriesReport(Report):
@@ -197,14 +202,11 @@ class DataplexEntriesProcessor:
                     entry_stubs.append((name, location))
 
         # Phase 1b: fetch entry details in parallel and build entities.
-        # Stubs are submitted in batches (config.batch_size) so that peak
-        # memory is bounded when there are thousands of entries.  Setting
-        # batch_size to None submits all stubs at once (no batching).
-        # islice(it, None) consumes the whole iterator in one shot, matching
-        # the no-batching case without special-casing.
+        # Submit stubs in bounded batches to cap in-flight futures and prevent
+        # O(N) memory growth for large deployments.
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             it = iter(entry_stubs)
-            while batch := list(islice(it, self.config.batch_size)):
+            while batch := list(islice(it, WORKERS_BATCH_SIZE)):
                 futures = {
                     executor.submit(self._fetch_and_build_entry, name, loc): (name, loc)
                     for name, loc in batch

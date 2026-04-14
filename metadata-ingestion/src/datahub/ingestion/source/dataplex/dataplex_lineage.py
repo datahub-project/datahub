@@ -51,6 +51,11 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
+# Naive upper bound on in-flight futures submitted to the thread pool at once.
+# Prevents O(N) memory growth when there are thousands of entries.
+# TODO: replace with proper backpressure (e.g. bounded queue / semaphore).
+WORKERS_BATCH_SIZE = 200
+
 
 @dataclass(order=True, eq=True, frozen=True)
 class LineageEdge:
@@ -667,17 +672,13 @@ class DataplexLineageExtractor:
 
         logger.info("Extracting lineage (parallel, max_workers=%d)", max_workers)
 
-        # Entries are submitted in batches (config.batch_size) so that the
-        # entry_data iterable is consumed incrementally and peak memory is
-        # bounded when there are thousands of entries.  Setting batch_size to
-        # None submits all entries in a single batch (no batching).
-        # islice(it, None) consumes the whole iterator in one shot, matching
-        # the no-batching case without special-casing.
+        # Submit entries in bounded batches to cap in-flight futures and prevent
+        # O(N) memory growth for large deployments.
         entries_with_lineage = 0
         found_any = False
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             it = iter(entry_data)
-            while batch := list(islice(it, self.config.batch_size)):
+            while batch := list(islice(it, WORKERS_BATCH_SIZE)):
                 found_any = True
                 futures = {
                     executor.submit(

@@ -947,7 +947,6 @@ def test_streaming_lineage_processing() -> None:
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
 
@@ -1029,117 +1028,12 @@ def test_streaming_lineage_processing() -> None:
     assert extractor.report.num_lineage_entries_scanned == 5
 
 
-def test_streaming_lineage_ignores_large_batch_size_config() -> None:
-    """Test that a large batch_size config does not affect streaming behavior."""
-    config = DataplexConfig(
-        project_ids=["test-project"],
-        include_lineage=True,
-        lineage_locations=["us-central1"],
-        batch_size=100,  # Should be ignored in streaming mode
-    )
-    report = DataplexReport()
-
-    mock_client = MagicMock()
-    # Mock to return some lineage so we can verify entries are processed
-    mock_link = MagicMock()
-    mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
-    mock_client.search_links.return_value = [mock_link]
-
-    extractor = DataplexLineageExtractor(
-        config=config,
-        report=report.lineage_report,
-        source_report=Mock(),
-        lineage_client=mock_client,
-    )
-
-    # Create 3 test entries
-    entries = [
-        EntryDataTuple(
-            dataplex_entry_short_name=f"entry_{i}",
-            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
-            dataplex_location="us",
-            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
-            dataplex_entry_type_short_name="bigquery-table",
-            datahub_platform="bigquery",
-            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-        )
-        for i in range(3)
-    ]
-
-    # Should process all entries in streaming mode
-    workunits = list(
-        extractor.get_lineage_workunits(
-            entries,
-            active_lineage_project_location_pairs=[("test-project", "us-central1")],
-        )
-    )
-
-    # Should generate 3 workunits (one per entry)
-    assert len(workunits) == 3
-    # Verify all entries were scanned
-    assert extractor.report.num_lineage_entries_scanned == 3
-
-
-def test_streaming_lineage_with_batching_disabled_config() -> None:
-    """Test streaming lineage when batch_size is explicitly set to None."""
-    config = DataplexConfig(
-        project_ids=["test-project"],
-        include_lineage=True,
-        lineage_locations=["us-central1"],
-        batch_size=None,  # Still streaming mode
-    )
-    report = DataplexReport()
-
-    mock_client = MagicMock()
-    # Mock to return some lineage so we can verify entries are processed
-    mock_link = MagicMock()
-    mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
-    mock_client.search_links.return_value = [mock_link]
-
-    extractor = DataplexLineageExtractor(
-        config=config,
-        report=report.lineage_report,
-        source_report=Mock(),
-        lineage_client=mock_client,
-    )
-
-    # Create 10 test entries
-    entries = [
-        EntryDataTuple(
-            dataplex_entry_short_name=f"entry_{i}",
-            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
-            dataplex_location="us",
-            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
-            dataplex_entry_type_short_name="bigquery-table",
-            datahub_platform="bigquery",
-            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-        )
-        for i in range(10)
-    ]
-
-    # Should process all entries in streaming mode
-    workunits = list(
-        extractor.get_lineage_workunits(
-            entries,
-            active_lineage_project_location_pairs=[("test-project", "us-central1")],
-        )
-    )
-
-    # Should generate 10 workunits
-    assert len(workunits) == 10
-    # Verify all entries were scanned
-    assert extractor.report.num_lineage_entries_scanned == 10
-
-
 def test_streaming_lineage_memory_cleanup() -> None:
     """Test streaming lineage does not rely on a global lineage map."""
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
 
@@ -1305,7 +1199,6 @@ class TestLineageMapKeyCollision:
             project_ids=["test-project"],
             include_lineage=True,
             lineage_locations=["us-central1"],
-            batch_size=None,  # Disable batching for simplicity
         )
         report = DataplexReport()
         mock_client = MagicMock()
