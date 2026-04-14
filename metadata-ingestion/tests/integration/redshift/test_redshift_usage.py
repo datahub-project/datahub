@@ -52,7 +52,7 @@ def test_redshift_usage_config():
 @patch("redshift_connector.Connection")
 def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_path):
     test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/redshift-usage"
+        pytestconfig.rootpath / "tests/integration/redshift"
     )
     generate_mcps_path = Path(f"{tmp_path}/redshift_usages.json")
     mock_usage_query_result = open(f"{test_resources_dir}/usage_events_history.json")
@@ -160,7 +160,7 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
 @patch("redshift_connector.Connection")
 def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tmp_path):
     test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/redshift-usage"
+        pytestconfig.rootpath / "tests/integration/redshift"
     )
     generate_mcps_path = Path(f"{tmp_path}/redshift_usages.json")
     mock_usage_query_result = open(f"{test_resources_dir}/usage_events_history.json")

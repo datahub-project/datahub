@@ -17,7 +17,7 @@ from datahub.ingestion.source.fabric.data_factory.client import (
     FabricDataFactoryClient,
 )
 from datahub.testing import mce_helpers
-from tests.integration.fabric_data_factory.test_factories import (
+from tests.integration.fabric.fabric_data_factory.test_factories import (
     ACTIVITY_RUN_ID_1,
     ACTIVITY_RUN_ID_2,
     CONNECTION_ID_LAKEHOUSE,

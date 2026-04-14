@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from threading import Lock
 from typing import TYPE_CHECKING, Iterable, Optional, cast
 
 from google.cloud import dataplex_v1
@@ -131,16 +130,14 @@ class DataplexEntriesProcessor:
         config: DataplexConfig,
         catalog_client: dataplex_v1.CatalogServiceClient,
         report: DataplexEntriesReport,
-        entry_data_by_project: dict[str, set[EntryDataTuple]],
-        entry_data_lock: Lock,
+        entry_data: list[EntryDataTuple],
         source_report: SourceReport,
     ) -> None:
         self.config = config
         self.catalog_client = catalog_client
         self.report = report
         self.source_report = source_report
-        self.entry_data_by_project = entry_data_by_project
-        self.entry_data_lock = entry_data_lock
+        self.entry_data = entry_data
         self._emitted_project_containers: set[str] = set()
 
     def process_project(self, project_id: str) -> Iterable["Entity"]:
@@ -162,7 +159,6 @@ class DataplexEntriesProcessor:
             if entity is None:
                 continue
             self._track_entry_for_lineage(
-                project_id=project_id,
                 dataplex_location=location,
                 entry=entry,
             )
@@ -587,7 +583,7 @@ class DataplexEntriesProcessor:
         return datetime.fromtimestamp(value.timestamp(), tz=timezone.utc)
 
     def _track_entry_for_lineage(
-        self, project_id: str, dataplex_location: str, entry: dataplex_v1.Entry
+        self, dataplex_location: str, entry: dataplex_v1.Entry
     ) -> None:
         if not entry.fully_qualified_name:
             return
@@ -611,26 +607,23 @@ class DataplexEntriesProcessor:
         if dataset_name is None:
             return
 
-        with self.entry_data_lock:
-            if project_id not in self.entry_data_by_project:
-                self.entry_data_by_project[project_id] = set()
-            self.entry_data_by_project[project_id].add(
-                EntryDataTuple(
-                    dataplex_entry_short_name=entry.name.split("/")[-1],
-                    dataplex_entry_name=entry.name,
-                    dataplex_location=dataplex_location,
-                    dataplex_entry_fqn=entry.fully_qualified_name,
-                    dataplex_entry_type_short_name=short_name,
-                    datahub_platform=mapping.datahub_platform,
-                    datahub_dataset_name=dataset_name,
-                    datahub_dataset_urn=make_dataset_urn_with_platform_instance(
-                        platform=mapping.datahub_platform,
-                        name=dataset_name,
-                        platform_instance=None,
-                        env=self.config.env,
-                    ),
-                )
+        self.entry_data.append(
+            EntryDataTuple(
+                dataplex_entry_short_name=entry.name.split("/")[-1],
+                dataplex_entry_name=entry.name,
+                dataplex_location=dataplex_location,
+                dataplex_entry_fqn=entry.fully_qualified_name,
+                dataplex_entry_type_short_name=short_name,
+                datahub_platform=mapping.datahub_platform,
+                datahub_dataset_name=dataset_name,
+                datahub_dataset_urn=make_dataset_urn_with_platform_instance(
+                    platform=mapping.datahub_platform,
+                    name=dataset_name,
+                    platform_instance=None,
+                    env=self.config.env,
+                ),
             )
+        )
 
     def _resolve_entry_type_mapping(
         self, entry: dataplex_v1.Entry

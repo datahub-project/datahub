@@ -1,9 +1,10 @@
 import logging
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2021-10-25 13:00:00"
+FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
 CONFLUENT_CLOUD_MOCK_SERVER = "http://localhost:8888"
 
 
@@ -57,10 +59,10 @@ def confluent_cloud_mock_runner(
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
-    return pytestconfig.rootpath / "tests/integration/kafka-connect-confluent-cloud"
+    return pytestconfig.rootpath / "tests/integration/kafka_connect/confluent-cloud"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 def test_kafka_connect_confluent_cloud_ingest(
     confluent_cloud_mock_runner,
     pytestconfig,

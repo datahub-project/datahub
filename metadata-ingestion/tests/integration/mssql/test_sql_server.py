@@ -18,7 +18,7 @@ from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 @pytest.fixture(scope="module")
 def mssql_runner(docker_compose_runner, pytestconfig):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/mssql"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "sql-server"
     ) as docker_services:
@@ -47,14 +47,14 @@ def mssql_runner(docker_compose_runner, pytestconfig):
     cleanup_image("mcr.microsoft.com/mssql/server")
 
 
-SOURCE_FILES_PATH = "./tests/integration/sql_server/source_files"
+SOURCE_FILES_PATH = "./tests/integration/mssql/source_files"
 config_file = os.listdir(SOURCE_FILES_PATH)
 
 
 @pytest.mark.parametrize("config_file", config_file)
 @pytest.mark.integration
 def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_file):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/mssql"
     # Run the metadata ingestion pipeline.
     config_file_path = (test_resources_dir / f"source_files/{config_file}").resolve()
     run_datahub_cmd(

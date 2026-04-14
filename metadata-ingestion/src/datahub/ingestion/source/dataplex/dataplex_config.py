@@ -21,6 +21,52 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_LINEAGE_LOCATIONS = [
+    "us",
+    "eu",
+    "asia",
+    "us-central1",
+    "us-east1",
+    "us-east4",
+    "us-east5",
+    "us-south1",
+    "us-west1",
+    "us-west2",
+    "us-west3",
+    "us-west4",
+    "northamerica-northeast1",
+    "northamerica-northeast2",
+    "southamerica-east1",
+    "southamerica-west1",
+    "europe-central2",
+    "europe-north1",
+    "europe-southwest1",
+    "europe-west1",
+    "europe-west2",
+    "europe-west3",
+    "europe-west4",
+    "europe-west6",
+    "europe-west8",
+    "europe-west9",
+    "europe-west10",
+    "europe-west12",
+    "me-central1",
+    "me-central2",
+    "me-west1",
+    "asia-east1",
+    "asia-east2",
+    "asia-northeast1",
+    "asia-northeast2",
+    "asia-northeast3",
+    "asia-south1",
+    "asia-south2",
+    "asia-southeast1",
+    "asia-southeast2",
+    "australia-southeast1",
+    "australia-southeast2",
+    "africa-south1",
+]
+
 
 class EntriesFilterConfig(ConfigModel):
     """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
@@ -79,8 +125,10 @@ class DataplexConfig(
 
     entries_locations: List[str] = Field(
         default_factory=lambda: ["us", "eu", "asia", "global"],
-        description="List of GCP locations for Universal Catalog entries extraction. "
-        "Different resource types are registered in different locations. "
+        description="List of GCP regions to scan for Universal Catalog entries extraction. "
+        "This list may include multi-regions (for example 'us', 'eu', 'asia') and "
+        "single regions (for example 'us-central1'). "
+        "Entries scanning runs across all configured entries_locations. "
         "Default: ['us', 'eu', 'asia', 'global'].",
     )
 
@@ -101,6 +149,18 @@ class DataplexConfig(
         description="Whether to extract lineage information using Dataplex Lineage API. "
         "Extracts table-level lineage relationships between entries. "
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
+    )
+
+    lineage_locations: List[str] = Field(
+        default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
+        description="List of GCP regions to scan for Dataplex lineage data. "
+        "By default, includes all supported multi-regions and regions. "
+        "Narrowing this list from the default is critical for better performance "
+        "because lineage API calls scale with configured project/location pairs. "
+        "This list may include multi-regions and single regions. "
+        "In practice, lineage often resides in job regions while entries may be in "
+        "multi-regions, so entries_locations and lineage_locations are configured separately. "
+        "Example: ['eu', 'us-central1', 'europe-west1'].",
     )
 
     lineage_max_retries: int = Field(
@@ -180,6 +240,10 @@ class DataplexConfig(
         if not self.entries_locations:
             raise ValueError(
                 "At least one entries location must be specified via entries_locations."
+            )
+        if not self.lineage_locations:
+            raise ValueError(
+                "At least one lineage location must be specified via lineage_locations."
             )
 
         return self

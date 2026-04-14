@@ -75,3 +75,8 @@ Grant the following roles to the service account on all target projects.
 
 Grant `roles/datalineage.viewer` on all projects where the corresponding process is actually executed. Note it may differ from the project containing the asset.
 :::
+
+Additional asset-specific viewer roles:
+
+- `roles/aiplatform.viewer` (Vertex AI Viewer) is required when ingesting Vertex AI assets.
+- `roles/spanner.viewer` (Cloud Spanner Viewer) is required when ingesting Cloud Spanner assets.
