@@ -321,6 +321,7 @@ def _run_pipeline_get_reports(flags: dict, num_each: int = 30) -> dict:
         }
         return {
             "source": pipeline.source.get_report().as_obj(),
+            "source_report": pipeline.source.get_report(),
             "sink": pipeline.sink.get_report().as_obj(),
             "retention": retention,
         }
@@ -359,20 +360,25 @@ def test_retention_progress_max_higher():
 
 
 def test_retention_progress_max_higher_final_shows_report_size():
-    """progress_max=25, report_size=5: retain 25, but final shows only 5."""
+    """progress_max=25, report_size=5: retain 25, final displays only 5."""
     result = _run_pipeline_get_reports(
         flags={
             "progress_report_max_failures": 25,
             "report_failure_sample_size": 5,
         }
     )
-    # Retained max(25, 5) = 25
+    # Retained max(25, 5) = 25 so interim can show up to 25
     assert result["retention"]["failure_max_elements"] == 25
-    # But the final report's LossyDict has 25, so as_obj() returns up to 25.
-    # The report_failure_sample_size controls retention, but with the max()
-    # fix the LossyDict is sized to 25. The final report shows all retained.
-    final_failures = _count_real_entries(result["source"], "failures")
-    assert final_failures == 25
+    # as_obj() returns all 25 retained (raw data)
+    raw_failures = _count_real_entries(result["source"], "failures")
+    assert raw_failures == 25
+    # But as_string with the final caps shows only 5
+    final_str = result["source_report"].as_string(
+        progress_sample_caps={"failures": 5, "warnings": 10, "infos": 10},
+        cap_label="capped",
+    )
+    assert "showing 5 of" in final_str
+    assert "(capped)" in final_str
 
 
 def test_retention_both_set_equal():

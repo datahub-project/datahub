@@ -106,10 +106,16 @@ class Report(SupportsAsObj):
             if value is not None and not str(key).startswith("_")
         }
 
-    def as_string(self, progress_sample_caps: Optional[Dict[str, int]] = None) -> str:
+    def as_string(
+        self,
+        progress_sample_caps: Optional[Dict[str, int]] = None,
+        cap_label: str = "interim report",
+    ) -> str:
         self_obj = self.as_obj()
         if progress_sample_caps is not None:
-            self_obj = _cap_report_samples(self_obj, progress_sample_caps)
+            self_obj = _cap_report_samples(
+                self_obj, progress_sample_caps, label=cap_label
+            )
         _aspects_by_subtypes = self_obj.pop("aspects_by_subtypes", None)
 
         # Format the main report data
@@ -533,13 +539,15 @@ class EntityFilterReport(ReportAttribute):
         )
 
 
-def _cap_report_samples(obj: dict, caps: Dict[str, int]) -> dict:
+def _cap_report_samples(
+    obj: dict, caps: Dict[str, int], label: str = "interim report"
+) -> dict:
     """Cap the failures/warnings/infos lists in an as_obj() output."""
     result = {}
     for k, v in obj.items():
         cap = caps.get(k)
         if cap is not None and isinstance(v, list) and len(v) > cap:
-            result[k] = v[:cap] + [f"... showing {cap} of {len(v)} (interim report)"]
+            result[k] = v[:cap] + [f"... showing {cap} of {len(v)} ({label})"]
         else:
             result[k] = v
     return result
