@@ -74,7 +74,7 @@ def test_integration_field_splitting_with_large_view(pytestconfig, tmp_path, moc
     3. Results are correctly combined
     4. Lineage is extracted successfully
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "field_splitting_large_view.json"
 
     # Create a view with 150 fields (exceeds default threshold of 100)
@@ -188,7 +188,7 @@ def test_integration_individual_field_fallback_on_chunk_failure(
     3. Individual field processing is triggered
     4. Working fields still contribute to lineage
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "individual_field_fallback.json"
 
     view_name = "problematic_view"
@@ -296,7 +296,7 @@ def test_integration_view_explore_optimization_reduces_api_calls(
     This test simulates multiple views that can be accessed through different explores
     and verifies that the optimization algorithm minimizes API calls by reusing explores.
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "view_explore_optimization.json"
 
     # Create scenario with 5 views and 3 explores
@@ -384,7 +384,7 @@ def test_integration_parallel_processing_performance(pytestconfig, tmp_path, moc
     This test verifies that multiple chunks are processed concurrently
     when max_workers_for_parallel_processing is set appropriately.
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "parallel_processing.json"
 
     view_name = "parallel_view"
@@ -485,7 +485,7 @@ def test_integration_partial_lineage_with_parsing_errors(
     This test verifies that when allow_partial_lineage_results is enabled,
     the system returns partial lineage even when some chunks have parsing errors.
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "partial_lineage.json"
 
     view_name = "partial_view"
@@ -579,7 +579,7 @@ def test_integration_configuration_validation(pytestconfig, tmp_path, mock_time)
     This test verifies that invalid configurations are properly rejected
     and valid configurations are accepted.
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
 
     # Test 1: Invalid max_workers (too low)
     # This will fail during config validation, not pipeline creation

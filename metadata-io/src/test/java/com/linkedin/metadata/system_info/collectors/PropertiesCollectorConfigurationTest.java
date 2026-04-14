@@ -576,6 +576,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.retentionValue",
           "elasticsearch.buildIndices.taskCheckIntervalSeconds",
           "elasticsearch.buildIndices.slowOperationTimeoutSeconds",
+          "elasticsearch.buildIndices.taskPollIntervalSeconds",
           "elasticsearch.buildIndices.countRetryMaxAttempts",
           "elasticsearch.buildIndices.countRetryWaitSeconds",
           "elasticsearch.buildIndices.createIndexRetryEnabled",

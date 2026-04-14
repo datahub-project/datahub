@@ -792,6 +792,7 @@ public class ESIndexBuilder {
       String taskId,
       boolean skippedEmpty,
       int targetShards,
+      long sourceDocCount,
       Map<String, Object> reindexInfo) {}
 
   /**
@@ -816,14 +817,14 @@ public class ESIndexBuilder {
 
     createIndex(nextIndexName, indexState);
 
-    long curDocCount = getSourceDocCount(indexState.name());
-    if (curDocCount == 0) {
+    long sourceDocCount = getSourceDocCount(indexState.name());
+    if (sourceDocCount == 0) {
       log.info(
           "Incremental reindex: skipping _reindex for {} -> {} (0 docs in source)",
           indexState.name(),
           nextIndexName);
       return new IncrementalReindexResult(
-          nextIndexName, startTime, null, true, targetShards, Map.of());
+          nextIndexName, startTime, null, true, targetShards, 0, Map.of());
     }
 
     Map<String, Object> reindexInfo =
@@ -841,10 +842,10 @@ public class ESIndexBuilder {
         taskId,
         indexState.name(),
         nextIndexName,
-        curDocCount);
+        sourceDocCount);
 
     return new IncrementalReindexResult(
-        nextIndexName, startTime, taskId, false, targetShards, reindexInfo);
+        nextIndexName, startTime, taskId, false, targetShards, sourceDocCount, reindexInfo);
   }
 
   /**
@@ -868,11 +869,17 @@ public class ESIndexBuilder {
       Pair<Long, Long> finalDocumentCounts) {}
 
   /**
-   * Polls an in-progress reindex until document counts match or timeout. Includes stall detection
-   * with automatic reindex re-submission and progress estimation.
+   * Polls an in-progress reindex until document counts converge or timeout. Includes stall
+   * detection with automatic reindex re-submission and progress estimation.
    *
-   * @param sourceIndex the source index name
+   * <p>The {@code expectedCountSupplier} controls how the expected document count is resolved each
+   * poll iteration. For the legacy blocked-writes path, pass {@code () -> getCount(sourceIndex)} to
+   * re-query the live source (stable since writes are blocked). For incremental reindex where
+   * writes continue to the source, pass a fixed snapshot: {@code () -> snapshotCount}.
+   *
+   * @param sourceIndex the source index name (for logging and stall-retry resubmission)
    * @param destIndex the destination index name
+   * @param expectedCountSupplier supplies the expected doc count; called each poll iteration
    * @param targetShards target shard count (needed if re-submitting reindex on stall)
    * @param reindexInfo mutable reindex info map from {@code submitReindex}; updated on stall-retry
    * @param taskId ES task ID for log correlation (may be empty if resuming a previous task)
@@ -881,6 +888,7 @@ public class ESIndexBuilder {
   public PollReindexResult pollReindexCompletion(
       String sourceIndex,
       String destIndex,
+      Callable<Long> expectedCountSupplier,
       int targetShards,
       Map<String, Object> reindexInfo,
       String taskId)
@@ -892,7 +900,7 @@ public class ESIndexBuilder {
     Map<String, Object> latestReindexInfo = new HashMap<>(reindexInfo);
     int reindexCount = 1;
     int count = 0;
-    Pair<Long, Long> documentCounts = getDocumentCounts(sourceIndex, destIndex);
+    Pair<Long, Long> documentCounts = getDocumentCounts(expectedCountSupplier, destIndex);
     long documentCountsLastUpdated = System.currentTimeMillis();
     long previousDocCount = documentCounts.getSecond();
     long estimatedMinutesRemaining = 0;
@@ -901,7 +909,7 @@ public class ESIndexBuilder {
       log.info(
           "Task: {} - Reindexing from {} to {} in progress...", taskId, sourceIndex, destIndex);
 
-      Pair<Long, Long> latestCounts = getDocumentCounts(sourceIndex, destIndex);
+      Pair<Long, Long> latestCounts = getDocumentCounts(expectedCountSupplier, destIndex);
 
       if (!latestCounts.equals(documentCounts)) {
         long currentTime = System.currentTimeMillis();
@@ -1026,14 +1034,14 @@ public class ESIndexBuilder {
   }
 
   /** Get doc count for a source index with retry. */
-  private long getSourceDocCount(String indexName) throws Throwable {
+  public long getSourceDocCount(String indexName) throws Throwable {
     return retryRegistry
         .retry("retryCurDocCount", "countRetry")
         .executeCheckedSupplier(() -> getCount(indexName));
   }
 
   /** Compute the timeout timestamp based on maxReindexHours config. */
-  private long computeTimeoutAt() {
+  public long computeTimeoutAt() {
     return indexConfig.getMaxReindexHours() > 0
         ? System.currentTimeMillis() + (1000L * 60 * 60 * indexConfig.getMaxReindexHours())
         : Long.MAX_VALUE;
@@ -1087,7 +1095,12 @@ public class ESIndexBuilder {
       if (!reindexTaskCompleted) {
         PollReindexResult pollResult =
             pollReindexCompletion(
-                indexState.name(), tempIndexName, targetShards, reinfo, parentTaskId);
+                indexState.name(),
+                tempIndexName,
+                () -> getCount(indexState.name()),
+                targetShards,
+                reinfo,
+                parentTaskId);
         reindexTaskCompleted = pollResult.completed();
         reinfo = pollResult.latestReindexInfo();
         Pair<Long, Long> documentCounts = pollResult.finalDocumentCounts();
@@ -1952,24 +1965,24 @@ public class ESIndexBuilder {
     return reindexInfo;
   }
 
-  private Pair<Long, Long> getDocumentCounts(String sourceIndex, String destinationIndex)
-      throws Throwable {
+  private Pair<Long, Long> getDocumentCounts(
+      Callable<Long> expectedCountSupplier, String destinationIndex) throws Throwable {
     // Check whether reindex succeeded by comparing document count
     // There can be some delay between the reindex finishing and count being fully up to date, so
     // try multiple times
-    long originalCount = 0;
+    long expectedCount = 0;
     long reindexedCount = 0;
     for (int i = 0; i <= indexConfig.getNumRetries(); i++) {
       // Check if reindex succeeded by comparing document counts
-      originalCount =
+      expectedCount =
           retryRegistry
               .retry("retrySourceIndexCount", "countRetry")
-              .executeCheckedSupplier(() -> getCount(sourceIndex));
+              .executeCheckedSupplier(expectedCountSupplier::call);
       reindexedCount =
           retryRegistry
               .retry("retryDestinationIndexCount", "countRetry")
               .executeCheckedSupplier(() -> getCount(destinationIndex));
-      if (originalCount == reindexedCount) {
+      if (expectedCount == reindexedCount) {
         break;
       }
       try {
@@ -1984,10 +1997,10 @@ public class ESIndexBuilder {
       }
     }
 
-    return Pair.of(originalCount, reindexedCount);
+    return Pair.of(expectedCount, reindexedCount);
   }
 
-  private Optional<TaskInfo> getTaskInfoByHeader(String indexName) throws Throwable {
+  public Optional<TaskInfo> getTaskInfoByHeader(String indexName) throws Throwable {
     Retry retryWithDefaultConfig = retryRegistry.retry("getTaskInfoByHeader");
 
     return retryWithDefaultConfig.executeCheckedSupplier(

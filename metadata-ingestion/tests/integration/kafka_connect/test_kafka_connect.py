@@ -148,7 +148,7 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
-    return pytestconfig.rootpath / "tests/integration/kafka-connect"
+    return pytestconfig.rootpath / "tests/integration/kafka_connect"
 
 
 @pytest.fixture(scope="module")
@@ -746,7 +746,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 def test_kafka_connect_snowflake_sink_ingest(
     pytestconfig, tmp_path, mock_time, requests_mock
 ):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka_connect"
     override_data = {
         "http://localhost:28083/connectors": {
             "method": "GET",
@@ -887,7 +887,7 @@ def test_kafka_connect_bigquery_sink_topic2tablemap_ingest(
     Test BigQuery sink connector with topic2TableMap configuration.
     Verifies that explicit topic-to-table mappings are honored.
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka_connect"
     override_data = {
         "http://localhost:28083/connectors": {
             "method": "GET",
@@ -969,7 +969,7 @@ def test_kafka_connect_bigquery_sink_topic2tablemap_partial_mapping(
     Test BigQuery sink connector with topic2TableMap having partial mappings.
     Topics not in the map should fall back to default naming logic.
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka_connect"
     override_data = {
         "http://localhost:28083/connectors": {
             "method": "GET",

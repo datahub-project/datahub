@@ -27,7 +27,96 @@ env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
 
 jobs:
+  # ── Detect which tests need to run and build the full CI matrix ────────────
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Check for force-all label
+        id: label-check
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          if echo "$LABELS" | jq -e 'any(. == "run-all-ingestion-tests")' > /dev/null 2>&1; then
+            echo "force_all=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "force_all=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Compute CI decisions
+        id: ci
+        env:
+          BASE_REF: ${{ github.base_ref || 'master' }}
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_ALL: ${{ steps.label-check.outputs.force_all }}
+        run: |
+          # Force full suite for: push to master, releases, manual dispatch, or label override
+          if [ "$EVENT_NAME" != "pull_request" ] || [ "$FORCE_ALL" = "true" ]; then
+            python metadata-ingestion/scripts/selective_ci_checks.py --force-all
+          else
+            python metadata-ingestion/scripts/selective_ci_checks.py \
+              --base-ref "$BASE_REF"
+          fi
+      - name: Build CI matrix
+        id: build-matrix
+        env:
+          RUN_ALL: ${{ steps.ci.outputs.run_all_integration }}
+          TEST_MATRIX: ${{ steps.ci.outputs.test_matrix }}
+        run: |
+          # testQuick always runs (both Python versions)
+          BASE='[{"python-version":"3.11","command":"testQuick"},{"python-version":"3.10","command":"testQuick"},{"python-version":"3.12","command":"testQuick"}]'
+
+          if [ "$RUN_ALL" = "true" ]; then
+            # Full static batch list
+            INTEGRATION='[
+              {"python-version":"3.11","command":"testIntegrationBatch0"},
+              {"python-version":"3.11","command":"testIntegrationBatch1"},
+              {"python-version":"3.11","command":"testIntegrationBatch2"},
+              {"python-version":"3.11","command":"testIntegrationBatch3"},
+              {"python-version":"3.11","command":"testIntegrationBatch4"},
+              {"python-version":"3.11","command":"testIntegrationBatch5"},
+              {"python-version":"3.11","command":"testIntegrationBatchRecording"}
+            ]'
+          elif [ -n "$TEST_MATRIX" ] && [ "$TEST_MATRIX" != "[]" ]; then
+            # Selective: use connector test paths from selective_ci_checks.py
+            # Add python-version to each entry
+            INTEGRATION=$(echo "$TEST_MATRIX" | jq -c '[.[] | . + {"python-version":"3.11"}]')
+          else
+            # No integration tests needed
+            INTEGRATION='[]'
+          fi
+
+          # Merge base + integration into a single matrix
+          MATRIX=$(jq -n -c --argjson base "$BASE" --argjson integration "$INTEGRATION" \
+            '{"include": ($base + $integration)}')
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
+          # Write final matrix to step summary for easy debugging
+          {
+            echo "### CI Matrix"
+            echo '```json'
+            echo "$MATRIX" | jq .
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload CI decisions
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-decisions
+          path: ci-decisions.json
+          retention-days: 14
+
+  # ── CI: testQuick always + selective integration tests ─────────────────────
   ci:
+    needs: detect
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
     timeout-minutes: 80
     env:
@@ -35,24 +124,7 @@ jobs:
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
-      matrix:
-        python-version: ["3.11"]
-        command: [
-            "testQuick", # also runs lint
-            "testIntegrationBatch0",
-            "testIntegrationBatch1",
-            "testIntegrationBatch2",
-            "testIntegrationBatch3",
-            "testIntegrationBatch4",
-            "testIntegrationBatch5",
-            "testIntegrationBatchRecording", # Recording tests - isolated execution to avoid module patching interference
-          ]
-        include:
-          # Version compatibility tests.
-          - python-version: "3.10"
-            command: "testQuick"
-          - python-version: "3.12"
-            command: "testQuick"
+      matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
       fail-fast: false
     steps:
       - name: Set up JDK 17
@@ -76,6 +148,9 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install ODBC driver for mssql tests
         run: ./metadata-ingestion/scripts/install_odbc_for_mssql_tests.sh
+      - name: Install dev environment for selective tests
+        if: ${{ !matrix.command }}
+        run: ./gradlew :metadata-ingestion:installDevTest
       - name: Install package
         if: ${{ matrix.command == 'testQuick' }}
         run: ./gradlew :metadata-ingestion:installPackageOnly
@@ -90,7 +165,7 @@ jobs:
         if: ${{  matrix.command == 'testQuick' }}
         run: |
           ./gradlew :metadata-ingestion:connectorRegistry :metadata-ingestion:lineageGen
-          for json_file in $(find metadata-ingestion/src/datahub/ingestion/autogenerated -name "*.json"); do
+          while IFS= read -r json_file; do
             filename=$(basename "$json_file")
             if git diff --quiet "$json_file"; then
               echo "✅ $filename is unchanged"
@@ -100,9 +175,50 @@ jobs:
               git diff "$json_file"
               exit 1
             fi
-          done
+          done < <(find metadata-ingestion/src/datahub/ingestion/autogenerated -name "*.json")
+      - name: Validate selective CI connector mappings
+        # Checks that every connector's declared test paths exist on disk
+        # and all integration test directories are covered by a connector mapping.
+        # Catches stale mappings early (e.g. renamed test dirs, removed connectors).
+        if: ${{ matrix.command == 'testQuick' }}
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          python metadata-ingestion/scripts/selective_ci_checks.py --validate
       - name: Run metadata-ingestion tests
-        run: ./gradlew :metadata-ingestion:${{ matrix.command }}
+        run: |
+          # matrix.command is set for Gradle batch jobs (testQuick, testIntegrationBatch*)
+          # For selective connector tests, test_path and connector come from the dynamic matrix
+          MATRIX_JSON='${{ toJSON(matrix) }}'
+          COMMAND=$(echo "$MATRIX_JSON" | jq -r '.command // empty')
+          TEST_PATH=$(echo "$MATRIX_JSON" | jq -r '.test_path // empty')
+          CONNECTOR=$(echo "$MATRIX_JSON" | jq -r '.connector // empty')
+
+          # Log what this job is running to the step summary
+          {
+            echo "### Test Job"
+            echo "| Key | Value |"
+            echo "|-----|-------|"
+            echo "| Python | \`${{ matrix.python-version }}\` |"
+            if [ -n "$COMMAND" ]; then
+              echo "| Command | \`$COMMAND\` |"
+            fi
+            if [ -n "$CONNECTOR" ]; then
+              echo "| Connector | \`$CONNECTOR\` |"
+              echo "| Test Path | \`$TEST_PATH\` |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "$COMMAND" ]; then
+            ./gradlew :metadata-ingestion:"$COMMAND"
+          elif [ -n "$TEST_PATH" ]; then
+            # Run from metadata-ingestion/ to match Gradle batch behavior
+            # (conftest.py, relative paths, working directory must match)
+            cd metadata-ingestion
+            source venv/bin/activate
+            pytest -m integration \
+              "$TEST_PATH" \
+              --junit-xml="test-results/junit.${CONNECTOR}.xml"
+          fi
       - name: Debug info
         if: always()
         run: |
@@ -136,6 +252,27 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           override_branch: ${{ github.head_ref || github.ref_name }}
 
+  # ── Single required branch protection check ────────────────────────────────
+  integration-tests-gate:
+    needs: [detect, ci]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all required tests passed
+        run: |
+          # detect must succeed — if it crashes, we have no signal
+          if [ "${{ needs.detect.result }}" != "success" ]; then
+            echo "::error::detect job failed — cannot trust test results"
+            exit 1
+          fi
+          if [ "${{ needs.ci.result }}" = "success" ] || \
+             [ "${{ needs.ci.result }}" = "skipped" ]; then
+            echo "All integration tests passed or skipped"
+          else
+            echo "CI failed"
+            exit 1
+          fi
+
   event-file:
     runs-on: ubuntu-latest
     steps:
@@ -154,14 +291,17 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Check if Python files were modified
         id: check-changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "Running due to manual workflow dispatch"
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+          elif [ "$EVENT_NAME" == "pull_request" ]; then
             # Check if any Python file in metadata-ingestion is in the changed files
-            git fetch origin "${{ github.base_ref }}"
-            if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^metadata-ingestion/.*\.py$'; then
+            git fetch origin "$BASE_REF"
+            if git diff --name-only "origin/$BASE_REF...HEAD" | grep -q '^metadata-ingestion/.*\.py$'; then
               echo "should_run=true" >> "$GITHUB_OUTPUT"
               echo "Python files were modified in metadata-ingestion, running plugin validation"
             else
@@ -220,10 +360,10 @@ jobs:
           for plugin in $(echo "$PLUGINS" | jq -r '.[]'); do
             echo "::group::Validating plugin: $plugin"
             PLUGIN_VENV="venv-${plugin}"
-            
+
             # Create a fresh venv for this plugin
             uv venv "$PLUGIN_VENV"
-            
+
             # Install the plugin in its venv using system uv command
             if ! uv pip install -e ".[${plugin}]" --python "$PLUGIN_VENV/bin/python"; then
               echo "❌ Plugin '$plugin' failed to install"
@@ -238,7 +378,7 @@ jobs:
               echo "✅ Plugin '$plugin' installed and importable"
               SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             fi
-            
+
             # Clean up venv to save space
             rm -rf "$PLUGIN_VENV"
             echo "::endgroup::"
