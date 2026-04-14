@@ -456,6 +456,7 @@ jobs:
 
       - name: Pull images from GHCR
         run: |
+          set +x
           failed_pulls=0
           read -ra images <<< "$BUILT_IMAGES"
           for image in "${images[@]}"; do
@@ -467,7 +468,7 @@ jobs:
               else
                 # Retag from ghcr.io/datahub-project/ to docker.io/acryldata/ so smoke tests
                 # can reference images by the canonical acryldata name.
-                acryl_image="${image/${{ env.DOCKER_REGISTRY }}\//acryldata/}"
+                acryl_image="acryldata/${image#${{ env.DOCKER_REGISTRY }}/}"
                 docker tag "$image" "$acryl_image"
               fi
               
