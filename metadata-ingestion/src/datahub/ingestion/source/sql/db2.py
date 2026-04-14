@@ -232,6 +232,24 @@ def _db2_get_view_qualifier_quoted(
         logger.debug(f"Got PATHSCHEMAS={repr(result)} view {repr(schema)}.{repr(view)}")
         pathschemas = _split_zos_pathschemas(result.strip())
         if len(pathschemas) > 1:
+            # PATHSCHEMAS values have been observed which contain various system-level schemas
+            # as well as an actual, single user-level schema (which is highly likely to be where
+            # names will actually resolve). So, until we add support for default lookup of unqualified
+            # names across _multiple_ schemas, remove known system-level schemas and hope we end up
+            # with a single schema left over.
+            pathschemas = [
+                path
+                for path in pathschemas
+                if path
+                not in (
+                    "SYSFUN",
+                    "SYSIBM",
+                    "SYSIBMADM",
+                    "SYSPROC",
+                )
+            ]
+
+        if len(pathschemas) > 1:
             raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
 
         # the schema name must be quoted so that case-sensitive names make it through
