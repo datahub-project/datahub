@@ -77,21 +77,24 @@ class FlagsConfig(ConfigModel):
     progress_report_max_failures: int = Field(
         default_factory=get_progress_report_max_failures,
         description=(
-            "Maximum failure entries in intermediate progress reports. "
+            "Maximum failure entries shown in interim progress reports (every 60 s). "
+            "Does not affect the final report. "
             "Also settable via DATAHUB_PROGRESS_REPORT_MAX_FAILURES env var."
         ),
     )
     progress_report_max_warnings: int = Field(
         default_factory=get_progress_report_max_warnings,
         description=(
-            "Maximum warning entries in intermediate progress reports. "
+            "Maximum warning entries shown in interim progress reports. "
+            "Does not affect the final report. "
             "Also settable via DATAHUB_PROGRESS_REPORT_MAX_WARNINGS env var."
         ),
     )
     progress_report_max_infos: int = Field(
         default_factory=get_progress_report_max_infos,
         description=(
-            "Maximum info entries in intermediate progress reports. "
+            "Maximum info entries shown in interim progress reports. "
+            "Does not affect the final report. "
             "Also settable via DATAHUB_PROGRESS_REPORT_MAX_INFOS env var."
         ),
     )
@@ -99,21 +102,24 @@ class FlagsConfig(ConfigModel):
     report_failure_sample_size: int = Field(
         default_factory=get_report_failure_sample_size,
         description=(
-            "Maximum failure entries in the final report. "
+            "How many failure entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
             "Also settable via DATAHUB_REPORT_FAILURE_SAMPLE_SIZE env var."
         ),
     )
     report_warning_sample_size: int = Field(
         default_factory=get_report_warning_sample_size,
         description=(
-            "Maximum warning entries in the final report. "
+            "How many warning entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
             "Also settable via DATAHUB_REPORT_WARNING_SAMPLE_SIZE env var."
         ),
     )
     report_info_sample_size: int = Field(
         default_factory=get_report_info_sample_size,
         description=(
-            "Maximum info entries in the final report. "
+            "How many info entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
             "Also settable via DATAHUB_REPORT_INFO_SAMPLE_SIZE env var."
         ),
     )
