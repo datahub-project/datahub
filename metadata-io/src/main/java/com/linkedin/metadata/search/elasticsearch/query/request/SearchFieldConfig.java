@@ -27,28 +27,14 @@ public class SearchFieldConfig {
   public static final float DEFAULT_BOOST = 1.0f;
 
   // Fields that can be filtered on directly, without appending the ".keyword" suffix.
-  // Includes URN/KEYWORD-type filter fields: V3 alias fields can't have .keyword subfields,
-  // so filter/aggregation queries must use the base field. Safe for V2 since the base field
-  // is already keyword type for these fields.
+  // Only includes fields whose V2 base mapping is already keyword/boolean type.
+  // URN-type fields (owners, tags, domains, etc.) are text+keyword in V2 and MUST keep
+  // the .keyword suffix for exact match. V3 alias fields for these URN fields lack .keyword,
+  // but V2 results cover the gap since both indices have the same data.
   // TODO: This exclusion should be dynamic, based on @Searchable annotation field type. Not
   // hardcoded.
   public static final Set<String> KEYWORD_FIELDS =
-      Set.of(
-          "urn",
-          "runId",
-          "_index",
-          "deprecated",
-          "owners",
-          "tags",
-          "domains",
-          "platform",
-          "platformInstance",
-          "applications",
-          "glossaryTerms",
-          "typeNames",
-          "container",
-          "hasParentNode",
-          "_entityType");
+      Set.of("urn", "runId", "_index", "deprecated", "typeNames", "hasParentNode", "_entityType");
   public static final Set<String> PATH_HIERARCHY_FIELDS = Set.of("browsePathV2");
   public static final float URN_BOOST_SCORE = 10.0f;
 

@@ -614,8 +614,8 @@ public class AggregationQueryBuilderTest {
         facets,
         new HashSet<>(
             Arrays.asList(
-                "test1",
-                "test2",
+                "test1.keyword",
+                "test2.keyword",
                 "hasTest1",
                 "structuredProperties.ab_fgh_ten.keyword",
                 "structuredProperties.hello.keyword",
@@ -704,8 +704,8 @@ public class AggregationQueryBuilderTest {
         facets,
         new HashSet<>(
             Arrays.asList(
-                "test1",
-                "test2",
+                "test1.keyword",
+                "test2.keyword",
                 "hasTest1",
                 "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
                 "structuredProperties._versioned.hello.00000000000001.string.keyword",

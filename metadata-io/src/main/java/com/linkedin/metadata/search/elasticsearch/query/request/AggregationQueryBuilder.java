@@ -217,10 +217,10 @@ public class AggregationQueryBuilder {
     if (facet.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD)) {
       return ESUtils.toKeywordField(facet, false, aspectRetriever);
     }
-    // Skip .keyword suffix for regular fields: V2 base fields are already keyword type
-    // (URN, KEYWORD), and V3 alias fields can't have .keyword subfields.
-    // Aggregating on the base field works for both V2 and V3.
-    return ESUtils.toKeywordField(facet, true, aspectRetriever);
+    // For regular fields, apply standard keyword resolution. URN-type fields in V2
+    // are text+keyword and need .keyword suffix for correct aggregation. Fields in
+    // KEYWORD_FIELDS (truly keyword-type) automatically skip the suffix.
+    return ESUtils.toKeywordField(facet, false, aspectRetriever);
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {

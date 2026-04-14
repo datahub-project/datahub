@@ -423,6 +423,16 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Filter filter,
       int from,
       @Nullable Integer size) {
+    return extractResult(opContext, searchResponse, filter, from, size, false);
+  }
+
+  public SearchResult extractResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Filter filter,
+      int from,
+      @Nullable Integer size,
+      boolean dualIndexQuery) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
 
     // Deduplicate by URN (same entity can appear in both V2 and V3 indices)
@@ -432,7 +442,19 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .collect(Collectors.toList());
     int preDedup = allResults.size();
     List<SearchEntity> deduped = deduplicateByUrn(allResults);
-    totalCount = Math.max(0, totalCount - (preDedup - deduped.size()));
+    int duplicatesOnPage = preDedup - deduped.size();
+    if (duplicatesOnPage > 0 && preDedup > 0) {
+      // Extrapolate dedup ratio from page sample to global total. When querying
+      // V2+V3 indices, the same entity appears in both, so the page sample's
+      // duplicate ratio is representative of the global distribution.
+      double uniqueRatio = (double) deduped.size() / preDedup;
+      totalCount = Math.max(deduped.size(), (int) Math.round(totalCount * uniqueRatio));
+    } else if (dualIndexQuery && duplicatesOnPage == 0 && preDedup > 0 && preDedup < 2) {
+      // Page too small to detect duplicates (e.g., count=1 queries used by Admin UI
+      // tab counters). When both V2 and V3 indices mirror the same entity data,
+      // every entity appears twice → the ES total is ~2x the true count.
+      totalCount = (int) Math.round(totalCount * 0.5);
+    }
 
     Collection<SearchEntity> resultList =
         ESAccessControlUtil.restrictSearchResult(opContext, deduped);
@@ -455,6 +477,19 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String keepAlive,
       @Nullable Integer size,
       boolean supportsPointInTime) {
+    return extractScrollResult(
+        opContext, searchResponse, filter, keepAlive, size, supportsPointInTime, false);
+  }
+
+  @WithSpan
+  public ScrollResult extractScrollResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Filter filter,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      boolean supportsPointInTime,
+      boolean dualIndexQuery) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
 
@@ -490,7 +525,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Deduplicate by URN (same entity can appear in both V2 and V3 indices)
     int preDedup = results.size();
     results = deduplicateByUrn(results);
-    totalCount = Math.max(0, totalCount - (preDedup - results.size()));
+    int duplicatesOnPage = preDedup - results.size();
+    if (duplicatesOnPage > 0 && preDedup > 0) {
+      double uniqueRatio = (double) results.size() / preDedup;
+      totalCount = Math.max(results.size(), (int) Math.round(totalCount * uniqueRatio));
+    } else if (dualIndexQuery && duplicatesOnPage == 0 && preDedup > 0 && preDedup < 2) {
+      totalCount = (int) Math.round(totalCount * 0.5);
+    }
 
     // Apply access control restrictions while preserving order
     Collection<SearchEntity> resultList =

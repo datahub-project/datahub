@@ -586,7 +586,9 @@ public class ESBrowseDAO {
             entityName,
             path,
             SearchUtil.transformFilterForEntities(
-                filter, opContext.getSearchContext().getIndexConvention()),
+                filter,
+                opContext.getSearchContext().getIndexConvention(),
+                opContext.getEntityRegistry()),
             input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);
@@ -620,7 +622,9 @@ public class ESBrowseDAO {
             entitySpecs,
             path,
             SearchUtil.transformFilterForEntities(
-                filter, opContext.getSearchContext().getIndexConvention()),
+                filter,
+                opContext.getSearchContext().getIndexConvention(),
+                opContext.getEntityRegistry()),
             input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);

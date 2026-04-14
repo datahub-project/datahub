@@ -62,6 +62,8 @@ import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
@@ -145,9 +147,12 @@ public class ESSearchDAO {
           try {
             log.debug("Executing request {}: {}", id, searchRequest);
             searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+            IndexConvention ic = opContext.getSearchContext().getIndexConvention();
+            boolean dualIndex =
+                ic.getAllEntityIndicesPatterns().containsAll(ic.getV3EntityIndexPatterns());
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
-                opContext.getSearchContext().getIndexConvention(),
+                ic,
                 SearchRequestHandler.getBuilder(
                         opContext,
                         entitySpec,
@@ -160,7 +165,9 @@ public class ESSearchDAO {
                         searchResponse,
                         filter,
                         from,
-                        ConfigUtils.applyLimit(searchServiceConfig, size)));
+                        ConfigUtils.applyLimit(searchServiceConfig, size),
+                        dualIndex),
+                dualIndex);
           } catch (Exception e) {
             log.error("Search query failed", e);
             log.error("Response to the failed search query: {}", searchResponse);
@@ -194,8 +201,12 @@ public class ESSearchDAO {
   private AggregationMetadata transformAggregationMetadata(
       @Nonnull IndexConvention indexConvention,
       @Nonnull AggregationMetadata aggMeta,
-      int entityTypeIdx) {
+      int entityTypeIdx,
+      boolean dualIndex) {
     if (entityTypeIdx >= 0) {
+      // When V2+V3 dual index is active, V2 and V3 buckets for the same entity
+      // merge to the same name. Use max (not sum) because the counts represent
+      // the same entities counted in both indices — summing would double the count.
       aggMeta.setAggregations(
           new LongMap(
               aggMeta.getAggregations().entrySet().stream()
@@ -204,9 +215,7 @@ public class ESSearchDAO {
                           entry ->
                               transformIndexToken(indexConvention, entry.getKey(), entityTypeIdx),
                           Map.Entry::getValue,
-                          Long::sum))));
-      // Deduplicate filter values that map to the same entity name (V2 index names
-      // and V3 _entityType values both resolve to the same entity name after transformation)
+                          dualIndex ? Long::max : Long::sum))));
       Map<String, FilterValue> mergedFilterValues = new LinkedHashMap<>();
       for (FilterValue filterValue : aggMeta.getFilterValues()) {
         String transformed =
@@ -216,7 +225,10 @@ public class ESSearchDAO {
             transformed,
             filterValue,
             (existing, incoming) -> {
-              existing.setFacetCount(existing.getFacetCount() + incoming.getFacetCount());
+              existing.setFacetCount(
+                  dualIndex
+                      ? Math.max(existing.getFacetCount(), incoming.getFacetCount())
+                      : existing.getFacetCount() + incoming.getFacetCount());
               if (incoming.isFiltered()) {
                 existing.setFiltered(true);
               }
@@ -231,31 +243,39 @@ public class ESSearchDAO {
   @VisibleForTesting
   public SearchResult transformIndexIntoEntityName(
       IndexConvention indexConvention, SearchResult result) {
+    return transformIndexIntoEntityName(indexConvention, result, false);
+  }
+
+  @VisibleForTesting
+  public SearchResult transformIndexIntoEntityName(
+      IndexConvention indexConvention, SearchResult result, boolean dualIndex) {
     return result.setMetadata(
         result
             .getMetadata()
             .setAggregations(
                 transformIndexIntoEntityName(
-                    indexConvention, result.getMetadata().getAggregations())));
+                    indexConvention, result.getMetadata().getAggregations(), dualIndex)));
   }
 
   private ScrollResult transformIndexIntoEntityName(
-      IndexConvention indexConvention, ScrollResult result) {
+      IndexConvention indexConvention, ScrollResult result, boolean dualIndex) {
     return result.setMetadata(
         result
             .getMetadata()
             .setAggregations(
                 transformIndexIntoEntityName(
-                    indexConvention, result.getMetadata().getAggregations())));
+                    indexConvention, result.getMetadata().getAggregations(), dualIndex)));
   }
 
   private AggregationMetadataArray transformIndexIntoEntityName(
-      @Nonnull IndexConvention indexConvention, AggregationMetadataArray aggArray) {
+      @Nonnull IndexConvention indexConvention,
+      AggregationMetadataArray aggArray,
+      boolean dualIndex) {
     List<AggregationMetadata> newAggs = new ArrayList<>();
     for (AggregationMetadata aggMeta : aggArray) {
       List<String> aggregateFacets = List.of(aggMeta.getName().split(AGGREGATION_SEPARATOR_CHAR));
       int entityTypeIdx = aggregateFacets.indexOf(INDEX_VIRTUAL_FIELD);
-      newAggs.add(transformAggregationMetadata(indexConvention, aggMeta, entityTypeIdx));
+      newAggs.add(transformAggregationMetadata(indexConvention, aggMeta, entityTypeIdx, dualIndex));
     }
     return new AggregationMetadataArray(newAggs);
   }
@@ -275,9 +295,12 @@ public class ESSearchDAO {
           try {
             final SearchResponse searchResponse =
                 client.search(searchRequest, RequestOptions.DEFAULT);
+            IndexConvention ic = opContext.getSearchContext().getIndexConvention();
+            boolean dualIndex =
+                ic.getAllEntityIndicesPatterns().containsAll(ic.getV3EntityIndexPatterns());
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
-                opContext.getSearchContext().getIndexConvention(),
+                ic,
                 SearchRequestHandler.getBuilder(
                         opContext,
                         entitySpecs,
@@ -291,7 +314,9 @@ public class ESSearchDAO {
                         filter,
                         keepAlive,
                         ConfigUtils.applyLimit(searchServiceConfig, size),
-                        pointInTimeCreationEnabled));
+                        pointInTimeCreationEnabled,
+                        dualIndex),
+                dualIndex);
           } catch (Exception e) {
             log.error("Search query failed: {}", searchRequest, e);
             throw new ESQueryException("Search query failed:", e);
@@ -383,11 +408,51 @@ public class ESSearchDAO {
             .getSearchRequest(
                 opContext, finalInput, transformedFilters, sortCriteria, from, size, facets)
             .indices(
-                entityNames.stream()
-                    .map(indexConvention::getEntityIndexName)
+                Stream.concat(
+                        entityNames.stream().map(indexConvention::getEntityIndexName),
+                        indexConvention.getV3EntityIndexPatterns().stream())
                     .toArray(String[]::new));
 
+    // Strip suggest when querying across both V2 and V3 indices. V2 _entityName uses
+    // standard analyzer (lowercases suggest text) while V3 _entityName is a keyword
+    // alias (preserves case). OpenSearch cannot merge suggest entries with different
+    // text casing across indices, causing the entire search request to fail.
+    // Only strip when V3 indices are enabled — pure V2 deployments can safely use suggest.
+    if (searchRequest.source() != null
+        && searchRequest.source().suggest() != null
+        && indexConvention
+            .getAllEntityIndicesPatterns()
+            .containsAll(indexConvention.getV3EntityIndexPatterns())) {
+      searchRequest.source().suggest(null);
+    }
+
+    applyEntityTypeFilter(
+        searchRequest, entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()));
+
     return Triple.of(searchRequest, transformedFilters, entitySpecs);
+  }
+
+  /**
+   * Wraps a SearchRequest's query with an entity type filter so that V3 shared-index documents are
+   * restricted to only the requested entity types. V2 documents (which lack the _entityType field)
+   * pass through unfiltered. Entity names must use the canonical camelCase form from EntitySpec
+   * (e.g., "glossaryNode" not "glossarynode") to match V3's stored _entityType values.
+   */
+  private static void applyEntityTypeFilter(
+      SearchRequest searchRequest, @Nullable List<String> entityNames) {
+    if (entityNames == null || entityNames.isEmpty()) {
+      return;
+    }
+    SearchSourceBuilder source = searchRequest.source();
+    QueryBuilder originalQuery = source.query();
+
+    BoolQueryBuilder entityTypeFilter =
+        QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
+            .should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery("_entityType")))
+            .should(QueryBuilders.termsQuery("_entityType", entityNames));
+
+    source.query(QueryBuilders.boolQuery().must(originalQuery).filter(entityTypeFilter));
   }
 
   /**
@@ -423,7 +488,12 @@ public class ESSearchDAO {
                 searchServiceConfig)
             .getFilterRequest(opContext, transformedFilters, sortCriteria, from, size);
 
-    searchRequest.indices(indexConvention.getIndexName(entitySpec));
+    searchRequest.indices(
+        Stream.concat(
+                Stream.of(indexConvention.getIndexName(entitySpec)),
+                indexConvention.getV3EntityIndexPatterns().stream())
+            .toArray(String[]::new));
+    applyEntityTypeFilter(searchRequest, List.of(entitySpec.getName()));
     return executeAndExtract(
         opContext, List.of(entitySpec), searchRequest, transformedFilters, from, size);
   }
@@ -487,7 +557,12 @@ public class ESSearchDAO {
             transformFilterForEntities(
                 requestParams, indexConvention, opContext.getEntityRegistry()),
             limit);
-    req.indices(indexConvention.getIndexName(entitySpec));
+    req.indices(
+        Stream.concat(
+                Stream.of(indexConvention.getIndexName(entitySpec)),
+                indexConvention.getV3EntityIndexPatterns().stream())
+            .toArray(String[]::new));
+    applyEntityTypeFilter(req, List.of(entitySpec.getName()));
     return Pair.of(req, builder);
   }
 
@@ -516,7 +591,10 @@ public class ESSearchDAO {
                 buildAggregateByValue(opContext, entityNames, field, requestParams, limit);
             final SearchResponse searchResponse =
                 client.search(searchRequest, RequestOptions.DEFAULT);
-            // extract results, validated against document model as well
+            // Extract raw aggregation results. Note: this bypasses
+            // transformIndexIntoEntityName() because aggregateByValue operates on arbitrary
+            // fields (not just entity-type facets). Entity-type dedup is handled by the
+            // Painless script in AggregationQueryBuilder which normalizes V2/V3 entity names.
             return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
           } catch (Exception e) {
             log.error("Aggregation query failed", e);
@@ -560,14 +638,20 @@ public class ESSearchDAO {
                     requestParams, indexConvention, opContext.getEntityRegistry()),
                 limit);
     if (entityNames == null) {
+      // Cross-entity aggregation: getAllEntityIndicesPatterns() includes both V2 and V3 patterns
+      // when enabled. No applyEntityTypeFilter() here — intentionally aggregates across all entity
+      // types to support unscoped facet queries (e.g., "show me all entity type counts").
       List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
       searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {
-      Stream<String> stream =
-          entityNames.stream()
-              .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-              .map(indexConvention::getIndexName);
-      searchRequest.indices(stream.toArray(String[]::new));
+      searchRequest.indices(
+          Stream.concat(
+                  entitySpecs.stream().map(indexConvention::getIndexName),
+                  indexConvention.getV3EntityIndexPatterns().stream())
+              .toArray(String[]::new));
+      applyEntityTypeFilter(
+          searchRequest,
+          entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()));
     }
     return searchRequest;
   }
@@ -655,7 +739,10 @@ public class ESSearchDAO {
             .collect(Collectors.toList());
 
     String[] indexArray =
-        entities.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new);
+        Stream.concat(
+                entities.stream().map(indexConvention::getEntityIndexName),
+                indexConvention.getV3EntityIndexPatterns().stream())
+            .toArray(String[]::new);
 
     Filter transformedFilters =
         transformFilterForEntities(postFilters, indexConvention, opContext.getEntityRegistry());
@@ -698,6 +785,18 @@ public class ESSearchDAO {
     if (!usePIT) {
       searchRequest.indices(indexArray);
     }
+
+    // Defensive suggest strip for scroll — same V2/V3 analyzer conflict as buildSearchRequest.
+    if (searchRequest.source() != null
+        && searchRequest.source().suggest() != null
+        && indexConvention
+            .getAllEntityIndicesPatterns()
+            .containsAll(indexConvention.getV3EntityIndexPatterns())) {
+      searchRequest.source().suggest(null);
+    }
+
+    applyEntityTypeFilter(
+        searchRequest, entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()));
 
     return Triple.of(searchRequest, transformedFilters, entitySpecs);
   }

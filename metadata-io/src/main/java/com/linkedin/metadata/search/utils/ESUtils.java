@@ -677,6 +677,12 @@ public class ESUtils {
    * Populates source field of search query with the suggestions query so that we get search
    * suggestions back. Right now we are only supporting suggestions based on the virtual _entityName
    * field alias.
+   *
+   * <p><b>V2/V3 compatibility warning:</b> V2 indices analyze {@code _entityName} with the standard
+   * analyzer (lowercases text), while V3 uses a keyword alias (preserves case). When both V2 and V3
+   * indices are queried, OpenSearch cannot merge suggest entries with different text casing,
+   * causing the search request to fail. Callers must strip the suggest block from the request when
+   * V3 indices are present (see {@code ESSearchDAO.buildSearchRequest}).
    */
   public static void buildNameSuggestions(
       @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable String textInput) {
