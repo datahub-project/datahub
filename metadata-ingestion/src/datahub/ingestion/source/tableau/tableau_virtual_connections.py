@@ -550,9 +550,11 @@ class VirtualConnectionProcessor:
         for r in vc_references:
             r_table_id = r.get("vc_table_id")
             r_table_name = r.get("vc_table_name") or self.vc_table_id_to_name.get(
-                r_table_id, ""
+                r_table_id or "", ""
             )
-            r_vc_id = r.get("vc_id") or self.vc_table_id_to_vc_id.get(r_table_id, "")
+            r_vc_id = r.get("vc_id") or self.vc_table_id_to_vc_id.get(
+                r_table_id or "", ""
+            )
             if r_table_id and r_table_name:
                 vc_table_name_to_id[r_table_name.lower()] = r_table_id
                 vc_table_id_to_name_from_refs[r_table_id] = r_table_name
@@ -565,10 +567,12 @@ class VirtualConnectionProcessor:
             # Resolve name and vc_id from lookup data if not in ref
             # (Tableau's Metadata API sometimes returns null for these in the field upstream path)
             vc_table_name = ref.get("vc_table_name") or self.vc_table_id_to_name.get(
-                vc_table_id, ""
+                vc_table_id or "", ""
             )
             column_name = ref.get("column_name")
-            vc_id = ref.get("vc_id") or self.vc_table_id_to_vc_id.get(vc_table_id, "")
+            vc_id = ref.get("vc_id") or self.vc_table_id_to_vc_id.get(
+                vc_table_id or "", ""
+            )
 
             if not all([vc_table_id, field_name, column_name, vc_table_name, vc_id]):
                 continue

@@ -2033,7 +2033,7 @@ class TableauSiteSource:
             # fall back to the name resolved from the VC detail query.
             vc_table_name = vc_ref.get(
                 "vc_table_name"
-            ) or self.vc_processor.vc_table_id_to_name.get(vc_table_id, "")
+            ) or self.vc_processor.vc_table_id_to_name.get(vc_table_id or "", "")
 
             if not (vc_id and vc_table_name and vc_table_id):
                 continue
@@ -2166,7 +2166,7 @@ class TableauSiteSource:
             ):
                 continue
             input_columns = []
-            for upstream_col in field.get(c.UPSTREAM_COLUMNS):
+            for upstream_col in field.get(c.UPSTREAM_COLUMNS) or []:
                 if not upstream_col:
                     continue
                 name = upstream_col.get(c.NAME)
