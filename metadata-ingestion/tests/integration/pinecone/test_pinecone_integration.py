@@ -1,7 +1,7 @@
 """Integration tests for Pinecone connector using mocked Pinecone SDK."""
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,10 +10,11 @@ pytest.importorskip("pinecone")
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.pinecone.pinecone_source import PineconeSource
+from datahub.testing import mce_helpers
 
 pytestmark = pytest.mark.integration_batch_0
 
-FROZEN_TIME = "2024-01-15 10:00:00"
+GOLDEN_FILE = Path(__file__).parent / "pinecone_mcps_golden.json"
 
 
 def _make_index_description(
@@ -31,11 +32,22 @@ def _make_index_description(
     }
 
 
-def _make_index_stats(namespaces: Dict[str, int]) -> Dict[str, Any]:
+def _make_index_stats(
+    namespaces: Dict[str, int], dimension: int = 384
+) -> Dict[str, Any]:
     return {
-        "dimension": 384,
+        "dimension": dimension,
         "namespaces": {ns: {"vector_count": count} for ns, count in namespaces.items()},
         "total_vector_count": sum(namespaces.values()),
+    }
+
+
+def _make_fetch_response(
+    vector_ids: List[str], metadata: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Build a dict-based fetch response (not MagicMock) so .get() works correctly."""
+    return {
+        "vectors": {vid: {"values": None, "metadata": metadata} for vid in vector_ids}
     }
 
 
@@ -70,44 +82,31 @@ def mock_pinecone_sdk():
             {"electronics": 5000, "clothing": 3000}
         )
         mock_document_index.describe_index_stats.return_value = _make_index_stats(
-            {"": 10000}
+            {"": 10000}, dimension=768
         )
 
-        mock_product_index.list.return_value = iter(
-            [["vec0", "vec1", "vec2", "vec3", "vec4"]]
-        )
-        mock_product_index.fetch.return_value = MagicMock(
-            vectors={
-                f"vec{i}": MagicMock(
-                    id=f"vec{i}",
-                    values=[0.1] * 384,
-                    metadata={
-                        "category": "electronics",
-                        "price": 99.99,
-                        "in_stock": True,
-                    },
-                )
-                for i in range(5)
-            }
+        # list() returns a fresh iterator each call (iterators are consumed)
+        product_vec_ids = ["vec0", "vec1", "vec2", "vec3", "vec4"]
+        mock_product_index.list.side_effect = lambda **kwargs: iter(product_vec_ids)
+
+        # fetch() returns a plain dict so .get("vectors", {}) works correctly
+        mock_product_index.fetch.side_effect = lambda **kwargs: _make_fetch_response(
+            vector_ids=product_vec_ids,
+            metadata={"category": "electronics", "price": 99.99, "in_stock": True},
         )
 
-        mock_document_index.list.return_value = iter([["doc0", "doc1", "doc2"]])
-        mock_document_index.fetch.return_value = MagicMock(
-            vectors={
-                f"doc{i}": MagicMock(
-                    id=f"doc{i}",
-                    values=[0.1] * 768,
-                    metadata={"title": f"Document {i}", "source": "wiki"},
-                )
-                for i in range(3)
-            }
+        doc_vec_ids = ["doc0", "doc1", "doc2"]
+        mock_document_index.list.side_effect = lambda **kwargs: iter(doc_vec_ids)
+        mock_document_index.fetch.side_effect = lambda **kwargs: _make_fetch_response(
+            vector_ids=doc_vec_ids,
+            metadata={"title": "Document", "source": "wiki"},
         )
 
         yield mock_pc
 
 
-@pytest.mark.freeze_time(FROZEN_TIME)
 def test_pinecone_ingest(
+    pytestconfig: pytest.Config,
     tmp_path: Path,
     mock_pinecone_sdk: MagicMock,
 ) -> None:
@@ -141,8 +140,13 @@ def test_pinecone_ingest(
     assert source.get_report().indexes_scanned == 2
     assert source.get_report().datasets_generated == 3
 
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=sink_file,
+        golden_path=GOLDEN_FILE,
+    )
 
-@pytest.mark.freeze_time(FROZEN_TIME)
+
 def test_pinecone_ingest_no_schema_inference(
     tmp_path: Path,
     mock_pinecone_sdk: MagicMock,
@@ -172,11 +176,9 @@ def test_pinecone_ingest_no_schema_inference(
     source = pipeline.source
     assert isinstance(source, PineconeSource)
     assert source.get_report().indexes_scanned == 2
-    # 2 namespaces in product + 1 default in document
     assert source.get_report().datasets_generated == 3
 
 
-@pytest.mark.freeze_time(FROZEN_TIME)
 def test_pinecone_ingest_with_index_filter(
     tmp_path: Path,
     mock_pinecone_sdk: MagicMock,

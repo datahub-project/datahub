@@ -264,60 +264,37 @@ class PineconeClient:
 
         Uses the list() and fetch() approach for deterministic sampling.
         Falls back to query() if list() is not available.
-
-        Args:
-            index_name: Name of the index
-            namespace: Namespace to sample from (empty string for default)
-            limit: Maximum number of vectors to sample
-
-        Returns:
-            List of VectorRecord objects with metadata
+        Exceptions propagate to the caller for proper error reporting.
         """
-        try:
-            # Use cached index connection
-            index = self._get_index(index_name)
+        index = self._get_index(index_name)
 
-            # Try list() + fetch() approach first (more deterministic)
-            vector_ids = self._list_vector_ids(index, namespace, limit)
+        # Try list() + fetch() approach first (more deterministic)
+        vector_ids = self._list_vector_ids(index, namespace, limit)
 
-            if vector_ids:
-                return self._fetch_vectors(index, namespace, vector_ids)
+        if vector_ids:
+            return self._fetch_vectors(index, namespace, vector_ids)
 
-            # Fallback to query() approach if list() didn't work
-            logger.info(
-                f"list() approach failed for {index_name}/{namespace}, "
-                "trying query() fallback"
-            )
-            return self._query_sample_vectors(index, namespace, limit)
-
-        except Exception as e:
-            logger.error(f"Failed to sample vectors from {index_name}/{namespace}: {e}")
-            return []
+        # Fallback to query() approach if list() returned no IDs
+        logger.info(
+            f"list() returned no IDs for {index_name}/{namespace}, "
+            "trying query() fallback"
+        )
+        return self._query_sample_vectors(index, namespace, limit)
 
     def _list_vector_ids(self, index: Any, namespace: str, limit: int) -> List[str]:
-        """
-        List vector IDs from an index namespace.
+        """List vector IDs from an index namespace.
 
-        Args:
-            index: Pinecone index object
-            namespace: Namespace name
-            limit: Maximum number of IDs to retrieve
-
-        Returns:
-            List of vector IDs
+        Returns empty list if the list() API is not available for this index type.
         """
         try:
-            vector_ids = []
+            vector_ids: List[str] = []
 
-            # Use list() to get vector IDs
             list_result = index.list(namespace=namespace, limit=limit)
 
             # Handle different response formats
             if hasattr(list_result, "vectors"):
-                # Response has vectors attribute
                 vector_ids = [v.id for v in list_result.vectors[:limit]]
             elif isinstance(list_result, list):
-                # Response is a list
                 vector_ids = list_result[:limit]
             else:
                 # Try to iterate (generator)
@@ -330,101 +307,69 @@ class PineconeClient:
             return vector_ids
 
         except Exception as e:
-            logger.debug(f"Failed to list vector IDs: {e}")
+            # list() may not be available on all index types — fall back to query
+            logger.warning(f"Failed to list vector IDs: {e}")
             return []
 
     def _fetch_vectors(
         self, index: Any, namespace: str, vector_ids: List[str]
     ) -> List[VectorRecord]:
-        """
-        Fetch vectors by IDs with metadata.
+        """Fetch vectors by IDs with metadata."""
+        fetch_response = index.fetch(ids=vector_ids, namespace=namespace)
 
-        Args:
-            index: Pinecone index object
-            namespace: Namespace name
-            vector_ids: List of vector IDs to fetch
+        result = []
+        vectors_dict = fetch_response.get("vectors", {})
 
-        Returns:
-            List of VectorRecord objects
-        """
-        try:
-            fetch_response = index.fetch(ids=vector_ids, namespace=namespace)
+        for vector_id, vector_data in vectors_dict.items():
+            record = VectorRecord(
+                id=vector_id,
+                values=vector_data.get("values"),
+                metadata=vector_data.get("metadata"),
+            )
+            result.append(record)
 
-            result = []
-            vectors_dict = fetch_response.get("vectors", {})
-
-            for vector_id, vector_data in vectors_dict.items():
-                record = VectorRecord(
-                    id=vector_id,
-                    values=vector_data.get("values"),
-                    metadata=vector_data.get("metadata"),
-                )
-                result.append(record)
-
-            logger.info(f"Fetched {len(result)} vectors with metadata")
-            return result
-
-        except Exception as e:
-            logger.warning(f"Failed to fetch vectors: {e}")
-            return []
+        logger.info(f"Fetched {len(result)} vectors with metadata")
+        return result
 
     def _query_sample_vectors(
         self, index: Any, namespace: str, limit: int
     ) -> List[VectorRecord]:
-        """
-        Sample vectors using query() as a fallback.
+        """Sample vectors using query() as a fallback with a zero vector."""
+        stats = index.describe_index_stats()
+        dimension = stats.get("dimension")
 
-        Uses a dummy/random vector to query and get samples.
-
-        Args:
-            index: Pinecone index object
-            namespace: Namespace name
-            limit: Maximum number of vectors to sample
-
-        Returns:
-            List of VectorRecord objects
-        """
-        try:
-            # Get index stats to determine dimension
-            stats = index.describe_index_stats()
-            dimension = stats.get("dimension")
-
-            # Validate dimension
-            if not dimension:
-                logger.error(
-                    "Cannot determine dimension for index, skipping query sampling"
-                )
-                return []
-
-            # Create a dummy query vector (all zeros)
-            dummy_vector = [0.0] * dimension
-
-            # Query with the dummy vector
-            query_response = index.query(
-                vector=dummy_vector,
-                top_k=min(limit, 100),  # Pinecone has limits on top_k
-                namespace=namespace,
-                include_metadata=True,
-                include_values=False,  # We don't need the actual vector values
+        if not dimension:
+            raise ValueError(
+                f"Cannot determine dimension for index (namespace={namespace}), "
+                "unable to sample vectors"
             )
 
-            result = []
-            matches = query_response.get("matches", [])
+        dummy_vector = [0.0] * dimension
 
-            for match in matches:
-                record = VectorRecord(
-                    id=match.get("id"),
-                    values=None,  # Not included in query response
-                    metadata=match.get("metadata"),
-                )
-                result.append(record)
+        query_response = index.query(
+            vector=dummy_vector,
+            top_k=min(limit, 100),
+            namespace=namespace,
+            include_metadata=True,
+            include_values=False,
+        )
 
-            logger.info(f"Sampled {len(result)} vectors via query()")
-            return result
+        result = []
+        matches = query_response.get("matches", [])
 
-        except Exception as e:
-            logger.warning(f"Failed to sample vectors via query: {e}")
-            return []
+        for match in matches:
+            match_id = match.get("id")
+            if not match_id:
+                continue
+            record = VectorRecord(
+                id=match_id,
+                values=None,
+                metadata=match.get("metadata"),
+            )
+            result.append(record)
+
+        logger.info(f"Sampled {len(result)} vectors via query()")
+        return result
 
     def get_index_host(self, index_name: str) -> Optional[str]:
         """

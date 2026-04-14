@@ -294,16 +294,18 @@ class PineconeSource(StatefulIngestionSourceBase):
             dataset_urn=dataset_urn,
         )
 
-        if self.config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=PLATFORM_URN,
-                    instance=make_dataplatform_instance_urn(
-                        PLATFORM_NAME, self.config.platform_instance
-                    ),
-                ),
-            ).as_workunit()
+        instance_urn = (
+            make_dataplatform_instance_urn(PLATFORM_NAME, self.config.platform_instance)
+            if self.config.platform_instance
+            else None
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=PLATFORM_URN,
+                instance=instance_urn,
+            ),
+        ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
