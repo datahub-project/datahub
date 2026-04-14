@@ -100,7 +100,7 @@ python scripts/selective_ci_checks.py --dry-run --base-ref master
 # Validate all connector.yaml mappings
 python scripts/selective_ci_checks.py --validate
 
-# Force full suite (used by the run-all-tests label)
+# Force full suite (used by the run-all-ingestion-tests label)
 python scripts/selective_ci_checks.py --force-all
 ```
 
@@ -123,7 +123,7 @@ This catches non-obvious dependencies like `dbt` importing `sql/sql_types.py` �
 - **Non-connector files** (api/, emitter/, setup.py, metadata-models/) always trigger the full suite.
 - **Shared test infrastructure** (files directly in `tests/integration/`, e.g. `conftest.py`) triggers the full suite.
 - **Documentation files** (`.md`) inside connector source directories are ignored — they don't affect runtime behavior. All other file types trigger tests.
-- The `run-all-tests` label on a PR forces the full suite regardless of changes.
+- The `run-all-ingestion-tests` label on a PR forces the full suite regardless of changes.
 - If the detection script crashes, the gate job fails the PR — it never silently passes.
 - **Safety net**: if changed source directories produce no test matrix entries (e.g. a source dir with no test path and no entry-point coverage), the full suite runs with a warning — changed code is never silently untested.
 
