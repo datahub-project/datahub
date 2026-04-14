@@ -74,6 +74,16 @@ class LineageEdge:
 
 
 @dataclass
+class LocationScanStats:
+    """Per project/location scan counters for lineage API lookups."""
+
+    calls: int = 0
+    hits: int = 0
+    empty: int = 0
+    errors: int = 0
+
+
+@dataclass
 class DataplexLineageReport(Report):
     """Lineage-specific observability for Dataplex ingestion."""
 
@@ -110,8 +120,8 @@ class DataplexLineageReport(Report):
     num_lineage_entries_failed: int = 0
     lineage_entries_failed_samples: LossyList[str] = field(default_factory=LossyList)
     lineage_api: dict[str, tuple[int, float]] = field(default_factory=dict)
-    scan_stats_by_project_location_pair: dict[tuple[str, str], dict[str, int]] = field(
-        default_factory=dict
+    scan_stats_by_project_location_pair: dict[tuple[str, str], LocationScanStats] = (
+        field(default_factory=dict)
     )
 
     def report_lineage_api_call(self, api_name: str, elapsed_seconds: float) -> None:
@@ -122,28 +132,25 @@ class DataplexLineageReport(Report):
             total_time_secs + elapsed_seconds,
         )
 
-    def _lineage_scan_stats_for(self, project_id: str, location: str) -> dict[str, int]:
+    def _lineage_scan_stats_for(
+        self, project_id: str, location: str
+    ) -> LocationScanStats:
         key = (project_id, location)
         if key not in self.scan_stats_by_project_location_pair:
-            self.scan_stats_by_project_location_pair[key] = {
-                "calls": 0,
-                "hits": 0,
-                "empty": 0,
-                "errors": 0,
-            }
+            self.scan_stats_by_project_location_pair[key] = LocationScanStats()
         return self.scan_stats_by_project_location_pair[key]
 
     def report_lineage_scan_call(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location)["calls"] += 1
+        self._lineage_scan_stats_for(project_id, location).calls += 1
 
     def report_lineage_scan_hit(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location)["hits"] += 1
+        self._lineage_scan_stats_for(project_id, location).hits += 1
 
     def report_lineage_scan_empty(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location)["empty"] += 1
+        self._lineage_scan_stats_for(project_id, location).empty += 1
 
     def report_lineage_scan_error(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location)["errors"] += 1
+        self._lineage_scan_stats_for(project_id, location).errors += 1
 
     def report_lineage_relationship_created(self, relationship: str) -> None:
         self.num_lineage_relationships_created += 1

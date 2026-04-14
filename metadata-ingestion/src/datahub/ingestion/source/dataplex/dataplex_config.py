@@ -155,6 +155,8 @@ class DataplexConfig(
         default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
         description="List of GCP regions to scan for Dataplex lineage data. "
         "By default, includes all supported multi-regions and regions. "
+        "Narrowing this list from the default is critical for better performance "
+        "because lineage API calls scale with configured project/location pairs. "
         "This list may include multi-regions and single regions. "
         "In practice, lineage often resides in job regions while entries may be in "
         "multi-regions, so entries_locations and lineage_locations are configured separately. "

@@ -225,29 +225,29 @@ def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
     assert (
         lineage_extractor.report.scan_stats_by_project_location_pair[
             ("test-project", "us-central1")
-        ]["calls"]
+        ].calls
         == 1
     )
     assert (
         lineage_extractor.report.scan_stats_by_project_location_pair[
             ("test-project", "europe-west1")
-        ]["calls"]
+        ].calls
         == 1
     )
     assert (
         lineage_extractor.report.scan_stats_by_project_location_pair[
             ("other-project", "us-central1")
-        ]["calls"]
+        ].calls
         == 1
     )
     assert (
         lineage_extractor.report.scan_stats_by_project_location_pair[
             ("other-project", "europe-west1")
-        ]["calls"]
+        ].calls
         == 1
     )
     assert all(
-        stats["empty"] == 1 and stats["hits"] == 0 and stats["errors"] == 0
+        stats.empty == 1 and stats.hits == 0 and stats.errors == 0
         for stats in lineage_extractor.report.scan_stats_by_project_location_pair.values()
     )
 
@@ -387,18 +387,14 @@ def test_get_lineage_for_entry_continues_after_single_location_error(
     assert result is not None
     assert result["upstream"] == ["bigquery:project.dataset.upstream_ok"]
     stats = lineage_extractor.report.scan_stats_by_project_location_pair
-    assert stats[("test-project", "me-central2")] == {
-        "calls": 1,
-        "hits": 0,
-        "empty": 0,
-        "errors": 1,
-    }
-    assert stats[("test-project", "us-central1")] == {
-        "calls": 1,
-        "hits": 1,
-        "empty": 0,
-        "errors": 0,
-    }
+    assert stats[("test-project", "me-central2")].calls == 1
+    assert stats[("test-project", "me-central2")].hits == 0
+    assert stats[("test-project", "me-central2")].empty == 0
+    assert stats[("test-project", "me-central2")].errors == 1
+    assert stats[("test-project", "us-central1")].calls == 1
+    assert stats[("test-project", "us-central1")].hits == 1
+    assert stats[("test-project", "us-central1")].empty == 0
+    assert stats[("test-project", "us-central1")].errors == 0
 
 
 def test_to_upstream_lineage_deduplicates_same_upstream_dataset() -> None:
