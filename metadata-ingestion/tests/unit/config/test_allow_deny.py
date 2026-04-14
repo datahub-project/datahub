@@ -78,6 +78,28 @@ def test_deny_literal_with_regex_metacharacters() -> None:
     assert pattern.allowed("staging_other_db")
 
 
+def test_deny_literal_case_sensitive_with_special_chars() -> None:
+    pattern = AllowDenyPattern(deny=["Staging_(Raw/Agg)_Db"], ignoreCase=False)
+    assert not pattern.allowed("Staging_(Raw/Agg)_Db")
+    assert pattern.allowed("staging_(raw/agg)_db")
+
+
+def test_allow_and_deny_literal_interaction() -> None:
+    pattern = AllowDenyPattern(
+        allow=["sales_(jan/feb)_data", "prod_(read/write)_db"],
+        deny=["sales_(jan/feb)_data"],
+    )
+    assert not pattern.allowed("sales_(jan/feb)_data")
+    assert pattern.allowed("prod_(read/write)_db")
+
+
+def test_regex_and_literal_patterns_mixed() -> None:
+    pattern = AllowDenyPattern(allow=["normal_db.*", "special_(a/b)_db"])
+    assert pattern.allowed("normal_db_one")
+    assert pattern.allowed("special_(a/b)_db")
+    assert not pattern.allowed("other_db")
+
+
 def test_regex_patterns_still_work_with_literal_fallback() -> None:
     pattern = AllowDenyPattern(allow=["flights.*"])
     assert pattern.allowed("flights-database")

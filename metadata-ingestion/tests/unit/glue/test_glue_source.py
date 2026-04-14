@@ -10,7 +10,9 @@ from botocore.stub import Stubber
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
@@ -1466,8 +1468,6 @@ def test_glue_database_name_encoding_in_urn() -> None:
 
 def test_glue_special_char_database_name_encoded_in_workunits() -> None:
     """_gen_table_wu encodes '(', ')', '/' in dataset URNs emitted by get_workunits()."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
-    from datahub.metadata.schema_classes import MetadataChangeEventClass
 
     glue_source_instance = glue_source(
         use_s3_bucket_tags=False,
@@ -1489,7 +1489,7 @@ def test_glue_special_char_database_name_encoded_in_workunits() -> None:
     dataset_urns = set()
     for wu in workunits:
         obj = wu.metadata
-        if isinstance(obj, MetadataChangeEventClass):
+        if isinstance(obj, models.MetadataChangeEventClass):
             dataset_urns.add(obj.proposedSnapshot.urn)
         elif isinstance(obj, MetadataChangeProposalWrapper) and obj.entityUrn:
             dataset_urns.add(obj.entityUrn)
@@ -1500,3 +1500,57 @@ def test_glue_special_char_database_name_encoded_in_workunits() -> None:
     )
     assert encoded_urn in dataset_urns
     assert unencoded_urn not in dataset_urns
+
+
+def test_glue_special_char_database_allowed_by_literal_pattern() -> None:
+    """database_pattern.allow with a literal special-char name passes the filter."""
+
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            database_pattern=AllowDenyPattern(allow=[SPECIAL_CHAR_DB_NAME]),
+        ),
+    )
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response("get_databases", get_databases_response_special_chars, {})
+        stubber.add_response(
+            "get_tables",
+            get_tables_response_special_chars,
+            {"DatabaseName": SPECIAL_CHAR_DB_NAME},
+        )
+        workunits = list(source.get_workunits())
+        stubber.assert_no_pending_responses()
+
+    dataset_urns = {
+        wu.metadata.proposedSnapshot.urn
+        for wu in workunits
+        if isinstance(wu.metadata, models.MetadataChangeEventClass)
+    }
+    assert any("data_%28read%2Fwrite%29_warehouse" in u for u in dataset_urns)
+
+
+def test_glue_special_char_database_denied_by_literal_pattern() -> None:
+    """database_pattern.deny with a literal special-char name drops the database."""
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            database_pattern=AllowDenyPattern(deny=[SPECIAL_CHAR_DB_NAME]),
+        ),
+    )
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response("get_databases", get_databases_response_special_chars, {})
+        workunits = list(source.get_workunits())
+        stubber.assert_no_pending_responses()
+
+    assert len(workunits) == 0
+    assert SPECIAL_CHAR_DB_NAME in list(source.get_report().databases.dropped_entities)
