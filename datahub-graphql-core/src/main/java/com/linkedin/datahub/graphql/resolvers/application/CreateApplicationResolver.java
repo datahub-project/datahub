@@ -56,8 +56,11 @@ public class CreateApplicationResolver implements DataFetcher<CompletableFuture<
                   applicationUrn,
                   UrnUtils.getUrn(input.getDomainUrn()));
             }
-            OwnerUtils.addCreatorAsOwner(
-                context, applicationUrn.toString(), OwnerEntityType.CORP_USER, entityService);
+            Boolean shouldAddCreatorAsOwner = input.getShouldAddCreatorAsOwner();
+            if (shouldAddCreatorAsOwner == null || shouldAddCreatorAsOwner) {
+              OwnerUtils.addCreatorAsOwner(
+                  context, applicationUrn.toString(), OwnerEntityType.CORP_USER, entityService);
+            }
             EntityResponse response =
                 applicationService.getApplicationEntityResponse(
                     context.getOperationContext(), applicationUrn);

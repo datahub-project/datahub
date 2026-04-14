@@ -311,6 +311,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setLastObserved(
             changeSystemMetadata.getLastObserved(), SetMode.IGNORE_NULL);
         latestSystemMetadata.setRunId(changeSystemMetadata.getRunId(), SetMode.REMOVE_IF_NULL);
+        latestSystemMetadata.setSchemaVersion(
+            changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
         if (!DataTemplateUtil.areEqual(
             latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate())) {

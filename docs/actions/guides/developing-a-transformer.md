@@ -75,7 +75,7 @@ pip install -e .
 
 inside the module. (alt.`python setup.py`).
 
-Once we have done this, our class will be referencable via `custom_transformer_example.custom_transformer:CustomTransformer`.
+Once we have done this, our class will be referenceable via `custom_transformer_example.custom_transformer:CustomTransformer`.
 
 ## Step 3: Running the Action
 

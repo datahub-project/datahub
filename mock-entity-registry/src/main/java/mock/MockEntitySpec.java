@@ -83,7 +83,7 @@ public class MockEntitySpec implements EntitySpec {
 
   public <T extends RecordTemplate> AspectSpec createAspectSpec(T type, String name) {
     return new MockAspectSpec(
-        new AspectAnnotation(name, false, false, null),
+        new AspectAnnotation(name, false, false, null, 1L),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),

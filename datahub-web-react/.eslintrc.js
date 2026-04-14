@@ -26,7 +26,7 @@ try {
     }
 
     const raw = execSync(
-        `git diff --diff-filter=d --name-only ${baseBranch} -- "datahub-web-react/src/**/*.ts" "datahub-web-react/src/**/*.tsx"`,
+        `git diff --diff-filter=d --name-only ${baseBranch}...HEAD -- "datahub-web-react/src/**/*.ts" "datahub-web-react/src/**/*.tsx"`,
         { encoding: 'utf-8', cwd: repoRoot, stdio: 'pipe' },
     );
     changedTsFiles = raw

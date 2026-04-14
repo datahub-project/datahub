@@ -98,25 +98,6 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePaths",
-    "aspect": {
-        "json": {
-            "paths": [
-                "/powerbi/Workspace 1"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "powerbi-pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "PATCH",
     "aspectName": "dashboardInfo",
     "aspect": {
@@ -257,7 +238,7 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:d5f80b232b35c1ee7e6933dd8aa1123c",
+                    "id": "Workspace 1",
                     "urn": "urn:li:container:d5f80b232b35c1ee7e6933dd8aa1123c"
                 }
             ]

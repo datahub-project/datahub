@@ -73,6 +73,9 @@ class DatasetContainerSubTypes(StrEnum):
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
     FABRIC_SCHEMA = "Fabric Schema"
+    # Pinecone
+    PINECONE_INDEX = "Pinecone Index"
+    PINECONE_NAMESPACE = "Pinecone Namespace"
 
 
 class BIContainerSubTypes(StrEnum):
