@@ -536,13 +536,22 @@ class EntityFilterReport(ReportAttribute):
         )
 
 
+def _is_report_sentinel(item: object) -> bool:
+    return isinstance(item, str) and item.startswith("...")
+
+
 def _cap_report_samples(obj: dict, caps: Dict[str, int]) -> dict:
     """Cap the failures/warnings/infos lists in an as_obj() output."""
     result = {}
     for k, v in obj.items():
         cap = caps.get(k)
-        if cap is not None and isinstance(v, list) and len(v) > cap:
-            result[k] = v[:cap] + [f"... and {len(v) - cap} more"]
+        if cap is not None and isinstance(v, list):
+            real = [x for x in v if not _is_report_sentinel(x)]
+            sentinels = [x for x in v if _is_report_sentinel(x)]
+            if len(real) > cap:
+                result[k] = real[:cap] + [f"... and {len(real) - cap} more"] + sentinels
+            else:
+                result[k] = v
         else:
             result[k] = v
     return result

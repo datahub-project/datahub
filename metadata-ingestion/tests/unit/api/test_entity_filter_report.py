@@ -244,6 +244,59 @@ def test_structured_logs_set_sample_sizes_partial():
     assert logs._entries[StructuredLogLevel.WARN].max_elements == 10  # unchanged
 
 
+def test_set_sample_sizes_after_entries_added_raises():
+    import pytest
+
+    logs = StructuredLogs()
+    logs.report_log(StructuredLogLevel.ERROR, "something broke", context="table_x")
+    with pytest.raises(AssertionError, match="must be called before"):
+        logs.set_sample_sizes(failure_size=50)
+
+
+def test_cap_ignores_lossy_list_sentinel():
+    """The '... sampled of N' sentinel from LossyList shouldn't count as a real entry."""
+    obj = {
+        "failures": [
+            {"message": "connection timeout", "context": ["db.orders"]},
+            {"message": "permission denied", "context": ["db.users"]},
+            {"message": "schema mismatch", "context": ["db.products"]},
+            "... sampled of 30 total elements",
+        ],
+    }
+    # 3 real entries at cap of 3 — no truncation needed
+    capped = _cap_report_samples(obj, {"failures": 3})
+    assert capped["failures"] == obj["failures"]
+
+
+def test_cap_with_sentinel_and_truncation():
+    """When truncating, preserve the existing LossyList sentinel alongside the new one."""
+    obj = {
+        "failures": [
+            {"message": "connection timeout", "context": ["db.orders"]},
+            {"message": "permission denied", "context": ["db.users"]},
+            {"message": "schema mismatch", "context": ["db.products"]},
+            {"message": "null column", "context": ["db.events"]},
+            "... sampled of 50 total elements",
+        ],
+    }
+    capped = _cap_report_samples(obj, {"failures": 2})
+    assert len(capped["failures"]) == 4  # 2 real + our sentinel + LossyList sentinel
+    assert capped["failures"][0]["message"] == "connection timeout"
+    assert capped["failures"][1]["message"] == "permission denied"
+    assert "and 2 more" in capped["failures"][2]
+    assert "sampled of 50" in capped["failures"][3]
+
+
+def test_negative_sample_size_rejected():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        FlagsConfig(progress_report_max_failures=-1)
+    with pytest.raises(ValidationError):
+        FlagsConfig(report_failure_sample_size=-5)
+
+
 # ---------------------------------------------------------------------------
 # Pipeline retention sizing: max(report_size, progress_max)
 # ---------------------------------------------------------------------------

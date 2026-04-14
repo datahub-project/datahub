@@ -208,6 +208,11 @@ class StructuredLogs(Report):
         Must be called before any entries are added (i.e. right after source
         construction) — resizing a non-empty LossyDict is not supported.
         """
+        for level, entries in self._entries.items():
+            assert not entries, (
+                f"set_sample_sizes must be called before any entries are added; "
+                f"{level.name} already has {len(entries)} entries"
+            )
         if failure_size is not None:
             self._entries[StructuredLogLevel.ERROR].max_elements = failure_size
         if warning_size is not None:
@@ -258,6 +263,18 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     @property
     def infos(self) -> LossyList[StructuredLogEntry]:
         return self._structured_logs.infos
+
+    def set_sample_sizes(
+        self,
+        failure_size: Optional[int] = None,
+        warning_size: Optional[int] = None,
+        info_size: Optional[int] = None,
+    ) -> None:
+        self._structured_logs.set_sample_sizes(
+            failure_size=failure_size,
+            warning_size=warning_size,
+            info_size=info_size,
+        )
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1

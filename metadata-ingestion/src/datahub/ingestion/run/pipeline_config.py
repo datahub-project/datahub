@@ -75,6 +75,7 @@ class FlagsConfig(ConfigModel):
     )
 
     progress_report_max_failures: int = Field(
+        ge=0,
         default_factory=get_progress_report_max_failures,
         description=(
             "Maximum failure entries shown in interim progress reports (every 60 s). "
@@ -83,6 +84,7 @@ class FlagsConfig(ConfigModel):
         ),
     )
     progress_report_max_warnings: int = Field(
+        ge=0,
         default_factory=get_progress_report_max_warnings,
         description=(
             "Maximum warning entries shown in interim progress reports. "
@@ -91,6 +93,7 @@ class FlagsConfig(ConfigModel):
         ),
     )
     progress_report_max_infos: int = Field(
+        ge=0,
         default_factory=get_progress_report_max_infos,
         description=(
             "Maximum info entries shown in interim progress reports. "
@@ -100,6 +103,7 @@ class FlagsConfig(ConfigModel):
     )
 
     report_failure_sample_size: int = Field(
+        ge=0,
         default_factory=get_report_failure_sample_size,
         description=(
             "How many failure entries to retain. Controls the final report size "
@@ -108,6 +112,7 @@ class FlagsConfig(ConfigModel):
         ),
     )
     report_warning_sample_size: int = Field(
+        ge=0,
         default_factory=get_report_warning_sample_size,
         description=(
             "How many warning entries to retain. Controls the final report size "
@@ -116,6 +121,7 @@ class FlagsConfig(ConfigModel):
         ),
     )
     report_info_sample_size: int = Field(
+        ge=0,
         default_factory=get_report_info_sample_size,
         description=(
             "How many info entries to retain. Controls the final report size "
