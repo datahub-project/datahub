@@ -755,6 +755,20 @@ public class ESUtils {
       @Nonnull final String filterField,
       final boolean skipKeywordSuffix,
       @Nullable final AspectRetriever aspectRetriever) {
+    return toKeywordField(filterField, skipKeywordSuffix, aspectRetriever, null);
+  }
+
+  /**
+   * Overload that also checks searchableFieldTypes to dynamically skip the .keyword suffix for
+   * URN/KEYWORD fields. V3 alias fields don't have .keyword subfields, so filters must use the base
+   * field name. This is safe for V2 since URN/KEYWORD base fields are already keyword type.
+   */
+  @Nonnull
+  public static String toKeywordField(
+      @Nonnull final String filterField,
+      final boolean skipKeywordSuffix,
+      @Nullable final AspectRetriever aspectRetriever,
+      @Nullable final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     String fieldName =
         StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
             .map(
@@ -770,8 +784,26 @@ public class ESUtils {
                 .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
             || PATH_HIERARCHY_FIELDS.contains(fieldName)
             || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
+            || isKeywordFieldType(fieldName, searchableFieldTypes)
         ? fieldName
         : fieldName + ESUtils.KEYWORD_SUFFIX;
+  }
+
+  private static boolean isKeywordFieldType(
+      @Nonnull String fieldName,
+      @Nullable Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    if (searchableFieldTypes == null) {
+      return false;
+    }
+    Set<SearchableAnnotation.FieldType> types = searchableFieldTypes.get(fieldName);
+    if (types == null) {
+      return false;
+    }
+    // Only KEYWORD and BOOLEAN are safe to query without .keyword suffix on V2.
+    // URN/URN_PARTIAL are text+keyword in V2 (need .keyword for exact match),
+    // but keyword aliases in V3 (no .keyword subfield). V2 data covers V3 gaps.
+    return types.contains(SearchableAnnotation.FieldType.KEYWORD)
+        || types.contains(SearchableAnnotation.FieldType.BOOLEAN);
   }
 
   public static RequestOptions buildReindexTaskRequestOptions(
@@ -831,7 +863,11 @@ public class ESUtils {
       orQueryBuilder.should(
           getQueryBuilderFromCriterionForSingleField(
                   buildCriterion(
-                      toKeywordField(field, isTimeseries, opContext.getAspectRetriever()),
+                      toKeywordField(
+                          field,
+                          isTimeseries,
+                          opContext.getAspectRetriever(),
+                          searchableFieldTypes),
                       criterion.getCondition(),
                       criterion.isNegated(),
                       criterion.getValues()),
@@ -1028,7 +1064,11 @@ public class ESUtils {
               value ->
                   boolQuery.should(
                       QueryBuilders.termQuery(
-                              toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                              toKeywordField(
+                                  criterion.getField(),
+                                  isTimeseries,
+                                  aspectRetriever,
+                                  searchableFieldTypes),
                               value.trim())
                           .caseInsensitive(true)));
       if (!boolQuery.should().isEmpty()) {
@@ -1038,7 +1078,8 @@ public class ESUtils {
     }
 
     return QueryBuilders.termsQuery(
-            toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+            toKeywordField(
+                criterion.getField(), isTimeseries, aspectRetriever, searchableFieldTypes),
             criterion.getValues())
         .queryName(fieldName);
   }
@@ -1105,7 +1146,8 @@ public class ESUtils {
       documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
-      documentFieldName = toKeywordField(fieldName, isTimeseries, aspectRetriever);
+      documentFieldName =
+          toKeywordField(fieldName, isTimeseries, aspectRetriever, searchableFieldTypes);
     }
 
     // Set up QueryBuilder based on condition

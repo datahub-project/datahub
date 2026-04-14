@@ -34,6 +34,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,7 +54,8 @@ public class AggregationQueryBuilderTest {
 
   private static CachingAspectRetriever aspectRetriever;
   private static CachingAspectRetriever aspectRetrieverV1;
-  private static String DEFAULT_FILTER = "_index";
+  // Entity type aggregation uses a Painless script (not a field), so field() returns null
+  private static String DEFAULT_FILTER = null;
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
@@ -399,10 +401,11 @@ public class AggregationQueryBuilderTest {
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of(
-            "structuredProperties.ab_fgh_ten.keyword",
-            "structuredProperties.hello.keyword",
-            DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "structuredProperties.ab_fgh_ten.keyword",
+                "structuredProperties.hello.keyword",
+                DEFAULT_FILTER)));
   }
 
   @Test
@@ -423,7 +426,9 @@ public class AggregationQueryBuilderTest {
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of("structuredProperties.under_scores_and_dots_make_a_mess.keyword", DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "structuredProperties.under_scores_and_dots_make_a_mess.keyword", DEFAULT_FILTER)));
     // Two structured properties
     aggs =
         builder.getAggregations(
@@ -436,10 +441,11 @@ public class AggregationQueryBuilderTest {
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of(
-            "structuredProperties.under_scores_and_dots_make_a_mess.keyword",
-            "structuredProperties.hello.keyword",
-            DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "structuredProperties.under_scores_and_dots_make_a_mess.keyword",
+                "structuredProperties.hello.keyword",
+                DEFAULT_FILTER)));
   }
 
   @Test
@@ -480,10 +486,11 @@ public class AggregationQueryBuilderTest {
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of(
-            "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword",
-            DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
+                "structuredProperties._versioned.hello.00000000000001.string.keyword",
+                DEFAULT_FILTER)));
   }
 
   @Test
@@ -504,9 +511,10 @@ public class AggregationQueryBuilderTest {
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of(
-            "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
-            DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
+                DEFAULT_FILTER)));
 
     // Two structured properties
     aggs =
@@ -520,10 +528,11 @@ public class AggregationQueryBuilderTest {
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of(
-            "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword",
-            DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
+                "structuredProperties._versioned.hello.00000000000001.string.keyword",
+                DEFAULT_FILTER)));
   }
 
   @Test
@@ -603,13 +612,14 @@ public class AggregationQueryBuilderTest {
             .collect(Collectors.toSet());
     Assert.assertEquals(
         facets,
-        ImmutableSet.of(
-            "test1.keyword",
-            "test2.keyword",
-            "hasTest1",
-            "structuredProperties.ab_fgh_ten.keyword",
-            "structuredProperties.hello.keyword",
-            DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "test1",
+                "test2",
+                "hasTest1",
+                "structuredProperties.ab_fgh_ten.keyword",
+                "structuredProperties.hello.keyword",
+                DEFAULT_FILTER)));
   }
 
   @Test
@@ -692,13 +702,14 @@ public class AggregationQueryBuilderTest {
             .collect(Collectors.toSet());
     Assert.assertEquals(
         facets,
-        ImmutableSet.of(
-            "test1.keyword",
-            "test2.keyword",
-            "hasTest1",
-            "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword",
-            DEFAULT_FILTER));
+        new HashSet<>(
+            Arrays.asList(
+                "test1",
+                "test2",
+                "hasTest1",
+                "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
+                "structuredProperties._versioned.hello.00000000000001.string.keyword",
+                DEFAULT_FILTER)));
   }
 
   @Test

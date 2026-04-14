@@ -3,6 +3,7 @@ package com.linkedin.metadata.utils;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -70,7 +71,7 @@ public class SearchUtil {
     return result;
   }
 
-  private static Criterion transformEntityTypeCriterion(
+  private static Criterion transformEntityTypeCriterionForV2(
       Criterion criterion, IndexConvention indexConvention) {
     return buildCriterion(
         ES_INDEX_FIELD,
@@ -82,26 +83,80 @@ public class SearchUtil {
             .collect(Collectors.toList()));
   }
 
-  private static ConjunctiveCriterion transformConjunctiveCriterion(
-      ConjunctiveCriterion conjunctiveCriterion, IndexConvention indexConvention) {
-    return new ConjunctiveCriterion()
-        .setAnd(
-            conjunctiveCriterion.getAnd().stream()
-                .map(
-                    criterion ->
-                        criterion.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                            ? transformEntityTypeCriterion(criterion, indexConvention)
-                            : criterion)
-                .collect(Collectors.toCollection(CriterionArray::new)));
+  private static Criterion transformEntityTypeCriterionForV3(
+      Criterion criterion, @Nullable EntityRegistry entityRegistry) {
+    // V3 documents have _entityType field with camelCase entity names (e.g. "glossaryTerm",
+    // "dataFlow"). Use EntityRegistry to get the canonical name since simple string conversion
+    // is unreliable (e.g., "corpuser" not "corpUser", "mlModel" not "mlmodel").
+    return buildCriterion(
+        "_entityType",
+        Condition.EQUAL,
+        criterion.isNegated(),
+        criterion.getValues().stream()
+            .map(
+                value -> {
+                  String joined = String.join("", value.split("_")).toLowerCase();
+                  if (entityRegistry != null) {
+                    try {
+                      return entityRegistry.getEntitySpec(joined).getName();
+                    } catch (IllegalArgumentException e) {
+                      // Entity not found in registry, fall back to lowercase
+                    }
+                  }
+                  return joined;
+                })
+            .collect(Collectors.toList()));
+  }
+
+  private static List<ConjunctiveCriterion> transformConjunctiveCriterion(
+      ConjunctiveCriterion conjunctiveCriterion,
+      IndexConvention indexConvention,
+      @Nullable EntityRegistry entityRegistry) {
+    boolean hasEntityTypeFilter =
+        conjunctiveCriterion.getAnd().stream()
+            .anyMatch(c -> c.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD));
+
+    if (!hasEntityTypeFilter) {
+      // No entity type filter — return as-is
+      return List.of(conjunctiveCriterion);
+    }
+
+    // Split non-entity-type criteria from entity-type criteria
+    List<Criterion> nonEntityCriteria =
+        conjunctiveCriterion.getAnd().stream()
+            .filter(c -> !c.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD))
+            .collect(Collectors.toList());
+    List<Criterion> entityCriteria =
+        conjunctiveCriterion.getAnd().stream()
+            .filter(c -> c.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD))
+            .collect(Collectors.toList());
+
+    // V2 variant: _index = chartindex_v2 (works for V2 indices)
+    CriterionArray v2Criteria = new CriterionArray(nonEntityCriteria);
+    entityCriteria.forEach(
+        c -> v2Criteria.add(transformEntityTypeCriterionForV2(c, indexConvention)));
+    ConjunctiveCriterion v2Conjunction = new ConjunctiveCriterion().setAnd(v2Criteria);
+
+    // V3 variant: _entityType = glossaryTerm (works for V3 unified index)
+    CriterionArray v3Criteria = new CriterionArray(nonEntityCriteria);
+    entityCriteria.forEach(
+        c -> v3Criteria.add(transformEntityTypeCriterionForV3(c, entityRegistry)));
+    ConjunctiveCriterion v3Conjunction = new ConjunctiveCriterion().setAnd(v3Criteria);
+
+    return List.of(v2Conjunction, v3Conjunction);
   }
 
   private static ConjunctiveCriterionArray transformConjunctiveCriterionArray(
-      ConjunctiveCriterionArray criterionArray, IndexConvention indexConvention) {
+      ConjunctiveCriterionArray criterionArray,
+      IndexConvention indexConvention,
+      @Nullable EntityRegistry entityRegistry) {
     return new ConjunctiveCriterionArray(
         criterionArray.stream()
-            .map(
+            .flatMap(
                 conjunctiveCriterion ->
-                    transformConjunctiveCriterion(conjunctiveCriterion, indexConvention))
+                    transformConjunctiveCriterion(
+                        conjunctiveCriterion, indexConvention, entityRegistry)
+                        .stream())
             .collect(Collectors.toList()));
   }
 
@@ -111,15 +166,25 @@ public class SearchUtil {
    *
    * @param filter The filter to parse and transform if needed
    * @param indexConvention The index convention used to generate the index name for an entity
+   * @param entityRegistry The entity registry for canonical entity name lookup (V3 camelCase)
    * @return A filter, with the changes if necessary
    */
   public static Filter transformFilterForEntities(
-      Filter filter, @Nonnull IndexConvention indexConvention) {
+      Filter filter,
+      @Nonnull IndexConvention indexConvention,
+      @Nullable EntityRegistry entityRegistry) {
     if (filter != null && filter.getOr() != null) {
       return new Filter()
-          .setOr(transformConjunctiveCriterionArray(filter.getOr(), indexConvention));
+          .setOr(
+              transformConjunctiveCriterionArray(filter.getOr(), indexConvention, entityRegistry));
     }
     return filter;
+  }
+
+  /** Backward-compatible overload without EntityRegistry (V3 entity type filter uses lowercase). */
+  public static Filter transformFilterForEntities(
+      Filter filter, @Nonnull IndexConvention indexConvention) {
+    return transformFilterForEntities(filter, indexConvention, null);
   }
 
   public static SortCriterion sortBy(@Nonnull String field, @Nullable SortOrder direction) {

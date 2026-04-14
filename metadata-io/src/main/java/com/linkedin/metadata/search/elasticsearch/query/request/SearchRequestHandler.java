@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -423,7 +424,18 @@ public class SearchRequestHandler extends BaseRequestHandler {
       int from,
       @Nullable Integer size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+
+    // Deduplicate by URN (same entity can appear in both V2 and V3 indices)
+    List<SearchEntity> allResults =
+        Arrays.stream(searchResponse.getHits().getHits())
+            .map(this::getResult)
+            .collect(Collectors.toList());
+    int preDedup = allResults.size();
+    List<SearchEntity> deduped = deduplicateByUrn(allResults);
+    totalCount = Math.max(0, totalCount - (preDedup - deduped.size()));
+
+    Collection<SearchEntity> resultList =
+        ESAccessControlUtil.restrictSearchResult(opContext, deduped);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
 
@@ -474,6 +486,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
       }
       results.add(entity);
     }
+
+    // Deduplicate by URN (same entity can appear in both V2 and V3 indices)
+    int preDedup = results.size();
+    results = deduplicateByUrn(results);
+    totalCount = Math.max(0, totalCount - (preDedup - results.size()));
 
     // Apply access control restrictions while preserving order
     Collection<SearchEntity> resultList =
@@ -625,6 +642,24 @@ public class SearchRequestHandler extends BaseRequestHandler {
   @Nonnull
   private Urn getUrnFromSearchHit(@Nonnull SearchHit hit) {
     return UrnExtractionUtils.extractUrnFromSearchHit(hit);
+  }
+
+  /**
+   * Deduplicates search entities by URN, keeping the highest-scoring hit for each URN. This handles
+   * the case where the same entity appears in both V2 and V3 indices.
+   */
+  private static List<SearchEntity> deduplicateByUrn(List<SearchEntity> entities) {
+    LinkedHashMap<Urn, SearchEntity> seen = new LinkedHashMap<>();
+    for (SearchEntity entity : entities) {
+      Urn urn = entity.getEntity();
+      SearchEntity existing = seen.get(urn);
+      if (existing == null
+          || (entity.getScore() != null
+              && (existing.getScore() == null || entity.getScore() > existing.getScore()))) {
+        seen.put(urn, entity);
+      }
+    }
+    return new ArrayList<>(seen.values());
   }
 
   /**

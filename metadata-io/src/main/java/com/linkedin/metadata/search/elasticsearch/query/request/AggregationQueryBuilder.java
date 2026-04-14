@@ -42,6 +42,8 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.script.Script;
+import org.opensearch.script.ScriptType;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -54,6 +56,21 @@ import org.opensearch.search.aggregations.bucket.terms.Terms;
 public class AggregationQueryBuilder {
   private static final String URN_FILTER = "urn";
   private static final String STRUCTURED_PROPERTIES_PREFIX = "structuredProperties.";
+
+  // Painless script for entity type aggregation across V2 and V3 indices.
+  // V3 documents store entity name in _entityType field; V2 documents don't have it,
+  // so we fall back to _index (transformed to entity name by ESSearchDAO post-processing).
+  private static final Script ENTITY_TYPE_AGG_SCRIPT =
+      new Script(
+          ScriptType.INLINE,
+          "painless",
+          "if (doc.containsKey('_entityType') && doc['_entityType'].size() > 0) {"
+              + " return doc['_entityType'].value;"
+              + " } else {"
+              + " return doc['_index'].value;"
+              + " }",
+          Collections.emptyMap());
+
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
@@ -169,7 +186,7 @@ public class AggregationQueryBuilder {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
                 ? AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField(ES_INDEX_FIELD, opContext.getAspectRetriever()))
+                    .script(ENTITY_TYPE_AGG_SCRIPT)
                     .size(maxTermBuckets)
                     .minDocCount(0)
                 : AggregationBuilders.terms(inputFacet)
@@ -191,10 +208,19 @@ public class AggregationQueryBuilder {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // intercept structured property if it exists
-    return toStructuredPropertyFacetName(facet, aspectRetriever)
-        // Otherwise assume that this field is of keyword type.
-        .orElse(ESUtils.toKeywordField(facet, false, aspectRetriever));
+    // intercept structured property if it exists (already includes .keyword)
+    String resolved = toStructuredPropertyFacetName(facet, aspectRetriever).orElse(null);
+    if (resolved != null) {
+      return resolved;
+    }
+    // For structured property fields that couldn't be resolved, keep .keyword suffix
+    if (facet.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD)) {
+      return ESUtils.toKeywordField(facet, false, aspectRetriever);
+    }
+    // Skip .keyword suffix for regular fields: V2 base fields are already keyword type
+    // (URN, KEYWORD), and V3 alias fields can't have .keyword subfields.
+    // Aggregating on the base field works for both V2 and V3.
+    return ESUtils.toKeywordField(facet, true, aspectRetriever);
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {

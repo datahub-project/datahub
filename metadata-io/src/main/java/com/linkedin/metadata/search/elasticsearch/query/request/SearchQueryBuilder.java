@@ -382,7 +382,7 @@ public class SearchQueryBuilder {
           entitySpecs.stream()
               .map(spec -> getStandardFields(entityRegistry, spec))
               .flatMap(Set::stream)
-              .collect(Collectors.toSet());
+              .collect(Collectors.toCollection(HashSet::new));
 
       Set<SearchFieldConfig> configuredFields =
           customizedQueryHandler.applySearchFieldConfiguration(
