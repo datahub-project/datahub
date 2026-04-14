@@ -464,7 +464,14 @@ jobs:
               if ! docker pull "$image"; then
                 echo "Failed to pull $image"
                 failed_pulls=$((failed_pulls + 1))
+              else
+                # Retag from ghcr.io/datahub-project/ to docker.io/acryldata/ so smoke tests
+                # can reference images by the canonical acryldata name.
+                acryl_image="${image/${{ env.DOCKER_REGISTRY }}\//acryldata/}"
+                docker tag "$image" "$acryl_image"
               fi
+              
+
             fi
           done
 
