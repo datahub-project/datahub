@@ -277,7 +277,7 @@ def _db2_get_procedures(
                 LANGUAGE,
                 CREATEDTS as CREATE_TIME,
                 ALTEREDTS as ALTER_TIME,
-                NULL as QUALIFIER,
+                cast(NULL as varchar) as QUALIFIER,
                 TEXT,
                 REMARKS
             from SYSIBM.SYSROUTINES
