@@ -19,7 +19,10 @@ The domain and ownership transformers on this page support the following entity 
 
 You can restrict the set of entity types via the optional `entity_types` config field.
 
-> **Relationship to Dataset Transformers:** The domain and ownership transformers on this page are drop-in replacements for their `*_dataset_*` counterparts (e.g. `simple_add_domain` replaces `simple_add_dataset_domain`). The `*_dataset_*` variants continue to work but only process dataset entities. Use the names on this page when you need broader entity type coverage.
+:::tip "Relationship to Dataset Transformers"
+
+The domain and ownership transformers on this page are drop-in replacements for their `*_dataset_*` counterparts (e.g. `simple_add_domain` replaces `simple_add_dataset_domain`). The `*_dataset_*` variants continue to work but only process dataset entities. Use the names on this page when you need broader entity type coverage.
+:::
 
 | Aspect          | Transformer                                                                                            |
 | --------------- | ------------------------------------------------------------------------------------------------------ |
@@ -200,7 +203,9 @@ Both `pattern_add_domain` and `pattern_add_ownership` support an `is_container` 
 
 This is useful when you want containers to inherit domains or ownership from their children without configuring each container individually.
 
-⚠️ **Note:** When multiple entities in the same container have different owners or domains, all values are merged additively onto the container. For example, if dataset A has owner `alice` and dataset B has owner `bob`, and both are in the same container, that container gets both `alice` and `bob` as owners.
+:::info
+When multiple entities in the same container have different owners or domains, all values are merged additively onto the container. For example, if dataset A has owner `alice` and dataset B has owner `bob`, and both are in the same container, that container gets both `alice` and `bob` as owners.
+:::
 
 ## Set browsePaths
 
