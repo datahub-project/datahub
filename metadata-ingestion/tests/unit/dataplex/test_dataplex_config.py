@@ -218,9 +218,7 @@ class TestDataplexConfig:
         assert config.include_lineage is True
 
         # Test disabling lineage
-        config2 = DataplexConfig(
-            project_ids=["test-project"], include_lineage=False
-        )
+        config2 = DataplexConfig(project_ids=["test-project"], include_lineage=False)
 
         assert config2.include_lineage is False
 
