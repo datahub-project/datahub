@@ -731,25 +731,19 @@ class Pipeline:
                     "warnings": self.config.flags.progress_report_max_warnings,
                     "infos": self.config.flags.progress_report_max_infos,
                 }
-                cap_label = "interim report"
             else:
                 sample_caps = {
                     "failures": self.config.flags.report_failure_sample_size,
                     "warnings": self.config.flags.report_warning_sample_size,
                     "infos": self.config.flags.report_info_sample_size,
                 }
-                cap_label = "capped"
             click.echo()
             click.secho("Cli report:", bold=True)
-            click.echo(self.cli_report.as_string(sample_caps, cap_label=cap_label))
+            click.echo(self.cli_report.as_string(sample_caps))
             click.secho(f"Source ({self.source_type}) report:", bold=True)
-            click.echo(
-                self.source.get_report().as_string(sample_caps, cap_label=cap_label)
-            )
+            click.echo(self.source.get_report().as_string(sample_caps))
             click.secho(f"Sink ({self.sink_type}) report:", bold=True)
-            click.echo(
-                self.sink.get_report().as_string(sample_caps, cap_label=cap_label)
-            )
+            click.echo(self.sink.get_report().as_string(sample_caps))
             global_warnings = get_global_warnings()
             if len(global_warnings) > 0:
                 click.secho("Global Warnings:", bold=True)

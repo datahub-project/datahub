@@ -54,12 +54,11 @@ def test_cap_report_samples_basic():
     # failures capped to 2 + summary message
     assert len(capped["failures"]) == 3
     assert capped["failures"][:2] == ["err1", "err2"]
-    assert "interim report" in capped["failures"][-1]
-    assert "2 of 5" in capped["failures"][-1]
+    assert "and 3 more" in capped["failures"][-1]
 
     # warnings capped to 1 + summary message
     assert len(capped["warnings"]) == 2
-    assert "interim report" in capped["warnings"][-1]
+    assert "and 2 more" in capped["warnings"][-1]
 
     # infos under cap — untouched
     assert capped["infos"] == ["i1", "i2"]
@@ -78,15 +77,14 @@ def test_cap_report_samples_zero_cap():
 
     # failures: all suppressed, one sentinel line
     assert len(capped["failures"]) == 1
-    assert "0 of 3" in capped["failures"][0]
-    assert "interim report" in capped["failures"][0]
+    assert "and 3 more" in capped["failures"][0]
 
     # empty list stays empty (len(0) > 0 is False)
     assert capped["warnings"] == []
 
     # single-element list: still capped since 1 > 0
     assert len(capped["infos"]) == 1
-    assert "0 of 1" in capped["infos"][0]
+    assert "and 1 more" in capped["infos"][0]
 
 
 def test_cap_report_samples_key_not_in_caps():
@@ -148,10 +146,9 @@ def test_as_string_with_caps_applies_capping():
         count=42,
     )
     result = report.as_string(progress_sample_caps={"failures": 2, "warnings": 5})
-    assert "interim report" in result
-    assert "2 of 5" in result
+    assert "and 3 more" in result
     # warnings list (len 1) is under cap 5, so no sentinel
-    assert result.count("interim report") == 1
+    assert result.count("more") == 1
 
 
 def test_as_string_none_caps_shows_all():
@@ -160,7 +157,7 @@ def test_as_string_none_caps_shows_all():
         count=10,
     )
     result = report.as_string(progress_sample_caps=None)
-    assert "interim report" not in result
+    assert "more" not in result
     assert "e1" in result
     assert "e3" in result
 
@@ -372,13 +369,13 @@ def test_retention_progress_max_higher_final_shows_report_size():
     # as_obj() returns all 25 retained (raw data)
     raw_failures = _count_real_entries(result["source"], "failures")
     assert raw_failures == 25
-    # But as_string with the final caps shows only 5
+    # But as_string with the final caps shows only 5 + sentinel
     final_str = result["source_report"].as_string(
         progress_sample_caps={"failures": 5, "warnings": 10, "infos": 10},
-        cap_label="capped",
     )
-    assert "showing 5 of" in final_str
-    assert "(capped)" in final_str
+    assert "more" in final_str
+    # Verify only 5 real failure entries are displayed
+    assert final_str.count("'message': 'F") == 5
 
 
 def test_retention_both_set_equal():
