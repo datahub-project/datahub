@@ -775,11 +775,6 @@ class TestVirtualConnectionProcessor:
                 "is_snowflake_urn",
                 return_value=True,
             ),
-            mock.patch.object(
-                self.vc_processor.tableau_source,
-                "_normalize_snowflake_column_name",
-                return_value="customer_id",  # Normalized version
-            ),
         ):
             result = self.vc_processor._create_table_upstream_lineage(
                 table_info, table_urn
@@ -809,6 +804,52 @@ class TestVirtualConnectionProcessor:
         ):
             self.vc_processor.lookup_vc_ids_from_table_ids()
             assert len(self.vc_processor.vc_table_id_to_vc_id) == 0
+
+    def test_process_datasource_for_vc_refs_skips_non_dict_fields(self):
+        datasource = {
+            c.ID: "ds-none-fields",
+            c.NAME: "test_ds",
+            c.FIELDS: [None, "not_a_dict", None],
+        }
+
+        self.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.PUBLISHED
+        )
+
+        assert "ds-none-fields" not in self.vc_processor.datasource_vc_relationships
+
+    def test_process_datasource_for_vc_refs_processes_valid_after_none(self):
+        datasource = {
+            c.ID: "ds-mixed",
+            c.NAME: "test_ds",
+            c.FIELDS: [
+                None,
+                {
+                    c.NAME: "customer_id",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "id",
+                            c.TABLE: {
+                                c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                                c.ID: "vc-table-99",
+                                c.NAME: "customers",
+                                "virtualConnection": {c.ID: "vc-99"},
+                            },
+                        }
+                    ],
+                },
+                None,
+            ],
+        }
+
+        self.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.PUBLISHED
+        )
+
+        assert "ds-mixed" in self.vc_processor.datasource_vc_relationships
+        refs = self.vc_processor.datasource_vc_relationships["ds-mixed"]
+        assert len(refs) == 1
+        assert refs[0]["vc_table_id"] == "vc-table-99"
 
     def test_column_type_storage(self):
         """Test that column types are stored correctly during lookup"""

@@ -822,32 +822,6 @@ class TestTableauSourceNewFeatures:
                 report=TableauSourceReport(),
             )
 
-    def test_normalize_snowflake_column_name(self):
-        """Test Snowflake column name normalization."""
-        # Test space to underscore conversion
-        assert (
-            self.tableau_source._normalize_snowflake_column_name("Customer Name")
-            == "customer_name"
-        )
-        assert (
-            self.tableau_source._normalize_snowflake_column_name("Fee U24") == "fee_u24"
-        )
-
-        # Test already normalized names
-        assert (
-            self.tableau_source._normalize_snowflake_column_name("customer_id")
-            == "customer_id"
-        )
-        assert (
-            self.tableau_source._normalize_snowflake_column_name("CUSTOMER_ID")
-            == "customer_id"
-        )
-
-        # Test edge cases
-        assert self.tableau_source._normalize_snowflake_column_name("") == ""
-        assert self.tableau_source._normalize_snowflake_column_name("_") == "_"
-        assert self.tableau_source._normalize_snowflake_column_name("a") == "a"
-
     def test_get_upstream_vc_tables_with_relationships(self):
         """Test get_upstream_vc_tables with existing VC relationships."""
         datasource_id = "ds-123"
@@ -1300,3 +1274,160 @@ def test_emit_datasource_does_not_add_embedded_ids_to_published_list():
         assert "published-ds-1" in source.datasource_ids_being_used
         # And the embedded one should still not be there
         assert "embedded-ds-1" not in source.datasource_ids_being_used
+
+
+def _make_site_source() -> TableauSiteSource:
+    """Create a minimal TableauSiteSource for unit testing."""
+    config = TableauConfig.model_validate(default_config)
+    ctx = PipelineContext(run_id="test")
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+        return TableauSiteSource(
+            config=config,
+            ctx=ctx,
+            platform="tableau",
+            site=SiteIdContentUrl(site_id="s1", site_content_url="s1"),
+            report=TableauSourceReport(),
+            server=mock.MagicMock(spec=Server),
+        )
+
+
+class TestNullApiResponseHandling:
+    """Tableau's Metadata API occasionally returns None entries inside list fields
+    (upstreamTables, fields, upstreamColumns).  Each affected function should
+    silently skip non-dict entries and continue processing the rest of the list.
+    """
+
+    def setup_method(self) -> None:
+        self.source = _make_site_source()
+
+    def test_get_upstream_tables_skips_non_dict_entries(self) -> None:
+        tables = [None, "string_entry", {c.ID: "t1", c.NAME: None}]
+
+        upstream_tables, table_id_to_urn = self.source.get_upstream_tables(
+            tables=tables,
+            datasource_name="test_datasource",
+            browse_path=None,
+            is_custom_sql=False,
+        )
+
+        assert upstream_tables == []
+        assert table_id_to_urn == {}
+
+    def test_get_upstream_tables_processes_valid_entries_after_none(self) -> None:
+        valid_table = {
+            c.ID: "t-valid",
+            c.NAME: "my_table",
+            c.SCHEMA: "my_schema",
+            c.FULL_NAME: "db.my_schema.my_table",
+            c.CONNECTION_TYPE: "snowflake",
+            c.DATABASE: {"name": "my_db", "connectionType": "snowflake"},
+            c.COLUMNS_CONNECTION: {"totalCount": 1},
+        }
+
+        with mock.patch.object(
+            TableauUpstreamReference,
+            "create",
+            return_value=mock.MagicMock(
+                make_dataset_urn=mock.MagicMock(
+                    return_value="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.my_schema.my_table,PROD)"
+                )
+            ),
+        ):
+            upstream_tables, table_id_to_urn = self.source.get_upstream_tables(
+                tables=[None, valid_table, None],
+                datasource_name="ds",
+                browse_path=None,
+                is_custom_sql=False,
+            )
+
+        assert len(upstream_tables) == 1
+        assert len(table_id_to_urn) == 1
+
+    def test_get_upstream_csql_tables_skips_non_dict_fields(self) -> None:
+        fields = [None, "not_a_dict", {c.UPSTREAM_COLUMNS: None}]
+
+        upstream_csql, csql_id_to_urn = self.source.get_upstream_csql_tables(fields)
+
+        assert upstream_csql == []
+        assert csql_id_to_urn == {}
+
+    def test_get_upstream_csql_tables_processes_valid_after_none(self) -> None:
+        valid_field = {
+            c.UPSTREAM_COLUMNS: [
+                {
+                    c.TABLE: {c.TYPE_NAME: c.CUSTOM_SQL_TABLE, c.ID: "csql-1"},
+                    c.NAME: "col1",
+                }
+            ]
+        }
+
+        upstream_csql, csql_id_to_urn = self.source.get_upstream_csql_tables(
+            [None, valid_field, None]
+        )
+
+        assert len(upstream_csql) == 1
+        assert "csql-1" in csql_id_to_urn
+
+    def test_get_upstream_columns_skips_non_dict_fields(self) -> None:
+        datasource = {c.ID: "ds-1", c.FIELDS: [None, "not_a_dict"]}
+
+        result = self.source.get_upstream_columns_of_fields_in_datasource(
+            datasource=datasource,
+            datasource_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)",
+            table_id_to_urn={
+                "t1": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t,PROD)"
+            },
+        )
+
+        assert result == []
+
+    def test_get_upstream_columns_processes_valid_after_none(self) -> None:
+        datasource = {
+            c.ID: "ds-2",
+            c.FIELDS: [
+                None,
+                {
+                    c.NAME: "my_field",
+                    c.UPSTREAM_COLUMNS: [{c.NAME: "col1", c.TABLE: {c.ID: "t1"}}],
+                },
+            ],
+        }
+
+        result = self.source.get_upstream_columns_of_fields_in_datasource(
+            datasource=datasource,
+            datasource_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,ds-2,PROD)",
+            table_id_to_urn={
+                "t1": "urn:li:dataset:(urn:li:dataPlatform:postgres,db.s.t,PROD)"
+            },
+        )
+
+        assert len(result) == 1
+        assert result[0].downstreams == [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,ds-2,PROD),my_field)"
+        ]
+
+    def test_get_schema_metadata_skips_non_dict_fields(self) -> None:
+        result = self.source._get_schema_metadata_for_datasource([None, "not_a_dict"])
+
+        assert result is None
+
+    def test_get_schema_metadata_processes_valid_after_none(self) -> None:
+        valid_field = {
+            c.ID: "f1",
+            c.NAME: "my_column",
+            "__typename": "DimensionField",
+            c.UPSTREAM_COLUMNS: [],
+            "isHidden": False,
+            "folderName": None,
+            "description": None,
+            "dataType": None,
+            "defaultFormat": None,
+            "aggregation": None,
+            "role": None,
+        }
+
+        result = self.source._get_schema_metadata_for_datasource([None, valid_field])
+
+        assert result is not None
+        assert len(result.fields) == 1
+        assert result.fields[0].fieldPath == "my_column"
