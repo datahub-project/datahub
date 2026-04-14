@@ -73,6 +73,7 @@ import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -130,6 +131,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * A class specifying create, update, and read operations against metadata entities and aspects by
@@ -179,6 +181,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
   private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
+
+  @Nullable private IngestionMetricsEmitter ingestionMetricsEmitter;
 
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
@@ -1678,6 +1682,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    // Emit ingestion metrics on the actual processing path only (async=false).
+    // async=true just writes to Kafka MCP topic — the MCE consumer will call back with async=false.
+    if (!async && ingestionMetricsEmitter != null) {
+      ingestionMetricsEmitter.processProposals(aspectsBatch);
+    }
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
@@ -2697,6 +2706,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public void setRetentionService(RetentionService<ChangeItemImpl> retentionService) {
     this.retentionService = retentionService;
+  }
+
+  @Autowired(required = false)
+  public void setIngestionMetricsEmitter(
+      @Nullable IngestionMetricsEmitter ingestionMetricsEmitter) {
+    this.ingestionMetricsEmitter = ingestionMetricsEmitter;
   }
 
   @Override
