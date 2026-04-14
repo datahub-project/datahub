@@ -570,9 +570,7 @@ class TestDataplexParallelEntries:
             patch.object(processor, "_process_spanner_entries", return_value=[]),
         ):
             entities = list(
-                processor.process_entries(
-                    project_ids=["proj-1"], max_workers=2
-                )
+                processor.process_entries(project_ids=["proj-1"], max_workers=2)
             )
 
         assert set(entities) == {entity_a, entity_b}
@@ -589,9 +587,7 @@ class TestDataplexParallelEntries:
             ),
         ):
             entities = list(
-                processor.process_entries(
-                    project_ids=["proj-1"], max_workers=2
-                )
+                processor.process_entries(project_ids=["proj-1"], max_workers=2)
             )
 
         assert spanner_entity in entities
@@ -615,9 +611,7 @@ class TestDataplexParallelEntries:
             patch.object(processor, "_process_spanner_entries", return_value=[]),
         ):
             entities = list(
-                processor.process_entries(
-                    project_ids=["proj-1"], max_workers=2
-                )
+                processor.process_entries(project_ids=["proj-1"], max_workers=2)
             )
 
         assert entity_ok in entities
