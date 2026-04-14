@@ -1,16 +1,18 @@
-import { Image } from '@phosphor-icons/react';
+import { Image } from '@phosphor-icons/react/dist/csr/Image';
 import { useCommands } from '@remirror/react';
-import { Form, Input, Modal, Typography } from 'antd';
+import { Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTheme } from 'styled-components';
 
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
-
-import { colors } from '@src/alchemy-components/theme';
+import { Modal } from '@components/components/Modal';
 
 export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
     const { insertImage } = useCommands();
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const handleButtonClick = () => {
         setModalVisible(true);
@@ -36,16 +38,21 @@ export const AddImageButton = () => {
         <>
             <CommandButton
                 active={false}
-                icon={<Image size={20} color={colors.gray[1800]} />}
+                icon={<Image size={20} color={iconColor} />}
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />
             <Modal
                 title="Add Image"
                 open={isModalVisible}
-                okText="Save"
-                onOk={handleOk}
                 onCancel={handleCancel}
+                buttons={[
+                    {
+                        text: 'Save',
+                        variant: 'filled',
+                        onClick: handleOk,
+                    },
+                ]}
                 zIndex={1200}
             >
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>

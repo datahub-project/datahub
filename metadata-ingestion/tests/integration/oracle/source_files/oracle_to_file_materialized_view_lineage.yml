@@ -1,0 +1,32 @@
+run_id: oracle-mview-lineage-test
+
+source:
+  type: oracle
+  config:
+    username: system
+    password: example
+    host_port: localhost:51521
+    service_name: XEPDB1
+    
+    # Focus on materialized view lineage
+    include_stored_procedures: false
+    include_materialized_views: true
+    
+    # Enable lineage features
+    include_view_lineage: true
+    include_view_column_lineage: true
+    
+    data_dictionary_mode: "ALL"
+    
+    schema_pattern:
+      allow:
+        - "^ANALYTICS_SCHEMA$"  # Has materialized views
+        - "^SYSTEM$"            # Has test_mview
+    
+    profiling:
+      enabled: false
+      
+sink:
+  type: file
+  config:
+    filename: "oracle_mces.json"

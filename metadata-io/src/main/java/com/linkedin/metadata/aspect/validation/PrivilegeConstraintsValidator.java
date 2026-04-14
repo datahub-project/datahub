@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static com.linkedin.metadata.Constants.UI_SOURCE;
 
 import com.datahub.authorization.AuthUtil;
@@ -62,20 +63,46 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
       @Nullable AuthorizationSession session) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
+    // If no items match this validator's configuration, nothing to validate
+    if (mcpItems.isEmpty()) {
+      return exceptions.streamAllExceptions();
+    }
+
+    // Filter out items that don't need validation (UI and system update sources)
+    List<? extends BatchItem> itemsRequiringValidation =
+        mcpItems.stream()
+            .filter(
+                item -> {
+                  String appSource =
+                      item.getSystemMetadata() != null
+                              && item.getSystemMetadata().getProperties() != null
+                          ? item.getSystemMetadata().getProperties().get(APP_SOURCE)
+                          : null;
+                  // We skip UI events, these are handled by LabelUtils.
+                  if (UI_SOURCE.equals(appSource)) {
+                    return false;
+                  }
+                  // Skip system updates - run with elevated privileges without user auth context
+                  if (SYSTEM_UPDATE_SOURCE.equals(appSource)) {
+                    return false;
+                  }
+                  return true;
+                })
+            .collect(Collectors.toList());
+
+    // If all items were filtered out, nothing to validate
+    if (itemsRequiringValidation.isEmpty()) {
+      return exceptions.streamAllExceptions();
+    }
+
     if (session == null) {
       exceptions.addException(
-          mcpItems.stream().findFirst().orElseThrow(IllegalStateException::new),
+          itemsRequiringValidation.stream().findFirst().orElseThrow(IllegalStateException::new),
           "No authentication details found, cannot authorize change.");
       return exceptions.streamAllExceptions();
     }
 
-    for (BatchItem item : mcpItems) {
-      if (item.getSystemMetadata() != null
-          && item.getSystemMetadata().getProperties() != null
-          && UI_SOURCE.equals(item.getSystemMetadata().getProperties().get(APP_SOURCE))) {
-        // We skip UI events, these are handled by LabelUtils.
-        continue;
-      }
+    for (BatchItem item : itemsRequiringValidation) {
       AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
       switch (item.getAspectName()) {
         case GLOBAL_TAGS_ASPECT_NAME:

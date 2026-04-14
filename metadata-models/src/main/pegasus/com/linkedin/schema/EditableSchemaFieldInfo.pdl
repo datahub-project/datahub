@@ -19,7 +19,8 @@ record EditableSchemaFieldInfo {
     "fieldName": "editedFieldDescriptions",
     "fieldType": "TEXT",
     "boostScore": 0.1,
-    "searchTier": 2
+    "searchTier": 2,
+    "sanitizeRichText": true
   }
   description: optional string
 

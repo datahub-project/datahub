@@ -21,7 +21,7 @@ const SearchResultContainer = styled.div`
 `;
 
 // filter out entity itself and its children
-export function filterResultsForMove(entity: Domain, entityUrn: string) {
+function filterResultsForMove(entity: Domain, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'Domain' &&

@@ -1,6 +1,7 @@
-import { Input, Modal } from 'antd';
+import { Modal } from '@components';
+import { Input } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { useTheme } from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
@@ -29,14 +30,6 @@ function snakeToCamel(string) {
     return start + rest.map(capitalize).join('');
 }
 
-const Title = styled.span`
-    font-size: 16px;
-    font-weight: 600;
-    position: relative;
-    bottom: 6px;
-    left: 6px;
-`;
-
 const IconColorPicker: React.FC<IconColorPickerProps> = ({
     name,
     open,
@@ -49,32 +42,40 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     const refetch = useRefetch();
     const { urn } = useEntityData();
     const [updateDisplayProperties] = useUpdateDisplayPropertiesMutation();
+    const theme = useTheme();
 
-    const [stagedColor, setStagedColor] = React.useState<string>(color || '#000000');
+    const [stagedColor, setStagedColor] = React.useState<string>(color || theme.colors.colorPickerDefault);
     const [stagedIcon, setStagedIcon] = React.useState<string>(icon || 'account_circle');
 
     return (
         <Modal
             open={open}
+            title={`Choose an icon for ${name || 'Domain'}`}
             onCancel={() => onClose()}
-            onOk={() => {
-                updateDisplayProperties({
-                    variables: {
-                        urn,
-                        input: {
-                            colorHex: stagedColor,
-                            icon: {
-                                iconLibrary: IconLibrary.Material,
-                                name: capitalize(snakeToCamel(stagedIcon)),
-                                style: 'Outlined',
+            buttons={[
+                {
+                    text: 'Apply',
+                    onClick: () => {
+                        updateDisplayProperties({
+                            variables: {
+                                urn,
+                                input: {
+                                    colorHex: stagedColor,
+                                    icon: {
+                                        iconLibrary: IconLibrary.Material,
+                                        name: capitalize(snakeToCamel(stagedIcon)),
+                                        style: 'Outlined',
+                                    },
+                                },
                             },
-                        },
+                        }).then(() => refetch());
+                        onChangeColor?.(stagedColor);
+                        onChangeIcon?.(stagedIcon);
+                        onClose();
                     },
-                }).then(() => refetch());
-                onChangeColor?.(stagedColor);
-                onChangeIcon?.(stagedIcon);
-                onClose();
-            }}
+                    variant: 'filled',
+                },
+            ]}
         >
             <Input
                 type="color"
@@ -88,7 +89,6 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
                 }}
                 onChange={(e) => setStagedColor(e.target.value)}
             />
-            <Title>Choose an icon for {name || 'Domain'}</Title>
             <ChatIconPicker color={stagedColor} onIconPick={(i) => setStagedIcon(i)} />
         </Modal>
     );

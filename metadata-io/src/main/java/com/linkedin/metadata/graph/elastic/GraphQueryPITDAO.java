@@ -101,7 +101,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
    *     of throwing
    */
   @Override
-  protected List<LineageRelationship> searchWithSlices(
+  protected LineageSliceFetchResult searchWithSlices(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
       LineageGraphFilters lineageGraphFilters,
@@ -118,37 +118,56 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       boolean allowPartialResults) {
 
     // Create slice-based search requests
+    String pitId = null;
+    String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
+    try {
+      pitId =
+          ESUtils.computePointInTime(
+              null,
+              keepAlive,
+              client,
+              opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+      final String tempPitId = pitId;
 
-    for (int sliceId = 0; sliceId < slices; sliceId++) {
-      final int currentSliceId = sliceId;
+      for (int sliceId = 0; sliceId < slices; sliceId++) {
+        final int currentSliceId = sliceId;
 
-      CompletableFuture<List<LineageRelationship>> sliceFuture =
-          CompletableFuture.supplyAsync(
-              () -> {
-                return searchSingleSliceWithPit(
-                    opContext,
-                    query,
-                    lineageGraphFilters,
-                    visitedEntities,
-                    viaEntities,
-                    numHops,
-                    remainingHops,
-                    existingPaths,
-                    maxRelations,
-                    defaultPageSize,
-                    currentSliceId,
-                    slices,
-                    remainingTime,
-                    entityUrns,
-                    allowPartialResults);
-              },
-              pitExecutor); // Use dedicated thread pool with CallerRunsPolicy for backpressure
-      sliceFutures.add(sliceFuture);
+        CompletableFuture<List<LineageRelationship>> sliceFuture =
+            CompletableFuture.supplyAsync(
+                () -> {
+                  return searchSingleSliceWithPit(
+                      opContext,
+                      query,
+                      lineageGraphFilters,
+                      visitedEntities,
+                      viaEntities,
+                      numHops,
+                      remainingHops,
+                      existingPaths,
+                      maxRelations,
+                      defaultPageSize,
+                      currentSliceId,
+                      slices,
+                      remainingTime,
+                      entityUrns,
+                      allowPartialResults,
+                      tempPitId,
+                      keepAlive);
+                },
+                pitExecutor); // Use dedicated thread pool with CallerRunsPolicy for backpressure
+        sliceFutures.add(sliceFuture);
+      }
+
+      // Reuse the common slice coordination logic
+      return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
+    } finally {
+      // Cancel any still-running slice futures, then wait (bounded, see GraphQueryConstants) before
+      // deleting the shared PIT. cancel(true) only sends an interrupt — without waiting, slices
+      // blocked inside client.search() may still be executing against a deleted PIT.
+      cancelAndDrainSliceFutures(sliceFutures);
+      ESUtils.cleanupPointInTime(client, pitId, "lineage search: " + entityUrns);
     }
-
-    // Reuse the common slice coordination logic
-    return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
   }
 
   /**
@@ -173,22 +192,15 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       int totalSlices,
       long remainingTime,
       Set<Urn> entityUrns,
-      boolean allowPartialResults) {
+      boolean allowPartialResults,
+      String pitId,
+      String keepAlive) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
-    String pitId = null;
     Object[] searchAfter = null;
-    String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
+    long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
-      // Create initial PIT using existing utility method
-      pitId =
-          ESUtils.computePointInTime(
-              null,
-              keepAlive,
-              client,
-              opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
-
       // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
       while (maxRelations <= 0 || sliceRelationships.size() < maxRelations) {
         // Check for thread interruption (from future.cancel(true))
@@ -198,7 +210,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         }
 
         // Check timeout before processing
-        if (remainingTime <= 0) {
+        if (System.currentTimeMillis() >= deadline) {
           log.warn("Slice {} timed out, stopping PIT search", sliceId);
           break;
         }
@@ -286,16 +298,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         } else {
           break;
         }
-
-        // Update remaining time
-        remainingTime = System.currentTimeMillis() - (System.currentTimeMillis() - remainingTime);
       }
     } catch (Exception e) {
       log.error("Failed to execute PIT search for slice {}", sliceId, e);
       throw new RuntimeException("Failed to execute PIT search for slice " + sliceId, e);
-    } finally {
-      // Clean up PIT to prevent hitting the limit
-      ESUtils.cleanupPointInTime(client, pitId, "slice " + sliceId);
     }
 
     return sliceRelationships;

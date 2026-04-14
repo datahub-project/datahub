@@ -228,12 +228,22 @@ public class EntityController
     if (entityAspectsBody.getSortCriteria() != null) {
       sortCriteria =
           entityAspectsBody.getSortCriteria().stream()
-              .map(io.datahubproject.openapi.v3.models.SortCriterion::toRecordTemplate)
+              .map(
+                  sortCriterion -> {
+                    SortCriterion pegasusSortCriterion = sortCriterion.toRecordTemplate();
+                    if (sortCriterion.getMissingValue() != null) {
+                      pegasusSortCriterion
+                          .data()
+                          .put("missingValue", sortCriterion.getMissingValue().getValue());
+                    }
+                    return pegasusSortCriterion;
+                  })
               .toList();
     } else if (!CollectionUtils.isEmpty(sortFields)) {
-      sortCriteria = new ArrayList<>();
-      sortFields.forEach(
-          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+      sortCriteria =
+          sortFields.stream()
+              .map(field -> SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder)))
+              .toList();
     } else {
       sortCriteria =
           Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
@@ -241,17 +251,19 @@ public class EntityController
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    DEFAULT_SEARCH_FLAGS
-                        .setSkipCache(skipCache)
-                        .setSkipAggregates(skipAggregation)
-                        .setIncludeSoftDeleted(includeSoftDelete)
-                        .setSliceOptions(
-                            sliceId != null && sliceMax != null
-                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                : null,
-                            SetMode.IGNORE_NULL)),
+            opContext
+                .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setSkipCache(skipCache)
+                            .setSkipAggregates(skipAggregation)
+                            .setIncludeSoftDeleted(includeSoftDelete)
+                            .setSliceOptions(
+                                sliceId != null && sliceMax != null
+                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                    : null,
+                                SetMode.IGNORE_NULL)),
             resolvedEntityNames,
             query,
             Optional.ofNullable(entityAspectsBody.getFilter())

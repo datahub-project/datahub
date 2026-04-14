@@ -2,6 +2,7 @@ import { GraphStoreFields, LineageEntity, LineageToggles, NodeContext } from '@a
 import NodeBuilder from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import getDisplayedNodes from '@app/lineageV3/useComputeGraph/getDisplayedNodes';
+import { limitNodesPerLevel } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesPerLevel';
 import orderNodes from '@app/lineageV3/useComputeGraph/orderNodes';
 
 import { EntityType, LineageDirection } from '@types';
@@ -23,6 +24,7 @@ import { EntityType, LineageDirection } from '@types';
  * @param prevHideTransformations Previous value of `hideTransformations` to determine if the graph should be reset
  * @param offsets Map of offsets for each direction, used to position nodes in the graph when called to render a subgraph
  * @param nodeFilter Optional filter function to apply to nodes before processing them.
+ * @param isModuleView Optional boolean parameter if it is module view
  * @returns An object containing:
  *   flowNodes: Nodes for React Flow to render
  *   flowEdges: Edges for React Flow to render
@@ -36,6 +38,7 @@ export default function computeImpactAnalysisGraph(
     prevHideTransformations?: boolean,
     offsets: Map<LineageDirection, [number, number]> = new Map(),
     nodeFilter?: (node: LineageEntity) => boolean,
+    isModuleView?: boolean,
 ) {
     const { nodes, edges, adjacencyList, rootType, hideTransformations, showDataProcessInstances, showGhostEntities } =
         context;
@@ -60,7 +63,26 @@ export default function computeImpactAnalysisGraph(
 
     const { displayedNodes, parents } = getDisplayedNodes(urn, orderedNodes, newGraphStore);
     const rootNode = nodes.get(urn);
-    const nodeBuilder = new NodeBuilder(urn, type, rootNode ? [rootNode] : [], displayedNodes, parents);
+
+    let limitedNodes = displayedNodes;
+    let levelsInfo = {};
+    let levelsMap = new Map<string, number>();
+
+    // Limit entity nodes per level in module view
+    if (isModuleView) {
+        const result = limitNodesPerLevel({
+            nodes: displayedNodes,
+            rootUrn: urn,
+            rootType,
+            adjacencyList,
+            maxPerLevel: 2,
+        });
+        limitedNodes = result.limitedNodes;
+        levelsInfo = result.levelsInfo;
+        levelsMap = result.levelsMap;
+    }
+
+    const nodeBuilder = new NodeBuilder(urn, type, rootNode ? [rootNode] : [], limitedNodes, parents);
 
     const orderIndices = {
         [urn]: 0,
@@ -73,5 +95,7 @@ export default function computeImpactAnalysisGraph(
             .sort((a, b) => (orderIndices[a.id] || 0) - (orderIndices[b.id] || 0)),
         flowEdges: nodeBuilder.createEdges(newGraphStore.edges),
         resetPositions: prevHideTransformations !== undefined && prevHideTransformations !== hideTransformations,
+        levelsInfo,
+        levelsMap,
     };
 }

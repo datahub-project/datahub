@@ -7,7 +7,7 @@ const TEST_RELATED_TERM_NAME = "RelatedCypressTerm";
 
 describe("summary tab - glossary term", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     cy.goToGlossaryTerm(TEST_GLOSSARY_TERM_URN);
     utils.goToSummaryTab();
@@ -19,14 +19,10 @@ describe("summary tab - glossary term", () => {
       { name: "Owners", type: "OWNERS", dataTestId: `owner-${TEST_USER_URN}` },
       { name: "Domain", type: "DOMAIN", value: TEST_DOMAIN_NAME },
     ]);
-  });
 
-  it.skip("glossary term - description section", () => {
-    utils.testAboutSection();
-  });
+    utils.ensureAboutSectionIsVisible();
 
-  it("glossary term - modules section", () => {
-    const defaultModules = [
+    utils.testTemplateSection([
       {
         type: "assets",
         name: "Assets",
@@ -37,8 +33,6 @@ describe("summary tab - glossary term", () => {
         name: "Related Terms",
         value: TEST_RELATED_TERM_NAME,
       },
-    ];
-
-    utils.testTemplateSection(defaultModules);
+    ]);
   });
 });

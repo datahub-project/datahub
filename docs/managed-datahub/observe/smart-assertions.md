@@ -25,9 +25,28 @@ Today, you can create Smart Assertions for 4 types of assertions. To learn more 
 3. [Column Metrics](./column-assertions.md#anomaly-detection-with-smart-assertions-)
 4. [Custom SQL](./custom-sql-assertions.md#anomaly-detection-with-smart-assertions-)
 
-You can also create Freshness & Volume Smart Assertions in bulk on the [Data Health page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions):
+You can also create Smart Assertions at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page. Monitoring Rules let you define a search predicate (e.g. a domain, platform, or schema) and automatically apply Freshness, Volume, and Schema anomaly monitors to all matching datasets — including new datasets as they appear.
 
-<div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+## Time-Series Bucketing
+
+Smart Assertions can be configured with **time-series bucketing** to evaluate data quality at a day or week granularity. Instead of checking the entire table each time, the assertion partitions rows into time buckets using a timestamp column and evaluates each bucket independently.
+
+This is especially powerful for Smart Assertions because it enables the AI model to learn patterns like "Mondays always have higher volume" or "weekend null counts are typically lower", leading to more accurate anomaly detection.
+
+Time-series bucketing is supported for:
+
+- [Smart Volume Assertions](./volume-assertions.md#time-series-bucketing)
+- [Smart Column Metric Assertions](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)
+
+## Backfill Assertion History
+
+When you create a Smart Assertion with time-series bucketing, you can optionally **backfill historical data** so the AI model has enough context to make accurate predictions from day one. Without backfill, the model needs to accumulate data over days or weeks of scheduled evaluations before it can reliably detect anomalies.
+
+With backfill enabled, the system queries your warehouse for historical data and populates the assertion's metrics history immediately. This means you get meaningful anomaly detection thresholds right away, with full awareness of seasonality patterns.
+
+For full details on how backfill works, how to configure it, and how to retry failed backfills, see the dedicated [Backfill Assertion History](./assertion-backfill.md) page.
+
+<div align="center"><iframe width="640" height="444" src="https://www.loom.com/embed/61a201aea8464f58826c965fdbfbe255" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
 ## Improving Smart assertion quality
 
@@ -64,7 +83,7 @@ When an anomaly is flagged by the smart assertion, you may hover over the result
 If an anomaly is not caught by our Smart Assertions, we recommend doing a few things:
 
 1. You can click `Mark as Anomaly` to flag this specific data point as an anomaly. This will exclude that data point from the training data.
-2. You should look back at the historical stats on the `Stats` tab of the table, and see if there were any periods of anomalous data that may be polluting the training set. If so, add an `Exclusion Window` in the **Settings tab** of the assertion, to remove this polluted period of data from the training data.
+2. Click **Tune Predictions** on the assertion, then exclude any “bad” historical periods from the training set (by adding an `Exclusion Window`). This is useful if older incidents or one-off events are polluting the model’s notion of “normal”.
 3. Finally, consider increasing the sensitivity of the assertion in the **Settings tab** which will reduce the range of allowable values.
 
 <p align="left">

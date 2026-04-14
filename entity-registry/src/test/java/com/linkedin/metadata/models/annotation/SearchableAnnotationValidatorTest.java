@@ -438,8 +438,8 @@ public class SearchableAnnotationValidatorTest {
         searchLabel, // searchLabel
         Optional.empty(), // searchIndexed
         Optional.empty(), // entityFieldName
-        Optional.empty() // eagerGlobalOrdinals
-        );
+        Optional.empty(), // eagerGlobalOrdinals
+        false);
   }
 
   private SearchableAnnotation createAnnotationWithSearchTier(
@@ -465,7 +465,7 @@ public class SearchableAnnotationValidatorTest {
         searchLabel, // searchLabel
         Optional.empty(), // searchIndexed
         Optional.empty(), // entityFieldName
-        Optional.empty() // eagerGlobalOrdinals
-        );
+        Optional.empty(), // eagerGlobalOrdinals
+        false);
   }
 }

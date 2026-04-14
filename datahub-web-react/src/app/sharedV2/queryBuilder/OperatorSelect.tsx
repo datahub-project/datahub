@@ -29,7 +29,7 @@ const OperatorSelect = ({ selectedOperator, operators, onChangeOperator }: Props
                 onUpdate={(val) => onChangeOperator(val[0])}
                 values={selectedOperator ? [selectedOperator.toLowerCase()] : []}
                 isDisabled={!operators}
-                data-testid="condition-operator-select"
+                dataTestId="condition-operator-select"
                 width="full"
                 showClear={false}
             />

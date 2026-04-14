@@ -1,45 +1,26 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Empty, Form, Modal, Select, Tag, Typography, message } from 'antd';
-import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Form, Typography, message } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
+import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { OwnerLabel } from '@app/shared/OwnerLabel';
-import { useGetRecommendations } from '@app/shared/recommendation';
-import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
+import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { getModalDomContainer } from '@src/utils/focus';
+import { Modal } from '@src/alchemy-components';
+import { getModalDomContainer } from '@utils/focus';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
+import { DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
 
-const SelectInput = styled(Select)`
-    width: 480px;
-`;
-
-const StyleTag = styled(Tag)`
-    padding: 0px 7px 0px 0px;
-    margin: 2px;
-    display: flex;
-    justify-content: start;
-    align-items: center;
-`;
-
-const LoadingWrapper = styled.div`
-    display: flex;
-    justify-content: center;
-    margin: 5px;
+const FormSection = styled.div`
+    margin-bottom: 16px;
 `;
 
 export enum OperationType {
@@ -54,7 +35,7 @@ type Props = {
     operationType?: OperationType;
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
-    entityType?: EntityType; // Only used for tracking events
+    entityType?: EntityType;
     onOkOverride?: (result: SelectedOwner[]) => void;
     title?: string;
     defaultValues?: { urn: string; entity?: Entity | null }[];
@@ -84,52 +65,13 @@ export const EditOwnersModal = ({
     const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
-    // Renders a search result in the select dropdown.
-    const renderSearchResult = (entity: Entity) => {
-        const avatarUrl =
-            (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        return (
-            <Select.Option value={entity.urn} key={entity.urn} data-testid={`owner-option-${displayName}`}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
-            </Select.Option>
-        );
-    };
-
-    const renderDropdownResult = (entity: Entity) => {
-        const avatarUrl =
-            entity.type === EntityType.CorpUser
-                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
-                : undefined;
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        return <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />;
-    };
-
-    const defaultValuesToSelectedOwners = (vals: { urn: string; entity?: Entity | null }[]): SelectedOwner[] => {
-        return vals.map((defaultValue) => ({
-            label: defaultValue.entity ? renderDropdownResult(defaultValue.entity) : defaultValue.urn,
-            value: {
-                ownerUrn: defaultValue.urn,
-                ownerEntityType: defaultValue.entity?.type || EntityType.CorpUser,
-            },
-        }));
-    };
-
-    const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
-    const { data: ownershipTypesData, loading: ownershipTypesLoading } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
-    const ownershipTypes = useMemo(() => {
-        return ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    }, [ownershipTypesData]);
+    const { ownershipTypes, loading: ownershipTypesLoading } = useOwnershipTypes();
 
-    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
-        defaultValuesToSelectedOwners(defaultValues || []),
-    );
+    const defaultUrns = (defaultValues || []).map((v) => v.urn);
+    const [selectedActorUrns, setSelectedActorUrns] = useState<string[]>(defaultUrns);
+    const [selectedActors, setSelectedActors] = useState<ActorEntity[]>([]);
     const [selectedOwnerType, setSelectedOwnerType] = useState<string | undefined>(undefined);
 
     useEffect(() => {
@@ -139,114 +81,16 @@ export const EditOwnersModal = ({
         }
     }, [ownershipTypes, defaultOwnerType]);
 
-    // User and group dropdown search results!
-    const [groupSearch, { data: groupSearchData, loading: groupSearchLoading }] = useGetAutoCompleteResultsLazyQuery();
-    const [userSearch, { data: userSearchData, loading: userSearchLoading }] = useGetAutoCompleteResultsLazyQuery();
-    const userSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
-    const groupSearchResults: Array<Entity> = groupSearchData?.autoComplete?.entities || [];
-    const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
-    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([
-        EntityType.CorpGroup,
-        EntityType.CorpUser,
-    ]);
-    const loading = recommendationsLoading || userSearchLoading || groupSearchLoading;
-    const inputEl = useRef(null);
-
-    // Invokes the search API as the owner types
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        if (text) {
-            const input = addUserFiltersToAutoCompleteInput(
-                {
-                    type,
-                    query: text,
-                    limit: 10,
-                },
-                type,
-            );
-
-            searchQuery({
-                variables: {
-                    input,
-                },
-            });
-        }
-    };
-
-    // Invokes the user search API for both users and groups.
-    const handleActorSearch = (text: string) => {
-        handleSearch(EntityType.CorpUser, text, userSearch);
-        handleSearch(EntityType.CorpGroup, text, groupSearch);
-    };
-
-    const ownerResult = !inputValue || inputValue.length === 0 ? recommendedData : combinedSearchResults;
-
-    const ownerSearchOptions = ownerResult?.map((result) => {
-        return renderSearchResult(result);
-    });
+    const handleActorsUpdate = useCallback((actors: ActorEntity[]) => {
+        setSelectedActors(actors);
+        setSelectedActorUrns(actors.map((a) => a.urn));
+    }, []);
 
     const onModalClose = () => {
-        setInputValue('');
-        setSelectedOwners([]);
+        setSelectedActorUrns([]);
+        setSelectedActors([]);
         setSelectedOwnerType(defaultOwnerType || undefined);
         onCloseModal();
-    };
-
-    /**
-     * When a owner search result is selected, add the new owner  to the selectedOwners
-     * value: {ownerUrn: string, ownerEntityType: EntityType}
-     */
-    const onSelectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
-        const filteredActors = ownerResult
-            ?.filter((entity) => entity.urn === selectedValue.value)
-            .map((entity) => entity);
-        if (filteredActors?.length) {
-            const actor = filteredActors[0];
-            const ownerEntityType =
-                actor && actor.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
-            const newValues = [
-                ...selectedOwners,
-                {
-                    label: selectedValue.value,
-                    value: {
-                        ownerUrn: selectedValue.value,
-                        ownerEntityType: ownerEntityType as unknown as EntityType,
-                    },
-                },
-            ];
-            setSelectedOwners(newValues);
-        }
-    };
-
-    // When a owner search result is deselected, remove the Owner
-    const onDeselectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
-        setInputValue('');
-        const newValues = selectedOwners.filter(
-            (owner) => owner.label !== selectedValue.value && owner.value.ownerUrn !== selectedValue.value,
-        );
-        setSelectedOwners(newValues);
-    };
-
-    // When a owner type is selected, set the type as selected type.
-    const onSelectOwnerType = (urn: string) => {
-        setSelectedOwnerType(urn);
-    };
-
-    const tagRender = ({ closable, label, onClose }: { closable: boolean; label: ReactNode; onClose: () => void }) => {
-        return (
-            <StyleTag
-                onMouseDown={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }}
-                closable={closable}
-                onClose={onClose}
-            >
-                {label}
-            </StyleTag>
-        );
     };
 
     const emitAnalytics = () => {
@@ -322,24 +166,32 @@ export const EditOwnersModal = ({
         }
     };
 
-    // Function to handle the modal action's
     const onOk = () => {
-        if (selectedOwners.length === 0) {
+        if (selectedActorUrns.length === 0) {
             return;
         }
 
         if (onOkOverride) {
+            const selectedOwners: SelectedOwner[] = selectedActors.map((actor) => ({
+                label: entityRegistry.getDisplayName(actor.type, actor),
+                value: {
+                    ownerUrn: actor.urn,
+                    ownerEntityType: actor.type,
+                },
+            }));
             onOkOverride(selectedOwners);
             return;
         }
 
-        const inputs = selectedOwners.map((selectedActor) => {
-            const input = {
-                ownerUrn: selectedActor.value.ownerUrn,
-                ownerEntityType: selectedActor.value.ownerEntityType,
+        const inputs = selectedActorUrns.map((urn) => {
+            const actor = selectedActors.find((a) => a.urn === urn);
+            const ownerEntityType =
+                actor?.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
+            return {
+                ownerUrn: urn,
+                ownerEntityType,
                 ownershipTypeUrn: selectedOwnerType,
             };
-            return input;
         });
 
         if (operationType === OperationType.ADD) {
@@ -347,9 +199,8 @@ export const EditOwnersModal = ({
         } else {
             batchRemoveOwners(inputs);
         }
+
         const isCurrentUserUpdated = user?.urn && inputs.map((input) => input.ownerUrn).includes(user?.urn);
-        // Reload modules
-        // OwnedAssets - as your assets module could be updated
         if (isCurrentUserUpdated)
             reloadByKeyType(
                 [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.OwnedAssets)],
@@ -357,91 +208,50 @@ export const EditOwnersModal = ({
             );
     };
 
-    function handleBlur() {
-        setInputValue('');
-    }
-
     return (
         <Modal
             title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
-            visible
             onCancel={onModalClose}
             keyboard
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" variant="text" onClick={onModalClose}>
-                        Cancel
-                    </Button>
-                    <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-                        Add
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onModalClose,
+                },
+                {
+                    text: 'Add',
+                    id: 'addOwnerButton',
+                    variant: 'filled',
+                    disabled: selectedActorUrns.length === 0,
+                    onClick: onOk,
+                },
+            ]}
             getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>
                 <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
                     <Typography.Paragraph>Find a user or group</Typography.Paragraph>
-                    <Form.Item name="owner">
-                        <SelectInput
-                            labelInValue
-                            autoFocus
-                            defaultOpen
-                            mode="multiple"
-                            ref={inputEl}
+                    <FormSection>
+                        <ActorsSearchSelect
+                            selectedActorUrns={selectedActorUrns}
+                            onUpdate={handleActorsUpdate}
                             placeholder="Search for users or groups..."
-                            showSearch
-                            data-testid="edit-owners-modal-find-actors-input"
-                            filterOption={false}
-                            defaultActiveFirstOption={false}
-                            onSelect={(asset: any) => onSelectOwner(asset)}
-                            onDeselect={(asset: any) => onDeselectOwner(asset)}
-                            onSearch={(value: string) => {
-                                // eslint-disable-next-line react/prop-types
-                                handleActorSearch(value.trim());
-                                // eslint-disable-next-line react/prop-types
-                                setInputValue(value.trim());
-                            }}
-                            tagRender={tagRender}
-                            onBlur={handleBlur}
-                            value={selectedOwners as any}
-                            defaultValue={selectedOwners.map((owner) => ({
-                                key: owner.value.ownerUrn,
-                                value: owner.value.ownerUrn,
-                                label: owner.label,
-                            }))}
-                            notFoundContent={
-                                !loading ? (
-                                    <Empty
-                                        description="No Users or Groups Found"
-                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                        style={{ color: ANTD_GRAY[7] }}
-                                    />
-                                ) : null
-                            }
-                        >
-                            {loading ? (
-                                <Select.Option value="loading" key="loading">
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
-                                </Select.Option>
-                            ) : (
-                                ownerSearchOptions
-                            )}
-                        </SelectInput>
-                    </Form.Item>
+                            width="full"
+                            dataTestId="add-owners-select"
+                        />
+                    </FormSection>
                 </Form.Item>
                 {!hideOwnerType && (
                     <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
                         <Form.Item name="type">
-                            {ownershipTypesLoading && <Select />}
+                            {ownershipTypesLoading && <div />}
                             {!ownershipTypesLoading && (
                                 <OwnershipTypesSelect
                                     selectedOwnerTypeUrn={selectedOwnerType}
                                     ownershipTypes={ownershipTypes}
-                                    onSelectOwnerType={onSelectOwnerType}
+                                    onSelectOwnerType={(urn: string) => setSelectedOwnerType(urn)}
                                 />
                             )}
                         </Form.Item>

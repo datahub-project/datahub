@@ -1,10 +1,16 @@
 import logging
-from typing import Iterable, List, Optional
+import time
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
-from pydantic import Field, SecretStr, model_validator
+from google.auth.credentials import Credentials
+from google.auth.transport.requests import Request
+from pydantic import Field, PrivateAttr, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -16,6 +22,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.common.gcp_wif_config import (
+    GCPWIFConfig,
+    load_wif_credentials,
+)
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
@@ -34,10 +44,87 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.utilities.str_enum import StrEnum
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client, S3ServiceResource
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 GCS_ENDPOINT_URL = "https://storage.googleapis.com"
+
+# S3 API operations used by the S3 source when browsing/reading GCS
+_GCS_OAUTH_S3_OPERATIONS = (
+    "ListBuckets",
+    "ListObjectsV2",
+    "ListObjects",
+    "GetObject",
+    "HeadObject",
+    "GetObjectTagging",
+    "GetBucketTagging",
+)
+
+
+def _register_gcs_oauth_before_send(
+    client: Any,
+    credentials: Any,
+    project_id: Optional[str],
+) -> None:
+    """
+    Register a before-send handler on the boto3 S3 client to inject
+    Authorization: Bearer <token> for GCS (Workload Identity Federation).
+    boto3 uses SigV4 by default; GCS XML API accepts Bearer tokens instead.
+    """
+
+    def inject_bearer(request: Any, **kwargs: Any) -> None:
+        need_refresh = not getattr(credentials, "token", None)
+        if not need_refresh and getattr(credentials, "expiry", None) is not None:
+            need_refresh = credentials.expiry.timestamp() < time.time()
+        if need_refresh:
+            credentials.refresh(Request())
+        request.headers["Authorization"] = f"Bearer {credentials.token}"
+        if project_id:
+            request.headers["x-goog-project-id"] = project_id
+
+    for op in _GCS_OAUTH_S3_OPERATIONS:
+        client.meta.events.register(f"before-send.s3.{op}", inject_bearer)
+
+
+class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
+    """
+    AwsConnectionConfig-compatible wrapper for GCS with Workload Identity Federation.
+    Uses dummy AWS-style keys so boto3 creates a session; before-send handlers
+    replace the Authorization header with Bearer <token> from WIF credentials.
+    Only used when auth_type is workload_identity_federation.
+    """
+
+    _gcs_oauth_credentials: Optional[Credentials] = PrivateAttr(default=None)
+    _gcs_oauth_project_id: Optional[str] = PrivateAttr(default=None)
+
+    def _apply_oauth(self, boto3_client: Any) -> None:
+        creds = self._gcs_oauth_credentials
+        project_id = self._gcs_oauth_project_id
+        if creds is not None:
+            _register_gcs_oauth_before_send(boto3_client, creds, project_id)
+
+    def get_s3_client(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3Client":
+        client = super().get_s3_client(verify_ssl=verify_ssl)
+        self._apply_oauth(client)
+        return client
+
+    def get_s3_resource(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3ServiceResource":
+        resource = super().get_s3_resource(verify_ssl=verify_ssl)
+        self._apply_oauth(resource.meta.client)
+        return resource
+
+
+class GCSAuthType(StrEnum):
+    HMAC = "hmac"
+    WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
 
 
 class HMACKey(ConfigModel):
@@ -46,10 +133,20 @@ class HMACKey(ConfigModel):
 
 
 class GCSSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    GCPWIFConfig,
+    PathSpecsConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
-    credential: HMACKey = Field(
-        description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",
+    auth_type: GCSAuthType = Field(
+        default=GCSAuthType.HMAC,
+        description="Authentication type to use. Defaults to HMAC keys. Set to 'workload_identity_federation' to use Workload Identity Federation.",
+    )
+
+    credential: Optional[HMACKey] = Field(
+        default=None,
+        description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys). Required when auth_type is 'hmac'.",
     )
 
     max_rows: int = Field(
@@ -64,16 +161,47 @@ class GCSSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @model_validator(mode="after")
-    def check_path_specs_and_infer_platform(self) -> "GCSSourceConfig":
-        if len(self.path_specs) == 0:
+    @model_validator(mode="before")
+    @classmethod
+    def validate_credential(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            auth_type = values.get("auth_type", GCSAuthType.HMAC)
+            credential = values.get("credential")
+            if auth_type == GCSAuthType.HMAC and credential is None:
+                raise ValueError("credential is required when auth_type is 'hmac'")
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_gcp_wif_configuration_options(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            auth_type = values.get("auth_type", GCSAuthType.HMAC)
+            if auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
+                wif_options = [
+                    values.get("gcp_wif_configuration"),
+                    values.get("gcp_wif_configuration_json"),
+                    values.get("gcp_wif_configuration_json_string"),
+                ]
+                if not any(opt is not None for opt in wif_options):
+                    raise ValueError(
+                        "One of gcp_wif_configuration (file path), gcp_wif_configuration_json (JSON content), "
+                        "or gcp_wif_configuration_json_string (JSON string) is required when auth_type is 'workload_identity_federation'"
+                    )
+        return values
+
+    @field_validator("path_specs", mode="after")
+    @classmethod
+    def check_path_specs_and_infer_platform(
+        cls, path_specs: List[PathSpec]
+    ) -> List[PathSpec]:
+        if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the gs:// prefix.
-        if any([not is_gcs_uri(path_spec.include) for path_spec in self.path_specs]):
+        if any([not is_gcs_uri(path_spec.include) for path_spec in path_specs]):
             raise ValueError("All path_spec.include should start with gs://")
 
-        return self
+        return path_specs
 
 
 class GCSSourceReport(DataLakeSourceReport):
@@ -99,33 +227,70 @@ class GCSSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
+        self._wif_credentials: Optional[Credentials] = None
+        self._wif_project_id: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "GCSSource":
         config = GCSSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def create_equivalent_s3_config(self):
+    def _setup_wif_credentials(self) -> None:
+        self._wif_credentials, self._wif_project_id = load_wif_credentials(self.config)
+
+    def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
         s3_path_specs = self.create_equivalent_s3_path_specs()
 
-        s3_config = DataLakeSourceConfig(
-            path_specs=s3_path_specs,
-            aws_config=AwsConnectionConfig(
+        if self.config.auth_type == GCSAuthType.HMAC:
+            if not self.config.credential:
+                raise ValueError(
+                    "HMAC credentials are required when auth_type is 'hmac'"
+                )
+
+            s3_config = DataLakeSourceConfig(
+                path_specs=s3_path_specs,
+                aws_config=AwsConnectionConfig(
+                    aws_endpoint_url=GCS_ENDPOINT_URL,
+                    aws_access_key_id=self.config.credential.hmac_access_id,
+                    aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
+                    aws_region="auto",
+                ),
+                env=self.config.env,
+                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+                max_rows=self.config.max_rows,
+                number_of_files_to_sample=self.config.number_of_files_to_sample,
+                platform=PLATFORM_GCS,
+                platform_instance=self.config.platform_instance,
+            )
+        else:  # workload_identity_federation
+            # For workload identity federation, we don't use HMAC credentials.
+            # Use a GCS OAuth config that injects Bearer token into boto3 requests.
+            self._setup_wif_credentials()
+
+            aws_config = GCSOAuthAwsConnectionConfig(
                 aws_endpoint_url=GCS_ENDPOINT_URL,
-                aws_access_key_id=self.config.credential.hmac_access_id,
-                aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
-            ),
-            env=self.config.env,
-            max_rows=self.config.max_rows,
-            number_of_files_to_sample=self.config.number_of_files_to_sample,
-            platform=PLATFORM_GCS,  # Ensure GCS platform is used for correct container subtypes
-            platform_instance=self.config.platform_instance,
-        )
+                aws_access_key_id="gcs-oauth",
+                aws_secret_access_key="not-used",
+            )
+            aws_config._gcs_oauth_credentials = self._wif_credentials
+            aws_config._gcs_oauth_project_id = self._wif_project_id
+
+            s3_config = DataLakeSourceConfig(
+                path_specs=s3_path_specs,
+                aws_config=aws_config,
+                env=self.config.env,
+                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+                max_rows=self.config.max_rows,
+                number_of_files_to_sample=self.config.number_of_files_to_sample,
+                platform=PLATFORM_GCS,
+                platform_instance=self.config.platform_instance,
+            )
+
         return s3_config
 
-    def create_equivalent_s3_path_specs(self):
+    def create_equivalent_s3_path_specs(self) -> List[PathSpec]:
         s3_path_specs = []
         for path_spec in self.config.path_specs:
             # PathSpec modifies the passed-in include to add /** to the end if
@@ -201,3 +366,7 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
+
+    def close(self) -> None:
+        self.s3_source.close()
+        super().close()

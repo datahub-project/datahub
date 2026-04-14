@@ -6,12 +6,10 @@ import { hasOperationName } from "../utils";
 
 // Common
 
-export function setThemeV2AndSummaryTabFlags(isOn) {
+export function setSummaryTabFlags(isOn) {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
-        res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
         res.body.data.appConfig.featureFlags.assetSummaryPageV1 = isOn;
       });
@@ -80,6 +78,7 @@ export function setTagToOpenedEntity(tagName) {
   openSummaryTabOnSidebar();
 
   cy.get('[id="entity-profile-tags"]').within(() => {
+    cy.get('[data-testid="add-tags-button"]').should("not.be.disabled");
     cy.clickOptionWithTestId("add-tags-button");
   });
 
@@ -446,7 +445,9 @@ export function ensureDescriptionContainsText(description) {
 }
 
 export function addLink(url, label) {
-  cy.clickOptionWithTestId("add-link-button");
+  // Click the "+" button to open the menu, then click "Add link" menu item
+  cy.clickOptionWithTestId("add-related-button").wait(500);
+  cy.contains("Add link").click().wait(500);
   cy.getWithTestId("url-input").clear().type(url);
   cy.getWithTestId("label-input").clear().type(label);
   cy.clickOptionWithTestId("link-form-modal-submit-button");

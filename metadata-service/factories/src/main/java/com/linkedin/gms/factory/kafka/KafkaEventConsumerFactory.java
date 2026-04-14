@@ -8,6 +8,7 @@ import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CON
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -15,6 +16,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -73,9 +75,10 @@ public class KafkaEventConsumerFactory {
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    // Bootstrap is shared for DUHE since it does not need to preserve history in migrations
     Map<String, Object> customizedProperties =
         buildCustomizedProperties(
-            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true);
+            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true, true);
 
     return new DefaultKafkaConsumerFactory<>(customizedProperties);
   }
@@ -85,6 +88,23 @@ public class KafkaEventConsumerFactory {
       KafkaConfiguration kafkaConfiguration,
       KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
       boolean enableAutoCommit) {
+    return buildCustomizedProperties(
+        baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, enableAutoCommit, false);
+  }
+
+  /**
+   * @param shareBootstrap Indicates that Bootstrap Server should be shared between producer and
+   *     consumer, this is done on the Consumer Factory since we only really want to use this split
+   *     for migrating and the producer side is the one we'd be migrating to. Only should share for
+   *     topics like Upgrade History which do not need historical data to drain.
+   */
+  @com.google.common.annotations.VisibleForTesting
+  static Map<String, Object> buildCustomizedProperties(
+      KafkaProperties baseKafkaProperties,
+      KafkaConfiguration kafkaConfiguration,
+      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
+      boolean enableAutoCommit,
+      boolean shareBootstrap) {
     KafkaProperties.Consumer consumerProps = baseKafkaProperties.getConsumer();
 
     if (enableAutoCommit) {
@@ -95,12 +115,28 @@ public class KafkaEventConsumerFactory {
       consumerProps.setEnableAutoCommit(false);
     }
 
+    String bootstrapOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getConsumer().getBootstrapServers();
+    String bootstrapServers =
+        StringUtils.isNotBlank(bootstrapOverride)
+            ? bootstrapOverride
+            : kafkaConfiguration.getBootstrapServers();
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && kafkaConfiguration.getBootstrapServers().length() > 0) {
-      consumerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
+
+    String securityProtocolOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSecurityProtocol()
+            : kafkaConfiguration.getConsumer().getSecurityProtocol();
+    String securityProtocol =
+        StringUtils.isNotBlank(securityProtocolOverride) ? securityProtocolOverride : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      consumerProps.getSecurity().setProtocol(securityProtocol);
+    }
 
     Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
     customizedProperties.putAll(
@@ -109,6 +145,15 @@ public class KafkaEventConsumerFactory {
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
+
+    String schemaRegistryUrlOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSchemaRegistryUrl()
+            : kafkaConfiguration.getConsumer().getSchemaRegistryUrl();
+    if (StringUtils.isNotBlank(schemaRegistryUrlOverride)) {
+      customizedProperties.put(
+          AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrlOverride);
+    }
 
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,

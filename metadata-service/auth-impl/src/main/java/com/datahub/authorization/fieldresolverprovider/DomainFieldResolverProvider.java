@@ -80,46 +80,13 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
     return parentUrns;
   }
 
-  private FieldResolver.FieldValue getDomains(
-      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-
-    final EnvelopedAspect domainsAspect;
-    try {
-      if (entitySpec.getEntity().isEmpty()) {
-        return FieldResolver.emptyFieldValue();
-      }
-
-      final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
-
-      // In the case that the entity is a domain, the associated domain is the domain itself
-      if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
-        return FieldResolver.FieldValue.builder()
-            .values(Collections.singleton(entityUrn.toString()))
-            .build();
-      }
-
-      EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(DOMAINS_ASPECT_NAME));
-      if (response == null || !response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
-        return FieldResolver.emptyFieldValue();
-      }
-      domainsAspect = response.getAspects().get(DOMAINS_ASPECT_NAME);
-    } catch (Exception e) {
-      log.error("Error while retrieving domains aspect for entitySpec {}", entitySpec, e);
-      return FieldResolver.emptyFieldValue();
-    }
-
-    /*
-     * Build up a set of all directly referenced domains and any of the domains' parent domains.
-     * To avoid cycles we remove any parents we've already visited to prevent an infinite loop cycle.
-     */
-
-    final Set<Urn> domainUrns =
-        new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
+  /**
+   * Given a set of initial domain URNs, recursively resolve all parent domains. Returns the initial
+   * domains plus all their ancestors in the domain hierarchy.
+   */
+  private Set<Urn> resolveDomainsWithParents(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> initialDomains) {
+    final Set<Urn> domainUrns = new HashSet<>(initialDomains);
     Set<Urn> batchedParentUrns = getBatchedParentDomains(opContext, domainUrns);
     batchedParentUrns.removeAll(domainUrns);
 
@@ -129,8 +96,53 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       batchedParentUrns.removeAll(domainUrns);
     }
 
-    return FieldResolver.FieldValue.builder()
-        .values(domainUrns.stream().map(Object::toString).collect(Collectors.toSet()))
-        .build();
+    return domainUrns;
+  }
+
+  private FieldResolver.FieldValue getDomains(
+      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+
+    try {
+      if (entitySpec.getEntity().isEmpty()) {
+        return FieldResolver.emptyFieldValue();
+      }
+
+      final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
+      // In the case that the entity is a domain, the associated domain is the domain itself
+      // plus all parent domains
+      if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
+        final Set<Urn> domainsWithParents =
+            resolveDomainsWithParents(opContext, Collections.singleton(entityUrn));
+        return FieldResolver.FieldValue.builder()
+            .values(domainsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
+            .build();
+      }
+
+      // For non-domain entities, fetch the Domains aspect
+      EntityResponse response =
+          _entityClient.getV2(
+              opContext,
+              entityUrn.getEntityType(),
+              entityUrn,
+              Collections.singleton(DOMAINS_ASPECT_NAME));
+      if (response == null || !response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
+        return FieldResolver.emptyFieldValue();
+      }
+
+      final EnvelopedAspect domainsAspect = response.getAspects().get(DOMAINS_ASPECT_NAME);
+      final Set<Urn> initialDomains =
+          new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
+
+      // Resolve all parent domains recursively
+      final Set<Urn> domainsWithParents = resolveDomainsWithParents(opContext, initialDomains);
+
+      return FieldResolver.FieldValue.builder()
+          .values(domainsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
+          .build();
+    } catch (Exception e) {
+      log.error("Error while retrieving domains aspect for entitySpec {}", entitySpec, e);
+      return FieldResolver.emptyFieldValue();
+    }
   }
 }

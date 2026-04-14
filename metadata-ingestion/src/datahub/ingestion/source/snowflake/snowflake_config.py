@@ -1,7 +1,9 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Set
 
 import pydantic
@@ -90,6 +92,60 @@ class SnowflakeShareConfig(ConfigModel):
         return DatabaseId(self.database, self.platform_instance)
 
 
+class SemanticViewsConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="If enabled, semantic views will be ingested as datasets. Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+    )
+
+    column_lineage: bool = Field(
+        default=False,
+        description="If enabled, column-level lineage will be generated for semantic views, mapping dimensions, facts, and metrics to their source columns in base tables. Only applicable when enabled is True.",
+    )
+
+    include_usage: bool = Field(
+        default=False,
+        description="If enabled, usage statistics will be extracted for semantic views. "
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+    )
+
+    include_queries: bool = Field(
+        default=False,
+        description="If enabled, generate query entities for queries against semantic views.",
+    )
+
+    max_queries_per_view: int = Field(
+        default=100,
+        ge=1,
+        le=10000,
+        description="Maximum number of query entities to emit per semantic view. "
+        "Only applicable when include_queries is True.",
+    )
+
+    @model_validator(mode="after")
+    def validate_column_lineage_requires_enabled(self) -> "SemanticViewsConfig":
+        if self.column_lineage and not self.enabled:
+            logger.warning(
+                "semantic_views.column_lineage is set to True but semantic_views.enabled is False. "
+                "Column lineage will not be generated. Set semantic_views.enabled to True to enable column lineage."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_requires_enabled(self) -> "SemanticViewsConfig":
+        if self.include_usage and not self.enabled:
+            logger.warning(
+                "semantic_views.include_usage is set to True but semantic_views.enabled is False. "
+                "Usage statistics will not be extracted. Set semantic_views.enabled to True to enable usage tracking."
+            )
+        if self.include_queries and not self.enabled:
+            logger.warning(
+                "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
+                "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
+            )
+        return self
+
+
 class SnowflakeFilterConfig(SQLFilterConfig):
     database_pattern: AllowDenyPattern = Field(
         AllowDenyPattern(
@@ -125,9 +181,31 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Analytics.public.dashboard.*'",
     )
 
+    semantic_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for semantic views to filter in ingestion. "
+        "Specify regex to match the entire semantic view name in database.schema.semantic_view format. "
+        "e.g. to match all semantic views starting with sales in Analytics database and public schema,"
+        " use the regex 'Analytics.public.sales.*'",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
+    )
+
+    push_down_metadata_patterns: bool = Field(
+        default=False,
+        description="If enabled, pushes down database_pattern, schema_pattern, table_pattern, and view_pattern "
+        "filtering to Snowflake information_schema metadata queries using the RLIKE operator for improved performance. "
+        "This applies only to metadata extraction queries (information_schema.databases, schemata, tables, views) — "
+        "NOT to lineage/usage queries (for those, see push_down_database_pattern_access_history). "
+        "NOTE: view_pattern pushdown only works when fetch_views_from_information_schema is also enabled. "
+        "With the default SHOW VIEWS, view_pattern filtering falls back to Python re.match(). "
+        "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
+        "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
+        "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
+        "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
     )
 
     @model_validator(mode="after")
@@ -172,6 +250,8 @@ class SnowflakeIdentifierConfig(
 
     _email_as_user_identifier = pydantic_removed_field(
         "email_as_user_identifier",
+        month="June",
+        year=2025,
     )
 
 
@@ -196,8 +276,12 @@ class SnowflakeConfig(
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
 
-    _include_view_lineage = pydantic_removed_field("include_view_lineage")
-    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+    _include_view_lineage = pydantic_removed_field(
+        "include_view_lineage", month="December", year=2024
+    )
+    _include_view_column_lineage = pydantic_removed_field(
+        "include_view_column_lineage", month="December", year=2024
+    )
 
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
@@ -276,8 +360,12 @@ class SnowflakeV2Config(
         description=f"Experimental: Choose the strategy for query deduplication (default value is appropriate for most use-cases; make sure you understand performance implications before changing it). Allowed values are: {', '.join([s.name for s in QueryDedupStrategyType])}",
     )
 
-    _check_role_grants_removed = pydantic_removed_field("check_role_grants")
-    _provision_role_removed = pydantic_removed_field("provision_role")
+    _check_role_grants_removed = pydantic_removed_field(
+        "check_role_grants", month="April", year=2023
+    )
+    _provision_role_removed = pydantic_removed_field(
+        "provision_role", month="April", year=2023
+    )
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
@@ -302,7 +390,9 @@ class SnowflakeV2Config(
     )
 
     _use_legacy_lineage_method_removed = pydantic_removed_field(
-        "use_legacy_lineage_method"
+        "use_legacy_lineage_method",
+        month="August",
+        year=2023,
     )
 
     validate_upstreams_against_patterns: bool = Field(
@@ -320,6 +410,19 @@ class SnowflakeV2Config(
         description="If enabled, streams will be ingested as separate entities from tables/views.",
     )
 
+    table_types: Set[str] = Field(
+        default={"BASE TABLE", "EXTERNAL TABLE"},
+        description="Set of Snowflake TABLE_TYPE values to include in ingestion. "
+        "Currently Supported values: 'BASE TABLE', 'EXTERNAL TABLE'. "
+        "Remove 'EXTERNAL TABLE' to exclude external tables from ingestion.",
+    )
+
+    exclude_dynamic_tables: bool = Field(
+        default=False,
+        description="If enabled, dynamic tables will be excluded from ingestion. "
+        "Use this to speed up ingestion if you don't need dynamic tables in DataHub.",
+    )
+
     include_procedures: bool = Field(
         default=True,
         description="If enabled, procedures will be ingested as pipelines/tasks.",
@@ -328,6 +431,11 @@ class SnowflakeV2Config(
     include_streamlits: bool = Field(
         default=False,
         description="If enabled, Streamlit apps will be ingested as dashboards.",
+    )
+
+    semantic_views: SemanticViewsConfig = Field(
+        default_factory=SemanticViewsConfig,
+        description="Configuration for semantic views ingestion.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
@@ -372,8 +480,20 @@ class SnowflakeV2Config(
 
     include_assertion_results: bool = Field(
         default=False,
-        description="Whether to ingest assertion run results for assertions created using Datahub"
-        " assertions CLI in snowflake",
+        description="Whether to ingest assertion run results for assertions "
+        "[created using DataHub assertions CLI](/docs/assertions/snowflake/snowflake_dmfs) "
+        "in Snowflake. Also required for external DMF ingestion.",
+    )
+
+    include_externally_managed_dmfs: bool = Field(
+        default=False,
+        description="Ingest user-created Snowflake DMFs (not created via DataHub) "
+        "as external assertions. Requires `include_assertion_results: true`. "
+        "When enabled, all DMFs (not just datahub__* prefixed) "
+        "will be ingested with their execution results. "
+        "IMPORTANT: External DMFs must return 1 for SUCCESS and 0 for FAILURE. "
+        "DataHub interprets VALUE=1 as passed, VALUE=0 as failed. "
+        "See [Snowflake DMF Assertions](/docs/assertions/snowflake/snowflake_dmfs) for details.",
     )
 
     pushdown_deny_usernames: List[str] = Field(
@@ -404,6 +524,13 @@ class SnowflakeV2Config(
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
 
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
+
     @field_validator("convert_urns_to_lowercase", mode="after")
     @classmethod
     def validate_convert_urns_to_lowercase(cls, v):
@@ -420,6 +547,15 @@ class SnowflakeV2Config(
         if not info.data.get("include_table_lineage") and v:
             raise ValueError(
                 "include_table_lineage must be True for include_column_lineage to be set."
+            )
+        return v
+
+    @field_validator("include_externally_managed_dmfs", mode="after")
+    @classmethod
+    def validate_include_externally_managed_dmfs(cls, v, info):
+        if not info.data.get("include_assertion_results") and v:
+            raise ValueError(
+                "include_assertion_results must be True for include_externally_managed_dmfs to be set."
             )
         return v
 
@@ -496,6 +632,19 @@ class SnowflakeV2Config(
         return shares
 
     @model_validator(mode="after")
+    def validate_view_pattern_pushdown(self) -> "SnowflakeV2Config":
+        if (
+            self.push_down_metadata_patterns
+            and not self.fetch_views_from_information_schema
+        ):
+            logger.warning(
+                "push_down_metadata_patterns is enabled but fetch_views_from_information_schema is not. "
+                "view_pattern will NOT be pushed down to Snowflake and will fall back to Python re.match() filtering. "
+                "Enable fetch_views_from_information_schema to ensure consistent pushdown behavior for view patterns."
+            )
+        return self
+
+    @model_validator(mode="after")
     def validate_queries_v2_stateful_ingestion(self) -> "SnowflakeV2Config":
         if self.use_queries_v2:
             if (
@@ -508,6 +657,22 @@ class SnowflakeV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def validate_semantic_views_edition(self) -> "SnowflakeV2Config":
+        if self.semantic_views.enabled:
+            if (
+                self.known_snowflake_edition is not None
+                and self.known_snowflake_edition == SnowflakeEdition.STANDARD
+            ):
+                logger.warning(
+                    "semantic_views.enabled is set to True, but known_snowflake_edition is set to STANDARD. "
+                    "Semantic views require Snowflake Enterprise Edition or above (they are part of Cortex Analyst). "
+                    "Automatically disabling semantic_views.enabled and semantic_views.column_lineage."
+                )
+                self.semantic_views.enabled = False
+                self.semantic_views.column_lineage = False
         return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:

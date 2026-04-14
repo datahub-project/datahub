@@ -15,10 +15,10 @@ import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/trans
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
+import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
@@ -27,7 +27,7 @@ import { useGetStructuredPropColumns } from '@app/entityV2/shared/tabs/Dataset/S
 import { useGetTableColumnProperties } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnProperties';
 import useTagsAndTermsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
-import { colors } from '@src/alchemy-components';
+import { useBusinessAttributesFlag } from '@app/useAppConfig';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { EditableSchemaMetadata, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';
@@ -42,11 +42,11 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 
     &&& .ant-table-tbody > tr {
-        background-color: #fff;
+        background-color: ${(props) => props.theme.colors.bg};
     }
 
     &&& .ant-table-tbody > tr.expanded-child {
-        background-color: #f5f9fa;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     &&& .ant-table-tbody > tr > .ant-table-cell {
@@ -69,21 +69,21 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .selected-row * {
         .ant-typography mark {
-            background-color: ${REDESIGN_COLORS.HEADING_COLOR} !important;
+            background-color: ${(props) => props.theme.colors.bgHighlight} !important;
         }
 
         .row-icon-tooltip .ant-tooltip-inner {
-            background: #e5eff1 !important;
-            color: ${REDESIGN_COLORS.DARK_GREY} !important;
+            background: ${(props) => props.theme.colors.bgSurface} !important;
+            color: ${(props) => props.theme.colors.text} !important;
         }
 
         .ant-tag {
-            background-color: ${REDESIGN_COLORS.WHITE};
+            background-color: ${(props) => props.theme.colors.bg};
         }
     }
 
     &&& .selected-row {
-        background: ${colors.gray[100]} !important;
+        background: ${(props) => props.theme.colors.border} !important;
     }
 
     &&& .level-0 td .row-icon-container .row-icon {
@@ -96,12 +96,12 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& tr.expanded-row td:first-of-type {
         border-left: ${(props) =>
-            props.isSearchActive ? '4px solid #ffffff00' : `4px solid ${REDESIGN_COLORS.BACKGROUND_PURPLE}`};
+            props.isSearchActive ? '4px solid transparent' : `4px solid ${props.theme.colors.bgSurfaceBrand}`};
     }
 
     &&& .expanded-child > td {
         .depth-container {
-            background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+            background: ${(props) => props.theme.colors.bgSurfaceBrand};
         }
 
         .depth-text {
@@ -143,7 +143,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 `;
 
-export type Props = {
+type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
@@ -222,8 +222,10 @@ export default function SchemaTable({
     const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+    const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     const tableColumnStructuredProps = useGetTableColumnProperties();
     const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
@@ -298,6 +300,17 @@ export default function SchemaTable({
         [termRenderer, extractFieldGlossaryTermsInfo],
     );
 
+    const businessAttributeColumn = useMemo(
+        () => ({
+            width: 150,
+            title: 'Business Attribute',
+            dataIndex: 'businessAttribute',
+            key: 'businessAttribute',
+            render: businessAttributeRenderer,
+        }),
+        [businessAttributeRenderer],
+    );
+
     // Function to get the count of each usageStats fieldPath
     const getCount = useCallback(
         (fieldPath: any) => {
@@ -324,7 +337,7 @@ export default function SchemaTable({
     );
 
     const allColumns = useMemo(() => {
-        const columns: ColumnsType<ExtendedSchemaFields> = [
+        let columns: ColumnsType<ExtendedSchemaFields> = [
             fieldColumn,
             typeColumn,
             descriptionColumn,
@@ -333,9 +346,23 @@ export default function SchemaTable({
             usageColumn,
         ];
 
+        if (businessAttributesFlag) {
+            columns = [...columns, businessAttributeColumn];
+        }
+
         if (structuredPropColumns) columns.splice(columns?.length - 1, 0, ...structuredPropColumns);
         return columns;
-    }, [fieldColumn, typeColumn, descriptionColumn, tagColumn, termColumn, usageColumn, structuredPropColumns]);
+    }, [
+        fieldColumn,
+        typeColumn,
+        businessAttributeColumn,
+        descriptionColumn,
+        tagColumn,
+        termColumn,
+        usageColumn,
+        structuredPropColumns,
+        businessAttributesFlag,
+    ]);
 
     const finalColumns = useMemo(() => {
         if (!visibleColumns) return allColumns;

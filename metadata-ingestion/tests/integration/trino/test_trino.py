@@ -18,7 +18,7 @@ from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
-pytestmark = pytest.mark.integration_batch_1
+pytestmark = pytest.mark.integration_batch_2
 
 FROZEN_TIME = "2021-09-23 12:00:00"
 
@@ -29,7 +29,7 @@ data_platform = "trino"
 def trino_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/trino"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "trino"
+        test_resources_dir / "docker-compose.yml", "trino", setup_command=["up --wait"]
     ) as docker_services:
         wait_for_port(docker_services, "testtrino", 8080)
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)

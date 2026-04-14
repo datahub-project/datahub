@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from typing import List
@@ -12,12 +13,17 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
+logger = logging.getLogger(__name__)
+
 pytestmark = pytest.mark.no_cypress_suite1
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
+# Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
+AUDIT_SUITE_USER_EMAIL = "audit.events.user@smoke.datahub.test"
+AUDIT_SUITE_USER_URN = f"urn:li:corpuser:{AUDIT_SUITE_USER_EMAIL}"
 
 previous_policy_urn = ""
 
@@ -37,7 +43,7 @@ def custom_user_setup():
     admin_session = login_as(admin_user, admin_pass)
     try:
         """Fixture to execute setup before and tear down after all tests are run"""
-        res_data = removeUser(admin_session, "urn:li:corpuser:user")
+        res_data = removeUser(admin_session, AUDIT_SUITE_USER_URN)
         assert res_data
         assert "error" not in res_data
 
@@ -68,7 +74,7 @@ def custom_user_setup():
         # Pass the invite token when creating the user
         sign_up_json = {
             "fullName": "Test User",
-            "email": "user",
+            "email": AUDIT_SUITE_USER_EMAIL,
             "password": "user",
             "title": "Data Engineer",
             "inviteToken": invite_token,
@@ -93,7 +99,9 @@ def custom_user_setup():
         res_data = listUsers(admin_session)
         assert res_data["data"]
         assert res_data["data"]["listUsers"]
-        assert {"username": "user"} in res_data["data"]["listUsers"]["users"]
+        assert {"username": AUDIT_SUITE_USER_EMAIL} in res_data["data"]["listUsers"][
+            "users"
+        ]
         admin_session.cookies.clear()
 
         yield
@@ -101,7 +109,7 @@ def custom_user_setup():
     finally:
         # Delete created user
         admin_session = login_as(admin_user, admin_pass)
-        res_data = removeUser(admin_session, "urn:li:corpuser:user")
+        res_data = removeUser(admin_session, AUDIT_SUITE_USER_URN)
         assert res_data
         assert res_data["data"]
         assert res_data["data"]["removeUser"] is True
@@ -114,7 +122,9 @@ def custom_user_setup():
         res_data = listUsers(admin_session)
         assert res_data["data"]
         assert res_data["data"]["listUsers"]
-        assert {"username": "user"} not in res_data["data"]["listUsers"]["users"]
+        assert {"username": AUDIT_SUITE_USER_EMAIL} not in res_data["data"][
+            "listUsers"
+        ]["users"]
 
 
 @pytest.fixture(autouse=True)
@@ -146,17 +156,17 @@ def access_token_setup(auth_session, auth_exclude_filter):
 
 
 def test_audit_token_events(auth_exclude_filter):
-    user_session = login_as("user", "user")
+    user_session = login_as(AUDIT_SUITE_USER_EMAIL, "user")
 
     # Normal user should be able to generate token for himself.
-    res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
+    res_data = generateAccessToken_v2(user_session, AUDIT_SUITE_USER_URN)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
         res_data["data"]["createAccessToken"]["metadata"]["actorUrn"]
-        == "urn:li:corpuser:user"
+        == AUDIT_SUITE_USER_URN
     )
     user_token_id = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
@@ -178,10 +188,10 @@ def test_audit_token_events(auth_exclude_filter):
             "CreateAccessTokenEvent",
             "RevokeAccessTokenEvent",
         ],
-        ["urn:li:corpuser:user"],
+        [AUDIT_SUITE_USER_URN],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 2
@@ -198,7 +208,7 @@ def test_audit_token_events(auth_exclude_filter):
 
 
 def test_login_events(auth_exclude_filter):
-    user_session = login_as("user", "user")
+    user_session = login_as(AUDIT_SUITE_USER_EMAIL, "user")
     time.sleep(10)
 
     # Audit events for create & revoke should show
@@ -208,10 +218,10 @@ def test_login_events(auth_exclude_filter):
         [
             "LogInEvent",
         ],
-        ["urn:li:corpuser:user"],
+        [AUDIT_SUITE_USER_URN],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 1
@@ -222,7 +232,7 @@ def test_login_events(auth_exclude_filter):
 
 def test_failed_login_events(auth_exclude_filter):
     try:
-        user_session = login_as("user", "NOTMYPASSWORD")
+        user_session = login_as(AUDIT_SUITE_USER_EMAIL, "NOTMYPASSWORD")
     except Exception:
         pass
 
@@ -235,10 +245,10 @@ def test_failed_login_events(auth_exclude_filter):
         user_session,
         1,
         ["FailedLogInEvent", "LogInEvent"],
-        ["urn:li:corpuser:user"],
+        [AUDIT_SUITE_USER_URN],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 1
@@ -322,7 +332,7 @@ def test_policy_events(auth_exclude_filter):
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
@@ -418,7 +428,7 @@ def test_ingestion_source_events(auth_exclude_filter):
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 2
@@ -442,15 +452,15 @@ def test_user_events(auth_exclude_filter):
         ["urn:li:corpuser:__datahub_system"],
         ["corpUserKey", "corpUserInfo", "corpUserStatus", "corpUserCredentials"],
     )
-    print(res_data)
+    logger.info(res_data)
     assert len(res_data["usageEvents"]) == 4
     assert res_data["usageEvents"][0]["eventType"] == "UpdateUserEvent"
-    assert res_data["usageEvents"][0]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][0]["entityUrn"] == AUDIT_SUITE_USER_URN
     # Credentials and settings are in random order due to async
     assert res_data["usageEvents"][0]["aspectName"] == "corpUserCredentials"
 
     assert res_data["usageEvents"][1]["eventType"] == "UpdateUserEvent"
-    assert res_data["usageEvents"][1]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][1]["entityUrn"] == AUDIT_SUITE_USER_URN
     assert res_data["usageEvents"][1]["aspectName"] == "corpUserStatus"
 
     # These get created at the same time
@@ -458,7 +468,7 @@ def test_user_events(auth_exclude_filter):
         res_data["usageEvents"][2]["eventType"] == "UpdateUserEvent"
         or res_data["usageEvents"][2]["eventType"] == "CreateUserEvent"
     )
-    assert res_data["usageEvents"][2]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][2]["entityUrn"] == AUDIT_SUITE_USER_URN
     assert (
         res_data["usageEvents"][2]["aspectName"] == "corpUserInfo"
         or res_data["usageEvents"][2]["aspectName"] == "corpUserKey"
@@ -468,7 +478,7 @@ def test_user_events(auth_exclude_filter):
         res_data["usageEvents"][3]["eventType"] == "UpdateUserEvent"
         or res_data["usageEvents"][3]["eventType"] == "CreateUserEvent"
     )
-    assert res_data["usageEvents"][3]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][3]["entityUrn"] == AUDIT_SUITE_USER_URN
     assert (
         res_data["usageEvents"][3]["aspectName"] == "corpUserInfo"
         or res_data["usageEvents"][3]["aspectName"] == "corpUserKey"
@@ -539,7 +549,7 @@ def test_policy_create_delete(auth_exclude_filter):
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2

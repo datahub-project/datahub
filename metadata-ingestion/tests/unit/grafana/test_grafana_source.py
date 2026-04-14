@@ -79,20 +79,6 @@ def test_process_dashboard(mock_api, mock_source, mock_dashboard):
 
 
 @patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
-def test_process_panel_dataset(mock_api, mock_source, mock_dashboard):
-    panel = mock_dashboard.panels[0]
-    workunit_list = list(
-        mock_source._process_panel_dataset(
-            panel=panel, dashboard_uid=mock_dashboard.uid, ingest_tags=True
-        )
-    )
-
-    assert len(workunit_list) > 0
-    assert all(isinstance(w, MetadataWorkUnit) for w in workunit_list)
-    assert mock_source.report.datasets_scanned == 1
-
-
-@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
 def test_process_dashboard_with_folder(mock_api, mock_source, mock_dashboard):
     workunit_list = list(mock_source._process_dashboard(mock_dashboard))
 

@@ -1,8 +1,11 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -24,6 +27,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -522,5 +526,21 @@ public class ESGraphQueryDAOTest {
     dao.destroy();
 
     // Test passes if no exception is thrown
+  }
+
+  @Test
+  public void testCleanupPointInTime() throws IOException {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    String pitId = "test-pit-id";
+    dao.cleanupPointInTime(pitId);
+
+    // Verify ESUtils.cleanupPointInTime was called with correct parameters
+    verify(mockClient, times(1)).deletePit(argThat(req -> req.getPitIds().contains(pitId)), any());
   }
 }

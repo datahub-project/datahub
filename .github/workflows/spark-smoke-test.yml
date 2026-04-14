@@ -10,7 +10,7 @@ on:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
       - "metadata-integration/java/spark-lineage"
-      - "metadata-integration/java/spark-lineage-legacy" # spark smoke tests are here
+      - "metadata-integration/java/spark-lineage-legacy/**" # spark smoke tests are here
       - ".github/workflows/spark-smoke-test.yml"
   pull_request:
     branches:
@@ -19,8 +19,8 @@ on:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
       - "metadata-integration/java/spark-lineage"
-      - "metadata-integration/java/spark-lineage-legacy" # spark smoke tests are here
-      - ".github/workflows/spark-smoke-test.yml"
+      - "metadata-integration/java/spark-lineage-legacy/**" # spark smoke tests are here
+      - ".github/workflows/spark-smoke-test.yml" # Uncomment once test issues are fixed.
   release:
     types: [published]
 
@@ -32,14 +32,14 @@ jobs:
   spark-smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-      - uses: actions/setup-python@v6
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
           cache: "pip"
@@ -48,10 +48,7 @@ jobs:
       - name: Disk Check
         run: df -h . && docker images
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+        uses: ./.github/actions/free-disk-space
       - name: Disk Check
         run: df -h . && docker images
       - name: Smoke test
@@ -75,19 +72,21 @@ jobs:
           docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
           docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: docker logs
           path: |
             "**/build/container-logs/*.log"
             "*.log"
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (smoke tests)
-          path: |
+          artifact-name: Test Results (smoke tests)
+          test-results-paths: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
-            **/junit.*.xml
             !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/test/**/*.xml

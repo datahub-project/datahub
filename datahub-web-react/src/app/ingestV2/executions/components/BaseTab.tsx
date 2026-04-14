@@ -1,17 +1,9 @@
-import { Typography } from 'antd';
 import styled from 'styled-components';
 
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 export const SectionBase = styled.div`
-    padding: 16px 30px 0;
-`;
-
-export const SectionHeader = styled(Typography.Title)`
-    &&&& {
-        padding: 0px;
-        margin: 0px;
-    }
+    padding: 16px 20px 16px 0;
 `;
 
 export const DetailsContainer = styled.div`
@@ -31,7 +23,22 @@ export const DetailsContainer = styled.div`
 export const ScrollableDetailsContainer = styled(DetailsContainer)`
     pre {
         max-height: 300px;
-        overflow-y: scroll;
+        overflow-y: auto;
+
+        scrollbar-width: none;
+    }
+
+    pre::-webkit-scrollbar {
+        width: 0;
+    }
+
+    pre:hover {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(193, 196, 208, 0.8) transparent;
+    }
+
+    pre:hover::-webkit-scrollbar {
+        width: 8px;
     }
 
     pre::-webkit-scrollbar-track {

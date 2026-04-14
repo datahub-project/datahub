@@ -1,11 +1,12 @@
-import React from 'react';
-import styled from 'styled-components';
+import React, { useMemo } from 'react';
+import styled, { useTheme } from 'styled-components';
 
-import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+import getAvatarColorScheme, { getAvatarColorStyles } from '@components/components/Avatar/utils';
+
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PreviewImage = styled.img<{ $isShowNavBarRedesign?: boolean }>`
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     width: 100%;
     min-height: 240px;
     max-height: 260px;
@@ -16,13 +17,13 @@ const PreviewImage = styled.img<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
     border-top-right-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
-    ${(props) => !props.$isShowNavBarRedesign && 'border: 2px solid #ffffff;'}
+    ${(props) => !props.$isShowNavBarRedesign && `border: 2px solid ${props.theme.colors.bg};`}
 `;
 
-const PreviewLetter = styled.div<{ color: string; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => props.color};
+const PreviewLetter = styled.div<{ $bgColor: string; $isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) => props.$bgColor};
     font-size: 52px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     width: 100%;
     display: flex;
     align-items: center;
@@ -31,7 +32,7 @@ const PreviewLetter = styled.div<{ color: string; $isShowNavBarRedesign?: boolea
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
     border-top-right-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
-    ${(props) => !props.$isShowNavBarRedesign && 'border: 2px solid #ffffff;'}
+    ${(props) => !props.$isShowNavBarRedesign && `border: 2px solid ${props.theme.colors.bg};`}
 `;
 
 type Props = {
@@ -41,14 +42,17 @@ type Props = {
 
 export const UserHeaderImage = ({ photoUrl, displayName }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const theme = useTheme();
     const hasPhoto = !!photoUrl;
     const firstLetter = displayName?.[0] || '';
+    const scheme = getAvatarColorScheme(displayName || '');
+    const avatarStyles = useMemo(() => getAvatarColorStyles(scheme, theme.colors), [scheme, theme.colors]);
     return (
         <>
             {(hasPhoto && (
                 <PreviewImage src={photoUrl} alt={displayName} $isShowNavBarRedesign={isShowNavBarRedesign} />
             )) || (
-                <PreviewLetter color={getAvatarColor(displayName)} $isShowNavBarRedesign={isShowNavBarRedesign}>
+                <PreviewLetter $bgColor={avatarStyles.backgroundColor} $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {' '}
                     {firstLetter}{' '}
                 </PreviewLetter>

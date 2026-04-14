@@ -165,6 +165,11 @@ type Query {
   listGroups(input: ListGroupsInput!): ListGroupsResult
 
   """
+  Search DataHub Users
+  """
+  searchUsers(input: SearchAcrossEntitiesInput!): SearchResults
+
+  """
   Fetches the number of entities ingested by type
   """
   getEntityCounts(input: EntityCountInput): EntityCountResults
@@ -937,6 +942,24 @@ type Mutation {
   batchSetDataProduct(
     "Input for batch setting data product"
     input: BatchSetDataProductInput!
+  ): Boolean
+
+  """
+  Adds multiple assets to multiple data products (additive - preserves existing memberships).
+  Available when multipleDataProductsPerAsset feature flag is enabled.
+  """
+  batchAddToDataProducts(
+    "Input for batch adding assets to data products"
+    input: BatchSetDataProductsInput!
+  ): Boolean
+
+  """
+  Removes multiple assets from multiple data products (does not affect other memberships).
+  Available when multipleDataProductsPerAsset feature flag is enabled.
+  """
+  batchRemoveFromDataProducts(
+    "Input for batch removing assets from data products"
+    input: BatchSetDataProductsInput!
   ): Boolean
 
   """
@@ -1841,6 +1864,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -2291,7 +2319,6 @@ type VersionedDataset implements Entity {
   No-op, has to be included due to model
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-    @deprecated
 }
 
 """
@@ -2531,6 +2558,11 @@ type GlossaryTerm implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Schema metadata of the dataset
   """
   schemaMetadata(version: Long): SchemaMetadata
@@ -2692,6 +2724,11 @@ type GlossaryNode implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Recursively get the lineage of glossary nodes for this entity
@@ -3191,6 +3228,11 @@ type Container implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Status metadata of the container
   """
   status: Status
@@ -3645,6 +3687,11 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -6052,6 +6099,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -6407,6 +6459,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -6823,6 +6880,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -7077,6 +7139,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -7107,11 +7174,6 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   The structured tags associated with the DataJob
   """
   globalTags: GlobalTags @deprecated
-
-  """
-  History of runs of this task
-  """
-  runs(start: Int, count: Int): DataProcessInstanceResult
 
   """
   Privileges given to a user relevant to this entity
@@ -7863,7 +7925,7 @@ A frequency distribution of a specific value within a dataset
 """
 type ValueFrequency {
   """
-  Specific value. For numeric colums, the value will contain a strigified value
+  Specific value. For numeric columns, the value will contain a stringified value
   """
   value: String!
   """
@@ -10432,6 +10494,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -10574,6 +10641,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -10778,6 +10850,11 @@ type MLFeature implements EntityWithRelationships & Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -11046,6 +11123,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -11195,6 +11277,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -11669,6 +11756,11 @@ type Domain implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Experimental API.
@@ -13232,6 +13324,11 @@ type DataProduct implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Children entities inside of the DataProduct
   """
   entities(input: SearchAcrossEntitiesInput): SearchResults
@@ -13411,6 +13508,22 @@ input BatchSetDataProductInput {
 }
 
 """
+Input for batch adding/removing assets to/from multiple data products.
+Available when multipleDataProductsPerAsset feature flag is enabled.
+"""
+input BatchSetDataProductsInput {
+  """
+  The urns of the data products to add/remove assets to/from
+  """
+  dataProductUrns: [String!]!
+
+  """
+  The urns of the entities (assets) to add/remove
+  """
+  resourceUrns: [String!]!
+}
+
+"""
 An Application, or a grouping of Entities for a single business purpose. Compared with Data Products, Applications represent a grouping of tables that exist to serve a specific
 purpose. However, unlike Data Products, they don't represent groups that are tailored to be consumed for any particular purpose. Often, the assets in Applications power specific
 outcomes, for example a Pricing Application.
@@ -13445,6 +13558,11 @@ type Application implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   The structured glossary terms associated with the Application
@@ -13556,6 +13674,11 @@ input CreateApplicationInput {
   An optional id for the new application
   """
   id: String
+
+  """
+  Whether to add the creator as an owner of the application. Defaults to true if not specified.
+  """
+  shouldAddCreatorAsOwner: Boolean
 }
 
 """
@@ -13912,6 +14035,11 @@ type BusinessAttribute implements Entity {
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
 }
 
 """

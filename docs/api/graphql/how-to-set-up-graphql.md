@@ -3,10 +3,10 @@ import TabItem from '@theme/TabItem';
 
 # How To Set Up GraphQL
 
-## Preparing Local Datahub Deployment
+## Preparing Local DataHub Deployment
 
 The first thing you'll need to use the GraphQL API is a deployed instance of DataHub with some metadata ingested.
-For more information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For more information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 ## Querying the GraphQL API
 

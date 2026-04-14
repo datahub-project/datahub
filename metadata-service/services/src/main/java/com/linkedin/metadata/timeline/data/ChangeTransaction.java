@@ -17,7 +17,7 @@ public class ChangeTransaction {
   String reporter;
   String semVer;
   SemanticChangeType semVerChange;
-  List<ChangeEvent> changeEvents;
+  @Setter List<ChangeEvent> changeEvents;
 
   @ArraySchema(schema = @Schema(implementation = PatchOperation.class))
   JsonPatch rawDiff;

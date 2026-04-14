@@ -119,7 +119,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   public void invoke(@Nonnull MetadataChangeLog event) {
     if (enabled && isEligibleForProcessing(event)) {
 
-      log.info(
+      log.debug(
           "Urn {} with aspect {} received by Sibling Hook.",
           event.getEntityUrn(),
           event.getAspectName());

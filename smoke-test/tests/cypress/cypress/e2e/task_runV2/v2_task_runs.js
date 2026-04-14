@@ -1,8 +1,4 @@
 describe("task runs", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
-
   it("can visit dataset with runs aspect and verify the task run is present", () => {
     cy.visit("/");
     cy.login();

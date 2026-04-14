@@ -32,6 +32,7 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
     justify-content: space-between;
     cursor: pointer;
 
+    max-width: 100%;
     &:hover {
         background-color: ${ANTD_GRAY[3]};
     }
@@ -53,8 +54,4 @@ export const TextButton = styled(Button)<{ marginTop?: number; height?: number }
 
 export const Label = styled(Typography.Text)`
     max-width: 125px;
-`;
-
-export const IconSpacer = styled.span`
-    width: 4px;
 `;

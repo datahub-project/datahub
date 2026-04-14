@@ -20,7 +20,7 @@ const DropdownMenu = styled.div<{ padding?: string }>`
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     overflow: hidden;
     min-width: 200px;
-    max-width: 240px;
+    max-width: 400px;
 
     ${(props) => props.padding !== undefined && `padding: ${props.padding};`}
 `;

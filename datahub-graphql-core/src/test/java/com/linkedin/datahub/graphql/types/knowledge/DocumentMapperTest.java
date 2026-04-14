@@ -5,9 +5,18 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Documentation;
+import com.linkedin.common.DocumentationAssociation;
+import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.InstitutionalMemoryMetadata;
+import com.linkedin.common.InstitutionalMemoryMetadataArray;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -41,11 +50,16 @@ public class DocumentMapperTest {
   private static final String TEST_DOCUMENT_ID = "test-document";
   private static final String TEST_DOCUMENT_TYPE = "tutorial";
   private static final String TEST_DOCUMENT_TITLE = "Test Tutorial";
+  private static final String TEST_DOCUMENT_DESCRIPTION = "Test document description";
   private static final String TEST_CONTENT = "Test content";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:testuser";
   private static final String TEST_PARENT_URN = "urn:li:document:parent-document";
   private static final String TEST_ASSET_URN = "urn:li:dataset:test-dataset";
   private static final String TEST_RELATED_DOCUMENT_URN = "urn:li:document:related-document";
+  private static final String TEST_PLATFORM_URN = "urn:li:dataPlatform:confluence";
+  private static final String TEST_PLATFORM_INSTANCE_URN =
+      "urn:li:dataPlatformInstance:(urn:li:dataPlatform:confluence,prod)";
+  private static final String DEFAULT_DATAHUB_PLATFORM_URN = "urn:li:dataPlatform:datahub";
   private static final Long TEST_TIMESTAMP = 1640995200000L; // 2022-01-01 00:00:00 UTC
 
   private Urn documentUrn;
@@ -53,6 +67,8 @@ public class DocumentMapperTest {
   private Urn parentUrn;
   private Urn assetUrn;
   private Urn relatedDocumentUrn;
+  private Urn platformUrn;
+  private Urn platformInstanceUrn;
   private QueryContext mockQueryContext;
 
   @BeforeMethod
@@ -62,6 +78,8 @@ public class DocumentMapperTest {
     parentUrn = Urn.createFromString(TEST_PARENT_URN);
     assetUrn = Urn.createFromString(TEST_ASSET_URN);
     relatedDocumentUrn = Urn.createFromString(TEST_RELATED_DOCUMENT_URN);
+    platformUrn = Urn.createFromString(TEST_PLATFORM_URN);
+    platformInstanceUrn = Urn.createFromString(TEST_PLATFORM_INSTANCE_URN);
     mockQueryContext = mock(QueryContext.class);
   }
 
@@ -154,6 +172,13 @@ public class DocumentMapperTest {
       assertEquals(result.getInfo().getContents().getText(), TEST_CONTENT);
       assertNotNull(result.getInfo().getCreated());
       assertEquals(result.getInfo().getCreated().getTime(), TEST_TIMESTAMP);
+      // Verify actor is set as CorpUser in ResolvedAuditStamp
+      assertNotNull(result.getInfo().getCreated().getActor());
+      assertEquals(result.getInfo().getCreated().getActor().getUrn(), TEST_ACTOR_URN);
+      assertNotNull(result.getInfo().getLastModified());
+      assertEquals(result.getInfo().getLastModified().getTime(), TEST_TIMESTAMP);
+      assertNotNull(result.getInfo().getLastModified().getActor());
+      assertEquals(result.getInfo().getLastModified().getActor().getUrn(), TEST_ACTOR_URN);
 
       // Relationships are present inside info and constructed as unresolved stubs
       assertNotNull(result.getInfo().getParentDocument());
@@ -523,46 +548,6 @@ public class DocumentMapperTest {
   }
 
   @Test
-  public void testMapDocumentWithDraftOf() throws URISyntaxException {
-    // Setup entity response with DraftOf relationship
-    EntityResponse entityResponse = createBasicEntityResponse();
-
-    // Add document info with DraftOf
-    DocumentInfo documentInfo = new DocumentInfo();
-    DocumentContents contents = new DocumentContents();
-    contents.setText(TEST_CONTENT);
-    documentInfo.setContents(contents);
-
-    AuditStamp createdStamp = new AuditStamp();
-    createdStamp.setTime(TEST_TIMESTAMP);
-    createdStamp.setActor(actorUrn);
-    documentInfo.setCreated(createdStamp);
-    documentInfo.setLastModified(createdStamp);
-
-    // Add DraftOf relationship
-    Urn publishedDocUrn = Urn.createFromString("urn:li:document:published-doc");
-    com.linkedin.knowledge.DraftOf draftOf = new com.linkedin.knowledge.DraftOf();
-    draftOf.setDocument(publishedDocUrn);
-    documentInfo.setDraftOf(draftOf);
-
-    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
-
-    // Mock authorization
-    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
-
-      // Execute mapping
-      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
-
-      // Verify draftOf is mapped
-      assertNotNull(result.getInfo().getDraftOf());
-      assertNotNull(result.getInfo().getDraftOf().getDocument());
-      assertEquals(
-          result.getInfo().getDraftOf().getDocument().getUrn(), publishedDocUrn.toString());
-    }
-  }
-
-  @Test
   public void testMapDocumentWithDocumentState() throws URISyntaxException {
     // Setup entity response with DocumentState
     EntityResponse entityResponse = createBasicEntityResponse();
@@ -598,6 +583,220 @@ public class DocumentMapperTest {
       assertEquals(
           result.getInfo().getStatus().getState(),
           com.linkedin.datahub.graphql.generated.DocumentState.PUBLISHED);
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDefaultPlatform() throws URISyntaxException {
+    // Setup entity response WITHOUT DataPlatformInstance aspect
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify platform defaults to datahub
+      assertNotNull(result.getPlatform());
+      assertEquals(result.getPlatform().getUrn(), DEFAULT_DATAHUB_PLATFORM_URN);
+      assertEquals(result.getPlatform().getType(), EntityType.DATA_PLATFORM);
+
+      // Verify dataPlatformInstance is not set
+      assertNull(result.getDataPlatformInstance());
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDataPlatformInstanceWithoutInstance() throws URISyntaxException {
+    // Setup entity response with DataPlatformInstance aspect (platform only, no instance)
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add DataPlatformInstance aspect with platform only
+    com.linkedin.common.DataPlatformInstance dataPlatformInstance =
+        new com.linkedin.common.DataPlatformInstance();
+    dataPlatformInstance.setPlatform(new DataPlatformUrn("confluence"));
+    addAspectToResponse(entityResponse, DATA_PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify platform is set from DataPlatformInstance
+      assertNotNull(result.getPlatform());
+      assertEquals(result.getPlatform().getUrn(), TEST_PLATFORM_URN);
+      assertEquals(result.getPlatform().getType(), EntityType.DATA_PLATFORM);
+
+      // Verify dataPlatformInstance is NOT set when there's no instance
+      assertNull(result.getDataPlatformInstance());
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDataPlatformInstanceWithInstance() throws URISyntaxException {
+    // Setup entity response with DataPlatformInstance aspect (with both platform and instance)
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add DataPlatformInstance aspect with both platform and instance
+    com.linkedin.common.DataPlatformInstance dataPlatformInstance =
+        new com.linkedin.common.DataPlatformInstance();
+    dataPlatformInstance.setPlatform(new DataPlatformUrn("confluence"));
+    dataPlatformInstance.setInstance(platformInstanceUrn);
+    addAspectToResponse(entityResponse, DATA_PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify platform is set from DataPlatformInstance
+      assertNotNull(result.getPlatform());
+      assertEquals(result.getPlatform().getUrn(), TEST_PLATFORM_URN);
+      assertEquals(result.getPlatform().getType(), EntityType.DATA_PLATFORM);
+
+      // Verify dataPlatformInstance IS set when there's an instance
+      assertNotNull(result.getDataPlatformInstance());
+      assertEquals(result.getDataPlatformInstance().getUrn(), TEST_PLATFORM_INSTANCE_URN);
+      assertEquals(result.getDataPlatformInstance().getType(), EntityType.DATA_PLATFORM_INSTANCE);
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDocumentation() throws URISyntaxException {
+    // Setup entity response with documentation aspect
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add document info with title
+    DocumentInfo documentInfo = new DocumentInfo();
+    documentInfo.setTitle(TEST_DOCUMENT_TITLE);
+
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add documentation aspect
+    Documentation documentation = new Documentation();
+    DocumentationAssociationArray docAssociations = new DocumentationAssociationArray();
+    DocumentationAssociation docAssociation = new DocumentationAssociation();
+    docAssociation.setDocumentation(TEST_DOCUMENT_DESCRIPTION);
+    MetadataAttribution attribution = new MetadataAttribution();
+    attribution.setTime(TEST_TIMESTAMP);
+    attribution.setActor(actorUrn);
+    docAssociation.setAttribution(attribution);
+    docAssociations.add(docAssociation);
+    documentation.setDocumentations(docAssociations);
+    addAspectToResponse(entityResponse, DOCUMENTATION_ASPECT_NAME, documentation);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify documentation aspect is mapped
+      assertNotNull(result.getInfo());
+      assertEquals(result.getInfo().getTitle(), TEST_DOCUMENT_TITLE);
+      assertNotNull(result.getDocumentation());
+      assertNotNull(result.getDocumentation().getDocumentations());
+      assertEquals(result.getDocumentation().getDocumentations().size(), 1);
+      assertEquals(
+          result.getDocumentation().getDocumentations().get(0).getDocumentation(),
+          TEST_DOCUMENT_DESCRIPTION);
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithInstitutionalMemory() throws URISyntaxException {
+    // Setup entity response with institutional memory
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add institutional memory aspect
+    InstitutionalMemory institutionalMemory = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata element = new InstitutionalMemoryMetadata();
+    element.setUrl(new Url("https://example.com/doc"));
+    element.setDescription("Example documentation");
+    element.setCreateStamp(createdStamp);
+    elements.add(element);
+    institutionalMemory.setElements(elements);
+    addAspectToResponse(entityResponse, INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemory);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify institutional memory is mapped
+      assertNotNull(result.getInstitutionalMemory());
+      assertNotNull(result.getInstitutionalMemory().getElements());
+      assertEquals(result.getInstitutionalMemory().getElements().size(), 1);
+      assertEquals(
+          result.getInstitutionalMemory().getElements().get(0).getUrl(), "https://example.com/doc");
     }
   }
 

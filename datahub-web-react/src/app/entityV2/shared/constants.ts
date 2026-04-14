@@ -1,3 +1,6 @@
+// Disabling no hardcoded colors rule right now
+// TO-DO: Remove these colors once their usage in other files is migrated to semantic tokens
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
@@ -198,16 +201,6 @@ export const EMPTY_MESSAGES = {
     },
 };
 
-export const ELASTIC_MAX_COUNT = 10000;
-
-export const getElasticCappedTotalValueText = (count: number) => {
-    if (count === ELASTIC_MAX_COUNT) {
-        return `${ELASTIC_MAX_COUNT}+`;
-    }
-
-    return `${count}`;
-};
-
 export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
     EntityType.Dashboard,
     EntityType.Chart,
@@ -216,8 +209,6 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
 ]);
 
 export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];
-
-export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
 
@@ -232,10 +223,6 @@ export enum EntityProfileTab {
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 
 export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
-
-export const SMART_ASSERTION_STALE_IN_DAYS = 3;
-
-export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
 
 export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
 export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';

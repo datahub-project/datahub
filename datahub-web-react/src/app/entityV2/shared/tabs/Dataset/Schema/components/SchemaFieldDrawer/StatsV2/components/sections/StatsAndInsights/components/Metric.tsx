@@ -19,10 +19,10 @@ interface MetricProps {
 export default function Metric({ label, value, dataTestId }: MetricProps) {
     return (
         <MetricContainer data-testid={dataTestId}>
-            <Text weight="semiBold" color="gray" size="sm" data-testid="label">
+            <Text weight="semiBold" size="sm" data-testid="label">
                 {label}
             </Text>
-            <Text color="gray" size="sm" data-testid="value">
+            <Text size="sm" data-testid="value">
                 {value}
             </Text>
         </MetricContainer>

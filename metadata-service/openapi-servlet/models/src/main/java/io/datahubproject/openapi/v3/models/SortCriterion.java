@@ -3,6 +3,7 @@ package io.datahubproject.openapi.v3.models;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
 import lombok.extern.jackson.Jacksonized;
 
 @Data
@@ -11,6 +12,23 @@ import lombok.extern.jackson.Jacksonized;
 public class SortCriterion {
   private String field;
   private SortOrder order;
+  private MissingValue missingValue;
+
+  @Getter
+  public enum MissingValue {
+
+    /** Missing value will be sorted to the top. * */
+    FIRST("_first"),
+
+    /** Missing value will be sorted to the end. * */
+    LAST("_last");
+
+    private final String value;
+
+    MissingValue(String value) {
+      this.value = value;
+    }
+  }
 
   public enum SortOrder {
     ASCENDING,

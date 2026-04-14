@@ -48,7 +48,34 @@ mutation UpsertLogicalModelsPropagationAutomation {
       description: "Propagation metadata from logical parents to their children"
       config: {
         recipe: """
-        {"name": "logical models", "action": {"type": "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action", "config": {"enabled": true, "propagation_rule": {"metadata_propagated": {"tags": {}, "terms": {}, "documentation": {}, "ownership": {}, "structured_properties": {}}, "origin_urn_resolution": {"lookup_type": "relationship", "relationship_type": "PhysicalInstanceOf"}, "target_urn_resolution": [{"lookup_type": "relationship", "relationship_type": "PhysicalInstanceOf"}]}}}}
+        {
+          "name": "logical models",
+          "action": {
+            "type": "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action",
+            "config": {
+              "enabled": true,
+              "propagation_rule": {
+                "metadata_propagated": {
+                  "tags": {},
+                  "terms": {},
+                  "documentation": {},
+                  "ownership": {},
+                  "structured_properties": {}
+                },
+                "origin_urn_resolution": {
+                  "lookup_type": "relationship",
+                  "relationship_type": "PhysicalInstanceOf"
+                },
+                "target_urn_resolution": [
+                  {
+                    "lookup_type": "relationship",
+                    "relationship_type": "PhysicalInstanceOf"
+                  }
+                ]
+              }
+            }
+          }
+        }
         """
         executorId: "default"
       }
@@ -56,6 +83,10 @@ mutation UpsertLogicalModelsPropagationAutomation {
   )
 }
 ```
+
+:::note Logical Model Platform
+If you are using a custom platform for your logical models, make sure to update the `query` field in the next mutation accordingly. If you have multiple logical platforms, you can specify multiple as so: `platform:(platformA platformB)`.
+:::
 
 ```graphql
 mutation UpsertSchemaFieldPropagationAutomation {
@@ -68,7 +99,34 @@ mutation UpsertSchemaFieldPropagationAutomation {
       description: "Propagate tags, terms, and documentation on SchemaMetadata / EditableSchemaMetadata to aspects directly on schema fields"
       config: {
         recipe: """
-        {"name": "schema fields", "action": {"type": "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action", "config": {"enabled": true, "propagation_rule": {"metadata_propagated": {"tags": {"omit_attribution_is_propagated": true}, "terms": {"omit_attribution_is_propagated": true}, "documentation": {"omit_attribution_is_propagated": true}}, "origin_urn_resolution": {"lookup_type": "entity", "entity_type": "dataset", "query":"platform:logical"}, "target_urn_resolution": "schema_field"}}}}
+        {
+          "name": "schema fields",
+          "action": {
+            "type": "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action",
+            "config": {
+              "enabled": true,
+              "propagation_rule": {
+                "metadata_propagated": {
+                  "tags": {
+                    "omit_attribution_is_propagated": true
+                  },
+                  "terms": {
+                    "omit_attribution_is_propagated": true
+                  },
+                  "documentation": {
+                    "omit_attribution_is_propagated": true
+                  }
+                },
+                "origin_urn_resolution": {
+                  "lookup_type": "entity",
+                  "entity_type": "dataset",
+                  "query": "platform:logical"
+                },
+                "target_urn_resolution": "schema_field"
+              }
+            }
+          }
+        }
         """
         executorId: "default"
       }

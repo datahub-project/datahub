@@ -39,6 +39,29 @@ class DatasourceRef(_GrafanaBaseModel):
     name: Optional[str] = None
 
 
+class QueryInfo(_GrafanaBaseModel):
+    """Represents a query extracted from a Grafana panel."""
+
+    query: str
+    language: str
+
+    @field_validator("query")
+    @classmethod
+    def validate_query_not_empty(cls, v: str) -> str:
+        """Ensure query is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Query cannot be empty or whitespace-only")
+        return v.strip()
+
+    @field_validator("language")
+    @classmethod
+    def validate_language_not_empty(cls, v: str) -> str:
+        """Ensure language is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Language cannot be empty or whitespace-only")
+        return v.strip()
+
+
 class Panel(_GrafanaBaseModel):
     """Represents a Grafana dashboard panel."""
 
@@ -217,7 +240,6 @@ class Dashboard(_GrafanaBaseModel):
         result.setdefault("version", None)
         result.setdefault("timezone", None)
         result.setdefault("refresh", None)
-        result.setdefault("created_by", None)
 
     @staticmethod
     def _cleanup_dashboard_metadata(result: Dict[str, Any]) -> None:
@@ -253,12 +275,13 @@ class Dashboard(_GrafanaBaseModel):
             else:
                 panels = _panel_data
 
-            meta = dashboard_data.get("meta", {})
-            folder_id = meta.get("folderId") if meta else None
-
             result = {**dashboard_data, "panels": panels}
-            if folder_id is not None:
-                result["folder_id"] = folder_id
+
+            if (meta := data.get("meta")) is not None:
+                # We only want to set folder_id and created_by from meta if we get it
+                # from json and not when creating Dashboard(uid=...) like in tests.
+                result["folder_id"] = meta.get("folderId")
+                result["created_by"] = meta.get("createdBy")
 
             cls._set_dashboard_defaults(result)
             cls._cleanup_dashboard_metadata(result)

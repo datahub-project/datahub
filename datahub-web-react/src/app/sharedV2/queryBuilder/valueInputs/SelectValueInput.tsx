@@ -22,17 +22,23 @@ export default function SelectValueInput({ options, selected, label, mode, place
 
     const isMultiSelect = mode === 'multiple';
 
+    const hasSelection = (selected?.length ?? 0) > 0;
+
     return (
         <Select
             values={selected}
             onUpdate={onChangeSelected}
-            placeholder={placeholder}
+            placeholder={placeholder || 'Select a value...'}
             options={selectOptions}
             isMultiSelect={isMultiSelect}
-            selectLabelProps={{
-                variant: 'labeled',
-                label: label ?? 'Items',
-            }}
+            selectLabelProps={
+                hasSelection
+                    ? {
+                          variant: 'labeled',
+                          label: label ?? 'Items',
+                      }
+                    : undefined
+            }
             width="full"
             showClear
         />

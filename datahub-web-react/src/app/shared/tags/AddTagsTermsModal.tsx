@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Tag as CustomTag, Empty, Form, Modal, Select, Typography, message } from 'antd';
+import { Tag as CustomTag, Empty, Form, Select, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -10,7 +10,6 @@ import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import CreateTagModal from '@app/shared/tags/CreateTagModal';
@@ -20,7 +19,7 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 import { getModalDomContainer } from '@utils/focus';
 
 import {
@@ -515,21 +514,21 @@ export default function EditTagTermsModal({
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
             open={open}
             onCancel={onCloseModal}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={onCloseModal} color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        id="addTagButton"
-                        data-testid="add-tag-term-from-modal-btn"
-                        onClick={onOk}
-                        disabled={urns.length === 0 || disableAction}
-                    >
-                        Add
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: 'Add',
+                    id: 'addTagButton',
+                    buttonDataTestId: 'add-tag-term-from-modal-btn',
+                    variant: 'filled',
+                    disabled: urns.length === 0 || disableAction,
+                    onClick: onOk,
+                },
+            ]}
             getContainer={getModalDomContainer}
         >
             <Form component={false}>

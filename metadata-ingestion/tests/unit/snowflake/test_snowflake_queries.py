@@ -30,7 +30,12 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery, PreparsedQuery
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    PreparsedQuery,
+    TableRename,
+    TableSwap,
+)
 
 
 class TestBuildAccessHistoryDatabaseFilterCondition:
@@ -775,6 +780,257 @@ class TestSnowflakeQueryParser:
         assert result.query_text == "SELECT id, name FROM test_table"
 
 
+class TestParseDdlQuery:
+    """Tests for parse_ddl_query handling of Snowflake access_history DDL payloads.
+
+    Snowflake's 2026_01 BCR bundle (which includes BCR-2178) changed the format
+    of object_modified_by_ddl properties from {"key": {"value": "..."}} to
+    {"key": "..."}. parse_ddl_query must handle both formats.
+
+    All test payloads are from real Snowflake access_history rows observed on a
+    test instance before and after enabling the 2026_01 BCR bundle.
+    """
+
+    @staticmethod
+    def _create_extractor() -> SnowflakeQueriesExtractor:
+        mock_connection = Mock()
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            ),
+        )
+        structured_report = SourceReport()
+        mock_filters = Mock()
+        mock_identifiers = Mock(spec=SnowflakeIdentifierBuilder)
+        mock_identifiers.platform = "snowflake"
+        mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
+        mock_identifiers.gen_dataset_urn = Mock(
+            side_effect=lambda x: f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
+        )
+        mock_identifiers.get_dataset_identifier_from_qualified_name = Mock(
+            side_effect=lambda x: x.lower()
+        )
+        mock_identifiers.snowflake_identifier = Mock(side_effect=lambda x: x)
+        mock_identifiers.get_user_identifier = Mock(return_value="test_user")
+
+        return SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=structured_report,
+            filters=mock_filters,
+            identifiers=mock_identifiers,
+        )
+
+    def test_rename_table_pre_2026_01_bcr(self):
+        """Pre-BCR RENAME_TABLE: properties use {"value": ...} wrapper."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6307261,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {"objectName": {"value": "MAX_TEST.PUBLIC.TEST_DDL_RENAMED"}},
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE RENAME TO TEST_DDL_RENAMED",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="RENAME_TABLE",
+        )
+
+        assert isinstance(result, TableRename)
+        assert "test_ddl_clone" in result.original_urn
+        assert "test_ddl_renamed" in result.new_urn
+
+    def test_rename_table_post_2026_01_bcr(self):
+        """Post-BCR RENAME_TABLE: properties are flattened strings."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6311319,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {"objectName": "MAX_TEST.PUBLIC.TEST_DDL_RENAMED"},
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE RENAME TO TEST_DDL_RENAMED",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="RENAME_TABLE",
+        )
+
+        assert isinstance(result, TableRename)
+        assert "test_ddl_clone" in result.original_urn
+        assert "test_ddl_renamed" in result.new_urn
+
+    def test_swap_table_pre_2026_01_bcr(self):
+        """Pre-BCR SWAP: properties use {"value": ...} wrapper."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6321270,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {
+                "swapTargetDomain": {"value": "Table"},
+                "swapTargetId": {"value": 6321270},
+                "swapTargetName": {"value": "MAX_TEST.PUBLIC.TEST_DDL_REPRO"},
+            },
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE SWAP WITH TEST_DDL_REPRO",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="ALTER",
+        )
+
+        assert isinstance(result, TableSwap)
+        assert "test_ddl_clone" in result.urn1
+        assert "test_ddl_repro" in result.urn2
+
+    def test_swap_table_post_2026_01_bcr(self):
+        """Post-BCR SWAP: properties are flattened strings."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6290396,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {
+                "swapTargetDomain": "Table",
+                "swapTargetId": 6290396,
+                "swapTargetName": "MAX_TEST.PUBLIC.TEST_DDL_REPRO",
+            },
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE SWAP WITH TEST_DDL_REPRO",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="ALTER",
+        )
+
+        assert isinstance(result, TableSwap)
+        assert "test_ddl_clone" in result.urn1
+        assert "test_ddl_repro" in result.urn2
+
+    def test_non_dict_ddl_returns_none(self):
+        """Non-dict object_modified_by_ddl (e.g. a plain string from
+        json.loads of a JSON string value) is gracefully dropped."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        result = extractor.parse_ddl_query(
+            query="ALTER SESSION SET QUERY_TAG = 'test'",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl="ALTER SESSION SET QUERY_TAG = 'test'",  # type: ignore[arg-type]
+            query_type="ALTER_SESSION",
+        )
+        assert result is None
+
+    def test_non_alter_ddl_dropped(self):
+        """A well-formed CREATE DDL is dropped — parse_ddl_query only handles
+        ALTER RENAME/SWAP."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 12345,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_REPRO",
+            "operationType": "CREATE",
+            "properties": {},
+        }
+
+        result = extractor.parse_ddl_query(
+            query="CREATE TABLE TEST_DDL_REPRO (id INT)",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="CREATE",
+        )
+        assert result is None
+
+    # -- _parse_audit_log_row integration tests --
+
+    @staticmethod
+    def _make_row(
+        object_modified_by_ddl_json: str,
+        query_text: str = "ALTER TABLE T RENAME TO T2",
+        query_type: str = "RENAME_TABLE",
+    ) -> dict:
+        """Build a minimal access_history row."""
+        return {
+            "QUERY_ID": "test-query-1",
+            "ROOT_QUERY_ID": None,
+            "QUERY_TEXT": query_text,
+            "QUERY_TYPE": query_type,
+            "SESSION_ID": "session-1",
+            "USER_NAME": "SVC_DATAHUB",
+            "ROLE_NAME": "DATAHUB_ROLE",
+            "QUERY_START_TIME": datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc),
+            "END_TIME": datetime(2026, 2, 25, 12, 0, 1, tzinfo=timezone.utc),
+            "QUERY_DURATION": 100,
+            "ROWS_INSERTED": 0,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "DEFAULT_DB": "MAX_TEST",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": "fp-1",
+            "DIRECT_OBJECTS_ACCESSED": json.dumps([]),
+            "OBJECTS_MODIFIED": json.dumps([]),
+            "OBJECT_MODIFIED_BY_DDL": object_modified_by_ddl_json,
+        }
+
+    def test_audit_log_row_string_ddl_no_failures(self):
+        """_parse_audit_log_row gracefully handles a string-valued
+        object_modified_by_ddl without accumulating report failures."""
+        extractor = self._create_extractor()
+        row = self._make_row(
+            json.dumps("ALTER SESSION SET QUERY_TAG = 'test'"),
+            query_text="ALTER SESSION SET QUERY_TAG = 'test'",
+            query_type="ALTER_SESSION",
+        )
+
+        result = extractor._parse_audit_log_row(row, {})
+        assert result is None
+        assert not extractor.structured_reporter.failures
+
+    def test_audit_log_row_rename_post_2026_01_bcr(self):
+        """End-to-end: _parse_audit_log_row correctly produces a TableRename
+        from a post-BCR RENAME_TABLE payload."""
+        extractor = self._create_extractor()
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6311319,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {"objectName": "MAX_TEST.PUBLIC.TEST_DDL_RENAMED"},
+        }
+        row = self._make_row(json.dumps(ddl))
+
+        result = extractor._parse_audit_log_row(row, {})
+        assert isinstance(result, TableRename)
+
+
 class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
     """Tests for stateful time window ingestion support in queries v2."""
 
@@ -972,6 +1228,11 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
 class TestMultiTableInsert:
     """Test handling of conditional multi-table INSERT statements (issue #14929)."""
 
+    UPSTREAM_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,reporting.public.updated_orders,PROD)"
+    UPSTREAM_URN_2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,minerva_pii.public.order_item_pii,PROD)"
+    DOWNSTREAM_URN_1 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,reporting.public.tmp_reservation_ids,PROD)"
+    DOWNSTREAM_URN_2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,reporting.public.tmp_order_item_created,PROD)"
+
     def _create_mock_extractor(self) -> SnowflakeQueriesExtractor:
         """Helper to create a SnowflakeQueriesExtractor with mocked dependencies."""
         mock_connection = Mock()
@@ -987,7 +1248,6 @@ class TestMultiTableInsert:
         mock_report = Mock(spec=SourceReport)
         mock_filters = Mock(spec=SnowflakeFilter)
 
-        # Create real identifiers for actual parsing
         identifiers = SnowflakeIdentifierBuilder(
             identifier_config=SnowflakeIdentifierConfig(),
             structured_reporter=mock_report,
@@ -1003,20 +1263,15 @@ class TestMultiTableInsert:
         )
         return extractor
 
-    def test_multi_table_insert_returns_list(self):
-        """Test that multi-table INSERT returns a list of PreparsedQuery entries."""
-        extractor = self._create_mock_extractor()
-
-        # Simulate Snowflake audit log row with conditional multi-table INSERT
-        row = {
+    def _make_audit_log_row(
+        self,
+        objects_modified: list,
+        direct_objects_accessed: list,
+        query_text: str = "INSERT ALL INTO t1 SELECT * FROM src",
+    ) -> dict:
+        return {
             "QUERY_ID": "test-query-123",
-            "QUERY_TEXT": """
-INSERT OVERWRITE ALL
-    WHEN reservation_id_number IS NOT NULL THEN INTO reporting.tmp_reservation_ids (id) VALUES (reservation_id_number) 
-    WHEN created IS NOT NULL THEN INTO reporting.tmp_order_item_created (created) VALUES (created)
-SELECT oi.bundle_order_item_id, TRY_TO_NUMBER(oi.reservation_id) AS reservation_id_number, created
-FROM reporting.updated_orders uo JOIN minerva_pii.order_item_pii oi USING (order_num);
-            """.strip(),
+            "QUERY_TEXT": query_text,
             "QUERY_START_TIME": datetime(2021, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
             "QUERY_TYPE": "INSERT",
             "ROWS_INSERTED": 100,
@@ -1033,223 +1288,832 @@ FROM reporting.updated_orders uo JOIN minerva_pii.order_item_pii oi USING (order
             "ROOT_QUERY_ID": None,
             "QUERY_COUNT": 1,
             "QUERY_SECONDARY_FINGERPRINT": None,
-            "QUERY_DURATION": 1000,  # milliseconds
-            # Multiple objects_modified (the key part)
-            "OBJECTS_MODIFIED": json.dumps(
-                [
-                    {
-                        "objectName": "REPORTING.PUBLIC.TMP_RESERVATION_IDS",
-                        "objectDomain": "Table",
-                        "columns": [
-                            {
-                                "columnName": "ID",
-                                "directSources": [
-                                    {
-                                        "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
-                                        "objectDomain": "Table",
-                                        "columnName": "RESERVATION_ID",
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                    {
-                        "objectName": "REPORTING.PUBLIC.TMP_ORDER_ITEM_CREATED",
-                        "objectDomain": "Table",
-                        "columns": [
-                            {
-                                "columnName": "CREATED",
-                                "directSources": [
-                                    {
-                                        "objectName": "MINERVA_PII.PUBLIC.ORDER_ITEM_PII",
-                                        "objectDomain": "Table",
-                                        "columnName": "CREATED",
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                ]
-            ),
-            "DIRECT_OBJECTS_ACCESSED": json.dumps(
-                [
-                    {
-                        "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
-                        "objectDomain": "Table",
-                        "columns": [
-                            {"columnName": "ORDER_NUM"},
-                            {"columnName": "RESERVATION_ID"},
-                        ],
-                    },
-                    {
-                        "objectName": "MINERVA_PII.PUBLIC.ORDER_ITEM_PII",
-                        "objectDomain": "Table",
-                        "columns": [
-                            {"columnName": "ORDER_NUM"},
-                            {"columnName": "CREATED"},
-                        ],
-                    },
-                ]
-            ),
+            "QUERY_DURATION": 1000,
+            "OBJECTS_MODIFIED": json.dumps(objects_modified),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(direct_objects_accessed),
             "OBJECT_MODIFIED_BY_DDL": None,
         }
 
-        users: dict = {}
-        result = extractor._parse_audit_log_row(row, users)
+    def test_multi_table_insert_returns_list_with_column_lineage(self):
+        """Two downstream tables each get their own PreparsedQuery with correct column lineage."""
+        extractor = self._create_mock_extractor()
 
-        # Should return a list of PreparsedQuery entries
+        row = self._make_audit_log_row(
+            query_text=(
+                "INSERT OVERWRITE ALL"
+                " WHEN reservation_id_number IS NOT NULL"
+                "   THEN INTO reporting.tmp_reservation_ids (id) VALUES (reservation_id_number)"
+                " WHEN created IS NOT NULL"
+                "   THEN INTO reporting.tmp_order_item_created (created) VALUES (created)"
+                " SELECT TRY_TO_NUMBER(oi.reservation_id) AS reservation_id_number, created"
+                " FROM reporting.updated_orders uo"
+                " JOIN minerva_pii.order_item_pii oi USING (order_num)"
+            ),
+            objects_modified=[
+                {
+                    "objectName": "REPORTING.PUBLIC.TMP_RESERVATION_IDS",
+                    "objectDomain": "Table",
+                    "columns": [
+                        {
+                            "columnName": "ID",
+                            "directSources": [
+                                {
+                                    "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
+                                    "objectDomain": "Table",
+                                    "columnName": "RESERVATION_ID",
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "objectName": "REPORTING.PUBLIC.TMP_ORDER_ITEM_CREATED",
+                    "objectDomain": "Table",
+                    "columns": [
+                        {
+                            "columnName": "CREATED",
+                            "directSources": [
+                                {
+                                    "objectName": "MINERVA_PII.PUBLIC.ORDER_ITEM_PII",
+                                    "objectDomain": "Table",
+                                    "columnName": "CREATED",
+                                }
+                            ],
+                        }
+                    ],
+                },
+            ],
+            direct_objects_accessed=[
+                {
+                    "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
+                    "objectDomain": "Table",
+                    "columns": [
+                        {"columnName": "ORDER_NUM"},
+                        {"columnName": "RESERVATION_ID"},
+                    ],
+                },
+                {
+                    "objectName": "MINERVA_PII.PUBLIC.ORDER_ITEM_PII",
+                    "objectDomain": "Table",
+                    "columns": [
+                        {"columnName": "ORDER_NUM"},
+                        {"columnName": "CREATED"},
+                    ],
+                },
+            ],
+        )
+
+        result = extractor._parse_audit_log_row(row, {})
+
         assert isinstance(result, list)
         assert len(result) == 2
 
-        # Check first entry
-        entry1 = result[0]
+        entry1, entry2 = result
+
         assert isinstance(entry1, PreparsedQuery)
-        assert entry1.downstream is not None
-        assert "tmp_reservation_ids" in entry1.downstream.lower()
+        assert entry1.downstream == self.DOWNSTREAM_URN_1
         assert entry1.column_lineage is not None
         assert len(entry1.column_lineage) == 1
         assert entry1.column_lineage[0].downstream.column == "id"
 
-        # Check second entry
-        entry2 = result[1]
         assert isinstance(entry2, PreparsedQuery)
-        assert entry2.downstream is not None
-        assert "tmp_order_item_created" in entry2.downstream.lower()
+        assert entry2.downstream == self.DOWNSTREAM_URN_2
         assert entry2.column_lineage is not None
         assert len(entry2.column_lineage) == 1
         assert entry2.column_lineage[0].downstream.column == "created"
 
-        # Both entries should have same query text and upstreams
+        # Both entries share the same query text and upstream tables
         assert entry1.query_text == entry2.query_text
         assert entry1.upstreams == entry2.upstreams
-        assert len(entry1.upstreams) == 2
+        assert set(entry1.upstreams) == {self.UPSTREAM_URN, self.UPSTREAM_URN_2}
 
     def test_single_table_insert_returns_single_entry(self):
-        """Test that single-table INSERT still returns a single PreparsedQuery (backward compatibility)."""
+        """Single-table INSERT returns a PreparsedQuery, not a list (backward compat)."""
         extractor = self._create_mock_extractor()
 
-        # Simulate Snowflake audit log row with single-table INSERT
-        row = {
-            "QUERY_ID": "test-query-456",
-            "QUERY_TEXT": "INSERT INTO reporting.test_table SELECT * FROM reporting.source_table",
-            "QUERY_START_TIME": datetime(2021, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
-            "QUERY_TYPE": "INSERT",
-            "ROWS_INSERTED": 50,
-            "ROWS_UPDATED": 0,
-            "ROWS_DELETED": 0,
-            "USER_NAME": "TEST_USER",
-            "ROLE_NAME": "TEST_ROLE",
-            "SESSION_ID": 12345,
-            "WAREHOUSE_NAME": "TEST_WH",
-            "DATABASE_NAME": "REPORTING",
-            "SCHEMA_NAME": "PUBLIC",
-            "DEFAULT_DB": "REPORTING",
-            "DEFAULT_SCHEMA": "PUBLIC",
-            "ROOT_QUERY_ID": None,
-            "QUERY_COUNT": 1,
-            "QUERY_SECONDARY_FINGERPRINT": None,
-            "QUERY_DURATION": 500,  # milliseconds
-            # Single object_modified
-            "OBJECTS_MODIFIED": json.dumps(
-                [
-                    {
-                        "objectName": "REPORTING.PUBLIC.TEST_TABLE",
-                        "objectDomain": "Table",
-                        "columns": [],
-                    }
-                ]
-            ),
-            "DIRECT_OBJECTS_ACCESSED": json.dumps(
-                [
-                    {
-                        "objectName": "REPORTING.PUBLIC.SOURCE_TABLE",
-                        "objectDomain": "Table",
-                        "columns": [],
-                    }
-                ]
-            ),
-            "OBJECT_MODIFIED_BY_DDL": None,
-        }
+        row = self._make_audit_log_row(
+            query_text="INSERT INTO reporting.test_table SELECT * FROM reporting.source_table",
+            objects_modified=[
+                {
+                    "objectName": "REPORTING.PUBLIC.TEST_TABLE",
+                    "objectDomain": "Table",
+                    "columns": [],
+                }
+            ],
+            direct_objects_accessed=[
+                {
+                    "objectName": "REPORTING.PUBLIC.SOURCE_TABLE",
+                    "objectDomain": "Table",
+                    "columns": [],
+                }
+            ],
+        )
 
-        users: dict = {}
-        result = extractor._parse_audit_log_row(row, users)
+        result = extractor._parse_audit_log_row(row, {})
 
-        # Should return a single PreparsedQuery (not a list)
         assert isinstance(result, PreparsedQuery)
         assert not isinstance(result, list)
-        assert result.downstream is not None
-        assert "test_table" in result.downstream.lower()
+        assert (
+            result.downstream
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,reporting.public.test_table,PROD)"
+        )
 
-    def test_three_table_insert_returns_list(self):
-        """Test that INSERT with 3+ tables returns a list of PreparsedQuery entries."""
+    def test_multi_table_insert_with_empty_direct_sources(self):
+        """Multi-table INSERT where one table has empty directSources still produces lineage."""
         extractor = self._create_mock_extractor()
 
-        # Simulate Snowflake audit log row with 3 downstream tables
-        row = {
-            "QUERY_ID": "test-query-789",
-            "QUERY_TEXT": "INSERT ALL INTO t1 VALUES (...) INTO t2 VALUES (...) INTO t3 VALUES (...) SELECT * FROM source",
-            "QUERY_START_TIME": datetime(2021, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
-            "QUERY_TYPE": "INSERT",
-            "ROWS_INSERTED": 150,
-            "ROWS_UPDATED": 0,
-            "ROWS_DELETED": 0,
-            "USER_NAME": "TEST_USER",
-            "ROLE_NAME": "TEST_ROLE",
-            "SESSION_ID": 12345,
-            "WAREHOUSE_NAME": "TEST_WH",
-            "DATABASE_NAME": "REPORTING",
-            "SCHEMA_NAME": "PUBLIC",
-            "DEFAULT_DB": "REPORTING",
-            "DEFAULT_SCHEMA": "PUBLIC",
-            "ROOT_QUERY_ID": None,
-            "QUERY_COUNT": 1,
-            "QUERY_SECONDARY_FINGERPRINT": None,
-            "QUERY_DURATION": 1500,
-            "OBJECTS_MODIFIED": json.dumps(
-                [
-                    {
-                        "objectName": "REPORTING.PUBLIC.TABLE1",
-                        "objectDomain": "Table",
-                        "columns": [],
-                    },
-                    {
-                        "objectName": "REPORTING.PUBLIC.TABLE2",
-                        "objectDomain": "Table",
-                        "columns": [],
-                    },
-                    {
-                        "objectName": "REPORTING.PUBLIC.TABLE3",
-                        "objectDomain": "Table",
-                        "columns": [],
-                    },
-                ]
-            ),
-            "DIRECT_OBJECTS_ACCESSED": json.dumps(
-                [
-                    {
-                        "objectName": "REPORTING.PUBLIC.SOURCE_TABLE",
-                        "objectDomain": "Table",
-                        "columns": [],
-                    },
-                ]
-            ),
-            "OBJECT_MODIFIED_BY_DDL": None,
-        }
+        row = self._make_audit_log_row(
+            objects_modified=[
+                {
+                    "objectName": "REPORTING.PUBLIC.TMP_RESERVATION_IDS",
+                    "objectDomain": "Table",
+                    "columns": [
+                        {
+                            "columnName": "ID",
+                            "directSources": [],
+                        }
+                    ],
+                },
+                {
+                    "objectName": "REPORTING.PUBLIC.TMP_ORDER_ITEM_CREATED",
+                    "objectDomain": "Table",
+                    "columns": [
+                        {
+                            "columnName": "CREATED",
+                            "directSources": [
+                                {
+                                    "objectName": "MINERVA_PII.PUBLIC.ORDER_ITEM_PII",
+                                    "objectDomain": "Table",
+                                    "columnName": "CREATED",
+                                }
+                            ],
+                        }
+                    ],
+                },
+            ],
+            direct_objects_accessed=[
+                {
+                    "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "ORDER_NUM"}],
+                },
+            ],
+        )
 
-        users: dict = {}
-        result = extractor._parse_audit_log_row(row, users)
+        result = extractor._parse_audit_log_row(row, {})
 
-        # Should return a list with 3 entries
         assert isinstance(result, list)
-        assert len(result) == 3
+        assert len(result) == 2
 
-        # Verify all are PreparsedQuery and have different downstreams
-        downstreams = []
-        for entry in result:
-            assert isinstance(entry, PreparsedQuery)
-            assert entry.downstream is not None
-            downstreams.append(entry.downstream.lower())
+        # First entry: has column lineage entry but with no upstream columns
+        entry1 = result[0]
+        assert entry1.downstream == self.DOWNSTREAM_URN_1
+        assert entry1.column_lineage is not None
+        assert len(entry1.column_lineage) == 1
+        assert entry1.column_lineage[0].upstreams == []
 
-        assert "table1" in downstreams[0]
-        assert "table2" in downstreams[1]
-        assert "table3" in downstreams[2]
+        # Second entry: has full column lineage
+        entry2 = result[1]
+        assert entry2.downstream == self.DOWNSTREAM_URN_2
+        assert entry2.column_lineage is not None
+        assert len(entry2.column_lineage) == 1
+        assert len(entry2.column_lineage[0].upstreams) == 1
+
+    def test_multi_table_insert_filters_non_table_domain_sources(self):
+        """directSources with non-table objectDomain (e.g. Stage) are filtered out."""
+        extractor = self._create_mock_extractor()
+
+        row = self._make_audit_log_row(
+            objects_modified=[
+                {
+                    "objectName": "REPORTING.PUBLIC.TMP_RESERVATION_IDS",
+                    "objectDomain": "Table",
+                    "columns": [
+                        {
+                            "columnName": "ID",
+                            "directSources": [
+                                {
+                                    "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
+                                    "objectDomain": "Table",
+                                    "columnName": "RESERVATION_ID",
+                                },
+                                {
+                                    "objectName": "REPORTING.STAGE.MY_STAGE",
+                                    "objectDomain": "Stage",
+                                    "columnName": "COL1",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "objectName": "REPORTING.PUBLIC.TMP_ORDER_ITEM_CREATED",
+                    "objectDomain": "Table",
+                    "columns": [],
+                },
+            ],
+            direct_objects_accessed=[
+                {
+                    "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "RESERVATION_ID"}],
+                },
+            ],
+        )
+
+        result = extractor._parse_audit_log_row(row, {})
+
+        assert isinstance(result, list)
+        entry1 = result[0]
+        assert entry1.column_lineage is not None
+        assert len(entry1.column_lineage) == 1
+        # Only the Table-domain source should survive, Stage should be filtered
+        assert len(entry1.column_lineage[0].upstreams) == 1
+        assert entry1.column_lineage[0].upstreams[0].table == self.UPSTREAM_URN
+
+    def test_fetch_query_log_flattens_multi_table_results(self):
+        """fetch_query_log yields individual entries, not lists, for multi-table INSERTs."""
+        extractor = self._create_mock_extractor()
+
+        entry_a = Mock(spec=PreparsedQuery)
+        entry_b = Mock(spec=PreparsedQuery)
+
+        with (
+            patch.object(
+                extractor, "_parse_audit_log_row", return_value=[entry_a, entry_b]
+            ),
+            patch.object(extractor.structured_reporter, "report_exc"),
+            patch.object(
+                extractor.connection, "query", return_value=[{"dummy": "row"}]
+            ),
+        ):
+            entries = list(extractor.fetch_query_log({}))
+
+        assert len(entries) == 2
+        assert entries[0] is entry_a
+        assert entries[1] is entry_b
+
+
+class TestBuildPatternFilter:
+    """Tests for the _build_pattern_filter method used for metadata extraction pushdown."""
+
+    @pytest.mark.parametrize(
+        "pattern,column,expected",
+        [
+            pytest.param(
+                None,
+                "col",
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "col",
+                "",
+                id="default_pattern_no_filter",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*"]),
+                "col",
+                "",
+                id="allow_all_no_filter",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[]),
+                "col",
+                "FALSE",
+                id="empty_allow_denies_all",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"]),
+                "col",
+                "UPPER(col) RLIKE 'PROD_DB'",
+                id="single_allow_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB", "ANALYTICS_DB"]),
+                "col",
+                "(UPPER(col) RLIKE 'PROD_DB' OR UPPER(col) RLIKE 'ANALYTICS_DB')",
+                id="multiple_allow_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Prod_DB"], ignoreCase=False),
+                "col",
+                "col RLIKE 'Prod_DB'",
+                id="case_sensitive_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_.*", "DEV_.*"]),
+                "col",
+                "(UPPER(col) RLIKE 'PROD_.*' OR UPPER(col) RLIKE 'DEV_.*')",
+                id="regex_allow_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="single_deny_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(deny=[".*_TEMP", ".*_BACKUP"]),
+                "col",
+                "(UPPER(col) NOT RLIKE '.*_TEMP' AND UPPER(col) NOT RLIKE '.*_BACKUP')",
+                id="multiple_deny_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"], deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) RLIKE 'PROD_DB' AND UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="allow_and_deny_combined",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_.*"], deny=["PROD_TEMP", ".*_ARCHIVE"]),
+                "col",
+                "UPPER(col) RLIKE 'PROD_.*' AND (UPPER(col) NOT RLIKE 'PROD_TEMP' AND UPPER(col) NOT RLIKE '.*_ARCHIVE')",
+                id="single_allow_multiple_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*"], deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="allow_all_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*", "PROD_DB"], deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="allow_all_in_list_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*", "PROD_DB"]),
+                "col",
+                "",
+                id="allow_all_in_list_no_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["DB'NAME"]),
+                "col",
+                "UPPER(col) RLIKE 'DB''NAME'",
+                id="sql_injection_protection_single_quote",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"]),
+                "database_name",
+                "UPPER(database_name) RLIKE 'PROD_DB'",
+                id="database_column_expression",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC.TABLE"]),
+                "CONCAT(table_catalog, '.', table_schema, '.', table_name)",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.TABLE'",
+                id="fqn_column_expression",
+            ),
+        ],
+    )
+    def test_build_pattern_filter(self, pattern, column, expected):
+        """Test the _build_pattern_filter method with various inputs."""
+        result = SnowflakeQuery._build_pattern_filter(pattern, column)
+        assert result == expected
+
+
+class TestBuildDatabaseFilter:
+    """Tests for the build_database_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,expected",
+        [
+            pytest.param(
+                None,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"]),
+                "UPPER(database_name) RLIKE 'PROD_DB'",
+                id="single_database",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"]),
+                "UPPER(database_name) RLIKE 'PROD_.*' AND UPPER(database_name) NOT RLIKE '.*_TEMP'",
+                id="pattern_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+                ),
+                "(UPPER(database_name) NOT RLIKE '^UTIL_DB$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE_SAMPLE_DATA$')",
+                id="default_snowflake_deny_pattern",
+            ),
+        ],
+    )
+    def test_build_database_filter(self, pattern, expected):
+        """Test the build_database_filter method."""
+        result = SnowflakeQuery.build_database_filter(pattern)
+        assert result == expected
+
+
+class TestGetDatabasesQueryWithFilter:
+    """Tests for the get_databases query with filter parameter."""
+
+    def test_get_databases_no_filter(self):
+        """Test get_databases generates valid SQL without filter."""
+        query = SnowflakeQuery.get_databases("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should not have WHERE clause when no filter
+        assert "WHERE" not in query.upper()
+
+    def test_get_databases_with_filter(self):
+        """Test get_databases generates valid SQL with filter."""
+        database_filter = SnowflakeQuery.build_database_filter(
+            AllowDenyPattern(allow=["PROD_DB"])
+        )
+        query = SnowflakeQuery.get_databases("TEST_DB", database_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with the filter
+        assert "WHERE" in query.upper()
+        assert "RLIKE" in query.upper()
+
+    def test_get_databases_with_complex_filter(self):
+        """Test get_databases with complex allow/deny filter."""
+        database_filter = SnowflakeQuery.build_database_filter(
+            AllowDenyPattern(
+                allow=["PROD_.*", "DEV_.*"],
+                deny=[".*_TEMP", ".*_BACKUP"],
+            )
+        )
+        query = SnowflakeQuery.get_databases(None, database_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Verify filter components are present
+        assert "RLIKE 'PROD_.*'" in query
+        assert "RLIKE 'DEV_.*'" in query
+        assert "NOT RLIKE '.*_TEMP'" in query
+        assert "NOT RLIKE '.*_BACKUP'" in query
+
+
+class TestBuildSchemaFilter:
+    """Tests for the build_schema_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,db_name,fqn,expected",
+        [
+            pytest.param(
+                None,
+                "PROD_DB",
+                False,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "PROD_DB",
+                False,
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PUBLIC"]),
+                "PROD_DB",
+                False,
+                "UPPER(schema_name) RLIKE 'PUBLIC'",
+                id="fqn_false_single_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PUBLIC", "ANALYTICS"]),
+                "PROD_DB",
+                False,
+                "(UPPER(schema_name) RLIKE 'PUBLIC' OR UPPER(schema_name) RLIKE 'ANALYTICS')",
+                id="fqn_false_multiple_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*_STAGING"]),
+                "PROD_DB",
+                False,
+                "UPPER(schema_name) RLIKE '.*_STAGING'",
+                id="fqn_false_regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC"]),
+                "PROD_DB",
+                True,
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC'",
+                id="fqn_true_single_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC", "PROD_DB.ANALYTICS"]),
+                "PROD_DB",
+                True,
+                "(UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC' OR UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.ANALYTICS')",
+                id="fqn_true_multiple_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB\\..*_STAGING"]),
+                "PROD_DB",
+                True,
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB\\\\..*_STAGING'",
+                id="fqn_true_regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Public"], ignoreCase=False),
+                "PROD_DB",
+                False,
+                "schema_name RLIKE 'Public'",
+                id="case_sensitive_fqn_false",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Prod_DB.Public"], ignoreCase=False),
+                "Prod_DB",
+                True,
+                "CONCAT('Prod_DB', '.', schema_name) RLIKE 'Prod_DB.Public'",
+                id="case_sensitive_fqn_true",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PUBLIC"], deny=[".*_TEMP"]),
+                "PROD_DB",
+                False,
+                "UPPER(schema_name) RLIKE 'PUBLIC' AND UPPER(schema_name) NOT RLIKE '.*_TEMP'",
+                id="allow_and_deny_fqn_false",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["TEST'DB.PUBLIC"]),
+                "TEST'DB",
+                True,
+                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE 'TEST''DB.PUBLIC'",
+                id="sql_injection_protection_db_name",
+            ),
+        ],
+    )
+    def test_build_schema_filter(self, pattern, db_name, fqn, expected):
+        """Test the build_schema_filter method."""
+        result = SnowflakeQuery.build_schema_filter(pattern, db_name, fqn)
+        assert result == expected
+
+
+class TestSchemasForDatabaseQueryWithFilter:
+    """Tests for the schemas_for_database query with filter parameter."""
+
+    def test_schemas_for_database_no_filter(self):
+        """Test schemas_for_database generates valid SQL without filter."""
+        query = SnowflakeQuery.schemas_for_database("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have base WHERE clause
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        # Should not have RLIKE
+        assert "RLIKE" not in query.upper()
+
+    def test_schemas_for_database_with_filter(self):
+        """Test schemas_for_database generates valid SQL with filter."""
+        schema_filter = SnowflakeQuery.build_schema_filter(
+            AllowDenyPattern(allow=["PUBLIC"]), "TEST_DB", False
+        )
+        query = SnowflakeQuery.schemas_for_database("TEST_DB", schema_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with base condition AND the filter
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        assert "RLIKE" in query.upper()
+
+    def test_schemas_for_database_with_fqn_filter(self):
+        """Test schemas_for_database with FQN filter."""
+        schema_filter = SnowflakeQuery.build_schema_filter(
+            AllowDenyPattern(allow=["TEST_DB.PUBLIC", "TEST_DB.ANALYTICS"]),
+            "TEST_DB",
+            True,
+        )
+        query = SnowflakeQuery.schemas_for_database("TEST_DB", schema_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Verify FQN filter components are present
+        assert "CONCAT" in query
+        assert "RLIKE 'TEST_DB.PUBLIC'" in query
+        assert "RLIKE 'TEST_DB.ANALYTICS'" in query
+
+
+class TestBuildTableFilter:
+    """Tests for the build_table_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,expected",
+        [
+            pytest.param(
+                None,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC.CUSTOMERS"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS'",
+                id="single_table_fqn",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    allow=["PROD_DB.PUBLIC.CUSTOMERS", "PROD_DB.PUBLIC.ORDERS"]
+                ),
+                "(UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS' OR UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.ORDERS')",
+                id="multiple_tables_fqn",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB\\.PUBLIC\\.CUSTOMER_.*"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*'",
+                id="regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    allow=["PROD_DB\\.PUBLIC\\..*"], deny=[".*_TEMP$", ".*_BACKUP$"]
+                ),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\..*' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
+                id="allow_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Prod_DB.Public.Table"], ignoreCase=False),
+                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE 'Prod_DB.Public.Table'",
+                id="case_sensitive",
+            ),
+        ],
+    )
+    def test_build_table_filter(self, pattern, expected):
+        """Test the build_table_filter method."""
+        result = SnowflakeQuery.build_table_filter(pattern)
+        assert result == expected
+
+
+class TestBuildViewFilter:
+    """Tests for the build_view_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,expected",
+        [
+            pytest.param(
+                None,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.REPORTING.V_CUSTOMERS"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_CUSTOMERS'",
+                id="single_view_fqn",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.REPORTING.V_.*"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_.*'",
+                id="view_regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    allow=["PROD_DB.REPORTING..*"], deny=[".*_DEPRECATED$"]
+                ),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING..*' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_DEPRECATED$'",
+                id="view_allow_with_deny",
+            ),
+        ],
+    )
+    def test_build_view_filter(self, pattern, expected):
+        """Test the build_view_filter method."""
+        result = SnowflakeQuery.build_view_filter(pattern)
+        assert result == expected
+
+
+class TestTablesForDatabaseQueryWithFilter:
+    """Tests for the tables_for_database query with filter parameter."""
+
+    def test_tables_for_database_no_filter(self):
+        """Test tables_for_database generates valid SQL without filter."""
+        query = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        )
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have base WHERE clause
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        # Should not have RLIKE
+        assert "RLIKE" not in query.upper()
+
+    def test_tables_for_database_with_filter(self):
+        """Test tables_for_database generates valid SQL with filter."""
+        table_filter = SnowflakeQuery.build_table_filter(
+            AllowDenyPattern(allow=["TEST_DB.PUBLIC.USERS"])
+        )
+        query = SnowflakeQuery.tables_for_database(
+            "TEST_DB",
+            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            table_filter=table_filter,
+        )
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with base conditions AND the filter
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        assert "RLIKE" in query.upper()
+        assert "CONCAT" in query
+
+    def test_tables_for_database_with_table_types(self):
+        """Test tables_for_database correctly applies table_types filtering."""
+        # Default includes both BASE TABLE and EXTERNAL TABLE
+        query_default = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        )
+        assert "'BASE TABLE'" in query_default
+        assert "'EXTERNAL TABLE'" in query_default
+        assert "COALESCE(is_dynamic" not in query_default
+
+        # Only BASE TABLE (excludes external tables)
+        query_base_only = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE"}
+        )
+        assert "'BASE TABLE'" in query_base_only
+        assert "'EXTERNAL TABLE'" not in query_base_only
+
+        # Exclude dynamic tables (uses COALESCE to handle NULL values)
+        query_no_dynamic = SnowflakeQuery.tables_for_database(
+            "TEST_DB",
+            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            exclude_dynamic_tables=True,
+        )
+        assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_dynamic
+
+        # Only BASE TABLE and exclude dynamic tables
+        query_base_no_dynamic = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE"}, exclude_dynamic_tables=True
+        )
+        assert "'BASE TABLE'" in query_base_no_dynamic
+        assert "'EXTERNAL TABLE'" not in query_base_no_dynamic
+        assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_base_no_dynamic
+
+
+class TestViewsForDatabaseQueryWithFilter:
+    """Tests for the get_views_for_database query with filter parameter."""
+
+    def test_views_for_database_no_filter(self):
+        """Test get_views_for_database generates valid SQL without filter."""
+        query = SnowflakeQuery.get_views_for_database("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have base WHERE clause
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        # Should not have RLIKE
+        assert "RLIKE" not in query.upper()
+
+    def test_views_for_database_with_filter(self):
+        """Test get_views_for_database generates valid SQL with filter."""
+        view_filter = SnowflakeQuery.build_view_filter(
+            AllowDenyPattern(allow=["TEST_DB.PUBLIC.V_USERS"])
+        )
+        query = SnowflakeQuery.get_views_for_database("TEST_DB", view_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with the filter
+        assert "WHERE" in query.upper()
+        assert "RLIKE" in query.upper()
+        assert "CONCAT" in query

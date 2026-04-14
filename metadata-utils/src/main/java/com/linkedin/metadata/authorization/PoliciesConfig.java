@@ -160,6 +160,18 @@ public class PoliciesConfig {
           "Manage Ownership Types",
           "Create, update and delete Ownership Types.");
 
+  public static final Privilege MANAGE_GLOBAL_SETTINGS =
+      Privilege.of(
+          "MANAGE_GLOBAL_SETTINGS",
+          "Manage Platform Settings",
+          "View and change platform-level settings, like integrations & notifications.");
+
+  public static final Privilege MANAGE_SERVICE_ACCOUNTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_SERVICE_ACCOUNTS",
+          "Manage Service Accounts",
+          "Create, update, and delete service accounts for programmatic API access.");
+
   public static final Privilege CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE =
       Privilege.of(
           "CREATE_BUSINESS_ATTRIBUTE",
@@ -227,6 +239,12 @@ public class PoliciesConfig {
           "Manage Home Page Templates",
           "Privilege allowing users to manage the default home page template and the global modules in it.");
 
+  public static final Privilege GET_TOPIC_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_TOPIC_EVENTS",
+          "Get Topic Events",
+          "The ability to use the Events API to read events from custom Kafka topics.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -245,6 +263,7 @@ public class PoliciesConfig {
           MANAGE_SECRETS_PRIVILEGE,
           GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
           MANAGE_ACCESS_TOKENS,
+          MANAGE_SERVICE_ACCOUNTS_PRIVILEGE,
           VIEW_TESTS_PRIVILEGE,
           MANAGE_TESTS_PRIVILEGE,
           MANAGE_GLOSSARIES_PRIVILEGE,
@@ -256,6 +275,7 @@ public class PoliciesConfig {
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_GLOBAL_VIEWS,
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
+          MANAGE_GLOBAL_SETTINGS,
           CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
@@ -267,7 +287,8 @@ public class PoliciesConfig {
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
           GET_METADATA_CHANGE_LOG_EVENTS,
-          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
+          GET_TOPIC_EVENTS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -854,6 +875,9 @@ public class PoliciesConfig {
               EXISTS_ENTITY_PRIVILEGE,
               EDIT_ENTITY_DOMAINS_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
               MANAGE_DOCUMENTS_PRIVILEGE));
 
   // Group Privileges
@@ -949,6 +973,14 @@ public class PoliciesConfig {
               DATA_MANAGE_NAMESPACES_PRIVILEGE,
               DATA_LIST_ENTITIES_PRIVILEGE));
 
+  // DataHub View Privileges
+  public static final ResourcePrivileges DATAHUB_VIEW_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.DATAHUB_VIEW_ENTITY_NAME,
+          "Views",
+          "DataHub Views",
+          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EXISTS_ENTITY_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -973,7 +1005,8 @@ public class PoliciesConfig {
           INGESTION_SOURCE_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
-          APPLICATION_PRIVILEGES);
+          APPLICATION_PRIVILEGES,
+          DATAHUB_VIEW_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
@@ -1240,6 +1273,33 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.GLOBAL_SETTINGS_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_GLOBAL_SETTINGS))
+                      .put(
+                          ApiOperation.READ,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.READ)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_GLOBAL_SETTINGS)))
+                                  .collect(Collectors.toList())))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_GLOBAL_SETTINGS))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_GLOBAL_SETTINGS))
+                      .put(
+                          ApiOperation.EXISTS,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.EXISTS)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_GLOBAL_SETTINGS)))
+                                  .collect(Collectors.toList())))
                       .build())
               .put(
                   // regular entity level permissions + MANAGE_ACCESS_TOKENS

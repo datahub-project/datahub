@@ -7,13 +7,13 @@ const TEST_ASSET_NAME = "Baz Dashboard"; // Used in the assets module
 
 describe("summary tab - data product", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     cy.goToDataProduct("urn:li:dataProduct:testing");
     utils.goToSummaryTab();
   });
 
-  it("data product - header section", () => {
+  it("summary tab", () => {
     utils.testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS" },
@@ -21,21 +21,15 @@ describe("summary tab - data product", () => {
       { name: "Tags", type: "TAGS", value: TEST_TAG_NAME },
       { name: "Glossary Terms", type: "GLOSSARY_TERMS", value: TEST_TERM_NAME },
     ]);
-  });
 
-  it.skip("data product - description section", () => {
-    utils.testAboutSection();
-  });
+    utils.ensureAboutSectionIsVisible();
 
-  it("data product - modules section", () => {
-    const defaultModules = [
+    utils.testTemplateSection([
       {
         type: "assets",
         name: "Assets",
         value: TEST_ASSET_NAME,
       },
-    ];
-
-    utils.testTemplateSection(defaultModules);
+    ]);
   });
 });

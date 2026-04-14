@@ -42,18 +42,21 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     software-properties-common \
     lsb-release \
     gnupg \
     ca-certificates \
-    && add-apt-repository --no-update ppa:deadsnakes/ppa \
-    && rm -rf /var/lib/apt/lists/*
+    && add-apt-repository --no-update ppa:deadsnakes/ppa
 
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-venv \
     python${PYTHON_VERSION}-dev \
@@ -64,8 +67,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
-    nano \
-    && rm -rf /var/lib/apt/lists/*
+    nano
 
 # Set the default python version.
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
@@ -74,8 +76,14 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ARG PIP_EXTRA_INDEX_URL=""
+# Persist settings for subsequent build layers and for optional venv builds
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Also configure pip globally inside the image so tools without env still use the mirror
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
@@ -93,7 +101,9 @@ ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 FROM python-base AS ingestion-base-slim
 
 USER 0
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     python3-ldap \
     libldap2-dev \
     libsasl2-dev \
@@ -107,18 +117,22 @@ RUN apt-get update && apt-get install -y \
     librdkafka-dev \
     ldap-utils \
     unixodbc \
-    libodbc2 \
-    && rm -rf /var/lib/apt/lists/*
+    libodbc2
 USER datahub
 
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
-# We need to install build-essential in order to build some Python packages (e.g. python-ldap)
-RUN apt-get update && apt-get install --no-install-recommends -y -qq \
+# We need to install build-essential in order to build some Python packages (e.g. python-ldap, kerberos)
+# gcc and g++ are explicitly listed to ensure compilers are available on all architectures
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     default-jre-headless \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    gcc \
+    g++ \
+    make
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
@@ -134,7 +148,7 @@ FROM ingestion-base-slim AS bundled-venvs-full
 USER 0
 
 # Set up bundled venv configuration for FULL variant (with PySpark)
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
 ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -176,7 +190,7 @@ USER 0
 
 # Set up bundled venv configuration for SLIM variant (without PySpark)
 # Venv named s3-bundled but uses s3-slim package internally
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -218,7 +232,7 @@ USER 0
 
 # Set up bundled venv configuration for LOCKED variant (without PySpark, network blocked)
 # Same as slim but will have network access disabled in final stage
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -293,6 +307,8 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION" # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -300,11 +316,11 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
 # Install metadata-ingestion with base extras (network enabled, can install more at runtime)
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/metadata-ingestion/[base,s3,gcs,abs]'
 
 # Install datahub-actions with all extras
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
@@ -347,6 +363,8 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -354,11 +372,11 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
 # Install metadata-ingestion with SLIM extras (no PySpark, network enabled for flexibility)
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]'
 
 # Install datahub-actions with all extras
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
@@ -384,10 +402,12 @@ RUN chmod a+x /start_datahub_actions.sh && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
-# NO metadata-ingestion install in locked variant - only bundled venvs available
-# This ensures complete isolation and prevents any package installations
+# Bundled venvs under /opt/datahub/venvs are built with editable installs against
+# /metadata-ingestion. Ship that tree so subprocess ingestion can import datahub;
+# the default app venv still does not pip-install metadata-ingestion (PyPI blocked below).
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 
-# Copy only datahub-actions code (not metadata-ingestion)
+# Copy only datahub-actions code for the actions framework venv (not a pip install of metadata-ingestion)
 COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
@@ -405,13 +425,14 @@ USER datahub
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-# Install ONLY datahub-actions (not metadata-ingestion)
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+# Install ONLY datahub-actions into the default venv (not metadata-ingestion)
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/datahub-actions/[all]'
 
-# Block network access to PyPI - locked variant only uses bundled venvs
+# Block network access to PyPI - locked variant has no runtime pip installs for ingestion CLI
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 

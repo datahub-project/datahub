@@ -70,16 +70,11 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                         .collect(Collectors.toList())
                     : null;
 
-            // Map GraphQL state enum to PDL enum if provided. If draftFor is provided, force
-            // UNPUBLISHED for the draft document.
+            // Map GraphQL state enum to PDL enum if provided
             com.linkedin.knowledge.DocumentState pdlState =
                 input.getState() != null
                     ? com.linkedin.knowledge.DocumentState.valueOf(input.getState().name())
                     : null;
-            final String draftForUrn = input.getDraftFor();
-            if (draftForUrn != null) {
-              pdlState = com.linkedin.knowledge.DocumentState.UNPUBLISHED;
-            }
 
             // Automatically create source with NATIVE type - users cannot set this via API
             // (reserved for ingestion from external systems)
@@ -93,8 +88,18 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     ? java.util.Collections.singletonList(input.getSubType())
                     : null;
 
-            // Create document using service (draftFor parameter will handle draft logic)
-            final Urn draftForUrnParsed = draftForUrn != null ? UrnUtils.getUrn(draftForUrn) : null;
+            // Extract settings (defaults to true if not provided)
+            com.linkedin.knowledge.DocumentSettings settings = null;
+            if (input.getSettings() != null) {
+              settings = new com.linkedin.knowledge.DocumentSettings();
+              if (input.getSettings().getShowInGlobalContext() != null) {
+                settings.setShowInGlobalContext(input.getSettings().getShowInGlobalContext());
+              } else {
+                settings.setShowInGlobalContext(true);
+              }
+            }
+
+            // Create document using service
             final Urn documentUrn =
                 _documentService.createDocument(
                     context.getOperationContext(),
@@ -107,7 +112,7 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     parentDocumentUrn,
                     relatedAssetUrns,
                     relatedDocumentUrns,
-                    draftForUrnParsed,
+                    settings,
                     UrnUtils.getUrn(context.getActorUrn()));
 
             // Set ownership

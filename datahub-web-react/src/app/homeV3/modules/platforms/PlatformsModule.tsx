@@ -1,5 +1,6 @@
 import { Text, Tooltip } from '@components';
-import React from 'react';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import React, { useMemo } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
@@ -9,13 +10,22 @@ import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import usePlatformModuleUtils from '@app/homeV3/modules/platforms/usePlatformsModuleUtils';
 import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
 const NUMBER_OF_PLATFORMS = 15;
 
 const PlatformsModule = (props: ModuleProps) => {
-    const { user } = useUserContext();
+    const { user, platformPrivileges } = useUserContext();
+
+    const { config } = useAppConfig();
+
+    const hasPermissionsToManageIngestion = useMemo(() => {
+        const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+        return isIngestionEnabled && platformPrivileges?.manageIngestion;
+    }, [config?.managedIngestionConfig?.enabled, platformPrivileges?.manageIngestion]);
+
     const { platforms, loading } = useGetPlatforms(user, NUMBER_OF_PLATFORMS);
     const { navigateToDataSources, handleEntityClick } = usePlatformModuleUtils();
 
@@ -50,10 +60,10 @@ const PlatformsModule = (props: ModuleProps) => {
         <LargeModule {...props} loading={loading} dataTestId="platforms-module">
             {platforms.length === 0 ? (
                 <EmptyContent
-                    icon="Database"
+                    icon={Database}
                     title="No Platforms Yet"
                     description="You have not ingested any data."
-                    linkText="Add data sources"
+                    linkText={hasPermissionsToManageIngestion ? 'Add data sources' : undefined}
                     onLinkClick={navigateToDataSources}
                 />
             ) : (

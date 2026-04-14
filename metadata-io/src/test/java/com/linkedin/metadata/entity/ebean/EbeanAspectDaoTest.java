@@ -34,6 +34,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +53,9 @@ public class EbeanAspectDaoTest {
   @BeforeMethod
   public void setupTest() {
     server = EbeanTestUtils.createTestServer(EbeanAspectDaoTest.class.getSimpleName());
-    testDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, mock(MetricUtils.class));
+    testDao =
+        new EbeanAspectDao(
+            server, EbeanConfiguration.testDefault, mock(MetricUtils.class), List.of(), null);
   }
 
   @AfterMethod
@@ -61,8 +64,40 @@ public class EbeanAspectDaoTest {
     EbeanTestUtils.shutdownDatabase(server);
   }
 
+  @DataProvider(name = "writabilityConfig")
+  public Object[][] writabilityConfigProvider() {
+    return new Object[][] {
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
+    };
+  }
+
   @Test
-  public void testGetNextVersionForUpdate() {
+  public void testGetNextVersionsThrowsIllegalStateWhenDbKeyNotInRequest() {
+    Map<String, Map<String, Long>> result = new HashMap<>();
+    result.put("urn:li:corpuser:requested", new HashMap<>(Map.of("status", 0L)));
+    List<EbeanAspectV2.PrimaryKey> dbResults =
+        List.of(
+            new EbeanAspectV2.PrimaryKey("urn:li:corpuser:from-db-not-in-request", "status", 0));
+
+    try {
+      EbeanAspectDao.mergeNextVersionsFromDb(result, dbResults);
+      throw new AssertionError("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertTrue(
+          e.getMessage().contains("urn:li:corpuser:from-db-not-in-request"),
+          "Message should include failing URN");
+      assertTrue(e.getMessage().contains("status"), "Message should include failing aspect");
+      assertTrue(
+          e.getMessage().contains("utf8mb4_bin"), "Message should hint at charset/collation fix");
+      assertNotNull(e.getCause(), "Cause should be set");
+      assertTrue(e.getCause() instanceof NullPointerException);
+    }
+  }
+
+  @Test(dataProvider = "writabilityConfig")
+  public void testGetNextVersionForUpdate(boolean canWrite, String description) {
+    testDao.setWritable(canWrite);
     LoggedSql.start();
 
     testDao.runInTransactionWithRetryUnlocked(
@@ -79,13 +114,22 @@ public class EbeanAspectDaoTest {
         LoggedSql.stop().stream()
             .filter(str -> str.contains("testGetNextVersionForUpdate"))
             .toList();
-    assertEquals(sql.size(), 2, String.format("Found: %s", sql));
-    assertTrue(
-        sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
+    if (canWrite) {
+      assertEquals(sql.size(), 2, String.format("Found: %s", sql));
+      assertTrue(
+          sql.get(0).contains("for update;"),
+          String.format("Did not find `for update` in %s ", sql));
+    } else {
+      assertEquals(sql.size(), 1, String.format("Found: %s", sql));
+      assertFalse(
+          sql.get(0).contains("for update;"), String.format("Found `for update` in %s ", sql));
+    }
   }
 
-  @Test
-  public void testGetLatestAspectsForUpdate() throws JsonProcessingException {
+  @Test(dataProvider = "writabilityConfig")
+  public void testGetLatestAspectsForUpdate(boolean canWrite, String description)
+      throws JsonProcessingException {
+    testDao.setWritable(canWrite);
     LoggedSql.start();
 
     testDao.runInTransactionWithRetryUnlocked(
@@ -106,12 +150,20 @@ public class EbeanAspectDaoTest {
             .toList();
     assertEquals(
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
-    assertTrue(
-        sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
+    if (canWrite) {
+      assertTrue(
+          sql.get(0).contains("for update;"),
+          String.format("Did not find `for update` in %s ", sql));
+    } else {
+      assertFalse(
+          sql.get(0).contains("for update;"), String.format("Found `for update` in %s ", sql));
+    }
   }
 
-  @Test
-  public void testbatchGetForUpdate() throws JsonProcessingException {
+  @Test(dataProvider = "writabilityConfig")
+  public void testbatchGetForUpdate(boolean canWrite, String description)
+      throws JsonProcessingException {
+    testDao.setWritable(canWrite);
     LoggedSql.start();
 
     testDao.runInTransactionWithRetryUnlocked(
@@ -142,8 +194,14 @@ public class EbeanAspectDaoTest {
             .toList();
     assertEquals(
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
-    assertTrue(
-        sql.get(0).contains("FOR UPDATE;"), String.format("Did not find `for update` in %s ", sql));
+    if (canWrite) {
+      assertTrue(
+          sql.get(0).contains("FOR UPDATE;"),
+          String.format("Did not find `for update` in %s ", sql));
+    } else {
+      assertFalse(
+          sql.get(0).contains("FOR UPDATE;"), String.format("Found `for update` in %s ", sql));
+    }
   }
 
   @Test
@@ -217,14 +275,6 @@ public class EbeanAspectDaoTest {
         count3, 2, "Should return count of aspects matching both URN pattern and aspect name");
   }
 
-  @DataProvider(name = "writabilityConfig")
-  public Object[][] writabilityConfigProvider() {
-    return new Object[][] {
-      {true, "Writable"}, // canWrite = true, description
-      {false, "ReadOnly"} // canWrite = false, description
-    };
-  }
-
   @Test(dataProvider = "writabilityConfig")
   public void testUpdateAspectWithWritability(boolean canWrite, String description) {
     // Set writability
@@ -239,7 +289,10 @@ public class EbeanAspectDaoTest {
             opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
             new Status(),
             new SystemMetadata(),
-            AuditStampUtils.createDefaultAuditStamp());
+            AuditStampUtils.createDefaultAuditStamp(),
+            null, // systemAspectValidators
+            null, // validationConfig
+            null); // operationContext
 
     // Try to update aspect
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =

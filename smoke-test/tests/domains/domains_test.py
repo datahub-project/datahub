@@ -1,9 +1,12 @@
+import logging
 from typing import Any, Dict
 
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
 from tests.utils import delete_entity, execute_graphql, with_test_retry
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -24,7 +27,7 @@ def _ensure_more_domains(
 
     # Assert that there are more domains now.
     after_count = res_data["data"]["listDomains"]["total"]
-    print(f"after_count is {after_count}")
+    logger.info(f"after_count is {after_count}")
     assert after_count == before_count + 1
 
 
@@ -52,10 +55,10 @@ def test_create_list_get_domain(auth_session):
     res_data = execute_graphql(auth_session, list_domains_query, list_domains_variables)
 
     assert res_data["data"]["listDomains"]["total"] is not None
-    print(f"domains resp is {res_data}")
+    logger.info(f"domains resp is {res_data}")
 
     before_count = res_data["data"]["listDomains"]["total"]
-    print(f"before_count is {before_count}")
+    logger.info(f"before_count is {before_count}")
 
     domain_id = "test id"
     domain_name = "test name"

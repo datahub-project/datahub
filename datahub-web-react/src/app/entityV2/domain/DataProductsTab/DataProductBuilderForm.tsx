@@ -4,10 +4,9 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgHover};
 `;
 
 type Props = {

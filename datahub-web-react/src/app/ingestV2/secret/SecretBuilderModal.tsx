@@ -1,10 +1,9 @@
-import { Form, Input, Modal, Typography } from 'antd';
+import { Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
@@ -54,47 +53,46 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
     return (
         <Modal
             width={540}
-            title={<Typography.Text>{titleText}</Typography.Text>}
+            title={titleText}
             open={open}
             onCancel={onCloseModal}
             zIndex={1051} // one higher than other modals - needed for managed ingestion forms
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" onClick={onCloseModal} variant="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        data-testid="secret-modal-create-button"
-                        id="createSecretButton"
-                        type="submit"
-                        onClick={() => {
-                            if (!editSecret) {
-                                onSubmit?.(
-                                    {
-                                        name: form.getFieldValue(NAME_FIELD_NAME),
-                                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
-                                        value: form.getFieldValue(VALUE_FIELD_NAME),
-                                    },
-                                    resetValues,
-                                );
-                            } else {
-                                onUpdate?.(
-                                    {
-                                        urn: editSecret?.urn,
-                                        name: form.getFieldValue(NAME_FIELD_NAME),
-                                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
-                                        value: form.getFieldValue(VALUE_FIELD_NAME),
-                                    },
-                                    resetValues,
-                                );
-                            }
-                        }}
-                        disabled={!createButtonEnabled}
-                    >
-                        {!editSecret ? 'Create' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: !editSecret ? 'Create' : 'Update',
+                    variant: 'filled',
+                    buttonDataTestId: 'secret-modal-create-button',
+                    id: 'createSecretButton',
+                    onClick: () => {
+                        if (!editSecret) {
+                            onSubmit?.(
+                                {
+                                    name: form.getFieldValue(NAME_FIELD_NAME),
+                                    description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                                    value: form.getFieldValue(VALUE_FIELD_NAME),
+                                },
+                                resetValues,
+                            );
+                        } else {
+                            onUpdate?.(
+                                {
+                                    urn: editSecret?.urn,
+                                    name: form.getFieldValue(NAME_FIELD_NAME),
+                                    description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                                    value: form.getFieldValue(VALUE_FIELD_NAME),
+                                },
+                                resetValues,
+                            );
+                        }
+                    },
+                    disabled: !createButtonEnabled,
+                },
+            ]}
         >
             <Form
                 form={form}

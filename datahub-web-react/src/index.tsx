@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 
 import { App } from '@src/App';
 import reportWebVitals from '@src/reportWebVitals';
+import '@utils/dayjs';
 
 ReactDOM.render(
     <React.StrictMode>

@@ -1,12 +1,16 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
@@ -19,6 +23,7 @@ import { NoPageFound } from '@app/shared/NoPageFound';
 import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -28,11 +33,11 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        overflow: hidden;
-        margin: 5px;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-        height: 100%;
-    `}
+ overflow: hidden;
+ margin: 5px;
+ box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+ height: 100%;
+ `}
 `;
 
 const PageContentContainer = styled.div`
@@ -76,6 +81,7 @@ export const ManageIngestionPage = () => {
     const canManageIngestion = platformPrivileges?.manageIngestion;
     const showIngestionTab = isIngestionEnabled && canManageIngestion;
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
+    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
@@ -90,6 +96,17 @@ export const ManageIngestionPage = () => {
     const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
+
+    // Stable callbacks to prevent infinite re-render loops in child components
+    const handleSetSourceFilter = useCallback(
+        (value: number | undefined) => setSourceFilter(value?.toString() || ''),
+        [setSourceFilter],
+    );
+
+    const handleSetHideSystemSources = useCallback(
+        (value: boolean) => setHideSystemSources(value.toString()),
+        [setHideSystemSources],
+    );
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -137,11 +154,11 @@ export const ManageIngestionPage = () => {
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
-                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
+                    setHideSystemSources={handleSetHideSystemSources}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                     sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
-                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString() || '')}
+                    setSourceFilter={handleSetSourceFilter}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
                 />
@@ -154,7 +171,7 @@ export const ManageIngestionPage = () => {
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
-                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
+                    setHideSystemSources={handleSetHideSystemSources}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                 />
@@ -180,9 +197,17 @@ export const ManageIngestionPage = () => {
 
     const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
-    const handleCreateSource = () => {
-        setShowCreateSourceModal(true);
-    };
+    const handleCreateSource = useCallback(() => {
+        if (showIngestionOnboardingRedesignV1) {
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'sources_page_cta',
+            });
+            history.push(PageRoutes.INGESTION_CREATE);
+        } else {
+            setShowCreateSourceModal(true);
+        }
+    }, [showIngestionOnboardingRedesignV1, history]);
 
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);
@@ -219,10 +244,10 @@ export const ManageIngestionPage = () => {
                                     id={INGESTION_CREATE_SOURCE_ID}
                                     onClick={handleCreateSource}
                                     data-testid="create-ingestion-source-button"
-                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                    icon={{ icon: Plus }}
                                     disabled={!canManageIngestion}
                                 >
-                                    Create source
+                                    Create Source
                                 </Button>
                             </div>
                         </Tooltip>
@@ -233,7 +258,7 @@ export const ManageIngestionPage = () => {
                             variant="filled"
                             onClick={handleCreateSecret}
                             data-testid="create-secret-button"
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                            icon={{ icon: Plus }}
                         >
                             Create secret
                         </Button>

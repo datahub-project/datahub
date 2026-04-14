@@ -50,6 +50,12 @@ public class Constants {
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
+  /**
+   * Default schema version for aspects that were written before schema versioning was introduced,
+   * or whose {@code @Aspect} annotation does not specify a {@code schemaVersion}.
+   */
+  public static final long DEFAULT_SCHEMA_VERSION = 1L;
+
   // Forces indexing for no-ops, enabled for restore indices calls. Only
   // considered in the no-op
   // case
@@ -181,6 +187,7 @@ public class Constants {
   public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
   public static final String FORMS_ASPECT_NAME = "forms";
   // Aspect support
+  public static final String FINE_GRAINED_LINEAGE_ASPECT_NAME = "fineGrainedLineage";
   public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_TYPE = "FIELD";
@@ -432,6 +439,8 @@ public class Constants {
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
+  public static final String RELATIONSHIP_PLATFORM_EVENT_NAME = "relationshipChangeEvent";
+
   /** Retention */
   public static final String DATAHUB_RETENTION_ENTITY = "dataHubRetention";
 
@@ -466,6 +475,7 @@ public class Constants {
   // Knowledge Article
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
+  public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
 
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");

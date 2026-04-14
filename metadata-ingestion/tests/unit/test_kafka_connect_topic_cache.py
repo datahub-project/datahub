@@ -297,3 +297,199 @@ class TestConfluentCloudTopicRetriever:
         )
 
         assert result == []
+
+    def test_fetch_topics_pagination_multiple_pages(self, retriever, mock_session):
+        """Test that pagination correctly fetches topics across multiple pages."""
+        # First page with next URL
+        page1_response = mock.Mock()
+        page1_response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [
+                {"topic_name": "topic1", "is_internal": False},
+                {"topic_name": "topic2", "is_internal": False},
+            ],
+            "metadata": {
+                "next": "https://pkc-test.region.provider.confluent.cloud/kafka/v3/clusters/cluster1/topics?page_token=abc123"
+            },
+        }
+
+        # Second page with next URL
+        page2_response = mock.Mock()
+        page2_response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [
+                {"topic_name": "topic3", "is_internal": False},
+                {"topic_name": "_internal", "is_internal": True},
+            ],
+            "metadata": {
+                "next": "https://pkc-test.region.provider.confluent.cloud/kafka/v3/clusters/cluster1/topics?page_token=def456"
+            },
+        }
+
+        # Third page with no next URL (last page)
+        page3_response = mock.Mock()
+        page3_response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [
+                {"topic_name": "topic4", "is_internal": False},
+            ],
+            "metadata": {"next": None},
+        }
+
+        mock_session.get.side_effect = [page1_response, page2_response, page3_response]
+
+        result = retriever.get_all_topics_cached(
+            "https://pkc-test.region.provider.confluent.cloud", "cluster1"
+        )
+
+        # Should get all non-internal topics from all pages
+        assert result == ["topic1", "topic2", "topic3", "topic4"]
+        assert mock_session.get.call_count == 3
+
+    def test_fetch_topics_pagination_single_page(self, retriever, mock_session):
+        """Test that single page response (no next URL) works correctly."""
+        single_page_response = mock.Mock()
+        single_page_response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [
+                {"topic_name": "topic1", "is_internal": False},
+                {"topic_name": "topic2", "is_internal": False},
+            ],
+            "metadata": {"next": None},
+        }
+
+        mock_session.get.return_value = single_page_response
+
+        result = retriever.get_all_topics_cached(
+            "https://pkc-test.region.provider.confluent.cloud", "cluster1"
+        )
+
+        assert result == ["topic1", "topic2"]
+        assert mock_session.get.call_count == 1
+
+    def test_fetch_topics_pagination_no_metadata(self, retriever, mock_session):
+        """Test handling of response without metadata field."""
+        response = mock.Mock()
+        response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [
+                {"topic_name": "topic1", "is_internal": False},
+            ],
+        }
+
+        mock_session.get.return_value = response
+
+        result = retriever.get_all_topics_cached(
+            "https://pkc-test.region.provider.confluent.cloud", "cluster1"
+        )
+
+        # Should still return topics from first page
+        assert result == ["topic1"]
+        assert mock_session.get.call_count == 1
+
+    def test_fetch_consumer_groups_pagination_multiple_pages(
+        self, retriever, mock_session
+    ):
+        """Test that pagination correctly fetches consumer groups across multiple pages."""
+        # First page of consumer groups with next URL
+        groups_page1 = mock.Mock()
+        groups_page1.json.return_value = {
+            "kind": "KafkaConsumerGroupList",
+            "data": [{"consumer_group_id": "group1"}],
+            "metadata": {
+                "next": "https://pkc-test.region.provider.confluent.cloud/kafka/v3/clusters/cluster1/consumer-groups?page_token=abc123"
+            },
+        }
+
+        # Second page of consumer groups without next URL
+        groups_page2 = mock.Mock()
+        groups_page2.json.return_value = {
+            "kind": "KafkaConsumerGroupList",
+            "data": [{"consumer_group_id": "group2"}],
+            "metadata": {"next": None},
+        }
+
+        # Assignments for group1
+        group1_assignments = mock.Mock()
+        group1_assignments.json.return_value = {
+            "kind": "KafkaConsumerList",
+            "data": [{"assignments": [{"topic_name": "topic1"}]}],
+        }
+
+        # Assignments for group2
+        group2_assignments = mock.Mock()
+        group2_assignments.json.return_value = {
+            "kind": "KafkaConsumerList",
+            "data": [{"assignments": [{"topic_name": "topic2"}]}],
+        }
+
+        mock_session.get.side_effect = [
+            groups_page1,
+            group1_assignments,
+            groups_page2,
+            group2_assignments,
+        ]
+
+        result = retriever.get_consumer_group_assignments_cached(
+            "https://pkc-test.region.provider.confluent.cloud", "cluster1"
+        )
+
+        assert "group1" in result
+        assert "group2" in result
+        assert result["group1"] == ["topic1"]
+        assert result["group2"] == ["topic2"]
+        assert mock_session.get.call_count == 4
+
+    def test_fetch_consumer_groups_pagination_single_page(
+        self, retriever, mock_session
+    ):
+        """Test that single page consumer groups response works correctly."""
+        groups_response = mock.Mock()
+        groups_response.json.return_value = {
+            "kind": "KafkaConsumerGroupList",
+            "data": [{"consumer_group_id": "group1"}],
+            "metadata": {"next": None},
+        }
+
+        group_assignments = mock.Mock()
+        group_assignments.json.return_value = {
+            "kind": "KafkaConsumerList",
+            "data": [{"assignments": [{"topic_name": "topic1"}]}],
+        }
+
+        mock_session.get.side_effect = [groups_response, group_assignments]
+
+        result = retriever.get_consumer_group_assignments_cached(
+            "https://pkc-test.region.provider.confluent.cloud", "cluster1"
+        )
+
+        assert result == {"group1": ["topic1"]}
+        assert mock_session.get.call_count == 2
+
+    def test_fetch_topics_pagination_empty_pages(self, retriever, mock_session):
+        """Test handling of empty pages during pagination."""
+        page1_response = mock.Mock()
+        page1_response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [{"topic_name": "topic1", "is_internal": False}],
+            "metadata": {
+                "next": "https://pkc-test.region.provider.confluent.cloud/kafka/v3/clusters/cluster1/topics?page_token=abc123"
+            },
+        }
+
+        # Empty page
+        page2_response = mock.Mock()
+        page2_response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [],
+            "metadata": {"next": None},
+        }
+
+        mock_session.get.side_effect = [page1_response, page2_response]
+
+        result = retriever.get_all_topics_cached(
+            "https://pkc-test.region.provider.confluent.cloud", "cluster1"
+        )
+
+        assert result == ["topic1"]
+        assert mock_session.get.call_count == 2

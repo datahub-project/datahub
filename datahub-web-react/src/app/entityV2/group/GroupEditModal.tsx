@@ -1,4 +1,5 @@
-import { Button, Form, Input, Modal, Typography, message } from 'antd';
+import { Modal } from '@components';
+import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
@@ -19,8 +20,6 @@ type Props = {
     editModalData: PropsData;
     updateName?: (name: string) => void; // TODO: Add name to the update mutation for groups to avoid 2 calls.
 };
-/** Regex Validations */
-export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function GroupEditModal({
     canEditGroupName,
@@ -86,16 +85,20 @@ export default function GroupEditModal({
             title="Edit Profile"
             open={visible}
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button type="primary" id="editGroupButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
-                        Save Changes
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Save Changes',
+                    onClick: onSaveChanges,
+                    variant: 'filled',
+                    disabled: saveButtonEnabled,
+                    id: 'editGroupButton',
+                },
+            ]}
         >
             <Form
                 form={form}

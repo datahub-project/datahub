@@ -761,9 +761,12 @@ public class ElasticSearchTimeseriesAspectService
                     ElasticSearchTimeseriesAspectService.toEnvAspectGenericDocument(opContext, hit))
             .collect(Collectors.toList());
 
+    String nextScrollId = SearchAfterWrapper.nextScrollId(response.getHits().getHits(), count);
+
     return TimeseriesScrollResult.builder()
         .numResults(totalCount)
         .pageSize(response.getHits().getHits().length)
+        .scrollId(nextScrollId)
         .events(resultPairs.stream().map(Pair::getFirst).collect(Collectors.toList()))
         .documents(resultPairs.stream().map(Pair::getSecond).collect(Collectors.toList()))
         .build();

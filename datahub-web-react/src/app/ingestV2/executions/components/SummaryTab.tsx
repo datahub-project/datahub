@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { ScrollableDetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { ScrollableDetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -12,7 +12,7 @@ import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Button, Text, Tooltip } from '@src/alchemy-components';
+import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -40,15 +40,11 @@ const SubHeaderParagraph = styled(Text)`
 `;
 
 const StatusSection = styled.div`
-    padding: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
+    padding: 16px 20px 16px 0;
 `;
 
 const IngestedAssetsSection = styled.div`
-    padding: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
+    padding: 16px 20px 16px 0;
 `;
 
 export const SummaryTab = ({
@@ -104,7 +100,9 @@ export const SummaryTab = ({
                 )}
             </IngestedAssetsSection>
             <SectionBase>
-                <SectionHeader level={5}>Logs</SectionHeader>
+                <Heading type="h4" size="lg" weight="bold">
+                    Logs
+                </Heading>
                 <SectionSubHeader>
                     <SubHeaderParagraph color="gray" colorLevel={600}>
                         View logs that were collected during the sync.
@@ -128,7 +126,9 @@ export const SummaryTab = ({
             </SectionBase>
             {recipe && (
                 <SectionBase>
-                    <SectionHeader level={5}>Recipe</SectionHeader>
+                    <Heading type="h4" size="lg" weight="bold">
+                        Recipe
+                    </Heading>
                     <SectionSubHeader>
                         <SubHeaderParagraph color="gray" colorLevel={600}>
                             The configurations used for this sync with the data source.

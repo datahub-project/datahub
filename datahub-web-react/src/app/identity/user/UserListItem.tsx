@@ -1,16 +1,18 @@
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import SelectRole from '@app/identity/user/SelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
@@ -19,6 +21,11 @@ type Props = {
     user: CorpUser;
     canManageUserCredentials: boolean;
     selectRoleOptions: Array<DataHubRole>;
+    rolesLoading: boolean;
+    rolesHasMore: boolean;
+    rolesObserverRef: (node: HTMLDivElement | null) => void;
+    rolesSearchQuery: string;
+    setRolesSearchQuery: (query: string) => void;
     onDelete?: () => void;
     refetch?: () => void;
 };
@@ -52,7 +59,19 @@ const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     margin-left: 5px;
 `;
 
-export default function UserListItem({ user, canManageUserCredentials, selectRoleOptions, onDelete, refetch }: Props) {
+export default function UserListItem({
+    user,
+    canManageUserCredentials,
+    selectRoleOptions,
+    rolesLoading,
+    rolesHasMore,
+    rolesObserverRef,
+    rolesSearchQuery,
+    setRolesSearchQuery,
+    onDelete,
+    refetch,
+}: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
@@ -77,9 +96,9 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const getUserStatusColor = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return REDESIGN_COLORS.BLUE;
+                return theme.colors.textBrand;
             default:
-                return ANTD_GRAY[6];
+                return theme.colors.textDisabled;
         }
     };
 
@@ -115,10 +134,11 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
             <UserItemContainer>
                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}>
                     <UserHeaderContainer>
-                        <CustomAvatar
-                            size={32}
+                        <Avatar
                             name={displayName}
-                            photoUrl={user.editableProperties?.pictureLink || undefined}
+                            imageUrl={user.editableProperties?.pictureLink || undefined}
+                            type={AvatarType.user}
+                            size="xl"
                         />
                         <div style={{ marginLeft: 16, marginRight: 20 }}>
                             <div>
@@ -130,7 +150,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                         </div>
                         {userStatus && (
                             <Tooltip overlay={userStatusToolTip}>
-                                <Tag color={userStatusColor || ANTD_GRAY[6]}>{userStatus}</Tag>
+                                <Tag color={userStatusColor || theme.colors.textDisabled}>{userStatus}</Tag>
                             </Tooltip>
                         )}
                     </UserHeaderContainer>
@@ -141,6 +161,11 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     user={user}
                     userRoleUrn={userRoleUrn || ''}
                     selectRoleOptions={selectRoleOptions}
+                    rolesLoading={rolesLoading}
+                    rolesHasMore={rolesHasMore}
+                    rolesObserverRef={rolesObserverRef}
+                    rolesSearchQuery={rolesSearchQuery}
+                    setRolesSearchQuery={setRolesSearchQuery}
                     refetch={refetch}
                 />
                 <Dropdown trigger={['click']} menu={{ items }}>

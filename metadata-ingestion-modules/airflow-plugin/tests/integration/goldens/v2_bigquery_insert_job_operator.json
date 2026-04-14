@@ -7,15 +7,15 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "_access_control": "None",
-                "catchup": "False",
-                "description": "None",
-                "doc_md": "None",
+                "_access_control": "",
+                "catchup": "false",
+                "description": "",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
-                "timezone": "Timezone('UTC')"
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=bigquery_insert_job_operator",
             "name": "bigquery_insert_job_operator",

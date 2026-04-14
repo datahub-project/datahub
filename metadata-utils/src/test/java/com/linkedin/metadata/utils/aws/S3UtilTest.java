@@ -375,4 +375,76 @@ public class S3UtilTest {
     // This will fail during construction when createPresigner() is called
     assertThrows(RuntimeException.class, () -> new S3Util(mockS3Client));
   }
+
+  @Test
+  public void testDeleteObjectSuccess() {
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
+
+    String bucket = "test-bucket";
+    String key = "test-key";
+
+    software.amazon.awssdk.services.s3.model.DeleteObjectResponse mockResponse =
+        mock(software.amazon.awssdk.services.s3.model.DeleteObjectResponse.class);
+    software.amazon.awssdk.http.SdkHttpResponse mockHttpResponse =
+        mock(software.amazon.awssdk.http.SdkHttpResponse.class);
+
+    when(mockResponse.sdkHttpResponse()).thenReturn(mockHttpResponse);
+    when(mockHttpResponse.isSuccessful()).thenReturn(true);
+    when(mockS3Client.deleteObject(
+            any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class)))
+        .thenReturn(mockResponse);
+
+    // Should not throw any exception
+    s3Util.deleteObject(bucket, key);
+
+    verify(mockS3Client)
+        .deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
+  }
+
+  @Test
+  public void testDeleteObjectFailure() {
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
+
+    String bucket = "test-bucket";
+    String key = "test-key";
+
+    software.amazon.awssdk.services.s3.model.DeleteObjectResponse mockResponse =
+        mock(software.amazon.awssdk.services.s3.model.DeleteObjectResponse.class);
+    software.amazon.awssdk.http.SdkHttpResponse mockHttpResponse =
+        mock(software.amazon.awssdk.http.SdkHttpResponse.class);
+
+    when(mockResponse.sdkHttpResponse()).thenReturn(mockHttpResponse);
+    when(mockHttpResponse.isSuccessful()).thenReturn(false);
+    when(mockHttpResponse.statusCode()).thenReturn(403);
+    when(mockS3Client.deleteObject(
+            any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class)))
+        .thenReturn(mockResponse);
+
+    assertThrows(RuntimeException.class, () -> s3Util.deleteObject(bucket, key));
+  }
+
+  @Test
+  public void testDeleteObjectException() {
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
+
+    String bucket = "test-bucket";
+    String key = "test-key";
+
+    when(mockS3Client.deleteObject(
+            any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class)))
+        .thenThrow(new RuntimeException("S3 service error"));
+
+    assertThrows(RuntimeException.class, () -> s3Util.deleteObject(bucket, key));
+  }
+
+  @Test
+  public void testDeleteObjectWithNullParameters() {
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
+
+    // Test with null bucket
+    assertThrows(Exception.class, () -> s3Util.deleteObject(null, "key"));
+
+    // Test with null key
+    assertThrows(Exception.class, () -> s3Util.deleteObject("bucket", null));
+  }
 }

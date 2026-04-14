@@ -103,39 +103,12 @@ class CSVEnricherReport(SourceReport):
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 class CSVEnricherSource(Source):
     """
-    :::tip Looking to ingest a CSV data file into DataHub, as an asset?
-    Use the [Local File](./s3.md) ingestion source.
-    The CSV enricher is used for enriching entities already ingested into DataHub.
-    :::
+    Source that bulk uploads metadata from CSV files to enrich existing DataHub entities.
 
-    This plugin is used to bulk upload metadata to Datahub.
-    It will apply glossary terms, tags, description, owners and domain at the entity level. It can also be used to apply tags,
-    glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
-    or append existing values.
-
-    The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contains commas (most URNs contains commas).
-
-    ```
-    resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,ownership_type_urn
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],CUSTOM,"description for users table",urn:li:domain:Engineering,urn:li:ownershipType:a0e9176c-d8cf-4b11-963b-f7a1bc2333c9
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description",
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description",
-    ```
-
-    Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
-    be applied at the entity field. If a subresource is populated (as it is for the second and third rows), glossary
-    terms and tags will be applied on the column. Every row MUST have a resource. Also note that owners can only
-    be applied at the resource level.
-
-    If ownership_type_urn is set then ownership_type must be set to CUSTOM.
-
-    Note that you have the option in your recipe config to write as a PATCH or as an OVERRIDE. This choice will apply to
-    all metadata for the entity, not just a single aspect. So OVERRIDE will override all metadata, including performing
-    deletes if a metadata field is empty. The default is PATCH.
-
-    :::note
-    This source will not work on very large csv files that do not fit in memory.
-    :::
+    Implementation notes:
+    - Loads entire CSV into memory (pandas DataFrame)
+    - Supports entity-level and column-level metadata
+    - Uses MetadataChangeProposalWrapper for PATCH/OVERRIDE write modes
     """
 
     def __init__(self, config: CSVEnricherConfig, ctx: PipelineContext):
@@ -632,6 +605,7 @@ class CSVEnricherSource(Source):
         if parsed_location.scheme in ("http", "https"):
             try:
                 resp = requests.get(self.config.filename)
+                resp.raise_for_status()  # Raise an exception for HTTP error status codes
                 decoded_content = resp.content.decode("utf-8-sig")
                 rows = list(
                     csv.DictReader(

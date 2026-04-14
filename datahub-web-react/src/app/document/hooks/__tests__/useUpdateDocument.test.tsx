@@ -485,7 +485,9 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateRelatedEntities(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to related assets. An unexpected error occurred!');
+            expect(message.error).toHaveBeenCalledWith(
+                'Failed to update related assets. An unexpected error occurred!',
+            );
         });
     });
 

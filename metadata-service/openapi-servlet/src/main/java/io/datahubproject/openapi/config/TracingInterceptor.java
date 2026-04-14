@@ -6,16 +6,18 @@ import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.AsyncHandlerInterceptor;
 
 @Component
-public class TracingInterceptor implements HandlerInterceptor {
+public class TracingInterceptor implements AsyncHandlerInterceptor {
   @Nullable private final Tracer tracer;
 
   public TracingInterceptor(final SystemTelemetryContext systemTelemetryContext) {
@@ -25,6 +27,14 @@ public class TracingInterceptor implements HandlerInterceptor {
   @Override
   public boolean preHandle(
       HttpServletRequest request, HttpServletResponse response, Object handler) {
+
+    if (request.getDispatcherType() == DispatcherType.ASYNC) {
+      Span existingSpan = (Span) request.getAttribute("span");
+      if (existingSpan != null && tracer != null) {
+        request.setAttribute("otelScope", makeScopeWithSpan(existingSpan));
+      }
+      return true;
+    }
 
     if (tracer != null) {
       String spanName = request.getMethod() + " " + request.getRequestURI();
@@ -37,11 +47,7 @@ public class TracingInterceptor implements HandlerInterceptor {
               .startSpan();
 
       request.setAttribute("span", span);
-      Context.current()
-          .with(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY, new AtomicReference<>(""))
-          .with(SystemTelemetryContext.SOURCE_IP_CONTEXT_KEY, new AtomicReference<>(""))
-          .with(span)
-          .makeCurrent();
+      request.setAttribute("otelScope", makeScopeWithSpan(span));
 
       SystemTelemetryContext.enableLogTracing(request);
 
@@ -62,6 +68,16 @@ public class TracingInterceptor implements HandlerInterceptor {
     }
 
     return true;
+  }
+
+  @Override
+  public void afterConcurrentHandlingStarted(
+      HttpServletRequest request, HttpServletResponse response, Object handler) {
+    Scope scope = (Scope) request.getAttribute("otelScope");
+    if (scope != null) {
+      scope.close();
+      request.removeAttribute("otelScope");
+    }
   }
 
   @Override
@@ -89,10 +105,23 @@ public class TracingInterceptor implements HandlerInterceptor {
         }
       }
 
+      Scope scope = (Scope) request.getAttribute("otelScope");
+      if (scope != null) {
+        scope.close();
+      }
+
       if (SystemTelemetryContext.isLogTracingEnabled()) {
         SystemTelemetryContext.clear();
         MDC.clear();
       }
     }
+  }
+
+  private Scope makeScopeWithSpan(Span span) {
+    return Context.current()
+        .with(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY, new AtomicReference<>(""))
+        .with(SystemTelemetryContext.SOURCE_IP_CONTEXT_KEY, new AtomicReference<>(""))
+        .with(span)
+        .makeCurrent();
   }
 }

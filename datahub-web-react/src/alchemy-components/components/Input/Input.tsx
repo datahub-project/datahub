@@ -1,4 +1,9 @@
 import { Tooltip } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { EyeSlash } from '@phosphor-icons/react/dist/csr/EyeSlash';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -19,7 +24,7 @@ import { getInputType } from '@components/components/Input/utils';
 export const inputDefaults: InputProps = {
     value: '',
     setValue: () => {},
-    label: 'Label',
+    label: '',
     placeholder: 'Placeholder',
     error: '',
     warning: '',
@@ -72,7 +77,7 @@ export const Input = ({
 
     // Show/hide password text
     const [showPassword, setShowPassword] = React.useState(false);
-    const passwordIcon = showPassword ? 'Visibility' : 'VisibilityOff';
+    const passwordIcon = showPassword ? Eye : EyeSlash;
 
     // Input base props
     const inputBaseProps = {
@@ -109,14 +114,12 @@ export const Input = ({
                 />
                 {!isPassword && (
                     <Tooltip title={errorOnHover ? error : ''} showArrow={false}>
-                        {invalid && <Icon icon="WarningAmber" color="red" size="lg" />}
-                        {isSuccess && <Icon icon="CheckCircle" color="green" size="lg" />}
-                        {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
+                        {invalid && <Icon icon={Warning} color="red" size="lg" />}
+                        {isSuccess && <Icon icon={Check} color="green" size="lg" />}
+                        {warning && <Icon icon={Warning} color="yellow" size="lg" />}
                     </Tooltip>
                 )}
-                {!!onClear && value && (
-                    <ClearIcon className="clear-search" source="phosphor" icon="X" size="lg" onClick={onClear} />
-                )}
+                {!!onClear && value && <ClearIcon className="clear-search" icon={X} size="lg" onClick={onClear} />}
                 {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}

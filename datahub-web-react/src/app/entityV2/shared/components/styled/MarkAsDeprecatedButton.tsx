@@ -35,7 +35,7 @@ type MarkAsDeprecatedButtonContentsProps = {
     internalText?: string;
 };
 
-export const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecatedButtonContentsProps) => {
+const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecatedButtonContentsProps) => {
     return (
         <FlexContainer>
             <StyledDeprecatedIcon />

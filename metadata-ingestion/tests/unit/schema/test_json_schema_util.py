@@ -57,7 +57,7 @@ def assert_field_paths_match(
 ) -> None:
     log_field_paths(fields)
     assert len([f for f in fields]) == len(expected_field_paths)
-    for f, efp in zip(fields, expected_field_paths):
+    for f, efp in zip(fields, expected_field_paths, strict=False):
         if isinstance(efp, dict):
             assert f.fieldPath == efp["path"]
             assert isinstance(f.type.type, efp["type"])

@@ -6,33 +6,32 @@ import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { Button, Input } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
-import { DocumentState } from '@types';
+import { DocumentSourceType, DocumentState } from '@types';
 
 const PopoverContainer = styled.div`
     width: 400px;
-    height: 300px; /* Fixed height to prevent popover jumping */
+    max-height: 300px; /* Fixed height to prevent popover jumping */
     display: flex;
     flex-direction: column;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
-    padding: 16px;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SearchContainer = styled.div`
-    margin-bottom: 12px;
+    padding: 8px;
 `;
 
 const TreeScrollContainer = styled.div`
     flex: 1;
     overflow-y: auto;
     height: 300px; /* Fixed height to prevent popover jumping */
-    border: 1px solid ${colors.gray[100]};
-    border-radius: 6px;
-    padding: 8px;
-    margin-bottom: 12px;
+
+    padding: 8px 4px;
+
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -44,12 +43,12 @@ const TreeScrollContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[200]};
+        background: ${(props) => props.theme.colors.bgSurface};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[500]};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -64,17 +63,12 @@ const RootOption = styled.div<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected
             ? `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+        background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
     `
             : `
         &:hover {
-            background-color: ${colors.gray[100]};
+            background-color: ${props.theme.colors.bgHover};
         }
     `}
 `;
@@ -82,7 +76,7 @@ const RootOption = styled.div<{ $isSelected: boolean }>`
 const EmptyState = styled.div`
     padding: 24px;
     text-align: center;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
 `;
 
@@ -90,15 +84,22 @@ const ButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+    padding: 8px;
 `;
 
 interface MoveDocumentPopoverProps {
     documentUrn: string;
     currentParentUrn?: string | null;
     onClose: () => void;
+    onMove?: (documentUrn: string) => void;
 }
 
-export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ documentUrn, currentParentUrn, onClose }) => {
+export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
+    documentUrn,
+    currentParentUrn,
+    onClose,
+    onMove,
+}) => {
     const [selectedParentUrn, setSelectedParentUrn] = useState<string | null | undefined>(currentParentUrn);
     const [movingDocument, setMovingDocument] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -117,10 +118,10 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
     const { documents: searchResults, loading: searchLoading } = useSearchDocuments({
         query: debouncedSearchQuery || '*',
         states: [DocumentState.Published, DocumentState.Unpublished],
-        includeDrafts: false,
         count: 50,
         fetchPolicy: 'network-only', // Always fetch fresh for search
         includeParentDocuments: true, // Fetch parent documents for breadcrumb display
+        sourceTypes: [DocumentSourceType.Native],
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;
@@ -139,7 +140,10 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
         try {
             // Tree mutation handles optimistic move + backend call + rollback on error!
             await moveDocument(documentUrn, selectedParentUrn === undefined ? null : selectedParentUrn);
-            // Success - close popover
+            // Success - call onMove callback if provided, then close popover
+            if (onMove) {
+                onMove(documentUrn);
+            }
             setTimeout(() => {
                 onClose();
             }, 300);
@@ -154,7 +158,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
     return (
         <PopoverContainer data-testid="move-document-popover">
             <SearchContainer>
-                <Input label="" placeholder="Search documents..." value={searchQuery} setValue={setSearchQuery} />
+                <Input label="" placeholder="Search context..." value={searchQuery} setValue={setSearchQuery} />
             </SearchContainer>
 
             <TreeScrollContainer>
@@ -163,16 +167,16 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
                     <>
                         {searchLoading && <EmptyState>Searching...</EmptyState>}
                         {!searchLoading && filteredSearchResults.length === 0 && (
-                            <EmptyState>No documents found</EmptyState>
+                            <EmptyState>No results found</EmptyState>
                         )}
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
                                 const isSelected = selectedParentUrn === doc.urn;
 
-                                // Build breadcrumb from parentDocuments array
+                                // Build breadcrumb from parentDocuments array if there are parents
                                 // parentDocuments is ordered: [direct parent, parent's parent, ...]
-                                // We want to show: Root > grandparent > parent
-                                let breadcrumb = 'Root';
+                                // We want to show: grandparent > parent
+                                let breadcrumb: string | null = null;
                                 if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                     const parents = [...doc.parentDocuments.documents].reverse(); // Reverse to get root first
                                     breadcrumb = parents.map((parent) => parent.info?.title || 'Untitled').join(' > ');

@@ -119,13 +119,7 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
   args = ['run', 'generate']
 }
 
-task downloadHistoricalVersions(type: Exec, dependsOn: installPythonDeps) {
-    workingDir '.'
-    commandLine 'bash', '-c', 
-        venv_activate_command + 'python download_historical_versions.py'
-}
-
-task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, downloadHistoricalVersions]) {
+task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'start']
 }
 task fastReload(type: YarnTask) {
@@ -147,7 +141,7 @@ task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
 }
 
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHistoricalVersions]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
   inputs.files(projectMdFiles)
   inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
   inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)
@@ -178,7 +172,6 @@ clean {
   delete 'just'
   delete 'sphinx/venv'
   delete 'sphinx/_build'
-  delete 'versioned_docs'
   delete venv_name
   delete fileTree(dir: 'genDocs', exclude: '.gitignore')
   delete fileTree(dir: 'docs', exclude: '.gitignore')

@@ -6,25 +6,21 @@ const TEST_GLOSSARY_TERM_NAME = "CypressTerm";
 
 describe("summary tab - glossary node", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     cy.goToGlossaryNode(TEST_GLOSSARY_NODE_URN);
     utils.goToSummaryTab();
   });
 
-  it("glossary node - header section", () => {
+  it("summary tab", () => {
     utils.testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS", dataTestId: `owner-${TEST_USER_URN}` },
     ]);
-  });
 
-  it.skip("glossary node - description section", () => {
-    utils.testAboutSection();
-  });
+    utils.ensureAboutSectionIsVisible();
 
-  it("glossary node - modules section", () => {
-    const defaultModules = [
+    utils.testTemplateSection([
       {
         type: "hierarchy",
         // FYI: Contents module has different type in add module menu
@@ -32,8 +28,6 @@ describe("summary tab - glossary node", () => {
         name: "Contents",
         value: TEST_GLOSSARY_TERM_NAME,
       },
-    ];
-
-    utils.testTemplateSection(defaultModules);
+    ]);
   });
 });

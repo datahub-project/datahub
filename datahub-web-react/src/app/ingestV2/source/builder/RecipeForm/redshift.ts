@@ -3,6 +3,7 @@ import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/
 export const REDSHIFT_HOST_PORT: RecipeField = {
     name: 'host_port',
     label: 'Host and Port',
+    helper: 'Redshift host and port',
     tooltip:
         "The host and port where Redshift is running. For example, 'redshift:5439'. Note: this host must be accessible on the network where DataHub is running (or allowed via an IP Allow List, AWS PrivateLink, etc).",
     type: FieldType.TEXT,
@@ -15,6 +16,7 @@ export const REDSHIFT_HOST_PORT: RecipeField = {
 export const REDSHIFT_DATABASE: RecipeField = {
     name: 'database',
     label: 'Database',
+    helper: 'Specific Database to ingest',
     tooltip: 'Ingest metadata for a specific Database.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.database',
@@ -26,6 +28,7 @@ export const REDSHIFT_DATABASE: RecipeField = {
 export const REDSHIFT_USERNAME: RecipeField = {
     name: 'redshift.username',
     label: 'Username',
+    helper: 'Redshift username for metadata',
     tooltip: 'A Redshift username used to extract metadata.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
@@ -37,6 +40,7 @@ export const REDSHIFT_USERNAME: RecipeField = {
 export const REDSHIFT_PASSWORD: RecipeField = {
     name: 'redshift.password',
     label: 'Password',
+    helper: 'Password for the username',
     tooltip: 'The password of the username.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',

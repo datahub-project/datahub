@@ -10,9 +10,7 @@ import { SimpleSelect } from '@src/alchemy-components';
 
 import { Document } from '@types';
 
-const TypeSelectWrapper = styled.div`
-    overflow: hidden;
-`;
+const TypeSelectWrapper = styled.div``;
 
 const NONE_VALUE = '';
 
@@ -69,13 +67,19 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
             return <span>{displayValue}</span>;
         }
 
+        // If the actual type is not in the options, add it to the options
+        const isCustomType = optimisticType !== NONE_VALUE && !typeOptions.some((opt) => opt.value === optimisticType);
+        const finalTypeOptions = isCustomType
+            ? [...typeOptions, { label: optimisticType, value: optimisticType }]
+            : typeOptions;
+
         return (
             <TypeSelectWrapper data-testid="document-type-select">
                 <SimpleSelect
                     values={[optimisticType]}
                     onUpdate={handleTypeChange}
                     isDisabled={!canEditType}
-                    options={typeOptions}
+                    options={finalTypeOptions}
                     size="sm"
                     width="fit-content"
                     showClear={false}

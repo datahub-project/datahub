@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import OwnerDetail from '@app/entityV2/domain/summary/OwnerDetail';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 
@@ -14,7 +13,7 @@ import { Owner, OwnershipTypeEntity } from '@types';
 const OwnershipTypeNameText = styled(Typography.Text)`
     font-weight: 500;
     font-size: 12px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const OwnersContainer = styled.div`

@@ -10,8 +10,8 @@ import { CreateScheduleStep } from '@app/ingestV2/source/builder/CreateScheduleS
 import { DefineRecipeStep } from '@app/ingestV2/source/builder/DefineRecipeStep';
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateStep';
-import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 
 import { IngestionSource } from '@types';
 
@@ -24,7 +24,7 @@ const StepsContainer = styled.div`
 /**
  * Mapping from the step type to the title for the step
  */
-export enum IngestionSourceBuilderStepTitles {
+enum IngestionSourceBuilderStepTitles {
     SELECT_TEMPLATE = 'Choose Data Source',
     DEFINE_RECIPE = 'Configure Connection',
     CREATE_SCHEDULE = 'Sync Schedule',
@@ -34,7 +34,7 @@ export enum IngestionSourceBuilderStepTitles {
 /**
  * Mapping from the step type to the component implementing that step.
  */
-export const IngestionSourceBuilderStepComponent = {
+const IngestionSourceBuilderStepComponent = {
     SELECT_TEMPLATE: SelectTemplateStep,
     DEFINE_RECIPE: DefineRecipeStep,
     CREATE_SCHEDULE: CreateScheduleStep,
@@ -44,7 +44,7 @@ export const IngestionSourceBuilderStepComponent = {
 /**
  * Steps of the Ingestion Source Builder flow.
  */
-export enum IngestionSourceBuilderStep {
+enum IngestionSourceBuilderStep {
     SELECT_TEMPLATE = 'SELECT_TEMPLATE',
     DEFINE_RECIPE = 'DEFINE_RECIPE',
     CREATE_SCHEDULE = 'CREATE_SCHEDULE',
@@ -87,7 +87,7 @@ export const IngestionSourceBuilderModal = ({
         },
     });
 
-    const ingestionSources = JSON.parse(JSON.stringify(sourcesJson)); // TODO: replace with call to server once we have access to dynamic list of sources
+    const { ingestionSources } = useIngestionSources();
 
     const sendAnalyticsStepViewedEvent = useCallback(
         (step: IngestionSourceBuilderStep) => {

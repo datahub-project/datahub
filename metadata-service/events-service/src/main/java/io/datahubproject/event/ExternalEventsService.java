@@ -2,6 +2,7 @@ package io.datahubproject.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.event.exception.UnsupportedTopicException;
+import io.datahubproject.event.kafka.CheckedConsumer;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
@@ -35,11 +36,7 @@ public class ExternalEventsService {
   public static final String METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME =
       "MetadataChangeLog_Timeseries_v1";
 
-  private static final Set<String> ALLOWED_TOPICS =
-      Set.of(
-          PLATFORM_EVENT_TOPIC_NAME,
-          METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
-          METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME);
+  private final Set<String> pollAllowedTopics;
   private final KafkaConsumerPool consumerPool;
   private final ObjectMapper objectMapper;
   private final Map<String, String>
@@ -48,11 +45,14 @@ public class ExternalEventsService {
   private final int defaultLimit;
 
   public ExternalEventsService(
+      @Nonnull final Set<String> pollAllowedTopics,
       @Nonnull final KafkaConsumerPool consumerPool,
       @Nonnull final ObjectMapper objectMapper,
       @Nonnull final Map<String, String> topicNames,
       final int defaultPollTimeoutSeconds,
       final int defaultLimit) {
+    this.pollAllowedTopics =
+        Objects.requireNonNull(pollAllowedTopics, "pollAllowedTopics must not be null");
     this.consumerPool = Objects.requireNonNull(consumerPool, "consumerPool must not be null");
     this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     this.topicNames = Objects.requireNonNull(topicNames, "topicNames must not be null");
@@ -79,23 +79,23 @@ public class ExternalEventsService {
       @Nullable final Integer pollTimeoutSeconds,
       @Nullable final Integer lookbackWindowDays)
       throws Exception {
-    if (!ALLOWED_TOPICS.contains(topic)) {
+    if (!pollAllowedTopics.contains(topic)) {
       throw new UnsupportedTopicException(topic);
     }
-
     String finalTopic = remapExternalTopicName(topic);
 
     List<GenericRecord> messages = new ArrayList<>();
     long startTime = System.currentTimeMillis();
     long timeout =
         (pollTimeoutSeconds != null ? pollTimeoutSeconds : defaultPollTimeoutSeconds) * 1000L;
-    KafkaConsumer<String, GenericRecord> consumer =
-        consumerPool.borrowConsumer(timeout, TimeUnit.MILLISECONDS);
-    if (consumer == null) {
+    CheckedConsumer checkedConsumer =
+        consumerPool.borrowConsumer(timeout, TimeUnit.MILLISECONDS, finalTopic);
+    if (checkedConsumer == null) {
       throw new TimeLimitExceededException("Too many simultaneous requests, retry again later.");
     }
 
     try {
+      KafkaConsumer<String, GenericRecord> consumer = checkedConsumer.getConsumer();
       List<TopicPartition> partitions =
           consumer.partitionsFor(finalTopic).stream()
               .map(partitionInfo -> new TopicPartition(finalTopic, partitionInfo.partition()))
@@ -133,7 +133,7 @@ public class ExternalEventsService {
 
       return convertToExternalEvents(messages, encodeOffsetId(latestOffsets), fetchedRecords);
     } finally {
-      consumerPool.returnConsumer(consumer);
+      consumerPool.returnConsumer(checkedConsumer);
     }
   }
 
@@ -331,7 +331,6 @@ public class ExternalEventsService {
     if (this.topicNames.containsKey(topicName)) {
       return this.topicNames.get(topicName);
     }
-    // No topic found.
     throw new UnsupportedTopicException(topicName);
   }
 }

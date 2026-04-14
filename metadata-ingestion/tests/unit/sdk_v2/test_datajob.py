@@ -9,6 +9,7 @@ from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     CorpUserUrn,
+    DataFlowUrn,
     DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
@@ -401,3 +402,36 @@ def test_datajob_invalid_inlets_outlets() -> None:
         job.set_outlets(
             ["urn:li:datajob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)"]
         )
+
+
+def test_datajob_with_non_prod_env() -> None:
+    """Test that DataJob correctly handles non-PROD environments (issue #15381)."""
+    # Test with valid non-PROD env
+    flow_urn_dev = DataFlowUrn(
+        orchestrator="airflow", flow_id="test_dag", cluster="DEV"
+    )
+    job_dev = DataJob(name="test_task", flow_urn=flow_urn_dev)
+
+    # Verify URN contains DEV (not PROD)
+    assert "DEV" in str(job_dev.urn)
+    assert "PROD" not in str(job_dev.urn)
+    assert job_dev.flow_urn.cluster == "DEV"
+    assert job_dev.env == "DEV"
+
+    # Test with invalid env type (should not crash, env should be None)
+    flow_urn_invalid = DataFlowUrn(
+        orchestrator="airflow", flow_id="test_dag", cluster="TESTING"
+    )
+    job_invalid = DataJob(name="test_task", flow_urn=flow_urn_invalid)
+
+    # Verify URN contains TESTING (preserved), but env property is None
+    assert "TESTING" in str(job_invalid.urn)
+    assert job_invalid.flow_urn.cluster == "TESTING"
+    assert job_invalid.env is None  # Invalid env type returns None
+
+    # Test with flow parameter and non-PROD env
+    flow_qa = DataFlow(platform="airflow", name="test_dag", env="QA")
+    job_qa = DataJob(name="test_task", flow=flow_qa)
+
+    assert "QA" in str(job_qa.urn)
+    assert job_qa.env == "QA"

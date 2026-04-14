@@ -192,8 +192,12 @@ def default_source_config():
         "client_secret": "bar",
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
         "extract_lineage": False,
+        "extract_column_level_lineage": False,
         "extract_reports": False,
         "extract_ownership": False,
+        "ownership": {
+            "create_corp_user": True,  # Keep existing behavior for tests
+        },
         "stateful_ingestion": {
             "enabled": True,
             "state_provider": {

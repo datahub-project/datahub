@@ -1,4 +1,6 @@
-import { Icon, Text, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,6 +9,7 @@ import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPill
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -15,7 +18,7 @@ const LinkContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
 `;
@@ -24,12 +27,16 @@ const LeftSection = styled.div`
     display: flex;
     gap: 8px;
     align-items: center;
+    flex: 1;
+    min-width: 0; /* Allows flex item to shrink below its content size, enabling truncation */
 `;
 
 const RightSection = styled.div`
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-shrink: 0; /* Prevents right section from shrinking */
+    margin-left: 8px; /* Adds spacing between title and right section */
 `;
 
 const StyledIcon = styled(Icon)`
@@ -57,21 +64,36 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
             <LinkContainer>
                 <LeftSection>
                     <LinkIcon url={link.url} />
-                    <Text color="primary" lineHeight="normal" data-testid="link-label">
+                    <Text
+                        style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                            minWidth: 0 /* Critical for truncation in flex containers */,
+                        }}
+                        color="primary"
+                        lineHeight="normal"
+                        data-testid="link-label"
+                    >
                         {label}
                     </Text>
                 </LeftSection>
                 <RightSection>
                     <Text color="gray" size="sm">
-                        Added {formatDateString(link.created.time)} by{' '}
+                        Added{' '}
+                        <Tooltip title={formatDateString(link.created.time)}>
+                            <span>{toRelativeTimeString(link.created.time) || 'recently'}</span>
+                        </Tooltip>{' '}
+                        by{' '}
                     </Text>
                     <AvatarPillWithLinkAndHover user={createdBy} size="sm" entityRegistry={entityRegistry} />
                     {hasLinkPermissions && (
                         <>
                             <StyledIcon
-                                icon="PencilSimpleLine"
-                                source="phosphor"
+                                icon={PencilSimpleLine}
                                 color="gray"
+                                colorLevel={600}
                                 size="md"
                                 onClick={(e) => {
                                     e.preventDefault();
@@ -81,9 +103,9 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                                 data-testid="edit-link-button"
                             />
                             <StyledIcon
-                                icon="Trash"
-                                source="phosphor"
+                                icon={Trash}
                                 color="red"
+                                colorLevel={500}
                                 size="md"
                                 onClick={(e) => {
                                     e.preventDefault();

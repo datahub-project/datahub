@@ -1,0 +1,238 @@
+name: lint
+on:
+  # Only run on PRs. Assuming all commits come in via PRs, there is no need for lint post commit
+  pull_request:
+    # Run only on below branches
+    branches:
+      - master
+      - releases/**
+      - hotfixes/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: Initial Job Setup ${{ github.workflow }}
+    runs-on: ubuntu-slim
+    outputs:
+      lint-job: ${{ steps.filter.outputs.lint-job }} # Run all lint jobs when this file is changed
+      markdown: ${{ steps.filter.outputs.markdown == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      github-actions: ${{ steps.filter.outputs.github-actions == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      workflow-files: ${{ steps.filter.outputs.workflow-files == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      workflow-validation: ${{ steps.filter.outputs.workflow-validation == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      datahub-web-react: ${{ steps.filter.outputs.datahub-web-react == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      small-runner: ${{ steps.runners.outputs.small-runner }}
+      default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
+        id: filter
+        with:
+          token: "" # Empty token forces raw git commands
+          filters: .github/path-filters/lint-jobs-filters.yml
+      - uses: ./.github/actions/determine-runners
+        id: runners
+        with:
+          is-community-pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+          has-depot-label: ${{ contains(github.event.pull_request.labels.*.name, 'depot') }}
+
+  markdown-format:
+    name: markdown_format_check
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.markdown == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: run prettier --check
+        run: ./gradlew :datahub-web-react:mdPrettierCheck
+
+  github-actions-format:
+    name: github_actions_format_check
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.github-actions == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: run prettier --check
+        run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
+
+  validate-post-workflow-list:
+    name: validate_post_workflow_list
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.workflow-validation == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+      - name: Install pyyaml
+        run: uv pip install pyyaml --system
+      - name: Validate post-workflow-actions.yml workflow list
+        run: python .github/scripts/validate_post_workflow_list.py
+      - name: Write step summary
+        if: always()
+        run: cat post-workflow-validation-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+  actionlint:
+    name: actionlint
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.workflow-files == 'true'
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: reviewdog/action-actionlint@0d952c597ef8459f634d7145b0b044a9699e5e43 # v1
+        with:
+          reporter: github-pr-review
+
+  check-event-types:
+    name: check-event-types
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.code-check-sources == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: run check
+        run: python .github/scripts/check_event_type.py
+
+  check-policies:
+    name: check-policies
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.code-check-sources == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: run check
+        run: python .github/scripts/check_policies.py
+
+  check-gradle-lockfiles:
+    name: check-gradle-lockfiles
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.code-check-sources == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: run check
+        run: python .github/scripts/check_gradle_lockfiles.py
+
+  smoke-test-lint:
+    name: Lint on smoke tests
+    runs-on: ${{ needs.setup.outputs.small-runner }}
+    needs: setup
+    if: ${{ needs.setup.outputs.smoke-test-python == 'true' || needs.setup.outputs.smoke-test-cypress == 'true' }}
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore uv cache
+        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
+
+      - name: Run Python lint
+        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
+        run: |
+          python ./.github/scripts/check_python_package.py
+          ./gradlew :smoke-test:pythonLint
+
+      - name: Run Cypress Lint
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        run: |
+          ./gradlew :smoke-test:cypressLint
+
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Save uv cache
+        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Save yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
+
+  datahub-web-react-lint:
+    name: datahub-web-react-lint
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.datahub-web-react == 'true'
+    env:
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Run lint
+        run: |
+          ./gradlew :datahub-web-react:yarnLint
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Save yarn cache
+        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"

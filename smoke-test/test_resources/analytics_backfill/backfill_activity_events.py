@@ -29,7 +29,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Event type constants matching DataHub backend
@@ -147,7 +149,7 @@ class ActivityEventGenerator:
         # Assign "power users" (20% of users generate 80% of activity)
         num_power_users = max(1, len(users) // 5)
         self.power_users = random.sample(users, num_power_users)
-        
+
         # Generate a consistent browserId for each user (simulating each user has one main browser)
         self.user_browser_ids = {user["username"]: str(uuid.uuid4()) for user in users}
 
@@ -168,7 +170,9 @@ class ActivityEventGenerator:
         """Generate a sample URN if no entities provided."""
         entity_type = random.choice(ENTITY_TYPES)
         if entity_type == "dataset":
-            return make_dataset_urn("bigquery", f"project.dataset.table_{random.randint(1, 100)}")
+            return make_dataset_urn(
+                "bigquery", f"project.dataset.table_{random.randint(1, 100)}"
+            )
         elif entity_type == "dashboard":
             return make_dashboard_urn("looker", f"dashboard_{random.randint(1, 50)}")
         elif entity_type == "chart":
@@ -345,14 +349,18 @@ class ActivityEventGenerator:
                         "bigquery", f"project.dataset.guaranteed_table_{i}"
                     )
                 elif entity_type == "dashboard":
-                    entity_urn = make_dashboard_urn("looker", f"guaranteed_dashboard_{i}")
+                    entity_urn = make_dashboard_urn(
+                        "looker", f"guaranteed_dashboard_{i}"
+                    )
                 elif entity_type == "chart":
                     entity_urn = make_chart_urn("looker", f"guaranteed_chart_{i}")
                 else:
                     entity_urn = f"urn:li:{entity_type}:(platform,guaranteed_{entity_type}_{i},PROD)"
 
                 # Generate view event
-                events.append(self.generate_entity_view_event(timestamp, user, entity_urn))
+                events.append(
+                    self.generate_entity_view_event(timestamp, user, entity_urn)
+                )
 
                 # Generate tab view event (what the failing test checks)
                 tab = random.choice(TAB_TYPES)
@@ -383,25 +391,33 @@ class ActivityEventGenerator:
         # Simulate 3-10 activities in this session
         num_activities = random.randint(3, 10)
         for _ in range(num_activities):
-            activity_type = random.choice(["search", "entity_view", "tab_view", "entity_action"])
+            activity_type = random.choice(
+                ["search", "entity_view", "tab_view", "entity_action"]
+            )
 
             if activity_type == "search":
                 query = random.choice(SEARCH_QUERIES)
                 events.append(self.generate_search_event(current_time, query, user))
                 current_time += timedelta(seconds=random.randint(1, 3))
-                events.append(self.generate_search_results_view_event(current_time, query, user))
+                events.append(
+                    self.generate_search_results_view_event(current_time, query, user)
+                )
                 current_time += timedelta(seconds=random.randint(5, 30))
 
             elif activity_type == "entity_view":
                 entity_urn = self._get_random_entity_urn()
-                events.append(self.generate_entity_view_event(current_time, user, entity_urn))
+                events.append(
+                    self.generate_entity_view_event(current_time, user, entity_urn)
+                )
                 current_time += timedelta(seconds=random.randint(10, 60))
 
                 # Sometimes view tabs on the entity
                 if random.random() < 0.7:
                     tab = random.choice(TAB_TYPES)
                     events.append(
-                        self.generate_entity_section_view_event(current_time, tab, user, entity_urn)
+                        self.generate_entity_section_view_event(
+                            current_time, tab, user, entity_urn
+                        )
                     )
                     current_time += timedelta(seconds=random.randint(5, 30))
 
@@ -409,20 +425,30 @@ class ActivityEventGenerator:
                 if random.random() < 0.3:
                     action = random.choice(ACTION_TYPES)
                     events.append(
-                        self.generate_entity_action_event(current_time, action, user, entity_urn)
+                        self.generate_entity_action_event(
+                            current_time, action, user, entity_urn
+                        )
                     )
                     current_time += timedelta(seconds=random.randint(2, 10))
 
             elif activity_type == "tab_view":
                 entity_urn = self._get_random_entity_urn()
                 tab = random.choice(TAB_TYPES)
-                events.append(self.generate_entity_section_view_event(current_time, tab, user, entity_urn))
+                events.append(
+                    self.generate_entity_section_view_event(
+                        current_time, tab, user, entity_urn
+                    )
+                )
                 current_time += timedelta(seconds=random.randint(5, 30))
 
             else:  # entity_action
                 entity_urn = self._get_random_entity_urn()
                 action = random.choice(ACTION_TYPES)
-                events.append(self.generate_entity_action_event(current_time, action, user, entity_urn))
+                events.append(
+                    self.generate_entity_action_event(
+                        current_time, action, user, entity_urn
+                    )
+                )
                 current_time += timedelta(seconds=random.randint(2, 10))
 
         return events
@@ -450,7 +476,9 @@ class ActivityEventGenerator:
                 date.replace(hour=10, minute=0, second=0, microsecond=0)
             )
             events.extend(coverage_events)
-            logger.info(f"Added {len(coverage_events)} guaranteed coverage events for {date.date()}")
+            logger.info(
+                f"Added {len(coverage_events)} guaranteed coverage events for {date.date()}"
+            )
 
         # Working hours are 9 AM to 6 PM
         work_start = date.replace(hour=9, minute=0, second=0, microsecond=0)
@@ -487,7 +515,9 @@ def send_events_to_elasticsearch(
     Uses Elasticsearch bulk API for efficient ingestion.
     Each event is sent as an index operation.
     """
-    logger.info(f"Sending {len(events)} events to Elasticsearch at {elasticsearch_url}...")
+    logger.info(
+        f"Sending {len(events)} events to Elasticsearch at {elasticsearch_url}..."
+    )
 
     # Prepare bulk request body
     # Bulk API format: action_and_metadata\n + optional_source\n
@@ -511,7 +541,11 @@ def send_events_to_elasticsearch(
 
         # Check for errors in bulk response
         if result.get("errors"):
-            failed_items = [item for item in result.get("items", []) if "error" in item.get("index", {})]
+            failed_items = [
+                item
+                for item in result.get("items", [])
+                if "error" in item.get("index", {})
+            ]
             logger.error(f"Bulk indexing had {len(failed_items)} errors")
             for item in failed_items[:5]:  # Show first 5 errors
                 logger.error(f"  Error: {item}")

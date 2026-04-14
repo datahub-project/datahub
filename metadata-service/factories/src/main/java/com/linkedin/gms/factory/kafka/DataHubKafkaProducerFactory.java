@@ -3,9 +3,11 @@ package com.linkedin.gms.factory.kafka;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -55,7 +57,11 @@ public class DataHubKafkaProducerFactory {
     props.put(
         ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
         kafkaConfiguration.getProducer().getRequestTimeout());
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfiguration.getBootstrapServers());
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getBootstrapServers())
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     // key: Actor urn.
     // value: JSON object.
     props.putAll(kafkaConfiguration.getSerde().getUsageEvent().getProducerProperties(null));
@@ -73,11 +79,21 @@ public class DataHubKafkaProducerFactory {
 
     producerProps.setKeySerializer(StringSerializer.class);
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && kafkaConfiguration.getBootstrapServers().length() > 0) {
-      producerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getBootstrapServers())
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      producerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
+
+    String securityProtocol =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getSecurityProtocol())
+            ? kafkaConfiguration.getProducer().getSecurityProtocol()
+            : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      producerProps.getSecurity().setProtocol(securityProtocol);
+    }
 
     Map<String, Object> props = properties.buildProducerProperties(null);
     props.putAll(
@@ -102,6 +118,11 @@ public class DataHubKafkaProducerFactory {
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     props.putAll(kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
+
+    String schemaRegistryUrl = kafkaConfiguration.getProducer().getSchemaRegistryUrl();
+    if (StringUtils.isNotBlank(schemaRegistryUrl)) {
+      props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+    }
 
     return props;
   }

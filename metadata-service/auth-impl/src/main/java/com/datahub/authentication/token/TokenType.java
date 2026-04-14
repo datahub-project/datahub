@@ -6,5 +6,7 @@ public enum TokenType {
   /** A UI-initiated session token */
   SESSION,
   /** A personal token for programmatic use */
-  PERSONAL;
+  PERSONAL,
+  /** A service account token for programmatic use */
+  SERVICE_ACCOUNT;
 }

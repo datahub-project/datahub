@@ -2,7 +2,6 @@ import { BarChart as AlchemyBarChart, LineChart as AlchemyLineChart, GraphCard, 
 import { ParentSize } from '@visx/responsive';
 import { useTooltip, useTooltipInPortal } from '@visx/tooltip';
 import { Axis, BarSeries, BarStack, Grid, Tooltip, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -11,6 +10,7 @@ import { Popover } from '@components/components/Popover';
 import { TableChart } from '@app/analyticsDashboardV2/components/TableChart';
 import { useAnalyticsChartColors } from '@app/analyticsDashboardV2/hooks/useAnalyticsChartColors';
 import { colors } from '@src/alchemy-components/theme';
+import dayjs from '@utils/dayjs';
 
 import { AnalyticsChart as AnalyticsChartType, BarChart as BarChartType, TimeSeriesChart } from '@types';
 

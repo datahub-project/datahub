@@ -8,18 +8,14 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ClassInfo;
-import io.github.classgraph.MethodInfo;
-import io.github.classgraph.ScanResult;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -219,7 +215,7 @@ public class PluginFactory {
     this.pluginConfiguration =
         pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
     this.aspectPayloadValidators = applyDisable(aspectPayloadValidators);
-    this.mutationHooks = applyDisable(mutationHooks);
+    this.mutationHooks = sortByPriority(applyDisable(mutationHooks));
     this.mclSideEffects = applyDisable(mclSideEffects);
     this.mcpSideEffects = applyDisable(mcpSideEffects);
   }
@@ -307,65 +303,56 @@ public class PluginFactory {
                       IntStream.of(baseClazz.getName().hashCode()),
                       configs.stream().mapToInt(AspectPluginConfig::hashCode)))
               .sum();
-
       return (List<T>)
           pluginCache.computeIfAbsent(
               key,
               k -> {
-                try {
-                  ClassGraph classGraph =
-                      new ClassGraph()
-                          .acceptPackages(packageNames.stream().distinct().toArray(String[]::new))
-                          .acceptClasses(classNames.stream().distinct().toArray(String[]::new))
-                          .enableRemoteJarScanning()
-                          .enableExternalClasses()
-                          .enableClassInfo()
-                          .enableMethodInfo();
-                  if (!classLoaders.isEmpty()) {
-                    classLoaders.forEach(classGraph::addClassLoader);
-                  }
+                return configs.stream()
+                    .map(
+                        config -> {
+                          try {
+                            // Load class directly using Class.forName instead of ClassGraph scan
+                            Class<?> clazz = null;
 
-                  try (ScanResult scanResult = classGraph.scan()) {
-                    Map<String, ClassInfo> classMap =
-                        scanResult.getSubclasses(baseClazz).stream()
-                            .collect(Collectors.toMap(ClassInfo::getName, Function.identity()));
-
-                    return configs.stream()
-                        .map(
-                            config -> {
-                              try {
-                                ClassInfo classInfo = classMap.get(config.getClassName());
-                                if (classInfo == null) {
-                                  throw new IllegalStateException(
-                                      String.format(
-                                          "The following class cannot be loaded: %s",
-                                          config.getClassName()));
+                            // Try custom classloaders first if provided
+                            if (!classLoaders.isEmpty()) {
+                              for (ClassLoader classLoader : classLoaders) {
+                                try {
+                                  clazz = classLoader.loadClass(config.getClassName());
+                                  break;
+                                } catch (ClassNotFoundException e) {
+                                  // Try next classloader
                                 }
-                                MethodInfo constructorMethod =
-                                    classInfo.getConstructorInfo().get(0);
-                                return ((T)
-                                        constructorMethod
-                                            .loadClassAndGetConstructor()
-                                            .newInstance())
-                                    .setConfig(config);
-                              } catch (Exception e) {
-                                log.error(
-                                    "Error constructing entity registry plugin class: {}",
-                                    config.getClassName(),
-                                    e);
-                                return (T) null;
                               }
-                            })
-                        .filter(Objects::nonNull)
-                        .filter(PluginSpec::enabled)
-                        .collect(Collectors.toList());
-                  }
-                } catch (Exception e) {
-                  throw new IllegalArgumentException(
-                      String.format(
-                          "Failed to load entity registry plugins: %s.", baseClazz.getName()),
-                      e);
-                }
+                            }
+
+                            // Fall back to Class.forName if custom classloaders didn't work
+                            if (clazz == null) {
+                              clazz = Class.forName(config.getClassName());
+                            }
+
+                            // Verify it's a subclass of baseClazz
+                            if (!baseClazz.isAssignableFrom(clazz)) {
+                              throw new IllegalStateException(
+                                  String.format(
+                                      "Class %s is not a subclass of %s",
+                                      config.getClassName(), baseClazz.getName()));
+                            }
+
+                            // Instantiate using no-arg constructor
+                            return ((T) clazz.getDeclaredConstructor().newInstance())
+                                .setConfig(config);
+                          } catch (Exception e) {
+                            log.error(
+                                "Error constructing entity registry plugin class: {}",
+                                config.getClassName(),
+                                e);
+                            return (T) null;
+                          }
+                        })
+                    .filter(Objects::nonNull)
+                    .filter(PluginSpec::enabled)
+                    .collect(Collectors.toList());
               });
     }
   }
@@ -475,11 +462,18 @@ public class PluginFactory {
   private List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
         ? Collections.emptyList()
-        : applyDisable(
-            build(
-                MutationHook.class,
-                pluginConfiguration.mutationPackages(),
-                pluginConfiguration.getMutationHooks()));
+        : sortByPriority(
+            applyDisable(
+                build(
+                    MutationHook.class,
+                    pluginConfiguration.mutationPackages(),
+                    pluginConfiguration.getMutationHooks())));
+  }
+
+  private static List<MutationHook> sortByPriority(@Nonnull List<MutationHook> hooks) {
+    return hooks.stream()
+        .sorted(Comparator.comparingInt(MutationHook::getPriority).reversed())
+        .collect(Collectors.toList());
   }
 
   private List<MCLSideEffect> buildMCLSideEffects(

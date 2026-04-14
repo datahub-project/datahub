@@ -3,6 +3,9 @@ import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, Nod
 import 'reactflow/dist/style.css';
 import styled from 'styled-components';
 
+import LineageAnnotationNode, {
+    LINEAGE_ANNOTATION_NODE,
+} from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
@@ -17,6 +20,7 @@ import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/Line
 import LineageFilterNodeBasic, {
     LINEAGE_FILTER_NODE_NAME,
 } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
+import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from '@app/lineageV3/LineageTransformationNode/LineageTransformationNode';
@@ -49,6 +53,7 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
+    [LINEAGE_ANNOTATION_NODE]: LineageAnnotationNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -73,9 +78,9 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [isDraggingBoundingBox, setIsDraggingBoundingBox] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
-
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
+    const { isModuleView } = useContext(LineageGraphContext);
 
     return (
         <LineageVisualizationContext.Provider
@@ -118,10 +123,14 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 onBlur={() => setIsFocused(false)}
             >
                 <Background variant={BackgroundVariant.Dots} />
-                <ZoomControls />
-                <SearchControl />
-                <LineageControls />
-                <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+                {!isModuleView && (
+                    <>
+                        <ZoomControls />
+                        <SearchControl />
+                        <LineageControls />
+                        <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+                    </>
+                )}
             </StyledReactFlow>
         </LineageVisualizationContext.Provider>
     );

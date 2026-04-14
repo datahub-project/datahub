@@ -1,7 +1,9 @@
 import { codecovVitePlugin } from '@codecov/vite-plugin';
+import federation from '@originjs/vite-plugin-federation';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 
@@ -53,20 +55,48 @@ export default defineConfig(async ({ mode }) => {
         antThemeConfig = require(themeConfigFile);
     }
 
+    // common extra logging setup for proxies
+    const proxyDebugConfig = (proxy, options) => {
+        proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log(`[PROXY] ${req.url} -> ${options.target}${req.url}`);
+        });
+        proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log(`[PROXY RESPONSE] ${req.url} <- ${proxyRes.statusCode} ${proxyRes.statusMessage}`);
+            if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400) {
+                console.log(`[PROXY REDIRECT] Location: ${proxyRes.headers.location}`);
+            }
+        });
+        proxy.on('error', (err, req, _res) => {
+            console.error(`[PROXY ERROR] ${req.url}:`, err.message);
+        });
+    };
+
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
         target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
         changeOrigin: true,
+        configure: proxyDebugConfig,
     };
+
     const proxyOptions = {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
         '/openapi/v1/tracking/track': frontendProxy,
         '/openapi/v1/files': frontendProxy,
+        '/mfe/config': frontendProxy,
     };
 
-    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
+    const isHttps = process.env.REACT_APP_HTTPS === 'true';
+    const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+    if (isHttps) {
+        devPlugins.push(
+            basicSsl({
+                name: 'datahub-dev-ssl',
+                domains: ['localhost'],
+            }),
+        );
+    }
 
     return {
         appType: 'spa',
@@ -74,6 +104,13 @@ export default defineConfig(async ({ mode }) => {
         plugins: [
             ...devPlugins,
             react(),
+            federation({
+                name: 'datahub-host',
+                remotes: {
+                    // at least one remote is needed to load the plugin correctly, just remotes: {} does not work
+                    remoteName: '',
+                },
+            }),
             svgr(),
             macrosPlugin(),
             viteStaticCopy({
@@ -86,21 +123,29 @@ export default defineConfig(async ({ mode }) => {
             }),
             viteStaticCopy({
                 targets: [
-                    // Copy monaco-editor files to the build directory
-                    // Because of the structured option, specifying dest .
-                    // means that it will mirror the node_modules/... structure
-                    // in the build directory.
+                    // Selective Monaco Editor files — only what DataHub actually uses (YAML + SQL).
+                    // structured: true mirrors the node_modules/... path into the build directory,
+                    // so Monaco's AMD loader can find files at /node_modules/monaco-editor/min/vs/*.
+                    // The language/ directory (TS/CSS/HTML/JSON IntelliSense, ~7 MB) and min-maps/
+                    // (~11 MB) are intentionally excluded — they are never requested at runtime.
+                    { src: 'node_modules/monaco-editor/min/vs/loader.js', dest: '.' },
                     {
-                        src: 'node_modules/monaco-editor/min/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.js',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.css',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.nls.js',
+                        ],
                         dest: '.',
                     },
+                    // base/ contains workerMain.js and the codicon font — required by the editor core.
+                    { src: 'node_modules/monaco-editor/min/vs/base/', dest: '.' },
+                    // Only the two language tokenizers DataHub uses.
                     {
-                        src: 'node_modules/monaco-editor/min-maps/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/basic-languages/yaml/',
+                            'node_modules/monaco-editor/min/vs/basic-languages/sql/',
+                        ],
                         dest: '.',
-                        rename: (name, ext, fullPath) => {
-                            console.log(name, ext, fullPath);
-                            return name;
-                        },
                     },
                 ],
                 structured: true,
@@ -130,6 +175,7 @@ export default defineConfig(async ({ mode }) => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
+            https: isHttps,
         },
         css: {
             preprocessorOptions: {
@@ -147,13 +193,31 @@ export default defineConfig(async ({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
+            onConsoleLog(log) {
+                // Suppress noisy Apollo Client / GraphQL mock warnings that produce
+                // thousands of lines of output and make CI logs unreadable.
+                if (
+                    log.includes('No more mocked responses') ||
+                    log.includes('Missing field') ||
+                    log.includes('[GraphQL error]') ||
+                    log.includes('networkError') ||
+                    log.includes('Mocked provider') ||
+                    log.includes('query-manager') ||
+                    log.includes('ObservableQuery')
+                ) {
+                    return false;
+                }
+                return undefined;
+            },
             coverage: {
                 enabled: true,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
                 include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
-                exclude: [],
+                exclude: [
+                    '**/*.d.ts', // TypeScript declaration files contain no executable code
+                ],
             },
         },
         resolve: {

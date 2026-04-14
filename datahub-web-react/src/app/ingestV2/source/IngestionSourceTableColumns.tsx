@@ -1,12 +1,12 @@
-import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Play } from '@phosphor-icons/react/dist/csr/Play';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-
-import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
@@ -16,6 +16,7 @@ import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
 
 import { Owner } from '@types';
 
@@ -33,10 +34,10 @@ const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     ${(props) =>
         props.$shouldUnderline &&
         `
-            :hover {
-                text-decoration: underline;
-            }
-        `}
+ :hover {
+ text-decoration: underline;
+ }
+ `}
 `;
 
 const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
@@ -63,10 +64,10 @@ const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     ${(props) =>
         props.$shouldUnderline &&
         `
-            :hover {
-                text-decoration: underline;
-            }
-        `}
+ :hover {
+ text-decoration: underline;
+ }
+ `}
 `;
 
 const SourceTypeText = styled(Typography.Text)`
@@ -132,7 +133,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                     <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
                 </Tooltip>
             ) : (
-                <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
+                <Icon icon={Plugs} size="2xl" color="gray" />
             )}
             <DisplayNameContainer>
                 {showTooltip ? (
@@ -190,40 +191,9 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
 }
 
 export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entityRegistry: EntityRegistry }) {
-    const ownerAvatars = owners.map((owner) => {
-        return {
-            name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
-            imageUrl: owner.owner.editableProperties?.pictureLink,
-            type: mapEntityTypeToAvatarType(owner.owner.type),
-            urn: owner.owner.urn,
-        };
-    });
-    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
-
     if (owners.length === 0) return <>-</>;
 
-    return (
-        <>
-            {singleOwner && (
-                <Link
-                    to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                    }}
-                >
-                    <Avatar
-                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
-                        imageUrl={singleOwner.editableProperties?.pictureLink}
-                        showInPill
-                        type={mapEntityTypeToAvatarType(singleOwner.type)}
-                    />
-                </Link>
-            )}
-            {owners.length > 1 && (
-                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
-            )}
-        </>
-    );
+    return <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />;
 }
 
 export function wrapOwnerColumnWithHover(content: React.ReactNode, record: any): React.ReactNode {
@@ -365,9 +335,8 @@ export function ActionsColumn({
         if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING) {
             return (
                 <Icon
-                    icon="Stop"
-                    source="phosphor"
-                    // weight="fill"
+                    icon={Stop}
+                    weight="fill"
                     color="primary"
                     onClick={(e) => {
                         e.stopPropagation();
@@ -379,9 +348,8 @@ export function ActionsColumn({
         }
         return (
             <Icon
-                icon="Play"
-                source="phosphor"
-                // weight="fill"
+                icon={Play}
+                weight="fill"
                 color="violet"
                 onClick={(e) => {
                     e.stopPropagation();

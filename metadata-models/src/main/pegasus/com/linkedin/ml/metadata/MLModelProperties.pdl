@@ -35,7 +35,8 @@ record MLModelProperties includes CustomProperties, ExternalReference, MLModelLi
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2
+    "searchTier": 2,
+    "sanitizeRichText": true
   }
   description: optional string
 

@@ -16,7 +16,7 @@ On completion of this setup the MS Entra will automatically manage the groups/us
 Consider following configuration in MS Entra
 
 - A group `governance-team` group
-- And it has two memeber `john` and `sid`
+- And it has two member `john` and `sid`
 - And the group has role `Reader`
 
 If you configure the `governance-team` for auto provisioning, MS Entra will creates the `governance-team` group and it's member automatically on DataHub and set the `Reader` roles on users.

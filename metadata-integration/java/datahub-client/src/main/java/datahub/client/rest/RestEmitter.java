@@ -213,6 +213,12 @@ public class RestEmitter implements Emitter {
       throws IOException {
     DataMap map = new DataMap();
     map.put("proposal", mcp.data());
+
+    // Include async parameter if configured
+    if (this.config.getAsyncIngest() != null) {
+      map.put("async", String.valueOf(this.config.getAsyncIngest()));
+    }
+
     String serializedMCP = dataTemplateCodec.mapToString(map);
     log.debug("Emit: URL: {}, Payload: {}\n", this.ingestProposalUrl, serializedMCP);
     return this.postGeneric(this.ingestProposalUrl, serializedMCP, mcp, callback);
@@ -289,15 +295,40 @@ public class RestEmitter implements Emitter {
   }
 
   private Future<MetadataWriteResponse> getGeneric(String urlStr) throws IOException {
-    SimpleHttpRequest simpleHttpRequest =
+    SimpleRequestBuilder simpleRequestBuilder =
         SimpleRequestBuilder.get(urlStr)
             .addHeader("Content-Type", "application/json")
             .addHeader("X-RestLi-Protocol-Version", "2.0.0")
-            .addHeader("Accept", "application/json")
-            .build();
+            .addHeader("Accept", "application/json");
 
+    // Add authorization header if token is present
+    if (this.config.getToken() != null) {
+      simpleRequestBuilder.addHeader("Authorization", "Bearer " + this.config.getToken());
+    }
+
+    SimpleHttpRequest simpleHttpRequest = simpleRequestBuilder.build();
     Future<SimpleHttpResponse> response = this.httpClient.execute(simpleHttpRequest, null);
     return new MetadataResponseFuture(response, RestEmitter::mapResponse);
+  }
+
+  /**
+   * Returns the configuration for this emitter.
+   *
+   * @return the emitter configuration
+   */
+  public RestEmitterConfig getConfig() {
+    return config;
+  }
+
+  /**
+   * Performs a GET request to the specified URL.
+   *
+   * @param urlStr the URL to GET
+   * @return future containing the response
+   * @throws IOException if the request fails
+   */
+  public Future<MetadataWriteResponse> get(String urlStr) throws IOException {
+    return getGeneric(urlStr);
   }
 
   @Override
