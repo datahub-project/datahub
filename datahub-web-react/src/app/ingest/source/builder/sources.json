@@ -1,5 +1,12 @@
 [
     {
+        "urn": "urn:li:dataPlatform:aerospike",
+        "name": "aerospike",
+        "displayName": "Aerospike",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/aerospike/",
+        "recipe": "source:\n    type: aerospike\n    config:\n        hosts:\n            - - localhost\n              - 3000\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:bigquery",
         "name": "bigquery",
         "displayName": "BigQuery",

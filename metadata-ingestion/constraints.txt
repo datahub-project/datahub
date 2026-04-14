@@ -12,6 +12,8 @@ adlfs==2026.2.0
     # via pyiceberg
 aenum==3.1.16
     # via okta
+aerospike==19.1.0
+    # via acryl-datahub
 aiobotocore==3.2.1
     # via s3fs
 aiofiles==25.1.0
