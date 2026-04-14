@@ -154,6 +154,7 @@ all = [
     { name = "pandas" },
     { name = "parse" },
     { name = "patchy" },
+    { name = "pinecone-client" },
     { name = "pip" },
     { name = "protobuf" },
     { name = "psycopg2-binary" },
@@ -622,6 +623,7 @@ dev = [
     { name = "pandas" },
     { name = "parse" },
     { name = "patchy" },
+    { name = "pinecone-client" },
     { name = "pip" },
     { name = "progressbar2" },
     { name = "protobuf" },
@@ -813,6 +815,7 @@ docs = [
     { name = "pandas" },
     { name = "parse" },
     { name = "patchy" },
+    { name = "pinecone-client" },
     { name = "pip" },
     { name = "progressbar2" },
     { name = "protobuf" },
@@ -1454,6 +1457,9 @@ oracle = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "traitlets" },
+]
+pinecone = [
+    { name = "pinecone-client" },
 ]
 postgres = [
     { name = "acryl-datahub-classify" },
@@ -2776,6 +2782,10 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'trino'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'unity-catalog'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'vertica'", specifier = "==2.8.0" },
+    { name = "pinecone-client", marker = "extra == 'all'", specifier = ">=3.0.0,<6.0.0" },
+    { name = "pinecone-client", marker = "extra == 'dev'", specifier = ">=3.0.0,<6.0.0" },
+    { name = "pinecone-client", marker = "extra == 'docs'", specifier = ">=3.0.0,<6.0.0" },
+    { name = "pinecone-client", marker = "extra == 'pinecone'", specifier = ">=3.0.0,<6.0.0" },
     { name = "pip", marker = "extra == 'all'" },
     { name = "pip", marker = "extra == 'athena'" },
     { name = "pip", marker = "extra == 'bigquery'" },
@@ -3568,7 +3578,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -9555,6 +9565,44 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f0/ef/ae98ea036348cede1f7f76a0879481947c8dd84a3a1db33ecbfc4c0f05de/phonenumbers-8.13.0.tar.gz", hash = "sha256:93745d7afd38e246660bb601b07deac54eeb76c8e5e43f5e83333b0383a0a1e4", size = 2274153, upload-time = "2022-11-06T07:57:47.8Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/f0/ca665b8472cc7506c7bafa8b50851c9f61b2d0cf4570dd0570b40ac21c6c/phonenumbers-8.13.0-py2.py3-none-any.whl", hash = "sha256:dbaea9e4005a976bcf18fbe2bb87cb9cd0a3f119136f04188ac412d7741cebf0", size = 2577788, upload-time = "2022-11-06T07:57:44.674Z" },
+]
+
+[[package]]
+name = "pinecone-client"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "pinecone-plugin-inference" },
+    { name = "pinecone-plugin-interface" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+    { name = "urllib3", marker = "python_full_version < '4'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/98/a4/739fe0a4a173658d541206ec7fdb0cc4c9ddc364de216af668b988bf0868/pinecone_client-5.0.1.tar.gz", hash = "sha256:11c33ff5d1c38a6ce69e69fe532c0f22f312fb28d761bb30b3767816d3181d64", size = 122207, upload-time = "2024-08-01T20:47:05.26Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/d0/c64336b8f76e63296d04b885c545c0872ff070e6b2bc725dd0ff3ae681dc/pinecone_client-5.0.1-py3-none-any.whl", hash = "sha256:c8f7835e1045ba84e295f217a8e85573ffb80b41501bbc1af6d92c9631c567a7", size = 244818, upload-time = "2024-08-01T20:47:02.165Z" },
+]
+
+[[package]]
+name = "pinecone-plugin-inference"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pinecone-plugin-interface" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/03/96/a5738492f131166eb2f9e99fb15a724cf482192e8443bf7069809485432b/pinecone_plugin_inference-1.1.0.tar.gz", hash = "sha256:283e5ae4590b901bf2179beb56fc3d1b715e63582f37ec7abb0708cf70912d1f", size = 48997, upload-time = "2024-09-13T18:54:55.113Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/5e/a7eb453cfb3aa9c8c995a1dca5fcf57f79b67400593d5c6759571567e30c/pinecone_plugin_inference-1.1.0-py3-none-any.whl", hash = "sha256:32c61aba21c9a28fdcd0e782204c1ca641aeb3fd6e42764fbf0de8186eb657ec", size = 85353, upload-time = "2024-09-13T18:54:53.673Z" },
+]
+
+[[package]]
+name = "pinecone-plugin-interface"
+version = "0.0.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/fb/e8a4063264953ead9e2b24d9b390152c60f042c951c47f4592e9996e57ff/pinecone_plugin_interface-0.0.7.tar.gz", hash = "sha256:b8e6675e41847333aa13923cc44daa3f85676d7157324682dc1640588a982846", size = 3370, upload-time = "2024-06-05T01:57:52.093Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/1d/a21fdfcd6d022cb64cef5c2a29ee6691c6c103c4566b41646b080b7536a5/pinecone_plugin_interface-0.0.7-py3-none-any.whl", hash = "sha256:875857ad9c9fc8bbc074dbe780d187a2afd21f5bfe0f3b08601924a61ef1bba8", size = 6249, upload-time = "2024-06-05T01:57:50.583Z" },
 ]
 
 [[package]]

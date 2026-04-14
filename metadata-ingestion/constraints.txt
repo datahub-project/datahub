@@ -216,6 +216,7 @@ certifi==2026.2.25
     #   elasticsearch
     #   httpcore
     #   httpx
+    #   pinecone-client
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
@@ -1055,6 +1056,14 @@ pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
 phonenumbers==8.13.0
     # via acryl-datahub-classify
+pinecone-client==5.0.1
+    # via acryl-datahub
+pinecone-plugin-inference==1.1.0
+    # via pinecone-client
+pinecone-plugin-interface==0.0.7
+    # via
+    #   pinecone-client
+    #   pinecone-plugin-inference
 pip==26.0.1
     # via acryl-datahub
 platformdirs==4.9.4
@@ -1715,6 +1724,7 @@ tqdm==4.67.3
     #   huggingface-hub
     #   nltk
     #   openai
+    #   pinecone-client
     #   spacy
     #   unstructured
     #   unstructured-ingest
@@ -1834,6 +1844,7 @@ typing-extensions==4.15.0
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
     #   oracledb
+    #   pinecone-client
     #   pydantic
     #   pydantic-core
     #   pydash
@@ -1899,6 +1910,7 @@ urllib3==1.26.20
     #   databricks-sql-connector
     #   docker
     #   elasticsearch
+    #   pinecone-client
     #   requests
     #   responses
     #   sentry-sdk

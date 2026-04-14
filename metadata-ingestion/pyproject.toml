@@ -934,6 +934,10 @@ oracle = [
     "traitlets!=5.2.2,<6.0.0",
 ]
 
+pinecone = [
+    "pinecone-client>=3.0.0,<6.0.0",
+]
+
 postgres = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -1494,6 +1498,7 @@ all = [
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "protobuf>=5.0.0,<7.0.0",
     "psycopg2-binary<3.0.0",
@@ -1650,6 +1655,7 @@ dev = [
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
@@ -1841,6 +1847,7 @@ docs = [
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
@@ -2143,6 +2150,7 @@ neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
+pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
 
 [project.entry-points."datahub.ingestion.transformer.plugins"]
 pattern_cleanup_ownership = "datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership"
@@ -2153,14 +2161,12 @@ set_browse_path = "datahub.ingestion.transformer.set_browse_path:SetBrowsePathTr
 add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership"
 simple_add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership"
 pattern_add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership"
-# Aliases without "dataset" prefix — these support all entity types including container
 add_ownership = "datahub.ingestion.transformer.add_ownership:AddOwnership"
 simple_add_ownership = "datahub.ingestion.transformer.add_ownership:SimpleAddOwnership"
 pattern_add_ownership = "datahub.ingestion.transformer.add_ownership:PatternAddOwnership"
 add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:AddDatasetDomain"
 simple_add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:SimpleAddDatasetDomain"
 pattern_add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:PatternAddDatasetDomain"
-# Aliases without "dataset" prefix — these support all entity types including container
 add_domain = "datahub.ingestion.transformer.add_domain:AddDomain"
 simple_add_domain = "datahub.ingestion.transformer.add_domain:SimpleAddDomain"
 pattern_add_domain = "datahub.ingestion.transformer.add_domain:PatternAddDomain"
