@@ -60,6 +60,8 @@ import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
@@ -364,9 +366,26 @@ public class ESSearchDAO {
             .getSearchRequest(
                 opContext, finalInput, transformedFilters, sortCriteria, from, size, facets)
             .indices(
-                entityNames.stream()
-                    .map(indexConvention::getEntityIndexName)
+                Stream.concat(
+                        entityNames.stream().map(indexConvention::getEntityIndexName),
+                        indexConvention.getV3EntityIndexPatterns().stream())
                     .toArray(String[]::new));
+
+    // Strip suggest when querying across both V2 and V3 indices. V2 _entityName uses
+    // standard analyzer (lowercases suggest text) while V3 _entityName is a keyword
+    // alias (preserves case). OpenSearch cannot merge suggest entries with different
+    // text casing across indices, causing the entire search request to fail.
+    // Only strip when V3 indices are enabled — pure V2 deployments can safely use suggest.
+    if (searchRequest.source() != null
+        && searchRequest.source().suggest() != null
+        && indexConvention
+            .getAllEntityIndicesPatterns()
+            .containsAll(indexConvention.getV3EntityIndexPatterns())) {
+      searchRequest.source().suggest(null);
+    }
+
+    applyEntityTypeFilter(
+        searchRequest, entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()));
 
     return Triple.of(searchRequest, transformedFilters, entitySpecs);
   }
@@ -403,7 +422,12 @@ public class ESSearchDAO {
                 searchServiceConfig)
             .getFilterRequest(opContext, transformedFilters, sortCriteria, from, size);
 
-    searchRequest.indices(indexConvention.getIndexName(entitySpec));
+    searchRequest.indices(
+        Stream.concat(
+                Stream.of(indexConvention.getIndexName(entitySpec)),
+                indexConvention.getV3EntityIndexPatterns().stream())
+            .toArray(String[]::new));
+    applyEntityTypeFilter(searchRequest, List.of(entitySpec.getName()));
     return executeAndExtract(
         opContext, List.of(entitySpec), searchRequest, transformedFilters, from, size);
   }
@@ -466,7 +490,12 @@ public class ESSearchDAO {
             field,
             transformFilterForEntities(requestParams, indexConvention),
             limit);
-    req.indices(indexConvention.getIndexName(entitySpec));
+    req.indices(
+        Stream.concat(
+                Stream.of(indexConvention.getIndexName(entitySpec)),
+                indexConvention.getV3EntityIndexPatterns().stream())
+            .toArray(String[]::new));
+    applyEntityTypeFilter(req, List.of(entitySpec.getName()));
     return Pair.of(req, builder);
   }
 
@@ -541,11 +570,14 @@ public class ESSearchDAO {
       List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
       searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {
-      Stream<String> stream =
-          entityNames.stream()
-              .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-              .map(indexConvention::getIndexName);
-      searchRequest.indices(stream.toArray(String[]::new));
+      searchRequest.indices(
+          Stream.concat(
+                  entitySpecs.stream().map(indexConvention::getIndexName),
+                  indexConvention.getV3EntityIndexPatterns().stream())
+              .toArray(String[]::new));
+      applyEntityTypeFilter(
+          searchRequest,
+          entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()));
     }
     return searchRequest;
   }
@@ -633,7 +665,10 @@ public class ESSearchDAO {
             .collect(Collectors.toList());
 
     String[] indexArray =
-        entities.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new);
+        Stream.concat(
+                entities.stream().map(indexConvention::getEntityIndexName),
+                indexConvention.getV3EntityIndexPatterns().stream())
+            .toArray(String[]::new);
 
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
 
@@ -676,7 +711,42 @@ public class ESSearchDAO {
       searchRequest.indices(indexArray);
     }
 
+    // Defensive suggest strip for scroll — same V2/V3 analyzer conflict as buildSearchRequest.
+    if (searchRequest.source() != null
+        && searchRequest.source().suggest() != null
+        && indexConvention
+            .getAllEntityIndicesPatterns()
+            .containsAll(indexConvention.getV3EntityIndexPatterns())) {
+      searchRequest.source().suggest(null);
+    }
+
+    applyEntityTypeFilter(
+        searchRequest, entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()));
+
     return Triple.of(searchRequest, transformedFilters, entitySpecs);
+  }
+
+  /**
+   * Wraps a SearchRequest's query with an entity type filter so that V3 shared-index documents are
+   * restricted to only the requested entity types. V2 documents (which lack the _entityType field)
+   * pass through unfiltered. Entity names must use the canonical camelCase form from EntitySpec
+   * (e.g., "glossaryNode" not "glossarynode") to match V3's stored _entityType values.
+   */
+  private static void applyEntityTypeFilter(
+      SearchRequest searchRequest, @Nullable List<String> entityNames) {
+    if (entityNames == null || entityNames.isEmpty()) {
+      return;
+    }
+    SearchSourceBuilder source = searchRequest.source();
+    QueryBuilder originalQuery = source.query();
+
+    BoolQueryBuilder entityTypeFilter =
+        QueryBuilders.boolQuery()
+            .minimumShouldMatch(1)
+            .should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery("_entityType")))
+            .should(QueryBuilders.termsQuery("_entityType", entityNames));
+
+    source.query(QueryBuilders.boolQuery().must(originalQuery).filter(entityTypeFilter));
   }
 
   public Optional<SearchResponse> raw(

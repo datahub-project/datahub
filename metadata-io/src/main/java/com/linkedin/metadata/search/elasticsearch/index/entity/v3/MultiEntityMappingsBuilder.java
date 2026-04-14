@@ -842,6 +842,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         rootFieldMapping.put("dynamic", true);
       }
 
+      // Add .keyword subfield for keyword fields so aggregation queries (e.g. owners.keyword)
+      // work consistently across V2 and V3 indices
+      if (ESUtils.KEYWORD_FIELD_TYPE.equals(resolvedElasticsearchType)) {
+        Map<String, Object> keywordSubField = new HashMap<>();
+        keywordSubField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
+        rootFieldMapping.put("fields", Map.of("keyword", keywordSubField));
+      }
+
       // Check if any of the conflicting fields have eagerGlobalOrdinals set to true
       boolean hasEagerGlobalOrdinals =
           MultiEntityMappingsUtils.hasEagerGlobalOrdinals(entitySpecs, fieldName, allPaths);

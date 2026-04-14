@@ -3,6 +3,8 @@ package com.linkedin.metadata.search.elasticsearch.index;
 import static org.testng.Assert.*;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import org.testng.annotations.Test;
 
@@ -82,5 +84,40 @@ public class BaseConfigurationLoaderTest {
         () -> {
           BaseConfigurationLoader.loadConfigurationFromResource("non_existent_file.yaml");
         });
+  }
+
+  @Test
+  public void testLoadConfigurationFromFilesystemPath() throws Exception {
+    // Verify that an absolute filesystem path (e.g. a Kubernetes ConfigMap mount) is loaded
+    // directly without requiring the file to be on the classpath.
+    String yaml =
+        "my_index:\n"
+            + "  settings:\n"
+            + "    index:\n"
+            + "      analysis:\n"
+            + "        analyzer:\n"
+            + "          default:\n"
+            + "            type: standard\n"
+            + "        normalizer:\n"
+            + "          keyword_normalizer:\n"
+            + "            type: custom\n";
+
+    Path tempFile = Files.createTempFile("test-analyzer-config", ".yaml");
+    try {
+      Files.writeString(tempFile, yaml);
+
+      Map<String, Object> config =
+          BaseConfigurationLoader.loadConfigurationFromResource(tempFile.toString());
+      assertNotNull(config, "Configuration should be loaded from filesystem path");
+      assertTrue(config.containsKey("my_index"), "Should contain the top-level index key");
+
+      Map<String, Object> analysis =
+          BaseConfigurationLoader.extractAnalysisSection(config, tempFile.toString());
+      assertNotNull(analysis, "Analysis section should be extracted");
+      assertTrue(analysis.containsKey("analyzer"), "Should contain analyzer section");
+      assertTrue(analysis.containsKey("normalizer"), "Should contain normalizer section");
+    } finally {
+      Files.deleteIfExists(tempFile);
+    }
   }
 }
